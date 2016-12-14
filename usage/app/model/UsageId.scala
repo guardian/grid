@@ -19,15 +19,9 @@ object UsageId {
     Some(printUsageRecord.usageStatus)
   ))
 
- def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = buildId(List(
-    Some(elementWrapper.media.id),
-    Some(elementWrapper.index),
-    Some(contentWrapper.status)
-  ))
-
-  def build(atomWrapper: AtomWrapper, contentWrapper: ContentWrapper) = buildId(List(
-    Some(atomWrapper.media.id),
-    Some(atomWrapper.index),
-    Some(contentWrapper.status)
+  def build(mediaWrapper: MediaWrapper) = buildId(List(
+    Some(mediaWrapper.mediaId),
+    Some(mediaWrapper.index),
+    Some(mediaWrapper.contentStatus)
   ))
 }

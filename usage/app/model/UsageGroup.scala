@@ -4,9 +4,8 @@ import play.api.Logger
 import play.api.libs.json._
 import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.{Atom, AtomData}
-import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
-import com.gu.mediaservice.model.PublishedUsageStatus
-import lib.{Config, LiveContentApi, MD5}
+import com.gu.mediaservice.model.{DigitalUsageMetadata, PrintUsageRecord, PublishedUsageStatus, UsageStatus}
+import lib.{Config, LiveContentApi, MD5, UsageMetadataBuilder}
 import org.joda.time.DateTime
 
 
@@ -58,14 +57,16 @@ object UsageGroup {
     val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).zipWithIndex.flatMap { case(atom, index) =>
       getImageId(atom) match {
         case Some(id) => {
-          val usage = MediaUsage.build(AtomWrapper(index, id, atom), contentWrapper)
+          val mediaWrapper = MediaWrapper.build(index, id, contentWrapper)
+          val usage = MediaUsage.build(mediaWrapper)
           Seq(createUsagesLogging(usage))
         }
         case None => Seq.empty
       }
     }
     val imageElementUsages = extractImageElements(uuid, content, usageStatus, isReindex).zipWithIndex.map { case (element, index) => {
-      val usage = MediaUsage.build(ElementWrapper(index, element), contentWrapper)
+      val mediaWrapper = MediaWrapper.build(index, element.id, contentWrapper)
+      val usage = MediaUsage.build(mediaWrapper)
       createUsagesLogging(usage)
     }
     }
@@ -184,5 +185,18 @@ object UsageGroup {
   }
 }
 
-case class ElementWrapper(index: Int, media: Element)
-case class AtomWrapper(index: Int, mediaId: String, media: Atom)
+case class MediaWrapper(
+    index: Int,
+    mediaId: String,
+    usageGroupId: String,
+    contentStatus: UsageStatus,
+    usageMetadata: DigitalUsageMetadata,
+    lastModified: DateTime)
+
+object MediaWrapper {
+  def build(index: Int, mediaId: String, contentWrapper: ContentWrapper): MediaWrapper = {
+    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
+    val usageGroupId = UsageGroup.buildId(contentWrapper)
+    MediaWrapper(index, mediaId, usageGroupId, contentWrapper.status, usageMetadata, contentWrapper.lastModified)
+  }
+}

@@ -68,23 +68,6 @@ object MediaUsage {
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
     )
 
-  def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = {
-    val usageId = UsageId.build(elementWrapper, contentWrapper)
-    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
-
-    MediaUsage(
-      usageId,
-      UsageGroup.buildId(contentWrapper),
-      elementWrapper.media.id,
-      "digital",
-      "image",
-      contentWrapper.status,
-      None,
-      Some(usageMetadata),
-      contentWrapper.lastModified
-    )
-  }
-
   def build(printUsage: PrintUsageRecord, usageId: UsageId) = MediaUsage(
     usageId,
     UsageGroup.buildId(printUsage),
@@ -97,20 +80,19 @@ object MediaUsage {
     printUsage.dateAdded
   )
 
-  def build(atomWrapper: AtomWrapper, contentWrapper: ContentWrapper): MediaUsage = {
-    val usageId = UsageId.build(atomWrapper, contentWrapper)
-    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
+  def build(mediaWrapper: MediaWrapper): MediaUsage = {
+    val usageId = UsageId.build(mediaWrapper)
 
     MediaUsage(
-      usageId,
-      UsageGroup.buildId(contentWrapper),
-      atomWrapper.mediaId,
-      "digital",
-      "image",
-      contentWrapper.status,
-      None,
-      Some(usageMetadata),
-      contentWrapper.lastModified
+      usageId = usageId,
+      grouping = mediaWrapper.usageGroupId,
+      mediaId = mediaWrapper.mediaId,
+      usageType = "digital",
+      mediaType = "image",
+      status = mediaWrapper.contentStatus,
+      printUsageMetadata = None,
+      digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
+      lastModified = mediaWrapper.lastModified
     )
   }
 }
