@@ -3,8 +3,7 @@ package model
 import play.api.Logger
 import play.api.libs.json._
 import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
-import com.gu.contentatom.thrift.AtomType.Media
-import com.gu.contentatom.thrift.Atom
+import com.gu.contentatom.thrift.{Atom, AtomData}
 import com.gu.mediaservice.model.{PrintUsageRecord, UsageStatus}
 import com.gu.mediaservice.model.PublishedUsageStatus
 import lib.{Config, LiveContentApi, MD5}
@@ -56,9 +55,14 @@ object UsageGroup {
 
     Logger.info(s"Extracting images (job-${uuid}) from ${content.id}")
 
-    val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).zipWithIndex.map { case(atom, index) =>
-      val usage = MediaUsage.build(AtomWrapper(index, atom), contentWrapper)
-      createUsagesLogging(usage)
+    val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).zipWithIndex.flatMap { case(atom, index) =>
+      getImageId(atom) match {
+        case Some(id) => {
+          val usage = MediaUsage.build(AtomWrapper(index, id, atom), contentWrapper)
+          Seq(createUsagesLogging(usage))
+        }
+        case None => Seq.empty
+      }
     }
     val imageElementUsages = extractImageElements(uuid, content, usageStatus, isReindex).zipWithIndex.map { case (element, index) => {
       val usage = MediaUsage.build(ElementWrapper(index, element), contentWrapper)
@@ -118,13 +122,33 @@ object UsageGroup {
     val mediaAtoms = content.atoms match {
       case Some(atoms) => {
         atoms.media match {
-          case Some(mediaAtoms) => mediaAtoms.filter(_.atomType == Media)
+          case Some(mediaAtoms) => filterOutAtomsWithNoImage(mediaAtoms)
           case _ => Seq.empty
         }
       }
       case _ => Seq.empty
     }
     mediaAtoms
+  }
+
+  private def filterOutAtomsWithNoImage(atoms: Seq[Atom]): Seq[Atom] = {
+    for {
+      atom <- atoms
+      atomId <- getImageId(atom)
+      if atomId != None
+    } yield atom
+  }
+
+  private def getImageId(atom: Atom): Option[String] = {
+    try {
+      val posterImage = atom.data.asInstanceOf[AtomData.Media].media.posterImage
+      posterImage match {
+        case Some(image) => Some(image.mediaId.replace("https://api.media.gutools.co.uk/images/", ""))
+        case _ => None
+      }
+    } catch {
+      case e: ClassCastException => None
+    }
   }
 
   private def extractImageElements(uuid: String, content: Content, usageStatus: UsageStatus, isReindex: Boolean): Seq[Element] = {
@@ -161,4 +185,4 @@ object UsageGroup {
 }
 
 case class ElementWrapper(index: Int, media: Element)
-case class AtomWrapper(index: Int, media: Atom)
+case class AtomWrapper(index: Int, mediaId: String, media: Atom)

@@ -104,7 +104,7 @@ object MediaUsage {
     MediaUsage(
       usageId,
       UsageGroup.buildId(contentWrapper),
-      atomWrapper.media.id,
+      atomWrapper.mediaId,
       "digital",
       "image",
       contentWrapper.status,
