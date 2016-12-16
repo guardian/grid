@@ -9,11 +9,11 @@ import play.api.libs.json._
 import scala.util.Try
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import java.net.URI
 
+import com.gu.contentatom.thrift.atom.media.MediaAtom
 import lib.UsageMetadataBuilder
 
 
@@ -68,23 +68,6 @@ object MediaUsage {
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
     )
 
-  def build(elementWrapper: ElementWrapper, contentWrapper: ContentWrapper) = {
-    val usageId = UsageId.build(elementWrapper, contentWrapper)
-    val usageMetadata = UsageMetadataBuilder.build(contentWrapper.content)
-
-    MediaUsage(
-      usageId,
-      UsageGroup.buildId(contentWrapper),
-      elementWrapper.media.id,
-      "digital",
-      "image",
-      contentWrapper.status,
-      None,
-      Some(usageMetadata),
-      contentWrapper.lastModified
-    )
-  }
-
   def build(printUsage: PrintUsageRecord, usageId: UsageId) = MediaUsage(
     usageId,
     UsageGroup.buildId(printUsage),
@@ -96,4 +79,20 @@ object MediaUsage {
     None,
     printUsage.dateAdded
   )
+
+  def build(mediaWrapper: MediaWrapper): MediaUsage = {
+    val usageId = UsageId.build(mediaWrapper)
+
+    MediaUsage(
+      usageId = usageId,
+      grouping = mediaWrapper.usageGroupId,
+      mediaId = mediaWrapper.mediaId,
+      usageType = "digital",
+      mediaType = "image",
+      status = mediaWrapper.contentStatus,
+      printUsageMetadata = None,
+      digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
+      lastModified = mediaWrapper.lastModified
+    )
+  }
 }
