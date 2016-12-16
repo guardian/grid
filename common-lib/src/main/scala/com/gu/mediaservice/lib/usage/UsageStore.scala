@@ -24,6 +24,10 @@ object SupplierUsageQuota {
     (__ \ "count").write[Int]
   )(unlift(SupplierUsageQuota.unapply))
 
+  implicit val customReads: Reads[SupplierUsageQuota] = (
+    (__ \ "agency").read[String].map(Agency(_)) ~
+    (__ \ "count").read[Int]
+  )(SupplierUsageQuota.apply _)
 }
 
 case class SupplierUsageSummary(agency: Agency, count: Int)
@@ -59,7 +63,7 @@ class UsageStore(
   usageFile: String,
   bucket: String,
   credentials: AWSCredentials,
-  supplierQuota: Map[String, SupplierUsageQuota] = Map()
+  quotaStore: QuotaStore
 ) extends BaseStore[String, UsageStatus](bucket, credentials) {
 
   def getUsageStatusForUsageRights(usageRights: UsageRights) = {
@@ -87,10 +91,10 @@ class UsageStore(
 
   def update() {
     lastUpdated.sendOff(_ => DateTime.now())
-    store.sendOff(_ => fetchUsage)
+    fetchUsage.onSuccess { case usage => store.send(usage) }
   }
 
-  private def fetchUsage: Map[String, UsageStatus] = {
+  private def fetchUsage: Future[Map[String, UsageStatus]] = {
     val usageFileString = getS3Object(usageFile).get
 
     val summary = Json
@@ -110,20 +114,49 @@ class UsageStore(
         case s => s
       }
 
-    cleanedSummary
-      .groupBy(_.agency.supplier)
-      .mapValues(_.head)
-      .mapValues((summary: SupplierUsageSummary) => {
-        val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
-        val exceeded = quota.map(q => summary.count > q.count).getOrElse(false)
-        val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
+    quotaStore.getQuota.map { supplierQuota => {
+      cleanedSummary
+        .groupBy(_.agency.supplier)
+        .mapValues(_.head)
+        .mapValues((summary: SupplierUsageSummary) => {
+          val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
+          val exceeded = quota.map(q => summary.count > q.count).getOrElse(false)
+          val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
 
-        UsageStatus(
-          exceeded,
-          fractionOfQuota,
-          summary,
-          quota
-        )
+          UsageStatus(
+            exceeded,
+            fractionOfQuota,
+            summary,
+            quota
+          )
+        })
+    }}
+  }
+}
+
+class QuotaStore(
+  quotaFile: String,
+  bucket: String,
+  credentials: AWSCredentials
+) extends BaseStore[String, SupplierUsageQuota](bucket, credentials) {
+
+  def getQuota(): Future[Map[String, SupplierUsageQuota]] = for {
+      s <- store.future
+    } yield s
+
+  def update() {
+    store.sendOff(_ => fetchQuota)
+  }
+
+  private def fetchQuota: Map[String, SupplierUsageQuota] = {
+    val quotaFileString = getS3Object(quotaFile).get
+
+    val summary = Json
+      .parse(quotaFileString)
+      .as[List[SupplierUsageQuota]]
+
+      summary.foldLeft(Map[String,SupplierUsageQuota]())((memo, quota) => {
+        memo + (quota.agency.supplier -> quota)
       })
   }
 }
