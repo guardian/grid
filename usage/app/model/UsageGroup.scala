@@ -144,7 +144,7 @@ object UsageGroup {
     try {
       val posterImage = atom.data.asInstanceOf[AtomData.Media].media.posterImage
       posterImage match {
-        case Some(image) => Some(image.mediaId.replace("https://api.media.gutools.co.uk/images/", ""))
+        case Some(image) => Some(image.mediaId.replace(Config.mediaIdBaseUri, ""))
         case _ => None
       }
     } catch {
