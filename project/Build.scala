@@ -58,6 +58,41 @@ object Build extends Build {
       riffRaffUploadManifestBucket := Option("riffraff-builds")
     ) ++ env("GIT_BRANCH").map(branch => Seq(riffRaffManifestBranch := branch)).getOrElse(Nil)
 
+  val riffRaffYamlSettings =
+    Seq(
+      riffRaffPackageType := (packageZipTarball in Universal).value,
+      riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
+      riffRaffManifestProjectName := s"media-service::jenkins::${name.value}",
+      riffRaffArtifactResources := (Seq(
+        // systemd config file
+        baseDirectory.value / "conf" / (magentaPackageName.value + ".service") ->
+          (s"${magentaPackageName.value}/${magentaPackageName.value}.service"),
+
+
+        // upstart config file
+        baseDirectory.value / "conf" / (magentaPackageName.value + ".conf") ->
+          (s"${magentaPackageName.value}/${magentaPackageName.value}.conf"),
+
+        baseDirectory.value / "conf" / "start.sh" -> s"${magentaPackageName.value}/start.sh",
+
+        // the ZIP
+        dist.value -> s"${magentaPackageName.value}/app.zip",
+
+        // and the riff raff deploy instructions
+        baseDirectory.value / "conf" / "riff-raff.yaml" -> "riff-raff.yaml"
+      ) ++ (name.value match {
+        case "cropper" | "image-loader" =>
+          Seq("cmyk.icc", "grayscale.icc", "srgb.icc", "facebook-TINYsRGB_c2.icc").map { file =>
+            baseDirectory.value / file -> s"${magentaPackageName.value}/$file"
+          }
+        case _ => Seq()
+      })
+        ),
+      riffRaffPackageName := riffRaffPackageName.value,
+      riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
+      riffRaffUploadManifestBucket := Option("riffraff-builds")
+    ) ++ env("GIT_BRANCH").map(branch => Seq(riffRaffManifestBranch := branch)).getOrElse(Nil)
+
   val commonSettings =
     Seq(
       scalaVersion := "2.11.6",
@@ -111,7 +146,7 @@ object Build extends Build {
   import ScroogeSBT._
 
   val usageService = {
-    playProject("usage")
+    playProject("usage", isRiffRaffYaml = true)
       .settings(scroogeThriftDependencies in Compile := Seq("content-api-models", "story-packages-model-thrift",
         "content-atom-model-thrift"))
       .libraryDependencies(awsDeps ++ playWsDeps ++ reactiveXDeps ++ guDeps ++ kinesisDeps ++ thriftDeps)
@@ -154,14 +189,15 @@ object Build extends Build {
   def project(path: String): Project =
     Project(path, file(path)).settings(commonSettings: _*)
 
-  def playProject(path: String): Project =
+  def playProject(path: String, isRiffRaffYaml: Boolean = false): Project =
     Project(path, file(path))
       // See: https://github.com/sbt/sbt-buildinfo/issues/88#issuecomment-216541181
       .settings(scroogeThriftOutputFolder in Compile := sourceManaged.value / "thrift")
       .enablePlugins(play.PlayScala)
       .enablePlugins(RiffRaffArtifact, UniversalPlugin)
       .dependsOn(lib)
-      .settings(commonSettings ++ riffRaffSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
+      .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
+      .settings(if (isRiffRaffYaml) riffRaffYamlSettings else riffRaffSettings)
       .settings(libraryDependencies += filters)
       .settings(magentaPackageName := path)
 
