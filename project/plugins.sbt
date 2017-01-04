@@ -14,7 +14,7 @@ addSbtPlugin("com.gu" % "sbt-teamcity-test-reporting-plugin" % "1.5")
 
 addSbtPlugin("com.gu" % "sbt-version-info-plugin" % "2.8")
 
-addSbtPlugin("com.gu" % "sbt-riffraff-artifact" % "0.8.3")
+addSbtPlugin("com.gu" % "sbt-riffraff-artifact" % "0.9.7")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-digest" % "1.0.0")
 

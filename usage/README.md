@@ -19,15 +19,8 @@ usage
 - For the first time you run the app, you will need to have cloudformation credentials from janus.
 
 
-## Deploy process for Guardian
+## Deployment process for Guardian
 
-Currently the deploy process works fine for the usage app. The usage-stream app is deployed manually.
-
-To deploy usage app:
-- Go to Riff Raff and deploy the build number.
-
-To deploy usage-stream:
-- Use the Riff Raff and run the artifactUploadOnly recipe for the usage app.
-- Manually increase the autoscaling group for usage-stream app and wait for a new instance
-to be healthy in the load balancer.
-- Manually terminate the old instance in the autoscaling group for usage-stream app
+A regular Riff Raff deploy of the app `usage` will deploy to both usage and usage-stream.
+If you need to schedule one app deployment before the other (e.g. usage-stream before usage)
+then use the Preview deployment page to select the specific app to deploy.
