@@ -19,7 +19,7 @@ object SecurityOptions {
 
   lazy val frameOptionsConfig: SecurityHeadersConfig =
     securityHeadersConfig.copy(
-      contentSecurityPolicy = Some(s"frame-ancestors *.gutools.co.uk *.dev-gutools.co.uk"),
+      contentSecurityPolicy = Config.originUri.map(origin => s"frame-ancestors *.$origin"),
       frameOptions = None
     )
 
