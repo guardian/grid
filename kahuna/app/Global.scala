@@ -19,7 +19,7 @@ object SecurityOptions {
 
   lazy val frameOptionsConfig: SecurityHeadersConfig =
     securityHeadersConfig.copy(
-      contentSecurityPolicy = Config.originUri.map(origin => s"frame-ancestors *.$origin"),
+      contentSecurityPolicy = Config.allowedIframeLocations.map(locations => s"frame-ancestors $locations"),
       frameOptions = None
     )
 

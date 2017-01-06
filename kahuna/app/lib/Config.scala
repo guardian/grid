@@ -15,6 +15,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val sentryDsn: Option[String] = properties.get("sentry.dsn").filterNot(_.isEmpty)
   val watUri: Option[String] = properties.get("wat.uri").filterNot(_.isEmpty)
-  val originUri: Option[String] = properties.get("domain.origin").filterNot(_.isEmpty)
+  val allowedIframeLocations: Option[String] = properties.get("domain.allowedIframeLocations").filterNot(_.isEmpty)
 
 }
