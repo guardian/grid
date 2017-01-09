@@ -51,7 +51,7 @@ you can see the different application names in the Procfile (in project root)
 ## [the_pingler.sh]
 This is a simple shell script that keeps pinging the healtcheck endpoints of the various
 services and reports it via the colour of the URL.  This is needed because some services do
-not start to function correctly until they have been contacted at least one.
+not start to function correctly until they have been contacted at least once.
 It's recommended to keep this running in the background while you have the stack started up.
 
 From the project root:
