@@ -19,8 +19,8 @@ object SecurityOptions {
 
   lazy val frameOptionsConfig: SecurityHeadersConfig =
     securityHeadersConfig.copy(
-      contentSecurityPolicy = None,
-      frameOptions = Some(s"ALLOW-FROM ${Config.services.composerBaseUri}")
+      contentSecurityPolicy = Config.allowedIframeLocations.map(locations => s"frame-ancestors $locations"),
+      frameOptions = None
     )
 
   lazy val filter = SecurityHeadersFilter(frameOptionsConfig)
