@@ -27,6 +27,7 @@ const baseMessage = function (stage, message, level, state) {
 };
 
 const log = function (stage, message, state) {
+    // eslint-disable-next-line no-console
     console.log(baseMessage(stage, message, level.INFO, state));
 };
 
@@ -64,6 +65,7 @@ module.exports = {
     logLambdaError: function (stage, state, err) {
         const msg = baseMessage(stage, messages.LAMBDA_ERROR, level.ERROR, state);
         msg['error'] = err;
+        // eslint-disable-next-line no-console
         console.log(msg);
     }
 };

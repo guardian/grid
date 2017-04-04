@@ -16,7 +16,7 @@ module.exports = {
 
             const path =  srcKey.split("/");
 
-            const filenameFromKey = function(key) {
+            const filenameFromKey = function() {
                 return path[(path.length - 1)];
             };
             const srcFilename = filenameFromKey(srcKey);

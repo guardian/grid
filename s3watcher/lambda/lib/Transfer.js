@@ -9,8 +9,6 @@ module.exports = {
 
         const cloudwatch = new CWHelper({region: config.region});
 
-        const objectKey = s3Event.bucket + "/" +  s3Event.key;
-
         const s3Object = {
             Bucket: s3Event.bucket,
             Key: s3Event.key
@@ -24,7 +22,7 @@ module.exports = {
 
         const upload = Upload.buildUpload(config, s3Event);
 
-        const success = function(result) {
+        const success = function() {
             Logger.logDelete(config.stage, s3Object);
 
             return S3Helper.deleteS3Object(s3Object);
