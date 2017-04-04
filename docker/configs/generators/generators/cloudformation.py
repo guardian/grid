@@ -5,37 +5,18 @@ import os
 
 LOGGER_NAME = os.path.splitext(os.path.basename(__file__))[0]
 LOGGER = logging.getLogger(LOGGER_NAME)
-STACK_NAME_FILE = os.path.join(os.path.expanduser('~'), '.gu', 'grid', 'dev_stack_name')
-
+STACK_NAME = 'media-service-DEV'
 
 def _boto_session():
     aws_profile = get_config().get('aws_profile')
     LOGGER.info('Using AWS profile {}'.format(aws_profile))
     boto3.setup_default_session(profile_name=aws_profile)
 
-
-def _get_stack_name():
-    if os.path.isfile(STACK_NAME_FILE):
-        with open(STACK_NAME_FILE, 'r') as f:
-            stack_name = f.read().strip()
-    else:
-        stack_name = 'media-service-DEV'
-        dirname = os.path.dirname(STACK_NAME_FILE)
-        LOGGER.info('Creating stack name file {}'.format(STACK_NAME_FILE))
-        if not os.path.isdir(dirname): os.makedirs(dirname, 0700)
-        with open(STACK_NAME_FILE, 'w') as f:
-            f.write(stack_name)
-            f.close()
-
-    LOGGER.info('Using stack {}'.format(stack_name))
-    return stack_name
-
-
 def get_stack_outputs():
     _boto_session()
-    stack_name = _get_stack_name()
+    LOGGER.info('Using stack {}'.format(STACK_NAME))
     cf_client = boto3.client('cloudformation')
-    stack = cf_client.describe_stacks(StackName=stack_name)
+    stack = cf_client.describe_stacks(StackName=STACK_NAME)
 
     outputs = {
         'region': boto3.DEFAULT_SESSION._session.get_config_variable('region')
