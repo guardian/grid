@@ -2,12 +2,12 @@
 Local version of the imgops service
 
 ## Requirements
-* [Nginx with with image filter module](http://nginx.org/en/docs/http/ngx_http_image_filter_module.html)
-  * Linux: `sudo apt-get install nginx nginx-extras`
-  * Mac: `brew install homebrew/nginx/nginx-full --with-image-filter`
 * [GD](http://libgd.github.io/)
   * Linux: `sudo apt-get install libgd-dev`
   * Mac:  `brew install gd`
+* [Nginx with with image filter module](http://nginx.org/en/docs/http/ngx_http_image_filter_module.html)
+  * Linux: `sudo apt-get install nginx nginx-extras`
+  * Mac: `brew install homebrew/nginx/nginx-full --with-image-filter`
 
 ## Installation
 ``` Bash
