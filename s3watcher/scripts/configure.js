@@ -1,6 +1,8 @@
 const properties = require('./properties');
 const AWS = require('aws-sdk');
 
+AWS.config.credentials = new AWS.SharedIniFileCredentials({profile: 'media-service'});
+
 const props = properties.load('s3watcher');
 
 const s3IngestBucket = props['s3.ingest.bucket'];
