@@ -6,11 +6,11 @@
             "data": {
                 "functions": {
                     "TEST": {
-                        "name": "@TEST_ARN",
+                        "name": "media-service-TEST-S3WatcherLamdbaFunction-1OZTI92QAHHU3",
                         "filename": "s3watcher.zip"
                     },
                     "PROD": {
-                        "name": "@PROD_ARN",
+                        "name": "media-service-PROD-S3WatcherLamdbaFunction-11VPCX7ETKU5O",
                         "filename": "s3watcher.zip"
                     }
                 }
