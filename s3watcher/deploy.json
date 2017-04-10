@@ -10,7 +10,7 @@
                         "filename": "s3watcher.zip"
                     },
                     "PROD": {
-                        "name": "@PROD_ARN",
+                        "name": "media-service-PROD-S3WatcherLamdbaFunction-11VPCX7ETKU5O",
                         "filename": "s3watcher.zip"
                     }
                 }
