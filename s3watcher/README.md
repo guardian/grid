@@ -3,9 +3,6 @@
 An AWS Lambda to consume S3 events and ingest all images added to a
 S3 bucket into the image-loader service.
 
-See also [ftp-watcher](../ftp-watcher) for an FTP-based ingestion
-process.
-
 ## Running locally
 
 You need to have run the CloudFormation DEV stack.
