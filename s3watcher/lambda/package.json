@@ -13,7 +13,7 @@
     "aws-sdk": "^2.2.21",
     "eslint": "^3.19.0",
     "node-lambda": "^0.7.1",
-    "node-riffraff-artefact": "^1.6.5"
+    "node-riffraff-artefact": "^1.8.2"
   },
   "scripts": {
     "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
@@ -25,5 +25,6 @@
   "license": "Apache-2.0",
   "repository": "https://github.com/guardian/grid",
   "isAwsLambda": true,
-  "cloudformation": false
+  "cloudformation": false,
+  "riffraffFile": "../deploy.json"
 }
