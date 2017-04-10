@@ -2,9 +2,17 @@ const Rx = require('rx');
 
 const Lambda   = require('./lib/Lambda');
 const Transfer = require('./lib/Transfer');
-
+const AWS = require('aws-sdk');
 
 exports.handler = function(event, context) {
+    const stage = process.env.STAGE || 'DEV';
+
+    if (stage === 'DEV') {
+        AWS.config.update({
+            credentials: new AWS.SharedIniFileCredentials({profile: 'media-service'}),
+            region: 'eu-west-1'
+        });
+    }
 
     const lambda   = Lambda.init(event, context);
 
