@@ -1,9 +1,9 @@
 const Rx = require('rx');
 const S3Helper = require('./S3Helper');
-const Logger = require('./Logger');
+
 
 module.exports = {
-    init: function(event, context) {
+    init: function(event, context, logger) {
         const buildS3Event = function(event) {
             const e = event.Records[0].s3;
 
@@ -55,13 +55,13 @@ module.exports = {
         });
 
         const fail = function(err) {
-            Logger.logLambdaError(config.stage, s3Event, err);
-            context.fail(err);
+            logger.error('Lambda failure', s3Event);
+            logger.close().then(() => context.fail(err));
         };
 
         const success = function() {
-            Logger.logLambdaSuccess(config.stage, s3Event);
-            context.succeed(s3Event);
+            logger.log('Finished successfully.', s3Event);
+            logger.close().then(() => context.succeed(s3Event));
         };
 
         return {
