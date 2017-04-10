@@ -14,13 +14,17 @@ exports.handler = function(event, context) {
         });
     }
 
-    const logger = new ELKKinesisLogger({
+    const props = {
         stage: EnvironmentConfig.stage,
         stack: EnvironmentConfig.stack,
         app: EnvironmentConfig.app,
         roleArn: EnvironmentConfig.loggingRoleArn,
         streamName: EnvironmentConfig.loggingStream
-    });
+    };
+
+    console.log(JSON.stringify(props));
+
+    const logger = new ELKKinesisLogger(props);
 
     logger.open().then(() => {
         const lambda   = Lambda.init(event, context, logger);
