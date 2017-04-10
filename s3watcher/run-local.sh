@@ -4,7 +4,7 @@ set -e
 
 if [ $# -ne 1 ]
 then
-	echo "Usage: $0 <image>"
+	echo "Usage: run-local.sh <image>"
 	exit 1
 fi
 
