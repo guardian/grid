@@ -40,6 +40,11 @@ const event = {
 };
 const eventJson = JSON.stringify(event, null, 2);
 
+AWS.config.update({
+    credentials: new AWS.SharedIniFileCredentials({profile: 'media-service'}),
+    region: 'eu-west-1'
+});
+
 const s3 = new AWS.S3({});
 console.log('Uploading ' + testFile + ' to s3://' +s3IngestBucket+ '/' +s3Key);
 
