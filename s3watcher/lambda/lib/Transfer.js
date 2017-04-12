@@ -27,8 +27,9 @@ module.exports = {
         };
 
         const failGraceful = function(e) {
-            logger.log('Import failed.', e);
-            logger.log('Copying to fail bucket.', e);
+            logger
+                .log('Import failed.', e)
+                .log('Copying to fail bucket.', e);
 
             return S3Helper.copyS3Object(s3CopyObject).flatMap(function(){
                 logger.log('Deleting from ingest bucket.', s3Object);

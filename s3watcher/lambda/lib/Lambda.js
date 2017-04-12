@@ -56,12 +56,18 @@ module.exports = {
 
         const fail = function(err) {
             logger.error('Lambda failure', s3Event);
-            logger.close().then(() => context.fail(err));
+            logger.close().then(() => {
+                console.log('Lambda failed', err);
+                context.fail(err);
+            });
         };
 
         const success = function() {
             logger.log('Finished successfully.', s3Event);
-            logger.close().then(() => context.succeed(s3Event));
+            logger.close().then(() => {
+                console.log('Lambda succeeded');
+                context.succeed(s3Event);
+            });
         };
 
         return {
