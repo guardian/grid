@@ -15,6 +15,7 @@ import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
 import com.gu.mediaservice.lib.aws.S3
+import scala.collection.JavaConverters._
 
 
 abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
@@ -40,6 +41,19 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
       stream.close()
   }
 
+  protected def getLatestS3Stream: Option[InputStream] = {
+    val objects = s3.client.listObjects(bucket).getObjectSummaries.asScala
+
+    if (objects.nonEmpty) {
+      val obj = objects.maxBy(_.getLastModified)
+      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
+
+      Some(stream)
+    } else {
+      None
+    }
+  }
+
   protected def getS3Stream(key: String): InputStream = {
     val content = s3.client.getObject(bucket, key)
     content.getObjectContent
@@ -51,5 +65,4 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
 
   def update(): Unit
 }
-
 

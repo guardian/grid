@@ -96,13 +96,13 @@ object UsageStore {
           )
           SupplierUsageSummary(Agency(supplier), count.toInt)
         }
-      case None => throw new Exception("Not valid CSV")
+      case None =>
+        throw new IllegalArgumentException("Unable to parse CSV file")
     }
   }
 }
 
 class UsageStore(
-  usageFile: String,
   bucket: String,
   credentials: AWSCredentials,
   quotaStore: QuotaStore
@@ -138,9 +138,7 @@ class UsageStore(
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
-    val usageFileString = getS3Stream(usageFile)
-
-    val lines: List[String] = extractEmail(usageFileString)
+    val lines: List[String] = getLatestS3Stream.map(extractEmail).getOrElse(List.empty)
 
     val summary: List[SupplierUsageSummary] = csvParser(lines)
 

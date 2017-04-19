@@ -12,14 +12,11 @@ object Quotas extends UsageQuota {
       )
     })
 
-    val usageStore = Config.usageStoreConfig.map(c => {
-      new UsageStore(
-        c.storeKey,
-        c.storeBucket,
-        Config.awsCredentials,
-        quotaStore.getOrElse(
-          throw new RuntimeException("Invalid quota store config!"))
-      )
-    })
+    val usageStore = new UsageStore(
+      Config.usageMailBucket,
+      Config.awsCredentials,
+      quotaStore.getOrElse(
+        throw new RuntimeException("Invalid quota store config!"))
+    )
 }
 

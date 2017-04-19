@@ -45,7 +45,6 @@ object UsageController extends Controller with ArgoHelpers {
       .recover {
         case e: ImageNotFound => respondError(NotFound, "image-not-found", e.toString)
         case e: BadQuotaConfig => respondError(InternalServerError, "bad-quota-config", e.toString)
-        case e: NoUsageQuota => respondError(NotFound, "bad-quota-config", e.toString)
         case e => respondError(InternalServerError, "unknown-error", e.toString)
       }
   }

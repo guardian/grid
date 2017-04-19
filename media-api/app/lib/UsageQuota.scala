@@ -14,12 +14,11 @@ import lib.elasticsearch.ElasticSearch
 
 
 case class ImageNotFound() extends Exception("Image not found")
-case class BadQuotaConfig() extends Exception("Bad config for usage quotas")
-case class NoUsageQuota() extends Exception("No usage found for this image")
+case class BadQuotaConfig(cause: Throwable) extends Exception("Bad config for usage quotas", cause)
 
 trait UsageQuota {
   val quotaStore: Option[QuotaStore]
-  val usageStore: Option[UsageStore]
+  val usageStore: UsageStore
 
   def isOverQuota(
     rights: UsageRights,
@@ -30,25 +29,16 @@ trait UsageQuota {
       waitMillis.millis)
   }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
 
-  def getStoreAccess(): Future[StoreAccess] = for {
-    store <- Future { usageStore.get }.recover {
-      case _ => throw new BadQuotaConfig }
 
-    storeAccess <- store.getUsageStatus()
-  } yield storeAccess
+  def getStoreAccess(): Future[StoreAccess] = {
+    usageStore.getUsageStatus()
+  }
 
   def usageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
-    val usageStatusFutureOption = usageStore
-      .map(_.getUsageStatusForUsageRights(usageRights))
-
-    for {
-      usageStatusFuture <- Future { usageStatusFutureOption.get }
-        .recover { case e: NoSuchElementException => throw new NoUsageQuota }
-
-      usageStatus <- usageStatusFuture
-        .recover { case _ => throw new BadQuotaConfig }
-
-    } yield usageStatus
+    usageStore.getUsageStatusForUsageRights(usageRights).recover {
+      case e =>
+        throw BadQuotaConfig(e)
+    }
   }
 
   def usageStatusForImage(id: String): Future[UsageStatus] = for {
