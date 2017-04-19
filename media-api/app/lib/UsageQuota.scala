@@ -24,12 +24,11 @@ trait UsageQuota {
   def isOverQuota(
     rights: UsageRights,
     waitMillis: Int = 100
-  ) = Try {Await.result(
-    usageStatusForUsageRights(rights),
-    waitMillis.millis)
-  }.toOption
-    .map(_.exceeded)
-    .getOrElse(false) && FeatureToggle.get("usage-quota-ui")
+  ) = Try {
+    Await.result(
+      usageStatusForUsageRights(rights),
+      waitMillis.millis)
+  }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
 
   def getStoreAccess(): Future[StoreAccess] = for {
     store <- Future { usageStore.get }.recover {

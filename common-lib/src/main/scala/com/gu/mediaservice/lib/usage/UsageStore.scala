@@ -84,10 +84,16 @@ object UsageStore {
   }
 
   def csvParser(list: List[String]): List[SupplierUsageSummary] = {
+    def stripQuotes(s: String): String = s.stripSuffix("\"").stripPrefix("\"")
+
     list.headOption match {
       case Some(head) if head.split(',').toList.length == 2 =>
         list.tail.map { line =>
-          val (supplier, count) = (line.split(',').head.stripSuffix("\"").stripPrefix("\""), line.split(',').tail.head.stripSuffix("\"").stripPrefix("\""))
+          val lineList = line.split(',')
+          val (supplier, count) = (
+            stripQuotes(lineList.head),
+            stripQuotes(lineList.tail.head)
+          )
           SupplierUsageSummary(Agency(supplier), count.toInt)
         }
       case None => throw new Exception("Not valid CSV")
