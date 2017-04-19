@@ -111,7 +111,7 @@ object Build extends Build {
   val lib = project("common-lib")
     .libraryDependencies(loggingDeps ++ awsDeps ++ elasticsearchDeps ++
       playDeps ++ playWsDeps ++ scalazDeps ++ commonsIODeps ++ akkaAgentDeps ++
-      pandaDeps ++ imagingDeps ++ commonsNetDeps ++ guPermDeps)
+      pandaDeps ++ imagingDeps ++ commonsNetDeps ++ guPermDeps ++ emailDeps)
     .testDependencies(scalaCheckDeps ++ scalaTestDeps)
 
   val thrall = playProject("thrall")
@@ -131,7 +131,7 @@ object Build extends Build {
 
   val mediaApi = playProject("media-api")
     .libraryDependencies(elasticsearchDeps ++ awsDeps ++
-      scalazDeps ++ parsingDeps ++ uriTemplateDeps)
+      scalazDeps ++ parsingDeps ++ uriTemplateDeps ++ emailDeps)
     .testDependencies(scalaTestDeps)
 
   val cropService = playProject("cropper")

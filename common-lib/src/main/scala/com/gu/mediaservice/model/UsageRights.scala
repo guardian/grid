@@ -185,8 +185,7 @@ object Agency extends UsageRightsSpec {
   val defaultCost = None
   val name = "Agency - subscription"
   val description =
-    "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid " +
-      "to access and use pictures."
+    "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid to access and use pictures."
 
   implicit val formats: Format[Agency] =
     UsageRights.subtypeFormat(Agency.category)(Json.format[Agency])
@@ -200,8 +199,7 @@ object CommissionedAgency extends UsageRightsSpec {
   val category = "commissioned-agency"
   val defaultCost = Some(Free)
   val name = "Agency - commissioned"
-  val description =
-    "Images commissioned from agencies on an ad hoc basis."
+  val description = "Images commissioned from agencies on an ad hoc basis."
 
   implicit val formats: Format[CommissionedAgency] =
     UsageRights.subtypeFormat(CommissionedAgency.category)(Json.format[CommissionedAgency])

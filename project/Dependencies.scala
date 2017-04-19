@@ -82,6 +82,8 @@ object Dependencies {
 
   val uriTemplateDeps = Seq("no.arktekk" %% "uri-template" % "1.0.2")
 
+  val emailDeps = Seq("org.apache.commons" % "commons-email" % "1.4")
+
   // The `updatebyquery` plugin is potentially a polyfill as it looks like there is the intention of adding this
   // See: https://github.com/yakaz/elasticsearch-action-updatebyquery
   val elasticSearchClientDeps = Seq(
