@@ -78,7 +78,6 @@ object UsageStore {
             case _ =>
           }
         }
-
         list
     }
   }

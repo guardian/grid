@@ -54,11 +54,6 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
     }
   }
 
-  protected def getS3Stream(key: String): InputStream = {
-    val content = s3.client.getObject(bucket, key)
-    content.getObjectContent
-  }
-
   def scheduleUpdates(scheduler: Scheduler) {
     scheduler.schedule(0.seconds, 10.minutes)(update())
   }
