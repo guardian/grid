@@ -223,6 +223,7 @@ object PaParser extends ImageProcessor {
     "PA Wire/PA Photos",
     "PA Wire/Press Association Images",
     "PA Archive/PA Photos",
+    "PA Archive/PA Images",
     "PA Archive/Press Association Ima",
     "PA Archive/Press Association Images",
     "Press Association Images"
