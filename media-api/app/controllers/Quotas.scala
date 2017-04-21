@@ -11,11 +11,11 @@ object Quotas extends UsageQuota {
       )
     })
 
-    val usageStore = new UsageStore(
+    val usageStore = Some(new UsageStore(
       Config.usageMailBucket,
       Config.awsCredentials,
       quotaStore.getOrElse(
         throw new RuntimeException("Invalid quota store config!"))
-    )
+    ))
 }
 

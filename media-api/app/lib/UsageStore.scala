@@ -109,22 +109,17 @@ class UsageStore(
 ) extends BaseStore[String, UsageStatus](bucket, credentials) {
   import UsageStore._
 
-  def getUsageStatusForUsageRights(usageRights: UsageRights) = {
-    val storeFuture = store.future
+  def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
+    usageRights match {
+      case agency: Agency => for {
+        usage <- store.future()
+      } yield {
+        usage.getOrElse(agency.supplier, { throw NoUsageQuota() })
+      }
 
-    val imageSupplierFuture = Future { usageRights match {
-      case a: Agency => a
-      case _ => throw new Exception("Image is not supplied by Agency")
-    }}
-
-    for {
-      store <- storeFuture
-      imageSupplier <- imageSupplierFuture
-      usageReport = store.get(imageSupplier.supplier)
-
-      if usageReport.isDefined
-    } yield usageReport.get
-
+      case _ =>
+        Future.failed(new Exception("Image is not supplied by Agency"))
+    }
   }
 
   def getUsageStatus(): Future[StoreAccess] = for {
