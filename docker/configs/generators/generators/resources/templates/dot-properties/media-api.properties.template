@@ -11,3 +11,4 @@ s3.usagemail.bucket={{UsageMailBucket}}
 persistence.identifier=picdarUrn
 mixpanel.token={{mixpanel_token}}
 es.index.aliases.read=readAlias
+quota.store.key=rcs-quota.json

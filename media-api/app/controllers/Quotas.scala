@@ -3,19 +3,16 @@ package controllers
 import lib.{Config, QuotaStore, UsageQuota, UsageStore}
 
 object Quotas extends UsageQuota {
-    val quotaStore = Config.quotaStoreConfig.map(c => {
-      new QuotaStore(
-        c.storeKey,
-        c.storeBucket,
-        Config.awsCredentials
-      )
-    })
+    val quotaStore = new QuotaStore(
+      Config.quotaStoreConfig.storeKey,
+      Config.quotaStoreConfig.storeBucket,
+      Config.awsCredentials
+    )
 
-    val usageStore = Some(new UsageStore(
+    val usageStore = new UsageStore(
       Config.usageMailBucket,
       Config.awsCredentials,
-      quotaStore.getOrElse(
-        throw new RuntimeException("Invalid quota store config!"))
-    ))
+      quotaStore
+    )
 }
 

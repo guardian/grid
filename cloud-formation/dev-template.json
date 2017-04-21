@@ -331,7 +331,15 @@
                     "Id": "UsageMailBucketPolicy",
                     "Statement": [
                         {
-                            "Action": [ "s3:GetObject", "s3:PutObject" ],
+                            "Action": [ "s3:ListBucket" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "UsageMailBucket" } ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        },
+                        {
+                            "Action": [ "s3:GetObject" ],
                             "Effect": "Allow",
                             "Resource": { "Fn::Join": [ "",
                                 [ "arn:aws:s3:::", { "Ref": "UsageMailBucket" } , "/*" ] ]
@@ -751,6 +759,9 @@
         },
         "S3WatcherFailBucket": {
             "Value": { "Ref": "S3WatcherFailBucket" }
+        },
+        "UsageMailBucket": {
+            "Value": { "Ref": "UsageMailBucket" }
         },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }
