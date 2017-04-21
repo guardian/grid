@@ -1,7 +1,6 @@
-package controllers
+package lib
 
 import com.gu.mediaservice.model.Agency
-import lib.{SupplierUsageSummary, UsageStore}
 import org.scalatest.{FunSpec, Matchers}
 
 class UsageStoreTest extends FunSpec with Matchers {
