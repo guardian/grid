@@ -343,6 +343,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.usageRights should be(Agency("PA"))
       processedImage.metadata.credit should be(Some("PA"))
     }
+
+    it("should match archive images credit") {
+      val image = createImageFromMetadata("credit" -> "PA Archive/PA Images")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("PA"))
+      processedImage.metadata.credit should be(Some("PA"))
+    }
   }
 
 
