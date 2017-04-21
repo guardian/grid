@@ -1,19 +1,20 @@
-package com.gu.mediaservice.lib.usage
+package lib
 
 import java.io.InputStream
 import java.util.Properties
 import javax.mail.Session
 import javax.mail.internet.{MimeBodyPart, MimeMultipart}
 
-import scala.concurrent.Future
-import org.joda.time.DateTime
-import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
 import com.amazonaws.auth.AWSCredentials
 import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.model.{Agencies, Agency, DateFormat, UsageRights}
 import org.apache.commons.mail.util.MimeMessageUtils
+import org.joda.time.DateTime
+import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.functional.syntax._
+import play.api.libs.json._
+
+import scala.concurrent.Future
 
 
 case class SupplierUsageQuota(agency: Agency, count: Int)

@@ -9,7 +9,6 @@ import play.api.libs.json.JsValue
 
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.usage.{UsageStatus, StoreAccess, SupplierUsageSummary}
 
 import lib.elasticsearch.ElasticSearch
 

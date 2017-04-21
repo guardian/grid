@@ -1,12 +1,12 @@
 package controllers
 
-import com.gu.mediaservice.lib.usage.{SupplierUsageSummary, UsageStore}
 import com.gu.mediaservice.model.Agency
+import lib.{SupplierUsageSummary, UsageStore}
 import org.scalatest.{FunSpec, Matchers}
 
-class MailParserTest extends FunSpec with Matchers {
-  describe("Email parser") {
-    it("should extract csv lines and then parse them") {
+class UsageStoreTest extends FunSpec with Matchers {
+  describe("Usage Store") {
+    it("should parse RCS usage emails") {
       val stream = getClass.getResourceAsStream("/example.mail")
 
       val lines = UsageStore.extractEmail(stream)

@@ -7,7 +7,6 @@ import scala.concurrent.duration._
 import play.api.libs.concurrent.Execution.Implicits._
 
 import com.gu.mediaservice.model.{Image, Agencies, UsageRights}
-import com.gu.mediaservice.lib.usage._
 import com.gu.mediaservice.lib.FeatureToggle
 
 import lib.elasticsearch.ElasticSearch

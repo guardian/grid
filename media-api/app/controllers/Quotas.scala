@@ -1,7 +1,6 @@
 package controllers
 
-import lib.{Config, UsageQuota}
-import com.gu.mediaservice.lib.usage.{UsageStore, QuotaStore}
+import lib.{Config, QuotaStore, UsageQuota, UsageStore}
 
 object Quotas extends UsageQuota {
     val quotaStore = Config.quotaStoreConfig.map(c => {
