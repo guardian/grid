@@ -7,6 +7,7 @@ auth.keystore.bucket={{KeyBucket}}
 sns.topic.arn={{SnsTopicArn}}
 cors.allowed.origins={{cors}}
 s3.config.bucket={{ConfigBucket}}
+s3.usagemail.bucket={{UsageMailBucket}}
 persistence.identifier=picdarUrn
 mixpanel.token={{mixpanel_token}}
 es.index.aliases.read=readAlias

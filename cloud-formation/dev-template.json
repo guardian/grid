@@ -312,6 +312,38 @@
             }
         },
 
+        "UsageMailBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "LifecycleConfiguration": {
+                    "Rules": [{
+                        "Id": "RemoveOldFilesRule",
+                        "ExpirationInDays": 7,
+                        "Status": "Enabled"
+                    }]
+                }
+            }
+        },
+        "UsageMailBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "UsageMailBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:GetObject", "s3:PutObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "UsageMailBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "UsageMailBucket" }
+            }
+        },
+
         "EditsDynamoTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
