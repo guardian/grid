@@ -7,28 +7,25 @@ import lib.querysyntax.Condition
 import org.elasticsearch.index.query._
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
-import org.elasticsearch.search.aggregations.bucket.histogram.{InternalDateHistogram, DateHistogram}
-import org.elasticsearch.search.aggregations.bucket.terms.{Terms, InternalTerms}
+import org.elasticsearch.search.aggregations.bucket.histogram.{DateHistogram, InternalDateHistogram}
+import org.elasticsearch.search.aggregations.bucket.terms.{InternalTerms, Terms}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConversions._
-
 import play.api.libs.json._
 import org.elasticsearch.action.get.GetRequestBuilder
-import org.elasticsearch.action.search.{SearchResponse, SearchType, SearchRequestBuilder}
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilder, AggregationBuilders}
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 
 import scalaz.syntax.id._
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
-
-import com.gu.mediaservice.lib.usage.SupplierUsageSummary
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
-import com.gu.mediaservice.lib.elasticsearch.{ImageFields, ElasticSearchClient}
-import controllers.{PayType, AggregateSearchParams, SearchParams}
-import lib.{MediaApiMetrics, Config}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
+import controllers.{AggregateSearchParams, PayType, SearchParams}
+import lib.{Config, MediaApiMetrics, SupplierUsageSummary}
 
 
 case class SearchResults(hits: Seq[(ElasticSearch.Id, JsValue)], total: Long)

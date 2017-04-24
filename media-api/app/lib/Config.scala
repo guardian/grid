@@ -25,17 +25,10 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val keyStoreBucket: String = properties("auth.keystore.bucket")
 
   val configBucket: String = properties("s3.config.bucket")
+  val usageMailBucket: String = properties("s3.usagemail.bucket")
 
-  val usageStoreKey: Option[String] = properties.get("usage.store.key")
-  val quotaStoreKey: Option[String] = properties.get("quota.store.key")
-
-  val usageStoreConfig: Option[StoreConfig] = for {
-    key <- usageStoreKey
-  } yield StoreConfig(configBucket, key)
-
-  val quotaStoreConfig: Option[StoreConfig] = for {
-    key <-quotaStoreKey
-  } yield StoreConfig(configBucket, key)
+  val quotaStoreKey: String = properties("quota.store.key")
+  val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)

@@ -312,6 +312,42 @@
             }
         },
 
+        "UsageMailBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "VersioningConfiguration": {
+                    "Status": "Enabled"
+                }
+            }
+        },
+        "UsageMailBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "UsageMailBucketPolicy",
+                    "Statement": [
+                        {
+                            "Action": [ "s3:ListBucket" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "UsageMailBucket" } ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        },
+                        {
+                            "Action": [ "s3:GetObject" ],
+                            "Effect": "Allow",
+                            "Resource": { "Fn::Join": [ "",
+                                [ "arn:aws:s3:::", { "Ref": "UsageMailBucket" } , "/*" ] ]
+                            },
+                            "Principal": { "AWS": { "Fn::GetAtt": [ "User", "Arn" ] } }
+                        }
+                    ]
+                },
+                "Bucket": { "Ref": "UsageMailBucket" }
+            }
+        },
+
         "EditsDynamoTable": {
             "Type": "AWS::DynamoDB::Table",
             "Properties": {
@@ -719,6 +755,9 @@
         },
         "S3WatcherFailBucket": {
             "Value": { "Ref": "S3WatcherFailBucket" }
+        },
+        "UsageMailBucket": {
+            "Value": { "Ref": "UsageMailBucket" }
         },
         "EditsDynamoTable": {
             "Value": { "Ref": "EditsDynamoTable" }

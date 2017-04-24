@@ -1,20 +1,21 @@
-package com.gu.mediaservice.lib.usage
+package lib
 
 import java.io.InputStream
-import scala.io.Source
-import scala.concurrent.Future
-
-import org.joda.time.DateTime
-
-import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
+import java.util.Properties
+import javax.mail.Session
+import javax.mail.internet.{MimeBodyPart, MimeMultipart}
 
 import com.amazonaws.auth.AWSCredentials
-
 import com.gu.mediaservice.lib.BaseStore
+import com.gu.mediaservice.model.{Agencies, Agency, DateFormat, UsageRights}
+import org.apache.commons.mail.util.MimeMessageUtils
+import org.joda.time.DateTime
+import play.api.libs.concurrent.Execution.Implicits._
+import play.api.libs.functional.syntax._
+import play.api.libs.json._
 
-import com.gu.mediaservice.model.{UsageRights, Agency, Agencies, DateFormat}
+import scala.concurrent.Future
+import scala.io.Source
 
 
 case class SupplierUsageQuota(agency: Agency, count: Int)
@@ -59,29 +60,71 @@ object StoreAccess {
   implicit val writes: Writes[StoreAccess] = Json.writes[StoreAccess]
 }
 
+object UsageStore {
+  def extractEmail(stream: InputStream): List[String] = {
+    val s = Session.getDefaultInstance(new Properties())
+    val message = MimeMessageUtils.createMimeMessage(s, stream)
+
+    message.getContent match {
+      case content: MimeMultipart =>
+        val parts = for(n <- 0 until content.getCount) yield content.getBodyPart(n)
+
+        val part = parts
+          .collectFirst { case part: MimeBodyPart if part.getEncoding == "base64" => part }
+          .map(_.getContent)
+
+        part match {
+          case Some(c: InputStream) =>
+            Source.fromInputStream(c).getLines().toList
+
+          case _ =>
+            List.empty
+        }
+    }
+  }
+
+  def csvParser(list: List[String]): List[SupplierUsageSummary] = {
+    def stripQuotes(s: String): String = s.stripSuffix("\"").stripPrefix("\"")
+
+    val lines = list
+      .map(_.split(","))
+      .map(_.map(stripQuotes))
+      .map(_.toList)
+
+    if(lines.exists(_.length != 2))
+      throw new IllegalArgumentException(s"CSV header error. Expected 2 columns")
+
+    lines.headOption match {
+      case Some("Cpro Name" :: "Id" :: Nil) =>
+        lines.tail.map {
+          case supplier :: count :: Nil => SupplierUsageSummary(Agency(supplier), count.toInt)
+          case _ => throw new IllegalArgumentException("CSV body error. Expected 2 columns")
+        }
+
+      case other =>
+        throw new IllegalArgumentException(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
+    }
+  }
+}
+
 class UsageStore(
-  usageFile: String,
   bucket: String,
   credentials: AWSCredentials,
   quotaStore: QuotaStore
 ) extends BaseStore[String, UsageStatus](bucket, credentials) {
+  import UsageStore._
 
-  def getUsageStatusForUsageRights(usageRights: UsageRights) = {
-    val storeFuture = store.future
+  def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
+    usageRights match {
+      case agency: Agency => for {
+        usage <- store.future()
+      } yield {
+        usage.getOrElse(agency.supplier, { throw NoUsageQuota() })
+      }
 
-    val imageSupplierFuture = Future { usageRights match {
-      case a: Agency => a
-      case _ => throw new Exception("Image is not supplied by Agency")
-    }}
-
-    for {
-      store <- storeFuture
-      imageSupplier <- imageSupplierFuture
-      usageReport = store.get(imageSupplier.supplier)
-
-      if !usageReport.isEmpty
-    } yield usageReport.get
-
+      case _ =>
+        Future.failed(new Exception("Image is not supplied by Agency"))
+    }
   }
 
   def getUsageStatus(): Future[StoreAccess] = for {
@@ -95,11 +138,9 @@ class UsageStore(
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
-    val usageFileString = getS3Object(usageFile).get
+    val lines: List[String] = getLatestS3Stream.map(extractEmail).getOrElse(List.empty)
 
-    val summary = Json
-      .parse(usageFileString)
-      .as[List[SupplierUsageSummary]]
+    val summary: List[SupplierUsageSummary] = csvParser(lines)
 
     def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
       .map(a => supplier.copy(agency = a))
@@ -120,7 +161,7 @@ class UsageStore(
         .mapValues(_.head)
         .mapValues((summary: SupplierUsageSummary) => {
           val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
-          val exceeded = quota.map(q => summary.count > q.count).getOrElse(false)
+          val exceeded = quota.exists(q => summary.count > q.count)
           val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
 
           UsageStatus(

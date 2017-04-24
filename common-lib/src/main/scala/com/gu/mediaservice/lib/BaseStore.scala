@@ -1,24 +1,21 @@
 package com.gu.mediaservice.lib
 
-import org.joda.time.DateTime
+import java.io.InputStream
 
+import org.joda.time.DateTime
 import akka.actor.Scheduler
 import akka.agent.Agent
 
 import scala.concurrent.duration._
-
 import org.slf4j.LoggerFactory
-
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.AmazonServiceException
-
 import org.apache.commons.io.IOUtils
-
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
-
 import com.gu.mediaservice.lib.aws.S3
+import scala.collection.JavaConverters._
 
 
 abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
@@ -44,11 +41,23 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
       stream.close()
   }
 
+  protected def getLatestS3Stream: Option[InputStream] = {
+    val objects = s3.client.listObjects(bucket).getObjectSummaries.asScala
+
+    if (objects.nonEmpty) {
+      val obj = objects.maxBy(_.getLastModified)
+      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
+
+      Some(stream)
+    } else {
+      None
+    }
+  }
+
   def scheduleUpdates(scheduler: Scheduler) {
     scheduler.schedule(0.seconds, 10.minutes)(update())
   }
 
   def update(): Unit
 }
-
 
