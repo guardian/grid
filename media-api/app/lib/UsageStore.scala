@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.model.{Agencies, Agency, DateFormat, UsageRights}
 import org.apache.commons.mail.util.MimeMessageUtils
 import org.joda.time.DateTime
+import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -78,8 +79,13 @@ object UsageStore {
             Source.fromInputStream(c).getLines().toList
 
           case _ =>
+            Logger.error("Usage email is missing base64 encoded attachment")
             List.empty
         }
+
+      case other =>
+        Logger.error(s"Unexpected message content type ${other.getClass}")
+        List.empty
     }
   }
 
@@ -91,17 +97,24 @@ object UsageStore {
       .map(_.map(stripQuotes))
       .map(_.toList)
 
-    if(lines.exists(_.length != 2))
-      throw new IllegalArgumentException(s"CSV header error. Expected 2 columns")
+    if(lines.exists(_.length != 2)) {
+      Logger.error("CSV header error. Expected 2 columns")
+      throw new IllegalArgumentException("CSV header error. Expected 2 columns")
+    }
 
     lines.headOption match {
       case Some("Cpro Name" :: "Id" :: Nil) =>
         lines.tail.map {
-          case supplier :: count :: Nil => SupplierUsageSummary(Agency(supplier), count.toInt)
-          case _ => throw new IllegalArgumentException("CSV body error. Expected 2 columns")
+          case supplier :: count :: Nil =>
+            SupplierUsageSummary(Agency(supplier), count.toInt)
+
+          case _ =>
+            Logger.error("CSV body error. Expected 2 columns")
+            throw new IllegalArgumentException("CSV body error. Expected 2 columns")
         }
 
       case other =>
+        Logger.error(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
         throw new IllegalArgumentException(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
     }
   }
@@ -138,9 +151,13 @@ class UsageStore(
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
+    Logger.info("Updating usage store")
+
     val lines: List[String] = getLatestS3Stream.map(extractEmail).getOrElse(List.empty)
+    Logger.info(s"Last usage file has ${lines.length} lines")
 
     val summary: List[SupplierUsageSummary] = csvParser(lines)
+    Logger.info(s"Raw usage summary: $summary")
 
     def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
       .map(a => supplier.copy(agency = a))
@@ -154,6 +171,8 @@ class UsageStore(
         case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
         case s => s
       }
+
+    Logger.info(s"Cleaned usage summary: $summary")
 
     quotaStore.getQuota.map { supplierQuota => {
       cleanedSummary
@@ -195,6 +214,8 @@ class QuotaStore(
     val summary = Json
       .parse(quotaFileString)
       .as[List[SupplierUsageQuota]]
+
+    Logger.info(s"Latest quota summary: $summary")
 
       summary.foldLeft(Map[String,SupplierUsageQuota]())((memo, quota) => {
         memo + (quota.agency.supplier -> quota)
