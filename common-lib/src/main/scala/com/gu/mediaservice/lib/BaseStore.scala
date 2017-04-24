@@ -44,7 +44,9 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
   }
 
   protected def getLatestS3Stream: Option[InputStream] = {
-    val objects = s3.client.listObjects(bucket).getObjectSummaries.asScala
+    val objects = s3.client
+      .listObjects(bucket).getObjectSummaries.asScala
+      .filterNot(_.getKey == "AMAZON_SES_SETUP_NOTIFICATION")
 
     if (objects.nonEmpty) {
       val obj = objects.maxBy(_.getLastModified)
