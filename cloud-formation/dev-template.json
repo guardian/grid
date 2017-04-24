@@ -315,12 +315,8 @@
         "UsageMailBucket": {
             "Type": "AWS::S3::Bucket",
             "Properties": {
-                "LifecycleConfiguration": {
-                    "Rules": [{
-                        "Id": "RemoveOldFilesRule",
-                        "ExpirationInDays": 7,
-                        "Status": "Enabled"
-                    }]
+                "VersioningConfiguration": {
+                    "Status": "Enabled"
                 }
             }
         },
