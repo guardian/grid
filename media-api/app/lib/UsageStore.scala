@@ -157,7 +157,6 @@ class UsageStore(
     Logger.info(s"Last usage file has ${lines.length} lines")
 
     val summary: List[SupplierUsageSummary] = csvParser(lines)
-    Logger.info(s"Raw usage summary: $summary")
 
     def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
       .map(a => supplier.copy(agency = a))
@@ -171,8 +170,6 @@ class UsageStore(
         case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
         case s => s
       }
-
-    Logger.info(s"Cleaned usage summary: $summary")
 
     quotaStore.getQuota.map { supplierQuota => {
       cleanedSummary
@@ -214,8 +211,6 @@ class QuotaStore(
     val summary = Json
       .parse(quotaFileString)
       .as[List[SupplierUsageQuota]]
-
-    Logger.info(s"Latest quota summary: $summary")
 
       summary.foldLeft(Map[String,SupplierUsageQuota]())((memo, quota) => {
         memo + (quota.agency.supplier -> quota)
