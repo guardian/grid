@@ -15,6 +15,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 import scala.concurrent.Future
+import scala.io.Source
 
 
 case class SupplierUsageQuota(agency: Agency, count: Int)
@@ -66,38 +67,42 @@ object UsageStore {
 
     message.getContent match {
       case content: MimeMultipart =>
-        val count = content.getCount
+        val parts = for(n <- 0 until content.getCount) yield content.getBodyPart(n)
 
-        var list = List.empty[String]
+        val part = parts
+          .collectFirst { case part: MimeBodyPart if part.getEncoding == "base64" => part }
+          .map(_.getContent)
 
-        for(n <- 0 until count) {
-          content.getBodyPart(n) match {
-            case part: MimeBodyPart if part.getEncoding == "base64" =>
-              part.getContent match {
-                case c: InputStream => list = scala.io.Source.fromInputStream(c).getLines().toList
-              }
-            case _ =>
-          }
+        part match {
+          case Some(c: InputStream) =>
+            Source.fromInputStream(c).getLines().toList
+
+          case _ =>
+            List.empty
         }
-        list
     }
   }
 
   def csvParser(list: List[String]): List[SupplierUsageSummary] = {
     def stripQuotes(s: String): String = s.stripSuffix("\"").stripPrefix("\"")
 
-    list.headOption match {
-      case Some(head) if head.split(',').toList.length == 2 =>
-        list.tail.map { line =>
-          val lineList = line.split(',')
-          val (supplier, count) = (
-            stripQuotes(lineList.head),
-            stripQuotes(lineList.tail.head)
-          )
-          SupplierUsageSummary(Agency(supplier), count.toInt)
+    val lines = list
+      .map(_.split(","))
+      .map(_.map(stripQuotes))
+      .map(_.toList)
+
+    if(lines.exists(_.length != 2))
+      throw new IllegalArgumentException(s"CSV header error. Expected 2 columns")
+
+    lines.headOption match {
+      case Some("Cpro Name" :: "Id" :: Nil) =>
+        lines.tail.map {
+          case supplier :: count :: Nil => SupplierUsageSummary(Agency(supplier), count.toInt)
+          case _ => throw new IllegalArgumentException("CSV body error. Expected 2 columns")
         }
-      case None =>
-        throw new IllegalArgumentException("Unable to parse CSV file")
+
+      case other =>
+        throw new IllegalArgumentException(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
     }
   }
 }
