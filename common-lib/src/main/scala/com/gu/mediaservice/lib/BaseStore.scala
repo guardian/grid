@@ -14,7 +14,9 @@ import org.apache.commons.io.IOUtils
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.concurrent.Execution.Implicits._
+import _root_.play.api.Logger
 import com.gu.mediaservice.lib.aws.S3
+
 import scala.collection.JavaConverters._
 
 
@@ -46,10 +48,12 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSC
 
     if (objects.nonEmpty) {
       val obj = objects.maxBy(_.getLastModified)
-      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
+      Logger.info(s"Latest key ${obj.getKey} in bucket $bucket")
 
+      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
       Some(stream)
     } else {
+      Logger.error(s"Bucket $bucket is empty")
       None
     }
   }
