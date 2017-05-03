@@ -63,9 +63,9 @@ To run correctly in standalone mode we run behind nginx, this can be installed a
 `include sites-enabled/*;`
   * you may also want to disable the default server on 8080
 
-4. Get the [dev-nginx](https://github.com/guardian/dev-nginx) repo checked out on your machine
+4. Get the [dev-nginx](https://github.com/nginx/nginx) checked out on your machine
 
-5. [Set up certs](https://github.com/guardian/dev-nginx#install-ssl-certificates) if you've not already done so
+5. Set up certs if you've not already done so
 
 6. Configure the app routes in nginx
 
