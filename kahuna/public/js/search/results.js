@@ -94,6 +94,7 @@ results.controller('SearchResultsCtrl', [
         // Panel control
         ctrl.metadataPanel    = panels.metadataPanel;
         ctrl.collectionsPanel = panels.collectionsPanel;
+        ctrl.cropsPanel       = panels.cropsPanel;
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;

@@ -13,6 +13,7 @@ import '../lib/data-structure/ordered-set-factory';
 import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
+import '../components/gr-crops-panel/gr-crops-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 
 import '../components/gr-panels/gr-panels';
@@ -20,8 +21,8 @@ import '../components/gr-panels/gr-panels';
 import searchTemplate        from './view.html!text';
 import searchResultsTemplate from './results.html!text';
 import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html!text';
-import collectionsPanelTemplate from
-    '../components/gr-collections-panel/gr-collections-panel.html!text';
+import collectionsPanelTemplate from '../components/gr-collections-panel/gr-collections-panel.html!text';
+import cropsPanelTemplate from '../components/gr-crops-panel/gr-crops-panel.html!text';
 
 
 export var search = angular.module('kahuna.search', [
@@ -36,6 +37,7 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grInfoPanel',
     'grCollectionsPanel',
+    'grCropsPanel',
     'ui.router'
 ]);
 
@@ -80,6 +82,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                      panelService) {
 
             const ctrl = this;
+            ctrl.cropsPanel = panels.cropsPanel;
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
 
@@ -106,10 +109,11 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 ]);
             }],
             panels: ['panelService', function(panelService) {
+                const cropsPanel = panelService.createPanel(true);
                 const collectionsPanel = panelService.createPanel(true);
                 const metadataPanel = panelService.createPanel(true);
 
-                return { collectionsPanel, metadataPanel };
+                return { cropsPanel, collectionsPanel, metadataPanel };
            }]
         }
     });
@@ -194,6 +198,11 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             collectionPanel: {
                 template: collectionsPanelTemplate,
                 controller: 'GrCollectionsPanelCtrl',
+                controllerAs: 'ctrl'
+            },
+            cropsPanel: {
+                template: cropsPanelTemplate,
+                controller: 'GrCropsPanelCtrl',
                 controllerAs: 'ctrl'
             },
             multiDrag: {

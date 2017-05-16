@@ -17,6 +17,11 @@
 </gr-top-bar>
 
 <gr-panels class="search-panels">
+    <gr-panel gr:left="true" gr:panel="ctrl.cropsPanel" gr:icon="crop"
+              gr:remember-scroll="true">
+        <ui-view name="cropsPanel"></ui-view>
+    </gr-panel>
+
     <gr-panel gr:left="true" gr:panel="ctrl.collectionsPanel" gr:icon="collections"
               gr:remember-scroll="true">
         <ui-view name="collectionPanel"></ui-view>
