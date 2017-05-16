@@ -1,6 +1,7 @@
 import angular from 'angular';
 import Cropper from 'cropperjs';
 
+import './ui-crop-box.css!';
 import './cropper-override.css!';
 
 export var cropBox = angular.module('ui.cropBox', []);
@@ -49,13 +50,10 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                     responsive: false,
                     autoCropArea: 1,
                     crop: update,
-                    built: getRatio
+                    built: onCropperBuilt
                 };
 
                 cropper = new Cropper(image, options);
-
-                postInit(cropper);
-
             }
 
             function destroy() {
@@ -63,6 +61,12 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                     cropper.destroy();
                     cropper = null;
                 }
+            }
+
+            function onCropperBuilt() {
+                getRatio();
+                appendPlayVideoEl();
+                postInit(cropper);
             }
 
             function getRatio() {
@@ -83,11 +87,40 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                 });
             }
 
+            function getPlayButton() {
+                const playButtonTpl = `
+                    <div class="video-play-button video-play-button--hidden">
+                        <gr-icon>play_arrow</gr-icon>
+                    </div>`;
+
+                const templateEl = document.createElement('template');
+                templateEl.innerHTML = playButtonTpl;
+
+                return templateEl.content.firstElementChild;
+            }
+
+            function appendPlayVideoEl() {
+                const cropBoxEl = cropper.cropBox;
+                scope.playButtonEl = getPlayButton();
+                cropBoxEl.appendChild(scope.playButtonEl);
+            }
+
+            function showPlayButtonEl() {
+                scope.playButtonEl.classList.remove('video-play-button--hidden');
+            }
+
+            function hidePlayButtonEl() {
+                scope.playButtonEl.classList.add('video-play-button--hidden');
+            }
 
             // Once initialised, sync all options to cropperjs
             function postInit(cropper) {
                 scope.$watch('aspectRatio', function(aspectRatio) {
                     cropper.setAspectRatio(aspectRatio);
+
+                    parseFloat(aspectRatio) === scope.$parent.ctrl.videoRatio ?
+                        showPlayButtonEl() :
+                        hidePlayButtonEl();
                 });
 
                 scope.$on('user-width-change', function(event, width){
