@@ -1,11 +1,24 @@
 #!/bin/bash
 
-source ./stack-name.sh
-source ./upload-template.sh
+STACK_NAME=$1
+
+if [ -z ${STACK_NAME} ];
+then
+    echo "ERROR: No STACK_NAME specified."
+    echo "Usage: $0 <STACK_NAME>"
+    exit 1
+fi
 
 echo "Updating stack $STACK_NAME"
 
+# always use the media-service account
+export AWS_PROFILE=media-service
+
 aws cloudformation update-stack \
     --capabilities CAPABILITY_IAM \
-    --template-url $TEMPLATE_URL \
-    --stack-name $STACK_NAME
+    --stack-name ${STACK_NAME} \
+    --template-body file://$PWD/../dev-template.json \
+    --region eu-west-1
+
+# clean up after ourselves
+unset AWS_PROFILE
