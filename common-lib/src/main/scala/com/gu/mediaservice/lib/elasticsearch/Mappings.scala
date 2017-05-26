@@ -41,6 +41,8 @@ object Mappings {
       "properties" -> Json.obj(obj:_*)
     )
 
+  def nonDynamicNestedObj(obj: (String, JsValueWrapper)*) = Json.obj("type" -> "nested", "include_in_parent" -> true,  "dynamic" -> "strict", "properties" -> Json.obj(obj:_*))
+
   def nonAnalysedList(indexName: String) = Json.obj("type" -> "string", "index" -> "not_analyzed", "index_name" -> indexName)
 
   def withIndexName(indexName: String,  obj: JsObject) = Json.obj("index_Name" -> indexName) ++ obj
@@ -124,7 +126,7 @@ object Mappings {
       "date" -> dateFormat
     )
 
-  val collectionMapping = withIndexName("collection", nonDynamicObj(
+  val collectionMapping = withIndexName("collection", nonDynamicNestedObj(
     "path" -> nonAnalysedList("collectionPath"),
     "pathId" -> (nonAnalyzedString ++ copyTo("collections.pathHierarchy")),
     "pathHierarchy" -> hierarchyAnalysedString,
