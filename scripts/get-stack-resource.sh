@@ -22,4 +22,8 @@ fi
 
 JQ_FILTER="jq '.StackResources[] | select(.LogicalResourceId == \"$STACK_RESOURCE\") | .PhysicalResourceId'"
 
-aws cloudformation describe-stack-resources --stack-name ${STACK_NAME} | eval $JQ_FILTER | tr -d '"'
+aws cloudformation describe-stack-resources \
+    --stack-name ${STACK_NAME} \
+    --profile media-service \
+    | eval $JQ_FILTER \
+    | tr -d '"'
