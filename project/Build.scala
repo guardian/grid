@@ -52,7 +52,7 @@ object Build extends Build {
             }
           case _ => Seq()
         })
-      ),
+      ).filter { case (file, _) => file.exists },
       riffRaffPackageName := riffRaffPackageName.value,
       riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
       riffRaffUploadManifestBucket := Option("riffraff-builds")
@@ -87,7 +87,7 @@ object Build extends Build {
           }
         case _ => Seq()
       })
-        ),
+        ).filter { case (file, _) => file.exists },
       riffRaffPackageName := riffRaffPackageName.value,
       riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
       riffRaffUploadManifestBucket := Option("riffraff-builds")
