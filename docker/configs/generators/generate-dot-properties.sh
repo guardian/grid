@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 
-if [ $# -lt 1 ]
-then
-    echo 'usage: generate-dot-properties.sh <DESTINATION_DIR>'
-    exit 1
-fi
-
-DESTINATION=$1
+cd "${0%/*}"
+DESTINATION="/etc/gu"
 
 if [ ! -f ".venv/bin/python" ]; then
     echo 'creating a virtualenv'
