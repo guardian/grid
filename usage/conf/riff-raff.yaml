@@ -8,15 +8,15 @@ templates:
         parameters:
             bucket: media-service-dist
 deployments:
-    upload:
+    usage:
         template: autoscaling
         actions: [uploadArtifacts]
     deployUsage:
         template: autoscaling
         actions: [deploy]
-        dependencies: [upload]
+        dependencies: [usage]
     deployUsageStream:
         template: autoscaling
         app: usage-stream
         actions: [deploy]
-        dependencies: [upload]
+        dependencies: [usage]

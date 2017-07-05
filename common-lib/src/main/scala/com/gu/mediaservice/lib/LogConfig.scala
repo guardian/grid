@@ -58,7 +58,7 @@ object LogConfig {
       val customFields = makeCustomFields(config)
       val context      = rootLogger.getLoggerContext
       val layout       = makeLayout(customFields)
-      val bufferSize   = 1000;
+      val bufferSize   = 1000
 
       val appender     = makeKinesisAppender(layout, context,
         KinesisAppenderConfig(
