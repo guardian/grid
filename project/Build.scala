@@ -62,7 +62,7 @@ object Build extends Build {
     Seq(
       riffRaffPackageType := (packageZipTarball in Universal).value,
       riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
-      riffRaffManifestProjectName := s"media-service::jenkins::${name.value}",
+      riffRaffManifestProjectName := s"media-service::teamcity::${name.value}",
       riffRaffArtifactResources := (Seq(
         // systemd config file
         baseDirectory.value / "conf" / (magentaPackageName.value + ".service") ->
