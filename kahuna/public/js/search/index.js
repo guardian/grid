@@ -60,7 +60,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
     $stateProvider.state('search', {
         // FIXME [1]: This state should be abstract, but then we can't navigate to
         // it, which we need to do to access it's deeper / remembered chile state
-        url: '/',
+        url: '/?cropType',
         template: searchTemplate,
         deepStateRedirect: {
             // Inject a transient $stateParams for the results state
@@ -74,12 +74,17 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         },
         controllerAs: 'ctrl',
         controller: [
-            '$scope', '$window', 'panels', 'shortcutKeys', 'keyboardShortcut',
+            '$scope', '$window', '$stateParams', 'panels', 'shortcutKeys', 'keyboardShortcut',
             'panelService',
-            function($scope, $window, panels, shortcutKeys, keyboardShortcut,
+            function($scope, $window, $stateParams, panels, shortcutKeys, keyboardShortcut,
                      panelService) {
 
             const ctrl = this;
+
+            if ($stateParams.cropType) {
+                $window.sessionStorage.setItem('cropType', $stateParams.cropType);
+            }
+
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;
 

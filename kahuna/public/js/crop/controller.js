@@ -6,14 +6,18 @@ var crop = angular.module('kahuna.crop.controller', ['gr.keyboardShortcut']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
-                 '$filter', '$document', 'mediaApi', 'mediaCropper',
+                 '$filter', '$document', '$window', 'mediaApi', 'mediaCropper',
                  'image', 'optimisedImageUri', 'keyboardShortcut',
                  function($scope, $rootScope, $stateParams, $state,
-                          $filter, $document, mediaApi, mediaCropper,
+                          $filter, $document, $window, mediaApi, mediaCropper,
                           image, optimisedImageUri, keyboardShortcut) {
 
     const ctrl = this;
     const imageId = $stateParams.imageId;
+    if ($stateParams.cropType) {
+        $window.sessionStorage.setItem('cropType', $stateParams.cropType);
+    }
+    ctrl.cropType = $window.sessionStorage.getItem('cropType');
 
     keyboardShortcut.bindTo($scope)
         .add({
@@ -85,7 +89,14 @@ crop.controller('ImageCropCtrl',
     ctrl.maxInputY = () =>
         ctrl.originalHeight - ctrl.cropHeight();
 
-    ctrl.aspect = ctrl.landscapeRatio;
+    if (ctrl.cropType === 'video') {
+        ctrl.aspect = ctrl.videoRatio;
+    } else if (ctrl.cropType === 'landscape') {
+        ctrl.aspect = ctrl.landscapeRatio;
+    } else {
+        ctrl.aspect = ctrl.landscapeRatio;
+    }
+
     ctrl.coords = {
         x1: ctrl.inputX,
         y1: ctrl.inputY,
