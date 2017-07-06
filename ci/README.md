@@ -11,4 +11,4 @@ need to build `auth` too, for example.
 Teamcity will shell out to a script in this directory depending on which app is 
 being built.
 
-Deploys are performed with Riff Raff. Look for `media-service::grid::` builds.
+Deploys are performed with Riff Raff. Look for projects prefixed with `media-service::grid::`.
