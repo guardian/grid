@@ -27,7 +27,7 @@ object Build extends Build {
     Seq(
       riffRaffPackageType := (packageZipTarball in Universal).value,
       riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
-      riffRaffManifestProjectName := s"media-service::jenkins::${name.value}",
+      riffRaffManifestProjectName := s"media-service::grid::${name.value}",
       riffRaffArtifactResources := (Seq(
         // systemd config file
         baseDirectory.value / "conf" / (magentaPackageName.value + ".service") ->
@@ -52,7 +52,7 @@ object Build extends Build {
             }
           case _ => Seq()
         })
-      ),
+      ).filter { case (file, _) => file.exists },
       riffRaffPackageName := riffRaffPackageName.value,
       riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
       riffRaffUploadManifestBucket := Option("riffraff-builds")
@@ -62,7 +62,7 @@ object Build extends Build {
     Seq(
       riffRaffPackageType := (packageZipTarball in Universal).value,
       riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
-      riffRaffManifestProjectName := s"media-service::jenkins::${name.value}",
+      riffRaffManifestProjectName := s"media-service::grid::${name.value}",
       riffRaffArtifactResources := (Seq(
         // systemd config file
         baseDirectory.value / "conf" / (magentaPackageName.value + ".service") ->
@@ -87,7 +87,7 @@ object Build extends Build {
           }
         case _ => Seq()
       })
-        ),
+        ).filter { case (file, _) => file.exists },
       riffRaffPackageName := riffRaffPackageName.value,
       riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
       riffRaffUploadManifestBucket := Option("riffraff-builds")

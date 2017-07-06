@@ -28,5 +28,5 @@
   "isAwsLambda": true,
   "cloudformation": false,
   "riffraffFile": "../deploy.json",
-  "projectName": "media-service::jenkins::s3-watcher"
+  "projectName": "media-service::grid::s3-watcher"
 }
