@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Generic script to build a Play app
+# NB we use `riffRaffUpload` over `riffRaffNotifyTeamcity` because we want to specify the project name
+
 PROJECT=$1
 
 if [ -z ${PROJECT} ];
@@ -30,6 +33,6 @@ java -Xmx1024m \
     -XX:+CMSClassUnloadingEnabled \
     -Dsbt.log.noformat=true \
     -jar sbt-launch.jar \
-    "set scalaVersion:=\"2.11.6\"" clean compile "project ${PROJECT}" test riffRaffNotifyTeamcity
+    "set scalaVersion:=\"2.11.6\"" clean compile "project ${PROJECT}" test riffRaffUpload
 
 popd
