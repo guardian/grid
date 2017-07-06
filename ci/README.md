@@ -11,4 +11,5 @@ need to build `auth` too, for example.
 Teamcity will shell out to a script in this directory depending on which app is 
 being built.
 
-Deploys are performed with Riff Raff. Look for projects prefixed with `media-service::grid::`.
+Deploys are performed with Riff Raff. Look for projects prefixed with `media-service::grid::`. 
+Continuous deployment is switched on for `master` in `TEST`.
