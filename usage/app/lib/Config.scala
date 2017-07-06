@@ -32,9 +32,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   lazy val apiUri = services.apiBaseUri
   lazy val loginUriTemplate = services.loginUriTemplate
 
-  //Used to extract the image ID for poster image on media atoms
-  val mediaIdBaseUri = "https://api.media.gutools.co.uk/images/"
-
   val defaultPageSize = 100
   val defaultMaxRetries = 6
   val defaultMaxPrintRequestSizeInKb = 500
