@@ -79,7 +79,7 @@ object Build extends Build {
         dist.value -> s"${magentaPackageName.value}/app.zip",
 
         // and the riff raff deploy instructions
-        baseDirectory.value / "conf" / "riff-raff.yaml" -> "riff-raff.yaml"
+        baseDirectory.value / ".." / "riff-raff.yaml" -> "riff-raff.yaml"
       ) ++ (name.value match {
         case "cropper" | "image-loader" =>
           Seq("cmyk.icc", "grayscale.icc", "srgb.icc", "facebook-TINYsRGB_c2.icc").map { file =>
