@@ -364,8 +364,8 @@
                     }
                 ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits" : "1",
-                    "WriteCapacityUnits" : "1"
+                    "ReadCapacityUnits" : "10",
+                    "WriteCapacityUnits" : "5"
                 }
             }
         },
@@ -386,8 +386,8 @@
                     }
                 ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits" : "1",
-                    "WriteCapacityUnits" : "1"
+                    "ReadCapacityUnits" : "5",
+                    "WriteCapacityUnits" : "5"
                 }
             }
         },
@@ -408,8 +408,8 @@
                     }
                 ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits" : "1",
-                    "WriteCapacityUnits" : "1"
+                    "ReadCapacityUnits" : "10",
+                    "WriteCapacityUnits" : "5"
                 }
             }
         },
@@ -433,8 +433,8 @@
                     }
                 ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits" : "1",
-                    "WriteCapacityUnits" : "1"
+                    "ReadCapacityUnits" : "5",
+                    "WriteCapacityUnits" : "5"
                 },
                 "GlobalSecondaryIndexes": [ {
                     "IndexName": "mediaId",
@@ -446,8 +446,8 @@
                         "ProjectionType": "ALL"
                     },
                     "ProvisionedThroughput": {
-                        "ReadCapacityUnits": "1",
-                        "WriteCapacityUnits": "1"
+                        "ReadCapacityUnits": "5",
+                        "WriteCapacityUnits": "5"
                     } }
                 ]
             }
@@ -597,12 +597,12 @@
                     },
                     "ProvisionedThroughput": {
                         "ReadCapacityUnits": "1",
-                        "WriteCapacityUnits": "1"
+                        "WriteCapacityUnits": "4"
                     } }
                 ],
                 "ProvisionedThroughput": {
                     "ReadCapacityUnits": "1",
-                    "WriteCapacityUnits": "1"
+                    "WriteCapacityUnits": "4"
                 }
             }
         },
@@ -654,7 +654,7 @@
                     "KeyType": "HASH"
                 } ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits": "1",
+                    "ReadCapacityUnits": "20",
                     "WriteCapacityUnits": "1"
                 }
             }
@@ -694,7 +694,7 @@
                     "KeyType": "HASH"
                 } ],
                 "ProvisionedThroughput": {
-                    "ReadCapacityUnits": "1",
+                    "ReadCapacityUnits": "20",
                     "WriteCapacityUnits": "1"
                 }
             }
