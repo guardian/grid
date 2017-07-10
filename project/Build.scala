@@ -126,7 +126,7 @@ object Build extends Build {
     .enablePlugins(SbtWeb)
     .settings(pipelineStages := Seq(digest))
 
-  val auth = playProject("auth")
+  val auth = playProject("auth", isRiffRaffYaml = true)
     .libraryDependencies(playWsDeps)
 
   val mediaApi = playProject("media-api")

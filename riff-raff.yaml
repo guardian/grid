@@ -3,11 +3,11 @@ regions: [eu-west-1]
 templates:
     autoscaling:
         type: autoscaling
-        app: usage
-        contentDirectory: usage
         parameters:
             bucket: media-service-dist
 deployments:
+    auth:
+        template: autoscaling
     usage:
         template: autoscaling
         actions: [uploadArtifacts]
