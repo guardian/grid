@@ -14,7 +14,7 @@
     "aws-sdk": "^2.2.21",
     "eslint": "^3.19.0",
     "node-lambda": "^0.7.1",
-    "node-riffraff-artefact": "^1.8.2"
+    "node-riffraff-artefact": "^2.0.1"
   },
   "scripts": {
     "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
@@ -27,6 +27,6 @@
   "repository": "https://github.com/guardian/grid",
   "isAwsLambda": true,
   "cloudformation": false,
-  "riffraffFile": "../riff-raff.yaml",
+  "riffraffFile": "./riff-raff.yaml",
   "projectName": "media-service::grid::s3-watcher"
 }

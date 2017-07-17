@@ -4,6 +4,7 @@ deployments:
   s3watcher:
     type: aws-lambda
     parameters:
+      bucket: media-service-dist
       functions:
         TEST:
           filename: s3watcher.zip
