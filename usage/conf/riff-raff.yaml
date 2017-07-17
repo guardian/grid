@@ -3,33 +3,16 @@ regions: [eu-west-1]
 templates:
     autoscaling:
         type: autoscaling
+        app: usage
+        contentDirectory: usage
         parameters:
             bucket: media-service-dist
 deployments:
-    auth:
-        template: autoscaling
-    collections:
-        template: autoscaling
-    cropper:
-        template: autoscaling
-    image-loader:
-        template: autoscaling
-    kahuna:
-        template: autoscaling
-    leases:
-        template: autoscaling
-    media-api:
-        template: autoscaling
-    metadata-api:
-        template: autoscaling
-    thrall:
-        template: autoscaling
     usage:
         template: autoscaling
         actions: [uploadArtifacts]
     deployUsage:
         template: autoscaling
-        app: usage
         actions: [deploy]
         dependencies: [usage]
     deployUsageStream:

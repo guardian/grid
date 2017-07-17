@@ -1,0 +1,7 @@
+stacks: [media-service]
+regions: [eu-west-1]
+deployments:
+  auth:
+    parameters:
+      bucket: media-service-dist
+    type: autoscaling
