@@ -27,6 +27,6 @@
   "repository": "https://github.com/guardian/grid",
   "isAwsLambda": true,
   "cloudformation": false,
-  "riffraffFile": "../deploy.json",
+  "riffraffFile": "../riff-raff.yaml",
   "projectName": "media-service::grid::s3-watcher"
 }
