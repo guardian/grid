@@ -146,7 +146,7 @@ object Build extends Build {
   import ScroogeSBT._
 
   val usageService = {
-    playProject("usage", isRiffRaffYaml = true)
+    playProject("usage")
       .settings(scroogeThriftDependencies in Compile := Seq("content-api-models", "story-packages-model-thrift",
         "content-atom-model-thrift"))
       .libraryDependencies(awsDeps ++ playWsDeps ++ reactiveXDeps ++ guDeps ++ kinesisDeps ++ thriftDeps)
@@ -189,7 +189,7 @@ object Build extends Build {
   def project(path: String): Project =
     Project(path, file(path)).settings(commonSettings: _*)
 
-  def playProject(path: String, isRiffRaffYaml: Boolean = false): Project =
+  def playProject(path: String): Project =
     Project(path, file(path))
       // See: https://github.com/sbt/sbt-buildinfo/issues/88#issuecomment-216541181
       .settings(scroogeThriftOutputFolder in Compile := sourceManaged.value / "thrift")
@@ -197,7 +197,7 @@ object Build extends Build {
       .enablePlugins(RiffRaffArtifact, UniversalPlugin)
       .dependsOn(lib)
       .settings(commonSettings ++ playArtifactDistSettings ++ playArtifactSettings: _*)
-      .settings(if (isRiffRaffYaml) riffRaffYamlSettings else riffRaffSettings)
+      .settings(riffRaffYamlSettings)
       .settings(libraryDependencies += filters)
       .settings(magentaPackageName := path)
 
