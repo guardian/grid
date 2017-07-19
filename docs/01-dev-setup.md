@@ -68,12 +68,12 @@ server {
 
 ### NGINX, Play & SNI
 As the Play Framework does not yet support [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication)
- NGINX can't always work out which certificate to send where when there are multiple services on the same IP. 
+ NGINX can't always work out which certificate to send where when there are multiple services on the same IP.
  This might result in NGINX sending the incorrect certificate resulting in a `HostnameVerifier Exception`.
 
 #### Resolution
 
-When the correct cert to send is ambiguous, NGINX simply sends the first cert it sees in it's configuration, 
+When the correct cert to send is ambiguous, NGINX simply sends the first cert it sees in it's configuration,
 which is loaded from config files in alphabetical order.
 
 To resolve this problem, prefix your grid config filename with `0-`.
@@ -113,15 +113,15 @@ Delete a stack by running:
 ```
 
 ### Note around IAM and Temporary Credentials obtained with `GetFederationToken`
-If you are using temporary credentials obtained via `GetFederationToken` you will not be able to use these scripts 
-as you will not have permission to create IAM Users. 
+If you are using temporary credentials obtained via `GetFederationToken` you will not be able to use these scripts
+as you will not have permission to create IAM Users.
 
 You will have to manage your DEV stack directly within the AWS web console instead.
 
 ## .properties files
 Once you have a DEV stack running, you can generate the necessary`.properties` configuration files in `/etc/gu`.
 
-This can be done by following the instructions [here](./docker/configs/generators/README.md).
+This can be done by following the instructions [here](../docker/configs/generators/README.md).
 
 Guardian devs can follow the guide in the dev-utils folder of this private [repo](https://github.com/guardian/grid-infra).
 This will give you some tips about our specific configuration.

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd "${0%/*}"
 STACK_NAME=$1
 
 if [ -z ${STACK_NAME} ];

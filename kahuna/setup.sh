@@ -1,5 +1,6 @@
 #!/bin/sh
 
+cd "${0%/*}"
 echo Installing NPM dependencies
 npm install
 NPM_RC=$?

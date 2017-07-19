@@ -44,3 +44,10 @@ on GNU Linux, it may be something like
 
 ### Grid-runner
 - When using grid-runner to run grid, individual services have to sometimes be restarted when switching branches
+
+### Accepting certificates
+- You have to manually accept the certificates for the urls for the different grid services.
+- To do this, go the network tab and look for request that failed with error `net::ERR_INSECURE_RESPONSE`
+- Click on the url the request was made to and accept the certificate
+- Not being able to access the services can lead to a lot of errors showing up on the client so you might
+have spend some time searching for the original error that caused the problems
