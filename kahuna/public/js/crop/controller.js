@@ -6,18 +6,18 @@ var crop = angular.module('kahuna.crop.controller', ['gr.keyboardShortcut']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
-                 '$filter', '$document', '$window', 'mediaApi', 'mediaCropper',
-                 'image', 'optimisedImageUri', 'keyboardShortcut',
+                 '$filter', '$document', 'mediaApi', 'mediaCropper',
+                 'image', 'optimisedImageUri', 'keyboardShortcut', 'storage',
                  function($scope, $rootScope, $stateParams, $state,
-                          $filter, $document, $window, mediaApi, mediaCropper,
-                          image, optimisedImageUri, keyboardShortcut) {
+                          $filter, $document, mediaApi, mediaCropper,
+                          image, optimisedImageUri, keyboardShortcut, storage) {
 
     const ctrl = this;
     const imageId = $stateParams.imageId;
     if ($stateParams.cropType) {
-        $window.sessionStorage.setItem('cropType', $stateParams.cropType);
+        storage.setJs('cropType', $stateParams.cropType, true);
     }
-    ctrl.cropType = $window.sessionStorage.getItem('cropType');
+    ctrl.cropType = storage.getJs('cropType', true);
 
     keyboardShortcut.bindTo($scope)
         .add({

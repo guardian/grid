@@ -75,14 +75,14 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         controllerAs: 'ctrl',
         controller: [
             '$scope', '$window', '$stateParams', 'panels', 'shortcutKeys', 'keyboardShortcut',
-            'panelService',
+            'panelService', 'storage',
             function($scope, $window, $stateParams, panels, shortcutKeys, keyboardShortcut,
-                     panelService) {
+                     panelService, storage) {
 
             const ctrl = this;
 
             if ($stateParams.cropType) {
-                $window.sessionStorage.setItem('cropType', $stateParams.cropType);
+                storage.setJs('cropType', $stateParams.cropType, true);
             }
 
             ctrl.collectionsPanel = panels.collectionsPanel;
