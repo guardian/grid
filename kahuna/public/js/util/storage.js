@@ -13,16 +13,14 @@ storage.factory('storage', ['$window', function($window) {
     }
 
     function getJs(key, fromSessionStorage) {
-        let val = fromSessionStorage ?
+        const val = fromSessionStorage ?
             $window.sessionStorage.getItem(key) :
             $window.localStorage.getItem(key);
         try {
-            val = JSON.parse(val);
+            return JSON.parse(val);
         } catch (_) {
             throw new Error(`Could not parse JSON: ${val} for: ${key}`);
         }
-
-        return val;
     }
 
     return {
