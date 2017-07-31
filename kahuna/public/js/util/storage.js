@@ -13,7 +13,9 @@ storage.factory('storage', ['$window', function($window) {
     }
 
     function getJs(key, fromSessionStorage) {
-        let val = fromSessionStorage ? $window.sessionStorage.getItem(key) : $window.localStorage.getItem(key);
+        let val = fromSessionStorage ?
+            $window.sessionStorage.getItem(key) :
+            $window.localStorage.getItem(key);
         try {
             val = JSON.parse(val);
         } catch (_) {
