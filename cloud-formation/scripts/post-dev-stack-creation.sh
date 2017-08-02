@@ -15,7 +15,7 @@ echo "Uploading config to stack $STACK_NAME"
 export AWS_PROFILE=media-service
 
 lower_case_random_string() {
-    echo `head -c 1024 /dev/urandom | md5 | tr '[:upper:]' '[:lower:]' | cut -c1-20`
+    echo `head -c 1024 /dev/urandom | md5hash | tr '[:upper:]' '[:lower:]' | cut -c1-20`
 }
 
 get_stack_resource_physical_id() {
