@@ -66,6 +66,11 @@ gr-leases .metadata-line__key {
   background-color: red;
 }
 
+.image-details .gu-date-range__overlay {
+    position: fixed;
+    right: 0;
+}
+
 gr-leases .gu-date-range__overlay {
   z-index: 1;
 }
