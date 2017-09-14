@@ -1,6 +1,6 @@
-#API Response examples
+# API Response examples
 
-##Usage (by media id)
+## Usage (by media id)
 
 `GET https://media-usage.tools.example.com/usages/media/53b2098571e4e9f1d22e98b74db9a8bc5d060330`
 
@@ -46,7 +46,7 @@
 }
 ```
 
-##Usage (by usage id)
+## Usage (by usage id)
 
 `GET https://media-usage.tools.example.com/usages/composer%2F56587d29e4b0fe4d55bb97d5_87ad7407a9caef288eb1d34c16cc4735`
 
@@ -91,7 +91,7 @@
 }
 ```
 
-##Elasticsearch
+## Elasticsearch
 
 `GET http://localhost:9200/images/image/53b2098571e4e9f1d22e98b74db9a8bc5d060330 `
 
@@ -129,7 +129,7 @@
 }
 ```
 
-##Media Api
+## Media Api
 
 `GET https://api.media.tools.example.com/images/53b2098571e4e9f1d22e98b74db9a8bc5d060330`
 
@@ -174,7 +174,7 @@
 }
 ```
 
-##Usage Status
+## Usage Status
 
 Status can be either `removed`, `pending` or `published`.
 
@@ -186,11 +186,11 @@ Matching usages are defined as those with the same `grouping` and `media_id` but
 * If there are matching `pending` and `published` usages, only `published` is reported.
 * It there are matching `removed` usages only `published` usages are reported (hiding pending usages).
 
-##Usage Metadata
+## Usage Metadata
 
 Usage records can have `digitalUsageMetadata` or `printUsageMetadata`.
 
-###Digital
+### Digital
 
 `composerUrl` is the only optional field.
 
@@ -206,7 +206,7 @@ Usage records can have `digitalUsageMetadata` or `printUsageMetadata`.
 }
 ```
 
-###Print
+### Print
 
 All fields are required.
 
