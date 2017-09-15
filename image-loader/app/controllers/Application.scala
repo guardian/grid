@@ -157,7 +157,7 @@ class ImageLoader extends Controller with ArgoHelpers {
 
     result recover {
       case e => {
-        Logger.info(s"Rejected ${uploadRequestDescription(uploadRequest)}: ${e.getMessage}.")
+        Logger.warn(s"Rejected ${uploadRequestDescription(uploadRequest)}: ${e.getMessage}.", e)
 
         // TODO: Log when an image isn't deleted
         ImageStore.deleteOriginal(uploadRequest.id)
