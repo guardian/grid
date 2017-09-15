@@ -8,15 +8,26 @@ templates:
         parameters:
             bucket: media-service-dist
 deployments:
+    ami-update:
+        type: ami-cloudformation-parameter
+        parameters:
+            cloudFormationStackByTags: false
+            cloudFormationStackName: media-service
+            prependStackToCloudFormationStackName: false
+            amiTags:
+                BuiltBy: amigo
+                AmigoStage: PROD
+                Recipe: editorial-tools-xenial-java8
+            amiParameter: ImageIdUsage
     usage:
         template: autoscaling
         actions: [uploadArtifacts]
     deployUsage:
         template: autoscaling
         actions: [deploy]
-        dependencies: [usage]
+        dependencies: [usage, ami-update]
     deployUsageStream:
         template: autoscaling
         app: usage-stream
         actions: [deploy]
-        dependencies: [usage]
+        dependencies: [usage, ami-update]
