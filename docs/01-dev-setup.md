@@ -12,6 +12,7 @@ Ensure you have the following installed:
 - [awscli](https://aws.amazon.com/cli/)
 - [jq](https://stedolan.github.io/jq/)
 - [exiftool](http://www.sno.phy.queensu.ca/~phil/exiftool/)
+- [md5Sum](http://www.ahwkong.com/post/2011/06/07/p-6255384955/)
 
 ## Elasticsearch
 We use a local elasticsearch instance which can be installed by running:
@@ -77,51 +78,3 @@ When the correct cert to send is ambiguous, NGINX simply sends the first cert it
 which is loaded from config files in alphabetical order.
 
 To resolve this problem, prefix your grid config filename with `0-`.
-
-## DEV Cloudformation Stack
-The [cloudformation template](../cloud-formation/dev-template.json) defines the resources needed for a DEV environment.
-
-There are a few helpful scripts included.
-
-### Create
-Create a stack by running:
-
-```bash
-./cloud-formation/scripts/create-dev-stack.sh <STACK_NAME>
-```
-
-Once all stack resources have been created, initialise the contents of your buckets:
-
-```bash
-./cloud-formation/scripts/post-dev-stack-creation.sh <STACK_NAME>
-```
-
-We use a single shared stack at the Guardian called `media-service-DEV`.
-
-### Update
-Update a stack by running:
-
-```bash
-./cloud-formation/scripts/update-dev-stack.sh <STACK_NAME>
-```
-
-### Delete
-Delete a stack by running:
-
-```bash
-./cloud-formation/scripts/delete-dev-stack.sh <STACK_NAME>
-```
-
-### Note around IAM and Temporary Credentials obtained with `GetFederationToken`
-If you are using temporary credentials obtained via `GetFederationToken` you will not be able to use these scripts
-as you will not have permission to create IAM Users.
-
-You will have to manage your DEV stack directly within the AWS web console instead.
-
-## .properties files
-Once you have a DEV stack running, you can generate the necessary`.properties` configuration files in `/etc/gu`.
-
-This can be done by following the instructions [here](../docker/configs/generators/README.md).
-
-Guardian devs can follow the guide in the dev-utils folder of this private [repo](https://github.com/guardian/grid-infra).
-This will give you some tips about our specific configuration.
