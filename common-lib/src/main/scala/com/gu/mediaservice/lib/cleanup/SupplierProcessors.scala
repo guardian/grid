@@ -172,7 +172,7 @@ trait GettyProcessor {
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
   // including 'newspix internation' because they're sending us lots with that in the credit
-  val excludeFromPatterns = List("newspix international", "newspix internation", "i-images", "photoshot", "Ian Jones")
+  val excludeFromPatterns = List("newspix international", "newspix internation", "i-images", "photoshot", "Ian Jones", "Avalon")
     .map(ex => s"(?i)$ex".r)
 
   // Some people send over Getty XMP data, but are not affiliated with Getty
