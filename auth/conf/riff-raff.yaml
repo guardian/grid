@@ -11,7 +11,7 @@ deployments:
         BuiltBy: amigo
         AmigoStage: PROD
         Recipe: editorial-tools-xenial-java8
-      amiParameter: ImageIdAuth
+      amiParameter: ImageIdEditorialToolsXenialJava8
   auth:
     parameters:
       bucket: media-service-dist
