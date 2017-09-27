@@ -18,7 +18,7 @@ deployments:
                 BuiltBy: amigo
                 AmigoStage: PROD
                 Recipe: editorial-tools-xenial-java8
-            amiParameter: ImageIdUsage
+            amiParameter: ImageIdEditorialToolsXenialJava8
     usage:
         template: autoscaling
         actions: [uploadArtifacts]
