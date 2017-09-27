@@ -23,41 +23,6 @@ object Build extends Build {
 
   def env(key: String): Option[String] = (getEnv(key) ++ getProp(key)).headOption
 
-  val riffRaffSettings =
-    Seq(
-      riffRaffPackageType := (packageZipTarball in Universal).value,
-      riffRaffBuildIdentifier := env("BUILD_NUMBER").getOrElse("DEV"),
-      riffRaffManifestProjectName := s"media-service::grid::${name.value}",
-      riffRaffArtifactResources := (Seq(
-        // systemd config file
-        baseDirectory.value / "conf" / (magentaPackageName.value + ".service") ->
-        (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.service"),
-
-
-        // upstart config file
-        baseDirectory.value / "conf" / (magentaPackageName.value + ".conf") ->
-        (s"packages/${magentaPackageName.value}/${magentaPackageName.value}.conf"),
-
-        baseDirectory.value / "conf" / "start.sh" -> s"packages/${magentaPackageName.value}/start.sh",
-
-        // the ZIP
-        dist.value -> s"packages/${magentaPackageName.value}/app.zip",
-
-        // and the riff raff deploy instructions
-        baseDirectory.value / "conf" / "deploy.json" -> "deploy.json"
-        ) ++ (name.value match {
-          case "cropper" | "image-loader" =>
-            Seq("cmyk.icc", "grayscale.icc", "srgb.icc", "facebook-TINYsRGB_c2.icc").map { file =>
-              baseDirectory.value / file -> s"packages/${magentaPackageName.value}/$file"
-            }
-          case _ => Seq()
-        })
-      ).filter { case (file, _) => file.exists },
-      riffRaffPackageName := riffRaffPackageName.value,
-      riffRaffUploadArtifactBucket := Option("riffraff-artifact"),
-      riffRaffUploadManifestBucket := Option("riffraff-builds")
-    ) ++ env("GIT_BRANCH").map(branch => Seq(riffRaffManifestBranch := branch)).getOrElse(Nil)
-
   val riffRaffYamlSettings =
     Seq(
       riffRaffPackageType := (packageZipTarball in Universal).value,
