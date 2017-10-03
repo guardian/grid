@@ -32,7 +32,7 @@ object ContentDetails {
   def composerUrl(content: Content): Option[URL] = content.fields
     .flatMap(_.internalComposerCode)
     .flatMap(composerId => {
-      Try(new URL(s"${Config.composerBaseUrl}/${composerId}")).toOption
+      Try(new URL(s"${Config.composerContentBaseUrl}/${composerId}")).toOption
     })
 
 }

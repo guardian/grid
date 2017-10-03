@@ -59,7 +59,7 @@ object UsageMetadataBuilder {
   def composerUrl(content: Content): Option[String] = content.fields
     .flatMap(_.internalComposerCode)
     .flatMap(composerId => {
-      Try((new URL(s"${Config.composerBaseUrl}/${composerId}")).toString).toOption
+      Try((new URL(s"${Config.composerContentBaseUrl}/${composerId}")).toString).toOption
     })
 
 }

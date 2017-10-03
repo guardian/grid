@@ -51,7 +51,9 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val usageDateLimit = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
 
   val topicArn = properties("sns.topic.arn")
-  val composerBaseUrl = properties("composer.baseUrl")
+
+  private val composerDomain = properties("composer.domain")
+  val composerContentBaseUrl: String = s"https://$composerDomain/content"
 
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 
