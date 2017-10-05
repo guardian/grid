@@ -4,7 +4,7 @@ const Lambda   = require('./lib/Lambda');
 const Transfer = require('./lib/Transfer');
 const AWS = require('aws-sdk');
 const EnvironmentConfig = require('./lib/environment-config');
-const ELKKinesisLogger = require('elk-kinesis-logger');
+const ELKKinesisLogger = require('@guardian/elk-kinesis-logger');
 
 exports.handler = function(event, context) {
     if (EnvironmentConfig.isDev) {
