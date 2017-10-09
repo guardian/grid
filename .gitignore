@@ -10,3 +10,4 @@ data
 .DS_Store
 *.py[cod]
 .venv
+kahuna/npm-debug.log

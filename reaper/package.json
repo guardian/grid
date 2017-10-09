@@ -14,10 +14,12 @@
   "riffraffFile": "./riff-raff.yaml",
   "author": "",
   "license": "Apache-2.0",
+  "devDependencies": {
+    "node-riffraff-artefact": "^2.0.1",
+    "aws-sdk": "^2.127.0"
+  },
   "dependencies": {
     "@guardian/elk-kinesis-logger": "0.1.0",
-    "aws-sdk": "^2.127.0",
-    "node-fetch": "^1.7.3",
-    "node-riffraff-artefact": "^2.0.1"
+    "node-fetch": "^1.7.3"
   }
 }
