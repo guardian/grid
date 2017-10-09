@@ -1,7 +1,20 @@
 stacks: [media-service]
 regions: [eu-west-1]
 deployments:
+  ami-update:
+    type: ami-cloudformation-parameter
+    parameters:
+      cloudFormationStackByTags: false
+      cloudFormationStackName: media-service
+      prependStackToCloudFormationStackName: false
+      amiTags:
+        BuiltBy: amigo
+        AmigoStage: PROD
+        Recipe: editorial-tools-xenial-java8
+      amiParameter: ImageIdLeases
   leases:
     parameters:
       bucket: media-service-dist
     type: autoscaling
+    dependencies:
+    - ami-update
