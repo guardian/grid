@@ -1,18 +1,27 @@
 package com.gu.mediaservice.lib.auth
 
+
 import com.amazonaws.auth.{InstanceProfileCredentialsProvider, AWSCredentialsProviderChain, BasicAWSCredentials, AWSCredentials}
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.AuthenticatedUser
-
 import com.gu.mediaservice.lib.config.Properties
+import scala.util.Try
 
 trait PanDomainAuthActions extends AuthActions {
 
   lazy val properties = Properties.fromPath("/etc/gu/panda.properties")
 
   override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    (authedUser.user.emailDomain == "guardian.co.uk") && authedUser.multiFactor
+    val oauthDomain:String = properties.getOrElse("panda.oauth.domain", "guardian.co.uk")
+    val oauthDomainMultiFactorEnabled:Boolean = Try(properties("panda.oauth.multifactor.enable").toBoolean).getOrElse(true)
+    // check if the user email domain is the one configured
+    var authorized:Boolean = (authedUser.user.emailDomain == oauthDomain)
+    // if authorized check if multifactor is to be evaluated
+    if(authorized && oauthDomainMultiFactorEnabled) {
+      authorized = authorized && authedUser.multiFactor
+    }
+    return authorized
   }
 
   val authCallbackBaseUri: String
