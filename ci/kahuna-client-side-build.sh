@@ -16,6 +16,6 @@ rm -rf node_modules
 rm -rf public/jspm_packages
 
 ./setup.sh || exit 1
-./dist.sh
+./dist.sh || exit 1
 
 popd
