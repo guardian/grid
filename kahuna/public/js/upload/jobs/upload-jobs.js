@@ -85,7 +85,7 @@ jobs.controller('UploadJobsCtrl', [
                     editsService.updateMetadataField(jobItem.image, 'description', newDescription);
                 }
 
-                if (presetLabels) {
+                if (presetLabels.length > 0) {
                     labelService.add(image, presetLabels);
                 }
 
