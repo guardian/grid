@@ -2,7 +2,7 @@
 import 'babel-polyfill';
 import jQuery from 'jquery';
 import angular from 'angular';
-import '@uirouter/angularjs';
+import 'angular-ui-router';
 import {heal} from 'pandular';
 
 import uriTemplates from 'uri-templates';

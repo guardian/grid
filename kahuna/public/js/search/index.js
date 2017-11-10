@@ -142,6 +142,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
                 const isDeepStateRedirect = $stateParams.isDeepStateRedirect;
                 // *Clear* that transient routing-level flag so we
                 // *don't pollute the $stateParams
+                console.log($stateParams.isDeepStateRedirect);
                 delete $stateParams.isDeepStateRedirect;
                 return isDeepStateRedirect;
             }],

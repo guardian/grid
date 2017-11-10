@@ -1,12 +1,12 @@
 {
   "dependencies": {
-    "@uirouter/angularjs": "^1.0.3",
     "angular": "1.5.5",
     "angular-animate": "1.5.5",
     "angular-elastic": "^2.5.1 ",
     "angular-hotkeys": "^1.7.0",
     "angular-messages": "1.5.5",
     "angular-ui-bootstrap": "^2.5.0",
+    "angular-ui-router": "github:angular-ui/ui-router#0.2.15",
     "angular-xeditable": "^0.8.0",
     "any-http-angular": "^0.1.0",
     "any-promise-angular": "^0.1.1",

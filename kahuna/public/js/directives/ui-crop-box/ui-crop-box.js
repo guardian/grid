@@ -1,5 +1,6 @@
 import angular from 'angular';
 import Cropper from 'cropperjs';
+import 'cropperjs/dist/cropper.css';
 
 import './cropper-override.css';
 

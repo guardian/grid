@@ -1,9 +1,7 @@
 import angular from 'angular';
 import Rx from 'rx';
 import 'rx-dom';
-
-import elementResize from 'javascript-detect-element-resize';
-let {addResizeListener, removeResizeListener} = elementResize;
+import 'javascript-detect-element-resize';
 
 import './gu-lazy-table-cell';
 import './gu-lazy-table-placeholder';

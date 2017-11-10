@@ -1,6 +1,7 @@
 import angular from 'angular';
 import moment from 'moment';
 import Pikaday from 'pikaday';
+import 'pikaday/css/pikaday.css';
 
 import template from './gu-date-range.html';
 

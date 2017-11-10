@@ -18,7 +18,6 @@ addLabel.controller('GrAddLabelCtrl', [
     '$window', '$q', 'labelService', 'mediaApi',
     function ($window, $q, labelService,  mediaApi) {
 
-
         let ctrl = this;
 
         ctrl.active = false;
@@ -87,7 +86,7 @@ addLabel.directive('grAddLabel', [function () {
         restrict: 'E',
         scope: {
             grSmall: '=?',
-            active: '=',
+            active: '=?',
             images: '='
         },
         controller: 'GrAddLabelCtrl',

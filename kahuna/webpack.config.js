@@ -4,7 +4,7 @@ const webpack = require('webpack');
 module.exports = {
   entry: './public/js/main.js',
   output: {
-    path: path.resolve(__dirname, 'public', 'js', 'dist'),
+    path: path.resolve(__dirname, 'public', 'dist'),
     publicPath: '/assets/',
     filename: 'build.js',
   },
@@ -52,7 +52,7 @@ module.exports = {
     mainFields: ['main', 'browser'],
     alias: {
       'rx': 'rx/dist/rx.all',
-    }
+    },
   },
   devtool: "source-map",
 };
