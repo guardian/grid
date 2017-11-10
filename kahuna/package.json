@@ -37,6 +37,7 @@
     "babel-loader": "^7.1.2",
     "babel-preset-env": "^1.6.1",
     "css-loader": "^0.28.7",
+    "expose-loader": "^0.7.3",
     "html-loader": "^0.5.1",
     "htmllint-cli": "0.0.4",
     "jscs": "^1.13.0",
