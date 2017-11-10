@@ -1,11 +1,9 @@
 const path = require('path');
-const webpack = require('webpack');
 
 module.exports = {
   entry: './public/js/main.js',
   output: {
     path: path.resolve(__dirname, 'public', 'dist'),
-    publicPath: '/assets/',
     filename: 'build.js',
   },
   module: {
@@ -54,5 +52,4 @@ module.exports = {
       'rx': 'rx/dist/rx.all',
     },
   },
-  devtool: "source-map",
 };
