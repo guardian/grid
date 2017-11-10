@@ -1,13 +1,13 @@
 import angular from 'angular';
-import './gr-icon.css!';
+import './gr-icon.css';
 
-import frontendIcon from './icons/frontend.svg!text';
-import composerIcon from './icons/composer.svg!text';
+import frontendIcon from './icons/frontend.svg';
+import composerIcon from './icons/composer.svg';
 
-import libraryAddIcon    from './icons/library-add.svg!text';
-import libraryAddedIcon  from './icons/library-added.svg!text';
-import libraryLockedIcon from './icons/library-locked.svg!text';
-import libraryRemoveIcon from './icons/library-remove.svg!text';
+import libraryAddIcon    from './icons/library-add.svg';
+import libraryAddedIcon  from './icons/library-added.svg';
+import libraryLockedIcon from './icons/library-locked.svg';
+import libraryRemoveIcon from './icons/library-remove.svg';
 
 export var icon = angular.module('grIcon', []);
 

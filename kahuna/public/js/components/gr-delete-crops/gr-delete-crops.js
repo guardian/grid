@@ -1,7 +1,7 @@
 import angular from 'angular';
 
 import '../gr-confirm-delete/gr-confirm-delete';
-import './gr-delete-crops.css!';
+import './gr-delete-crops.css';
 
 export const deleteCrops = angular.module('gr.deleteCrops', [
     'gr.confirmDelete'

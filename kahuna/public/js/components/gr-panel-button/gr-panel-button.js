@@ -1,6 +1,6 @@
 import angular from 'angular';
-import template from './gr-panel-button.html!text';
-import templateSmall from './gr-panel-button-small.html!text';
+import template from './gr-panel-button.html';
+import templateSmall from './gr-panel-button-small.html';
 import '../../util/rx';
 
 export const panelButton = angular.module('gr.panelButton', ['util.rx']);

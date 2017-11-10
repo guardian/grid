@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import './gr-chips.css!';
-import template from './gr-chips.html!text';
+import './gr-chips.css';
+import template from './gr-chips.html';
 
 import {grTextChip}          from './gr-text-chip';
 import {grFilterChip}        from './gr-filter-chip';

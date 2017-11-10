@@ -2,7 +2,7 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'rx-dom';
 
-import './gr-panels.css!';
+import './gr-panels.css';
 import {panelService} from '../../services/panel';
 import {rxUtil} from '../../util/rx';
 import {eq} from '../../util/eq';

@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './gr-export-original-image.html!text';
+import template from './gr-export-original-image.html';
 import '../../analytics/track';
 
 export const exportOriginalImage = angular.module('gr.exportOriginalImage', [

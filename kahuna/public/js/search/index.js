@@ -1,5 +1,5 @@
 import angular from 'angular';
-import 'angular-ui-router-extras';
+import 'ui-router-extras';
 import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
@@ -17,11 +17,11 @@ import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 
 import '../components/gr-panels/gr-panels';
 
-import searchTemplate        from './view.html!text';
-import searchResultsTemplate from './results.html!text';
-import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html!text';
+import searchTemplate        from './view.html';
+import searchResultsTemplate from './results.html';
+import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html';
 import collectionsPanelTemplate from
-    '../components/gr-collections-panel/gr-collections-panel.html!text';
+    '../components/gr-collections-panel/gr-collections-panel.html';
 
 
 export var search = angular.module('kahuna.search', [

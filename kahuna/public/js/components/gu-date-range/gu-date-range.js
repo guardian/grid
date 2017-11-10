@@ -2,10 +2,10 @@ import angular from 'angular';
 import moment from 'moment';
 import Pikaday from 'pikaday';
 
-import template from './gu-date-range.html!text';
+import template from './gu-date-range.html';
 
-import './gu-date-range.css!';
-import './pikaday-override.css!';
+import './gu-date-range.css';
+import './pikaday-override.css';
 
 export var guDateRange = angular.module('gu-dateRange', []);
 

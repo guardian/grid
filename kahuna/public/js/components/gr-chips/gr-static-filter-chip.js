@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './gr-static-filter-chip.html!text';
+import template from './gr-static-filter-chip.html';
 
 import {grChip} from './gr-chip';
 import {grChipInput} from './gr-chip-input';

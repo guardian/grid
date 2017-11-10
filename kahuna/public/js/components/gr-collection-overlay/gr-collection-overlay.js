@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import template from './gr-collection-overlay.html!text';
-import './gr-collection-overlay.css!';
+import template from './gr-collection-overlay.html';
+import './gr-collection-overlay.css';
 
 import {collectionsApi} from '../../services/api/collections-api';
 

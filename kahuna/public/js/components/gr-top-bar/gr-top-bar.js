@@ -1,5 +1,5 @@
 import angular from 'angular';
-import './gr-top-bar.css!';
+import './gr-top-bar.css';
 
 export var topBar = angular.module('gr.topBar', []);
 

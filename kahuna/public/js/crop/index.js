@@ -4,7 +4,7 @@ import './controller';
 import '../components/gr-top-bar/gr-top-bar';
 import '../directives/ui-crop-box/ui-crop-box';
 
-import cropTemplate from './view.html!text';
+import cropTemplate from './view.html';
 
 
 export var crop = angular.module('kahuna.crop', [

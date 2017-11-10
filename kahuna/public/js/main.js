@@ -1,7 +1,7 @@
 // TODO: Grunt: hash dependencies? or ETag?
-
+import 'babel-polyfill';
 import angular from 'angular';
-import 'angular-ui-router';
+import '@uirouter/angularjs';
 import {heal} from 'pandular';
 
 import uriTemplates from 'uri-templates';

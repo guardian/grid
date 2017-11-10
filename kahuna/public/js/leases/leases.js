@@ -1,11 +1,11 @@
 import angular from 'angular';
-import template from './leases.html!text';
+import template from './leases.html';
 import moment from 'moment';
 
 import '../util/rx';
 
 import '../services/api/leases';
-import './leases.css!';
+import './leases.css';
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
 
 
