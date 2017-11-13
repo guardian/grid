@@ -8,6 +8,9 @@ import './gu-lazy-table-placeholder';
 import '../../util/rx';
 import '../../util/seq';
 
+/* global addResizeListener */
+/* global removeResizeListener */
+
 import {
     combine$,
     add$, sub$, mult$, div$, mod$,
