@@ -81,10 +81,11 @@
                     <ul class="image-crops">
                         <li class="image-crop"
                             ng:repeat="crop in ctrl.crops"
+                            ng-switch="ctrl.allowCropSelection(crop)"
                             ng:class="{'image-crop--selected': crop == ctrl.crop}">
                             <a draggable="true"
                                ng:init="extremeAssets = (crop | getExtremeAssets)"
-                               ng-if="ctrl.allowCropSelection(crop)"
+                               ng-switch-when="true"
                                ng:click="ctrl.cropSelected(crop)"
                                ui:sref="{crop: crop.id}"
                                ui:drag-data="ctrl.image | asImageAndCropsDragData:crop"
@@ -96,7 +97,9 @@
                                 class="image-crop--disabled"
                                 draggable="false"
                                 ng:init="extremeAssets = (crop | getExtremeAssets)"
-                                ng-if="!ctrl.allowCropSelection(crop)"
+                                ng-switch-when="false"
+                                gr-tooltip="You can only choose {{:: ctrl.cropType}} crops"
+                                gr-tooltip-position="right"
                             >
                               <ng-include src="'/assets/js/image/crop.html'"></ng-include>
                             </div>

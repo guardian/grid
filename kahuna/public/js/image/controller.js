@@ -106,15 +106,15 @@ image.controller('ImageCtrl', [
 
         ctrl.image.allCrops = [];
 
-        const cropType = storage.getJs('cropType', true);
+        ctrl. cropType = storage.getJs('cropType', true);
 
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
         });
 
         ctrl.allowCropSelection = (crop) => {
-          return !cropType ||
-            $filter('asAspectRatioWord')(crop.specification.aspectRatio) === cropType;
+          return !ctrl.cropType ||
+            $filter('asAspectRatioWord')(crop.specification.aspectRatio) === ctrl.cropType;
         };
 
         ctrl.onCropsDeleted = () => {
