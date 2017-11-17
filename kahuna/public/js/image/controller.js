@@ -47,6 +47,7 @@ image.controller('ImageCtrl', [
     '$scope',
     '$state',
     '$window',
+    '$filter',
     'inject$',
     'image',
     'mediaApi',
@@ -57,11 +58,13 @@ image.controller('ImageCtrl', [
     'imageService',
     'imageUsagesService',
     'keyboardShortcut',
+    'storage',
 
     function ($rootScope,
               $scope,
               $state,
               $window,
+              $filter,
               inject$,
               image,
               mediaApi,
@@ -71,7 +74,8 @@ image.controller('ImageCtrl', [
               mediaCropper,
               imageService,
               imageUsagesService,
-              keyboardShortcut) {
+              keyboardShortcut,
+              storage) {
 
         let ctrl = this;
 
@@ -102,9 +106,16 @@ image.controller('ImageCtrl', [
 
         ctrl.image.allCrops = [];
 
+        ctrl. cropType = storage.getJs('cropType', true);
+
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
         });
+
+        ctrl.allowCropSelection = (crop) => {
+          return !ctrl.cropType ||
+            $filter('asAspectRatioWord')(crop.specification.aspectRatio) === ctrl.cropType;
+        };
 
         ctrl.onCropsDeleted = () => {
             // a bit nasty - but it updates the state of the page better than trying to do that in

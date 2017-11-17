@@ -1811,6 +1811,11 @@ FIXME: what to do with touch devices
     border: solid 2px #00adee;
 }
 
+.image-crop--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .result--selected .preview {
     background-color: #4c4c4c;
 }
