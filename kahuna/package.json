@@ -49,7 +49,7 @@
   },
   "scripts": {
     "test": "npm run lint",
-    "lint": "jscs public/js/ && jshint public/js --exclude public/js/dist/build.js --exclude public/js/main.js && htmllint public/js/**/*.html",
+    "lint": "jscs public/js/ && jshint public/js --exclude public/dist/build.js --exclude public/js/main.js && htmllint public/js/**/*.html",
     "dist": "webpack --progress --config webpack.config.prod.js",
     "watch": "npm run undist && webpack --watch --config webpack.config.dev.js",
     "undist": "rm -f public/dist/build.js*"
