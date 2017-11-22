@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import template from './gr-metadata-validity.html!text';
-import './gr-metadata-validity.css!';
+import template from './gr-metadata-validity.html';
+import './gr-metadata-validity.css';
 
 export const module = angular.module('gr.metadataValidity', []);
 

@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import template from './gr-image-cost-message.html!text';
-import './gr-image-cost-message.css!';
+import template from './gr-image-cost-message.html';
+import './gr-image-cost-message.css';
 
 export const module = angular.module('gr.imageCostMessage', []);
 

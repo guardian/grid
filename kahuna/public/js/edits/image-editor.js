@@ -1,5 +1,5 @@
 import angular from 'angular';
-import template from './image-editor.html!text';
+import template from './image-editor.html';
 
 import {service} from './service';
 import {imageService} from '../image/service';

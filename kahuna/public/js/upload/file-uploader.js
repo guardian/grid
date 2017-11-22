@@ -1,5 +1,5 @@
 import angular from 'angular';
-import template from './file-uploader.html!text';
+import template from './file-uploader.html';
 
 import '../analytics/track';
 import '../directives/gr-file-change';

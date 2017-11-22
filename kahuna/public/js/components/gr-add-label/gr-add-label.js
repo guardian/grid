@@ -3,8 +3,8 @@ import angular from 'angular';
 import '../../services/label';
 import '../../forms/datalist';
 
-import './gr-add-label.css!';
-import template from './gr-add-label.html!text';
+import './gr-add-label.css';
+import template from './gr-add-label.html';
 
 import '../../directives/gr-auto-focus';
 
@@ -17,7 +17,6 @@ export var addLabel = angular.module('gr.addLabel', [
 addLabel.controller('GrAddLabelCtrl', [
     '$window', '$q', 'labelService', 'mediaApi',
     function ($window, $q, labelService,  mediaApi) {
-
 
         let ctrl = this;
 
@@ -87,7 +86,7 @@ addLabel.directive('grAddLabel', [function () {
         restrict: 'E',
         scope: {
             grSmall: '=?',
-            active: '=',
+            active: '=?',
             images: '='
         },
         controller: 'GrAddLabelCtrl',

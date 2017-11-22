@@ -7,7 +7,7 @@ import angular from 'angular';
 import moment from 'moment';
 import {eq} from '../util/eq';
 import {guDateRange} from '../components/gu-date-range/gu-date-range';
-import template from './query.html!text';
+import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 

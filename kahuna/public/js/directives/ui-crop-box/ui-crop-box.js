@@ -1,7 +1,8 @@
 import angular from 'angular';
 import Cropper from 'cropperjs';
+import 'cropperjs/dist/cropper.css';
 
-import './cropper-override.css!';
+import './cropper-override.css';
 
 export var cropBox = angular.module('ui.cropBox', []);
 

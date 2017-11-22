@@ -1,7 +1,7 @@
 import angular from 'angular';
 import 'angular-xeditable';
 
-import buttonTemplate from './gr-xeditable-buttons.html!text';
+import buttonTemplate from './gr-xeditable-buttons.html';
 
 export var grXeditable = angular.module('grXeditable', [
     'xeditable'

@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import './gr-preset-labels.css!';
-import template from './gr-preset-labels.html!text';
+import './gr-preset-labels.css';
+import template from './gr-preset-labels.html';
 
 import '../../directives/gr-auto-focus';
 import '../../services/preset-label';

@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './datalist.html!text';
+import template from './datalist.html';
 import '../util/eq';
 
 export var datalist = angular.module('kahuna.forms.datalist', ['util.eq']);

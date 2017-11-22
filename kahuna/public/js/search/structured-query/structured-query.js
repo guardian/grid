@@ -1,7 +1,7 @@
 import angular from 'angular';
 import Rx from 'rx';
 
-import './structured-query.css!';
+import './structured-query.css';
 
 import {grChips} from '../../components/gr-chips/gr-chips';
 

@@ -3,7 +3,7 @@ import '../../image/service';
 import '../../edits/image-editor';
 import '../../components/gr-delete-image/gr-delete-image';
 
-import template from './recent-uploads.html!text';
+import template from './recent-uploads.html';
 
 export let recentUploads = angular.module('kahuna.upload.recent', [
     'kahuna.edits.imageEditor',

@@ -1,5 +1,6 @@
 // TODO: Grunt: hash dependencies? or ETag?
-
+import 'babel-polyfill';
+import jQuery from 'jquery';
 import angular from 'angular';
 import 'angular-ui-router';
 import {heal} from 'pandular';
@@ -33,8 +34,6 @@ import {globalErrors} from './errors/global';
 
 import {icon}    from './components/gr-icon/gr-icon';
 import {tooltip} from './components/gr-tooltip/gr-tooltip';
-
-import jQuery from 'jquery';
 
 
 // TODO: move to an async config to remove deps on play

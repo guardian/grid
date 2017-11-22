@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './gr-toggle-button.html!text';
+import template from './gr-toggle-button.html';
 
 export const toggleButton = angular.module('gr.toggleButton', []);
 

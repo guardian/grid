@@ -1,6 +1,6 @@
 import angular from 'angular';
-import template from './gr-archiver-status.html!text';
-import './gr-archiver-status.css!';
+import template from './gr-archiver-status.html';
+import './gr-archiver-status.css';
 
 import {archiveService} from '../../services/archive';
 import {imageLogic} from '../../services/image-logic';

@@ -1,5 +1,5 @@
 import angular from 'angular';
-import template from './dnd-uploader.html!text';
+import template from './dnd-uploader.html';
 
 import {witnessApi} from '../services/api/witness';
 import '../analytics/track';

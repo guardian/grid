@@ -1,5 +1,5 @@
 import angular from 'angular';
-import template from './global.html!text';
+import template from './global.html';
 
 import 'angular-messages';
 import 'pandular';

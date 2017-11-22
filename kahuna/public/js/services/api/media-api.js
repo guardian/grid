@@ -1,6 +1,6 @@
 import angular from 'angular';
 // TODO: make theseus-angular it export its module
-import 'theseus-angular';
+import '../../util/theseus-angular';
 
 export var mediaApi = angular.module('kahuna.services.api.media', [
     'theseus'

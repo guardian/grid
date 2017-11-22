@@ -41,12 +41,6 @@
 
     <ui-global-errors></ui-global-errors>
 
-    <script src="@routes.Assets.versioned("jspm_packages/system.js")"></script>
-    <script src="@routes.Assets.versioned("config.js")"></script>
-    <script>
-      System.import("js/main").catch(function(error) {
-          setTimeout(function(){ throw error; });
-      });
-    </script>
+    <script src="@routes.Assets.versioned("dist/build.js")"></script>
   </body>
 </html>

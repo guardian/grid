@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './gr-crop-image.html!text';
+import template from './gr-crop-image.html';
 
 import '../../services/api/leases';
 

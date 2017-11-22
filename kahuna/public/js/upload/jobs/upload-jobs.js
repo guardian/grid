@@ -1,5 +1,5 @@
 import angular from 'angular';
-import template from './upload-jobs.html!text';
+import template from './upload-jobs.html';
 import '../../preview/image';
 import '../../analytics/track';
 import '../../components/gr-delete-image/gr-delete-image';

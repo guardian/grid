@@ -2,9 +2,9 @@ import angular from 'angular';
 import Rx from 'rx';
 import 'rx-dom';
 
-import template from './gu-lazy-preview.html!text';
+import template from './gu-lazy-preview.html';
 
-import './gu-lazy-preview.css!';
+import './gu-lazy-preview.css';
 
 import '../../util/rx';
 

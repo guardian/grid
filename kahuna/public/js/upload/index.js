@@ -8,7 +8,7 @@ import './jobs/upload-jobs';
 import './jobs/required-metadata-editor';
 import '../components/gr-top-bar/gr-top-bar';
 
-import uploadTemplate from './view.html!text';
+import uploadTemplate from './view.html';
 
 
 export var upload = angular.module('kahuna.upload', [

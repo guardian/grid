@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './gr-filter-chooser-chip.html!text';
+import template from './gr-filter-chooser-chip.html';
 
 import {grChip} from './gr-chip';
 import {grChipInput} from './gr-chip-input';

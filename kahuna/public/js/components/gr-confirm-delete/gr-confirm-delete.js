@@ -1,5 +1,5 @@
 import angular from 'angular';
-import './gr-confirm-delete.css!';
+import './gr-confirm-delete.css';
 
 export const confirmDelete = angular.module('gr.confirmDelete', []);
 

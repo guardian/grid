@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './syntax.html!text';
+import template from './syntax.html';
 import {grChipExample} from '../../directives/gr-chip-example';
 
 export const syntax = angular.module('grSyntax', [grChipExample.name]);

@@ -1,6 +1,6 @@
 import angular from 'angular';
 import 'angular-elastic';
-import template from './required-metadata-editor.html!text';
+import template from './required-metadata-editor.html';
 
 import '../../edits/service';
 import '../../forms/datalist';

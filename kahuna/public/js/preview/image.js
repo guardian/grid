@@ -5,8 +5,8 @@ import '../util/rx';
 
 import '../analytics/track';
 
-import template from './image.html!text';
-import templateLarge from './image-large.html!text';
+import template from './image.html';
+import templateLarge from './image-large.html';
 
 import '../image/service';
 import '../imgops/service';

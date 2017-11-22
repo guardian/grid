@@ -1,5 +1,5 @@
 import angular from 'angular';
-import template from './user-actions.html!text';
+import template from './user-actions.html';
 
 export var userActions = angular.module('kahuna.common.userActions', []);
 

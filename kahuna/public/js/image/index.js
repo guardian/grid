@@ -6,8 +6,8 @@ import '../imgops/service';
 import '../forms/gr-xeditable/gr-xeditable';
 import '../components/gr-top-bar/gr-top-bar';
 
-import imageTemplate from './view.html!text';
-import imageErrorTemplate from './image-error.html!text';
+import imageTemplate from './view.html';
+import imageErrorTemplate from './image-error.html';
 
 
 export var image = angular.module('kahuna.image', [

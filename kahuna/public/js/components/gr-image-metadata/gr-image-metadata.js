@@ -1,6 +1,6 @@
 import angular from 'angular';
 
-import template from './gr-image-metadata.html!text';
+import template from './gr-image-metadata.html';
 
 import '../../image/service';
 import '../../edits/service';
