@@ -16,12 +16,9 @@ trait PanDomainAuthActions extends AuthActions {
     val oauthDomain:String = properties.getOrElse("panda.oauth.domain", "guardian.co.uk")
     val oauthDomainMultiFactorEnabled:Boolean = Try(properties("panda.oauth.multifactor.enable").toBoolean).getOrElse(true)
     // check if the user email domain is the one configured
-    var authorized:Boolean = (authedUser.user.emailDomain == oauthDomain)
+    val isAuthorized:Boolean = (authedUser.user.emailDomain == oauthDomain)
     // if authorized check if multifactor is to be evaluated
-    if(authorized && oauthDomainMultiFactorEnabled) {
-      authorized = authorized && authedUser.multiFactor
-    }
-    return authorized
+    if (oauthDomainMultiFactorEnabled) isAuthorized && authedUser.multiFactor else isAuthorized
   }
 
   val authCallbackBaseUri: String
