@@ -14,6 +14,12 @@ properties:
   # Configuration for pan domain authentication. See https://github.com/guardian/pan-domain-authentication
   - panda_domain:
 
+  # Configuration for google oauth domain to authenticate against (default if prop not set: guardian.co.uk)
+  - panda_oauth_domain: guardian.co.uk
+
+  # Configuration for google oauth, whenever the multifactor should be enabled (default if prop not set: true)
+  - panda_oauth_multifactor_enable: true
+
   # Configuration for pan domain authentication. See https://github.com/guardian/pan-domain-authentication
   - panda_aws_key:
 
