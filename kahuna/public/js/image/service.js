@@ -29,7 +29,8 @@ imageService.factory('imageService', ['imageLogic', function(imageLogic) {
             isValid: image.data.valid,
             canDelete: imageLogic.canBeDeleted(image),
             canArchive: imageLogic.canBeArchived(image),
-            persistedReasons: imageLogic.getPersistenceExplanation(image).join('; ')
+            persistedReasons: imageLogic.getPersistenceExplanation(image).join('; '),
+            isStaffPhotographer: imageLogic.isStaffPhotographer(image)
         };
     }
 

@@ -30,6 +30,7 @@
        ui:drag-data="ctrl.image | asImageDragData">
        <div class="preview__fade"></div>
        <img class="preview__image"
+            ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer}"
             alt="{{::ctrl.image.data.metadata.description}}"
             ng:src="{{::ctrl.image.data.thumbnail | assetFile}}"
             gr:image-fade-on-load />
