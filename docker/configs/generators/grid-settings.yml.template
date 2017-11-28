@@ -29,8 +29,5 @@ properties:
   # The minimum number of messages to retrieve from SQS to be deemed healthy. We set this to 5.
   - sqs_message_min_frequency:
 
-  # An API key used to ingest images from the ftp-loader.
-  - ftp_key:
-
   # An API key used to ingest images from the s3watcher.
   - s3watcher_key:
