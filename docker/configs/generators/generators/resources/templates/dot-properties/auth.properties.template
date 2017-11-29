@@ -1,7 +1,0 @@
-domain.root={{domain_root}}
-cors.allowed.origins={{cors}}
-s3.config.bucket={{ConfigBucket}}
-auth.keystore.bucket={{KeyBucket}}
-aws.id={{AwsId}}
-aws.secret={{AwsSecret}}
-aws.region={{region}}
