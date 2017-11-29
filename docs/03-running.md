@@ -58,14 +58,3 @@ From the project root:
 		$ ./the_pingler.sh
 
 and keep it running in a background terminal
-
-## Docker
-Its possible to run Grid using Docker. Please follow the [README](../docker/README.md#setup) beforehand.
-
-To run the containers, run:
-
-```sh
-docker-compose up  -d
-```
-
-NB: This has only been tested in DEV.
