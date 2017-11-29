@@ -28,6 +28,17 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
                isPersisted ? 'archived' : 'unarchived';
     }
 
+    function isStaffPhotographer(image) {
+        const staffCategories = [
+            'staff-photographer',
+            'contract-photographer',
+            'commissioned-photographer'
+        ];
+
+        return image.data.usageRights &&
+            staffCategories.includes(image.data.usageRights.category);
+    }
+
     function getPersistenceExplanation(image) {
         const persistReasons = imageAccessor.readPersistedReasons(image);
         return persistReasons.map(reason => {
@@ -54,7 +65,8 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         canBeDeleted,
         canBeArchived,
         getArchivedState,
-        getPersistenceExplanation
+        getPersistenceExplanation,
+        isStaffPhotographer
     };
 }]);
 

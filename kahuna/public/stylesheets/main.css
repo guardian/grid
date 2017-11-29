@@ -848,6 +848,11 @@ textarea.ng-invalid {
     margin: 5px;
     background-color: #393939;
 }
+
+.result .preview__image--staff {
+    border: 10px solid #005689;
+}
+
 .result--seen {
     opacity: .5;
 }
