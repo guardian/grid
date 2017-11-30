@@ -849,10 +849,6 @@ textarea.ng-invalid {
     background-color: #393939;
 }
 
-.result .preview__image--staff {
-    border: 10px solid #005689;
-}
-
 .result--seen {
     opacity: .5;
 }
@@ -1121,6 +1117,10 @@ textarea.ng-invalid {
     max-width: 100%;
     max-height: 100%;
     margin: 0 auto;
+}
+
+.preview__image.preview__image--staff {
+    border: 10px solid #005689;
 }
 
 .preview__info {
