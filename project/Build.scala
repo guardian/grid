@@ -74,13 +74,13 @@ object Build extends Build {
     net.virtualvoid.sbt.graph.Plugin.graphSettings
 
   val lib = project("common-lib")
-    .libraryDependencies(loggingDeps ++ awsDeps ++ elasticsearchDeps ++
+    .libraryDependencies(auditingDeps ++ loggingDeps ++ awsDeps ++ elasticsearchDeps ++
       playDeps ++ playWsDeps ++ scalazDeps ++ commonsIODeps ++ akkaAgentDeps ++
       pandaDeps ++ imagingDeps ++ commonsNetDeps ++ guPermDeps)
     .testDependencies(scalaCheckDeps ++ scalaTestDeps)
 
   val thrall = playProject("thrall")
-    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ elasticSearchClientDeps)
+    .libraryDependencies(elasticsearchDeps ++ awsDeps ++ scalazDeps ++ elasticSearchClientDeps ++ thriftDeps)
 
   import com.typesafe.sbt.web.SbtWeb
   import com.typesafe.sbt.web.Import._

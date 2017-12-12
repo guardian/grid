@@ -43,4 +43,8 @@ object Config extends CommonPlayAppConfig {
   val healthyMessageRate = properties("sqs.message.min.frequency").toInt
 
   val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
+
+  val auditingStreamName: String = properties("auditing.streamName")
+
+  val auditingKinesisWriteRole: Option[String] = Some(properties("auditing.write.role"))
 }

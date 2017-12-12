@@ -67,6 +67,8 @@ object Dependencies {
     "net.logstash.logback" % "logstash-logback-encoder" % "4.4"
   )
 
+  val auditingDeps = Seq("com.gu" %% "auditing-thrift-model" % "0.4")
+
   val commonsNetDeps = Seq(
     "commons-net" % "commons-net" % "3.3",
     "org.apache.httpcomponents" % "httpclient" % "4.5.2"
@@ -95,7 +97,8 @@ object Dependencies {
 
   val thriftDeps = Seq(
     "com.twitter" %% "scrooge-core" % "4.6.0",
-    "org.apache.thrift" % "libthrift" % "0.9.1" force()
+    "org.apache.thrift" % "libthrift" % "0.9.1" force(),
+    "com.gu" %% "thrift-serializer" % "0.0.1"
   )
 
   val legacyBlockingHttp = Seq("org.scalaj" %% "scalaj-http" % "1.1.4")
