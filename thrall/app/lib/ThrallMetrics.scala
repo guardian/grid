@@ -21,6 +21,8 @@ object ThrallMetrics extends CloudWatchMetrics(s"$stage/Thrall", awsCredentials)
 
   val failedQueryUpdates = new CountMetric("FailedQueryUpdates")
 
+  val failedDeletedAllUsages = new CountMetric("FailedDeletedAllUsages")
+
   val processingLatency = new TimeMetric("ProcessingLatency")
 
 }

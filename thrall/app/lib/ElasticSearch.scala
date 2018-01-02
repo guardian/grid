@@ -117,6 +117,17 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     }
   }
 
+  def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    prepareImageUpdate(id) { request =>
+      request.setScript(
+        deleteUsagesScript,
+          scriptType)
+        .executeAndLog(s"removing all usages on image $id")
+        .recover { case e: DocumentMissingException => new UpdateResponse }
+        .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+    }
+  }
+
   def updateImageLeases(id: String, leaseByMedia: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext) : List[Future[UpdateResponse]] = {
     prepareImageUpdate(id){ request =>
       request.setScriptParams( Map(
@@ -264,6 +275,9 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
 
   private val deleteExportsScript =
     "ctx._source.remove('exports');".stripMargin
+
+  private val deleteUsagesScript =
+    "ctx._source.remove('usages');".stripMargin
 
   // Script that refreshes the "metadata" object by recomputing it
   // from the original metadata and the overrides
