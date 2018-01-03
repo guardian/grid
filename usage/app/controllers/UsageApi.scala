@@ -159,8 +159,8 @@ object UsageApi extends Controller with ArgoHelpers {
     }
   }
 
-  def deleteUsages(id: String) = Authenticated.async {
-    UsageTable.queryByImageId(id).map(usages => {
+  def deleteUsages(mediaId: String) = Authenticated.async {
+    UsageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usage => {
         Logger.info(s"removing usage ${usage.usageId} for media id ${usage.mediaId}")
         UsageTable.delete(usage)
@@ -171,7 +171,7 @@ object UsageApi extends Controller with ArgoHelpers {
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage())
       }
     }
-    Notifications.publish(Json.obj("id" -> id), "delete-usages")
+    Notifications.publish(Json.obj("id" -> mediaId), "delete-usages")
     Future.successful(Ok)
   }
 }

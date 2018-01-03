@@ -2,8 +2,8 @@ GET     /                                               controllers.UsageApi.ind
 
 GET     /usages/:id                                     controllers.UsageApi.forUsage(id: String)
 GET     /usages/media/:mediaId                          controllers.UsageApi.forMedia(mediaId: String)
+DELETE  /usages/media/:mediaId                          controllers.UsageApi.deleteUsages(mediaId: String)
 POST    /usages/print                                   controllers.UsageApi.setPrintUsages
-DELETE  /usages/:id/                                    controllers.UsageApi.deleteUsages(id: String)
 
 GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
 
