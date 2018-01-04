@@ -24,6 +24,7 @@ object ThrallMessageConsumer extends MessageConsumer(
       case "update-image-leases"        => updateImageLeases
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
+      case "delete-usages"              => deleteAllUsages
     }
   }
 
@@ -76,6 +77,9 @@ object ThrallMessageConsumer extends MessageConsumer(
         }
       }
     )
+
+  def deleteAllUsages(usage: JsValue) =
+    Future.sequence( withImageId(usage)(id => ElasticSearch.deleteAllImageUsages(id) ))
 }
 
 // TODO: improve and use this (for logging especially) else where.

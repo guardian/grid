@@ -3,29 +3,22 @@ package model
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
-
-import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
-import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, DeleteItemOutcome, RangeKeyCondition}
-import scalaz.syntax.id._
+import com.amazonaws.services.dynamodbv2.document.{DeleteItemOutcome, KeyAttribute, RangeKeyCondition}
 
+import scalaz.syntax.id._
 import play.api.libs.json._
 import play.api.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
-
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
-
 import scala.util.Try
-
 import org.joda.time.DateTime
-
 import rx.lang.scala.Observable
-
 import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
-
 import lib.Config
 
 case class UsageTableFullKey(hashKey: String, rangeKey: String) {
@@ -130,6 +123,22 @@ object UsageTable extends DynamoDB(
 
   def delete(mediaUsage: MediaUsage): Observable[JsObject] =
     updateFromRecord(UsageRecord.buildDeleteRecord(mediaUsage))
+
+  def deleteRecord(mediaUsage: MediaUsage) = {
+    val record = UsageRecord.buildDeleteRecord(mediaUsage)
+
+    Logger.info(s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
+
+    val deleteSpec = new DeleteItemSpec()
+      .withPrimaryKey(
+        hashKeyName,
+        record.hashKey,
+        rangeKeyName,
+        record.rangeKey
+      )
+
+    table.deleteItem(deleteSpec)
+  }
 
   def updateFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
 

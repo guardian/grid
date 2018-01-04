@@ -5,28 +5,22 @@ import java.net.URI
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
-
 import org.joda.time.DateTime
-
-import play.api.libs.json.JsError
+import play.api.libs.json.{JsError, Json}
 import play.api.Logger
 import play.api.mvc.Controller
 import play.api.mvc.Results._
-import play.api.mvc.{Controller, BodyParsers}
+import play.api.mvc.{BodyParsers, Controller}
 import play.utils.UriEncoding
-
 import rx.lang.scala.Observable
-
 import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.ItemQuery
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.{Action, Link, EntityResponse}
+import com.gu.mediaservice.lib.argo.model.{Action, EntityResponse, Link}
 import com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.KeyStore
 import com.gu.mediaservice.lib.aws.NoItemFound
-import com.gu.mediaservice.model.{Usage, PrintUsageRequest}
-
+import com.gu.mediaservice.model.{PrintUsageRequest, Usage}
 import lib._
 import model._
 
@@ -163,5 +157,18 @@ object UsageApi extends Controller with ArgoHelpers {
         }
       )
     }
+  }
+
+  def deleteUsages(mediaId: String) = Authenticated.async {
+    UsageTable.queryByImageId(mediaId).map(usages => {
+      usages.foreach(UsageTable.deleteRecord)
+    }).recover{
+      case error: Exception => {
+        Logger.error("UsageApi returned an error.", error)
+        respondError(InternalServerError, "image-usage-delete-failed", error.getMessage())
+      }
+    }
+    Notifications.publish(Json.obj("id" -> mediaId), "delete-usages")
+    Future.successful(Ok)
   }
 }
