@@ -161,10 +161,7 @@ object UsageApi extends Controller with ArgoHelpers {
 
   def deleteUsages(mediaId: String) = Authenticated.async {
     UsageTable.queryByImageId(mediaId).map(usages => {
-      usages.foreach(usage => {
-        Logger.info(s"removing usage ${usage.usageId} for media id ${usage.mediaId}")
-        UsageTable.delete(usage)
-      })
+      usages.foreach(UsageTable.deleteRecord)
     }).recover{
       case error: Exception => {
         Logger.error("UsageApi returned an error.", error)
