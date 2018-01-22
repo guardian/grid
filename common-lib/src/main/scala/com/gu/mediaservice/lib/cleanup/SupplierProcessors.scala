@@ -248,6 +248,10 @@ object ReutersParser extends ImageProcessor {
       metadata = image.metadata.copy(credit = Some("Reuters"))
     )
     // Others via Reuters
+    case Some("USA TODAY Sports") => image.copy(
+      metadata = image.metadata.copy(credit = Some("USA Today Sports")),
+      usageRights = Agency("Reuters")
+    )
     case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
       usageRights = Agency("Reuters")
     )
