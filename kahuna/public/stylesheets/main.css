@@ -195,6 +195,8 @@ button[disabled],
 .button-save {
     background: #00adee;
     color: white;
+    // above the edit button of a field below
+    z-index: 10;
 }
 .button-save[disabled] {
     background: #888;
