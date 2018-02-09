@@ -1,5 +1,0 @@
-panda.domain={{panda_domain}}
-panda.aws.key={{panda_aws_key}}
-panda.aws.secret={{panda_aws_secret}}
-panda.oauth.domain={{panda_oauth_domain}}
-panda.oauth.multifactor.enable={{panda_oauth_multifactor_enable | lower}}

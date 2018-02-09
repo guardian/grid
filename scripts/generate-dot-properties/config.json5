@@ -1,0 +1,68 @@
+{
+  // where is your cloudformation stack running?
+  aws: {
+    region: 'eu-west-1',
+    profile: 'media-service',
+    stackName: 'media-service-DEV'
+  },
+
+  // Domain root of your site, e.g. foobar.co.uk
+  domainRoot: '',
+
+  // Configuration for pan domain authentication. See https://github.com/guardian/pan-domain-authentication
+  panda: {
+    domain: '',
+    oauthDomain: '',
+    require2FA: true,
+
+    aws: {
+      key: '',
+      secret: ''
+    }
+  },
+
+  mixpanel: {
+    token: ''
+  },
+
+  cors: [
+
+  ],
+
+  // The minimum number of messages to retrieve from SQS to be deemed healthy.
+  sqsMessageMinFrequency: 5,
+
+  // An API key used to ingest images from the s3watcher.
+  s3Watcher: {
+    key: ''
+  },
+
+  // Guardian specific properties for the Usage service
+  capi: {
+    poll:  5,
+    live: {
+      url: '',
+      key: ''
+    },
+    preview: {
+      url: '',
+      user: '',
+      password: ''
+    }
+  },
+
+  crier: {
+    live: {
+      streamName: '',
+      roleArn: ''
+    },
+    preview: {
+      streamName: '',
+      roleArn: ''
+    }
+  },
+
+  composer: {
+    url: ''
+  }
+}

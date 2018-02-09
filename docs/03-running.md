@@ -11,7 +11,6 @@ From the **project root**:
 - media-api `sbt "project media-api" "run 9001"`
 - thrall `sbt "project thrall" "run 9002"`
 - image-loader `sbt "project image-loader" "run 9003"`
-- ftp-watcher (optional, and soon to be deprecated) `sbt -Dftp.active=true "project ftp-watcher" "run 9004"`
 - kahuna `sbt "project kahuna" "run 9005"`
 - cropper `sbt "project cropper" "run 9006"`
 - metadata-editor `sbt "project metadata-editor" "run 9007"`
@@ -59,14 +58,3 @@ From the project root:
 		$ ./the_pingler.sh
 
 and keep it running in a background terminal
-
-## Docker
-Its possible to run Grid using Docker. Please follow the [README](../docker/README.md#setup) beforehand.
-
-To run the containers, run:
-
-```sh
-docker-compose up  -d
-```
-
-NB: This has only been tested in DEV.

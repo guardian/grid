@@ -1,0 +1,16 @@
+{
+  "name": "generate-dot-properties",
+  "version": "1.0.0",
+  "description": "",
+  "main": "generate-dot-properties.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "generate-properties": "./generate-dot-properties.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.158.0",
+    "json5": "^0.5.1"
+  }
+}
