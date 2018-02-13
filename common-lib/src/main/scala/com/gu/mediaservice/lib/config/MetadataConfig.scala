@@ -55,8 +55,9 @@ object MetadataConfig {
     "Sean Smith"      -> "The Guardian",
     "Melissa Davey"   -> "The Guardian",
     "Michael Safi"    -> "The Guardian",
-    "Michael Slezak"    -> "The Guardian",
+    "Michael Slezak"  -> "The Guardian",
     "Sean Smith"      -> "The Guardian",
+    "Carly Earl"      -> "The Guardian",
 
     // Past
     "Dan Chung"             -> "The Guardian",
