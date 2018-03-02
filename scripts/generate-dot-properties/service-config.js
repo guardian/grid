@@ -150,9 +150,6 @@ function getUsageConfig(config) {
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |capi.live.url=${config.capi.live.url}
-        |capi.preview.url=${config.capi.preview.url}
-        |capi.preview.user=${config.capi.preview.user}
-        |capi.preview.password=${config.capi.preview.password}
         |capi.apiKey=${config.capi.live.key}
         |dynamo.tablename.usageRecordTable=${config.stackProps.UsageRecordTable}
         |composer.baseUrl=${config.composer.url}

@@ -42,9 +42,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val capiLiveUrl = properties("capi.live.url")
   val capiApiKey = properties("capi.apiKey")
-  val capiPreviewUrl = properties("capi.preview.url")
-  val capiPreviewUser = properties("capi.preview.user")
-  val capiPreviewPassword = properties("capi.preview.password")
   val capiPageSize = Try(properties("capi.page.size").toInt).getOrElse[Int](defaultPageSize)
   val capiMaxRetries = Try(properties("capi.maxRetries").toInt).getOrElse[Int](defaultMaxRetries)
 

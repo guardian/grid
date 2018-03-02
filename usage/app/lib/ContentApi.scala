@@ -4,14 +4,9 @@ import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.contentapi.buildinfo.CapiBuildInfo
 
-import scala.concurrent.{ExecutionContext, Future}
-
-import com.ning.http.client.Realm.{RealmBuilder, AuthScheme}
-import com.ning.http.client.{AsyncHttpClientConfig, AsyncHttpClient}
+import com.ning.http.client.AsyncHttpClient
 import com.ning.http.client.AsyncHttpClientConfig.Builder
-
 import org.joda.time.{DateTime, DateTimeZone}
-
 import dispatch.Http
 
 trait ContentHelpers {
@@ -21,21 +16,6 @@ trait ContentHelpers {
     date = new DateTime(firstPublicationDate.iso8601, DateTimeZone.UTC)
   } yield date
 
-}
-
-object PreviewContentApi extends ContentApiRequestBuilder {
-  override val targetUrl = Config.capiPreviewUrl
-
-  val realm = new RealmBuilder()
-    .setPrincipal(Config.capiPreviewUser)
-    .setPassword(Config.capiPreviewPassword)
-    .setUsePreemptiveAuth(true)
-    .setScheme(AuthScheme.BASIC)
-    .build()
-
-  val previewBuilder = builder.setRealm(realm)
-
-  override val client = new AsyncHttpClient(previewBuilder.build)
 }
 
 object LiveContentApi extends ContentApiRequestBuilder {
