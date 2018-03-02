@@ -27,8 +27,7 @@ pushd ..
 
 echo "Building $PROJECT"
 
-java -Xmx1024m \
-    -XX:MaxPermSize=256m \
+java -Xmx2048m \
     -XX:ReservedCodeCacheSize=128m \
     -XX:+CMSClassUnloadingEnabled \
     -Dsbt.log.noformat=true \
