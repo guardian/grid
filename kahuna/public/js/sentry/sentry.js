@@ -34,5 +34,9 @@ sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
         raven.config(sentryDsn, {}).install();
         // Ensures user data is blank
         raven.setUserContext({});
+
+        raven.setExtraContext({
+          'session_id': window._clientConfig.sessionId
+        });
     }
 }]);
