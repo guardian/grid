@@ -32,14 +32,7 @@ sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
             ($rootScope, sentryEnabled, sentryDsn) => {
     if (sentryEnabled) {
         raven.config(sentryDsn, {}).install();
-
-        $rootScope.$on('events:user-loaded', (_, user) => {
-            raven.setUserContext({
-                // Underscores get converted into spaces by Sentry:
-                email: user.email,
-                first_name: user.firstName,
-                last_name: user.lastName
-            });
-        });
+        // Ensures user data is blank
+        raven.setUserContext({});
     }
 }]);
