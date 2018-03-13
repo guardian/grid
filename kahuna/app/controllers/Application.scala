@@ -15,7 +15,8 @@ object Application extends Controller {
       Config.authUri,
       s"${Config.authUri}/login?redirectUri=$returnUri",
       Config.watUri,
-      Config.sentryDsn))
+      Config.sentryDsn,
+      Config.sessionId))
   }
 
   def ok = Action { implicit request =>

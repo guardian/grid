@@ -1,6 +1,8 @@
 package com.gu.mediaservice.lib.config
 
 import java.io.File
+import java.util.UUID
+
 import scala.io.Source._
 import play.api.Play
 
@@ -15,6 +17,8 @@ trait CommonPlayAppConfig {
   final val elasticsearchStack = "media-service"
   final val elasticsearchApp   = "elasticsearch"
   final val stackName          = "media-service"
+
+  final val sessionId = UUID.randomUUID().toString()
 
   final val appConfig = Play.current.configuration
 

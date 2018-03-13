@@ -27,11 +27,16 @@ object LogConfig {
 
   case class KinesisAppenderConfig(stream: String, region: String, roleArn: String, bufferSize: Int)
 
-  def makeCustomFields(config: CommonPlayAppConfig) = Json.toJson(Map(
-    "stack" -> config.stackName,
-    "stage" -> config.stage.toUpperCase,
-    "app"   -> config.appName
-  )).toString()
+
+
+  def makeCustomFields(config: CommonPlayAppConfig) = {
+    Json.toJson(Map(
+      "stack" -> config.stackName,
+      "stage" -> config.stage.toUpperCase,
+      "app"   -> config.appName,
+      "sessionId" -> config.sessionId
+    )).toString()
+  }
 
   def makeLayout(customFields: String) = (new LogstashLayout()) <| (_.setCustomFields(customFields))
 

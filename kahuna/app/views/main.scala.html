@@ -2,7 +2,8 @@
   authApiUri: String,
   reauthUri: String,
   watUri: Option[String],
-  sentryDsn: Option[String])
+  sentryDsn: Option[String],
+  sessionId: String)
 <!DOCTYPE html>
 <html>
   <head>
@@ -32,6 +33,12 @@
     <style>
         .ng-cloak { display: none }
     </style>
+
+    <script>
+        this._clientConfig = {
+          sessionId: "@Html(sessionId)"
+        }
+    </script>
 
   </head>
   <body>
