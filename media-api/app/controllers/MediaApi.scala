@@ -74,7 +74,7 @@ object MediaApi extends Controller with ArgoHelpers {
       Link("loader",          loaderUri),
       Link("edits",           metadataUri),
       Link("session",         s"$authUri/session"),
-      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
+      Link("witness-report",  s"https://api.contribly.com/1/contributions?urlWords={id}"),
       Link("collections",     collectionsUri),
       Link("permissions",     s"$rootUri/permissions"),
       Link("leases",          leasesUri)
