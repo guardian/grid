@@ -31,7 +31,6 @@ java -Xmx2048m \
     -XX:ReservedCodeCacheSize=128m \
     -XX:+CMSClassUnloadingEnabled \
     -Dsbt.log.noformat=true \
-    -jar sbt-launch.jar \
-    "set scalaVersion:=\"2.11.6\"" clean compile "project ${PROJECT}" test riffRaffUpload
+    clean compile "project ${PROJECT}" test riffRaffUpload
 
 popd
