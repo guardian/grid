@@ -1,9 +1,8 @@
 package lib
 
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
-import lib.Config.{awsCredentials,stage}
 
-object CollectionsMetrics extends CloudWatchMetrics(s"$stage/Collections", awsCredentials) {
+class CollectionsMetrics(config: CollectionsConfig) extends CloudWatchMetrics(s"${config.stage}/Collections", config.awsCredentials) {
 
   val processingLatency = new TimeMetric("ProcessingLatency")
 

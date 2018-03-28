@@ -11,9 +11,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val properties = Properties.fromPath("/etc/gu/metadata-editor.properties")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
   val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
 
   val keyStoreBucket = properties("auth.keystore.bucket")
@@ -27,6 +24,4 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val rootUri = services.metadataBaseUri
   val kahunaUri = services.kahunaBaseUri
   val loginUriTemplate = services.loginUriTemplate
-
-  val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 }

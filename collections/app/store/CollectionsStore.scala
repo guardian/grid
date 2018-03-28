@@ -3,16 +3,14 @@ package store
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.Collection
+import lib.CollectionsConfig
 import play.api.libs.json.JsValue
-
-import lib.Config
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-object CollectionsStore {
-  import Config.{awsCredentials, collectionsTable, dynamoRegion}
-  val dynamo = new DynamoDB(awsCredentials, dynamoRegion, collectionsTable)
+class CollectionsStore(config: CollectionsConfig) {
+  val dynamo = new DynamoDB(config.awsCredentials, config.dynamoRegion, config.collectionsTable)
 
   def getAll: Future[List[Collection]] = dynamo.scan map { jsonList =>
     jsonList.flatMap(json => (json \ "collection").asOpt[Collection])

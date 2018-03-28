@@ -1,9 +1,0 @@
-[Unit]
-Description=Auth
-
-[Service]
-User=media-service
-EnvironmentFile=/home/media-service/conf.env
-WorkingDirectory=/home/media-service
-ExecStart=/home/media-service/bin/auth
-StandardOutput=syslog

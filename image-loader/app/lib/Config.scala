@@ -12,9 +12,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val properties = Properties.fromPath("/etc/gu/image-loader.properties")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
   val topicArn: String = properties("sns.topic.arn")
 
   val imageBucket: String = properties("s3.image.bucket")
@@ -33,9 +30,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val rootUri = services.loaderBaseUri
   val apiUri = services.apiBaseUri
   val loginUriTemplate = services.loginUriTemplate
-
-  lazy val corsAllAllowedOrigins: List[String] = List(services.kahunaBaseUri)
-
 
   val supportedMimeTypes = List("image/jpeg", "image/png")
 

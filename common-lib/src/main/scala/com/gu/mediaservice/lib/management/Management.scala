@@ -13,6 +13,10 @@ class Management(override val controllerComponents: ControllerComponents) extend
     Ok("OK")
   }
 
+  def disallowRobots = Action {
+    Ok("User-agent: *\nDisallow: /\n")
+  }
+
   lazy val stringManifest: Option[String] =
     for (stream <- Option(getClass.getResourceAsStream("/version.txt")))
     yield Source.fromInputStream(stream, "UTF-8").getLines.mkString("\n")

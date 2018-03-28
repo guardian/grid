@@ -21,9 +21,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val properties = Properties.fromPath("/etc/gu/usage.properties")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
   val keyStoreBucket = properties("auth.keystore.bucket")
 
   lazy val rootUri = services.metadataBaseUri
@@ -56,8 +53,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
   val awsRegionName = properties("aws.region")
-
-  val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 
   val crierLiveKinesisStream = Try { properties("crier.live.name") }
   val crierPreviewKinesisStream = Try {properties("crier.preview.name") }

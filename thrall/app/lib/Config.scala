@@ -16,8 +16,6 @@ object Config extends CommonPlayAppConfig {
 
   def queueUrl: String = properties("sqs.queue.url")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
   val ec2Client: AmazonEC2Client =
     new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
 

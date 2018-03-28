@@ -12,12 +12,12 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Authentication[A](keyStore: KeyStore, _loginUriTemplate: String, authCallbackBaseUri: String,
-                       override val parser: BodyParser[AnyContent],
-                       override val wsClient: WSClient,
-                       override val controllerComponents: ControllerComponents,
-                       override val panDomainSettings: PanDomainAuthSettingsRefresher,
-                       override val executionContext: ExecutionContext)
+class Authentication(keyStore: KeyStore, _loginUriTemplate: String, authCallbackBaseUri: String,
+                     override val parser: BodyParser[AnyContent],
+                     override val wsClient: WSClient,
+                     override val controllerComponents: ControllerComponents,
+                     override val panDomainSettings: PanDomainAuthSettingsRefresher,
+                     override val executionContext: ExecutionContext)
 
   extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoErrorResponses {
 
@@ -59,4 +59,9 @@ object Authentication {
   case class AuthenticatedService(name: String) extends Principal
 
   type Request[A] = AuthenticatedRequest[A, Principal]
+
+  def getEmail(principal: Principal): String = principal match {
+    case PandaUser(User(email, _, _, _)) => email
+    case _ => principal.name
+  }
 }

@@ -19,9 +19,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
 
   val properties = Properties.fromPath("/etc/gu/media-api.properties")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
   val keyStoreBucket: String = properties("auth.keystore.bucket")
 
   val configBucket: String = properties("s3.config.bucket")
@@ -72,10 +69,6 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   lazy val authUri: String = services.authBaseUri
   lazy val loginUriTemplate: String = services.loginUriTemplate
   lazy val collectionsUri: String = services.collectionsBaseUri
-
-  private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
-  lazy val corsAllAllowedOrigins: List[String] =
-    services.kahunaBaseUri :: corsAllowedOrigins
 
   val requiredMetadata = List("credit", "description", "usageRights")
 

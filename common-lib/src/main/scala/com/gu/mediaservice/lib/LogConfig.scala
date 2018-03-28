@@ -1,24 +1,17 @@
 package lib
 
-import java.io.File
-
-import ch.qos.logback.classic.{Logger => LogbackLogger, LoggerContext}
 import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.util.Duration
-import ch.qos.logback.core.{FileAppender, ConsoleAppender}
-
-import net.logstash.logback.layout.LogstashLayout
-import org.slf4j.{Logger => SLFLogger, LoggerFactory}
-
-import com.gu.mediaservice.lib.config.CommonPlayAppConfig
+import ch.qos.logback.classic.{LoggerContext, Logger => LogbackLogger}
 import com.gu.logback.appender.kinesis.KinesisAppender
-
-import play.api.{ Logger, LoggerLike }
-import play.api.LoggerLike
+import com.gu.mediaservice.lib.config.CommonConfig
+import net.logstash.logback.layout.LogstashLayout
+import org.slf4j.{LoggerFactory, Logger => SLFLogger}
+import play.api.ApplicationLoader.Context
+import play.api.LoggerConfigurator
 import play.api.libs.json._
 
-import scalaz.syntax.id._
 import scala.util.Try
+import scalaz.syntax.id._
 
 
 object LogConfig {
@@ -29,7 +22,7 @@ object LogConfig {
 
 
 
-  def makeCustomFields(config: CommonPlayAppConfig) = {
+  def makeCustomFields(config: CommonConfig) = {
     Json.toJson(Map(
       "stack" -> config.stackName,
       "stage" -> config.stage.toUpperCase,
@@ -54,7 +47,7 @@ object LogConfig {
       a.start()
   }
 
-  def init(config: CommonPlayAppConfig) = config.stage match {
+  def init(config: CommonConfig): Unit = config.stage match {
     case "DEV" =>  rootLogger.info("Logging disabled in DEV")
     case _  => Try {
       rootLogger.info("LogConfig initializing")
@@ -79,5 +72,14 @@ object LogConfig {
     } recover {
       case e => rootLogger.error("LogConfig Failed!", e)
     }
+  }
+
+  def init(context: Context): Unit = {
+    LoggerConfigurator(context.environment.classLoader).foreach {
+      _.configure(context.environment, context.initialConfiguration, Map.empty)
+    }
+
+    // TODO MRB: enable kinesis logging
+    // init(???)
   }
 }

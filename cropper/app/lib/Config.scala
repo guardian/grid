@@ -11,9 +11,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val properties = Properties.fromPath("/etc/gu/cropper.properties")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
   val configBucket: String = properties("s3.config.bucket")
 
   val imgPublishingBucket = properties("publishing.image.bucket")
@@ -32,8 +29,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val apiUri = services.apiBaseUri
   val kahunaUri = services.kahunaBaseUri
   val loginUriTemplate = services.loginUriTemplate
-
-  val corsAllAllowedOrigins = List(services.kahunaBaseUri)
 
   val tempDir: File = new File(properties.getOrElse("crop.output.tmp.dir", "/tmp"))
 

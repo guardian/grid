@@ -11,9 +11,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val properties = Properties.fromPath("/etc/gu/leases.properties")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
-
   val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
 
   val keyStoreBucket = properties("auth.keystore.bucket")
@@ -25,7 +22,4 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val rootUri = services.leasesBaseUri
   val kahunaUri = services.kahunaBaseUri
   val loginUriTemplate = services.loginUriTemplate
-
-  private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
-  val corsAllAllowedOrigins = services.kahunaBaseUri :: corsAllowedOrigins
 }

@@ -3,13 +3,14 @@ package com.gu.mediaservice.lib.config
 import java.io.File
 import java.util.UUID
 
+import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
+import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import play.api.Configuration
 
 import scala.io.Source._
 
 
-trait CommonPlayAppConfig {
-
+trait CommonConfig {
   val appName: String
   val configuration: Configuration
   val properties: Map[String, String]
@@ -20,6 +21,20 @@ trait CommonPlayAppConfig {
   final val stackName          = "media-service"
 
   final val sessionId = UUID.randomUUID().toString()
+
+  final val awsCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+    new ProfileCredentialsProvider("media-service"),
+    InstanceProfileCredentialsProvider.getInstance()
+  )
+
+  // Note: had to make these lazy to avoid init order problems ;_;
+  lazy val ssl: Boolean = properties.get("ssl").map(_.toBoolean).getOrElse(true)
+  lazy val domainRoot: String = properties("domain.root")
+
+  lazy val services = new Services(domainRoot, ssl)
+
+  private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
+  val corsAllAllowedOrigins = services.kahunaBaseUri :: corsAllowedOrigins
 
   final def apply(key: String): String =
     string(key)
@@ -39,5 +54,4 @@ trait CommonPlayAppConfig {
     val file = new File("/etc/gu/stage")
     if (file.exists) Some(fromFile(file).mkString.trim) else None
   }
-
 }

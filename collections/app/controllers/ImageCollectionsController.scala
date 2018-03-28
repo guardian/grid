@@ -1,30 +1,29 @@
 package controllers
 
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-
-import org.joda.time.DateTime
-import play.api.libs.json.{Json, JsObject}
-import play.api.mvc.Controller
-
-import com.gu.mediaservice.lib.collections.CollectionsManager
-import com.gu.mediaservice.lib.aws.{NoItemFound, DynamoDB}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.Authentication.getEmail
+import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
+import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.{ActionData, Collection}
+import lib.{CollectionsConfig, Notifications}
+import org.joda.time.DateTime
+import play.api.libs.json.Json
+import play.api.mvc.{BaseController, ControllerComponents}
 
-import lib.{Notifications, Config, ControllerHelper}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 
-object ImageCollectionsController extends Controller with ArgoHelpers {
+class ImageCollectionsController(authenticated: Authentication, config: CollectionsConfig, notifications: Notifications,
+                                 override val controllerComponents: ControllerComponents)
+  extends BaseController with ArgoHelpers {
 
-  import ControllerHelper.getUserFromReq
   import CollectionsManager.onlyLatest
-  import Config.{awsCredentials, dynamoRegion, imageCollectionsTable}
 
-  val Authenticated = ControllerHelper.Authenticated
-  val dynamo = new DynamoDB(awsCredentials, dynamoRegion, imageCollectionsTable)
+  val dynamo = new DynamoDB(config.awsCredentials, config.dynamoRegion, config.imageCollectionsTable)
 
-  def getCollections(id: String) = Authenticated.async { req =>
+  def getCollections(id: String) = authenticated.async { req =>
     dynamo.listGet[Collection](id, "collections").map { collections =>
       respond(onlyLatest(collections))
     } recover {
@@ -32,9 +31,9 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
     }
   }
 
-  def addCollection(id: String) = Authenticated.async(parse.json) { req =>
+  def addCollection(id: String) = authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
-      val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now()))
+      val collection = Collection.build(path, ActionData(getEmail(req.user), DateTime.now()))
       dynamo.listAdd(id, "collections", collection)
         .map(publish(id))
         .map(cols => respond(collection))
@@ -42,7 +41,7 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
   }
 
 
-  def removeCollection(id: String, collectionString: String) = Authenticated.async { req =>
+  def removeCollection(id: String, collectionString: String) = authenticated.async { req =>
     val path = CollectionsManager.uriToPath(collectionString)
     // We do a get to be able to find the index of the current collection, then remove it.
     // Given that we're using Dynamo Lists this seemed like a decent way to do it.
@@ -68,7 +67,7 @@ object ImageCollectionsController extends Controller with ArgoHelpers {
       "data" -> Json.toJson(onlyLatestCollections)
     )
 
-    Notifications.publish(message, "set-image-collections")
+    notifications.publish(message, "set-image-collections")
     onlyLatestCollections
   }
 }

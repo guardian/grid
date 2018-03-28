@@ -1,37 +1,33 @@
-package controllers
-
+package auth
 
 import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.{ArgoErrorResponses, Authentication}
-import com.gu.pandomainauth.service.GoogleAuthException
 import com.gu.pandomainauth.model.{User => PandaUser}
-import lib.Config
+import com.gu.pandomainauth.service.GoogleAuthException
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Application(auth: Authentication[_],
-                  override val controllerComponents: ControllerComponents,
-                  override val loginUriTemplate: String)
+class AuthController(auth: Authentication, config: AuthConfig,
+                     override val controllerComponents: ControllerComponents,
+                     override val loginUriTemplate: String)(implicit ec: ExecutionContext)
   extends BaseController
   with ArgoHelpers
   with ArgoErrorResponses {
 
-  import Config.{domainRoot, mediaApiUri, rootUri}
-
   val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
     val indexLinks = List(
-      Link("root",          mediaApiUri),
+      Link("root",          config.mediaApiUri),
       Link("login",         loginUriTemplate),
-      Link("ui:logout",     s"$rootUri/logout"),
-      Link("session",       s"$rootUri/session"),
-      Link("permissions",   s"$rootUri/permissions")
+      Link("ui:logout",     s"${config.rootUri}/logout"),
+      Link("session",       s"${config.rootUri}/session"),
+      Link("permissions",   s"${config.rootUri}/permissions")
     )
     respond(indexData, indexLinks)
   }
@@ -60,7 +56,7 @@ class Application(auth: Authentication[_],
 
 
   def isOwnDomainAndSecure(uri: URI): Boolean = {
-    uri.getHost.endsWith(domainRoot) && uri.getScheme == "https"
+    uri.getHost.endsWith(config.domainRoot) && uri.getScheme == "https"
   }
   def isValidDomain(inputUri: String): Boolean = {
     Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess
