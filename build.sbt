@@ -16,8 +16,13 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.typesafe.play" %% "play" % "2.6.12",
+    "com.gu" %% "pan-domain-auth-core" % "0.7.0",
+    "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.0",
+    "com.gu" %% "editorial-permissions-client" % "0.8",
     "com.amazonaws" % "aws-java-sdk" % "1.11.302",
     "org.elasticsearch" % "elasticsearch" % "1.7.6",
+    "com.gu" %% "box" % "0.2.0",
+    "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0"
   )

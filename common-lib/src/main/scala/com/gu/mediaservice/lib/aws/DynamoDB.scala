@@ -4,18 +4,16 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.auth.AWSCredentials
 import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
-import com.amazonaws.services.dynamodbv2.document.spec.{PutItemSpec, DeleteItemSpec, GetItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import play.api.libs.json._
+
 import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext.Implicits.global
-
-
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
-import scala.collection.JavaConverters._
 
 object NoItemFound extends Throwable("item not found")
 
