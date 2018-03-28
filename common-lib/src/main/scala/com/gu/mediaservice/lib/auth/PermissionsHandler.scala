@@ -1,28 +1,20 @@
 package com.gu.mediaservice.lib.auth
 
 import com.gu.editorial.permissions.client._
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-
+import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import org.slf4j.LoggerFactory
+
+import scala.concurrent.{ExecutionContext, Future}
 
 
 object PermissionDeniedError extends Throwable("Permission denied")
 
 object PermissionsHandler {
-  val failFuture = Future.failed(PermissionDeniedError)
   private lazy val log = LoggerFactory.getLogger(getClass)
 
-  def validateUserWithPermissions(user: Principal, permission: Permission)
-                                 (implicit ec: ExecutionContext): Future[Principal] =
-    hasPermission(user, permission) flatMap {
-      case true  => Future.successful(user)
-      case false => failFuture
-    }
-
-  def hasPermission(user: Principal, permission: Permission) : Future[Boolean] = {
+  def hasPermission(user: Principal, permission: Permission)(implicit ec: ExecutionContext): Future[Boolean] = {
     user match {
-      case u: PandaUser => {
+      case PandaUser(u) => {
         Permissions.get(permission)(PermissionsUser(u.email)).map {
           case PermissionGranted => true
           case PermissionDenied => false
@@ -35,7 +27,7 @@ object PermissionsHandler {
         }}
       }
       // think about only allowing certain services i.e. on `service.name`?
-      case service: AuthenticatedService => Future.successful(true)
+      case AuthenticatedService(_) => Future.successful(true)
       case _ => Future.successful(false)
     }
   }

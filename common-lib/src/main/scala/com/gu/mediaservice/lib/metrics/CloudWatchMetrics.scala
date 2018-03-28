@@ -1,18 +1,16 @@
 package com.gu.mediaservice.lib.metrics
 
-import scala.collection.JavaConverters._
-import scala.concurrent.duration._
+import com.amazonaws.auth.AWSCredentialsProvider
+import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, StandardUnit}
+import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
 import org.slf4j.LoggerFactory
 
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClient}
-import com.amazonaws.services.cloudwatch.model.{Dimension, StandardUnit, MetricDatum, PutMetricDataRequest}
-
+import scala.collection.JavaConverters._
+import scala.concurrent.duration._
 import scalaz.concurrent.Task
-import scalaz.stream.async, async.mutable.Topic
-import scalaz.stream.Sink
 import scalaz.stream.Process.{constant, emitAll}
-import scalaz.syntax.id._
+import scalaz.stream.{Sink, async}
+import scalaz.stream.async.mutable.Topic
 
 trait Metric[A] {
 
@@ -25,7 +23,7 @@ trait Metric[A] {
   def runRecordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Unit
 }
 
-abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials) {
+abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentialsProvider) {
 
   /** The maximum number of data points to report in one batch.
     * (Each batch costs 1 HTTP request to CloudWatch)
@@ -39,7 +37,7 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     */
   val maxAge: Duration = 1.minute
 
-  import scalaz.{\/, -\/, \/-}
+  import scalaz.{-\/, \/, \/-}
 
   private[metrics] val loggingErrors: Throwable \/ Unit => Unit = {
     case -\/(e) => logger.error(s"Error while publishing metrics", e)
@@ -66,8 +64,9 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentials)
     putData(data).handle { case e: RuntimeException => logger.error(s"Error while publishing metrics", e) }
   }
 
-  private val client: AmazonCloudWatch =
-    new AmazonCloudWatchClient(credentials) <| (_ setEndpoint "monitoring.eu-west-1.amazonaws.com")
+  private val client: AmazonCloudWatch = AmazonCloudWatchClientBuilder.standard()
+    .withCredentials(credentials)
+    .build()
 
   private def putData(data: Seq[MetricDatum]): Task[Unit] = Task {
     client.putMetricData(new PutMetricDataRequest()

@@ -1,26 +1,24 @@
 package com.gu.mediaservice.lib.aws
 
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.regions.Region
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
+import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBClientBuilder}
 import play.api.libs.json._
 
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.syntax.id._
 
 object NoItemFound extends Throwable("item not found")
 
-class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
+class DynamoDB(credentials: AWSCredentialsProvider, region: String, tableName: String) {
 
-  lazy val client: AmazonDynamoDBClient =
-    new AmazonDynamoDBClient(credentials) <| (_ setRegion region)
+  lazy val client: AmazonDynamoDB = AmazonDynamoDBClientBuilder.standard()
+    .withCredentials(credentials)
+    .withRegion(region).build()
 
   lazy val dynamo = new AwsDynamoDB(client)
   lazy val table: Table = dynamo.getTable(tableName)
@@ -62,9 +60,9 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       s"REMOVE $key"
     )
 
-  def deleteItem(id: String): Future[Unit] = Future {
+  def deleteItem(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
-  } map (spec => ())
+  }.mapTo[Unit]
 
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Option[Boolean]] =
@@ -200,7 +198,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
   } map (outcome => value)
 
   def scan()(implicit ex: ExecutionContext) = Future {
-    table.scan().iterator.toList
+    table.scan().iterator.asScala.toList
   } map (_.map(asJsObject))
 
   def update(id: String, expression: String, valueMap: ValueMap)

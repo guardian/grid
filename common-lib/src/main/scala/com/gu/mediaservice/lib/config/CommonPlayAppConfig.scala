@@ -3,14 +3,15 @@ package com.gu.mediaservice.lib.config
 import java.io.File
 import java.util.UUID
 
+import play.api.Configuration
+
 import scala.io.Source._
-import play.api.Play
 
 
 trait CommonPlayAppConfig {
 
   val appName: String
-
+  val configuration: Configuration
   val properties: Map[String, String]
 
   final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
@@ -20,16 +21,14 @@ trait CommonPlayAppConfig {
 
   final val sessionId = UUID.randomUUID().toString()
 
-  final val appConfig = Play.current.configuration
-
   final def apply(key: String): String =
     string(key)
 
   final def string(key: String): String =
-    appConfig.getString(key) getOrElse missing(key, "string")
+    configuration.getOptional[String](key) getOrElse missing(key, "string")
 
   final def int(key: String): Int =
-    appConfig.getInt(key) getOrElse missing(key, "integer")
+    configuration.getOptional[Int](key) getOrElse missing(key, "integer")
 
   final val stage: String = stageFromFile getOrElse "DEV"
 

@@ -1,6 +1,8 @@
 package com.gu.mediaservice.model
 
 import org.joda.time.DateTime
+import play.api.libs.json.JodaReads.jodaDateReads
+import play.api.libs.json.JodaWrites.jodaDateWrites
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -34,8 +36,8 @@ object Collection {
 // TODO: Use this in crop too
 case class ActionData(author: String, date: DateTime)
 object ActionData {
-  implicit def formats: Format[ActionData] = Json.format[ActionData]
   // TODO: Use the generic formats for DateTime
-  implicit val dateWrites = Writes.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
-  implicit val dateReads = Reads.jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit val dateReads = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  implicit def formats: Format[ActionData] = Json.format[ActionData]
 }

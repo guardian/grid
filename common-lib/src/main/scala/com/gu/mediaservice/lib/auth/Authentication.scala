@@ -3,15 +3,16 @@ package com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
 import com.gu.mediaservice.lib.config.Properties
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
-import com.gu.pandomainauth.action.AuthActions
+import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
+import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Authenticated[A](keyStore: KeyStore, _loginUriTemplate: String, authCallbackBaseUri: String,
+class Authentication[A](keyStore: KeyStore, _loginUriTemplate: String, authCallbackBaseUri: String,
                        override val parser: BodyParser[AnyContent],
                        override val wsClient: WSClient,
                        override val controllerComponents: ControllerComponents,
@@ -35,7 +36,7 @@ class Authenticated[A](keyStore: KeyStore, _loginUriTemplate: String, authCallba
           case None => Future.successful(invalidApiKeyResult)
         }
       case None =>
-        APIAuthAction.invokeBlock(request, userRequest => {
+        APIAuthAction.invokeBlock(request, (userRequest: UserRequest[A]) => {
           block(new AuthenticatedRequest(PandaUser(userRequest.user), request))
         })
     }

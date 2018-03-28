@@ -1,18 +1,22 @@
 package lib
 
-import com.amazonaws.regions.{RegionUtils, Region}
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
-import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
+import com.amazonaws.auth.profile.ProfileCredentialsProvider
+import com.amazonaws.regions.{Region, RegionUtils}
+import com.gu.mediaservice.lib.config.{CommonPlayAppConfig, CommonPlayAppProperties, Properties}
+import com.amazonaws.auth._
+import play.api.Configuration
 
 
-object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
+class Config(override val configuration: Configuration) extends CommonPlayAppProperties with CommonPlayAppConfig {
 
   val appName = "collections"
 
   val properties = Properties.fromPath("/etc/gu/collections.properties")
 
-  val awsCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("aws.id"), properties("aws.secret"))
+  val awsCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+    new ProfileCredentialsProvider("media-service"),
+    InstanceProfileCredentialsProvider.getInstance()
+  )
 
   val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
 

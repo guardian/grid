@@ -5,6 +5,7 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.argo.model._
 import org.joda.time.DateTime
+import JodaWrites._
 
 case class LeaseByMedia(
   leases: List[MediaLease],
@@ -12,7 +13,6 @@ case class LeaseByMedia(
   current: Option[MediaLease]
 )
 case object LeaseByMedia {
-  implicit val dateTimeFormat = DateFormat
   implicit val reader : Reads[LeaseByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeaseByMedia.build(_))
 
   implicit val writer = new Writes[LeaseByMedia] {

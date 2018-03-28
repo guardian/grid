@@ -30,7 +30,6 @@ case class Image(
 object Image {
 
   import com.gu.mediaservice.lib.formatting._
-  implicit val dateTimeFormat = DateFormat
 
   // FIXME: many fields made nullable to accomodate for legacy data that pre-dates them.
   // We should migrate the data for better consistency so nullable can be retired.

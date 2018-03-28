@@ -1,15 +1,16 @@
 package com.gu.mediaservice.lib
 
 import java.io.File
+
 import scala.concurrent.Future
 import scala.collection.JavaConverters._
-import com.amazonaws.auth.AWSCredentials
+import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider}
 import com.gu.mediaservice.lib.aws.S3
 import org.slf4j.LoggerFactory
 
 // TODO: If deleteObject fails - we should be catching the errors here
 // to avoid them bubbling to the application
-class S3ImageStorage(credentials: AWSCredentials) extends S3(credentials) with ImageStorage {
+class S3ImageStorage(credentials: AWSCredentialsProvider) extends S3(credentials) with ImageStorage {
   private val log = LoggerFactory.getLogger(getClass)
 
   def storeImage(bucket: String, id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =

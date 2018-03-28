@@ -4,6 +4,8 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
 import org.joda.time.DateTime
+import JodaWrites._
+import JodaReads._
 
 
 sealed trait MediaLeaseType { def name: String }
@@ -43,7 +45,6 @@ case class MediaLease(
   def active = afterStart && beforeEnd
 }
 case object MediaLease {
-  implicit val dateTimeFormat = DateFormat
   implicit val MediaLeaseReads = Json.reads[MediaLease]
 
   val MediaLeasePlainWrites = Json.writes[MediaLease]

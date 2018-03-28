@@ -7,7 +7,6 @@ import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
-import play.api.libs.concurrent.Execution.Implicits._
 
 import scala.concurrent.Future
 import scala.sys.process._
@@ -15,11 +14,11 @@ import scala.sys.process._
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
-object ImageOperations {
+class ImageOperations(playPath: String) {
   import ExifTool._
   import ImageMagick._
 
-  private def profilePath(fileName: String): String = s"${play.api.Play.current.path}/$fileName"
+  private def profilePath(fileName: String): String = s"$playPath/$fileName"
 
   private def profileLocation(colourModel: String, optimised: Boolean = false): String = colourModel match {
     case "RGB" if optimised => profilePath("facebook-TINYsRGB_c2.icc")
@@ -59,7 +58,7 @@ object ImageOperations {
       case "image/png" => {
 
         // assume that the colour model is RGB for pngs
-        Future(Some("RGB"))
+        Future.successful(Some("RGB"))
       }
     }
   }

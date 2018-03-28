@@ -3,30 +3,26 @@ package controllers
 
 import java.net.URI
 
-import lib.Config
-import play.api.libs.json.Json
-import play.api.mvc.{Action, Controller}
-import com.gu.mediaservice.lib.auth.{ArgoErrorResponses, PanDomainAuthActions}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.auth.{ArgoErrorResponses, Authentication}
 import com.gu.pandomainauth.service.GoogleAuthException
+import com.gu.pandomainauth.model.{User => PandaUser}
+import lib.Config
+import play.api.libs.json.Json
+import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Success, Try, Failure}
+import scala.util.Try
 
-object Application extends Controller
-  with PanDomainAuthActions
+class Application(auth: Authentication[_],
+                  override val controllerComponents: ControllerComponents,
+                  override val loginUriTemplate: String)
+  extends BaseController
   with ArgoHelpers
   with ArgoErrorResponses {
 
-  override lazy val authCallbackBaseUri = Config.rootUri
-  override lazy val loginUriTemplate    = Config.loginUriTemplate
-
   import Config.{domainRoot, mediaApiUri, rootUri}
-
-  val Authenticated = new PandaAuthenticated(loginUriTemplate, authCallbackBaseUri)
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
@@ -40,9 +36,9 @@ object Application extends Controller
     respond(indexData, indexLinks)
   }
 
-  def index = Authenticated { indexResponse }
+  def index = auth.AuthAction { indexResponse }
 
-  def session = Authenticated { request =>
+  def session = auth.AuthAction { request =>
     request.user match {
       case PandaUser(email, firstName, lastName, avatarUrl) =>
         respond(
@@ -75,7 +71,7 @@ object Application extends Controller
   // If a redirectUri is provided, redirect the browser there once auth'd,
   // else return a dummy page (e.g. for automatically re-auth'ing in the background)
   // FIXME: validate redirectUri before doing the auth
-  def doLogin(redirectUri: Option[String] = None) = AuthAction { req =>
+  def doLogin(redirectUri: Option[String] = None) = auth.AuthAction { req =>
     redirectUri map {
       case uri if isValidDomain(uri) => Redirect(uri)
       case _ => Ok("logged in (not redirecting to external redirectUri)")
@@ -86,7 +82,7 @@ object Application extends Controller
     // We use the `Try` here as the `GoogleAuthException` are thrown before we
     // get to the asynchronicity of the `Future` it returns.
     // We then have to flatten the Future[Future[T]]. Fiddly...
-    Future.fromTry(Try(processGoogleCallback)).flatMap(successF => successF).recover {
+    Future.fromTry(Try(auth.processGoogleCallback)).flatMap(successF => successF).recover {
       // This is when session session args are missing
       case e: GoogleAuthException =>
         respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
@@ -94,7 +90,6 @@ object Application extends Controller
   }
 
   def logout = Action { implicit request =>
-    processLogout
+    auth.processLogout
   }
-
 }

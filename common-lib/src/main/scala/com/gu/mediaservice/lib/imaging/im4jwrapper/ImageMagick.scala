@@ -15,7 +15,7 @@ import com.gu.mediaservice.model.{Dimensions, Bounds}
 
 
 object ImageMagick {
-  private implicit val ctx: ExecutionContext =
+  implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
 
   def addImage(source: File) = (new IMOperation()) <| { op => { op.addImage(source.getAbsolutePath) }}

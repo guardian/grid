@@ -3,10 +3,9 @@ package com.gu.mediaservice.lib
 import java.io.InputStream
 
 import _root_.play.api.Logger
-import _root_.play.api.libs.concurrent.Execution.Implicits._
 import akka.actor.Scheduler
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.auth.AWSCredentials
+import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider}
 import com.amazonaws.util.IOUtils
 import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
@@ -14,10 +13,11 @@ import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentialsProvider)(implicit ec: ExecutionContext) {
   val s3 = new S3(credentials)
 
   private val log = LoggerFactory.getLogger(getClass)

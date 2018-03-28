@@ -18,7 +18,8 @@ case class PrintUsageRecord(
   usageStatus: UsageStatus
 )
 object PrintUsageRecord {
-  implicit val dateTimeFormat = DateFormat
+  import JodaWrites._
+  import JodaReads._
 
   implicit val reads: Reads[PrintUsageRecord] = Json.reads[PrintUsageRecord]
   implicit val writes: Writes[PrintUsageRecord] = Json.writes[PrintUsageRecord]

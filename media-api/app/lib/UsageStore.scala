@@ -15,7 +15,7 @@ import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 
 
@@ -195,7 +195,7 @@ class QuotaStore(
   quotaFile: String,
   bucket: String,
   credentials: AWSCredentials
-) extends BaseStore[String, SupplierUsageQuota](bucket, credentials) {
+)(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, credentials)(ec) {
 
   def getQuota(): Future[Map[String, SupplierUsageQuota]] = for {
       s <- store.future

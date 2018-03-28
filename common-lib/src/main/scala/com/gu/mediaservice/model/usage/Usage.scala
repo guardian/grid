@@ -17,13 +17,8 @@ case class Usage(
   digitalUsageMetadata: Option[DigitalUsageMetadata] = None
 )
 object Usage {
-  implicit val dateTimeWrites: Writes[DateTime] = new Writes[DateTime] {
-    def writes(d: DateTime) = DateFormat.writes(d)
-  }
-
-  implicit val dateTimeReads: Reads[DateTime] = new Reads[DateTime] {
-    def reads(json: JsValue) = DateFormat.reads(json)
-  }
+  import JodaWrites._
+  import JodaReads._
 
   implicit val writes: Writes[Usage] = Json.writes[Usage]
   implicit val reads: Reads[Usage] = Json.reads[Usage]

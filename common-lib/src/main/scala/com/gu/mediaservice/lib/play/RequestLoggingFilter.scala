@@ -2,13 +2,13 @@ package com.gu.mediaservice.lib.play
 
 import akka.stream.Materializer
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import play.api.mvc.{Filter, RequestHeader, Result}
 import play.api.Logger
 import com.gu.mediaservice.lib.metrics.StopWatch
 
-class RequestLoggingFilter(override val mat: Materializer) extends Filter {
+class RequestLoggingFilter(override val mat: Materializer)(implicit ec: ExecutionContext) extends Filter {
 
   private val logger = Logger("request")
 
