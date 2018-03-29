@@ -4,7 +4,7 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.{ArgoErrorResponses, Authentication}
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.pandomainauth.model.{User => PandaUser}
 import com.gu.pandomainauth.service.GoogleAuthException
 import play.api.libs.json.Json
@@ -14,17 +14,15 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class AuthController(auth: Authentication, config: AuthConfig,
-                     override val controllerComponents: ControllerComponents,
-                     override val loginUriTemplate: String)(implicit ec: ExecutionContext)
+                     override val controllerComponents: ControllerComponents)(implicit ec: ExecutionContext)
   extends BaseController
-  with ArgoHelpers
-  with ArgoErrorResponses {
+  with ArgoHelpers {
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
     val indexLinks = List(
       Link("root",          config.mediaApiUri),
-      Link("login",         loginUriTemplate),
+      Link("login",         auth.loginUriTemplate),
       Link("ui:logout",     s"${config.rootUri}/logout"),
       Link("session",       s"${config.rootUri}/session"),
       Link("permissions",   s"${config.rootUri}/permissions")
@@ -81,7 +79,7 @@ class AuthController(auth: Authentication, config: AuthConfig,
     Future.fromTry(Try(auth.processGoogleCallback)).flatMap(successF => successF).recover {
       // This is when session session args are missing
       case e: GoogleAuthException =>
-        respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
+        respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)
     }
   }
 

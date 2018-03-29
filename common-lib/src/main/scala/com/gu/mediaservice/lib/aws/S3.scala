@@ -7,6 +7,7 @@ import java.nio.charset.{Charset, StandardCharsets}
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.Image
 import org.joda.time.DateTime
 
@@ -17,15 +18,14 @@ case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
 case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
-class S3(credentials: AWSCredentialsProvider) {
+class S3(config: CommonConfig) {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
 
   val s3Endpoint = "s3.amazonaws.com"
 
-  lazy val client: AmazonS3 = AmazonS3ClientBuilder
-    .standard().withCredentials(credentials).build()
+  lazy val client: AmazonS3 = config.withAWSCredentials(AmazonS3ClientBuilder.standard()).build()
 
   private def removeExtension(filename: String): String = {
     val regex = """\.[a-zA-Z]{3,4}$""".r

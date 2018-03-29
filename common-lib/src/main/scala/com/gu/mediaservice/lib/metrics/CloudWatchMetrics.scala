@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.metrics
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, StandardUnit}
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
+import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -23,7 +24,7 @@ trait Metric[A] {
   def runRecordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Unit
 }
 
-abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentialsProvider) {
+abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
 
   /** The maximum number of data points to report in one batch.
     * (Each batch costs 1 HTTP request to CloudWatch)
@@ -64,9 +65,7 @@ abstract class CloudWatchMetrics(namespace: String, credentials: AWSCredentialsP
     putData(data).handle { case e: RuntimeException => logger.error(s"Error while publishing metrics", e) }
   }
 
-  private val client: AmazonCloudWatch = AmazonCloudWatchClientBuilder.standard()
-    .withCredentials(credentials)
-    .build()
+  private val client: AmazonCloudWatch = config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
 
   private def putData(data: Seq[MetricDatum]): Task[Unit] = Task {
     client.putMetricData(new PutMetricDataRequest()

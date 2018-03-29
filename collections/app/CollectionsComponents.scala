@@ -17,7 +17,6 @@ class CollectionsComponents(context: Context) extends GridComponents(context)
   with GzipFilterComponents {
 
   final override lazy val config = new CollectionsConfig(configuration)
-  final override lazy val corsPathPrefixes = config.corsAllAllowedOrigins
 
   val store = new CollectionsStore(config)
   val metrics = new CollectionsMetrics(config)
@@ -26,8 +25,6 @@ class CollectionsComponents(context: Context) extends GridComponents(context)
   val collections = new CollectionsController(auth, config, store, controllerComponents)
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
   val management = new Management(controllerComponents)
-
-  keyStore.scheduleUpdates(actorSystem.scheduler)
 
   // TODO MRB: how to abstract this out to common?
   final override def httpFilters: Seq[EssentialFilter] = super.httpFilters ++ Seq(

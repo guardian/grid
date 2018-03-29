@@ -1,7 +1,10 @@
 package com.gu.mediaservice.lib.auth
 
+import akka.actor.ActorSystem
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
-import com.gu.mediaservice.lib.config.Properties
+import com.gu.mediaservice.lib.config.{CommonConfig, Properties}
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
@@ -12,19 +15,41 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Authentication(keyStore: KeyStore, _loginUriTemplate: String, authCallbackBaseUri: String,
+class Authentication(val loginUriTemplate: String, authCallbackBaseUri: String, config: CommonConfig, actorSystem: ActorSystem,
                      override val parser: BodyParser[AnyContent],
                      override val wsClient: WSClient,
                      override val controllerComponents: ControllerComponents,
-                     override val panDomainSettings: PanDomainAuthSettingsRefresher,
                      override val executionContext: ExecutionContext)
 
-  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoErrorResponses {
+  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers {
+
+  implicit val ec: ExecutionContext = executionContext
+
+  val loginLinks = List(
+    Link("login", loginUriTemplate)
+  )
+
+  // Panda errors
+  val notAuthenticatedResult = respondError(Unauthorized, "unauthorized", "Not authenticated", loginLinks)
+  val invalidCookieResult    = notAuthenticatedResult
+  val expiredResult          = respondError(new Status(419), "session-expired", "Session expired, required to log in again", loginLinks)
+  val notAuthorizedResult    = respondError(Forbidden, "forbidden", "Not authorized", loginLinks)
+
+  // API key errors
+  val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
   private val headerKey = "X-Gu-Media-Key"
   private val properties = Properties.fromPath("/etc/gu/panda.properties")
 
-  final override def loginUriTemplate: String = _loginUriTemplate
+  private val keyStoreBucket: String = config.properties("auth.keystore.bucket")
+  private val keyStore = new KeyStore(keyStoreBucket, config)
+
+  // TODO MRB: not all applications need the key store
+  keyStore.scheduleUpdates(actorSystem.scheduler)
+
+  private lazy val pandaProperties = Properties.fromPath("/etc/gu/panda.properties")
+  override lazy val panDomainSettings = buildPandaSettings()
+
   final override def authCallbackUrl: String = s"$authCallbackBaseUri/oauthCallback"
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
@@ -43,12 +68,21 @@ class Authentication(keyStore: KeyStore, _loginUriTemplate: String, authCallback
   }
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    val oauthDomain:String = properties.getOrElse("panda.oauth.domain", "guardian.co.uk")
-    val oauthDomainMultiFactorEnabled:Boolean = Try(properties("panda.oauth.multifactor.enable").toBoolean).getOrElse(true)
+    val oauthDomain:String = pandaProperties.getOrElse("panda.oauth.domain", "guardian.co.uk")
+    val oauthDomainMultiFactorEnabled:Boolean = Try(pandaProperties("panda.oauth.multifactor.enable").toBoolean).getOrElse(true)
     // check if the user email domain is the one configured
     val isAuthorized:Boolean = (authedUser.user.emailDomain == oauthDomain)
     // if authorized check if multifactor is to be evaluated
     if (oauthDomainMultiFactorEnabled) isAuthorized && authedUser.multiFactor else isAuthorized
+  }
+
+  private def buildPandaSettings() = {
+    new PanDomainAuthSettingsRefresher(
+      domain = pandaProperties("panda.domain"),
+      system = "media-service",
+      actorSystem = actorSystem,
+      awsCredentialsProvider = config.awsCredentials
+    )
   }
 }
 

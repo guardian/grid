@@ -21,7 +21,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
   import CollectionsManager.onlyLatest
 
-  val dynamo = new DynamoDB(config.awsCredentials, config.dynamoRegion, config.imageCollectionsTable)
+  val dynamo = new DynamoDB(config, config.imageCollectionsTable)
 
   def getCollections(id: String) = authenticated.async { req =>
     dynamo.listGet[Collection](id, "collections").map { collections =>

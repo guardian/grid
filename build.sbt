@@ -11,7 +11,7 @@ val commonSettings = Seq(
   )
 )
 
-lazy val root = project("root", path = Some("."))
+lazy val root = project("grid", path = Some("."))
   .aggregate(commonLib, auth, collections)
 //  .aggregate(commonLib, auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall, usage, scripts)
 

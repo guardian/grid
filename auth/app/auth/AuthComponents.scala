@@ -18,9 +18,8 @@ class AuthComponents(context: Context) extends GridComponents(context)
   with GzipFilterComponents {
 
   final override lazy val config = new AuthConfig(configuration)
-  final override lazy val corsPathPrefixes = config.corsAllAllowedOrigins
 
-  val controller = new AuthController(auth, config, controllerComponents, loginUriTemplate)
+  val controller = new AuthController(auth, config, controllerComponents)
   val management = new Management(controllerComponents)
 
   // TODO MRB: how to abstract this out to common?

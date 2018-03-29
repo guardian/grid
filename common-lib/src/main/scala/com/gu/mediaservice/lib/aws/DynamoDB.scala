@@ -7,6 +7,7 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBClientBuilder}
+import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.libs.json._
 
 import scala.collection.JavaConverters._
@@ -14,12 +15,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object NoItemFound extends Throwable("item not found")
 
-class DynamoDB(credentials: AWSCredentialsProvider, region: String, tableName: String) {
+class DynamoDB(config: CommonConfig, tableName: String) {
 
-  lazy val client: AmazonDynamoDB = AmazonDynamoDBClientBuilder.standard()
-    .withCredentials(credentials)
-    .withRegion(region).build()
-
+  lazy val client: AmazonDynamoDB = config.withAWSCredentials(AmazonDynamoDBClientBuilder.standard()).build()
   lazy val dynamo = new AwsDynamoDB(client)
   lazy val table: Table = dynamo.getTable(tableName)
 

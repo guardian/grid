@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.config
 
-class Services(domainRoot: String, ssl: Boolean) {
+class Services(domainRoot: String) {
   // FIXME: do this via new config properties!
   val DomainExtractor = """^([-a-z]+)\.(.*)""".r
   val (appName, parentDomain) = domainRoot match {
@@ -36,7 +36,6 @@ class Services(domainRoot: String, ssl: Boolean) {
   val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
 
   def baseUri(host: String) = {
-    val protocol = if (ssl) "https" else "http"
-    s"$protocol://$host"
+    s"https://$host"
   }
 }

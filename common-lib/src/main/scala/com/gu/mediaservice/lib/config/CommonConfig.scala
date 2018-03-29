@@ -3,8 +3,9 @@ package com.gu.mediaservice.lib.config
 import java.io.File
 import java.util.UUID
 
-import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
+import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
+import com.amazonaws.client.builder.AwsClientBuilder
 import play.api.Configuration
 
 import scala.io.Source._
@@ -13,7 +14,8 @@ import scala.io.Source._
 trait CommonConfig {
   def appName: String
   def configuration: Configuration
-  def properties: Map[String, String]
+
+  lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
 
   final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
   final val elasticsearchStack = "media-service"
@@ -22,16 +24,18 @@ trait CommonConfig {
 
   final val sessionId = UUID.randomUUID().toString()
 
-  final val awsCredentials: AWSCredentialsProvider = new AWSCredentialsProviderChain(
+  lazy val awsCredentials = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
     InstanceProfileCredentialsProvider.getInstance()
   )
 
-  // Note: had to make these lazy to avoid init order problems ;_;
-  lazy val ssl: Boolean = properties.get("ssl").map(_.toBoolean).getOrElse(true)
-  lazy val domainRoot: String = properties("domain.root")
+  def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
+    .withRegion(properties("aws.region"))
+    .withCredentials(awsCredentials)
 
-  lazy val services = new Services(domainRoot, ssl)
+  // Note: had to make these lazy to avoid init order problems ;_;
+  lazy val domainRoot: String = properties("domain.root")
+  lazy val services = new Services(domainRoot)
 
   private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
   val corsAllAllowedOrigins = services.kahunaBaseUri :: corsAllowedOrigins
