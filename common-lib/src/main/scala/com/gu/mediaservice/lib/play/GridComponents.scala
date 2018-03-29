@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.play
 import com.gu.mediaservice.lib.auth.{Authentication, KeyStore}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
+import com.typesafe.config.ConfigValueFactory
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
 import play.api.libs.ws.ahc.AhcWSComponents

@@ -1,3 +1,5 @@
+import PlayKeys._
+
 val commonSettings = Seq(
   scalaVersion := "2.12.5",
   description := "grid",
@@ -9,8 +11,11 @@ val commonSettings = Seq(
   )
 )
 
-lazy val root = playProject("root", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall, usage, scripts)
+lazy val root = project("root", path = Some("."))
+  .aggregate(commonLib, auth, collections)
+//  .aggregate(commonLib, auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall, usage, scripts)
+
+addCommandAlias("runAll", "all auth/run collections/run")
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -31,9 +36,13 @@ lazy val commonLib = project("common-lib").settings(
   )
 )
 
-lazy val auth = playProject("auth")
+lazy val auth = playProject("auth").settings(
+  playDefaultPort := 9011
+)
 
-lazy val collections = playProject("collections")
+lazy val collections = playProject("collections").settings(
+  playDefaultPort := 9010
+)
 
 lazy val cropper = playProject("cropper")
 

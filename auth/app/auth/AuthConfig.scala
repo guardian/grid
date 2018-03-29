@@ -8,9 +8,8 @@ import scala.concurrent.ExecutionContext
 
 class AuthConfig(override val configuration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig {
 
-  val appName = "auth"
-
-  val properties = Properties.fromPath("/etc/gu/auth.properties")
+  override lazy val appName = "auth"
+  override lazy val properties = Properties.fromPath("/etc/gu/auth.properties")
 
   val configBucket: String = properties("s3.config.bucket")
   val keyStoreBucket: String = properties("auth.keystore.bucket")

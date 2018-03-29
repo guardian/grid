@@ -9,9 +9,8 @@ import scala.concurrent.ExecutionContext
 
 class CollectionsConfig(override val configuration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig {
 
-  val appName = "collections"
-
-  val properties = Properties.fromPath("/etc/gu/collections.properties")
+  override lazy val appName = "collections"
+  override lazy val properties = Properties.fromPath("/etc/gu/collections.properties")
 
   val dynamoRegion: String = properties("aws.region")
 

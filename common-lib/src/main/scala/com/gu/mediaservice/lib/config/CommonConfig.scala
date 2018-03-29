@@ -11,9 +11,9 @@ import scala.io.Source._
 
 
 trait CommonConfig {
-  val appName: String
-  val configuration: Configuration
-  val properties: Map[String, String]
+  def appName: String
+  def configuration: Configuration
+  def properties: Map[String, String]
 
   final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
   final val elasticsearchStack = "media-service"

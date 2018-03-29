@@ -2,6 +2,7 @@ package auth
 
 import com.gu.mediaservice.lib.management.Management
 import com.gu.mediaservice.lib.play.{GridComponents, RequestLoggingFilter}
+import com.typesafe.config.ConfigValueFactory
 import lib.LogConfig
 import play.api.{Application, ApplicationLoader}
 import play.api.ApplicationLoader.Context
@@ -28,11 +29,4 @@ class AuthComponents(context: Context) extends GridComponents(context)
   )
 
   override val router = new Routes(httpErrorHandler, controller, management)
-}
-
-class AuthLoader extends ApplicationLoader {
-  override def load(context: Context): Application = {
-    LogConfig.init(context)
-    new AuthComponents(context).application
-  }
 }

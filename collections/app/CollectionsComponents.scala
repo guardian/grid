@@ -36,10 +36,3 @@ class CollectionsComponents(context: Context) extends GridComponents(context)
 
   override val router = new Routes(httpErrorHandler, collections, imageCollections, management)
 }
-
-class CollectionsLoader extends ApplicationLoader {
-  override def load(context: Context): Application = {
-    LogConfig.init(context)
-    new CollectionsComponents(context).application
-  }
-}
