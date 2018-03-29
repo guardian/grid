@@ -12,10 +12,10 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections)
+  .aggregate(commonLib, auth, collections, cropper)
 //  .aggregate(commonLib, auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall, usage, scripts)
 
-addCommandAlias("runAll", "all auth/run collections/run")
+addCommandAlias("runAll", "all auth/run collections/run cropper/run")
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -36,38 +36,34 @@ lazy val commonLib = project("common-lib").settings(
   )
 )
 
-lazy val auth = playProject("auth").settings(
-  playDefaultPort := 9011
-)
+lazy val auth = playProject("auth", 9011)
 
-lazy val collections = playProject("collections").settings(
-  playDefaultPort := 9010
-)
+lazy val collections = playProject("collections", 9010)
 
-lazy val cropper = playProject("cropper")
+lazy val cropper = playProject("cropper", 9006)
 
-lazy val imageLoader = playProject("image-loader")
+lazy val imageLoader = playProject("image-loader", 9003)
 
-lazy val kahuna = playProject("kahuna")
+lazy val kahuna = playProject("kahuna", 9005)
 
-lazy val leases = playProject("leases").settings(
+lazy val leases = playProject("leases", 9012).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "scanamo" % "1.0.0-M5"
   )
 )
 
-lazy val mediaApi = playProject("media-api").settings(
+lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
     "org.apache.commons" % "commons-email" % "1.4"
   )
 )
 
 // TODO MRB: can this be combind with media-api
-lazy val metadataEditor = playProject("metadata-editor")
+lazy val metadataEditor = playProject("metadata-editor", 9007)
 
-lazy val thrall = playProject("thrall")
+lazy val thrall = project("thrall")
 
-lazy val usage = playProject("usage")
+lazy val usage = playProject("usage", 9009)
 
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
@@ -76,11 +72,13 @@ def project(projectName: String, path: Option[String] = None): Project =
   Project(projectName, file(path.getOrElse(projectName)))
     .settings(commonSettings)
 
-def playProject(projectName: String, path: Option[String] = None): Project =
-  project(projectName, path)
+def playProject(projectName: String, port: Int): Project =
+  project(projectName, None)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, RiffRaffArtifact, BuildInfoPlugin)
     .dependsOn(commonLib)
     .settings(commonSettings ++ Seq(
+      playDefaultPort := port,
+
       debianPackageDependencies := Seq("openjdk-8-jre-headless"),
       maintainer in Linux := "Guardian Developers <dig.dev.software@theguardian.com>",
       packageSummary in Linux := description.value,

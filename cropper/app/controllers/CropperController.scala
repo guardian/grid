@@ -2,54 +2,48 @@ package controllers
 
 import java.net.URI
 
-import scala.concurrent.Future
-import scala.util.control.NonFatal
-
-import _root_.play.api.mvc.Controller
-import _root_.play.api.libs.json._
-import _root_.play.api.libs.concurrent.Execution.Implicits._
-import _root_.play.api.libs.ws.WS
 import _root_.play.api.Logger
-import _root_.play.api.Play.current
-
-import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth._
+import _root_.play.api.libs.json._
+import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.{Action, Link}
+import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.model._
-
-import org.joda.time.DateTime
-
 import lib._
 import model._
+import org.joda.time.DateTime
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 
 case object InvalidSource extends Exception("Invalid source URI, not a media API URI")
 case object ImageNotFound extends Exception("No such image found")
 case object ApiRequestFailed extends Exception("Failed to fetch the source")
 
-object Application extends Controller with ArgoHelpers {
+class CropperController(auth: Authentication, crops: Crops, store: CropStore, notifications: Notifications, config: CropperConfig,
+                        override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
-  import Config.{rootUri, loginUriTemplate, kahunaUri}
+  // Stupid name clash between Argo and Play
+  import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
 
-  val keyStore = new KeyStore(Config.keyStoreBucket, Config.awsCredentials)
-  val Authenticated = auth.Authenticated(keyStore, loginUriTemplate, kahunaUri)
-
-  val mediaApiKey = keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
+  val mediaApiKey = auth.keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
 
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Cropper Service")
     val indexLinks = List(
-      Link("crop", s"$rootUri/crops")
+      Link("crop", s"${config.rootUri}/crops")
     )
     respond(indexData, indexLinks)
   }
 
-  def index = Authenticated { indexResponse }
+  def index = auth { indexResponse }
 
-  def export = Authenticated.async(parse.json) { httpRequest =>
+  def export = auth.async(parse.json) { httpRequest =>
     httpRequest.body.validate[ExportRequest] map { exportRequest =>
       val user = httpRequest.user
 
@@ -60,7 +54,7 @@ object Application extends Controller with ArgoHelpers {
           "data" -> Json.arr(cropJson)
         )
 
-        Notifications.publish(exports, "update-image-exports")
+        notifications.publish(exports, "update-image-exports")
         Ok(cropJson).as(ArgoMediaType)
       } recover {
         case InvalidSource => respondError(BadRequest, "invalid-source", InvalidSource.getMessage)
@@ -81,11 +75,11 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def getCrops(id: String) = Authenticated.async { httpRequest =>
+  def getCrops(id: String) = auth.async { httpRequest =>
 
-    CropStore.listCrops(id) map (_.toList) flatMap { crops =>
+    store.listCrops(id) map (_.toList) flatMap { crops =>
       val deleteCropsAction =
-        Action("delete-crops", URI.create(s"${Config.rootUri}/crops/$id"), "DELETE")
+        ArgoAction("delete-crops", URI.create(s"${config.rootUri}/crops/$id"), "DELETE")
 
       val links = (for {
         crop <- crops.headOption
@@ -99,11 +93,11 @@ object Application extends Controller with ArgoHelpers {
     }
   }
 
-  def deleteCrops(id: String) = Authenticated.async { httpRequest =>
+  def deleteCrops(id: String) = auth.async { httpRequest =>
 
     PermissionsHandler.hasPermission(httpRequest.user, Permissions.DeleteCrops) flatMap { _ =>
-      Crops.deleteCrops(id).map { _ =>
-        Notifications.publish(Json.obj("id" -> id), "delete-image-exports")
+      store.deleteCrops(id).map { _ =>
+        notifications.publish(Json.obj("id" -> id), "delete-image-exports")
         Accepted
       } recover {
         case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
@@ -121,29 +115,24 @@ object Application extends Controller with ArgoHelpers {
       // Image should always have dimensions, but we want to safely extract the Option
       dimensions <- ifDefined(apiImage.source.dimensions, InvalidImage)
       cropSpec    = ExportRequest.toCropSpec(exportRequest, dimensions)
-      _          <- verify(Crops.isWithinImage(cropSpec.bounds, dimensions), InvalidCropRequest)
+      _          <- verify(crops.isWithinImage(cropSpec.bounds, dimensions), InvalidCropRequest)
       crop        = Crop.createFromCropSource(
-        by            = extractAuthor(user),
+        by            = Some(Authentication.getEmail(user)),
         timeRequested = Some(new DateTime()),
         specification = cropSpec
       )
-      ExportResult(id, masterSizing, sizings) <- Crops.export(apiImage, crop)
+      ExportResult(id, masterSizing, sizings) <- crops.export(apiImage, crop)
       finalCrop   = Crop.createFromCrop(crop, masterSizing, sizings)
     } yield (id, finalCrop)
 
-  def extractAuthor(user: Principal) = user match {
-    case u: AuthenticatedService => Some(u.name)
-    case u: PandaUser => Some(u.email)
-  }
-
   // TODO: lame, parse into URI object and compare host instead
-  def isMediaApiUri(uri: String): Boolean = uri.startsWith(Config.apiUri)
+  def isMediaApiUri(uri: String): Boolean = uri.startsWith(config.apiUri)
 
-  import org.apache.http.impl.client.HttpClients
   import org.apache.http.client.methods.HttpGet
   import org.apache.http.client.utils.URIBuilder
+  import org.apache.http.impl.client.HttpClients
+
   import scala.io.Source
-  import java.net.URI
 
   def fetchSourceFromApi(uri: String): Future[SourceImage] = {
 

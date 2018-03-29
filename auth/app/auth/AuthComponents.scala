@@ -1,10 +1,6 @@
 package auth
 
-import com.gu.mediaservice.lib.management.Management
 import com.gu.mediaservice.lib.play.{GridComponents, RequestLoggingFilter}
-import com.typesafe.config.ConfigValueFactory
-import lib.LogConfig
-import play.api.{Application, ApplicationLoader}
 import play.api.ApplicationLoader.Context
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
@@ -20,7 +16,6 @@ class AuthComponents(context: Context) extends GridComponents(context)
   final override lazy val config = new AuthConfig(configuration)
 
   val controller = new AuthController(auth, config, controllerComponents)
-  val management = new Management(controllerComponents)
 
   // TODO MRB: how to abstract this out to common?
   final override def httpFilters: Seq[EssentialFilter] = super.httpFilters ++ Seq(

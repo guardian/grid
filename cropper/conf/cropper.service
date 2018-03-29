@@ -1,8 +1,0 @@
-[Unit]
-Description=Cropper
-
-[Service]
-User=media-service
-WorkingDirectory=/home/media-service
-ExecStart=/home/media-service/bin/cropper
-StandardOutput=syslog

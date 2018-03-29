@@ -1,17 +1,15 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppProperties, CommonPlayAppConfig}
 import java.io.File
-import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
+
+import com.amazonaws.auth.{AWSCredentials, BasicAWSCredentials}
+import com.gu.mediaservice.lib.config.CommonConfig
+import play.api.Configuration
 
 
-object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
+class CropperConfig(override val configuration: Configuration) extends CommonConfig {
 
-  val appName = "cropper"
-
-  val properties = Properties.fromPath("/etc/gu/cropper.properties")
-
-  val configBucket: String = properties("s3.config.bucket")
+  final override lazy val appName = "cropper"
 
   val imgPublishingBucket = properties("publishing.image.bucket")
   val imgPublishingCredentials: AWSCredentials =
@@ -20,8 +18,6 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val imgPublishingHost = properties("publishing.image.host")
   // Note: work around CloudFormation not allowing optional parameters
   val imgPublishingSecureHost = properties.get("publishing.image.secure.host").filterNot(_.isEmpty)
-
-  val keyStoreBucket = properties("auth.keystore.bucket")
 
   val topicArn = properties("sns.topic.arn")
 

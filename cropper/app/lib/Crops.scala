@@ -19,7 +19,7 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
-object Crops {
+class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations) {
   import scala.concurrent.ExecutionContext.Implicits.global
   import Files._
 
@@ -35,8 +35,8 @@ object Crops {
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
-      strip <- ImageOperations.cropImage(sourceFile, source.bounds, 100d, Config.tempDir, iccColourSpace, colourModel, mediaType.extension)
-      file: File <- ImageOperations.appendMetadata(strip, metadata)
+      strip <- imageOperations.cropImage(sourceFile, source.bounds, 100d, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
+      file: File <- imageOperations.appendMetadata(strip, metadata)
 
 
       //Before apps and frontend can handle PNG24s we need to pngquant PNG24 master crops
@@ -52,7 +52,7 @@ object Crops {
 
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType.extension, true)
-      sizing      = CropStore.storeCropSizing(file, filename, mediaType.name, crop, dimensions)
+      sizing      = store.storeCropSizing(file, filename, mediaType.name, crop, dimensions)
       dirtyAspect = source.bounds.width.toFloat / source.bounds.height
       aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean(_)).getOrElse(dirtyAspect)
 
@@ -65,10 +65,10 @@ object Crops {
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
-        file          <- ImageOperations.resizeImage(sourceFile, dimensions, 75d, Config.tempDir, mediaType.extension)
-        optimisedFile = ImageOperations.optimiseImage(file, mediaType)
+        file          <- imageOperations.resizeImage(sourceFile, dimensions, 75d, config.tempDir, mediaType.extension)
+        optimisedFile = imageOperations.optimiseImage(file, mediaType)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, mediaType.extension)
-        sizing       <- CropStore.storeCropSizing(optimisedFile, filename, mediaType.extension, crop, dimensions)
+        sizing       <- store.storeCropSizing(optimisedFile, filename, mediaType.extension, crop, dimensions)
         _            <- delete(file)
         _            <- delete(optimisedFile)
       }
@@ -76,12 +76,12 @@ object Crops {
     })
   }
 
-  def deleteCrops(id: String) = CropStore.deleteCrops(id)
+  def deleteCrops(id: String) = store.deleteCrops(id)
 
   def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
-      Config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
+      config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
     else
-      Config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
+    config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
   def isWithinImage(bounds: Bounds, dimensions: Dimensions): Boolean = {
     val positiveCoords       = List(bounds.x,     bounds.y     ).forall(_ >= 0)
@@ -104,8 +104,8 @@ object Crops {
       ImageOperations.Jpeg
 
     for {
-      sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", Config.tempDir)
-      colourModel <- ImageOperations.identifyColourModel(sourceFile, mediaType)
+      sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
+      colourModel <- imageOperations.identifyColourModel(sourceFile, mediaType)
       masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, colourType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions

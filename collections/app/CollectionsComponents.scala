@@ -24,7 +24,6 @@ class CollectionsComponents(context: Context) extends GridComponents(context)
 
   val collections = new CollectionsController(auth, config, store, controllerComponents)
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
-  val management = new Management(controllerComponents)
 
   // TODO MRB: how to abstract this out to common?
   final override def httpFilters: Seq[EssentialFilter] = super.httpFilters ++ Seq(

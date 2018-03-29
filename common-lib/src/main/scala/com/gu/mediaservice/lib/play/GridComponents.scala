@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.management.Management
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
 import play.api.libs.ws.ahc.AhcWSComponents
@@ -20,5 +21,6 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
   val mediaApiUri: String = config.services.apiBaseUri
   val kahunaUri = config.services.kahunaBaseUri
 
+  val management = new Management(controllerComponents)
   val auth = new Authentication(loginUriTemplate, rootUri, config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
 }

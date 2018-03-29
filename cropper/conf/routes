@@ -1,16 +1,13 @@
-GET     /                           controllers.Application.index
+GET     /                           controllers.CropperController.index
 
-POST    /crops                      controllers.Application.export
+POST    /crops                      controllers.CropperController.export
 
-GET     /crops/:id                  controllers.Application.getCrops(id: String)
-DELETE  /crops/:id                  controllers.Application.deleteCrops(id: String)
+GET     /crops/:id                  controllers.CropperController.getCrops(id: String)
+DELETE  /crops/:id                  controllers.CropperController.deleteCrops(id: String)
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
 
-# Enable CORS
-OPTIONS /*url                       controllers.CorsPreflight.options(url: String)
-
 # Shoo robots away
-GET     /robots.txt                 controllers.Robots.disallowAll
+GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots

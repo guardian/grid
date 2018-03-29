@@ -8,11 +8,11 @@ import scala.concurrent.Future
 import com.gu.mediaservice.lib.S3ImageStorage
 import com.gu.mediaservice.model._
 
-object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
+class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   import com.gu.mediaservice.lib.formatting._
 
   def getSecureCropUri(uri: URI): Option[URL] =
-    Config.imgPublishingSecureHost.map((new URI("https",_, uri.getPath, uri.getFragment).toURL))
+    config.imgPublishingSecureHost.map((new URI("https",_, uri.getPath, uri.getFragment).toURL))
 
   def storeCropSizing(file: File, filename: String, mimeType: String, crop: Crop, dimensions: Dimensions): Future[Asset] = {
     val CropSpec(sourceUri, Bounds(x, y, w, h), r, t) = crop.specification
@@ -33,7 +33,7 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
       case (key, value)       => key -> value
     }.mapValues(_.toString)
 
-    storeImage(Config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object =>
+    storeImage(config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object =>
       Asset(
         translateImgHost(s3Object.uri),
         Some(s3Object.size),
@@ -45,7 +45,7 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
   }
 
   def listCrops(id: String): Future[List[Crop]] = {
-    list(Config.imgPublishingBucket, id).map { crops =>
+    list(config.imgPublishingBucket, id).map { crops =>
       crops.foldLeft(Map[String, Crop]()) {
         case (map, (s3Object)) => {
           val filename::containingFolder::_ = s3Object.uri.getPath.split("/").reverse.toList
@@ -93,10 +93,10 @@ object CropStore extends S3ImageStorage(Config.imgPublishingCredentials) {
   }
 
   def deleteCrops(id: String) = {
-    deleteFolder(Config.imgPublishingBucket, id)
+    deleteFolder(config.imgPublishingBucket, id)
   }
 
   // FIXME: this doesn't really belong here
   def translateImgHost(uri: URI): URI =
-    new URI(uri.getScheme, Config.imgPublishingHost, uri.getPath, uri.getFragment)
+    new URI(uri.getScheme, config.imgPublishingHost, uri.getPath, uri.getFragment)
 }

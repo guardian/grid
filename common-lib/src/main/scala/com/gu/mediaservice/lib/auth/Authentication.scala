@@ -42,7 +42,7 @@ class Authentication(val loginUriTemplate: String, authCallbackBaseUri: String, 
   private val properties = Properties.fromPath("/etc/gu/panda.properties")
 
   private val keyStoreBucket: String = config.properties("auth.keystore.bucket")
-  private val keyStore = new KeyStore(keyStoreBucket, config)
+  val keyStore = new KeyStore(keyStoreBucket, config)
 
   // TODO MRB: not all applications need the key store
   keyStore.scheduleUpdates(actorSystem.scheduler)

@@ -3,8 +3,8 @@ package com.gu.mediaservice.lib.imaging
 import java.io._
 
 import org.im4java.core.IMOperation
-
 import com.gu.mediaservice.lib.Files._
+import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
 
@@ -148,6 +148,9 @@ class ImageOperations(playPath: String) {
     } yield outputFile
   }
 
+}
+
+object ImageOperations {
   sealed trait MimeType {
     def name: String
     def extension: String
@@ -162,5 +165,4 @@ class ImageOperations(playPath: String) {
     val name = "image/jpeg"
     val extension = "jpg"
   }
-
 }
