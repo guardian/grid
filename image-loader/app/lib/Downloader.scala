@@ -16,6 +16,7 @@ import scala.concurrent.Future
 
 case object TruncatedDownload extends Exception
 
+//TODO Revisit this logic
 class Downloader(wsClient: WSClient, implicit val mat: Materializer) {
 
   def download(uri: URI, file: File): Future[DigestedFile] =
