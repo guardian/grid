@@ -12,7 +12,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   import com.gu.mediaservice.lib.formatting._
 
   def getSecureCropUri(uri: URI): Option[URL] =
-    config.imgPublishingSecureHost.map((new URI("https",_, uri.getPath, uri.getFragment).toURL))
+    config.imgPublishingSecureHost.map(new URI("https", _, uri.getPath, uri.getFragment).toURL)
 
   def storeCropSizing(file: File, filename: String, mimeType: String, crop: Crop, dimensions: Dimensions): Future[Asset] = {
     val CropSpec(sourceUri, Bounds(x, y, w, h), r, t) = crop.specification

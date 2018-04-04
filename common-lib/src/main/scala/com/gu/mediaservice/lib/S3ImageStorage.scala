@@ -9,8 +9,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-// TODO: If deleteObject fails - we should be catching the errors here
-// to avoid them bubbling to the application
+// TODO: If deleteObject fails - we should be catching the errors here to avoid them bubbling to the application
 class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage {
   private val log = LoggerFactory.getLogger(getClass)
 

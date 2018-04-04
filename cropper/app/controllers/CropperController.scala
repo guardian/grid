@@ -138,7 +138,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
-    val uriWithParams = (new URIBuilder(uri))
+    val uriWithParams = new URIBuilder(uri)
       .setParameter("include", "fileMetadata")
       .build
 

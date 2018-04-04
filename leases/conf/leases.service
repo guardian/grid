@@ -1,8 +1,0 @@
-[Unit]
-Description=Leases
-
-[Service]
-User=media-service
-WorkingDirectory=/home/media-service
-ExecStart=/home/media-service/bin/leases
-StandardOutput=syslog

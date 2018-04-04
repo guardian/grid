@@ -4,7 +4,6 @@ import java.io.File
 import java.net.{URI, URLEncoder}
 import java.nio.charset.{Charset, StandardCharsets}
 
-import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -41,16 +40,15 @@ class S3(config: CommonConfig) {
     }
 
     val baseFilename: String = image.uploadInfo.filename match {
-      case Some(f)  => s"${removeExtension(f)} (${image.id}).${extension}"
-      case _        => s"${image.id}.${extension}"
+      case Some(f)  => s"${removeExtension(f)} (${image.id}).$extension"
+      case _        => s"${image.id}.$extension"
     }
 
     charset.displayName() match {
-      case "UTF-8" => {
+      case "UTF-8" =>
         // URLEncoder converts ` ` to `+`, replace it with `%20`
         // See http://docs.oracle.com/javase/6/docs/api/java/net/URLEncoder.html
         URLEncoder.encode(baseFilename, "UTF-8").replace("+", "%20")
-      }
       case characterSet => baseFilename.getBytes(characterSet).toString
     }
   }
@@ -101,9 +99,8 @@ class S3(config: CommonConfig) {
       val listing = client.listObjects(req)
       val summaries = listing.getObjectSummaries.asScala
       summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
-        case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) => {
+        case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
           S3Object(objectUrl(bucket, key), summary.getSize(), getMetadata(bucket, key)) :: memo
-        }
       }
     }
 

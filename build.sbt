@@ -12,10 +12,10 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper)
-//  .aggregate(commonLib, auth, collections, cropper, imageLoader, kahuna, leases, mediaApi, metadataEditor, thrall, usage, scripts)
+  .aggregate(commonLib, auth, collections, cropper, leases)
+//  .aggregate(imageLoader, kahuna, mediaApi, metadataEditor, thrall, usage, scripts)
 
-addCommandAlias("runAll", "all auth/run collections/run cropper/run")
+addCommandAlias("runAll", "all auth/run collections/run cropper/run leases/run")
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -58,7 +58,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-// TODO MRB: can this be combind with media-api
+// TODO MRB: can this be combined with media-api
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
 lazy val thrall = project("thrall")

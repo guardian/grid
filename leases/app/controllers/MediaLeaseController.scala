@@ -1,149 +1,119 @@
 package controllers
 
-import java.net.URI
-
-import com.amazonaws.services.dynamodbv2.model.DeleteItemResult
-
-import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.util.Try
-
-import play.api.mvc._
-import play.api.libs.concurrent.Execution.Implicits._
-
-import play.api.libs.json._
-import play.api.data.validation.ValidationError
-
-import com.gu.mediaservice.model.{MediaLease, LeaseByMedia}
-
-import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.model.{LeaseByMedia, MediaLease}
+import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
+import play.api.libs.json._
+import play.api.mvc._
 
-import lib.{LeaseNotice, LeaseNotifier, LeaseStore, ControllerHelper}
+import scala.concurrent.{ExecutionContext, Future}
 
-
-case class AppIndex(
-                     name: String,
-                     description: String,
-                     config: Map[String, String] = Map())
+case class AppIndex(name: String,
+                    description: String,
+                    config: Map[String, String] = Map())
 object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
 
-object MediaLeaseController extends Controller
-  with ArgoHelpers
-  with ControllerHelper {
+class MediaLeaseController(auth: Authentication, store: LeaseStore, config: LeasesConfig, notifications: LeaseNotifier,
+                          override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
-  import lib.Config._
+  private val notFound = respondNotFound("MediaLease not found")
 
-  val notFound = respondNotFound("MediaLease not found")
-
-
-  val indexResponse = {
+  private val indexResponse = {
     val appIndex = AppIndex("media-leases", "Media leases service", Map())
     val indexLinks =  List(
-      Link("leases", s"$rootUri/leases/{id}"),
-      Link("by-media-id", s"$rootUri/leases/media/{id}"))
+      Link("leases", s"${config.rootUri}/leases/{id}"),
+      Link("by-media-id", s"${config.rootUri}/leases/media/{id}"))
     respond(appIndex, indexLinks)
   }
 
-  def index = Authenticated { _ => indexResponse }
+  private def notify(mediaId: String): Unit = notifications.send(mediaId)
 
-  private def notify(mediaId: String) = LeaseNotifier.send(LeaseNotice.build(mediaId))
-
-  private def clearLease(id: String) = LeaseStore.get(id).map { lease =>
-    LeaseStore.delete(id).map { _ => notify(lease.mediaId) }
+  private def clearLease(id: String) = store.get(id).map { lease =>
+    store.delete(id).map { _ => notify(lease.mediaId) }
   }
 
-  private def clearLeases(id: String) = LeaseStore.getForMedia(id)
+  private def clearLeases(id: String) = store.getForMedia(id)
     .flatMap(_.id)
     .map(clearLease)
 
-  private def badRequest(e:  Seq[(JsPath, Seq[ValidationError])], msg: String) =
-    respondError(BadRequest, "media-leases-parse-failed", JsError.toFlatJson(e).toString)
+  private def badRequest(e:  Seq[(JsPath, Seq[JsonValidationError])]) =
+    respondError(BadRequest, "media-leases-parse-failed", JsError.toJson(e).toString)
 
-  private def addLease(mediaLease: MediaLease, userId: Option[String]) = LeaseStore
+  private def addLease(mediaLease: MediaLease, userId: Option[String]) = store
     .put(mediaLease.copy(leasedBy = userId)).map { _ =>
       notify(mediaLease.mediaId)
     }
 
+  def index = auth.AuthAction { _ => indexResponse }
 
-  def reindex = Authenticated.async { _ => Future {
-    LeaseStore.forEach { leases =>
+  def reindex = auth.AuthAction.async { _ => Future {
+    store.forEach { leases =>
       leases
         .foldLeft(Set[String]())((ids, lease) =>  ids + lease.mediaId)
-        .map(notify)
+        .foreach(notify)
     }
-
     Accepted
   }}
 
-  def postLease = Authenticated.async(parse.json) { implicit request => Future {
+  def postLease = auth.AuthAction.async(parse.json) { implicit request => Future {
     request.body.validate[MediaLease].fold(
-      badRequest(_, "media-leases-parse-failed"),
+      badRequest,
       mediaLease => {
-        addLease(mediaLease, requestingUser)
-
+        addLease(mediaLease, Some(request.user.email))
         Accepted
       }
     )
   }}
 
 
-  def deleteLease(id: String) = Authenticated.async { implicit request =>
-    Future {
+  def deleteLease(id: String) = auth.AuthAction.async { implicit request => Future {
       clearLease(id)
-
       Accepted
     }
-
   }
 
-  def getLease(id: String) = Authenticated.async { request =>
-    Future {
-      val leases = LeaseStore.get(id)
+  def getLease(id: String) = auth.AuthAction.async { _ => Future {
+      val leases = store.get(id)
 
       leases.foldLeft(notFound)((_, lease) => respond[MediaLease](
-          uri = leaseUri(id),
+          uri = config.leaseUri(id),
           data = lease,
           links = lease.id
-            .map(mediaApiLink)
+            .map(config.mediaApiLink)
             .toList
         ))
     }
   }
 
 
-  def deleteLeasesForMedia(id: String) = Authenticated.async { request =>
-    Future {
+  def deleteLeasesForMedia(id: String) = auth.AuthAction.async { _ => Future {
       clearLeases(id)
-
       Accepted
     }
   }
 
-  def replaceLeasesForMedia(id: String) = Authenticated.async(parse.json) { implicit request => Future {
+  def replaceLeasesForMedia(id: String) = auth.AuthAction.async(parse.json) { implicit request => Future {
     request.body.validate[List[MediaLease]].fold(
-      badRequest(_, "media-leases-parse-failed"),
+      badRequest,
       mediaLeases => {
         clearLeases(id)
-        mediaLeases.map(addLease(_, requestingUser))
-
+        mediaLeases.map(addLease(_, Some(request.user.email)))
         Accepted
       }
     )
   }}
 
-  def getLeasesForMedia(id: String) = Authenticated.async { request =>
-    Future {
-      val leases = LeaseStore.getForMedia(id)
+  def getLeasesForMedia(id: String) = auth.AuthAction.async { _ => Future {
+      val leases = store.getForMedia(id)
 
       respond[LeaseByMedia](
-        uri = leasesMediaUri(id),
-        links = List(mediaApiLink(id)),
+        uri = config.leasesMediaUri(id),
+        links = List(config.mediaApiLink(id)),
         data = LeaseByMedia.build(leases)
       )
     }
