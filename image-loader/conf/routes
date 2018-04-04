@@ -1,13 +1,10 @@
-GET     /                           controllers.Application.index
-POST    /images                     controllers.Application.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
-POST    /imports                    controllers.Application.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
+GET     /                           controllers.ImageLoaderController.index
+POST    /images                     controllers.ImageLoaderController.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
+POST    /imports                    controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
 
-# Enable CORS
-OPTIONS /*url                       controllers.CorsPreflight.options(url: String)
-
 # Shoo robots away
-GET     /robots.txt                 controllers.Robots.disallowAll
+GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots

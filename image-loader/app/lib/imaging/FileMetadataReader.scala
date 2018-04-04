@@ -2,7 +2,7 @@ package lib.imaging
 
 import java.io.File
 import java.util.concurrent.Executors
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 import com.drew.imaging.ImageMetadataReader
@@ -59,7 +59,7 @@ object FileMetadataReader {
   // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(directoryClass)) map { directory =>
-      directory.getTags.
+      directory.getTags.asScala.
         filter(tag => tag.hasTagName()).
         // Ignore seemingly useless "Padding" fields
         // see: https://github.com/drewnoakes/metadata-extractor/issues/100
@@ -76,7 +76,7 @@ object FileMetadataReader {
   // this only extracts a small subset of properties as a means to identify Getty images.
   private def exportGettyDirectory(metadata: Metadata): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
-      val xmpProperties = directory.getXmpProperties.toMap
+      val xmpProperties = directory.getXmpProperties.asScala.toMap
 
       def readProperty(name: String): Option[String] = xmpProperties.get(name) flatMap nonEmptyTrimmed
 

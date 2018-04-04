@@ -71,7 +71,7 @@ class Authentication(val loginUriTemplate: String, authCallbackBaseUri: String, 
     val oauthDomain:String = pandaProperties.getOrElse("panda.oauth.domain", "guardian.co.uk")
     val oauthDomainMultiFactorEnabled:Boolean = Try(pandaProperties("panda.oauth.multifactor.enable").toBoolean).getOrElse(true)
     // check if the user email domain is the one configured
-    val isAuthorized:Boolean = (authedUser.user.emailDomain == oauthDomain)
+    val isAuthorized:Boolean = authedUser.user.emailDomain == oauthDomain
     // if authorized check if multifactor is to be evaluated
     if (oauthDomainMultiFactorEnabled) isAuthorized && authedUser.multiFactor else isAuthorized
   }

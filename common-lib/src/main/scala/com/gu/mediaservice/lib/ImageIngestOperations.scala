@@ -25,5 +25,4 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
 
-
 }

@@ -2,15 +2,12 @@ package lib
 
 import java.io.File
 
-import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
-import com.gu.mediaservice.lib.config.{CommonPlayAppConfig, CommonPlayAppProperties, Properties}
+import com.gu.mediaservice.lib.config.CommonConfig
+import play.api.Configuration
 
+class ImageLoaderConfig(override val configuration: Configuration) extends CommonConfig {
 
-object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
-
-  val appName = "image-loader"
-
-  val properties = Properties.fromPath("/etc/gu/image-loader.properties")
+  final override lazy val appName = "image-loader"
 
   val topicArn: String = properties("sns.topic.arn")
 
@@ -25,11 +22,9 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
   val thumbWidth: Int = 256
   val thumbQuality: Double = 85d // out of 100
 
-  val imagickThreadPoolSize = 4
-
-  val rootUri = services.loaderBaseUri
-  val apiUri = services.apiBaseUri
-  val loginUriTemplate = services.loginUriTemplate
+  val rootUri: String = services.loaderBaseUri
+  val apiUri: String = services.apiBaseUri
+  val loginUriTemplate: String = services.loginUriTemplate
 
   val supportedMimeTypes = List("image/jpeg", "image/png")
 
