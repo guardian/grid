@@ -3,6 +3,8 @@ package controllers
 
 import java.net.URI
 
+import com.google.api.client.googleapis.json.{GoogleJsonError, GoogleJsonResponseException}
+import com.google.api.client.http.HttpHeaders
 import lib.Config
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
@@ -11,10 +13,11 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.pandomainauth.service.GoogleAuthException
+import com.google.api.client.http.HttpResponseException.Builder
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Success, Try, Failure}
+import scala.util.{Failure, Success, Try}
 
 object Application extends Controller
   with PanDomainAuthActions
@@ -82,11 +85,15 @@ object Application extends Controller
     } getOrElse Ok("logged in")
   }
 
+  def TODO_REMOVE_BORK_PANDA() = {
+    throw new IllegalStateException("BORK BORK BORK")
+  }
+
   def oauthCallback = Action.async { implicit request =>
     // We use the `Try` here as the `GoogleAuthException` are thrown before we
     // get to the asynchronicity of the `Future` it returns.
     // We then have to flatten the Future[Future[T]]. Fiddly...
-    Future.fromTry(Try(processGoogleCallback)).flatMap(successF => successF).recover {
+    Future.fromTry(Try(TODO_REMOVE_BORK_PANDA)).flatMap(successF => successF).recover {
       // This is when session session args are missing
       case e: GoogleAuthException =>
         respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
