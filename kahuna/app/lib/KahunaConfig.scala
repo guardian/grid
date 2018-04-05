@@ -1,13 +1,11 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
-import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
+import com.gu.mediaservice.lib.config.CommonConfig
+import play.api.Configuration
 
-object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
+class KahunaConfig(override val configuration: Configuration) extends CommonConfig {
 
-  val appName = "kahuna"
-
-  val properties = Properties.fromPath("/etc/gu/kahuna.properties")
+  final override lazy val appName = "kahuna"
 
   val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri

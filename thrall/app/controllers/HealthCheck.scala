@@ -8,7 +8,7 @@ import com.gu.mediaservice.syntax._
 
 import scala.concurrent.ExecutionContext
 
-class HealthCheck(auth: Authentication, es: ElasticSearch, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class HealthCheck(auth: Authentication, elasticsearch: ElasticSearch, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   def healthCheck = auth.async {
@@ -18,14 +18,14 @@ class HealthCheck(auth: Authentication, es: ElasticSearch, thrallMessageConsumer
     }
   }
 
-  def elasticHealth = {
-    es.client.prepareSearch().setSize(0)
+  private def elasticHealth = {
+    elasticsearch.client.prepareSearch().setSize(0)
       .executeAndLog("Health check")
       .filter(_ => !thrallMessageConsumer.actorSystem.whenTerminated.isCompleted)
       .map(_ => Ok("ES is healthy"))
   }
 
-  def sqsHealth = {
+  private def sqsHealth = {
     val timeLastMessage = thrallMessageConsumer.timeMessageLastProcessed.get
 
     if (timeLastMessage.plusMinutes(config.healthyMessageRate).isBeforeNow)

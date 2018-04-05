@@ -3,7 +3,8 @@
   reauthUri: String,
   watUri: Option[String],
   sentryDsn: Option[String],
-  sessionId: String)
+  sessionId: String,
+  assets: Assets)
 <!DOCTYPE html>
 <html>
   <head>
@@ -18,8 +19,8 @@
     <link rel="preconnect" href="@mediaApiUri"/>
     <link rel="preconnect" href="@authApiUri"/>
 
-    <link rel="shortcut icon" type="image/png" href="@routes.Assets.versioned("images/grid-favicon-32.png")"/>
-    <link rel="assets" href="@routes.Assets.versioned("")"/>
+    <link rel="shortcut icon" type="image/png" href="@assets.versioned("images/grid-favicon-32.png")"/>
+    <link rel="assets" href="@assets.versioned("")"/>
     <link rel="media-api-uri" href="@mediaApiUri" />
     <link rel="reauth-uri" href="@reauthUri" />
 @watUri.map { uri =>
@@ -28,7 +29,7 @@
 @sentryDsn.map { dsn =>
     <link rel="sentry-dsn" href="@dsn" />
 }
-    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+    <link rel="stylesheet" href="@assets.versioned("stylesheets/main.css")" />
 
     <style>
         .ng-cloak { display: none }
@@ -48,6 +49,6 @@
 
     <ui-global-errors></ui-global-errors>
 
-    <script src="@routes.Assets.versioned("dist/build.js")"></script>
+    <script src="@assets.versioned("dist/build.js")"></script>
   </body>
 </html>
