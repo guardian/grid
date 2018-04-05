@@ -5,7 +5,6 @@ import java.io.InputStream
 import _root_.play.api.Logger
 import akka.actor.Scheduler
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.auth.{AWSCredentials, AWSCredentialsProvider}
 import com.amazonaws.util.IOUtils
 import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3

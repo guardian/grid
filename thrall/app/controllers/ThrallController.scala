@@ -2,14 +2,11 @@ package controllers
 
 import java.util.concurrent.Executors
 
-import lib.ElasticSearch
-import play.api.mvc.{Action, Controller}
+import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
 
-
-object Application extends Controller {
+class ThrallController(override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext) extends BaseController {
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)

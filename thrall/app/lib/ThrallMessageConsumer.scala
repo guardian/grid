@@ -2,15 +2,13 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
-import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
-import org.elasticsearch.action.update.UpdateResponse
+import org.elasticsearch.action.delete.DeleteResponse
 import play.api.Logger
 
-import scala.concurrent.Future
-import play.api.libs.concurrent.Execution.Implicits._
+import scala.concurrent.{ExecutionContext, Future}
 
-object ThrallMessageConsumer extends MessageConsumer(
-  Config.queueUrl, Config.awsEndpoint, Config.awsCredentials, ThrallMetrics.processingLatency) {
+class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, notifications: DynamoNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
+  config.queueUrl, config.awsEndpoint, config.awsCredentials, thrallMetrics.processingLatency) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     PartialFunction.condOpt(subject) {
@@ -33,41 +31,41 @@ object ThrallMessageConsumer extends MessageConsumer(
   }
 
   def updateImageUsages(usages: JsValue) =
-   Future.sequence( withImageId(usages)(id => ElasticSearch.updateImageUsages(id, usages \ "data", usages \ "lastModified")) )
+   Future.sequence( withImageId(usages)(id => es.updateImageUsages(id, usages \ "data", usages \ "lastModified")) )
 
-  def indexImage(image: JsValue): Future[List[UpdateResponse]] =
-    Future.sequence( withImageId(image)(id => ElasticSearch.indexImage(id, image)) )
+  def indexImage(image: JsValue) =
+    Future.sequence( withImageId(image)(id => es.indexImage(id, image)) )
 
-  def updateImageExports(exports: JsValue): Future[List[UpdateResponse]]=
-    Future.sequence( withImageId(exports)(id => ElasticSearch.updateImageExports(id, exports \ "data")) )
+  def updateImageExports(exports: JsValue) =
+    Future.sequence( withImageId(exports)(id => es.updateImageExports(id, exports \ "data")) )
 
-  def deleteImageExports(exports: JsValue): Future[List[UpdateResponse]]=
-    Future.sequence( withImageId(exports)(id => ElasticSearch.deleteImageExports(id)) )
+  def deleteImageExports(exports: JsValue) =
+    Future.sequence( withImageId(exports)(id => es.deleteImageExports(id)) )
 
-  def updateImageUserMetadata(metadata: JsValue): Future[List[UpdateResponse]]= {
+  def updateImageUserMetadata(metadata: JsValue) = {
     val data = metadata \ "data"
     val lastModified = metadata \ "lastModified"
-    Future.sequence( withImageId(metadata)(id => ElasticSearch.applyImageMetadataOverride(id, data, lastModified)))
+    Future.sequence( withImageId(metadata)(id => es.applyImageMetadataOverride(id, data, lastModified)))
   }
 
   def updateImageLeases(leaseByMedia: JsValue) =
-    Future.sequence( withImageId(leaseByMedia)(id => ElasticSearch.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")) )
+    Future.sequence( withImageId(leaseByMedia)(id => es.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")) )
 
-  def setImageCollections(collections: JsValue): Future[List[UpdateResponse]]=
-    Future.sequence(withImageId(collections)(id => ElasticSearch.setImageCollection(id, collections \ "data")) )
+  def setImageCollections(collections: JsValue) =
+    Future.sequence(withImageId(collections)(id => es.setImageCollection(id, collections \ "data")) )
 
-  def deleteImage(image: JsValue): Future[List[EsResponse]] =
+  def deleteImage(image: JsValue) =
     Future.sequence(
       withImageId(image) { id =>
         // if we cannot delete the image as it's "protected", succeed and delete
         // the message anyway.
-        ElasticSearch.deleteImage(id).map { requests =>
+        es.deleteImage(id).map { requests =>
           requests.map {
-            case r: DeleteByQueryResponse =>
-              ImageStore.deleteOriginal(id)
-              ImageStore.deleteThumbnail(id)
-              ImageStore.deletePng(id)
-              DynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
+            case r: DeleteResponse =>
+              store.deleteOriginal(id)
+              store.deleteThumbnail(id)
+              store.deletePng(id)
+              notifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
@@ -79,7 +77,7 @@ object ThrallMessageConsumer extends MessageConsumer(
     )
 
   def deleteAllUsages(usage: JsValue) =
-    Future.sequence( withImageId(usage)(id => ElasticSearch.deleteAllImageUsages(id) ))
+    Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id) ))
 }
 
 // TODO: improve and use this (for logging especially) else where.

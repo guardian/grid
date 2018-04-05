@@ -1,13 +1,17 @@
 package controllers
 
-import play.api.mvc.{Result, Action, Controller}
-import play.api.libs.concurrent.Execution.Implicits._
-import lib.{Config, ThrallMessageConsumer, ElasticSearch}
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
+import play.api.mvc._
+import lib._
 import com.gu.mediaservice.syntax._
 
-object HealthCheck extends Controller {
+import scala.concurrent.ExecutionContext
 
-  def healthCheck = Action.async {
+class HealthCheck(auth: Authentication, es: ElasticSearch, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
+
+  def healthCheck = auth.async {
     elasticHealth map {
       case r: Result => sqsHealth
       case _ => ServiceUnavailable("ES is not healthy")
@@ -15,16 +19,16 @@ object HealthCheck extends Controller {
   }
 
   def elasticHealth = {
-    ElasticSearch.client.prepareSearch().setSize(0)
+    es.client.prepareSearch().setSize(0)
       .executeAndLog("Health check")
-      .filter(_ => ! ThrallMessageConsumer.actorSystem.isTerminated)
+      .filter(_ => !thrallMessageConsumer.actorSystem.whenTerminated.isCompleted)
       .map(_ => Ok("ES is healthy"))
   }
 
   def sqsHealth = {
-    val timeLastMessage = ThrallMessageConsumer.timeMessageLastProcessed.get
+    val timeLastMessage = thrallMessageConsumer.timeMessageLastProcessed.get
 
-    if (timeLastMessage.plusMinutes(Config.healthyMessageRate).isBeforeNow)
+    if (timeLastMessage.plusMinutes(config.healthyMessageRate).isBeforeNow)
       ServiceUnavailable(s"Not received a message since $timeLastMessage")
     else
       Ok("SQS is healthy")

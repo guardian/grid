@@ -22,7 +22,7 @@ trait CommonConfig {
   final val elasticsearchApp   = "elasticsearch"
   final val stackName          = "media-service"
 
-  final val sessionId = UUID.randomUUID().toString()
+  final val sessionId = UUID.randomUUID().toString
 
   lazy val awsCredentials = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
@@ -38,7 +38,7 @@ trait CommonConfig {
   lazy val services = new Services(domainRoot)
 
   private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
-  val corsAllAllowedOrigins = services.kahunaBaseUri :: corsAllowedOrigins
+  val corsAllAllowedOrigins: List[String] = services.kahunaBaseUri :: corsAllowedOrigins
 
   final def apply(key: String): String =
     string(key)

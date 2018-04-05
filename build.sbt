@@ -12,10 +12,10 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases)
-//  .aggregate(kahuna, mediaApi, metadataEditor, thrall, usage, scripts)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall)
+//  .aggregate(kahuna, mediaApi, metadataEditor, usage, scripts)
 
-addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run")
+addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run thrall/run")
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -61,7 +61,12 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 // TODO MRB: can this be combined with media-api
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
-lazy val thrall = project("thrall")
+lazy val thrall = playProject("thrall", 9002).settings(
+  libraryDependencies ++= Seq(
+    "org.codehaus.groovy" % "groovy-json" % "2.3.7",
+    "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
+  )
+)
 
 lazy val usage = playProject("usage", 9009)
 

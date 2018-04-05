@@ -4,31 +4,29 @@ import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
-import lib.ThrallMetrics._
-import org.elasticsearch.action.deletebyquery.DeleteByQueryResponse
+import org.elasticsearch.action.delete.DeleteResponse
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
-import org.elasticsearch.index.engine.{VersionConflictEngineException, DocumentMissingException}
+import org.elasticsearch.index.engine.{DocumentMissingException, VersionConflictEngineException}
 import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
 import org.joda.time.DateTime
 
-import scala.collection.convert.decorateAll._
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-object ElasticSearch extends ElasticSearchClient with ImageFields {
+class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchClient with ImageFields {
 
   import com.gu.mediaservice.lib.formatting._
 
-  val imagesAlias = Config.writeAlias
-  val host = Config.elasticsearchHost
-  val port = Config.int("es.port")
-  val cluster = Config("es.cluster")
+  val imagesAlias = config.writeAlias
+  val host = config.elasticsearchHost
+  val port = config.int("es.port")
+  val cluster = config("es.cluster")
 
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
 
@@ -60,11 +58,11 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           addToSuggestersScript,
         scriptType)
       .executeAndLog(s"Indexing image $id")
-      .incrementOnSuccess(indexedImages)
+      .incrementOnSuccess(metrics.indexedImages)
     }
   }
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[DeleteByQueryResponse]] = {
+  def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[DeleteResponse]] = {
 
     val q = filteredQuery(
       boolQuery.must(matchQuery("_id", id)),
@@ -74,11 +72,6 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
     )
 
     prepareForMultipleIndexes { index =>
-      val deleteQuery = client
-        .prepareDeleteByQuery(index)
-        .setTypes(imageType)
-        .setQuery(q)
-
       // search for the image first, and then only delete and succeed
       // this is because the delete query does not respond with anything useful
       // TODO: is there a more efficient way to do this?
@@ -88,21 +81,21 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         .executeAndLog(s"Searching for image to delete: $id")
         .flatMap { countQuery =>
           val deleteFuture = countQuery.getCount match {
-            case 1 => deleteQuery.executeAndLog(s"Deleting image $id")
+            case 1 => client.prepareDelete(index, imageType, id).executeAndLog(s"Deleting image $id")
             case _ => Future.failed(ImageNotDeletable)
           }
           deleteFuture
-            .incrementOnSuccess(deletedImages)
-            .incrementOnFailure(failedDeletedImages) { case ImageNotDeletable => true }
+            .incrementOnSuccess(metrics.deletedImages)
+            .incrementOnFailure(metrics.failedDeletedImages) { case ImageNotDeletable => true }
         }
     }
   }
 
-  def updateImageUsages(id: String, usages: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+  def updateImageUsages(id: String, usages: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "usages" -> asGroovy(usages),
-        "lastModified" -> asGroovy(lastModified)
+        "usages" -> asGroovy(usages.getOrElse(JsNull)),
+        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
       ).asJava)
       .setScript(
         s""" | if (!(ctx._source.usagesLastModified && ctx._source.usagesLastModified > lastModified)) {
@@ -113,7 +106,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
         scriptType)
       .executeAndLog(s"updating usages on image $id")
       .recover { case e: DocumentMissingException => new UpdateResponse }
-      .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -124,15 +117,15 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           scriptType)
         .executeAndLog(s"removing all usages on image $id")
         .recover { case e: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
     }
   }
 
-  def updateImageLeases(id: String, leaseByMedia: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext) : List[Future[UpdateResponse]] = {
+  def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext) : List[Future[UpdateResponse]] = {
     prepareImageUpdate(id){ request =>
       request.setScriptParams( Map(
-        "leaseByMedia" -> asGroovy(leaseByMedia),
-        "lastModified" -> asGroovy(lastModified)
+        "leaseByMedia" -> asGroovy(leaseByMedia.getOrElse(JsNull)),
+        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
       ).asJava)
         .setScript(
           replaceLeasesScript +
@@ -140,14 +133,14 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           scriptType)
       .executeAndLog(s"updating leases on image $id with: $leaseByMedia")
       .recover { case e: DocumentMissingException => new UpdateResponse }
-      .incrementOnFailure(failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
     }
   }
 
-  def updateImageExports(id: String, exports: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+  def updateImageExports(id: String, exports: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "exports" -> asGroovy(exports),
+        "exports" -> asGroovy(exports.getOrElse(JsNull)),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
         .setScript(
@@ -155,7 +148,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
             updateLastModifiedScript,
           scriptType)
         .executeAndLog(s"updating exports on image $id")
-        .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.failedExportsUpdates) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -169,14 +162,14 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
             updateLastModifiedScript,
           scriptType)
         .executeAndLog(s"removing exports from image $id")
-        .incrementOnFailure(failedExportsUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.failedExportsUpdates) { case e: VersionConflictEngineException => true }
     }
 
-  def applyImageMetadataOverride(id: String, metadata: JsValue, lastModified: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+  def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "userMetadata" -> asGroovy(metadata),
-        "lastModified" -> asGroovy(lastModified)
+        "userMetadata" -> asGroovy(metadata.getOrElse(JsNull)),
+        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
       ).asJava)
       .setScript(
         s""" | if (!(ctx._source.userMetadataLastModified && ctx._source.userMetadataLastModified > lastModified)) {
@@ -188,14 +181,14 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           refreshEditsScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
-      .incrementOnFailure(failedMetadataUpdates) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(metrics.failedMetadataUpdates) { case e: VersionConflictEngineException => true }
     }
   }
 
-  def setImageCollection(id: String, collections: JsValue)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
+  def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] =
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "collections" -> asGroovy(collections),
+        "collections" -> asGroovy(collections.getOrElse(JsNull)),
         "lastModified" -> asGroovy(JsString(currentIsoDateString))
       ).asJava)
       .setScript(
@@ -203,7 +196,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
           updateLastModifiedScript,
         scriptType)
       .executeAndLog(s"setting collections on image $id")
-      .incrementOnFailure(failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(metrics.failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
     }
 
   def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
@@ -231,7 +224,7 @@ object ElasticSearch extends ElasticSearchClient with ImageFields {
       .setQuery(matchAllQuery)
       .setScript(script)
       .executeAndLog("Running update by query script")
-      .incrementOnFailure(failedQueryUpdates) { case e: VersionConflictEngineException => true }
+      .incrementOnFailure(metrics.failedQueryUpdates) { case e: VersionConflictEngineException => true }
 
   def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
 
