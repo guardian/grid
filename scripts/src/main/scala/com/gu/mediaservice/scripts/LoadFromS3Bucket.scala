@@ -1,13 +1,13 @@
 package com.gu.mediaservice.scripts
 
-import scala.collection.JavaConverters._
-
-import org.apache.http.impl.client.HttpClients
+import com.amazonaws.auth.profile.ProfileCredentialsProvider
+import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{ContentType, InputStreamEntity}
+import org.apache.http.impl.client.HttpClients
 
-import com.gu.mediaservice.lib.UserCredentials
-import com.amazonaws.services.s3.AmazonS3Client
+import scala.collection.JavaConverters._
 
 object LoadFromS3Bucket {
 
@@ -18,9 +18,12 @@ object LoadFromS3Bucket {
       case _ => sys.error("Usage: LoadFromS3Bucket <bucket name> <loader endpoint>")
     }
 
-    val credentials = UserCredentials.awsCredentials
+    lazy val awsCredentials = new AWSCredentialsProviderChain(
+      new ProfileCredentialsProvider("media-service"),
+      InstanceProfileCredentialsProvider.getInstance()
+    )
 
-    val client = new AmazonS3Client(credentials)
+    val client = AmazonS3ClientBuilder.standard().withCredentials(awsCredentials).build()
 
     val keys = client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
 
