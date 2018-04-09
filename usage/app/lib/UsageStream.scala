@@ -1,15 +1,10 @@
 package lib
 
-import com.gu.crier.model.event.v1.EventPayload
-import play.api.Logger
-
-import _root_.rx.lang.scala.Observable
-import com.gu.contentapi.client.model.v1.{Content, ElementType, Element}
 import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
-
 import model._
+import rx.lang.scala.Observable
 
-object UsageStream {
+class UsageStream(usageGroup: UsageGroupOps) {
 
   val previewContentStream: Observable[ContentContainer] = PreviewCrierContentStream.observable
   val liveContentStream: Observable[ContentContainer] = LiveCrierContentStream.observable
@@ -25,11 +20,10 @@ object UsageStream {
 
   private def getObservable(contentStream: Observable[ContentContainer]) = {
     contentStream.flatMap((container: ContentContainer) => {
-      val usageGroupOption: Option[UsageGroup] = UsageGroup
-        .build(container.content, createStatus(container), container.lastModified, container.isReindex)
+      val usageGroupOption: Option[UsageGroup] = usageGroup.build(container.content, createStatus(container), container.lastModified, container.isReindex)
 
       val observable: Observable[UsageGroup] = usageGroupOption match {
-        case Some(usageGroup) => Observable.from(Some(usageGroup))
+        case Some(usgGroup) => Observable.from(Some(usgGroup))
         case _ => Observable.empty
       }
 

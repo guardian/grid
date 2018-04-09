@@ -1,48 +1,43 @@
 package lib
 
+import com.amazonaws.auth.AWSCredentialsProviderChain
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.regions.{RegionUtils, Region}
+import com.amazonaws.regions.{Region, RegionUtils, Regions}
 import com.amazonaws.services.identitymanagement._
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
-import com.amazonaws.auth.{AWSCredentialsProviderChain, BasicAWSCredentials, AWSCredentials}
-import com.amazonaws.regions.Regions
+import com.gu.mediaservice.lib.config.CommonConfig
+import play.api.{Configuration, Logger}
 
 import scala.util.Try
-
-import play.api.Logger
 
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
+class UsageConfig(override val configuration: Configuration) extends CommonConfig {
 
-  val appName = "usage"
+  final override lazy val appName = "usage"
   lazy val appTag = Try { properties("app.name") }
-
-  val properties = Properties.fromPath("/etc/gu/usage.properties")
 
   val keyStoreBucket = properties("auth.keystore.bucket")
 
-  lazy val rootUri = services.metadataBaseUri
-  lazy val kahunaUri = services.kahunaBaseUri
-  lazy val usageUri = services.usageBaseUri
-  lazy val apiUri = services.apiBaseUri
-  lazy val loginUriTemplate = services.loginUriTemplate
+  lazy val rootUri: String = services.metadataBaseUri
+  lazy val kahunaUri: String = services.kahunaBaseUri
+  lazy val usageUri: String = services.usageBaseUri
+  lazy val apiUri: String = services.apiBaseUri
+  lazy val loginUriTemplate: String = services.loginUriTemplate
 
   val defaultPageSize = 100
   val defaultMaxRetries = 6
   val defaultMaxPrintRequestSizeInKb = 500
   val defaultDateLimit = "2016-01-01T00:00:00+00:00"
 
-  val maxPrintRequestLengthInKb = Try(properties("api.setPrint.maxLength").toInt)
-    .getOrElse[Int](defaultMaxPrintRequestSizeInKb)
+  val maxPrintRequestLengthInKb: Int = Try(properties("api.setPrint.maxLength").toInt).getOrElse[Int](defaultMaxPrintRequestSizeInKb)
 
   val capiLiveUrl = properties("capi.live.url")
   val capiApiKey = properties("capi.apiKey")
-  val capiPageSize = Try(properties("capi.page.size").toInt).getOrElse[Int](defaultPageSize)
-  val capiMaxRetries = Try(properties("capi.maxRetries").toInt).getOrElse[Int](defaultMaxRetries)
+  val capiPageSize: Int = Try(properties("capi.page.size").toInt).getOrElse[Int](defaultPageSize)
+  val capiMaxRetries: Int = Try(properties("capi.maxRetries").toInt).getOrElse[Int](defaultMaxRetries)
 
-  val usageDateLimit = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
+  val usageDateLimit: String = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
 
   val topicArn = properties("sns.topic.arn")
 
@@ -74,11 +69,9 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
     new ProfileCredentialsProvider("media-service")
   )
 
-  private val iamClient: AmazonIdentityManagement =
-    new AmazonIdentityManagementClient(credentialsProvider)
-      .withRegion(Regions.EU_WEST_1)
+  private val iamClient: AmazonIdentityManagement = AmazonIdentityManagementClientBuilder.standard.withCredentials(credentialsProvider).build()
 
-  val postfix = if (stage == "DEV") {
+  val postfix: String = if (stage == "DEV") {
     try {
       iamClient.getUser().getUser().getUserName()
     } catch {
@@ -90,17 +83,15 @@ object Config extends CommonPlayAppProperties with CommonPlayAppConfig {
     stage
   }
 
-  val liveAppName = s"media-service-livex-${postfix}"
-  val previewAppName = s"media-service-previewx-${postfix}"
+  val liveAppName = s"media-service-livex-$postfix"
+  val previewAppName = s"media-service-previewx-$postfix"
 
   val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("usage") match {
-    case "usage-stream" => {
+    case "usage-stream" =>
       Logger.info(s"Starting as Stream Reader Usage.")
       Map("apiOnly" -> false)
-    }
-    case _ => {
+    case _ =>
       Logger.info(s"Starting as API only Usage.")
       Map("apiOnly" -> true)
-    }
   }
 }

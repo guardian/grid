@@ -6,8 +6,8 @@ import play.api.libs.json._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-object MetadataMessageConsumer extends MessageConsumer(
-  Config.queueUrl, Config.awsEndpoint, Config.awsCredentials, MetadataEditorMetrics.processingLatency) with DynamoEdits {
+class MetadataMessageConsumer(config: EditsConfig, metadataEditorMetrics: MetadataEditorMetrics, store: EditsStore) extends MessageConsumer(
+  config.queueUrl, config.awsEndpoint, config.awsCredentials, metadataEditorMetrics.processingLatency) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
     PartialFunction.condOpt(subject) {
@@ -15,6 +15,6 @@ object MetadataMessageConsumer extends MessageConsumer(
     }
 
   def processDeletedImage(message: JsValue) = Future {
-      withImageId(message)(id => dynamo.deleteItem(id))
+      withImageId(message)(id => store.deleteItem(id))
   }
 }

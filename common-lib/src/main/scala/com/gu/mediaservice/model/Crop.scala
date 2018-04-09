@@ -6,7 +6,7 @@ import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 import JodaReads._
 
-//FIXME: Both id and filesize here should not be an Option and are awaiting backfilling the correct data in ES
+//FIXME: Both id and file size here should not be an Option and are awaiting backfilling the correct data in ES
 
 case class Crop(id: Option[String], author: Option[String], date: Option[DateTime], specification: CropSpec, master: Option[Asset], assets: List[Asset])
 object Crop {

@@ -1,6 +1,6 @@
 package lib
 
-import _root_.rx.lang.scala.subjects.PublishSubject
+import rx.lang.scala.subjects.PublishSubject
 import com.gu.contentapi.client.model.v1.Content
 import org.joda.time.DateTime
 

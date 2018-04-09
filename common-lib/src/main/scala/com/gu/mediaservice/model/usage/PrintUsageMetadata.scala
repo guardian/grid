@@ -5,7 +5,6 @@ import org.joda.time.DateTime
 
 import scala.collection.JavaConverters._
 
-
 case class PrintImageSize(
   x: Int,
   y: Int

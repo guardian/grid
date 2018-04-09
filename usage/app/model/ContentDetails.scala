@@ -1,10 +1,11 @@
 package model
 
-import com.gu.contentapi.client.model.v1.Content
-import scala.util.Try
 import java.net.URL
-import lib.Config
 
+import com.gu.contentapi.client.model.v1.Content
+import lib.UsageConfig
+
+import scala.util.Try
 
 case class ContentDetails(
   webTitle: String,
@@ -19,7 +20,7 @@ case class ContentDetails(
   ) ++ composerUrl.map("composerUrl" -> _.toString)
 }
 
-object ContentDetails {
+class ContentDetailsOps(config: UsageConfig) {
   def build(content: Content): ContentDetails = {
     ContentDetails(
       content.webTitle,
@@ -32,7 +33,7 @@ object ContentDetails {
   def composerUrl(content: Content): Option[URL] = content.fields
     .flatMap(_.internalComposerCode)
     .flatMap(composerId => {
-      Try(new URL(s"${Config.composerContentBaseUrl}/${composerId}")).toOption
+      Try(new URL(s"${config.composerContentBaseUrl}/$composerId")).toOption
     })
 
 }

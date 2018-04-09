@@ -1,9 +1,10 @@
-package lib.rx
+package lib
+
+import java.util.concurrent.Executors
 
 import rx.lang.scala.schedulers.ExecutionContextScheduler
-import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
 
+import scala.concurrent.ExecutionContext
 
 trait SingleThreadedScheduler {
   private val singleThreadedExecutor = Executors.newSingleThreadExecutor()

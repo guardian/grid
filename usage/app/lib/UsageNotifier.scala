@@ -1,19 +1,14 @@
 package lib
 
-import com.gu.mediaservice.lib.formatting._
-import org.joda.time.DateTime
-import play.api.libs.json._
 import com.gu.mediaservice.lib.aws.SNS
-import com.gu.mediaservice.model.Usage
-
-import model.{UsageTable, MediaUsage}
-
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-
+import com.gu.mediaservice.lib.formatting._
+import model.{MediaUsage, UsageTable}
+import org.joda.time.DateTime
 import play.api.Logger
+import play.api.libs.json._
+import rx.lang.scala.Observable
 
-import _root_.rx.lang.scala.{Observable, Subscriber}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 case class UsageNotice(mediaId: String, usageJson: JsArray) {
   def toJson = Json.obj(
@@ -38,15 +33,13 @@ case class UsageNotice(mediaId: String, usageJson: JsArray) {
   }
 }
 
-object UsageNotice {
+class UsageNotifier(config: UsageConfig, usageTable: UsageTable) extends SNS(config, config.topicArn) {
   def build(mediaId: String) = Observable.from(
-    UsageTable.queryByImageId(mediaId).map((usages: Set[MediaUsage]) => {
+    usageTable.queryByImageId(mediaId).map((usages: Set[MediaUsage]) => {
       val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsArray]
       UsageNotice(mediaId, usageJson)
     }))
-}
 
-object UsageNotifier extends SNS(Config.awsCredentials, Config.topicArn) {
   def send(usageNotice: UsageNotice) = {
     Logger.info(s"Sending usage notice for ${usageNotice.mediaId}")
     publish(usageNotice.toJson, "update-image-usages")

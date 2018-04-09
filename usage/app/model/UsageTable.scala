@@ -1,25 +1,20 @@
 package model
 
-import com.gu.mediaservice.lib.aws.DynamoDB
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.regions.Region
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
-import com.amazonaws.services.dynamodbv2.document.{DeleteItemOutcome, KeyAttribute, RangeKeyCondition}
-
-import scalaz.syntax.id._
-import play.api.libs.json._
-import play.api.Logger
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
-import scala.util.Try
-import org.joda.time.DateTime
-import rx.lang.scala.Observable
+import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
-import lib.Config
+import lib.UsageConfig
+import org.joda.time.DateTime
+import play.api.Logger
+import play.api.libs.json._
+import rx.lang.scala.Observable
+
+import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.util.Try
 
 case class UsageTableFullKey(hashKey: String, rangeKey: String) {
   override def toString = List(
@@ -41,11 +36,7 @@ object UsageTableFullKey {
   }
 }
 
-object UsageTable extends DynamoDB(
-    Config.awsCredentials,
-    Config.dynamoRegion,
-    Config.usageRecordTable
-  ){
+class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoDB(config, config.usageRecordTable){
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
@@ -53,12 +44,12 @@ object UsageTable extends DynamoDB(
 
   def queryByUsageId(id: String): Future[Option[MediaUsage]] = Future {
     UsageTableFullKey.build(id).flatMap((tableFullKey: UsageTableFullKey) => {
-      val keyAttribute = new KeyAttribute(hashKeyName, tableFullKey.hashKey)
-      val rangeKeyCondition = (new RangeKeyCondition(rangeKeyName)).eq(tableFullKey.rangeKey)
+      val keyAttribute: KeyAttribute = new KeyAttribute(hashKeyName, tableFullKey.hashKey)
+      val rangeKeyCondition: RangeKeyCondition = new RangeKeyCondition(rangeKeyName).eq(tableFullKey.rangeKey)
 
       val queryResult = table.query(keyAttribute, rangeKeyCondition)
 
-      queryResult.asScala.map(MediaUsage.build).headOption
+      queryResult.asScala.map(mediaUsage.build).headOption
     })
   }
 
@@ -67,7 +58,7 @@ object UsageTable extends DynamoDB(
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    val fullSet = queryResult.asScala.map(MediaUsage.build).toSet[MediaUsage]
+    val fullSet = queryResult.asScala.map(mediaUsage.build).toSet[MediaUsage]
 
     hidePendingIfPublished(
       hidePendingIfRemoved(fullSet))
@@ -78,17 +69,16 @@ object UsageTable extends DynamoDB(
   })
 
   def hidePendingIfPublished(usages: Set[MediaUsage]): Set[MediaUsage] = usages.groupBy(_.grouping).flatMap {
-    case (grouping, groupedUsages) => {
-        val publishedUsage = groupedUsages.find(_.status match {
-          case _: PublishedUsageStatus => true
-          case _ => false
-        })
+    case (grouping, groupedUsages) =>
+      val publishedUsage = groupedUsages.find(_.status match {
+        case _: PublishedUsageStatus => true
+        case _ => false
+      })
 
-        if (publishedUsage.isEmpty) {
-            groupedUsages.headOption
-        } else {
-            publishedUsage
-        }
+      if (publishedUsage.isEmpty) {
+          groupedUsages.headOption
+      } else {
+          publishedUsage
       }
   }.toSet
 
@@ -100,11 +90,11 @@ object UsageTable extends DynamoDB(
       val grouping = usageGroup.grouping
       val keyAttribute = new KeyAttribute("grouping", grouping)
 
-      Logger.info(s"Querying table for ${grouping} - ${status}")
+      Logger.info(s"Querying table for $grouping - $status")
       val queryResult = table.query(keyAttribute)
 
       val usages = queryResult.asScala
-        .map(MediaUsage.build)
+        .map(mediaUsage.build)
         .filter(usage => {
           s"${usage.status}" == status
         }).toSet

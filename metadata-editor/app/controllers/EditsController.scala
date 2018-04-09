@@ -4,24 +4,21 @@ package controllers
 import java.net.URI
 import java.net.URLDecoder.decode
 
-import com.gu.mediaservice.lib.formatting._
-import org.joda.time.DateTime
-
-import scala.concurrent.Future
-
-import play.api.data.Forms._
-import play.api.data._
-import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json._
-import play.api.mvc.Controller
-
 import com.amazonaws.AmazonServiceException
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.NoItemFound
+import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model._
 import lib._
+import org.joda.time.DateTime
+import play.api.data.Forms._
+import play.api.data._
+import play.api.libs.json._
+import play.api.mvc.{BaseController, ControllerComponents}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 
 // FIXME: the argoHelpers are all returning `Ok`s (200)
@@ -42,85 +39,85 @@ import lib._
 //   }
 // }
 
-object EditsController extends Controller with ArgoHelpers with DynamoEdits with EditsResponse {
+class EditsController(auth: Authentication, store: EditsStore, notifications: Notifications, config: EditsConfig,
+                      override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers with EditsResponse {
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
 
-  val Authenticated = ControllerHelper.Authenticated
-  val metadataBaseUri = Config.services.metadataBaseUri
+  val metadataBaseUri = config.services.metadataBaseUri
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
   // TODO: Think about calling this `overrides` or something that isn't metadata
-  def getAllMetadata(id: String) = Authenticated.async {
+  def getAllMetadata(id: String) = auth.async {
     val emptyResponse = respond(Edits.getEmpty)(editsEntity(id))
-    dynamo.get(id) map { dynamoEntry =>
+    store.get(id) map { dynamoEntry =>
       dynamoEntry.asOpt[Edits]
         .map(respond(_)(editsEntity(id)))
         .getOrElse(emptyResponse)
     } recover { case NoItemFound => emptyResponse }
   }
 
-  def getArchived(id: String) = Authenticated.async {
-    dynamo.booleanGet(id, "archived") map { archived =>
+  def getArchived(id: String) = auth.async {
+    store.booleanGet(id, "archived") map { archived =>
       respond(archived.getOrElse(false))
     } recover {
       case NoItemFound => respond(false)
     }
   }
 
-  def setArchived(id: String) = Authenticated.async { req =>
-    booleanForm.bindFromRequest()(req).fold(
-      errors   =>
-        Future.successful(BadRequest(errors.errorsAsJson)),
+  def setArchived(id: String) = auth.async(parse.json) { implicit req =>
+    req.body.validate[Boolean].fold(
+      errors =>
+        Future.successful(BadRequest(errors.toString())),
       archived =>
-        dynamo.booleanSetOrRemove(id, "archived", archived)
+        store.booleanSetOrRemove(id, "archived", archived)
           .map(publish(id))
           .map(edits => respond(edits.archived))
     )
   }
 
-  def unsetArchived(id: String) = Authenticated.async {
-    dynamo.removeKey(id, "archived")
+  def unsetArchived(id: String) = auth.async {
+    store.removeKey(id, "archived")
       .map(publish(id))
       .map(_ => respond(false))
   }
 
 
-  def getLabels(id: String) = Authenticated.async {
-    dynamo.setGet(id, "labels")
+  def getLabels(id: String) = auth.async {
+    store.setGet(id, "labels")
       .map(labelsCollection(id, _))
       .map {case (uri, labels) => respondCollection(labels)} recover {
       case NoItemFound => respond(Array[String]())
     }
   }
 
-  def addLabels(id: String) = Authenticated.async { req =>
-    listForm.bindFromRequest()(req).fold(
+  def addLabels(id: String) = auth.async(parse.json) { req =>
+    req.body.validate[List[String]].fold(
       errors =>
-        Future.successful(BadRequest(errors.errorsAsJson)),
-      labels => {
-        dynamo
+        Future.successful(BadRequest(errors.toString())),
+      labels =>
+        store
           .setAdd(id, "labels", labels)
           .map(publish(id))
           .map(edits => labelsCollection(id, edits.labels.toSet))
-          .map {case (uri, labels) => respondCollection(labels)} recover {
-          case _: AmazonServiceException => BadRequest
-        }
-      }
+          .map { case (uri, l) => respondCollection(l) } recover {
+            case _: AmazonServiceException => BadRequest
+          }
     )
   }
 
-  def removeLabel(id: String, label: String) = Authenticated.async {
-    dynamo.setDelete(id, "labels", decodeUriParam(label))
+  def removeLabel(id: String, label: String) = auth.async {
+    store.setDelete(id, "labels", decodeUriParam(label))
       .map(publish(id))
       .map(edits => labelsCollection(id, edits.labels.toSet))
       .map {case (uri, labels) => respondCollection(labels, uri=Some(uri))}
   }
 
 
-  def getMetadata(id: String) = Authenticated.async {
-    dynamo.jsonGet(id, "metadata").map { dynamoEntry =>
+  def getMetadata(id: String) = auth.async {
+    store.jsonGet(id, "metadata").map { dynamoEntry =>
       val metadata = (dynamoEntry \ "metadata").as[ImageMetadata]
       respond(metadata)
     } recover {
@@ -128,18 +125,18 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     }
   }
 
-  def setMetadata(id: String) = Authenticated.async(parse.json) { req =>
-    metadataForm.bindFromRequest()(req).fold(
-      errors => Future.successful(BadRequest(errors.errorsAsJson)),
+  def setMetadata(id: String) = auth.async(parse.json) { req =>
+    req.body.validate[ImageMetadata].fold(
+      errors => Future.successful(BadRequest(errors.toString())),
       metadata =>
-        dynamo.jsonAdd(id, "metadata", metadataAsMap(metadata))
+        store.jsonAdd(id, "metadata", metadataAsMap(metadata))
           .map(publish(id))
           .map(edits => respond(edits.metadata))
     )
   }
 
-  def setMetadataFromUsageRights(id: String) = Authenticated.async { req =>
-    dynamo.get(id) flatMap { dynamoEntry =>
+  def setMetadataFromUsageRights(id: String) = auth.async { req =>
+    store.get(id) flatMap { dynamoEntry =>
       val edits = dynamoEntry.as[Edits]
       val originalMetadata = edits.metadata
       val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
@@ -150,7 +147,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
           credit = metadata.credit orElse originalMetadata.credit
         )
 
-        dynamo.jsonAdd(id, "metadata", metadataAsMap(mergedMetadata))
+        store.jsonAdd(id, "metadata", metadataAsMap(mergedMetadata))
           .map(publish(id))
           .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
       } getOrElse {
@@ -162,8 +159,8 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     }
   }
 
-  def getUsageRights(id: String) = Authenticated.async {
-    dynamo.jsonGet(id, "usageRights").map { dynamoEntry =>
+  def getUsageRights(id: String) = auth.async {
+    store.jsonGet(id, "usageRights").map { dynamoEntry =>
       val usageRights = (dynamoEntry \ "usageRights").as[UsageRights]
       respond(usageRights)
     } recover {
@@ -171,16 +168,16 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
     }
   }
 
-  def setUsageRights(id: String) = Authenticated.async(parse.json) { req =>
+  def setUsageRights(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").asOpt[UsageRights].map(usageRight => {
-      dynamo.jsonAdd(id, "usageRights", caseClassToMap(usageRight))
+      store.jsonAdd(id, "usageRights", caseClassToMap(usageRight))
         .map(publish(id))
         .map(edits => respond(usageRight))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data")))
   }
 
-  def deleteUsageRights(id: String) = Authenticated.async { req =>
-    dynamo.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
+  def deleteUsageRights(id: String) = auth.async { req =>
+    store.removeKey(id, "usageRights").map(publish(id)).map(edits => Accepted)
   }
 
   // TODO: Move this to the dynamo lib
@@ -198,7 +195,7 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
       "lastModified" -> printDateTime(new DateTime())
     )
 
-    Notifications.publish(message, "update-image-user-metadata")
+    notifications.publish(message, "update-image-user-metadata")
 
     edits
   }
@@ -220,49 +217,6 @@ object EditsController extends Controller with ArgoHelpers with DynamoEdits with
   def metadataAsMap(metadata: ImageMetadata) =
     (Json.toJson(metadata).as[JsObject]-"keywords").as[Map[String, String]]
 
-  // FIXME: Find a way to not have to write all this junk
-  // We can use the new bindFromRequest as we've done most the grunt work in the
-  // JSON combinators
-  val metadataForm: Form[ImageMetadata] = Form(
-    single("data" -> mapping(
-      "dateTaken" -> trueOptional(jodaDate),
-      "description" -> trueOptional(text),
-      "credit" -> trueOptional(text),
-      "creditUri" -> trueOptional(text),
-      "byline" -> trueOptional(text),
-      "bylineTitle" -> trueOptional(text),
-      "title" -> trueOptional(text),
-      "copyrightNotice" -> trueOptional(text),
-      "copyright" -> trueOptional(text),
-      "suppliersReference" -> trueOptional(text),
-      "source" -> trueOptional(text),
-      "specialInstructions" -> trueOptional(text),
-      "keywords" -> default(list(text), List()),
-      "subLocation" -> trueOptional(text),
-      "city" -> trueOptional(text),
-      "state" -> trueOptional(text),
-      "country" -> trueOptional(text),
-      "subjects" -> default(list(text), List())
-    )(ImageMetadata.apply)(ImageMetadata.unapply))
-  )
-
-  def trueOptional[T](mapping: Mapping[T]) = TrueOptionalMapping(mapping)
-
-  val booleanForm: Form[Boolean] = Form(
-    single("data" -> boolean)
-      .transform[Boolean]({ case (value) => value },
-    { case value: Boolean => value })
-  )
-
-  val stringForm: Form[String] = Form(
-    single("data" -> text)
-      .transform[String]({ case (value) => value },
-    { case value: String => value })
-  )
-
-  val listForm: Form[List[String]] = Form(
-    single[List[String]]("data" -> list(nonEmptyText))
-  )
 
 }
 

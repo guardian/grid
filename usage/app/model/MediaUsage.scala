@@ -1,21 +1,12 @@
 package model
 
 import com.amazonaws.services.dynamodbv2.document.Item
-import com.gu.mediaservice.model.{PrintUsageMetadata, DigitalUsageMetadata, DateFormat}
-import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus, PrintUsageRecord, UsageStatus}
-import org.joda.time.DateTime
-import play.api.libs.json._
-
-import scala.util.Try
-import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
-import java.net.URI
-
-import com.gu.contentatom.thrift.atom.media.MediaAtom
+import com.gu.mediaservice.model._
 import lib.UsageMetadataBuilder
+import org.joda.time.DateTime
 
+import scala.collection.JavaConverters._
+import scala.util.Try
 
 case class MediaUsage(
   usageId: UsageId,
@@ -30,7 +21,7 @@ case class MediaUsage(
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
 ) {
-  def isRemoved = (for {
+  def isRemoved: Boolean = (for {
     added <- dateAdded
     removed <- dateRemoved
   } yield !removed.isBefore(added)).getOrElse(false)
@@ -46,7 +37,7 @@ case class MediaUsage(
   }
 }
 
-object MediaUsage {
+class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
 
   def build(item: Item) =
     MediaUsage(
@@ -60,17 +51,17 @@ object MediaUsage {
         case "published" => PublishedUsageStatus()
       },
       Option(item.getMap[Any]("print_metadata"))
-        .map(_.asScala.toMap).flatMap(UsageMetadataBuilder.buildPrint),
+        .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildPrint),
       Option(item.getMap[Any]("digital_metadata"))
-        .map(_.asScala.toMap).flatMap(UsageMetadataBuilder.buildDigital),
+        .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildDigital),
       new DateTime(item.getLong("last_modified")),
       Try { item.getLong("date_added") }.toOption.map(new DateTime(_)),
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
     )
 
-  def build(printUsage: PrintUsageRecord, usageId: UsageId) = MediaUsage(
+  def build(printUsage: PrintUsageRecord, usageId: UsageId, grouping: String) = MediaUsage(
     usageId,
-    UsageGroup.buildId(printUsage),
+    grouping,
     printUsage.mediaId,
     "print",
     "image",

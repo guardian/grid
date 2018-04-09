@@ -12,10 +12,10 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna)
-//  .aggregate(kahuna, mediaApi, metadataEditor, usage, scripts)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage)
+//  .aggregate(mediaApi, scripts)
 
-addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run thrall/run kahuna/run")
+addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run thrall/run kahuna/run metadataEditor/run usage/run")
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -68,7 +68,15 @@ lazy val thrall = playProject("thrall", 9002).settings(
   )
 )
 
-lazy val usage = playProject("usage", 9009)
+lazy val usage = playProject("usage", 9009).settings(
+  libraryDependencies ++= Seq(
+    "com.gu" %% "content-api-client" % "11.53",
+    "io.reactivex" %% "rxscala" % "0.26.5",
+    "com.amazonaws" % "amazon-kinesis-client" % "1.2.1",
+    "com.ning" % "async-http-client" % "1.9.40",
+    "org.dispatchhttp" %% "dispatch-core" % "0.14.0"
+  )
+)
 
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)

@@ -6,10 +6,9 @@ import scalaz.syntax.id._
 
 import com.gu.mediaservice.model.{PrintUsageMetadata, DigitalUsageMetadata}
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 import org.joda.time.DateTime
-
 
 case class UsageRecord(
   hashKey: String,
@@ -34,14 +33,14 @@ case class UsageRecord(
         mediaType.filter(_.nonEmpty).map(S("media_type").set(_)),
         lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
         usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
-        printUsageMetadata.map(_.toMap).map(M("print_metadata").set(_)),
-        digitalUsageMetadata.map(_.toMap).map(M("digital_metadata").set(_)),
+        printUsageMetadata.map(_.toMap).map(map => M("print_metadata").set(map.asJava)),
+        digitalUsageMetadata.map(_.toMap).map(map => M("digital_metadata").set(map.asJava)),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.fold(
           _ => Some(N("date_removed").remove),
           dateRem => dateRem.map(date => N("date_removed").set(date.getMillis))
         )
-      ).flatten.foreach(xspec.addUpdate(_))
+      ).flatten.foreach(xspec.addUpdate)
     })).buildForUpdate
   }
 }

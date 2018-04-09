@@ -1,13 +1,11 @@
 package lib
 
+import com.gu.contentapi.buildinfo.CapiBuildInfo
 import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.contentapi.buildinfo.CapiBuildInfo
-
 import com.ning.http.client.AsyncHttpClient
 import com.ning.http.client.AsyncHttpClientConfig.Builder
 import org.joda.time.{DateTime, DateTimeZone}
-import dispatch.Http
 
 trait ContentHelpers {
   def getContentFirstPublished(content: Content) = for {
@@ -18,12 +16,12 @@ trait ContentHelpers {
 
 }
 
-object LiveContentApi extends ContentApiRequestBuilder {
-  override val targetUrl = Config.capiLiveUrl
+class LiveContentApi(config: UsageConfig) extends ContentApiRequestBuilder(config) {
+  override val targetUrl = config.capiLiveUrl
 }
 
-class ContentApiRequestBuilder extends GuardianContentClient(apiKey = Config.capiApiKey) with ContentHelpers {
-  override val userAgent = "content-api-scala-client/"+CapiBuildInfo.version
+class ContentApiRequestBuilder(config: UsageConfig) extends GuardianContentClient(apiKey = config.capiApiKey) with ContentHelpers {
+  override val userAgent = "content-api-scala-client/" + CapiBuildInfo.version
 
   val builder = new Builder()
     .setAllowPoolingConnections(true)
@@ -38,6 +36,6 @@ class ContentApiRequestBuilder extends GuardianContentClient(apiKey = Config.cap
 
   val client = new AsyncHttpClient(builder.build)
 
-  override lazy val http = Http(client)
+//  override lazy val http = Http(client)
 }
 
