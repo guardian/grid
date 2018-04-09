@@ -1,17 +1,16 @@
 package lib
 
-import org.scalatest.{FunSpec, Matchers}
+import java.net.URI
+
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
+import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{FunSpec, Matchers}
 
-import java.net.URI
+class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
 
-class ImageExtrasTest extends FunSpec with Matchers {
-  object Quota extends UsageQuota {
-    val usageStore = null
-    val quotaStore = null
-  }
+  val Quota = mock[UsageQuota]
 
   object Costing extends CostCalculator {
     val quotas = Quota
@@ -50,40 +49,40 @@ class ImageExtrasTest extends FunSpec with Matchers {
   )
 
   val baseValidityMap = Map(
-    "paid_image" -> ValidityCheck(true,true,false),
-    "missing_description" -> ValidityCheck(true,false,false),
-    "missing_credit" -> ValidityCheck(true,false,false),
-    "over_quota" -> ValidityCheck(false,true,false),
-    "current_deny_lease" -> ValidityCheck(false,true,false),
-    "no_rights" -> ValidityCheck(true,true,false),
-    "conditional_paid" -> ValidityCheck(false,true,false)
+    "paid_image" -> ValidityCheck(invalid = true,overrideable = true,shouldOverride = false),
+    "missing_description" -> ValidityCheck(invalid = true,overrideable = false,shouldOverride = false),
+    "missing_credit" -> ValidityCheck(invalid = true,overrideable = false,shouldOverride = false),
+    "over_quota" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false),
+    "current_deny_lease" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false),
+    "no_rights" -> ValidityCheck(invalid = true,overrideable = true,shouldOverride = false),
+    "conditional_paid" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false)
   )
 
   describe("Invalid Images") {
     it("should generate validityMaps") {
-      baseValidityMap should be(ImageExtras.validityMap(baseImage, false))
+      baseValidityMap should be(ImageExtras.validityMap(baseImage, withWritePermission = false))
     }
     it("should report validity") {
-      val validityMap  = ImageExtras.validityMap(baseImage, false)
+      val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = false)
       val validity = ImageExtras.isValid(validityMap)
 
       validity should be(false)
     }
     it("should report overriden validity") {
       val overrideableImage = baseImage.copy(metadata = validImageMetadata)
-      val validityMap  = ImageExtras.validityMap(overrideableImage, true)
+      val validityMap  = ImageExtras.validityMap(overrideableImage, withWritePermission = true)
       val validity = ImageExtras.isValid(validityMap)
 
       validity should be(true)
     }
     it("should report invalid when fields cannot be overriden") {
-      val validityMap  = ImageExtras.validityMap(baseImage, true)
+      val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = true)
       val validity = ImageExtras.isValid(validityMap)
 
       validity should be(false)
     }
     it("should report all invalid reasons") {
-      val validityMap  = ImageExtras.validityMap(baseImage, true)
+      val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = true)
       val invalidReasons = ImageExtras.invalidReasons(validityMap)
       val expectedInvalidReasons = Map(
         "paid_image" -> "Paid imagery requires a lease",

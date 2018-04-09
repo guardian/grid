@@ -19,10 +19,9 @@ import com.gu.mediaservice.lib.collections.CollectionsManager
 
 import controllers.Quotas
 
-
-object ImageResponse extends EditsResponse {
-  implicit val dateTimeFormat = DateFormat
-  implicit val usageQuotas = Quotas
+class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
+//  implicit val dateTimeFormat = DateFormat
+  implicit val usageQuotas = usageQuota
 
   object Costing extends CostCalculator {
     val quotas = usageQuotas
@@ -30,7 +29,7 @@ object ImageResponse extends EditsResponse {
 
   implicit val costing = Costing
 
-  val metadataBaseUri = Config.services.metadataBaseUri
+  val metadataBaseUri: String = config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
 
@@ -41,7 +40,7 @@ object ImageResponse extends EditsResponse {
   type MediaLeasesEntity = EmbeddedEntity[LeaseByMedia]
 
   def hasPersistenceIdentifier(image: Image) =
-    image.identifiers.contains(Config.persistenceIdentifier)
+    image.identifiers.contains(config.persistenceIdentifier)
 
   def hasExports(image: Image) =
     image.exports.nonEmpty
@@ -122,7 +121,7 @@ object ImageResponse extends EditsResponse {
       }
     }.get
 
-    val pngFileUri = (source \ "optimisedPng") match {
+    val pngFileUri = source \ "optimisedPng" match {
       case o: JsObject => Some(new URI((source \ "optimisedPng" \ "file").as[String]))
       case _ => None
     }
@@ -133,14 +132,14 @@ object ImageResponse extends EditsResponse {
 
     val fileUri = new URI((source \ "source" \ "file").as[String])
 
-    val imageUrl = S3Client.signUrl(Config.imageBucket, fileUri, image, expiration)
+    val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image, expiration)
     val pngUrl: Option[String] = pngFileUri
-      .map(S3Client.signUrl(Config.imageBucket, _, image, expiration))
+      .map(s3Client.signUrl(config.imageBucket, _, image, expiration))
 
-    def s3SignedThumbUrl = S3Client.signUrl(Config.thumbBucket, fileUri, image, expiration)
+    def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, expiration)
     val thumbUrl = if(FeatureToggle.get("cloudfront-signing")) {
-      Config.cloudFrontDomainThumbBucket
-        .flatMap(S3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+      config.cloudFrontDomainThumbBucket
+        .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
         .getOrElse(s3SignedThumbUrl)
     } else { s3SignedThumbUrl }
 
@@ -157,7 +156,7 @@ object ImageResponse extends EditsResponse {
       .flatMap(_.transform(
         pngUrl
           .map(url => addSecureOptimisedPngUrl(url))
-          .getOrElse((__).json.pick)
+          .getOrElse(__.json.pick)
         ))
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
@@ -174,17 +173,17 @@ object ImageResponse extends EditsResponse {
   }
 
   def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean) = {
-    val cropLink = Link("crops", s"${Config.cropperUri}/crops/$id")
-    val editLink = Link("edits", s"${Config.metadataUri}/metadata/$id")
+    val cropLink = Link("crops", s"${config.cropperUri}/crops/$id")
+    val editLink = Link("edits", s"${config.metadataUri}/metadata/$id")
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
     val optimisedPngLink = securePngUrl match {
       case Some(secureUrl) => Some(Link("optimisedPng", makeImgopsUri(new URI(secureUrl))))
       case _ => None
     }
-    val imageLink = Link("ui:image",  s"${Config.kahunaUri}/images/$id")
-    val usageLink = Link("usages", s"${Config.usageUri}/usages/media/$id")
-    val leasesLink = Link("leases", s"${Config.leasesUri}/leases/media/$id")
-    val fileMetadataLink = Link("fileMetadata", s"${Config.rootUri}/images/$id/fileMetadata")
+    val imageLink = Link("ui:image",  s"${config.kahunaUri}/images/$id")
+    val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
+    val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
+    val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
 
     val baseLinks = if (withWritePermission) {
       List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink)
@@ -197,17 +196,17 @@ object ImageResponse extends EditsResponse {
       case None => baseLinks
     }
 
-    if (valid) (cropLink :: baseLinksWithOptimised) else baseLinksWithOptimised
+    if (valid) cropLink :: baseLinksWithOptimised else baseLinksWithOptimised
   }
 
   def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean) = {
 
-    val imageUri = URI.create(s"${Config.rootUri}/images/$id")
-    val reindexUri = URI.create(s"${Config.rootUri}/images/$id/reindex")
-    val addCollectionUri = URI.create(s"${Config.collectionsUri}/images/$id")
-    val addLeasesUri = URI.create(s"${Config.leasesUri}/leases")
-    val replaceLeasesUri = URI.create(s"${Config.leasesUri}/leases/media/$id")
-    val deleteLeasesUri = URI.create(s"${Config.leasesUri}/leases/media/$id")
+    val imageUri = URI.create(s"${config.rootUri}/images/$id")
+    val reindexUri = URI.create(s"${config.rootUri}/images/$id/reindex")
+    val addCollectionUri = URI.create(s"${config.collectionsUri}/images/$id")
+    val addLeasesUri = URI.create(s"${config.leasesUri}/leases")
+    val replaceLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
+    val deleteLeasesUri = URI.create(s"${config.leasesUri}/leases/media/$id")
 
     val deleteAction = Action("delete", imageUri, "DELETE")
     val reindexAction = Action("reindex", reindexUri, "POST")
@@ -280,11 +279,15 @@ object ImageResponse extends EditsResponse {
   }
 
   def makeImgopsUri(uri: URI): String =
-    Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
+    config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
   def makeOptimisedPngImageopsUri(uri: URI): String = {
-    Config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w, h, q}"
+    config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w, h, q}"
   }
+
+
+  import play.api.libs.json.JodaReads._
+  import play.api.libs.json.JodaWrites._
 
   def imageResponseWrites(id: String, expandFileMetaData: Boolean): Writes[Image] = (
     (__ \ "id").write[String] ~
@@ -313,13 +316,13 @@ object ImageResponse extends EditsResponse {
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
 
-  def fileMetaDataUri(id: String) = URI.create(s"${Config.rootUri}/images/$id/fileMetadata")
+  def fileMetaDataUri(id: String) = URI.create(s"${config.rootUri}/images/$id/fileMetadata")
 
-  def usagesUri(id: String) = URI.create(s"${Config.usageUri}/usages/media/$id")
+  def usagesUri(id: String) = URI.create(s"${config.usageUri}/usages/media/$id")
   def usageUri(id: String) = {
-    URI.create(s"${Config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
+    URI.create(s"${config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
   }
-  def leasesUri(id: String) = URI.create(s"${Config.leasesUri}/leases/media/$id")
+  def leasesUri(id: String) = URI.create(s"${config.leasesUri}/leases/media/$id")
 
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
   def usagesEntity(id: String, usages: List[Usage]) =
@@ -329,7 +332,7 @@ object ImageResponse extends EditsResponse {
     EmbeddedEntity[LeaseByMedia](leasesUri(id), Some(leaseByMedia))
 
   def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
-      collectionEntity(Config.collectionsUri, id, c)
+      collectionEntity(config.collectionsUri, id, c)
 
   def collectionEntity(rootUri: String, imageId: String, c: Collection) = {
     // TODO: Currently the GET for this URI does nothing

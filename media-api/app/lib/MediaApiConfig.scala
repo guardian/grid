@@ -1,23 +1,20 @@
 package lib
 
-import com.amazonaws.services.ec2.AmazonEC2Client
-import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
-import scalaz.syntax.id._
-import scala.util.Try
-
+import com.amazonaws.services.ec2.{AmazonEC2, AmazonEC2ClientBuilder}
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.elasticsearch.EC2._
-import com.gu.mediaservice.lib.config.{Properties, CommonPlayAppConfig, CommonPlayAppProperties}
+import play.api.Configuration
+
+import scala.util.Try
 
 case class StoreConfig(
   storeBucket: String,
   storeKey: String
 )
 
-object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
+class MediaApiConfig(override val configuration: Configuration) extends CommonConfig {
 
-  val appName = "media-api"
-
-  val properties = Properties.fromPath("/etc/gu/media-api.properties")
+  final override lazy val appName = "media-api"
 
   val keyStoreBucket: String = properties("auth.keystore.bucket")
 
@@ -27,8 +24,7 @@ object Config extends CommonPlayAppConfig with CommonPlayAppProperties {
   val quotaStoreKey: String = properties("quota.store.key")
   val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
-  val ec2Client: AmazonEC2Client =
-    new AmazonEC2Client(awsCredentials) <| (_ setEndpoint awsEndpoint)
+  private lazy val ec2Client: AmazonEC2 = withAWSCredentials(AmazonEC2ClientBuilder.standard()).build()
 
   val elasticsearchHost: String =
     if (stage == "DEV")

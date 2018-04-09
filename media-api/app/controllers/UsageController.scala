@@ -1,27 +1,24 @@
 package controllers
 
-import scala.concurrent.Future
-
-import play.api.mvc.Controller
-import play.api.mvc.{Results, Result}
-import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json.JsValue
-
-import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-
-import lib.elasticsearch.ElasticSearch
-
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.model.Agencies
 import lib._
+import lib.elasticsearch.ElasticSearch
+import play.api.mvc._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 
-object UsageController extends Controller with ArgoHelpers {
-  val Authenticated = Authed.action
+class UsageController(auth: Authentication, config: MediaApiConfig, notifications: Notifications, elasticSearch: ElasticSearch, usageQuota: UsageQuota,
+                      override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
+
   val numberOfDayInPeriod = 30
 
-  def bySupplier = Authenticated.async { request =>
+  def bySupplier = auth.async { request =>
     Future.sequence(
-      Agencies.all.keys.map(ElasticSearch.usageForSupplier(_, numberOfDayInPeriod)))
+      Agencies.all.keys.map(elasticSearch.usageForSupplier(_, numberOfDayInPeriod)))
         .map(_.toList)
         .map((s: List[SupplierUsageSummary]) => respond(s))
         .recover {
@@ -29,8 +26,8 @@ object UsageController extends Controller with ArgoHelpers {
         }
   }
 
-  def forSupplier(id: String) = Authenticated.async { request =>
-    ElasticSearch.usageForSupplier(id, numberOfDayInPeriod)
+  def forSupplier(id: String) = auth.async { request =>
+    elasticSearch.usageForSupplier(id, numberOfDayInPeriod)
       .map((s: SupplierUsageSummary) => respond(s))
       .recover {
         case e => respondError(InternalServerError, "unknown-error", e.toString)
@@ -38,8 +35,8 @@ object UsageController extends Controller with ArgoHelpers {
 
   }
 
-  def quotaForImage(id: String) = Authenticated.async { request =>
-    Quotas.usageStatusForImage(id)
+  def quotaForImage(id: String) = auth.async { request =>
+    usageQuota.usageStatusForImage(id)
       .map((u: UsageStatus) => respond(u))
       .recover {
         case e: ImageNotFound => respondError(NotFound, "image-not-found", e.toString)
@@ -47,8 +44,8 @@ object UsageController extends Controller with ArgoHelpers {
       }
   }
 
-  def quotas() = Authenticated.async { request =>
-    Quotas.usageStore.getUsageStatus()
+  def quotas = auth.async { request =>
+    usageQuota.usageStore.getUsageStatus()
       .map((s: StoreAccess) => respond(s))
       .recover {
         case e => respondError(InternalServerError, "unknown-error", e.toString)

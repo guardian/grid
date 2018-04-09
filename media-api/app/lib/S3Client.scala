@@ -1,17 +1,14 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.S3
-
+import java.io.File
+import java.util.Date
 
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner
-import com.amazonaws.services.cloudfront.CloudFrontUrlSigner.Protocol
-import java.io.File
-import java.net.URL
+import com.amazonaws.services.cloudfront.util.SignerUtils.Protocol
+import com.gu.mediaservice.lib.aws.S3
 import org.joda.time.DateTime
-import java.util.Date
-import scala.concurrent.duration._
-import scala.util.Try
 
+import scala.util.Try
 
 trait CloudFrontDistributable {
   val privateKeyLocation: String
@@ -20,7 +17,7 @@ trait CloudFrontDistributable {
   val protocol: Protocol = Protocol.https
   val validForMinutes: Int = 30
 
-  private def expiresAt: Date = DateTime.now.plusMinutes(validForMinutes).toDate()
+  private def expiresAt: Date = DateTime.now.plusMinutes(validForMinutes).toDate
   private lazy val privateKeyFile: File = {
     new File(privateKeyLocation)
   }
@@ -31,8 +28,8 @@ trait CloudFrontDistributable {
   }.toOption
 }
 
-object S3Client extends S3(Config.awsCredentials) with CloudFrontDistributable {
-  lazy val privateKeyLocation = Config.cloudFrontPrivateKeyLocation
-  lazy val keyPairId          = Config.cloudFrontKeyPairId
+class S3Client(config: MediaApiConfig) extends S3(config) with CloudFrontDistributable {
+  lazy val privateKeyLocation: String = config.cloudFrontPrivateKeyLocation
+  lazy val keyPairId: Option[String] = config.cloudFrontKeyPairId
 }
 

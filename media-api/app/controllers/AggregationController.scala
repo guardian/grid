@@ -1,26 +1,28 @@
 package controllers
 
-import play.api.libs.concurrent.Execution.Implicits._
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
 import lib.elasticsearch.ElasticSearch
-import lib.querysyntax.{Parser, Condition}
-import play.api.mvc.{AnyContent, Request, Controller}
+import lib.querysyntax.{Condition, Parser}
+import play.api.mvc._
 
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-object AggregationController extends Controller {
-  val Authenticated = Authed.action
+class AggregationController(auth: Authentication, elasticSearch: ElasticSearch,
+                            override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
-  def dateHistogram(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.dateHistogramAggregate(AggregateSearchParams(field, request))
-      .map(ElasticSearch.aggregateResponse(_))
+  def dateHistogram(field: String, q: Option[String]) = auth.async { request =>
+    elasticSearch.dateHistogramAggregate(AggregateSearchParams(field, request))
+      .map(elasticSearch.aggregateResponse)
   }
 
 }
 
-case class AggregateSearchParams(
-                                  field: String,
-                                  q: Option[String],
-                                  structuredQuery: List[Condition])
+case class AggregateSearchParams(field: String,
+                                 q: Option[String],
+                                 structuredQuery: List[Condition])
 
 object AggregateSearchParams {
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption

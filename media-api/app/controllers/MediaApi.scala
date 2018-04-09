@@ -2,48 +2,37 @@ package controllers
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.config.MetadataConfig
-import play.api.mvc.Security.AuthenticatedRequest
-import play.utils.UriEncoding
-
-import scala.concurrent.Future
-import scala.util.Try
-
-import play.api.mvc._
-import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json._
-import org.joda.time.DateTime
-
-import uritemplate._
-import Syntax._
-
-import scalaz.{Validation, ValidationNel}
-import scalaz.syntax.std.list._
-import scalaz.syntax.validation._
-import scalaz.syntax.applicative._
-
-
-import lib.elasticsearch._
-import lib.{Notifications, Config, ImageResponse}
-import lib.querysyntax._
-
 import com.gu.editorial.permissions.client.Permission
-
-import com.gu.mediaservice.lib.auth
-import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.formatting.{printDateTime, parseDateFromQuery}
-import com.gu.mediaservice.lib.cleanup.{SupplierProcessors, MetadataCleaners}
+import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
+import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
+import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
+import lib.elasticsearch._
+import lib.querysyntax._
+import lib.{ImageResponse, MediaApiConfig, Notifications}
+import org.joda.time.DateTime
+import play.api.libs.json._
+import play.api.mvc.Security.AuthenticatedRequest
+import play.api.mvc._
+import scalaz.syntax.applicative._
+import scalaz.syntax.std.list._
+import scalaz.syntax.validation._
+import scalaz.{Validation, ValidationNel}
+import org.http4s.{Uri, UriTemplate}
+import org.http4s.UriTemplate.Path
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 
-object MediaApi extends Controller with ArgoHelpers {
-
-  import Config.{rootUri, cropperUri, loaderUri, metadataUri, authUri, collectionsUri, leasesUri}
-
-  val Authenticated = Authed.action
+class MediaApi(auth: Authentication, config: MediaApiConfig, notifications: Notifications, elasticSearch: ElasticSearch, imageResponse: ImageResponse,
+               override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -51,7 +40,7 @@ object MediaApi extends Controller with ArgoHelpers {
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
     "persisted", "usageStatus", "usagePlatform").mkString(",")
 
-  val searchLinkHref = s"$rootUri/images{?$searchParamList}"
+  private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
 
   private val searchLink = Link("search", searchLinkHref)
 
@@ -59,30 +48,30 @@ object MediaApi extends Controller with ArgoHelpers {
     val indexData = Json.obj(
       "description" -> "This is the Media API",
       "configuration" -> Map(
-        "mixpanelToken" -> Config.mixpanelToken
+        "mixpanelToken" -> config.mixpanelToken
       ).collect { case (key, Some(value)) => key -> value }
       // ^ Flatten None away
     )
     val indexLinks = List(
       searchLink,
-      Link("image",           s"$rootUri/images/{id}"),
-      // FIXME: credit is the only field availble for now as it's the only on
+      Link("image",           s"${config.rootUri}/images/{id}"),
+      // FIXME: credit is the only field available for now as it's the only on
       // that we are indexing as a completion suggestion
-      Link("metadata-search", s"$rootUri/suggest/metadata/{field}{?q}"),
-      Link("label-search",    s"$rootUri/images/edits/label{?q}"),
-      Link("cropper",         cropperUri),
-      Link("loader",          loaderUri),
-      Link("edits",           metadataUri),
-      Link("session",         s"$authUri/session"),
+      Link("metadata-search", s"${config.rootUri}/suggest/metadata/{field}{?q}"),
+      Link("label-search",    s"${config.rootUri}/images/edits/label{?q}"),
+      Link("cropper",         config.cropperUri),
+      Link("loader",          config.loaderUri),
+      Link("edits",           config.metadataUri),
+      Link("session",         s"${config.authUri}/session"),
       Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
-      Link("collections",     collectionsUri),
-      Link("permissions",     s"$rootUri/permissions"),
-      Link("leases",          leasesUri)
+      Link("collections",     config.collectionsUri),
+      Link("permissions",     s"${config.rootUri}/permissions"),
+      Link("leases",          config.leasesUri)
     )
     respond(indexData, indexLinks)
   }
 
-  def index = Authenticated { indexResponse }
+  def index = auth { indexResponse }
 
 
   val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
@@ -101,12 +90,11 @@ object MediaApi extends Controller with ArgoHelpers {
     permission: Permission
   ) = {
     request.user match {
-      case user: PandaUser => {
+      case user: PandaUser =>
         (source \ "uploadedBy").asOpt[String] match {
-          case Some(uploader) if user.email.toLowerCase == uploader.toLowerCase => Future.successful(true)
+          case Some(uploader) if user.user.email.toLowerCase == uploader.toLowerCase => Future.successful(true)
           case _ => PermissionsHandler.hasPermission(user, permission)
         }
-      }
       case _: AuthenticatedService => Future.successful(true)
       case _ => Future.successful(false)
     }
@@ -120,55 +108,51 @@ object MediaApi extends Controller with ArgoHelpers {
     isUploaderOrHasPermission(request, source, Permissions.DeleteImage)
   }
 
-  def getImage(id: String) = Authenticated.async { request =>
+  def getImage(id: String) = auth.async { request =>
     val include = getIncludedFromParams(request)
 
-    ElasticSearch.getImageById(id) flatMap {
-      case Some(source) => {
+    elasticSearch.getImageById(id) flatMap {
+      case Some(source) =>
         val withWritePermission = canUserWriteMetadata(request, source)
         val withDeletePermission = canUserDeleteImage(request, source)
 
         Future.sequence(List(withWritePermission, withDeletePermission)).map {
           case List(writePermission, deletePermission) =>
             val (imageData, imageLinks, imageActions) =
-              ImageResponse.create(id, source, writePermission, deletePermission, include)
+              imageResponse.create(id, source, writePermission, deletePermission, include)
             respond(imageData, imageLinks, imageActions)
         }
-      }
       case None => Future.successful(ImageNotFound)
     }
   }
 
-  def getImageFileMetadata(id: String) = Authenticated.async { request =>
-    ElasticSearch.getImageById(id) map {
-      case Some(source) => {
+  def getImageFileMetadata(id: String) = auth.async { request =>
+    elasticSearch.getImageById(id) map {
+      case Some(source) =>
         val links = List(
-          Link("image", s"$rootUri/images/$id")
+          Link("image", s"${config.rootUri}/images/$id")
         )
-        respond(source \ "fileMetadata", links)
-      }
+        respond((source \ "fileMetadata").getOrElse(JsNull), links)
+      case None => ImageNotFound
+    }
+  }
+
+  def getImageExports(id: String) = auth.async { request =>
+    elasticSearch.getImageById(id) map {
+      case Some(source) =>
+        val links = List(
+          Link("image", s"${config.rootUri}/images/$id")
+        )
+        respond((source \ "exports").getOrElse(JsNull), links)
       case None         => ImageNotFound
     }
   }
 
-  def getImageExports(id: String) = Authenticated.async { request =>
-    ElasticSearch.getImageById(id) map {
-      case Some(source) => {
-        val links = List(
-          Link("image", s"$rootUri/images/$id")
-        )
-        respond(source \ "exports", links)
-      }
-      case None         => ImageNotFound
-    }
-  }
-
-  def getImageExport(imageId: String, exportId: String) = Authenticated.async { request =>
-    ElasticSearch.getImageById(imageId) map {
-      case Some(source) => {
-        val exportOption = source.as[Image].exports.find(_.id == Some(exportId))
+  def getImageExport(imageId: String, exportId: String) = auth.async { _ =>
+    elasticSearch.getImageById(imageId) map {
+      case Some(source) =>
+        val exportOption = source.as[Image].exports.find(_.id.contains(exportId))
         exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
-      }
       case None => ImageNotFound
     }
 
@@ -178,16 +162,16 @@ object MediaApi extends Controller with ArgoHelpers {
   val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
   val ImageEditForbidden   = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
 
-  def deleteImage(id: String) = Authenticated.async { request =>
-    ElasticSearch.getImageById(id) flatMap {
+  def deleteImage(id: String) = auth.async { request =>
+    elasticSearch.getImageById(id) flatMap {
       case Some(source) =>
         val image = source.as[Image]
 
-        val imageCanBeDeleted = ImageResponse.canBeDeleted(image)
+        val imageCanBeDeleted = imageResponse.canBeDeleted(image)
         if (imageCanBeDeleted) {
           canUserDeleteImage(request, source) map { canDelete =>
             if (canDelete) {
-              Notifications.publish(Json.obj("id" -> id), "delete-image")
+              notifications.publish(Json.obj("id" -> id), "delete-image")
               Accepted
             } else {
               ImageDeleteForbidden
@@ -204,9 +188,9 @@ object MediaApi extends Controller with ArgoHelpers {
 
   val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
-  def reindexImage(id: String) = Authenticated.async { request =>
-    ElasticSearch.getImageById(id) flatMap {
-      case Some(source) => {
+  def reindexImage(id: String) = auth.async { request =>
+    elasticSearch.getImageById(id) flatMap {
+      case Some(source) =>
         // TODO: apply rights to edits API too
         // TODO: helper to abstract boilerplate
         canUserWriteMetadata(request, source) map { canWrite =>
@@ -225,7 +209,7 @@ object MediaApi extends Controller with ArgoHelpers {
             )
 
             val notification = Json.toJson(finalImage)
-            Notifications.publish(notification, "update-image")
+            notifications.publish(notification, "update-image")
 
             Ok(Json.obj(
               "id" -> id,
@@ -239,31 +223,30 @@ object MediaApi extends Controller with ArgoHelpers {
             ImageEditForbidden
           }
         }
-      }
       case None => Future.successful(ImageNotFound)
     }
   }
 
 
-  def imageSearch = Authenticated.async { request =>
+  def imageSearch = auth.async { request =>
     val include = getIncludedFromParams(request)
 
-    def hitToImageEntity(elasticId: ElasticSearch.Id, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
+    def hitToImageEntity(elasticId: String, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
       val withWritePermission = canUserWriteMetadata(request, source)
       val withDeletePermission = canUserDeleteImage(request, source)
 
       Future.sequence(List(withWritePermission, withDeletePermission)).map {
         case List(writePermission, deletePermission) =>
           val (imageData, imageLinks, imageActions) =
-            ImageResponse.create(elasticId, source, writePermission, deletePermission, include)
+            imageResponse.create(elasticId, source, writePermission, deletePermission, include)
           val id = (imageData \ "id").as[String]
-          val imageUri = URI.create(s"$rootUri/images/$id")
+          val imageUri = URI.create(s"${config.rootUri}/images/$id")
           EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
       }
     }
 
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount) <- ElasticSearch.search(searchParams)
+      SearchResults(hits, totalCount) <- elasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
@@ -282,22 +265,21 @@ object MediaApi extends Controller with ArgoHelpers {
     )
   }
 
-  val searchTemplate = URITemplate(searchLinkHref)
+  //s"${config.rootUri}/images{?$searchParamList}"
+  val searchTemplate = UriTemplate()
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
 
     // Enforce a toDate to exclude new images since the current request
     val toDate = searchParams.until.getOrElse(DateTime.now)
 
-    val paramMap = SearchParams.toStringMap(searchParams) ++ Map(
+    val paramMap: Map[String, String] = SearchParams.toStringMap(searchParams) ++ Map(
       "offset" -> updatedOffset.toString,
       "length" -> length.toString,
       "toDate" -> printDateTime(toDate)
     )
 
-    val paramVars = paramMap.map { case (key, value) => key := value }.toSeq
-
-    searchTemplate expand (paramVars: _*)
+    paramMap.foldLeft(searchTemplate){ (acc, pair) => acc.expandAny(pair._1, pair._2)}.toString
   }
 
   private def getPrevLink(searchParams: SearchParams): Option[Link] = {

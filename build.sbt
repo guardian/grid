@@ -12,10 +12,10 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
 //  .aggregate(mediaApi, scripts)
 
-addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run thrall/run kahuna/run metadataEditor/run usage/run")
+addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run thrall/run kahuna/run metadataEditor/run usage/run media-api/run")
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -54,7 +54,10 @@ lazy val leases = playProject("leases", 9012).settings(
 
 lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
-    "org.apache.commons" % "commons-email" % "1.4"
+    "org.apache.commons" % "commons-email" % "1.4",
+    "org.parboiled" %% "parboiled" % "2.1.4",
+    "org.http4s" %% "http4s-core" % "0.18.7",
+    "org.mockito" % "mockito-core" % "2.18.0"
   )
 )
 

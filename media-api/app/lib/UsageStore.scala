@@ -2,22 +2,19 @@ package lib
 
 import java.io.InputStream
 import java.util.Properties
+
+import com.gu.mediaservice.lib.BaseStore
+import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
 import javax.mail.Session
 import javax.mail.internet.{MimeBodyPart, MimeMultipart}
-
-import com.amazonaws.auth.AWSCredentials
-import com.gu.mediaservice.lib.BaseStore
-import com.gu.mediaservice.model.{Agencies, Agency, DateFormat, UsageRights}
 import org.apache.commons.mail.util.MimeMessageUtils
 import org.joda.time.DateTime
 import play.api.Logger
-import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
-
 
 case class SupplierUsageQuota(agency: Agency, count: Int)
 object SupplierUsageQuota {
@@ -52,12 +49,13 @@ case class UsageStatus(
   quota: Option[SupplierUsageQuota]
 )
 object UsageStatus {
-  implicit val dateTimeFormat = DateFormat
   implicit val writes: Writes[UsageStatus] = Json.writes[UsageStatus]
 }
 
 case class StoreAccess(store: Map[String, UsageStatus], lastUpdated: DateTime)
 object StoreAccess {
+  import play.api.libs.json.JodaWrites._
+
   implicit val writes: Writes[StoreAccess] = Json.writes[StoreAccess]
 }
 
@@ -122,32 +120,26 @@ object UsageStore {
 
 class UsageStore(
   bucket: String,
-  credentials: AWSCredentials,
+  config: MediaApiConfig,
   quotaStore: QuotaStore
-) extends BaseStore[String, UsageStatus](bucket, credentials) {
+)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config) {
   import UsageStore._
 
   def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
     usageRights match {
-      case agency: Agency => for {
-        usage <- store.future()
-      } yield {
-        usage.getOrElse(agency.supplier, { throw NoUsageQuota() })
-      }
-
-      case _ =>
-        Future.failed(new Exception("Image is not supplied by Agency"))
+      case agency: Agency => Future.successful(store.get().getOrElse(agency.supplier, { throw NoUsageQuota() }))
+      case _ => Future.failed(new Exception("Image is not supplied by Agency"))
     }
   }
 
-  def getUsageStatus(): Future[StoreAccess] = for {
-      s <- store.future
-      l <- lastUpdated.future
-    } yield StoreAccess(s,l)
+  def getUsageStatus(): Future[StoreAccess] = Future.successful((for {
+      s <- store
+      l <- lastUpdated
+    } yield StoreAccess(s,l)).get())
 
   def update() {
-    lastUpdated.sendOff(_ => DateTime.now())
-    fetchUsage.onSuccess { case usage => store.send(usage) }
+    lastUpdated.send(_ => DateTime.now())
+    fetchUsage.foreach { usage => store.send(usage) }
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
@@ -194,15 +186,13 @@ class UsageStore(
 class QuotaStore(
   quotaFile: String,
   bucket: String,
-  credentials: AWSCredentials
-)(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, credentials)(ec) {
+  config: MediaApiConfig
+)(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, config)(ec) {
 
-  def getQuota(): Future[Map[String, SupplierUsageQuota]] = for {
-      s <- store.future
-    } yield s
+  def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
 
   def update() {
-    store.sendOff(_ => fetchQuota)
+    store.send(_ => fetchQuota)
   }
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {

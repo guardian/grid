@@ -1,22 +1,18 @@
 package controllers
 
-import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json.{Reads, Json, Writes}
-import play.api.mvc.Controller
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-
+import com.gu.mediaservice.lib.auth.Authentication
 import lib.elasticsearch.ElasticSearch
-import lib.querysyntax.Parser
+import play.api.mvc.{BaseController, ControllerComponents}
 
-import scala.util.Try
+import scala.concurrent.ExecutionContext
 
-object SuggestionController extends Controller with ArgoHelpers {
+class SuggestionController(auth: Authentication, elasticSearch: ElasticSearch,
+                           override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
-  val Authenticated = Authed.action
-
-  def suggestMetadataCredit(q: Option[String], size: Option[Int]) = Authenticated.async { request =>
-    ElasticSearch
+  def suggestMetadataCredit(q: Option[String], size: Option[Int]) = auth.async { _ =>
+    elasticSearch
       .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
       .map(c => respondCollection(c.results))
   }
@@ -24,11 +20,11 @@ object SuggestionController extends Controller with ArgoHelpers {
   // TODO: work with analysed fields
   // TODO: recover with HTTP error if invalid field
   // TODO: Add validation, especially if you use length
-  def metadataSearch(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.metadataSearch(AggregateSearchParams(field, request)) map ElasticSearch.aggregateResponse
+  def metadataSearch(field: String, q: Option[String]) = auth.async { request =>
+    elasticSearch.metadataSearch(AggregateSearchParams(field, request)) map elasticSearch.aggregateResponse
   }
 
-  def editsSearch(field: String, q: Option[String]) = Authenticated.async { request =>
-    ElasticSearch.editsSearch(AggregateSearchParams(field, request)) map ElasticSearch.aggregateResponse
+  def editsSearch(field: String, q: Option[String]) = auth.async { request =>
+    elasticSearch.editsSearch(AggregateSearchParams(field, request)) map elasticSearch.aggregateResponse
   }
 }
