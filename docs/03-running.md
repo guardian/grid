@@ -20,9 +20,6 @@ From the **project root**:
 ## [run.sh](../run.sh)
 `run.sh` is a single script to start all the services.
 
-## [run_tmux.sh](../run_tmux.sh)
-`run_tmux.sh` is a single script to start all the services in a tmux environment.
-
 ## [GridRunner](https://github.com/guardian/grid_runner/)
 Grid Runner helps manage grid micro-services
 
