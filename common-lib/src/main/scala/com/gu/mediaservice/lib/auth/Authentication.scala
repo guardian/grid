@@ -15,7 +15,7 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Authentication(val loginUriTemplate: String, authCallbackBaseUri: String, config: CommonConfig, actorSystem: ActorSystem,
+class Authentication(config: CommonConfig, actorSystem: ActorSystem,
                      override val parser: BodyParser[AnyContent],
                      override val wsClient: WSClient,
                      override val controllerComponents: ControllerComponents,
@@ -26,7 +26,7 @@ class Authentication(val loginUriTemplate: String, authCallbackBaseUri: String, 
   implicit val ec: ExecutionContext = executionContext
 
   val loginLinks = List(
-    Link("login", loginUriTemplate)
+    Link("login", config.services.loginUriTemplate)
   )
 
   // Panda errors
@@ -39,18 +39,15 @@ class Authentication(val loginUriTemplate: String, authCallbackBaseUri: String, 
   val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
   private val headerKey = "X-Gu-Media-Key"
-  private val properties = Properties.fromPath("/etc/gu/panda.properties")
-
   private val keyStoreBucket: String = config.properties("auth.keystore.bucket")
   val keyStore = new KeyStore(keyStoreBucket, config)
 
   // TODO MRB: not all applications need the key store
   keyStore.scheduleUpdates(actorSystem.scheduler)
 
-  private lazy val pandaProperties = Properties.fromPath("/etc/gu/panda.properties")
   override lazy val panDomainSettings = buildPandaSettings()
 
-  final override def authCallbackUrl: String = s"$authCallbackBaseUri/oauthCallback"
+  final override def authCallbackUrl: String = s"${config.services.authBaseUri}/oauthCallback"
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
     // Try to auth by API key, and failing that, with Panda
@@ -68,17 +65,12 @@ class Authentication(val loginUriTemplate: String, authCallbackBaseUri: String, 
   }
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    val oauthDomain:String = pandaProperties.getOrElse("panda.oauth.domain", "guardian.co.uk")
-    val oauthDomainMultiFactorEnabled:Boolean = Try(pandaProperties("panda.oauth.multifactor.enable").toBoolean).getOrElse(true)
-    // check if the user email domain is the one configured
-    val isAuthorized:Boolean = authedUser.user.emailDomain == oauthDomain
-    // if authorized check if multifactor is to be evaluated
-    if (oauthDomainMultiFactorEnabled) isAuthorized && authedUser.multiFactor else isAuthorized
+    authedUser.user.email.endsWith("@guardian.co.uk") && authedUser.multiFactor
   }
 
   private def buildPandaSettings() = {
     new PanDomainAuthSettingsRefresher(
-      domain = pandaProperties("panda.domain"),
+      domain = config.services.domainRoot,
       system = "media-service",
       actorSystem = actorSystem,
       awsCredentialsProvider = config.awsCredentials

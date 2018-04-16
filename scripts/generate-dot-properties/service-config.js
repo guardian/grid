@@ -3,6 +3,7 @@ function stripMargin(template, ...args) {
     return result.replace(/\r?(\n)\s*\|/g, '$1');
 }
 
+// TODO MRB: replace aws.id with janus credential
 function getAuthConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}

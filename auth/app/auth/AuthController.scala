@@ -22,10 +22,9 @@ class AuthController(auth: Authentication, config: AuthConfig,
     val indexData = Map("description" -> "This is the Auth API")
     val indexLinks = List(
       Link("root",          config.mediaApiUri),
-      Link("login",         auth.loginUriTemplate),
+      Link("login",         config.services.loginUriTemplate),
       Link("ui:logout",     s"${config.rootUri}/logout"),
-      Link("session",       s"${config.rootUri}/session"),
-      Link("permissions",   s"${config.rootUri}/permissions")
+      Link("session",       s"${config.rootUri}/session")
     )
     respond(indexData, indexLinks)
   }

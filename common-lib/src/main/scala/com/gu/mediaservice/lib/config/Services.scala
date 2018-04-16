@@ -1,24 +1,20 @@
 package com.gu.mediaservice.lib.config
 
-class Services(domainRoot: String) {
-  // FIXME: do this via new config properties!
-  val DomainExtractor = """^([-a-z]+)\.(.*)""".r
-  val (appName, parentDomain) = domainRoot match {
-    case DomainExtractor(a, b) => (a, b)
-  }
+class Services(val domainRoot: String) {
+  val appName = "media"
 
   val kahunaHost: String   = domainRoot
   val apiHost: String      = s"api.$domainRoot"
   val loaderHost: String   = s"loader.$domainRoot"
   val cropperHost: String  = s"cropper.$domainRoot"
-  val metadataHost: String = s"$appName-metadata.$parentDomain"
-  val imgopsHost: String   = s"$appName-imgops.$parentDomain"
-  val usageHost: String    = s"$appName-usage.$parentDomain"
-  val collectionsHost: String = s"$appName-collections.$parentDomain"
-  val leasesHost: String   = s"$appName-leases.$parentDomain"
-  val authHost: String     = s"$appName-auth.$parentDomain"
+  val metadataHost: String = s"$appName-metadata.$domainRoot"
+  val imgopsHost: String   = s"$appName-imgops.$domainRoot"
+  val usageHost: String    = s"$appName-usage.$domainRoot"
+  val collectionsHost: String = s"$appName-collections.$domainRoot"
+  val leasesHost: String   = s"$appName-leases.$domainRoot"
+  val authHost: String     = s"$appName-auth.$domainRoot"
 
-  val composerHost: String     = s"composer.$parentDomain"
+  val composerHost: String     = s"composer.$domainRoot"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)

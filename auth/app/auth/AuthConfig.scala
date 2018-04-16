@@ -1,7 +1,6 @@
 package auth
 
-import com.gu.mediaservice.lib.auth.KeyStore
-import com.gu.mediaservice.lib.config.{CommonConfig, Properties}
+import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
 import scala.concurrent.ExecutionContext
