@@ -26,6 +26,8 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
     super.httpFilters.filterNot(disabledFilters.contains) ++ Seq(corsFilter, gzipFilter, new RequestLoggingFilter(materializer))
   }
 
+  // TODO MRB: set allowed CORS origins
+
   val management = new Management(controllerComponents)
   val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
 }
