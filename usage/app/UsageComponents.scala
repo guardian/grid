@@ -9,10 +9,7 @@ import play.filters.cors.CORSComponents
 import play.filters.gzip.GzipFilterComponents
 import router.Routes
 
-class UsageComponents(context: Context) extends GridComponents(context)
-  with HttpFiltersComponents
-  with CORSComponents
-  with GzipFilterComponents {
+class UsageComponents(context: Context) extends GridComponents(context) {
 
   final override lazy val config = new UsageConfig(configuration)
 
@@ -29,11 +26,6 @@ class UsageComponents(context: Context) extends GridComponents(context)
   val notifications = new Notifications(config)
 
   val controller = new UsageApi(auth, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
-
-  // TODO MRB: how to abstract this out to common?
-  final override def httpFilters: Seq[EssentialFilter] = super.httpFilters ++ Seq(
-    corsFilter, new RequestLoggingFilter(materializer), gzipFilter
-  )
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }

@@ -11,11 +11,7 @@ import play.filters.cors.CORSComponents
 import play.filters.gzip.GzipFilterComponents
 import router.Routes
 
-class ImageLoaderComponents(context: Context) extends GridComponents(context)
-  with HttpFiltersComponents
-  with CORSComponents
-  with GzipFilterComponents {
-
+class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ImageLoaderConfig(configuration)
 
   val store = new ImageLoaderStore(config)
@@ -27,11 +23,6 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context)
   val imageUploadOps = new ImageUploadOps(store, config, imageOperations, optimisedPngOps)
 
   val controller = new ImageLoaderController(auth, downloader, store, notifications, config, imageUploadOps, controllerComponents, wsClient)
-
-  // TODO MRB: how to abstract this out to common?
-  final override def httpFilters: Seq[EssentialFilter] = super.httpFilters ++ Seq(
-    corsFilter, new RequestLoggingFilter(materializer), gzipFilter
-  )
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }

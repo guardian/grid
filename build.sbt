@@ -22,6 +22,7 @@ lazy val commonLib = project("common-lib").settings(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.typesafe.play" %% "play" % "2.6.12", ws,
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+    "com.typesafe.play" %% "filters-helpers" % "2.6.12",
     "com.gu" %% "pan-domain-auth-core" % "0.7.0",
     "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.0",
     "com.gu" %% "editorial-permissions-client" % "0.8",

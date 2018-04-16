@@ -1,21 +1,11 @@
-import com.gu.mediaservice.lib.management.Management
-import com.gu.mediaservice.lib.play.{GridComponents, RequestLoggingFilter}
+import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{CollectionsController, ImageCollectionsController}
-import lib.{CollectionsConfig, CollectionsMetrics, LogConfig, Notifications}
-import play.api.{Application, ApplicationLoader}
+import lib.{CollectionsConfig, CollectionsMetrics, Notifications}
 import play.api.ApplicationLoader.Context
-import play.api.mvc.EssentialFilter
-import play.filters.HttpFiltersComponents
-import play.filters.cors.CORSComponents
-import play.filters.gzip.GzipFilterComponents
 import router.Routes
 import store.CollectionsStore
 
-class CollectionsComponents(context: Context) extends GridComponents(context)
-  with HttpFiltersComponents
-  with CORSComponents
-  with GzipFilterComponents {
-
+class CollectionsComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new CollectionsConfig(configuration)
 
   val store = new CollectionsStore(config)
@@ -24,11 +14,6 @@ class CollectionsComponents(context: Context) extends GridComponents(context)
 
   val collections = new CollectionsController(auth, config, store, controllerComponents)
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
-
-  // TODO MRB: how to abstract this out to common?
-  final override def httpFilters: Seq[EssentialFilter] = super.httpFilters ++ Seq(
-    corsFilter, new RequestLoggingFilter(materializer), gzipFilter
-  )
 
   override val router = new Routes(httpErrorHandler, collections, imageCollections, management)
 }

@@ -1,20 +1,12 @@
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.play.{GridComponents, RequestLoggingFilter}
+import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
-import lib.elasticsearch.{ElasticSearch, SearchFilters}
 import lib._
+import lib.elasticsearch.{ElasticSearch, SearchFilters}
 import play.api.ApplicationLoader.Context
-import play.api.mvc.EssentialFilter
-import play.filters.HttpFiltersComponents
-import play.filters.cors.CORSComponents
-import play.filters.gzip.GzipFilterComponents
 import router.Routes
 
-class MediaApiComponents(context: Context) extends GridComponents(context)
-  with HttpFiltersComponents
-  with CORSComponents
-  with GzipFilterComponents {
-
+class MediaApiComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new MediaApiConfig(configuration)
 
   val imageOperations = new ImageOperations(application.path.getAbsolutePath)
@@ -32,11 +24,6 @@ class MediaApiComponents(context: Context) extends GridComponents(context)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, notifications, elasticSearch, usageQuota, controllerComponents)
   val healthcheckController = new HealthCheck(auth, elasticSearch, controllerComponents)
-
-  // TODO MRB: how to abstract this out to common?
-  final override def httpFilters: Seq[EssentialFilter] = super.httpFilters ++ Seq(
-    corsFilter, new RequestLoggingFilter(materializer), gzipFilter
-  )
 
   override lazy val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, healthcheckController, management)
 }

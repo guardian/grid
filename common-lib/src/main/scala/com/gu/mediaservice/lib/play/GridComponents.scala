@@ -6,21 +6,26 @@ import com.gu.mediaservice.lib.management.Management
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
 import play.api.libs.ws.ahc.AhcWSComponents
+import play.api.mvc.EssentialFilter
+import play.filters.HttpFiltersComponents
+import play.filters.cors.CORSComponents
+import play.filters.gzip.GzipFilterComponents
 
 import scala.concurrent.ExecutionContext
 
 abstract class GridComponents(context: Context) extends BuiltInComponentsFromContext(context)
-  with AhcWSComponents {
+  with AhcWSComponents with HttpFiltersComponents with CORSComponents with GzipFilterComponents {
 
   def config: CommonConfig
 
   implicit val ec: ExecutionContext = executionContext
 
-  val loginUriTemplate: String = config.services.loginUriTemplate
-  val rootUri: String = config.services.authBaseUri
-  val mediaApiUri: String = config.services.apiBaseUri
-  val kahunaUri = config.services.kahunaBaseUri
+  private val disabledFilters: Set[EssentialFilter] = Set(allowedHostsFilter)
+
+  final override def httpFilters: Seq[EssentialFilter] = {
+    super.httpFilters.filterNot(disabledFilters.contains) ++ Seq(corsFilter, gzipFilter, new RequestLoggingFilter(materializer))
+  }
 
   val management = new Management(controllerComponents)
-  val auth = new Authentication(loginUriTemplate, rootUri, config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
+  val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
 }
