@@ -49,9 +49,9 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
       notify(mediaLease.mediaId)
     }
 
-  def index = auth.AuthAction { _ => indexResponse }
+  def index = auth { _ => indexResponse }
 
-  def reindex = auth.AuthAction.async { _ => Future {
+  def reindex = auth.async { _ => Future {
     store.forEach { leases =>
       leases
         .foldLeft(Set[String]())((ids, lease) =>  ids + lease.mediaId)
@@ -60,24 +60,24 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     Accepted
   }}
 
-  def postLease = auth.AuthAction.async(parse.json) { implicit request => Future {
+  def postLease = auth.async(parse.json) { implicit request => Future {
     request.body.validate[MediaLease].fold(
       badRequest,
       mediaLease => {
-        addLease(mediaLease, Some(request.user.email))
+        addLease(mediaLease, Some(Authentication.getEmail(request.user)))
         Accepted
       }
     )
   }}
 
 
-  def deleteLease(id: String) = auth.AuthAction.async { implicit request => Future {
+  def deleteLease(id: String) = auth.async { implicit request => Future {
       clearLease(id)
       Accepted
     }
   }
 
-  def getLease(id: String) = auth.AuthAction.async { _ => Future {
+  def getLease(id: String) = auth.async { _ => Future {
       val leases = store.get(id)
 
       leases.foldLeft(notFound)((_, lease) => respond[MediaLease](
@@ -91,24 +91,24 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   }
 
 
-  def deleteLeasesForMedia(id: String) = auth.AuthAction.async { _ => Future {
+  def deleteLeasesForMedia(id: String) = auth.async { _ => Future {
       clearLeases(id)
       Accepted
     }
   }
 
-  def replaceLeasesForMedia(id: String) = auth.AuthAction.async(parse.json) { implicit request => Future {
+  def replaceLeasesForMedia(id: String) = auth.async(parse.json) { implicit request => Future {
     request.body.validate[List[MediaLease]].fold(
       badRequest,
       mediaLeases => {
         clearLeases(id)
-        mediaLeases.map(addLease(_, Some(request.user.email)))
+        mediaLeases.map(addLease(_, Some(Authentication.getEmail(request.user))))
         Accepted
       }
     )
   }}
 
-  def getLeasesForMedia(id: String) = auth.AuthAction.async { _ => Future {
+  def getLeasesForMedia(id: String) = auth.async { _ => Future {
       val leases = store.getForMedia(id)
 
       respond[LeaseByMedia](
