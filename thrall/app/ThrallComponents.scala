@@ -10,7 +10,10 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val store = new ThrallStore(config)
   val notifications = new DynamoNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
+
   val es = new ElasticSearch(config, thrallMetrics)
+  es.ensureAliasAssigned()
+
   val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, notifications)
 
   val thrallController = new ThrallController(controllerComponents)

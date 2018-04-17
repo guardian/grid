@@ -14,7 +14,10 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val notifications = new Notifications(config)
   val searchFilters = new SearchFilters(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
+
   val elasticSearch = new ElasticSearch(config, searchFilters, mediaApiMetrics)
+  elasticSearch.ensureAliasAssigned()
+
   val s3Client = new S3Client(config)
   val usageQuota = new UsageQuota(config, elasticSearch)
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
