@@ -10,10 +10,10 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context)
 
   val store = new EditsStore(config)
   val notifications = new Notifications(config)
-  val imageOperations = new ImageOperations(application.path.getAbsolutePath)
+  val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val editsController = new EditsController(auth, store, notifications, config, controllerComponents)
   val controller = new EditsApi(auth, config, controllerComponents)
 
-  override lazy val router = new Routes(httpErrorHandler, controller, editsController, management)
+  override val router = new Routes(httpErrorHandler, controller, editsController, management)
 }

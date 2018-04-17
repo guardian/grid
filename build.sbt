@@ -15,7 +15,15 @@ lazy val root = project("grid", path = Some("."))
   .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
 //  .aggregate(mediaApi, scripts)
 
-addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run thrall/run kahuna/run metadataEditor/run usage/run media-api/run")
+//addCommandAlias("runAll", "all auth/run collections/run cropper/run image-loader/run leases/run thrall/run kahuna/run metadataEditor/run usage/run media-api/run")
+addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run")
+
+// Required to allow us to run more than four play projects in parallel from a single SBT shell
+Global / concurrentRestrictions := Seq(
+  Tags.limit(Tags.CPU, Math.min(1, java.lang.Runtime.getRuntime.availableProcessors - 1)),
+  Tags.limit(Tags.Test, 1),
+  Tags.limitAll(12)
+)
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
