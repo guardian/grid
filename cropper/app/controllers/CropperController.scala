@@ -23,9 +23,10 @@ case object InvalidSource extends Exception("Invalid source URI, not a media API
 case object ImageNotFound extends Exception("No such image found")
 case object ApiRequestFailed extends Exception("Failed to fetch the source")
 
-class CropperController(auth: Authentication, crops: Crops, store: CropStore, notifications: Notifications, config: CropperConfig,
+class CropperController(auth: Authentication, crops: Crops, store: CropStore, notifications: Notifications,
+                        override val config: CropperConfig,
                         override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with ArgoHelpers with PermissionsHandler {
 
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
@@ -86,7 +87,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      PermissionsHandler.hasPermission(httpRequest.user, Permissions.DeleteCrops) map {
+      hasPermission(httpRequest.user, Permissions.DeleteCrops) map {
         case true if crops.nonEmpty => respond(crops, links, List(deleteCropsAction))
         case _ => respond(crops, links)
       }
@@ -95,7 +96,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   def deleteCrops(id: String) = auth.async { httpRequest =>
 
-    PermissionsHandler.hasPermission(httpRequest.user, Permissions.DeleteCrops) flatMap { _ =>
+    hasPermission(httpRequest.user, Permissions.DeleteCrops) flatMap { _ =>
       store.deleteCrops(id).map { _ =>
         notifications.publish(Json.obj("id" -> id), "delete-image-exports")
         Accepted

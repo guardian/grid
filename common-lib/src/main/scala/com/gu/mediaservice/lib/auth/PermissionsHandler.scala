@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.editorial.permissions.client._
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
+import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -9,13 +10,16 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object PermissionDeniedError extends Throwable("Permission denied")
 
-object PermissionsHandler {
+trait PermissionsHandler {
+  def config: CommonConfig
+
   private lazy val log = LoggerFactory.getLogger(getClass)
+  private val permissions = new Permissions(config.awsCredentials)
 
   def hasPermission(user: Principal, permission: Permission)(implicit ec: ExecutionContext): Future[Boolean] = {
     user match {
       case PandaUser(u) => {
-        Permissions.get(permission)(PermissionsUser(u.email)).map {
+        permissions.get(permission)(PermissionsUser(u.email)).map {
           case PermissionGranted => true
           case PermissionDenied => false
 

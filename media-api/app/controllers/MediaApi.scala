@@ -30,9 +30,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 
-class MediaApi(auth: Authentication, config: MediaApiConfig, notifications: Notifications, elasticSearch: ElasticSearch, imageResponse: ImageResponse,
-               override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch: ElasticSearch, imageResponse: ImageResponse,
+               override val config: MediaApiConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers with PermissionsHandler {
 
   val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -93,7 +93,7 @@ class MediaApi(auth: Authentication, config: MediaApiConfig, notifications: Noti
       case user: PandaUser =>
         (source \ "uploadedBy").asOpt[String] match {
           case Some(uploader) if user.user.email.toLowerCase == uploader.toLowerCase => Future.successful(true)
-          case _ => PermissionsHandler.hasPermission(user, permission)
+          case _ => hasPermission(user, permission)
         }
       case _: AuthenticatedService => Future.successful(true)
       case _ => Future.successful(false)
