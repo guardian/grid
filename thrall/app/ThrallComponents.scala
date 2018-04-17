@@ -15,9 +15,10 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   es.ensureAliasAssigned()
 
   val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, notifications)
+  thrallMessageConsumer.startSchedule()
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(auth, es, thrallMessageConsumer, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es, thrallMessageConsumer, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }

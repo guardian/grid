@@ -10,6 +10,7 @@ import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
@@ -21,7 +22,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
 
-abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, awsCredentials: AWSCredentialsProvider, metric: Metric[Long]) {
+abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
@@ -30,9 +31,7 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, awsCredent
   def startSchedule(): Unit =
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
 
-  lazy val client: AmazonSQS = AmazonSQSClientBuilder.standard()
-    .withCredentials(awsCredentials)
-    .build()
+  lazy val client: AmazonSQS = config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]]
 

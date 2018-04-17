@@ -7,7 +7,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class MetadataMessageConsumer(config: EditsConfig, metadataEditorMetrics: MetadataEditorMetrics, store: EditsStore) extends MessageConsumer(
-  config.queueUrl, config.awsEndpoint, config.awsCredentials, metadataEditorMetrics.processingLatency) {
+  config.queueUrl, config.awsEndpoint, config, metadataEditorMetrics.processingLatency) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
     PartialFunction.condOpt(subject) {

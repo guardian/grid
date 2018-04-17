@@ -8,10 +8,10 @@ import com.gu.mediaservice.syntax._
 
 import scala.concurrent.ExecutionContext
 
-class HealthCheck(auth: Authentication, elasticsearch: ElasticSearch, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class HealthCheck(elasticsearch: ElasticSearch, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  def healthCheck = auth.async {
+  def healthCheck = Action.async {
     elasticHealth map {
       case r: Result => sqsHealth
       case _ => ServiceUnavailable("ES is not healthy")

@@ -5,6 +5,7 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.play.{DigestBodyParser, DigestedFile}
 import com.gu.mediaservice.model.UploadInfo
@@ -44,12 +45,12 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   def createTempFile(prefix: String) = File.createTempFile(prefix, "", config.tempDir)
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
-    auth.AuthAction.async(DigestBodyParser.create(createTempFile("requestBody"))) { req =>
+    auth.async(DigestBodyParser.create(createTempFile("requestBody"))) { req =>
       loadFile(uploadedBy, identifiers, uploadTime, filename)(req)
     }
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
-    auth.AuthAction.async { request =>
+    auth.async { request =>
       Try(URI.create(uri)) map { validUri =>
         val tmpFile = createTempFile("download")
 
@@ -65,14 +66,14 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       } getOrElse Future.successful(invalidUri)
     }
 
-  def loadFile(digestedFile: DigestedFile, user: User,
+  def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
                uploadTime: Option[String], filename: Option[String]): Future[Result] = {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     val uploadedBy_ = uploadedBy match {
       case Some(by) => by
-      case None => user.email
+      case None => Authentication.getEmail(user)
     }
 
     // TODO: should error if the JSON parsing failed
@@ -110,7 +111,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   // Convenience alias
   private def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String],
                filename: Option[String])
-              (request: UserRequest[DigestedFile]): Future[Result] =
+              (request: Authentication.Request[DigestedFile]): Future[Result] =
     loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime, filename)
 
 

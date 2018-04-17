@@ -15,7 +15,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ImageLoaderConfig(configuration)
 
   val store = new ImageLoaderStore(config)
-  val imageOperations = new ImageOperations(application.path.getAbsolutePath)
+  val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val notifications = new Notifications(config)
   val downloader = new Downloader(wsClient, materializer)
