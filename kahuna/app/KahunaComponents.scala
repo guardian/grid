@@ -7,6 +7,6 @@ import router.Routes
 class KahunaComponents(context: Context) extends GridComponents(context) with AssetsComponents {
   final override lazy val config = new KahunaConfig(configuration)
 
-  val controller = new KahunaController(config, controllerComponents, assets)
-  override lazy val router = new Routes(httpErrorHandler, controller, management)
+  val controller = new KahunaController(config, controllerComponents)
+  override lazy val router = new Routes(httpErrorHandler, controller, assets, management)
 }

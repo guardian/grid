@@ -6,7 +6,8 @@ import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class KahunaController(config: KahunaConfig, override val controllerComponents: ControllerComponents, assets: Assets)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
+class KahunaController(config: KahunaConfig, override val controllerComponents: ControllerComponents)
+                      (implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
 
   def index(ignored: String) = Action { req =>
     val okPath = routes.KahunaController.ok.url
@@ -19,8 +20,7 @@ class KahunaController(config: KahunaConfig, override val controllerComponents: 
       s"${config.authUri}/login?redirectUri=$returnUri",
       config.watUri,
       config.sentryDsn,
-      config.sessionId,
-      assets
+      config.sessionId
     ))
   }
 
