@@ -21,10 +21,9 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
 
   implicit val ec: ExecutionContext = executionContext
 
-  private val disabledFilters: Set[EssentialFilter] = Set(allowedHostsFilter)
-
   final override def httpFilters: Seq[EssentialFilter] = {
-    super.httpFilters.filterNot(disabledFilters.contains) ++ Seq(corsFilter, gzipFilter, new RequestLoggingFilter(materializer))
+    // TODO MRB: re-enable allowedHostsFilter
+    Seq(corsFilter, csrfFilter, securityHeadersFilter, gzipFilter, new RequestLoggingFilter(materializer))
   }
 
   final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
