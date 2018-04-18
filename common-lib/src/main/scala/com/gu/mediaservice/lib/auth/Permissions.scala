@@ -4,12 +4,13 @@ import com.amazonaws.auth.AWSCredentialsProvider
 import com.gu.editorial.permissions.client._
 
 
-class Permissions(awsCredentials: AWSCredentialsProvider) extends PermissionsProvider {
+class Permissions(stage: String, awsCredentials: AWSCredentialsProvider) extends PermissionsProvider {
   import Permissions._
 
   implicit def config = PermissionsConfig(
     app = app,
     all = all,
+    s3BucketPrefix = if(stage == "PROD") "PROD" else "CODE",
     awsCredentials = awsCredentials
   )
 }

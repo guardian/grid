@@ -14,7 +14,7 @@ trait PermissionsHandler {
   def config: CommonConfig
 
   private lazy val log = LoggerFactory.getLogger(getClass)
-  private val permissions = new Permissions(config.awsCredentials)
+  private val permissions = new Permissions(config.stage, config.awsCredentials)
 
   def hasPermission(user: Principal, permission: Permission)(implicit ec: ExecutionContext): Future[Boolean] = {
     user match {
