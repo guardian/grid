@@ -29,8 +29,10 @@ trait CommonConfig {
     InstanceProfileCredentialsProvider.getInstance()
   )
 
+  lazy val awsRegion = properties("aws.region")
+
   def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
-    .withRegion(properties("aws.region"))
+    .withRegion(awsRegion)
     .withCredentials(awsCredentials)
 
   // Note: had to make these lazy to avoid init order problems ;_;

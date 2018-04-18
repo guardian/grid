@@ -14,4 +14,5 @@ class KahunaConfig(override val configuration: Configuration) extends CommonConf
   val sentryDsn: Option[String] = properties.get("sentry.dsn").filterNot(_.isEmpty)
   val watUri: Option[String] = properties.get("wat.uri").filterNot(_.isEmpty)
 
+  val thumbBucket: String = properties("s3.thumb.bucket")
 }
