@@ -31,7 +31,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     respond(appIndex, indexLinks)
   }
 
-  private def notify(mediaId: String): Unit = notifications.send(mediaId)
+  private def notify(mediaId: String): Unit =  notifications.send(mediaId)
 
   private def clearLease(id: String) = store.get(id).map { lease =>
     store.delete(id).map { _ => notify(lease.mediaId) }
@@ -60,16 +60,15 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     Accepted
   }}
 
-  def postLease = auth.async(parse.json) { implicit request => Future {
-    request.body.validate[MediaLease].fold(
-      badRequest,
-      mediaLease => {
-        addLease(mediaLease, Some(Authentication.getEmail(request.user)))
-        Accepted
-      }
-    )
-  }}
+  def postLease = auth.async(parse.json) { implicit request =>
+    request.body.validate[MediaLease] match {
+      case JsSuccess(mediaLease, _) =>
+        addLease(mediaLease, Some(Authentication.getEmail(request.user))).map(_ => Accepted)
 
+      case JsError(errors) =>
+        Future.successful(badRequest(errors))
+    }
+  }
 
   def deleteLease(id: String) = auth.async { implicit request => Future {
       clearLease(id)

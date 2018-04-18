@@ -22,8 +22,9 @@ class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTab
   def get(id: String): Option[MediaLease] = Scanamo.get[MediaLease](client)(tableName)('id -> id).flatMap(_.toOption)
   def getForMedia(id: String): List[MediaLease] = Scanamo.queryIndex[MediaLease](client)(tableName, "mediaId")('mediaId -> id).flatMap(_.toOption)
 
-  def put(lease: MediaLease): Future[Unit] =
-    ScanamoAsync.put[MediaLease](client)(tableName)(lease.copy(id=Some(UUID.randomUUID().toString))).mapTo[Unit]
+  def put(lease: MediaLease) =
+    ScanamoAsync.put[MediaLease](client)(tableName)(lease.copy(id=Some(UUID.randomUUID().toString)))
+
   def delete(id: String) = ScanamoAsync.delete(client)(tableName)('id -> id)
 
   def forEach(run: List[MediaLease] => Unit) = ScanamoAsync.exec(client)(
