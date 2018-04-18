@@ -9,7 +9,7 @@ class CropperComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new CropperConfig(configuration)
 
   val store = new CropStore(config)
-  val imageOperations = new ImageOperations(application.path.getAbsolutePath)
+  val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val crops = new Crops(config, store, imageOperations)
   val notifications = new Notifications(config)
