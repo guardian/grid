@@ -30,6 +30,7 @@ object KahunaSecurityConfig {
       config.services.authBaseUri
     )
 
+    val frameSources = s"frame-src ${config.services.authBaseUri} https://accounts.google.com"
     val frameAncestors = s"frame-ancestors *.${config.services.domainRoot}"
     val connectSources = s"connect-src ${services.mkString(" ")}"
     val imageSources = s"img-src ${config.services.imgopsBaseUri} https://${config.thumbBucket}.s3.${config.awsRegion}.amazonaws.com 'self'"
@@ -38,7 +39,7 @@ object KahunaSecurityConfig {
       // covered by frame-ancestors in contentSecurityPolicy
       frameOptions = None,
       // We use inline styles and script tags <sad face>
-      contentSecurityPolicy = Some(s"$frameAncestors; $connectSources; $imageSources; default-src 'unsafe-inline' 'self';")
+      contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $imageSources; default-src 'unsafe-inline' 'self';")
     )
   }
 }
