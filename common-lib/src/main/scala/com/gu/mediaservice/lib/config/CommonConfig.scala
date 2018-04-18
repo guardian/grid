@@ -37,9 +37,6 @@ trait CommonConfig {
   lazy val domainRoot: String = properties("domain.root")
   lazy val services = new Services(domainRoot)
 
-  private lazy val corsAllowedOrigins = properties.getOrElse("cors.allowed.origins", "").split(",").toList
-  val corsAllAllowedOrigins: List[String] = services.kahunaBaseUri :: corsAllowedOrigins
-
   final def apply(key: String): String =
     string(key)
 

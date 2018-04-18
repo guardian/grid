@@ -8,7 +8,8 @@ import play.api.BuiltInComponentsFromContext
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
-import play.filters.cors.CORSComponents
+import play.filters.cors.CORSConfig.Origins
+import play.filters.cors.{CORSComponents, CORSConfig}
 import play.filters.gzip.GzipFilterComponents
 
 import scala.concurrent.ExecutionContext
@@ -26,7 +27,9 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
     super.httpFilters.filterNot(disabledFilters.contains) ++ Seq(corsFilter, gzipFilter, new RequestLoggingFilter(materializer))
   }
 
-  // TODO MRB: set allowed CORS origins
+  final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
+    allowedOrigins = Origins.Matching(Set(config.services.kahunaBaseUri, config.services.composerBaseUri))
+  )
 
   val management = new Management(controllerComponents)
   val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
