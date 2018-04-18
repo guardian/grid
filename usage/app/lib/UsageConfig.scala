@@ -1,8 +1,6 @@
 package lib
 
-import com.amazonaws.auth.AWSCredentialsProviderChain
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.regions.{Region, RegionUtils, Regions}
+import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.{Configuration, Logger}
@@ -41,8 +39,8 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
 
   val topicArn = properties("sns.topic.arn")
 
-  private val composerDomain = properties("composer.domain")
-  val composerContentBaseUrl: String = s"https://$composerDomain/content"
+  val composerBaseUrl: String = properties("composer.baseUrl")
+  val composerContentBaseUrl: String = s"${composerBaseUrl}/content"
 
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 
@@ -65,11 +63,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
     previewArn <- crierPreviewArn
   } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
 
-  val credentialsProvider = new AWSCredentialsProviderChain(
-    new ProfileCredentialsProvider("media-service")
-  )
-
-  private val iamClient: AmazonIdentityManagement = AmazonIdentityManagementClientBuilder.standard.withCredentials(credentialsProvider).build()
+  private val iamClient: AmazonIdentityManagement = withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()
 
   val postfix: String = if (stage == "DEV") {
     try {
