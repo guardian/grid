@@ -12,8 +12,6 @@ class CropperConfig(override val configuration: Configuration) extends CommonCon
   final override lazy val appName = "cropper"
 
   val imgPublishingBucket = properties("publishing.image.bucket")
-  val imgPublishingCredentials: AWSCredentials =
-    new BasicAWSCredentials(properties("publishing.aws.id"), properties("publishing.aws.secret"))
 
   val imgPublishingHost = properties("publishing.image.host")
   // Note: work around CloudFormation not allowing optional parameters

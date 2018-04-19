@@ -98,5 +98,5 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
 
   // FIXME: this doesn't really belong here
   def translateImgHost(uri: URI): URI =
-    new URI(uri.getScheme, config.imgPublishingHost, uri.getPath, uri.getFragment)
+    new URI("https", config.imgPublishingHost, uri.getPath, uri.getFragment)
 }
