@@ -4,6 +4,7 @@ import java.io.File
 import java.net.{URI, URLEncoder}
 import java.nio.charset.{Charset, StandardCharsets}
 
+import com.amazonaws.ClientConfiguration
 import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -24,7 +25,7 @@ class S3(config: CommonConfig) {
 
   val s3Endpoint = "s3.amazonaws.com"
 
-  lazy val client: AmazonS3 = config.withAWSCredentials(AmazonS3ClientBuilder.standard()).build()
+  lazy val client: AmazonS3 = buildS3Client()
 
   private def removeExtension(filename: String): String = {
     val regex = """\.[a-zA-Z]{3,4}$""".r
@@ -132,4 +133,15 @@ class S3(config: CommonConfig) {
     new URI("http", bucketUrl, s"/$key", null)
   }
 
+  private def buildS3Client(): AmazonS3 = {
+    // Force v2 signatures: https://github.com/aws/aws-sdk-java/issues/372
+    // imgops proxies direct to S3, passing the AWS security signature as query parameters
+    // This does not work with AWS v4 signatures, presumably because the signature includes the host
+    val clientConfig = new ClientConfiguration()
+    clientConfig.setSignerOverride("S3SignerType")
+
+    val builder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+
+    config.withAWSCredentials(builder).build()
+  }
 }
