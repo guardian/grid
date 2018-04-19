@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.play
+package lib
 
 import java.io.{File, FileOutputStream}
 import java.security.MessageDigest
@@ -12,9 +12,6 @@ import play.api.mvc._
 
 import scala.concurrent.ExecutionContext
 import scala.util.{Either, Left, Right}
-
-// TODO MRB: is this still required in Play 2.6?
-// If so it should live in image-loader
 
 case class DigestedFile(file: File, digest: String)
 

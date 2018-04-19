@@ -7,7 +7,6 @@ import java.security.MessageDigest
 import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.gu.mediaservice.lib.play.DigestedFile
 import play.api.libs.streams.Accumulator
 import play.api.libs.ws.WSClient
 

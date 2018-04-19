@@ -68,7 +68,6 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-// TODO MRB: can this be combined with media-api
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
 lazy val thrall = playProject("thrall", 9002).settings(

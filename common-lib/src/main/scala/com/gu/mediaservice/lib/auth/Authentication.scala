@@ -42,7 +42,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   private val keyStoreBucket: String = config.properties("auth.keystore.bucket")
   val keyStore = new KeyStore(keyStoreBucket, config)
 
-  // TODO MRB: not all applications need the key store
   keyStore.scheduleUpdates(actorSystem.scheduler)
 
   override lazy val panDomainSettings = buildPandaSettings()
