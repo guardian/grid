@@ -71,11 +71,16 @@ guDateRange.directive('guDateRange', [function () {
           ctrl.guDateFormat = ctrl.guDateFormat || 'DD-MMM-YYYY';
           ctrl.guAnyTimeText = ctrl.guAnyTimeText || 'anytime';
           ctrl.guFirstDay = ctrl.guFirstDay || 0;
-          var startInput = el[0].querySelectorAll('.gu-date-range__input__start--hidden')[0];
-          var startContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--start')[0];
+          const originalEl = el[0];
+          var startInput = originalEl
+            .querySelectorAll('.gu-date-range__input__start--hidden')[0];
+          var startContainer = originalEl
+            .querySelectorAll('.gu-date-range__overlay__pikaday--start')[0];
 
-          var endInput = el[0].querySelectorAll('.gu-date-range__input__end--hidden')[0];
-          var endContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--end')[0];
+          var endInput = originalEl
+            .querySelectorAll('.gu-date-range__input__end--hidden')[0];
+          var endContainer = originalEl
+            .querySelectorAll('.gu-date-range__overlay__pikaday--end')[0];
 
           var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
           const tenYearsInMilliseconds = (10 * 365 * 24 * 60 * 60 * 1000);
