@@ -38,7 +38,7 @@ fileUploader.directive('fileUploader', [function() {
         link: function(_, element) {
             // fake the click on the file input
             element.on('click', () => {
-                element.find('input[type="file"]')[0].click();
+                element[0].querySelectorAll('input[type="file"]')[0].click();
             });
         }
     };

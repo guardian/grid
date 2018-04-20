@@ -192,7 +192,11 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
                 }
 
                 compiledTemplate(scope, cloned => {
-                    element.find('.node__children').append(cloned);
+                    const container = element.find('gu-template-container');
+                    // JQLite doesn't have modern array methods :(
+                    for(let i=0; i < cloned.length; i++) {
+                      container.append(cloned[i]);
+                    }
                 });
 
                 grNodeCtrl.init(grCollectionTreeCtrl);

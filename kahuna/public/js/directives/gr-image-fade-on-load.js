@@ -35,13 +35,13 @@ imageFade.directive('grImageFadeOnLoad',
                     defer.resolve();
                 } else {
                     // wait until loaded/error
-                    element.bind('load', defer.resolve);
-                    element.bind('error', defer.reject);
+                    element.on('load', defer.resolve);
+                    element.on('error', defer.reject);
 
                     // free listeners once observed
                     defer.promise.finally(() => {
-                        element.unbind('load', defer.resolve);
-                        element.unbind('error', defer.reject);
+                        element.off('load', defer.resolve);
+                        element.off('error', defer.reject);
                     });
                 }
 

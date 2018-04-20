@@ -71,11 +71,11 @@ guDateRange.directive('guDateRange', [function () {
             ctrl.guDateFormat = ctrl.guDateFormat || 'DD-MMM-YYYY';
             ctrl.guAnyTimeText = ctrl.guAnyTimeText || 'anytime';
             ctrl.guFirstDay = ctrl.guFirstDay || 0;
-            var startInput = el.find('.gu-date-range__input__start--hidden')[0];
-            var startContainer = el.find('.gu-date-range__overlay__pikaday--start')[0];
+            var startInput = el[0].querySelectorAll('.gu-date-range__input__start--hidden')[0];
+            var startContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--start')[0];
 
-            var endInput = el.find('.gu-date-range__input__end--hidden')[0];
-            var endContainer = el.find('.gu-date-range__overlay__pikaday--end')[0];
+            var endInput = el[0].querySelectorAll('.gu-date-range__input__end--hidden')[0];
+            var endContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--end')[0];
 
             var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
             const tenYearsInMilliseconds = (10 * 365 * 24 * 60 * 60 * 1000);
@@ -90,7 +90,6 @@ guDateRange.directive('guDateRange', [function () {
                 firstDay: parseInt(ctrl.guFirstDay),
                 format: iso8601Format
             });
-
 
             var pikaEnd = new Pikaday({
                 field: endInput,

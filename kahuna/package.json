@@ -14,7 +14,6 @@
     "cropperjs": "^0.7.0",
     "immutable": "^3.7.5",
     "javascript-detect-element-resize": "^0.5.3",
-    "jquery": "2.1.1",
     "jszip": "2.5.0",
     "mixpanel-browser": "^2.4.2",
     "moment": "^2.9.0",
