@@ -1,11 +1,4 @@
 import auth.AuthComponents
-import lib.LogConfig
-import play.api.{Application, ApplicationLoader}
-import play.api.ApplicationLoader.Context
+import com.gu.mediaservice.lib.play.GridAppLoader
 
-class AppLoader extends ApplicationLoader {
-  override def load(context: Context): Application = {
-    LogConfig.init(context)
-    new AuthComponents(context).application
-  }
-}
+class AppLoader extends GridAppLoader(new AuthComponents(_))

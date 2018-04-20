@@ -22,7 +22,6 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
   implicit val ec: ExecutionContext = executionContext
 
   final override def httpFilters: Seq[EssentialFilter] = {
-    // TODO MRB: re-enable allowedHostsFilter
     Seq(corsFilter, csrfFilter, securityHeadersFilter, gzipFilter, new RequestLoggingFilter(materializer))
   }
 

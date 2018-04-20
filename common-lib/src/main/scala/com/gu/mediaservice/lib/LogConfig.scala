@@ -47,7 +47,7 @@ object LogConfig {
       a.start()
   }
 
-  def init(config: CommonConfig): Unit = config.stage match {
+  def initKinesisLogging(config: CommonConfig): Unit = config.stage match {
     case "DEV" =>  rootLogger.info("Logging disabled in DEV")
     case _  => Try {
       rootLogger.info("LogConfig initializing")
@@ -74,12 +74,9 @@ object LogConfig {
     }
   }
 
-  def init(context: Context): Unit = {
+  def initPlayLogging(context: Context): Unit = {
     LoggerConfigurator(context.environment.classLoader).foreach {
       _.configure(context.environment, context.initialConfiguration, Map.empty)
     }
-
-    // TODO MRB: enable kinesis logging
-    // init(???)
   }
 }
