@@ -116,6 +116,7 @@ kahuna.config(['$urlRouterProvider',
 // https://code.angularjs.org/1.5.5/docs/guide/production
 kahuna.config(['$compileProvider', function ($compileProvider) {
   $compileProvider.debugInfoEnabled(false);
+  $compileProvider.preAssignBindingsEnabled(true);
 }]);
 
 kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaApi) {
