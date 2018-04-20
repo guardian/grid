@@ -3,15 +3,11 @@ function stripMargin(template, ...args) {
     return result.replace(/\r?(\n)\s*\|/g, '$1');
 }
 
-// TODO MRB: replace aws.id with janus credential
 function getAuthConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |cors.allowed.origins=${config.cors.join(',')}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
         |aws.region=${config.aws.region}
         |`;
 }
@@ -19,8 +15,6 @@ function getAuthConfig(config) {
 function getCollectionsConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
@@ -33,14 +27,10 @@ function getCollectionsConfig(config) {
 function getCropperConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
         |publishing.image.host=${config.stackProps.ImageOriginWebsite}
-        |publishing.aws.id=${config.stackProps.AwsId}
-        |publishing.aws.secret=${config.stackProps.AwsSecret}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |`;
@@ -49,8 +39,7 @@ function getCropperConfig(config) {
 function getImageLoaderConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
+        |aws.region=${config.aws.region}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
@@ -60,14 +49,18 @@ function getImageLoaderConfig(config) {
 
 function getKahunaConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}`;
+        |domain.root=${config.domainRoot}
+        |aws.region=${config.aws.region}
+        |auth.keystore.bucket=${config.stackProps.KeyBucket}
+        |aws.region=${config.aws.region}
+        |s3.image.bucket=${config.stackProps.ImageBucket}
+        |s3.thumb.bucket=${config.stackProps.ThumbBucket}
+        |`;
 }
 
 function getLeasesConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
@@ -78,13 +71,11 @@ function getLeasesConfig(config) {
 function getMediaApiConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
+        |aws.region=${config.aws.region}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
-        |cors.allowed.origins=${config.cors.join(',')}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
@@ -97,24 +88,12 @@ function getMediaApiConfig(config) {
 function getMetadataEditorConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
         |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
         |indexed.images.sqs.queue.url=${config.stackProps.IndexedImageMetadataQueueUrl}
-        |`;
-}
-
-function getPandaConfig(config) {
-    return stripMargin`
-        |panda.domain=${config.panda.domain}
-        |panda.aws.key=${config.panda.aws.key}
-        |panda.aws.secret=${config.panda.aws.secret}
-        |panda.oauth.domain=${config.panda.oauthDomain}
-        |panda.oauth.multifactor.enable=${config.panda.require2FA}
         |`;
 }
 
@@ -130,8 +109,9 @@ function getS3WatcherConfig(config) {
 
 function getThrallConfig(config) {
     return stripMargin`
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
+        |domain.root=${config.domainRoot}
+        |aws.region=${config.aws.region}
+        |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |sqs.queue.url=${config.stackProps.SqsQueueUrl}
@@ -146,8 +126,6 @@ function getThrallConfig(config) {
 function getUsageConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
-        |aws.id=${config.stackProps.AwsId}
-        |aws.secret=${config.stackProps.AwsSecret}
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |capi.live.url=${config.capi.live.url}
@@ -173,7 +151,6 @@ module.exports = {
             leases: getLeasesConfig(config),
             'media-api': getMediaApiConfig(config),
             'metadata-editor': getMetadataEditorConfig(config),
-            panda: getPandaConfig(config),
             s3Watcher: getS3WatcherConfig(config),
             thrall: getThrallConfig(config),
             usage: getUsageConfig(config)
