@@ -53,125 +53,125 @@ guDateRange.directive('guDateRange', [function () {
         template: template,
         replace: true,
         scope: {
-            guStartDate: '=',
-            guEndDate: '=',
-            guPresetDates: '=',
-            guSelectedField: '=',
-            guFields: '=',
-            guDateFormat: '=?',
-            guAnyTimeText: '=?',
-            guFirstDay: '=?',
-            guShowExtras: '='
+          guStartDate: '=',
+          guEndDate: '=',
+          guPresetDates: '=',
+          guSelectedField: '=',
+          guFields: '=',
+          guDateFormat: '=?',
+          guAnyTimeText: '=?',
+          guFirstDay: '=?',
+          guShowExtras: '='
         },
         controller: 'GuDateRangeCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
 
         link: function ($scope, el, attrs, ctrl) {
-            ctrl.guDateFormat = ctrl.guDateFormat || 'DD-MMM-YYYY';
-            ctrl.guAnyTimeText = ctrl.guAnyTimeText || 'anytime';
-            ctrl.guFirstDay = ctrl.guFirstDay || 0;
-            var startInput = el[0].querySelectorAll('.gu-date-range__input__start--hidden')[0];
-            var startContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--start')[0];
+          ctrl.guDateFormat = ctrl.guDateFormat || 'DD-MMM-YYYY';
+          ctrl.guAnyTimeText = ctrl.guAnyTimeText || 'anytime';
+          ctrl.guFirstDay = ctrl.guFirstDay || 0;
+          var startInput = el[0].querySelectorAll('.gu-date-range__input__start--hidden')[0];
+          var startContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--start')[0];
 
-            var endInput = el[0].querySelectorAll('.gu-date-range__input__end--hidden')[0];
-            var endContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--end')[0];
+          var endInput = el[0].querySelectorAll('.gu-date-range__input__end--hidden')[0];
+          var endContainer = el[0].querySelectorAll('.gu-date-range__overlay__pikaday--end')[0];
 
-            var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
-            const tenYearsInMilliseconds = (10 * 365 * 24 * 60 * 60 * 1000);
-            const tenYearsFromNow =  new Date(Date.now() + tenYearsInMilliseconds);
+          var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
+          const tenYearsInMilliseconds = (10 * 365 * 24 * 60 * 60 * 1000);
+          const tenYearsFromNow =  new Date(Date.now() + tenYearsInMilliseconds);
 
-            var pikaStart = new Pikaday({
-                field: startInput,
-                container: startContainer,
-                bound: false,
-                maxDate: tenYearsFromNow,
-                yearRange: 100,
-                firstDay: parseInt(ctrl.guFirstDay),
-                format: iso8601Format
-            });
+          var pikaStart = new Pikaday({
+              field: startInput,
+              container: startContainer,
+              bound: false,
+              maxDate: tenYearsFromNow,
+              yearRange: 100,
+              firstDay: parseInt(ctrl.guFirstDay),
+              format: iso8601Format
+          });
 
-            var pikaEnd = new Pikaday({
-                field: endInput,
-                container: endContainer,
-                bound: false,
-                maxDate: tenYearsFromNow,
-                firstDay: parseInt(ctrl.guFirstDay),
-                format: iso8601Format,
-                yearRange: 100
-            });
+          var pikaEnd = new Pikaday({
+              field: endInput,
+              container: endContainer,
+              bound: false,
+              maxDate: tenYearsFromNow,
+              firstDay: parseInt(ctrl.guFirstDay),
+              format: iso8601Format,
+              yearRange: 100
+          });
 
-            $scope.$watch('pikaStartValue', function (pikaStartValue) {
-                var date = (pikaStartValue && new Date(pikaStartValue)) || new Date();
-                pikaEnd.setMinDate(date);
-                pikaEnd.hide();
-                pikaEnd.show();
-            });
+          $scope.$watch('pikaStartValue', function (pikaStartValue) {
+              var date = (pikaStartValue && new Date(pikaStartValue)) || new Date();
+              pikaEnd.setMinDate(date);
+              pikaEnd.hide();
+              pikaEnd.show();
+          });
 
-            $scope.$watch('pikaEndValue', function () {
-                pikaStart.hide();
-                pikaStart.show();
-            });
+          $scope.$watch('pikaEndValue', function () {
+              pikaStart.hide();
+              pikaStart.show();
+          });
 
-            $scope.$watch('ctrl.guEndDate',   resetView);
+          $scope.$watch('ctrl.guEndDate',   resetView);
 
-            $scope.$on('$destroy', function() {
-                pikaStart.destroy();
-                pikaEnd.destroy();
-            });
+          $scope.$on('$destroy', function() {
+              pikaStart.destroy();
+              pikaEnd.destroy();
+          });
 
-            function resetView() {
-                ctrl.setDateRangeForDisplay();
+          function resetView() {
+              ctrl.setDateRangeForDisplay();
 
-                pikaStart.setDate();
-                pikaEnd.setDate();
+              pikaStart.setDate();
+              pikaEnd.setDate();
 
-                pikaStart.setDate(ctrl.guStartDate);
-                pikaEnd.setDate(ctrl.guEndDate);
+              pikaStart.setDate(ctrl.guStartDate);
+              pikaEnd.setDate(ctrl.guEndDate);
 
-                ctrl.closeOverlay();
-            }
+              ctrl.closeOverlay();
+          }
 
-            function getStartValue () {
-                var start = pikaStart.getDate();
-                return start ? moment(start).startOf('day').toDate() : undefined;
-            }
+          function getStartValue () {
+              var start = pikaStart.getDate();
+              return start ? moment(start).startOf('day').toDate() : undefined;
+          }
 
-            function getEndValue () {
-                var end = pikaEnd.getDate();
-                return end ? moment(end).endOf('day').toDate() : undefined;
-            }
+          function getEndValue () {
+              var end = pikaEnd.getDate();
+              return end ? moment(end).endOf('day').toDate() : undefined;
+          }
 
-            function setPresetDate (preset) {
-                ctrl.save(preset);
-                resetView();
-            }
+          function setPresetDate (preset) {
+              ctrl.save(preset);
+              resetView();
+          }
 
-            function setCustomRange () {
-                var start = getStartValue();
-                var end = getEndValue();
+          function setCustomRange () {
+              var start = getStartValue();
+              var end = getEndValue();
 
-                ctrl.save(start, end);
-                resetView();
-            }
+              ctrl.save(start, end);
+              resetView();
+          }
 
-            function clearStart () {
-                pikaStart.setDate();
-                pikaStart.gotoToday();
-            }
+          function clearStart () {
+              pikaStart.setDate();
+              pikaStart.gotoToday();
+          }
 
-            function clearEnd () {
-                pikaEnd.setDate();
-                pikaEnd.gotoToday();
-            }
+          function clearEnd () {
+              pikaEnd.setDate();
+              pikaEnd.gotoToday();
+          }
 
-            $scope.cancel = resetView;
-            $scope.save = setCustomRange;
-            $scope.setPresetDate = setPresetDate;
-            $scope.clearStart = clearStart;
-            $scope.clearEnd = clearEnd;
+          $scope.cancel = resetView;
+          $scope.save = setCustomRange;
+          $scope.setPresetDate = setPresetDate;
+          $scope.clearStart = clearStart;
+          $scope.clearEnd = clearEnd;
 
-            resetView();
+          resetView();
         }
     };
 }]);
