@@ -104,6 +104,7 @@ def playProject(projectName: String, port: Int): Project =
       packageSummary in Linux := description.value,
       packageDescription := description.value,
 
+      mappings in Universal ++= Seq(file("common-lib/src/main/resources/application.conf") -> "conf/application.conf"),
       javaOptions in Universal ++= Seq("-Dpidfile.path=/dev/null"),
 
       riffRaffManifestProjectName := s"media-service::grid::${name.value}",
