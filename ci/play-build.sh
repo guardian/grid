@@ -27,10 +27,7 @@ pushd ..
 
 echo "Building $PROJECT"
 
-java -Xmx2048m \
-    -XX:ReservedCodeCacheSize=128m \
-    -XX:+CMSClassUnloadingEnabled \
-    -Dsbt.log.noformat=true \
-    clean compile "project ${PROJECT}" test riffRaffUpload
+sbt -Dsbt.log.noformat=true \
+    "${PROJECT}/clean" "${PROJECT}/compile" "${PROJECT}/test" "${PROJECT}/riffRaffUpload"
 
 popd
