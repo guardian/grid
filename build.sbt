@@ -109,6 +109,6 @@ def playProject(projectName: String, port: Int): Project =
       riffRaffUploadManifestBucket := Some("riffraff-builds"),
       riffRaffArtifactResources := Seq(
         (packageBin in Debian).value -> s"${name.value}/${name.value}.deb",
-        file("conf/riff-raff.yaml") -> "riff-raff.yaml"
+        file(s"$projectName/conf/riff-raff.yaml") -> "riff-raff.yaml"
       )
     ))
