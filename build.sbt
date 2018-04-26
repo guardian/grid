@@ -105,7 +105,10 @@ def playProject(projectName: String, port: Int): Project =
       packageDescription := description.value,
 
       mappings in Universal ++= Seq(file("common-lib/src/main/resources/application.conf") -> "conf/application.conf"),
-      javaOptions in Universal ++= Seq("-Dpidfile.path=/dev/null"),
+      javaOptions in Universal ++= Seq(
+        "-Dpidfile.path=/dev/null",
+        s"-Dconfig.file=/usr/share/$projectName/conf/application.conf"
+      ),
 
       riffRaffManifestProjectName := s"media-service::grid::${name.value}",
       riffRaffUploadArtifactBucket := Some("riffraff-artifact"),
