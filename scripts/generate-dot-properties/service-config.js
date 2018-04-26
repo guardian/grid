@@ -54,7 +54,7 @@ function getKahunaConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |aws.region=${config.aws.region}
         |s3.image.bucket=${config.stackProps.ImageBucket}
-        |s3.thumb.bucket=${config.stackProps.ThumbBucket}
+        |origin.thumb=${config.stackProps.ThumbBucket}.s3.${config.aw.region}.amazonaws.com
         |`;
 }
 

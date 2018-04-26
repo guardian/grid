@@ -35,8 +35,7 @@ object KahunaSecurityConfig {
     val connectSources = s"connect-src ${services.mkString(" ")} 'self'"
 
     val originSource = s"https://${config.originBucket}.s3.${config.awsRegion}.amazonaws.com"
-    val thumbSource = s"https://${config.thumbBucket}.s3.${config.awsRegion}.amazonaws.com"
-    val imageSources = s"img-src ${config.services.imgopsBaseUri} $originSource $thumbSource 'self'"
+    val imageSources = s"img-src ${config.services.imgopsBaseUri} $originSource https://${config.thumbOrigin} 'self'"
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
