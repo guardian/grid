@@ -15,5 +15,5 @@ class KahunaConfig(override val configuration: Configuration) extends CommonConf
   val watUri: Option[String] = properties.get("wat.uri").filterNot(_.isEmpty)
 
   val thumbOrigin: String = properties("origin.thumb")
-  val originBucket: String = properties("s3.origin.bucket")
+  val fullOrigin: String = properties("origin.full")
 }
