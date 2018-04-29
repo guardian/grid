@@ -16,4 +16,5 @@ class KahunaConfig(override val configuration: Configuration) extends CommonConf
 
   val thumbOrigin: String = properties("origin.thumb")
   val fullOrigin: String = properties("origin.full")
+  val cropOrigin: Option[String] = properties.get("origin.crops")
 }
