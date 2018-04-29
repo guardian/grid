@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Image CDN for the Grid
+
+Parameters:
+  Stack:
+    Description: Stack name
+    Type: String
+    Default: media-service
+  
+  Stage:
+    Description: Stage name
+    Type: String
+    AllowedValues: ["DEV", "TEST", "PROD"]
+  
+  DomainName:
+    Description: The domain name that will be used to address the cdn
+    Type: String
+  
+  SSLCertificateArn:
+    Description: The ACM certificate for the domain name
+    Type: String
+
+
+Resources:
+  # TODO MRB:
+  #  Will it work defining the bucket in the same CFN as the other stuff?
+  #
+  #  You want to have the bucket in the region closest to the majority of
+  #  your users to avoid inter-region transfer fees.
+  #
+  #  Conversely the Lambda@Edge stuff needs to be defined in us-east-1,
+  #  presumably so AWS can do the magic and spread the function code across
+  #  all their datacenters.
+  OriginBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Stack}-origin-${Stage}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+      Tags:
+        - { Key: Stack, Value: !Ref Stack }
+        - { Key: Stage, Value: !Ref Stage }
+  
+  # TODO MRB: check that we cannot access the bucket directly (unauthenticated)
+  CloudFrontAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'CloudFrontAccessIdentity ${Stack} ${Stage}'
+
+  CloudFront:
+    Type: AWS::CloudFront::Distribution
+    Propertie:
+      DistributionConfig:
+        Enabled: true
+        # This is currently the only class to include Australia
+        PriceClass: PriceClass_All
+        Origins:
+          - Id: !Sub '${Stack}-cdn-${Stage}'
+            DomainName: !GetAtt OriginBucket.DomainName
+            S3OriginConfig:
+              OriginAccessIdentity:
+                !Sub 'origin-access-identity/cloudfront/${CloudFrontAccessIdentity}'
+        Aliases:
+          !Ref DomainName
+        DefaultCacheBehaviour:
+          Compress: true
+          TargetOriginId: origin
+          ViewerProtocolPolicy: https-only
+          # DefaultTTL: TODO MRB: should probably be infinite?
+          ForwardedValues:
+            QueryString: false
+          LambdaFunctionAssociations:
+            - EventType: viewer-request
+              LambdaFunctionArn: !GetAtt PandaAuthorisationLambda.Arn
+            - EventType: origin-response
+              LambdaFunctionArn: !GetAtt ImageResizerLambda.Arn
+        ViewerCertificate:
+          ACMCertificateArn: !Ref SSLCertificateArn
+          SSLSupportMethod: sni-only
+
+      Tags:
+        - { Key: Stack, Value: !Ref Stack }
+        - { Key: Stage, Value: !Ref Stage }
+  
+  PandaAuthorisationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: lambda.amazonaws.com
+      Path: /
+      Policies:
+      - PolicyName: PandaAuthorisationRole
+        PolicyDocument:
+          # TODO MRB: grant access to the panda key bucket
+          Statement: []
+
+  PandaAuthorisationLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Stack}-cdn-panda-${Stage}'
+      Description: Checks the Panda cookie to see if the user can access content from the Grid CDN
+      MemorySize: '128'
+      Timeout: '5'
+      Handler: index.handler
+      Role: !GetAtt PandaAuthorisationRole.Arn
+      Runtime: nodejs6.10
+      Environment:
+        Variables:
+          STACK: !Ref Stack
+          APP: cdn-panda
+          STAGE: !Ref Stage
+      Code:
+        S3Bucket: !Sub '${Stack}-dist'
+        S3Key: !Sub '${Stack}/${Stage}/cdn-panda/cdn-panda.zip'
+      Tags:
+        - { Key: Stack, Value: !Ref Stack }
+        - { Key: App, Value: 'cdn-panda' }
+        - { Key: Stage, Value: !Ref Stage }
+  
+  ImageResizerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: sts:AssumeRole
+            Principal:
+              Service: lambda.amazonaws.com
+      Path: /
+      Policies:
+      - PolicyName: ImageResizerRole
+        PolicyDocument:
+          Statement: []
+
+  ImageResizerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Stack}-image-resizer-${Stage}'
+      Description: Resizes images based on the given query parameters
+      # TODO MRB: what is the right amount of memory to pick here?
+      MemorySize: '2048'
+      Timeout: '30'
+      Handler: index.handler
+      Role: !GetAtt ImageResizerRole.Arn
+      Runtime: nodejs6.10
+      Environment:
+        Variables:
+          STACK: !Ref Stack
+          APP: image-resizer
+          STAGE: !Ref Stage
+      Code:
+        S3Bucket: !Sub '${Stack}-dist'
+        S3Key: !Sub '${Stack}/${Stage}/image-resizer/image-resizer.zip'
+      Tags:
+        - { Key: Stack, Value: !Ref Stack }
+        - { Key: App, Value: 'image-resizer' }
+        - { Key: Stage, Value: !Ref Stage }

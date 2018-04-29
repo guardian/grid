@@ -1,0 +1,19 @@
+service:
+  name: the-grid-cdn
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+
+package:
+  individually: true
+
+functions:
+  panda:
+    handler: src/panda.handler
+  
+  resizer:
+    handler: src/resizer.handler
+
+plugins:
+  - serverless-webpack
