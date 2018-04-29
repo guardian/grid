@@ -14,5 +14,11 @@
     "scripts": {
         "clean": "rm -rf .serverless",
         "package": "serverless package"
+    },
+    "dependencies": {
+        "@types/cookie": "^0.3.1",
+        "cookie": "^0.3.1",
+        "pan-domain-public-keys": "^1.2.0",
+        "pan-domain-validate-user": "^1.0.2"
     }
 }
