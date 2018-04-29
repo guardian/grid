@@ -1,13 +1,6 @@
-import { APIGatewayEvent, Callback, Context, Handler } from 'aws-lambda';
+import { CloudFrontRequestEvent, CloudFrontRequestResult, Callback, Context, Handler } from 'aws-lambda';
 
-export const handler: Handler = (event: APIGatewayEvent, context: Context, cb: Callback) => {
-  const response = {
-    statusCode: 200,
-    body: JSON.stringify({
-      message: 'Go Serverless Webpack (Typescript) v1.0! Your function executed successfully!',
-      input: event,
-    }),
-  };
-
-  cb(null, response);
+export const handler: Handler = (event: CloudFrontRequestEvent, context: Context, cb: Callback<CloudFrontRequestResult>) => {
+  const request = event.Records[0].cf.request;
+  cb(null, request);
 }

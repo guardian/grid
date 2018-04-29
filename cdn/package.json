@@ -12,6 +12,7 @@
         "webpack": "^4.6.0"
     },
     "scripts": {
+        "clean": "rm -rf .serverless",
         "package": "serverless package"
     }
 }
