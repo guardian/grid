@@ -56,7 +56,9 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         val result = downloader.download(validUri, tmpFile).flatMap { digestedFile =>
           loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename)
         } recover {
-          case NonFatal(e) => failedUriDownload
+          case NonFatal(e) =>
+            Logger.error(s"Unable to download image $uri", e)
+            failedUriDownload
         }
 
         result onComplete (_ => tmpFile.delete())

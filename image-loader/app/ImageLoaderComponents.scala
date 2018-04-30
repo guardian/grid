@@ -18,7 +18,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val notifications = new Notifications(config)
-  val downloader = new Downloader(wsClient, materializer)
+  val downloader = new Downloader()
   val optimisedPngOps = new OptimisedPngOps(store, config)
   val imageUploadOps = new ImageUploadOps(store, config, imageOperations, optimisedPngOps)
 
