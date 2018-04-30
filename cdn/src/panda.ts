@@ -9,6 +9,9 @@ const { STAGE } = process.env;
 function handle(request: CloudFrontRequest): Promise<CloudFrontRequestResult> {
   const cookie = parse(request.headers['cookie'][0].value)['gutoolsAuth-assym'];
 
+  // TODO MRB: update the code to allow for customising the panda settings bucket
+  // and make it download using the AWS SDK?
+  // https://github.com/guardian/pan-domain-public-keys/blob/master/src/index.js
   return getPEM(STAGE).then(key => {
     return validateUser(key, cookie).then(_ => request);
   });

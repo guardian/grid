@@ -12,14 +12,21 @@ Parameters:
     Type: String
     AllowedValues: ["DEV", "TEST", "PROD"]
   
-  DomainName:
-    Description: The domain name that will be used to address the cdn
+  DomainNamePrefix:
+    Description: The first part of the domain name (eg cdn.media)
+    Type: String
+
+  DomainNameSuffix:
+    Description: The last part of the domain name (eg gutools.co.uk)
     Type: String
   
   SSLCertificateArn:
     Description: The ACM certificate for the domain name
     Type: String
 
+  PandaSettingsBucket:
+    Description: Bucket name where the panda settings live
+    Type: String
 
 Resources:
   # TODO MRB:
@@ -52,7 +59,7 @@ Resources:
 
   CloudFront:
     Type: AWS::CloudFront::Distribution
-    Propertie:
+    Properties:
       DistributionConfig:
         Enabled: true
         # This is currently the only class to include Australia
@@ -64,7 +71,7 @@ Resources:
               OriginAccessIdentity:
                 !Sub 'origin-access-identity/cloudfront/${CloudFrontAccessIdentity}'
         Aliases:
-          !Ref DomainName
+          - !Sub '${DomainNamePrefix}.${DomainNameSuffix}'
         DefaultCacheBehaviour:
           Compress: true
           TargetOriginId: origin
@@ -98,8 +105,10 @@ Resources:
       Policies:
       - PolicyName: PandaAuthorisationRole
         PolicyDocument:
-          # TODO MRB: grant access to the panda key bucket
-          Statement: []
+          Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub 'arn:aws:s3:::${PandaSettingsBucket}/${DomainNameSuffix}.settings.public'
 
   PandaAuthorisationLambda:
     Type: AWS::Lambda::Function
