@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.config
 
-class Services(val domainRoot: String) {
+class Services(val domainRoot: String, stage: String) {
   val appName = "media"
 
   val kahunaHost: String   = s"$appName.$domainRoot"
@@ -14,7 +14,8 @@ class Services(val domainRoot: String) {
   val leasesHost: String   = s"$appName-leases.$domainRoot"
   val authHost: String     = s"$appName-auth.$domainRoot"
 
-  val composerHost: String     = s"composer.$domainRoot"
+  val composerDomain: String   = if(stage == "TEST") { domainRoot.replace("test", "code") } else { domainRoot}
+  val composerHost: String     = s"composer.$composerDomain"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)

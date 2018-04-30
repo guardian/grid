@@ -35,9 +35,11 @@ trait CommonConfig {
     .withRegion(awsRegion)
     .withCredentials(awsCredentials)
 
+  final val stage: String = stageFromFile getOrElse "DEV"
+
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
-  lazy val services = new Services(domainRoot)
+  lazy val services = new Services(domainRoot, stage)
 
   final def apply(key: String): String =
     string(key)
@@ -47,8 +49,6 @@ trait CommonConfig {
 
   final def int(key: String): Int =
     configuration.getOptional[Int](key) getOrElse missing(key, "integer")
-
-  final val stage: String = stageFromFile getOrElse "DEV"
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")

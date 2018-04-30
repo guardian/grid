@@ -31,7 +31,7 @@ object KahunaSecurityConfig {
     )
 
     val frameSources = s"frame-src ${config.services.authBaseUri} https://accounts.google.com"
-    val frameAncestors = s"frame-ancestors *.${config.services.domainRoot}"
+    val frameAncestors = s"frame-ancestors *.${config.services.composerDomain}"
     val connectSources = s"connect-src ${services.mkString(" ")} 'self'"
 
     val cropOrigin = config.cropOrigin.map { s => s"https://$s" }.getOrElse("")
