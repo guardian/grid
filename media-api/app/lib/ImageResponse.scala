@@ -249,23 +249,11 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
         "value" -> isPersisted,
         "reasons" -> persistenceReasons)))
 
-  // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { root =>
-      val existing = root \ "userMetadata"
-      // TODO MRB: remove temp logging
-      Logger.info(s"Image $id. Existing userMetadata: ${existing.isDefined} ")
-
-      val editsJson = existing.asOpt[Edits].map { edits =>
-        val ret = Json.toJson(editsEmbeddedEntity(id, edits))
-
-        Logger.info(s"Image $id. New userMetadata: $ret")
-        ret
-      }.getOrElse {
-        Logger.info(s"Image $id. Using empty userMetadata")
-        Json.obj()
-      }
-
+      val edits = (root \ "userMetadata").asOpt[Edits].getOrElse(Edits.getEmpty)
+      val editsJson = Json.toJson(editsEmbeddedEntity(id, edits))
+      
       root ++ Json.obj("userMetadata" -> editsJson)
     }
 
