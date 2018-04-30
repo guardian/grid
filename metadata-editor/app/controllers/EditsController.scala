@@ -13,6 +13,7 @@ import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model._
 import lib._
 import org.joda.time.DateTime
+import play.api.Logger
 import play.api.data.Forms._
 import play.api.data._
 import play.api.libs.json._
@@ -68,7 +69,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
   }
 
   def setArchived(id: String) = auth.async(parse.json) { implicit req =>
-    req.body.validate[Boolean].fold(
+    (req.body \ "data").validate[Boolean].fold(
       errors =>
         Future.successful(BadRequest(errors.toString())),
       archived =>
@@ -94,7 +95,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
   }
 
   def addLabels(id: String) = auth.async(parse.json) { req =>
-    req.body.validate[List[String]].fold(
+    (req.body \ "data").validate[List[String]].fold(
       errors =>
         Future.successful(BadRequest(errors.toString())),
       labels =>
@@ -126,7 +127,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
   }
 
   def setMetadata(id: String) = auth.async(parse.json) { req =>
-    req.body.validate[ImageMetadata].fold(
+    (req.body \ "data").validate[ImageMetadata].fold(
       errors => Future.successful(BadRequest(errors.toString())),
       metadata =>
         store.jsonAdd(id, "metadata", metadataAsMap(metadata))
@@ -198,19 +199,6 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     notifications.publish(message, "update-image-user-metadata")
 
     edits
-  }
-
-  // This get's the form error based on out data structure that we send over i.e.
-  // { "data": {data} }
-  def getDataListFormError(form: Form[List[String]]): String = {
-    def printData(data: Map[String, String]): String = {
-      data.map{case(k, v) => v}.toList.mkString(", ")
-    }
-    // only use the head error as they are going to be the same
-    val message = form.errors.headOption
-      .map(_.message + s", given data: ${printData(form.data)}")
-      .getOrElse(s"Unknown error, given data: ${printData(form.data)}")
-    message
   }
 
   // FIXME: At the moment we can't accept keywords as it is a list
