@@ -253,9 +253,18 @@ object ImageResponse extends EditsResponse {
   // FIXME: tidier way to replace a key in a JsObject?
   def wrapUserMetadata(id: String): Reads[JsObject] =
     __.read[JsObject].map { root =>
-      val editsJson = (root \ "userMetadata").asOpt[Edits].map { edits =>
-        Json.toJson(editsEmbeddedEntity(id, edits))
-      }.getOrElse(Json.obj())
+      val existing = root \ "userMetadata"
+      Logger.info(s"Image $id. Existing userMetadata: $existing ")
+
+      val editsJson = existing.asOpt[Edits].map { edits =>
+        val ret = Json.toJson(editsEmbeddedEntity(id, edits))
+
+        Logger.info(s"Image $id. New userMetadata: $ret")
+        ret
+      }.getOrElse {
+        Logger.info(s"Image $id. Using empty userMetadata")
+        Json.obj()
+      }
 
       root ++ Json.obj("userMetadata" -> editsJson)
     }
