@@ -27,7 +27,7 @@ class Downloader(implicit ec: ExecutionContext) {
     val output = new FileOutputStream(file)
     val hashedOutput = new HashingOutputStream(digester, output)
 
-    ByteStreams.copy(input, output)
+    ByteStreams.copy(input, hashedOutput)
 
     val hash = hashedOutput.hash().asBytes()
 
