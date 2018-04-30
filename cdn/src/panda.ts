@@ -10,7 +10,7 @@ function handle(request: CloudFrontRequest): Promise<CloudFrontRequestResult> {
   const cookie = parse(request.headers['cookie'][0].value)['gutoolsAuth-assym'];
 
   return getPEM(STAGE).then(key => {
-    return validateUser(key, cookie).then((_: void) => request);
+    return validateUser(key, cookie).then(_ => request);
   });
 }
 
