@@ -86,7 +86,7 @@ object Authentication {
   type Request[A] = AuthenticatedRequest[A, Principal]
 
   def getEmail(principal: Principal): String = principal match {
-    case PandaUser(User(email, _, _, _)) => email
+    case PandaUser(user) => user.email
     case _ => principal.name
   }
 }
