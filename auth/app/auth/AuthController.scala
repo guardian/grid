@@ -5,7 +5,6 @@ import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.pandomainauth.model.{User => PandaUser}
 import com.gu.pandomainauth.service.GoogleAuthException
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
@@ -32,23 +31,22 @@ class AuthController(auth: Authentication, config: AuthConfig,
   def index = auth.AuthAction { indexResponse }
 
   def session = auth.AuthAction { request =>
-    request.user match {
-      case PandaUser(email, firstName, lastName, avatarUrl) =>
-        respond(
-          Json.obj("user" ->
-            Json.obj(
-              "name"      -> s"$firstName $lastName",
-              "firstName" -> firstName,
-              "lastName"  -> lastName,
-              "email"     -> email,
-              "avatarUrl" -> avatarUrl
-            )
-          )
+    val user = request.user
+
+    val firstName = user.firstName
+    val lastName = user.lastName
+
+    respond(
+      Json.obj("user" ->
+        Json.obj(
+          "name"      -> s"$firstName $lastName",
+          "firstName" -> firstName,
+          "lastName"  -> lastName,
+          "email"     -> user.email,
+          "avatarUrl" -> user.avatarUrl
         )
-      case _ =>
-        // Should never get in here
-        respondError(BadRequest, "non-user-session", "Unexpected non-user session")
-    }
+      )
+    )
   }
 
 

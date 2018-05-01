@@ -8,8 +8,6 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.model.UploadInfo
-import com.gu.pandomainauth.action.UserRequest
-import com.gu.pandomainauth.model.User
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
