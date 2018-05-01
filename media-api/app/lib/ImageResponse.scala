@@ -121,10 +121,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       }
     }.get
 
-    val pngFileUri = source \ "optimisedPng" match {
-      case o: JsObject => Some(new URI((source \ "optimisedPng" \ "file").as[String]))
-      case _ => None
-    }
+    val pngFileUri = (source \ "optimisedPng" \ "file").validate[String].asOpt.map(new URI(_))
 
     // Round expiration time to try and hit the cache as much as possible
     // TODO: do we really need these expiration tokens? they kill our ability to cache...
