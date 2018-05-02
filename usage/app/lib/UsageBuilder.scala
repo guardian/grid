@@ -5,7 +5,6 @@ import com.gu.mediaservice.model.{Usage, UsageReference, PublishedUsageStatus}
 
 import model.{MediaUsage, UsageTableFullKey}
 
-
 object UsageBuilder {
   import com.gu.mediaservice.lib.IntUtils._
 
@@ -41,7 +40,7 @@ object UsageBuilder {
   private def buildPrintUsageReference(usage: MediaUsage):List[UsageReference] =
     usage.printUsageMetadata.map(metadata => {
       val title = List(
-        (new DateTime(metadata.issueDate)).toString("YYYY-MM-dd"),
+        new DateTime(metadata.issueDate).toString("YYYY-MM-dd"),
         metadata.publicationName,
         metadata.sectionName,
         s"Page ${metadata.pageNumber}"

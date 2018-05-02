@@ -1,21 +1,21 @@
 package lib
 
 import java.net.URL
+
+import com.gu.contentapi.client.model.v1.Content
+import com.gu.mediaservice.model.{DigitalUsageMetadata, PrintImageSize, PrintUsageMetadata}
+import org.joda.time.format.ISODateTimeFormat
+
 import scala.util.Try
-import org.joda.time.DateTime
 
-import com.gu.mediaservice.model.{DigitalUsageMetadata, PrintUsageMetadata, PrintImageSize}
-import com.gu.contentapi.client.model.v1.{Content, Element}
-
-
-object UsageMetadataBuilder {
+class UsageMetadataBuilder(config: UsageConfig) {
 
   def buildDigital(metadataMap: Map[String, Any]): Option[DigitalUsageMetadata] = {
     Try {
       DigitalUsageMetadata(
-        metadataMap.get("webTitle").get.asInstanceOf[String],
-        metadataMap.get("webUrl").get.asInstanceOf[String],
-        metadataMap.get("sectionId").get.asInstanceOf[String],
+        metadataMap("webTitle").asInstanceOf[String],
+        metadataMap("webUrl").asInstanceOf[String],
+        metadataMap("sectionId").asInstanceOf[String],
         metadataMap.get("composerUrl").map(_.asInstanceOf[String])
       )
     }.toOption
@@ -23,13 +23,11 @@ object UsageMetadataBuilder {
 
   def buildPrint(metadataMap: Map[String, Any]): Option[PrintUsageMetadata] = {
     type JStringNumMap = java.util.LinkedHashMap[String, java.math.BigDecimal]
-    import com.gu.mediaservice.model.DateFormat
-
     Try {
       PrintUsageMetadata(
         sectionName = metadataMap.apply("sectionName").asInstanceOf[String],
         issueDate = metadataMap.get("issueDate").map(_.asInstanceOf[String])
-          .map(DateFormat.parser.parseDateTime).get,
+          .map(ISODateTimeFormat.dateTimeParser().parseDateTime).get,
         pageNumber = metadataMap.apply("pageNumber").asInstanceOf[java.math.BigDecimal].intValue,
         storyName = metadataMap.apply("storyName").asInstanceOf[String],
         publicationCode = metadataMap.apply("publicationCode").asInstanceOf[String],
@@ -59,7 +57,7 @@ object UsageMetadataBuilder {
   def composerUrl(content: Content): Option[String] = content.fields
     .flatMap(_.internalComposerCode)
     .flatMap(composerId => {
-      Try((new URL(s"${Config.composerContentBaseUrl}/${composerId}")).toString).toOption
+      Try(new URL(s"${config.composerContentBaseUrl}/$composerId").toString).toOption
     })
 
 }

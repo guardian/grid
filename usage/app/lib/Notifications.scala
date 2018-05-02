@@ -2,4 +2,4 @@ package lib
 
 import com.gu.mediaservice.lib.aws.SNS
 
-object Notifications extends SNS(Config.awsCredentials, Config.topicArn)
+class Notifications(config: UsageConfig) extends SNS(config, config.topicArn)

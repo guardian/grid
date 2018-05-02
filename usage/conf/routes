@@ -12,4 +12,4 @@ GET     /management/healthcheck                         com.gu.mediaservice.lib.
 GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest
 
 # Shoo robots away
-GET     /robots.txt                                     controllers.Robots.disallowAll
+GET     /robots.txt                                     com.gu.mediaservice.lib.management.Management.disallowRobots

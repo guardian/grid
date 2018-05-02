@@ -1,9 +1,8 @@
 package lib
 
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
-import Config.{awsCredentials, stage}
 
-object UsageMetrics extends CloudWatchMetrics(s"$stage/Usage", awsCredentials) {
+class UsageMetrics(config: UsageConfig) extends CloudWatchMetrics(s"${config.stage}/Usage", config) {
   def incrementUpdated = updates.increment().run
   def incrementErrors = errors.increment().run
 

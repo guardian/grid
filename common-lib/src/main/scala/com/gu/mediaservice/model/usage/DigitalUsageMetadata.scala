@@ -1,7 +1,6 @@
 package com.gu.mediaservice.model
 
 import play.api.libs.json._
-import org.joda.time.DateTime
 
 
 case class DigitalUsageMetadata(
@@ -20,7 +19,6 @@ case class DigitalUsageMetadata(
   ) ++ composerUrl.map("composerUrl" -> _)
 }
 object DigitalUsageMetadata {
-  implicit val dateTimeFormat = DateFormat
   implicit val reads: Reads[DigitalUsageMetadata] = Json.reads[DigitalUsageMetadata]
   implicit val writes: Writes[DigitalUsageMetadata] = Json.writes[DigitalUsageMetadata]
 }

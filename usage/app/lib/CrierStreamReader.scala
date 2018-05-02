@@ -4,20 +4,19 @@ import java.net.InetAddress
 import java.util.UUID
 
 import play.api.Logger
-
 import com.amazonaws.auth._
+import com.amazonaws.auth.InstanceProfileCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.internal.StaticCredentialsProvider
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, Worker, KinesisClientLibConfiguration}
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 
-class CrierStreamReader {
+class CrierStreamReader(config: UsageConfig) {
 
-  lazy val workerId: String = InetAddress.getLocalHost().getCanonicalHostName() + ":" + UUID.randomUUID()
+  lazy val workerId: String = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   val credentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
-    new InstanceProfileCredentialsProvider()
+    InstanceProfileCredentialsProvider.getInstance()
   )
 
   private lazy val dynamoCredentialsProvider = credentialsProvider
@@ -27,34 +26,34 @@ class CrierStreamReader {
 
   private def kinesisCredentialsProvider(arn: String)  = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("capi"),
-    new STSAssumeRoleSessionCredentialsProvider(credentialsProvider, arn, sessionId)
+    new STSAssumeRoleSessionCredentialsProvider.Builder(arn, sessionId).build()
   )
 
-  private def kinesisClientLibConfig(config: KinesisReaderConfig) =
+  private def kinesisClientLibConfig(kinesisReaderConfig: KinesisReaderConfig) =
     new KinesisClientLibConfiguration(
-      config.appName,
-      config.streamName,
-      kinesisCredentialsProvider(config.arn),
+      kinesisReaderConfig.appName,
+      kinesisReaderConfig.streamName,
+      kinesisCredentialsProvider(kinesisReaderConfig.arn),
       dynamoCredentialsProvider,
       credentialsProvider,
       workerId
     ).withInitialPositionInStream(initialPosition)
-     .withRegionName(Config.awsRegionName)
+     .withRegionName(config.awsRegionName)
 
   private lazy val liveConfig =
-    Config.liveKinesisReaderConfig.map(kinesisClientLibConfig)
+    config.liveKinesisReaderConfig.map(kinesisClientLibConfig)
 
   private lazy val previewConfig =
-    Config.previewKinesisReaderConfig.map(kinesisClientLibConfig)
+    config.previewKinesisReaderConfig.map(kinesisClientLibConfig)
 
   protected val LiveEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
-      new CrierLiveEventProcessor()
+      new CrierLiveEventProcessor(config)
   }
 
   protected val PreviewEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
-      new CrierPreviewEventProcessor()
+      new CrierPreviewEventProcessor(config)
   }
 
   lazy val liveWorker = liveConfig.map(new Worker(LiveEventProcessorFactory, _))

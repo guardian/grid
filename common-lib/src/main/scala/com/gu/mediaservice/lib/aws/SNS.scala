@@ -1,19 +1,14 @@
 package com.gu.mediaservice.lib.aws
 
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.services.sns.{AmazonSNSClient, AmazonSNS}
 import com.amazonaws.services.sns.model.PublishRequest
+import com.amazonaws.services.sns.{AmazonSNS, AmazonSNSClientBuilder}
+import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Logger
-import play.api.libs.json.{Json, JsValue}
-import scalaz.syntax.id._
+import play.api.libs.json.{JsValue, Json}
 
 
-class SNS(credentials: AWSCredentials, topicArn: String) {
-
-  val snsEndpoint = "sns.eu-west-1.amazonaws.com"
-
-  lazy val client: AmazonSNS =
-    new AmazonSNSClient(credentials) <| (_ setEndpoint snsEndpoint)
+class SNS(config: CommonConfig, topicArn: String) {
+  lazy val client: AmazonSNS = config.withAWSCredentials(AmazonSNSClientBuilder.standard()).build()
 
   def publish(message: JsValue, subject: String) {
     val result = client.publish(new PublishRequest(topicArn, Json.stringify(message), subject))

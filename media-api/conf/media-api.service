@@ -1,8 +1,0 @@
-[Unit]
-Description=Media API
-
-[Service]
-User=media-service
-WorkingDirectory=/home/media-service
-ExecStart=/home/media-service/bin/media-api
-StandardOutput=syslog

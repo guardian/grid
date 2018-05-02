@@ -11,7 +11,7 @@ import org.elasticsearch.common.unit.TimeValue
 
 
 import com.gu.mediaservice.lib.elasticsearch.{IndexSettings, Mappings, ElasticSearchClient}
-import org.joda.time.{DateTime}
+import org.joda.time.DateTime
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import ExecutionContext.Implicits.global
@@ -90,7 +90,7 @@ object Reindex extends EsScript {
     val currentIndex = EsClient.currentIndex
     val newIndex = EsClient.nextIndex
 
-    val from = if(args.isEmpty) None else Some(DateTime.parse(args(0)))
+    val from = if(args.isEmpty) None else Some(DateTime.parse(args.head))
     validateCurrentState(EsClient, from)
     Await.result(reindex(from, EsClient), Duration.Inf)
 

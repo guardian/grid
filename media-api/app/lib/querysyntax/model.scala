@@ -2,7 +2,6 @@ package lib.querysyntax
 
 import org.joda.time.DateTime
 
-
 sealed trait Condition
 final case class Negation(m: Match) extends Condition
 final case class Match(field: Field, value: Value) extends Condition

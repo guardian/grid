@@ -5,7 +5,6 @@ import org.joda.time.DateTime
 
 import scala.collection.JavaConverters._
 
-
 case class PrintImageSize(
   x: Int,
   y: Int
@@ -57,7 +56,9 @@ case class PrintUsageMetadata(
       source.foldLeft[StringElement](Nil)((_,s) => if(s.isEmpty) Nil else List("source" -> s))
 }
 object PrintUsageMetadata {
-  implicit val dateTimeFormat = DateFormat
+  import JodaWrites._
+  import JodaReads._
+
   implicit val reads: Reads[PrintUsageMetadata] = Json.reads[PrintUsageMetadata]
   implicit val writes: Writes[PrintUsageMetadata] = Json.writes[PrintUsageMetadata]
 }

@@ -1,14 +1,15 @@
 package controllers
 
-import play.api.mvc.{Action, Controller}
-import play.api.libs.concurrent.Execution.Implicits._
-import lib.elasticsearch.ElasticSearch
 import com.gu.mediaservice.syntax._
+import lib.elasticsearch.ElasticSearch
+import play.api.mvc.{BaseController, ControllerComponents}
 
-object HealthCheck extends Controller {
+import scala.concurrent.ExecutionContext
+
+class HealthCheck(elasticSearch: ElasticSearch, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController {
 
   def healthCheck = Action.async {
-    ElasticSearch.client.prepareSearch().setSize(0).executeAndLog("Health check") map (_ => Ok("OK"))
+    elasticSearch.client.prepareSearch().setSize(0).executeAndLog("Health check") map (_ => Ok("OK"))
   }
-
 }

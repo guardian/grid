@@ -1,10 +1,9 @@
 package lib.querysyntax
 
-import scala.util.Try
-
 import org.joda.time.DateTime
-import org.joda.time.format.{DateTimeFormatter, DateTimeFormat}
+import org.joda.time.format.DateTimeFormat
 
+import scala.util.Try
 
 trait DateParser {
   val format: String
@@ -26,7 +25,7 @@ case class DateFormatParser(format: String, calculateEnd: Option[(DateTime) => D
   def parseRange(expr: String): Option[DateRange] =
     parseDate(expr).map(start => {
       val sameDay = (start: DateTime) => start.plusDays(1)
-      val end   = (calculateEnd.getOrElse(sameDay))(start).minusMillis(1)
+      val end   = calculateEnd.getOrElse(sameDay)(start).minusMillis(1)
 
       DateRange(start, end)
     })

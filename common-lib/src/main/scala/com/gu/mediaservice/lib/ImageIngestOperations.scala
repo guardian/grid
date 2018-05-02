@@ -1,11 +1,11 @@
 package com.gu.mediaservice.lib
 
 import java.io.File
-import scala.concurrent.Future
-import com.amazonaws.auth.AWSCredentials
 
-class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, credentials: AWSCredentials)
-  extends S3ImageStorage(credentials) {
+import com.gu.mediaservice.lib.config.CommonConfig
+
+class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig)
+  extends S3ImageStorage(config) {
 
   def storeOriginal(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
     storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
@@ -24,6 +24,5 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, creden
   def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
 
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
-
 
 }

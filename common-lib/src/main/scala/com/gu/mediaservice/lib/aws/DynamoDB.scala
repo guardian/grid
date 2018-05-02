@@ -1,29 +1,22 @@
 package com.gu.mediaservice.lib.aws
 
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.regions.Region
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
-import com.amazonaws.services.dynamodbv2.document.spec.{PutItemSpec, DeleteItemSpec, GetItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
+import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder, AmazonDynamoDBClientBuilder}
+import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.libs.json._
-import scala.collection.JavaConversions._
-import scala.concurrent.ExecutionContext.Implicits.global
 
-
-import scala.concurrent.{ExecutionContext, Future}
-import scalaz.syntax.id._
 import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
 object NoItemFound extends Throwable("item not found")
 
-class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
+class DynamoDB(config: CommonConfig, tableName: String) {
 
-  lazy val client: AmazonDynamoDBClient =
-    new AmazonDynamoDBClient(credentials) <| (_ setRegion region)
-
+  lazy val client: AmazonDynamoDBAsync = config.withAWSCredentials(AmazonDynamoDBAsyncClientBuilder.standard()).build()
   lazy val dynamo = new AwsDynamoDB(client)
   lazy val table: Table = dynamo.getTable(tableName)
 
@@ -50,7 +43,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     )
   } flatMap itemOrNotFound
 
-  def itemOrNotFound(itemOrNull: Item): Future[Item] = {
+  private def itemOrNotFound(itemOrNull: Item): Future[Item] = {
     Option(itemOrNull) match {
       case Some(item) => Future.successful(item)
       case None       => Future.failed(NoItemFound)
@@ -64,9 +57,9 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       s"REMOVE $key"
     )
 
-  def deleteItem(id: String): Future[Unit] = Future {
+  def deleteItem(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
-  } map (spec => ())
+  }.mapTo[Unit]
 
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Option[Boolean]] =
@@ -86,10 +79,8 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
 
   def booleanSetOrRemove(id: String, key: String, value: Boolean)
                         (implicit ex: ExecutionContext): Future[JsObject] =
-    value match {
-      case true  => booleanSet(id, key, value)
-      case false => removeKey(id, key)
-    }
+    if (value) booleanSet(id, key, value)
+    else removeKey(id, key)
 
   def stringSet(id: String, key: String, value: String)
                 (implicit ex: ExecutionContext): Future[JsObject] =
@@ -190,7 +181,7 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
       id, s"REMOVE ${indexes.map(i => s"$key[$i]").mkString(",")}"
     ) map(j => (j \ key).as[List[T]])
 
-  def objPut[T](id: String, key:String, value: T)
+  def objPut[T](id: String, key: String, value: T)
                  (implicit ex: ExecutionContext, wjs: Writes[T], rjs: Reads[T]): Future[T] = Future {
 
     val item = new Item().withPrimaryKey(IdKey, id).withJSON(key, Json.toJson(value).toString)
@@ -199,10 +190,10 @@ class DynamoDB(credentials: AWSCredentials, region: Region, tableName: String) {
     table.putItem(spec)
     // As PutItem only returns `null` if the item didn't exist, or the old item if it did,
     // all we care about is whether it completed.
-  } map (outcome => value)
+  } map (_ => value)
 
   def scan()(implicit ex: ExecutionContext) = Future {
-    table.scan().iterator.toList
+    table.scan().iterator.asScala.toList
   } map (_.map(asJsObject))
 
   def update(id: String, expression: String, valueMap: ValueMap)

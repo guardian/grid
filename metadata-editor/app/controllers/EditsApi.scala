@@ -1,36 +1,36 @@
 package controllers
 
-import model.UsageRightsProperty
-import play.api.libs.json._
-import play.api.mvc.Controller
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model._
+import lib.EditsConfig
+import model.UsageRightsProperty
+import play.api.libs.json._
+import play.api.mvc.{BaseController, ControllerComponents}
 
-import lib.{ControllerHelper, Config}
+import scala.concurrent.ExecutionContext
 
-object EditsApi extends Controller with ArgoHelpers {
+class EditsApi(auth: Authentication, config: EditsConfig,
+               override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
-  import Config.rootUri
-
-  val Authenticated = ControllerHelper.Authenticated
 
     // TODO: add links to the different responses esp. to the reference image
   val indexResponse = {
     val indexData = Map("description" -> "This is the Metadata Editor Service")
     val indexLinks = List(
-      Link("edits",             s"$rootUri/metadata/{id}"),
-      Link("archived",          s"$rootUri/metadata/{id}/archived"),
-      Link("labels",            s"$rootUri/metadata/{id}/labels"),
-      Link("usageRights",       s"$rootUri/metadata/{id}/usage-rights"),
-      Link("metadata",          s"$rootUri/metadata/{id}/metadata"),
-      Link("usage-rights-list", s"$rootUri/usage-rights/categories")
+      Link("edits",             s"${config.rootUri}/metadata/{id}"),
+      Link("archived",          s"${config.rootUri}/metadata/{id}/archived"),
+      Link("labels",            s"${config.rootUri}/metadata/{id}/labels"),
+      Link("usageRights",       s"${config.rootUri}/metadata/{id}/usage-rights"),
+      Link("metadata",          s"${config.rootUri}/metadata/{id}/metadata"),
+      Link("usage-rights-list", s"${config.rootUri}/usage-rights/categories")
     )
     respond(indexData, indexLinks)
   }
 
-  def index = Authenticated { indexResponse }
+  def index = auth { indexResponse }
 
   val usageRightsResponse = {
     val usageRightsData = UsageRights.all.map(CategoryResponse.fromUsageRights)
@@ -38,7 +38,7 @@ object EditsApi extends Controller with ArgoHelpers {
     respond(usageRightsData)
   }
 
-  def getUsageRights = Authenticated { usageRightsResponse }
+  def getUsageRights = auth { usageRightsResponse }
 }
 
 case class CategoryResponse(

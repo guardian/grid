@@ -1,26 +1,24 @@
 package com.gu.mediaservice.lib.auth
 
-import scala.concurrent.Future
-import scala.collection.JavaConverters._
-
-import com.amazonaws.auth.AWSCredentials
-
+import com.gu.mediaservice.lib.BaseStore
+import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 
-import play.api.libs.concurrent.Execution.Implicits._
+import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
 
-import com.gu.mediaservice.lib.BaseStore
 
+class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
+  extends BaseStore[String, String](bucket, config)(ec) {
 
-class KeyStore(bucket: String, credentials: AWSCredentials) extends BaseStore[String, String](bucket, credentials) {
-  def lookupIdentity(key: String): Future[Option[String]] =
-    store.future.map(_.get(key))
+  def lookupIdentity(key: String): Option[String] =
+    store.get().get(key)
 
   def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
 
   def update() {
-    lastUpdated.sendOff(_ => DateTime.now())
-    store.sendOff(_ => fetchAll)
+    lastUpdated.send(_ => DateTime.now())
+    store.send(_ => fetchAll)
   }
 
   private def fetchAll: Map[String, String] = {

@@ -1,110 +1,92 @@
 package com.gu.mediaservice.lib.auth
 
-import scala.concurrent.Future
-
-import play.api.mvc._
-import play.api.libs.concurrent.Execution.Implicits._
-import play.api.mvc.Security.AuthenticatedRequest
-
+import akka.actor.ActorSystem
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
+import com.gu.mediaservice.lib.config.{CommonConfig, Properties}
+import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
+import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
-import com.gu.pandomainauth.action.UserRequest
+import play.api.libs.ws.WSClient
+import play.api.mvc.Security.AuthenticatedRequest
+import play.api.mvc._
 
-import com.gu.mediaservice.lib.play.DigestedFile
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
-import java.io.File
+class Authentication(config: CommonConfig, actorSystem: ActorSystem,
+                     override val parser: BodyParser[AnyContent],
+                     override val wsClient: WSClient,
+                     override val controllerComponents: ControllerComponents,
+                     override val executionContext: ExecutionContext)
 
+  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers {
 
-sealed trait Principal {
-  def name: String
-}
+  implicit val ec: ExecutionContext = executionContext
 
-case class PandaUser(email: String, firstName: String, lastName: String, avatarUrl: Option[String]) extends Principal {
-  def name: String = s"$firstName $lastName"
-}
+  val loginLinks = List(
+    Link("login", config.services.loginUriTemplate)
+  )
 
-case class AuthenticatedService(name: String) extends Principal
+  // Panda errors
+  val notAuthenticatedResult = respondError(Unauthorized, "unauthorized", "Not authenticated", loginLinks)
+  val invalidCookieResult    = notAuthenticatedResult
+  val expiredResult          = respondError(new Status(419), "session-expired", "Session expired, required to log in again", loginLinks)
+  val notAuthorizedResult    = respondError(Forbidden, "forbidden", "Not authorized", loginLinks)
 
+  // API key errors
+  val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
-class PandaAuthenticated(loginUriTemplate_ : String, authCallbackBaseUri_ : String)
-    extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R]
-    with PanDomainAuthActions {
+  private val headerKey = "X-Gu-Media-Key"
+  private val keyStoreBucket: String = config.properties("auth.keystore.bucket")
+  val keyStore = new KeyStore(keyStoreBucket, config)
 
-  val authCallbackBaseUri = authCallbackBaseUri_
+  keyStore.scheduleUpdates(actorSystem.scheduler)
 
-  override def invokeBlock[A](request: Request[A], block: AuthenticatedRequest[A, Principal] => Future[Result]): Future[Result] =
-    ArgoAuthAction.invokeBlock(request, (request: UserRequest[A]) => {
-      block(new AuthenticatedRequest(pandaFromUser(request.user), request))
-    })
+  override lazy val panDomainSettings = buildPandaSettings()
 
-  def pandaFromUser(user: User) = {
-    val User(firstName, lastName, email, avatarUrl) = user
-    PandaUser(email, firstName, lastName, avatarUrl)
-  }
+  final override def authCallbackUrl: String = s"${config.services.authBaseUri}/oauthCallback"
 
-
-  object ArgoAuthAction extends AbstractApiAuthAction with ArgoErrorResponses {
-    // FIXME: for some reason an initialisation order issue causes this to be null if not lazy >:-(
-    lazy val loginUriTemplate = loginUriTemplate_
-  }
-}
-
-case class AuthenticatedUpload(keyStore: KeyStore, loginUriTemplate: String, authCallbackBaseUri: String) extends AuthenticatedBase {
-
-  override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] = {
-    val DigestedFile(tempFile, id) = request.body
-    val result  = super.invokeBlock(request, block)
-
-    result.onComplete(_ => tempFile.delete())
-    result
-  }
-
-}
-
-case class Authenticated(keyStore: KeyStore, loginUriTemplate: String, authCallbackBaseUri: String) extends AuthenticatedBase
-trait AuthenticatedBase extends ActionBuilder[({ type R[A] = AuthenticatedRequest[A, Principal] })#R] with ArgoErrorResponses {
-
-  val keyStore: KeyStore
-  val loginUriTemplate: String
-  val authCallbackBaseUri: String
-
-  type RequestHandler[A] = AuthenticatedRequest[A, Principal] => Future[Result]
-
-  class AuthException extends Exception
-  case object NotAuthenticated extends AuthException
-  case object InvalidAuth extends AuthException
-
-
-  // Try to auth by API key, and failing that, with Panda
-  override def invokeBlock[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
-    authByKey(request, block) recoverWith {
-      case NotAuthenticated => authByPanda(request, block)
-      case InvalidAuth      => Future.successful(invalidApiKeyResult)
-    }
-
-
-  // API Key authentication
-
-  // Note: this had to be mixed into here, sadly, because of mild type-hell
-  // when trying to make it its own ActionBuilder. Play ActionBuilders don't
-  // compose very nicely, alas.
-
-  val headerKey = "X-Gu-Media-Key"
-
-  def authByKey[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
+  override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
+    // Try to auth by API key, and failing that, with Panda
     request.headers.get(headerKey) match {
       case Some(key) =>
-        keyStore.lookupIdentity(key).flatMap {
+        keyStore.lookupIdentity(key) match {
           case Some(name) => block(new AuthenticatedRequest(AuthenticatedService(name), request))
-          case None => Future.failed(InvalidAuth)
+          case None => Future.successful(invalidApiKeyResult)
         }
-      case None => Future.failed(NotAuthenticated)
+      case None =>
+        APIAuthAction.invokeBlock(request, (userRequest: UserRequest[A]) => {
+          block(new AuthenticatedRequest(PandaUser(userRequest.user), request))
+        })
     }
+  }
+
+  final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
+    authedUser.user.email.endsWith("@guardian.co.uk") && authedUser.multiFactor
+  }
+
+  private def buildPandaSettings() = {
+    new PanDomainAuthSettingsRefresher(
+      domain = config.services.domainRoot,
+      system = "media-service",
+      actorSystem = actorSystem,
+      awsCredentialsProvider = config.awsCredentials
+    )
+  }
+}
 
 
-  // Panda authentication
+object Authentication {
+  sealed trait Principal { def name: String }
+  case class PandaUser(user: User) extends Principal { def name: String = s"${user.firstName} ${user.lastName}" }
+  case class AuthenticatedService(name: String) extends Principal
 
-  val pandaAuth = new PandaAuthenticated(loginUriTemplate, authCallbackBaseUri)
+  type Request[A] = AuthenticatedRequest[A, Principal]
 
-  def authByPanda[A](request: Request[A], block: RequestHandler[A]): Future[Result] =
-    pandaAuth.invokeBlock(request, block)
+  def getEmail(principal: Principal): String = principal match {
+    case PandaUser(user) => user.email
+    case _ => principal.name
+  }
 }

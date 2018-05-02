@@ -21,14 +21,14 @@ trait FutureSyntax {
 
     def incrementOnFailure[B](metric: Metric[B])(pfn: PartialFunction[Throwable, Boolean])
                              (implicit B: Numeric[B]): Future[A] = {
-      self.onFailure(pfn.andThen { b =>
+      self.failed.foreach(pfn.andThen { b =>
         if (b) metric.runRecordOne(B.fromInt(1))
       })
       self
     }
 
     def toMetric[B](metric: Metric[B], dims: List[Dimension] = List())(f: A => B): Future[A] = {
-      self.onSuccess { case a => metric.runRecordOne(f(a), dims) }
+      self.foreach { case a => metric.runRecordOne(f(a), dims) }
       self
     }
 

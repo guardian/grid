@@ -1,8 +1,0 @@
-[Unit]
-Description=Collections
-
-[Service]
-User=media-service
-WorkingDirectory=/home/media-service
-ExecStart=/home/media-service/bin/collections
-StandardOutput=syslog

@@ -1,36 +1,29 @@
 package lib
 
-import scala.util.Try
-import scala.concurrent.{Future, Await}
-import scala.concurrent.duration._
-
-import play.api.libs.concurrent.Execution.Implicits._
-
-import com.gu.mediaservice.model.{Image, Agencies, UsageRights}
 import com.gu.mediaservice.lib.FeatureToggle
-
+import com.gu.mediaservice.model.{Image, UsageRights}
+import controllers.Quotas
 import lib.elasticsearch.ElasticSearch
 
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
+import scala.util.Try
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 case class ImageNotFound() extends Exception("Image not found")
 case class NoUsageQuota() extends Exception("No usage found for this image")
 
-trait UsageQuota {
-  val quotaStore: QuotaStore
-  val usageStore: UsageStore
+class UsageQuota(config: MediaApiConfig, elasticSearch: ElasticSearch) extends Quotas(config) {
 
-  def isOverQuota(
-                   rights: UsageRights,
-                   waitMillis: Int = 100
-                 ) = Try {Await.result(
-    usageStore.getUsageStatusForUsageRights(rights),
-    waitMillis.millis)
-  }.toOption
-    .map(_.exceeded)
-    .getOrElse(false) && FeatureToggle.get("usage-quota-ui")
+  def isOverQuota(rights: UsageRights, waitMillis: Int = 100) = Try {
+    Await.result(
+      usageStore.getUsageStatusForUsageRights(rights),
+      waitMillis.millis)
+  }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
 
   def usageStatusForImage(id: String): Future[UsageStatus] = for {
-    imageJsonOption <- ElasticSearch.getImageById(id)
+    imageJsonOption <- elasticSearch.getImageById(id)
 
     imageOption = imageJsonOption
       .flatMap(imageJson => Try { imageJson.as[Image] }.toOption)

@@ -1,8 +1,7 @@
 package com.gu.mediaservice.lib.config
 
-import java.io.{File, InputStream, FileInputStream}
+import java.io.{File, FileInputStream, InputStream}
 import java.net.URL
-import org.apache.commons.io.IOUtils
 
 import scala.collection.JavaConverters._
 
@@ -17,9 +16,6 @@ object Properties {
 
   def fromURL(url: URL): Map[String, String] =
     fromStream(url.openStream)
-
-  def fromString(string: String): Map[String, String] =
-    fromStream(IOUtils.toInputStream(string, "UTF-8"))
 
   def fromStream(stream: InputStream): Map[String, String] = {
     val props = new java.util.Properties

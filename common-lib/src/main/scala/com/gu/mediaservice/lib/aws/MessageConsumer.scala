@@ -6,10 +6,11 @@ import java.util.concurrent.atomic.AtomicReference
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
 import akka.actor.ActorSystem
-import com.amazonaws.auth.AWSCredentials
+import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.cloudwatch.model.Dimension
-import com.amazonaws.services.sqs.AmazonSQSClient
-import com.amazonaws.services.sqs.model.{DeleteMessageRequest, Message => SQSMessage, ReceiveMessageRequest}
+import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
+import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
@@ -21,7 +22,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.id._
 
-abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, awsCredentials: AWSCredentials, metric: Metric[Long]) {
+abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
@@ -30,8 +31,7 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, awsCredent
   def startSchedule(): Unit =
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
 
-  lazy val client =
-    new AmazonSQSClient(awsCredentials) <| (_ setEndpoint awsEndpoint)
+  lazy val client: AmazonSQS = config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]]
 
@@ -68,7 +68,7 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, awsCredent
   }
 
   private def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
-    f.onSuccess { case _ => deleteMessage(msg) }
+    f.foreach { _ => deleteMessage(msg) }
 
   private def getMessages(waitTime: Int, maxMessages: Int): Seq[SQSMessage] =
     client.receiveMessage(
@@ -84,9 +84,8 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, awsCredent
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 
   def withImageId[A](image: JsValue)(f: String => A): A =
-    image \ "id" match {
-      case JsString(id) => f(id)
-      case _            => sys.error(s"No id field present in message body: $image")
+    (image \ "id").validate[String].asOpt.map(f).getOrElse {
+      sys.error(s"No id field present in message body: $image")
     }
 }
 

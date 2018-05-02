@@ -1,34 +1,28 @@
 package lib.elasticsearch
 
-import java.util.regex.Pattern
-
-import controllers.SuggestionController._
-import lib.querysyntax.Condition
-import org.elasticsearch.index.query._
-import org.elasticsearch.index.query.QueryBuilders._
-import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
-import org.elasticsearch.search.aggregations.bucket.histogram.{DateHistogram, InternalDateHistogram}
-import org.elasticsearch.search.aggregations.bucket.terms.{InternalTerms, Terms}
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.collection.JavaConversions._
-import play.api.libs.json._
-import org.elasticsearch.action.get.GetRequestBuilder
-import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
-import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilder, AggregationBuilders}
-import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
-
-import scalaz.syntax.id._
-import scalaz.syntax.std.list._
-import scalaz.NonEmptyList
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import controllers.{AggregateSearchParams, PayType, SearchParams}
-import lib.{Config, MediaApiMetrics, SupplierUsageSummary}
+import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
+import org.elasticsearch.action.get.GetRequestBuilder
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
+import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query._
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogram
+import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
+import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
+import play.api.libs.json._
+import scalaz.NonEmptyList
+import scalaz.syntax.id._
+import scalaz.syntax.std.list._
 
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
-case class SearchResults(hits: Seq[(ElasticSearch.Id, JsValue)], total: Long)
+case class SearchResults(hits: Seq[(String, JsValue)], total: Long)
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 
@@ -47,25 +41,21 @@ object BucketResult {
   implicit val jsonWrites = Json.writes[BucketResult]
 }
 
-object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFields {
+class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchClient with ImageFields with ArgoHelpers {
 
-  import MediaApiMetrics._
+  lazy val imagesAlias = config.imagesAlias
+  lazy val host = config.elasticsearchHost
+  lazy val port = config.int("es.port")
+  lazy val cluster = config("es.cluster")
 
-  lazy val imagesAlias = Config.imagesAlias
-  lazy val host = Config.elasticsearchHost
-  lazy val port = Config.int("es.port")
-  lazy val cluster = Config("es.cluster")
-
-  type Id = String
-
-  def getImageById(id: Id)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
+  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt)
 
   val matchFields: Seq[String] = Seq("id") ++
     Seq("description", "title", "byline", "source", "credit", "keywords",
       "subLocation", "city", "state", "country", "suppliersReference", "englishAnalysedCatchAll").map(metadataField) ++
     Seq("labels").map(editsField) ++
-    Config.queriableIdentifiers.map(identifierField)
+    config.queriableIdentifiers.map(identifierField)
 
   val queryBuilder = new QueryBuilder(matchFields)
 
@@ -89,21 +79,21 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     val hasIdentifier     = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter  = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
-    val simpleCostFilter  = params.free.flatMap(free => if (free) freeFilter else nonFreeFilter)
+    val simpleCostFilter  = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
     val costFilter        = params.payType match {
-      case Some(PayType.Free) => freeFilter
-      case Some(PayType.MaybeFree) => maybeFreeFilter
-      case Some(PayType.Pay) => nonFreeFilter
+      case Some(PayType.Free) => searchFilters.freeFilter
+      case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter
+      case Some(PayType.Pay) => searchFilters.nonFreeFilter
       case _ => None
     }
 
-    val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => hasRightsCategoryFilter)
+    val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
 
-    val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) validFilter else invalidFilter)
+    val validityFilter: Option[FilterBuilder] = params.valid.flatMap(valid => if(valid) searchFilters.validFilter else searchFilters.invalidFilter)
 
     val persistFilter = params.persisted map {
-      case true   => persistedFilter
-      case false  => nonPersistedFilter
+      case true   => searchFilters.persistedFilter
+      case false  => searchFilters.nonPersistedFilter
     }
 
     val usageFilter =
@@ -127,7 +117,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .setFrom(params.offset)
       .setSize(params.length)
       .executeAndLog("image search")
-      .toMetric(searchQueries, List(searchTypeDimension("results")))(_.getTookInMillis)
+      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.getTookInMillis)
       .map(_.getHits)
       .map { results =>
         val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
@@ -198,7 +188,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
     search
       .setSearchType(SearchType.COUNT)
       .executeAndLog(s"$name aggregate search")
-      .toMetric(searchQueries, List(searchTypeDimension("aggregate")))(_.getTookInMillis)
+      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("aggregate")))(_.getTookInMillis)
       .map(searchResultToAggregateResponse(_, name))
   }
 
@@ -212,14 +202,14 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
 
     search
       .executeAndLog("completion suggestion query")
-      .toMetric(searchQueries, List(searchTypeDimension("suggestion-completion")))(_.getTookInMillis)
+      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.getTookInMillis)
       .map { response =>
         val options =
           response.getSuggest
           .getSuggestion(name)
           .asInstanceOf[CompletionSuggestion]
-          .getEntries.toList.headOption.map { entry =>
-            entry.getOptions.map(
+          .getEntries.asScala.toList.headOption.map { entry =>
+            entry.getOptions.asScala.map(
               option => CompletionSuggestionResult(option.getText.toString, option.getScore)
             ).toList
           }.getOrElse(List())
@@ -240,7 +230,7 @@ object ElasticSearch extends ElasticSearchClient with SearchFilters with ImageFi
       .asInstanceOf[MultiBucketsAggregation]
       .getBuckets
 
-    val results = buckets.toList map (s => BucketResult(s.getKey, s.getDocCount))
+    val results = buckets.asScala.toList map (s => BucketResult(s.getKey, s.getDocCount))
 
     AggregateSearchResults(results, buckets.size)
   }

@@ -2,24 +2,22 @@ package controllers
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.argo.model.{Link, EmbeddedEntity, Action}
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.Authentication.getEmail
 import com.gu.mediaservice.lib.collections.CollectionsManager
-
-import lib.ControllerHelper
+import com.gu.mediaservice.model.{ActionData, Collection}
+import lib.CollectionsConfig
 import model.Node
 import org.joda.time.DateTime
-
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import play.api.mvc.Controller
+import play.api.mvc.{BaseController, ControllerComponents}
+import store.{CollectionsStore, CollectionsStoreError}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-
-import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.model.{ActionData, Collection}
-
-import store.{CollectionsStoreError, CollectionsStore}
 
 
 case class HasChildrenError(message: String) extends Throwable
@@ -30,31 +28,30 @@ object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
 
-object CollectionsController extends Controller with ArgoHelpers {
+class CollectionsController(authenticated: Authentication, config: CollectionsConfig, store: CollectionsStore,
+                            val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers {
 
-  import lib.Config.rootUri
-  import ControllerHelper.getUserFromReq
-  import CollectionsManager.{pathToUri, uriToPath, isValidPathBit, getCssColour}
-
-  val Authenticated = ControllerHelper.Authenticated
+  import CollectionsManager.{getCssColour, isValidPathBit, pathToUri, uriToPath}
+  // Stupid name clash between Argo and Play
+  import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
 
   def uri(u: String) = URI.create(u)
-  val collectionUri = uri(s"$rootUri/collections")
+  val collectionUri = uri(s"${config.rootUri}/collections")
   def collectionUri(p: List[String] = Nil) = {
     val path = if(p.nonEmpty) s"/${pathToUri(p)}" else ""
-    uri(s"$rootUri/collections$path")
+    uri(s"${config.rootUri}/collections$path")
   }
 
   val appIndex = AppIndex("media-collections", "The one stop shop for collections")
   val indexLinks = List(Link("collections", collectionUri.toString))
 
-  def addChildAction(pathId: List[String] = Nil): Option[Action] = Some(Action("add-child", collectionUri(pathId), "POST"))
-  def addChildAction(n: Node[Collection]): Option[Action] = addChildAction(n.fullPath)
-  def removeNodeAction(n: Node[Collection]) = if (n.children.nonEmpty) None else Some(
-    Action("remove", collectionUri(n.fullPath), "DELETE")
+  def addChildAction(pathId: List[String] = Nil): Option[ArgoAction] = Some(ArgoAction("add-child", collectionUri(pathId), "POST"))
+  def addChildAction(n: Node[Collection]): Option[ArgoAction] = addChildAction(n.fullPath)
+  def removeNodeAction(n: Node[Collection]): Option[ArgoAction] = if (n.children.nonEmpty) None else Some(
+    ArgoAction("remove", collectionUri(n.fullPath), "DELETE")
   )
 
-  def index = Authenticated { req =>
+  def index = authenticated { req =>
     respond(appIndex, links = indexLinks)
   }
 
@@ -70,12 +67,12 @@ object CollectionsController extends Controller with ArgoHelpers {
   def storeError(message: String) =
     respondError(InternalServerError, "collection-store-error", message)
 
-  def getActions(n: Node[Collection]): List[Action] = {
+  def getActions(n: Node[Collection]): List[ArgoAction] = {
     List(addChildAction(n), removeNodeAction(n)).flatten
   }
 
-  def correctedCollections = Authenticated.async { req =>
-    CollectionsStore.getAll flatMap { collections =>
+  def correctedCollections = authenticated.async { req =>
+    store.getAll flatMap { collections =>
       val tree = Node.fromList[Collection](
         collections,
         (collection) => collection.path,
@@ -87,7 +84,7 @@ object CollectionsController extends Controller with ArgoHelpers {
       }
 
       val futures = correctTree.toList(Nil) map { correctedCollection =>
-        CollectionsStore.add(correctedCollection)
+        store.add(correctedCollection)
       }
 
       Future.sequence(futures) map { updatedCollectionsList =>
@@ -96,14 +93,14 @@ object CollectionsController extends Controller with ArgoHelpers {
     }
   }
 
-  def allCollections = CollectionsStore.getAll.map { collections =>
+  def allCollections = store.getAll.map { collections =>
     Node.fromList[Collection](
       collections,
       (collection) => collection.path,
       (collection) => collection.description)
   }
 
-  def getCollections = Authenticated.async { req =>
+  def getCollections = authenticated.async { req =>
     allCollections.map { tree =>
       respond(
         Json.toJson(tree)(asArgo),
@@ -117,13 +114,13 @@ object CollectionsController extends Controller with ArgoHelpers {
   // Basically default parameters, which Play doesn't support
   def addChildToRoot = addChildTo(None)
   def addChildToCollection(collectionPathId: String) = addChildTo(Some(collectionPathId))
-  def addChildTo(collectionPathId: Option[String]) = Authenticated.async(parse.json) { req =>
+  def addChildTo(collectionPathId: Option[String]) = authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[String] map { child =>
       if (isValidPathBit(child)) {
         val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
-        val collection = Collection.build(path, ActionData(getUserFromReq(req), DateTime.now))
+        val collection = Collection.build(path, ActionData(getEmail(req.user), DateTime.now))
 
-        CollectionsStore.add(collection).map { collection =>
+        store.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
           respond(node, actions = getActions(node))
         } recover {
@@ -150,7 +147,7 @@ object CollectionsController extends Controller with ArgoHelpers {
       maybeTree.flatMap(_.children.headOption).isDefined
     }
 
-  def removeCollection(collectionPath: String) = Authenticated.async { req =>
+  def removeCollection(collectionPath: String) = authenticated.async { req =>
     val path = CollectionsManager.uriToPath(collectionPath)
 
     hasChildren(path).flatMap { noRemove =>
@@ -159,7 +156,7 @@ object CollectionsController extends Controller with ArgoHelpers {
           s"$collectionPath has children, can't delete!"
         )
       } else {
-        CollectionsStore.remove(path).map(_ => Accepted)
+        store.remove(path).map(_ => Accepted)
       }
     } recover {
       case e: CollectionsStoreError => storeError(e.message)

@@ -1,8 +1,0 @@
-[Unit]
-Description=Thrall
-
-[Service]
-User=media-service
-WorkingDirectory=/home/media-service
-ExecStart=/home/media-service/bin/thrall
-StandardOutput=syslog

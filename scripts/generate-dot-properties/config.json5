@@ -9,25 +9,9 @@
   // Domain root of your site, e.g. foobar.co.uk
   domainRoot: '',
 
-  // Configuration for pan domain authentication. See https://github.com/guardian/pan-domain-authentication
-  panda: {
-    domain: '',
-    oauthDomain: '',
-    require2FA: true,
-
-    aws: {
-      key: '',
-      secret: ''
-    }
-  },
-
   mixpanel: {
     token: ''
   },
-
-  cors: [
-
-  ],
 
   // The minimum number of messages to retrieve from SQS to be deemed healthy.
   sqsMessageMinFrequency: 5,

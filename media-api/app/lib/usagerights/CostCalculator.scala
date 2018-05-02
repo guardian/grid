@@ -4,7 +4,6 @@ import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 
-
 trait CostCalculator {
   import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
 

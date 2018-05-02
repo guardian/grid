@@ -9,8 +9,7 @@ import com.amazonaws.auth.{BasicAWSCredentials, AWSCredentials}
 object UserCredentials {
 
   def awsCredentials: AWSCredentials = {
-    val path = sys.env.get("AWS_CREDENTIAL_FILE")
-      .getOrElse(sys.error("Required environment variable AWS_CREDENTIAL_FILE is missing"))
+    val path = sys.env.getOrElse("AWS_CREDENTIAL_FILE", sys.error("Required environment variable AWS_CREDENTIAL_FILE is missing"))
     val file = Paths.get(path).toFile
     println(s"Reading AWS credentials from $path")
     val props = properties(file)

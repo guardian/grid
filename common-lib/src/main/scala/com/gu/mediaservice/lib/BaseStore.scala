@@ -2,37 +2,34 @@ package com.gu.mediaservice.lib
 
 import java.io.InputStream
 
-import org.joda.time.DateTime
-import akka.actor.Scheduler
-import akka.agent.Agent
-
-import scala.concurrent.duration._
-import org.slf4j.LoggerFactory
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.AmazonServiceException
-import org.apache.commons.io.IOUtils
-import _root_.play.api.libs.json._
-import _root_.play.api.libs.functional.syntax._
-import _root_.play.api.libs.concurrent.Execution.Implicits._
 import _root_.play.api.Logger
+import akka.actor.Scheduler
+import com.amazonaws.AmazonServiceException
+import com.amazonaws.util.IOUtils
+import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.config.CommonConfig
+import org.joda.time.DateTime
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, credentials: AWSCredentials) {
-  val s3 = new S3(credentials)
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext) {
+  val s3 = new S3(config)
 
   private val log = LoggerFactory.getLogger(getClass)
 
-  protected val store: Agent[Map[TStoreKey, TStoreVal]] = Agent(Map.empty)
-  protected val lastUpdated: Agent[DateTime] = Agent(DateTime.now())
+  protected val store: Box[Map[TStoreKey, TStoreVal]] = Box(Map.empty)
+  protected val lastUpdated: Box[DateTime] = Box(DateTime.now())
 
   protected def getS3Object(key: String): Option[String] = {
     val content = s3.client.getObject(bucket, key)
     val stream = content.getObjectContent
     try
-      Some(IOUtils.toString(stream, "utf-8").trim)
+      Some(IOUtils.toString(stream).trim)
     catch {
       case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => {
         log.warn(s"Cannot find key: $key in bucket: $bucket")

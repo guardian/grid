@@ -1,46 +1,45 @@
 package lib
 
-import java.io.{FileOutputStream, File}
+import java.io.{File, FileOutputStream}
 import java.net.URI
-import java.security.MessageDigest
+import java.nio.file.Files
 
-import scala.concurrent.Future
-import play.api.libs.concurrent.Execution.Implicits._
+import com.google.common.hash.{Hashing, HashingOutputStream}
+import com.google.common.io.ByteStreams
+import okhttp3.{OkHttpClient, Request}
 
-import play.api.Play.current
-import play.api.libs.iteratee.Iteratee
-import play.api.libs.ws.WS
-
-import com.gu.mediaservice.lib.play.DigestedFile
+import scala.concurrent.{ExecutionContext, Future}
 
 case object TruncatedDownload extends Exception
 
-object Downloader {
+//TODO Revisit this logic
+class Downloader(implicit ec: ExecutionContext) {
+  private val client = new OkHttpClient()
+  private val digester = Hashing.sha1()
 
-  def download(uri: URI, file: File): Future[DigestedFile] =
-    WS.url(uri.toString).getStream().flatMap { case (responseHeaders, body) =>
-      val md = MessageDigest.getInstance("SHA-1")
-      val outputStream = new FileOutputStream(file)
+  def download(uri: URI, file: File): Future[DigestedFile] = Future {
+    val request = new Request.Builder().url(uri.toString).build()
+    val response = client.newCall(request).execute()
 
-      // The iteratee that writes to the output stream
-      val iteratee = Iteratee.foreach[Array[Byte]] { bytes =>
-        outputStream.write(bytes)
-        md.update(bytes)
-      }
+    val expectedSize = response.header("Content-Length").toInt
+    val input = response.body().byteStream()
 
-      // Feed the body into the iteratee
-      (body |>>> iteratee).andThen {
-        case result =>
-          // Close the output stream whether there was an error or not
-          outputStream.close()
-          // Get the result or rethrow the error
-          result.get
-      }.flatMap(_ =>
-        responseHeaders.headers.get("Content-Length").flatMap(_.headOption) match {
-          case Some(len) if file.length == len.toInt => Future.successful(DigestedFile(file, md.digest))
-          case _ => Future.failed(TruncatedDownload)
-        }
-      )
+    val output = new FileOutputStream(file)
+    val hashedOutput = new HashingOutputStream(digester, output)
+
+    ByteStreams.copy(input, hashedOutput)
+
+    val hash = hashedOutput.hash().asBytes()
+
+    input.close()
+    hashedOutput.close()
+
+    val actualSize = Files.size(file.toPath)
+
+    if (actualSize != expectedSize) {
+      throw TruncatedDownload
     }
 
+    DigestedFile(file, hash)
+  }
 }

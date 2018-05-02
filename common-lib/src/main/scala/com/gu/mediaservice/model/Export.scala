@@ -17,7 +17,6 @@ case class Export(
 
 object Export {
   import com.gu.mediaservice.lib.formatting._
-  implicit val dateTimeFormat = DateFormat
 
   def fromCrop(crop: Crop): Export = Export(
       crop.id,

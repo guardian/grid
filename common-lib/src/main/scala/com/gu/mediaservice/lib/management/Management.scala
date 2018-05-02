@@ -1,18 +1,20 @@
 package com.gu.mediaservice.lib.management
 
+import com.gu.mediaservice.lib.argo._
+import play.api.libs.json._
+import play.api.mvc.{BaseController, ControllerComponents}
+
 import scala.io.Source
 
-import play.api.libs.json._
-import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model._
 
-import play.api.mvc.{Action, Controller}
-
-
-object Management extends Controller with ArgoHelpers {
+class Management(override val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers {
 
   def healthCheck = Action {
     Ok("OK")
+  }
+
+  def disallowRobots = Action {
+    Ok("User-agent: *\nDisallow: /\n")
   }
 
   lazy val stringManifest: Option[String] =

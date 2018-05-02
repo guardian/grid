@@ -1,17 +1,16 @@
 package com.gu.mediaservice.lib.elasticsearch
 
+import com.amazonaws.services.ec2.AmazonEC2
+import com.amazonaws.services.ec2.model.{DescribeInstancesRequest, Filter, InstanceStateName}
 import play.api.Logger
+
 import scala.collection.JavaConverters._
 import scala.util.Random
-
-import com.amazonaws.services.ec2.AmazonEC2Client
-import com.amazonaws.services.ec2.model.{InstanceStateName, Filter, DescribeInstancesRequest}
-
 
 object EC2 {
 
   @annotation.tailrec
-  def findElasticsearchHost(client: AmazonEC2Client, tags: Map[String, Seq[String]]): String = {
+  def findElasticsearchHost(client: AmazonEC2, tags: Map[String, Seq[String]]): String = {
     val instances = client.describeInstances(new DescribeInstancesRequest().withFilters(
       new Filter("instance-state-name", List(InstanceStateName.Running.toString).asJava) +:
       tagFilters(tags): _*

@@ -30,11 +30,13 @@ object ExportRequest {
   private val readFullExportRequest: Reads[FullExportRequest] =
     (__ \ "source").read[String].map(FullExportRequest.apply)
 
-  implicit val readExportRequest: Reads[ExportRequest] = Reads[ExportRequest]( jsvalue => (jsvalue \ "type") match {
-    case JsString("crop") => readCropRequest.reads(jsvalue)
-    case JsString("full") => readFullExportRequest.reads(jsvalue)
-    case _                => JsError("invalid type")
-  })
+  implicit val readExportRequest: Reads[ExportRequest] = Reads[ExportRequest](jsValue =>
+    (jsValue \ "type").validate[String] match {
+      case JsSuccess("crop", _) => readCropRequest.reads(jsValue)
+      case JsSuccess("full", _) => readFullExportRequest.reads(jsValue)
+      case _ => JsError("invalid type")
+    }
+  )
 
   def boundsFill(dimensions: Dimensions): Bounds = Bounds(0, 0, dimensions.width, dimensions.height)
 

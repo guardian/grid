@@ -119,23 +119,6 @@ kahuna.config(['$compileProvider', function ($compileProvider) {
   $compileProvider.debugInfoEnabled(false);
 }]);
 
-
-/* Perform an initial API request to detect 401 (not logged in) and
- * redirect browser for authentication if necessary.
- */
-
-// TODO: move to panda-session and/or pandular library?
-function authAndRedirect(loginUriTemplate) {
-    const loginTemplate = uriTemplates(loginUriTemplate);
-    const currentLocation = window.location.href;
-
-    // Come back to the current URI after login flow
-    const loginUri = loginTemplate.fillFromObject({redirectUri: currentLocation});
-
-    // Full page redirect to the login URI
-    window.location.href = loginUri;
-}
-
 kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaApi) {
     // TODO: don't mix these two concerns. This is done here to avoid
     // doing redundant API calls to the same endpoint. Could be
@@ -153,14 +136,15 @@ kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaAp
             if (error && error.status === 401) {
                 $log.info('No session, send for auth');
 
-                // TODO: error should include a Resource with link so we
-                // don't have to mess around with uriTemplates here
+                if (reauthLink) {
+                    const authLink = new URL(reauthLink.getAttribute('href'));
+                    const authParams = new URLSearchParams(authLink.search);
 
-                var links = (error.body && error.body.links) || [];
-                var loginLink = links.find(link => link.rel === 'login');
-                var loginUriTemplate = loginLink && loginLink.href;
-                if (loginUriTemplate) {
-                    authAndRedirect(loginUriTemplate);
+                    authParams.set("redirectUri", window.location.href);
+                    authLink.search = authParams.toString();
+
+                    // Full page redirect to the login URI
+                    window.location.href = authLink.toString();
                 } else {
                     // Couldn't extract a login URI, die noisily
                     throw new Error('Failed to redirect to auth, no login URI found');

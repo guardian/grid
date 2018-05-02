@@ -1,17 +1,18 @@
 package controllers
 
-import lib.{Config, QuotaStore, UsageQuota, UsageStore}
+import lib.{MediaApiConfig, QuotaStore, UsageStore}
+import scala.concurrent.ExecutionContext.Implicits.global
 
-object Quotas extends UsageQuota {
+class Quotas(config: MediaApiConfig) {
     val quotaStore = new QuotaStore(
-      Config.quotaStoreConfig.storeKey,
-      Config.quotaStoreConfig.storeBucket,
-      Config.awsCredentials
+      config.quotaStoreConfig.storeKey,
+      config.quotaStoreConfig.storeBucket,
+      config
     )
 
     val usageStore = new UsageStore(
-      Config.usageMailBucket,
-      Config.awsCredentials,
+      config.usageMailBucket,
+      config,
       quotaStore
     )
 }
