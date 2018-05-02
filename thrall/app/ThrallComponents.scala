@@ -15,7 +15,11 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   es.ensureAliasAssigned()
 
   val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, notifications)
+  
   thrallMessageConsumer.startSchedule()
+  context.lifecycle.addStopHook {
+    () => thrallMessageConsumer.actorSystem.terminate()
+  }
 
   val thrallController = new ThrallController(controllerComponents)
   val healthCheckController = new HealthCheck(es, thrallMessageConsumer, config, controllerComponents)
