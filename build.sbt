@@ -108,10 +108,14 @@ def playProject(projectName: String, port: Int): Project =
       packageSummary in Linux := description.value,
       packageDescription := description.value,
 
-      mappings in Universal ++= Seq(file("common-lib/src/main/resources/application.conf") -> "conf/application.conf"),
+      mappings in Universal ++= Seq(
+        file("common-lib/src/main/resources/application.conf") -> "conf/application.conf",
+        file("common-lib/src/main/resources/logback.xml") -> "conf/logback.xml"
+      ),
       javaOptions in Universal ++= Seq(
         "-Dpidfile.path=/dev/null",
-        s"-Dconfig.file=/usr/share/$projectName/conf/application.conf"
+        s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
+        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
       ),
 
       riffRaffManifestProjectName := s"media-service::grid::${name.value}",
