@@ -53,7 +53,7 @@ deleteCrops.directive('grDeleteCrops', [function () {
         template: `
             <gr-confirm-delete
                 ng:if="ctrl.active"
-                gr:label="Delete crops"
+                gr:label="Delete ALL crops"
                 gr:on-confirm="ctrl.delete()">
             </gr-confirm-delete>
         `
