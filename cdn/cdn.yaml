@@ -27,28 +27,32 @@ Parameters:
   PandaSettingsBucket:
     Description: Bucket name where the panda settings live
     Type: String
+  
+  OriginDomainName:
+    Description: Domain name for the bucket where the images live
+    Type: String
 
 Resources:
   # TODO MRB:
-  #  Will it work defining the bucket in the same CFN as the other stuff?
+  #  Can we define the bucket in the same CFN as the other stuff?
   #
-  #  You want to have the bucket in the region closest to the majority of
+  #  You want to have it in the region closest to the majority of
   #  your users to avoid inter-region transfer fees.
   #
   #  Conversely the Lambda@Edge stuff needs to be defined in us-east-1,
-  #  presumably so AWS can do the magic and spread the function code across
-  #  all their datacenters.
-  OriginBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub "${Stack}-origin-${Stage}"
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: aws:kms
-      Tags:
-        - { Key: Stack, Value: !Ref Stack }
-        - { Key: Stage, Value: !Ref Stage }
+  #  presumably so AWS can do the magic and spread the function code
+  #  across all their datacenters.
+  # OriginBucket:
+  #   Type: AWS::S3::Bucket
+  #   Properties:
+  #     BucketName: !Sub "${Stack}-origin-${Stage}"
+  #     BucketEncryption:
+  #       ServerSideEncryptionConfiguration:
+  #         - ServerSideEncryptionByDefault:
+  #             SSEAlgorithm: aws:kms
+  #     Tags:
+  #       - { Key: Stack, Value: !Ref Stack }
+  #       - { Key: Stage, Value: !Ref Stage }
   
   # TODO MRB: check that we cannot access the bucket directly (unauthenticated)
   CloudFrontAccessIdentity:
@@ -66,7 +70,7 @@ Resources:
         PriceClass: PriceClass_All
         Origins:
           - Id: !Sub '${Stack}-cdn-${Stage}'
-            DomainName: !GetAtt OriginBucket.DomainName
+            DomainName: !Ref OriginDomainName
             S3OriginConfig:
               OriginAccessIdentity:
                 !Sub 'origin-access-identity/cloudfront/${CloudFrontAccessIdentity}'
