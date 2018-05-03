@@ -76,21 +76,21 @@ Resources:
                 !Sub 'origin-access-identity/cloudfront/${CloudFrontAccessIdentity}'
         Aliases:
           - !Sub '${DomainNamePrefix}.${DomainNameSuffix}'
-        DefaultCacheBehaviour:
+        DefaultCacheBehavior:
           Compress: true
-          TargetOriginId: origin
+          TargetOriginId: !Sub '${Stack}-cdn-${Stage}'
           ViewerProtocolPolicy: https-only
           # DefaultTTL: TODO MRB: should probably be infinite?
           ForwardedValues:
             QueryString: false
           LambdaFunctionAssociations:
             - EventType: viewer-request
-              LambdaFunctionArn: !GetAtt PandaAuthorisationLambda.Arn
+              LambdaFunctionARN: !GetAtt PandaAuthorisationLambda.Arn
             - EventType: origin-response
-              LambdaFunctionArn: !GetAtt ImageResizerLambda.Arn
+              LambdaFunctionARN: !GetAtt ImageResizerLambda.Arn
         ViewerCertificate:
-          ACMCertificateArn: !Ref SSLCertificateArn
-          SSLSupportMethod: sni-only
+          AcmCertificateArn: !Ref SSLCertificateArn
+          SslSupportMethod: sni-only
 
       Tags:
         - { Key: Stack, Value: !Ref Stack }
