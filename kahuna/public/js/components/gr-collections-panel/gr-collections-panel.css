@@ -9,6 +9,7 @@ gr-nodes, gr-node,
 
 .node__children {
     padding-left: 10px;
+    display: block;
 }
 
 .node__marker {

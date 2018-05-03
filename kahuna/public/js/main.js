@@ -1,6 +1,5 @@
 // TODO: Grunt: hash dependencies? or ETag?
 import 'babel-polyfill';
-import jQuery from 'jquery';
 import angular from 'angular';
 import 'angular-ui-router';
 import {heal} from 'pandular';
@@ -410,9 +409,9 @@ kahuna.directive('uiDragData', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            element.bind('dragstart', function(jqueryEvent) {
-                // Unwrap jQuery event wrapper to access dataTransfer
-                var e = jqueryEvent.originalEvent;
+            element.on('dragstart', function(event) {
+                // Unwrap jQLite event wrapper to access dataTransfer
+                var e = event.originalEvent;
 
                 // Evaluate the attribute value to retrieve a JS object
                 // (done lazily to avoid unnecessary serialisation work)
@@ -429,9 +428,9 @@ kahuna.directive('uiDragImage', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            element.bind('dragstart', function(jqueryEvent) {
-                // Unwrap jQuery event wrapper to access dataTransfer
-                var e = jqueryEvent.originalEvent;
+            element.on('dragstart', function(event) {
+                // Unwrap jQLite event wrapper to access dataTransfer
+                var e = event.originalEvent;
                 // Evaluate the attribute value to retrieve a JS object
                 // (done lazily to avoid unnecessary serialisation work)
                 const src = scope.$eval(attrs.uiDragImage);
@@ -482,7 +481,7 @@ kahuna.directive('uiLocalstore', ['$window', function($window) {
             value: '&uiLocalstoreVal'
         },
         link: function(scope, element) {
-            element.bind('click', function() {
+            element.on('click', function() {
                 var k = scope.key;
                 var currentMap = JSON.parse($window.localStorage.getItem(k) || '{}');
                 var mapUpdate = scope.value();
@@ -509,7 +508,7 @@ kahuna.directive('img', ['vndMimeTypes', function(vndMimeTypes) {
     return {
         restrict: 'E',
         link: function(scope, element) {
-            element.bind('dragstart', event => {
+            element.on('dragstart', event => {
                 event.originalEvent.dataTransfer.setData(vndMimeTypes.get('isGridLink'), 'true');
             });
         }
@@ -519,7 +518,7 @@ kahuna.directive('a', ['vndMimeTypes', function(vndMimeTypes) {
     return {
         restrict: 'E',
         link: function(scope, element) {
-            element.bind('dragstart', event => {
+            element.on('dragstart', event => {
                 event.originalEvent.dataTransfer.setData(vndMimeTypes.get('isGridImage'), 'true');
             });
         }
@@ -530,7 +529,7 @@ kahuna.directive('uiWindowResized', ['$window', function ($window) {
     return {
         restrict: 'A',
         link: function (scope, element, attrs) {
-            angular.element($window).bind('resize', function() {
+            angular.element($window).on('resize', function() {
                 scope.$eval(attrs.uiWindowResized);
             });
         }

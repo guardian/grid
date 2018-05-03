@@ -192,7 +192,8 @@ grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $
                 }
 
                 compiledTemplate(scope, cloned => {
-                    element.find('.node__children').append(cloned);
+                    const container = element.find('gu-template-container');
+                    Array.from(cloned).forEach(clone => container.append(clone));
                 });
 
                 grNodeCtrl.init(grCollectionTreeCtrl);
