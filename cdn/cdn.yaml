@@ -133,7 +133,7 @@ Resources:
           APP: cdn-panda
           STAGE: !Ref Stage
       Code:
-        S3Bucket: !Sub '${Stack}-dist'
+        S3Bucket: !Sub '${Stack}-cdn-dist'
         S3Key: !Sub '${Stack}/${Stage}/cdn-panda/cdn-panda.zip'
       Tags:
         - { Key: Stack, Value: !Ref Stack }
@@ -175,7 +175,7 @@ Resources:
           APP: image-resizer
           STAGE: !Ref Stage
       Code:
-        S3Bucket: !Sub '${Stack}-dist'
+        S3Bucket: !Sub '${Stack}-cdn-dist'
         S3Key: !Sub '${Stack}/${Stage}/image-resizer/image-resizer.zip'
       Tags:
         - { Key: Stack, Value: !Ref Stack }
