@@ -274,8 +274,8 @@ grCollectionsPanel.directive('grDropIntoCollection',
         link: function(scope, element, attrs) {
             const collectionPath = $parse(attrs.grDropIntoCollection)(scope);
 
-            element.on('drop', jqEv => {
-                const dt = jqEv.originalEvent.dataTransfer;
+            element.on('drop', e => {
+                const dt = e.dataTransfer;
                 const gridImagesData = dt.getData(vndMimeTypes.get('gridImagesData'));
                 const gridImageData = dt.getData(vndMimeTypes.get('gridImageData'));
 

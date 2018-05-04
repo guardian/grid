@@ -130,10 +130,10 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 
                 const mimeTypes = Array.from(vndMimeTypes.values());
                 return types.some(t => mimeTypes.indexOf(t) !== -1);
             }
-            function isGridFriendly(event) {
+            function isGridFriendly(e) {
                 // we search through the types array as we don't have the `files`
                 // or `data` (uris etc) ondragenter, only drop.
-                const types       = Array.from(event.originalEvent.dataTransfer.types);
+                const types       = Array.from(e.dataTransfer.types);
                 const isUri       = hasType(types, 'text/uri-list');
                 const hasFiles    = hasType(types, 'Files');
                 const isGridImage = hasGridMimetype(types);
@@ -167,7 +167,7 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 
             }
 
             function drop(event) {
-                const dataTransfer = event.originalEvent.dataTransfer;
+                const dataTransfer = event.dataTransfer;
                 const files = Array.from(dataTransfer.files);
                 const uri = dataTransfer.getData('text/uri-list');
 
