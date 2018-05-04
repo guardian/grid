@@ -35,7 +35,7 @@ object KahunaSecurityConfig {
     val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self'"
 
     val cropOrigin = config.cropOrigin.map { s => s"https://$s" }.getOrElse("")
-    val imageSources = s"img-src ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} $cropOrigin 'self'"
+    val imageSources = s"img-src data:* ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} $cropOrigin 'self'"
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
