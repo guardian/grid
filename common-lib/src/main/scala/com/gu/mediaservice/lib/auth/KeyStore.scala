@@ -7,12 +7,16 @@ import org.joda.time.DateTime
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 
+sealed trait Tier
+case object Internal extends Tier
+case object External extends Tier
+
+case class ApiKey(value: String, tier: Tier)
 
 class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, String](bucket, config)(ec) {
+  extends BaseStore[String, ApiKey](bucket, config)(ec) {
 
-  def lookupIdentity(key: String): Option[String] =
-    store.get().get(key)
+  def lookupIdentity(key: String): Option[ApiKey] = store.get().get(key)
 
   def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
 
@@ -21,8 +25,9 @@ class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionConte
     store.send(_ => fetchAll)
   }
 
-  private def fetchAll: Map[String, String] = {
+  private def fetchAll: Map[String, ApiKey] = {
     val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
-    keys.flatMap(k => getS3Object(k).map(k -> _)).toMap
+    // Check Dynamo
+    keys.flatMap(k => getS3Object(k).map(k -> ApiKey(_, Internal))).toMap
   }
 }

@@ -15,6 +15,7 @@ import com.gu.mediaservice.model._
 import lib.elasticsearch._
 import lib.querysyntax._
 import lib.{ImageResponse, MediaApiConfig, Notifications}
+import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
@@ -23,12 +24,9 @@ import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._
 import scalaz.syntax.validation._
 import scalaz.{Validation, ValidationNel}
-import org.http4s.{Uri, UriTemplate}
-import org.http4s.UriTemplate.Path
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-
 
 class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch: ElasticSearch, imageResponse: ImageResponse,
                override val config: MediaApiConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
@@ -144,7 +142,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond((source \ "exports").getOrElse(JsNull), links)
-      case None         => ImageNotFound
+      case None => ImageNotFound
     }
   }
 

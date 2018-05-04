@@ -15,8 +15,6 @@ class ImageLoaderConfig(override val configuration: Configuration) extends Commo
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
-  val keyStoreBucket: String = properties("auth.keystore.bucket")
-
   val tempDir: File = new File(properties.getOrElse("upload.tmp.dir", "/tmp"))
 
   val thumbWidth: Int = 256

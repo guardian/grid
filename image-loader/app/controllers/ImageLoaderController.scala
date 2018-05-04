@@ -26,8 +26,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  val keyStore = new KeyStore(config.keyStoreBucket, config)
-
   val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
