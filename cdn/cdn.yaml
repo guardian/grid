@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Image CDN for the Grid
 
+# Required because we appear to have to use AWS::Serverless::Function
+# rather than AWS::Lambda::Function so we can access the current version
+# to pass to CloudFront
+Transform: AWS::Serverless-2016-10-31
+
 Parameters:
   Stack:
     Description: Stack name
@@ -85,9 +90,9 @@ Resources:
             QueryString: false
           LambdaFunctionAssociations:
             - EventType: viewer-request
-              LambdaFunctionARN: !GetAtt PandaAuthorisationLambda.Arn
+              LambdaFunctionARN: !Ref PandaAuthorisationLambda.Version
             - EventType: origin-response
-              LambdaFunctionARN: !GetAtt ImageResizerLambda.Arn
+              LambdaFunctionARN: !Ref ImageResizerLambda.Version
         ViewerCertificate:
           AcmCertificateArn: !Ref SSLCertificateArn
           SslSupportMethod: sni-only
@@ -117,28 +122,32 @@ Resources:
               Action: s3:GetObject
               Resource: !Sub 'arn:aws:s3:::${PandaSettingsBucket}/${DomainNameSuffix}.settings.public'
 
+  # Presumably to enhance confusion this type is documented separately from the others in CloudFormation:
+  #   https://github.com/awslabs/serverless-application-model/blob/develop/versions/2016-10-31.md#awsserverlessfunction
+  # (I think it's because it's actually a transform but who even cares?)
   PandaAuthorisationLambda:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub '${Stack}-cdn-panda-${Stage}'
       Description: Checks the Panda cookie to see if the user can access content from the Grid CDN
-      MemorySize: '128'
-      Timeout: '5'
+      CodeUri:
+        Bucket: !Sub '${Stack}-cdn-dist'
+        Key: !Sub '${Stack}/${Stage}/cdn-panda/cdn-panda.zip'
+      MemorySize: 128
+      Timeout: 5
       Handler: index.handler
       Role: !GetAtt PandaAuthorisationRole.Arn
       Runtime: nodejs6.10
+      AutoPublishAlias: live
       Environment:
         Variables:
           STACK: !Ref Stack
           APP: cdn-panda
           STAGE: !Ref Stage
-      Code:
-        S3Bucket: !Sub '${Stack}-cdn-dist'
-        S3Key: !Sub '${Stack}/${Stage}/cdn-panda/cdn-panda.zip'
       Tags:
-        - { Key: Stack, Value: !Ref Stack }
-        - { Key: App, Value: 'cdn-panda' }
-        - { Key: Stage, Value: !Ref Stage }
+        Stack: !Ref Stack
+        App: 'cdn-panda'
+        Stage: !Ref Stage
   
   ImageResizerRole:
     Type: AWS::IAM::Role
@@ -159,25 +168,26 @@ Resources:
               Resource: "*"
 
   ImageResizerLambda:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub '${Stack}-image-resizer-${Stage}'
       Description: Resizes images based on the given query parameters
+      CodeUri:
+        Bucket: !Sub '${Stack}-cdn-dist'
+        Key: !Sub '${Stack}/${Stage}/image-resizer/image-resizer.zip'
       # TODO MRB: what is the right amount of memory to pick here?
-      MemorySize: '2048'
-      Timeout: '30'
+      MemorySize: 2048
+      Timeout: 30
       Handler: index.handler
       Role: !GetAtt ImageResizerRole.Arn
       Runtime: nodejs6.10
+      AutoPublishAlias: live
       Environment:
         Variables:
           STACK: !Ref Stack
           APP: image-resizer
           STAGE: !Ref Stage
-      Code:
-        S3Bucket: !Sub '${Stack}-cdn-dist'
-        S3Key: !Sub '${Stack}/${Stage}/image-resizer/image-resizer.zip'
       Tags:
-        - { Key: Stack, Value: !Ref Stack }
-        - { Key: App, Value: 'image-resizer' }
-        - { Key: Stage, Value: !Ref Stage }
+        Stack: !Ref Stack
+        App: 'image-resizer'
+        Stage: !Ref Stage
