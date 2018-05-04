@@ -409,10 +409,7 @@ kahuna.directive('uiDragData', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            element.on('dragstart', function(event) {
-                // Unwrap jQLite event wrapper to access dataTransfer
-                var e = event.originalEvent;
-
+            element.on('dragstart', function(e) {
                 // Evaluate the attribute value to retrieve a JS object
                 // (done lazily to avoid unnecessary serialisation work)
                 var dataMap = scope.$eval(attrs.uiDragData);
@@ -428,9 +425,7 @@ kahuna.directive('uiDragImage', function() {
     return {
         restrict: 'A',
         link: function(scope, element, attrs) {
-            element.on('dragstart', function(event) {
-                // Unwrap jQLite event wrapper to access dataTransfer
-                var e = event.originalEvent;
+            element.on('dragstart', function(e) {
                 // Evaluate the attribute value to retrieve a JS object
                 // (done lazily to avoid unnecessary serialisation work)
                 const src = scope.$eval(attrs.uiDragImage);
@@ -508,8 +503,8 @@ kahuna.directive('img', ['vndMimeTypes', function(vndMimeTypes) {
     return {
         restrict: 'E',
         link: function(scope, element) {
-            element.on('dragstart', event => {
-                event.originalEvent.dataTransfer.setData(vndMimeTypes.get('isGridLink'), 'true');
+            element.on('dragstart', e => {
+                e.dataTransfer.setData(vndMimeTypes.get('isGridLink'), 'true');
             });
         }
     };
@@ -518,8 +513,8 @@ kahuna.directive('a', ['vndMimeTypes', function(vndMimeTypes) {
     return {
         restrict: 'E',
         link: function(scope, element) {
-            element.on('dragstart', event => {
-                event.originalEvent.dataTransfer.setData(vndMimeTypes.get('isGridImage'), 'true');
+            element.on('dragstart', e => {
+                e.dataTransfer.setData(vndMimeTypes.get('isGridImage'), 'true');
             });
         }
     };
