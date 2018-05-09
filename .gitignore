@@ -11,3 +11,4 @@ data
 *.py[cod]
 .venv
 kahuna/npm-debug.log
+imgops/dev/nginx.conf

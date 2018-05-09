@@ -1,4 +1,4 @@
-# Img Opts for the Grid
+# ImgOps for the Grid
 Local version of the imgops service
 
 ## Requirements
@@ -9,21 +9,18 @@ Local version of the imgops service
   * Linux: `sudo apt-get install nginx nginx-extras`
   * Mac: `brew tap denji/nginx && brew install nginx-full --with-image-filter`
 
-## Installation
-``` Bash
-./dev-setup.sh YOUR_IMAGE_BUCKET
-```
-
 ## Running
-You should have the [dev-nginx](https://github.com/guardian/dev-nginx) repo checked out and set up.
-``` Bash
-cd PATH_TO/dev-nginx
-sudo ./restart-nginx.sh
+Imgops runs in a Docker container. It can be run using the command:
+
+```bash
+docker-compose up -d imgops
 ```
 
 ## Is it running
 
-[](http://localhost:9008/_)
+```bash
+curl -I http://localhost:9008/_
+```
 
 ## Deploy
 To see any changes that you make within the configuration propagate to
