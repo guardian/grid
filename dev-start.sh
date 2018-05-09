@@ -1,4 +1,52 @@
 #!/usr/bin/env bash
 
-docker-compose up -d
-sbt runAll
+green='\x1B[0;32m'
+red='\x1B[0;31m'
+plain='\x1B[0m' # No Color
+
+isInstalled() {
+  hash "$1" 2>/dev/null
+}
+
+checkRequirement() {
+    if ! isInstalled $1; then
+        echo -e "${red}[MISSING DEPENDENCY] $1 not found. Please install $1${plain}"
+        exit 1
+    fi
+}
+
+checkRequirements() {
+    # server side
+    checkRequirement java
+    checkRequirement sbt
+
+    # client side
+    checkRequirement npm
+
+    # database (elasticsearch)
+    checkRequirement docker
+
+    # image libraries
+    checkRequirement gm # GraphicsMagick
+    checkRequirement convert
+    checkRequirement pngquant
+
+    # other
+    checkRequirement nginx
+}
+
+startElasticsearch() {
+    docker-compose up -d
+}
+
+startPlayApps() {
+    sbt runAll
+}
+
+main() {
+    checkRequirements
+    startElasticsearch
+    startPlayApps
+}
+
+main
