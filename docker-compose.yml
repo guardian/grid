@@ -12,3 +12,10 @@ services:
       memlock:
         soft: -1
         hard: -1
+  imgops:
+    build:
+      context: ./imgops/dev
+    ports:
+      - "9008:80"
+    volumes:
+      - "./imgops/dev/nginx.conf:/etc/nginx/nginx.conf"

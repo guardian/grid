@@ -35,7 +35,14 @@ checkRequirements() {
     checkRequirement nginx
 }
 
-startElasticsearch() {
+setupImgops() {
+    if [ ! -f ./imgops/dev/nginx.conf ]; then
+        bucket=`bash get-stack-resource.sh ImageBucket`
+        sed -e 's/{{BUCKET}}/'${bucket}'/g' ./imgops/dev/nginx.conf.template > ./imgops/dev/nginx.conf
+    fi
+}
+
+startDockerContainers() {
     docker-compose up -d
 }
 
@@ -45,7 +52,8 @@ startPlayApps() {
 
 main() {
     checkRequirements
-    startElasticsearch
+    setupImgops
+    startDockerContainers
     startPlayApps
 }
 
