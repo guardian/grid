@@ -36,7 +36,7 @@ collectionsApi.factory('collections',
 
     function addChildTo(node, childName) {
         return node.perform('add-child', {body: {data: childName}}).then(childResource => {
-            const updatedChildren = node.data.children = [childResource].concat(node.data.children).sort((a, b) => {
+            const updatedChildren = [childResource].concat(node.data.children).sort((a, b) => {
                 if (a.data.basename < b.data.basename) {
                     return -1;
                 }
@@ -45,6 +45,9 @@ collectionsApi.factory('collections',
                 }
                 return 0;
             });
+
+            node.data.children = updatedChildren;
+
             return updatedChildren;
         });
     }
