@@ -23,7 +23,7 @@ checkRequirements() {
     # client side
     checkRequirement npm
 
-    # database (elasticsearch)
+    # elasticsearch and imgops (image resizer)
     checkRequirement docker
 
     # image libraries
@@ -33,6 +33,8 @@ checkRequirements() {
 
     # other
     checkRequirement nginx
+    checkRequirement jq
+    checkRequirement aws
 }
 
 setupImgops() {
