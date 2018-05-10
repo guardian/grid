@@ -36,9 +36,18 @@ collectionsApi.factory('collections',
 
     function addChildTo(node, childName) {
         return node.perform('add-child', {body: {data: childName}}).then(childResource => {
-            // NOTE: The child will always be prepended, but the default view for the tree
-            // is alphabetical, so this will change after reload.
-            const updatedChildren = node.data.children = [childResource].concat(node.data.children);
+            const updatedChildren = [childResource].concat(node.data.children).sort((a, b) => {
+                if (a.data.basename < b.data.basename) {
+                    return -1;
+                }
+                if (a.data.basename > b.data.basename) {
+                    return 1;
+                }
+                return 0;
+            });
+
+            node.data.children = updatedChildren;
+
             return updatedChildren;
         });
     }
