@@ -37,10 +37,10 @@ collectionsApi.factory('collections',
     function addChildTo(node, childName) {
         return node.perform('add-child', {body: {data: childName}}).then(childResource => {
             const updatedChildren = [childResource].concat(node.data.children).sort((a, b) => {
-                if (a.data.basename < b.data.basename) {
+                if (a.data.basename.toLowerCase() < b.data.basename.toLowerCase()) {
                     return -1;
                 }
-                if (a.data.basename > b.data.basename) {
+                if (a.data.basename.toLowerCase() > b.data.basename.toLowerCase()) {
                     return 1;
                 }
                 return 0;
