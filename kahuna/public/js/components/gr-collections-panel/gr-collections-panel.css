@@ -37,7 +37,7 @@ gr-nodes, gr-node,
 }
 
 .node__name {
-    padding: 5px;
+    padding: 3px;
     text-align: left;
     line-height: 1.5;
 }
@@ -79,4 +79,8 @@ gr-nodes, gr-node,
 gr-collection-tree > :first-child {
     /*to sit below the fixed heading*/
     margin-top: 35px;
+}
+
+gr-collection-tree {
+    font-size: 1.5rem;
 }
