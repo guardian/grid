@@ -330,7 +330,8 @@ case class SearchParams(
   hasMetadata: List[String],
   persisted: Option[Boolean],
   usageStatus: List[String],
-  usagePlatform: List[String]
+  usagePlatform: List[String],
+  tier: Tier
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -365,7 +366,7 @@ object SearchParams {
   def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
 
-  def apply(request: Request[Any]): SearchParams = {
+  def apply(request: Authentication.Request[Any]): SearchParams = {
 
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
 
@@ -398,7 +399,8 @@ object SearchParams {
       commaSep("hasMetadata"),
       request.getQueryString("persisted") flatMap parseBooleanFromQuery,
       commaSep("usageStatus"),
-      commaSep("usagePlatform")
+      commaSep("usagePlatform"),
+      request.user.apiKey.tier
     )
   }
 

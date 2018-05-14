@@ -69,6 +69,8 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
 
+  val staffFilter: FilterBuilder = filters.term("usageRights.category", StaffPhotographer.category)
+
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
     case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
     case (filterOpt,    orFilterOpt)    => filterOpt orElse orFilterOpt

@@ -32,7 +32,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   val notAuthenticatedResult = respondError(Unauthorized, "unauthorized", "Not authenticated", loginLinks)
   val invalidCookieResult    = notAuthenticatedResult
   val expiredResult          = respondError(new Status(419), "session-expired", "Session expired, required to log in again", loginLinks)
-  val notAuthorizedResult    = respondError(Forbidden, "forbidden", "Not authorized", loginLinks)
+  val notAuthorizedResult    = respondError(Forbidden, "forbidden", "Not authorized - the API key is not allowed to perform this operation", List.empty)
 
   // API key errors
   val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)

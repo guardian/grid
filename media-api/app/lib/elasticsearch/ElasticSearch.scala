@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.External
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
@@ -100,11 +101,16 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       params.usageStatus.toNel.map(filters.terms(usagesField("status"), _)) ++
       params.usagePlatform.toNel.map(filters.terms(usagesField("platform"), _))
 
+    val tierFilter = params.tier match {
+      case External => Some(searchFilters.staffFilter)
+      case _ => None
+    }
+
     val filterOpt = (
       metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ simpleCostFilter ++ costFilter ++
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter ++
-      usageFilter ++ hasRightsCategory
+      usageFilter ++ hasRightsCategory ++ tierFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
     val filter = filterOpt getOrElse filters.matchAll
 

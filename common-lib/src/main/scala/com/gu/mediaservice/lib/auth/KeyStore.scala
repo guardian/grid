@@ -28,6 +28,6 @@ class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionConte
   private def fetchAll: Map[String, ApiKey] = {
     val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
     // Check Dynamo
-    keys.flatMap(k => getS3Object(k).map(k -> ApiKey(_, Internal))).toMap
+    keys.flatMap(k => getS3Object(k).map(k -> ApiKey(_, External))).toMap
   }
 }
