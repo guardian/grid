@@ -32,7 +32,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   val notAuthenticatedResult = respondError(Unauthorized, "unauthorized", "Not authenticated", loginLinks)
   val invalidCookieResult    = notAuthenticatedResult
   val expiredResult          = respondError(new Status(419), "session-expired", "Session expired, required to log in again", loginLinks)
-  val notAuthorizedResult    = respondError(Forbidden, "forbidden", "Not authorized - the API key is not allowed to perform this operation", List.empty)
 
   // API key errors
   val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
@@ -47,17 +46,21 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
 
   final override def authCallbackUrl: String = s"${config.services.authBaseUri}/oauthCallback"
 
+  private def hasAccess(apiKey: ApiKey, method: String, path: String): Boolean = apiKey.tier match {
+    case External if method != "GET" || !path.startsWith("/images") => false
+    case _ => true
+  }
+
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
     // Try to auth by API key, and failing that, with Panda
     request.headers.get(headerKey) match {
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
-            (apiKey.tier, request.method) match {
-              case (External, "GET") => block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
-              case (External, _) => Future.successful(notAuthorizedResult)
-              case (Internal, _) => block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
-            }
+            if (hasAccess(apiKey, request.method, request.path))
+              block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
+            else
+              Future.successful(ApiKey.unauthorizedResult)
           case None => Future.successful(invalidApiKeyResult)
         }
       case None =>

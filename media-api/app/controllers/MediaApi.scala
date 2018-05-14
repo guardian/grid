@@ -106,11 +106,18 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     isUploaderOrHasPermission(request, source, Permissions.DeleteImage)
   }
 
+  private def hasStaffPhotographer(json: JsValue): Boolean = (json \ "usageRights" \ "category").validate[String].asOpt.contains(StaffPhotographer.category)
+
+  private def hasPermission(request: Authentication.Request[Any], json: JsValue): Boolean = request.user.apiKey.tier match {
+    case External if !hasStaffPhotographer(json) => false
+    case _ => true
+  }
+
   def getImage(id: String) = auth.async { request =>
     val include = getIncludedFromParams(request)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val withWritePermission = canUserWriteMetadata(request, source)
         val withDeletePermission = canUserDeleteImage(request, source)
 
@@ -120,38 +127,38 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
               imageResponse.create(id, source, writePermission, deletePermission, include)
             respond(imageData, imageLinks, imageActions)
         }
-      case None => Future.successful(ImageNotFound)
+      case _ => Future.successful(ImageNotFound)
     }
   }
 
   def getImageFileMetadata(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) map {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond((source \ "fileMetadata").getOrElse(JsNull), links)
-      case None => ImageNotFound
+      case _ => ImageNotFound
     }
   }
 
   def getImageExports(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) map {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond((source \ "exports").getOrElse(JsNull), links)
-      case None => ImageNotFound
+      case _ => ImageNotFound
     }
   }
 
-  def getImageExport(imageId: String, exportId: String) = auth.async { _ =>
+  def getImageExport(imageId: String, exportId: String) = auth.async { request =>
     elasticSearch.getImageById(imageId) map {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val exportOption = source.as[Image].exports.find(_.id.contains(exportId))
         exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
-      case None => ImageNotFound
+      case _ => ImageNotFound
     }
 
   }
@@ -162,7 +169,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
 
   def deleteImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val image = source.as[Image]
 
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
@@ -179,7 +186,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
           Future.successful(ImageCannotBeDeleted)
         }
 
-      case None => Future.successful(ImageNotFound)
+      case _ => Future.successful(ImageNotFound)
     }
   }
 
@@ -188,7 +195,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
 
   def reindexImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         // TODO: apply rights to edits API too
         // TODO: helper to abstract boilerplate
         canUserWriteMetadata(request, source) map { canWrite =>
@@ -227,6 +234,8 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
 
 
   def imageSearch = auth.async { request =>
+    implicit val apiKey: ApiKey = request.user.apiKey
+
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
