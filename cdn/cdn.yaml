@@ -109,7 +109,9 @@ Resources:
           - Effect: Allow
             Action: sts:AssumeRole
             Principal:
-              Service: lambda.amazonaws.com
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
       Path: /
       Policies:
       - PolicyName: PandaAuthorisationRole
@@ -132,18 +134,13 @@ Resources:
       Description: Checks the Panda cookie to see if the user can access content from the Grid CDN
       CodeUri:
         Bucket: !Sub '${Stack}-cdn-dist'
-        Key: !Sub '${Stack}/${Stage}/cdn-panda/cdn-panda.zip'
+        Key: !Sub '${Stack}/${Stage}/cdn-panda/cdn-panda.2.zip'
       MemorySize: 128
       Timeout: 5
-      Handler: index.handler
+      Handler: panda.handler
       Role: !GetAtt PandaAuthorisationRole.Arn
       Runtime: nodejs6.10
       AutoPublishAlias: live
-      Environment:
-        Variables:
-          STACK: !Ref Stack
-          APP: cdn-panda
-          STAGE: !Ref Stage
       Tags:
         Stack: !Ref Stack
         App: 'cdn-panda'
@@ -157,7 +154,9 @@ Resources:
           - Effect: Allow
             Action: sts:AssumeRole
             Principal:
-              Service: lambda.amazonaws.com
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
       Path: /
       Policies:
       - PolicyName: ImageResizerRole
@@ -174,19 +173,14 @@ Resources:
       Description: Resizes images based on the given query parameters
       CodeUri:
         Bucket: !Sub '${Stack}-cdn-dist'
-        Key: !Sub '${Stack}/${Stage}/image-resizer/image-resizer.zip'
+        Key: !Sub '${Stack}/${Stage}/image-resizer/image-resizer.2.zip'
       # TODO MRB: what is the right amount of memory to pick here?
       MemorySize: 2048
       Timeout: 30
-      Handler: index.handler
+      Handler: resizer.handler
       Role: !GetAtt ImageResizerRole.Arn
       Runtime: nodejs6.10
       AutoPublishAlias: live
-      Environment:
-        Variables:
-          STACK: !Ref Stack
-          APP: image-resizer
-          STAGE: !Ref Stage
       Tags:
         Stack: !Ref Stack
         App: 'image-resizer'
