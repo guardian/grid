@@ -1,7 +1,6 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.{ApiKey, External, Tier}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
@@ -60,11 +59,6 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
 
   val queryBuilder = new QueryBuilder(matchFields)
 
-  def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case External => Some(searchFilters.staffFilter)
-    case _ => None
-  }
-
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
     val query = queryBuilder.makeQuery(params.structuredQuery)
@@ -109,7 +103,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ simpleCostFilter ++ costFilter ++
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter ++
-      usageFilter ++ hasRightsCategory ++ tierFilter(params.tier)
+      usageFilter ++ hasRightsCategory ++ searchFilters.tierFilter(params.tier)
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
     val filter = filterOpt getOrElse filters.matchAll
 

@@ -46,18 +46,13 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
 
   final override def authCallbackUrl: String = s"${config.services.authBaseUri}/oauthCallback"
 
-  private def hasAccess(apiKey: ApiKey, method: String, path: String): Boolean = apiKey.tier match {
-    case External if method != "GET" || !path.startsWith("/images") => false
-    case _ => true
-  }
-
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
     // Try to auth by API key, and failing that, with Panda
     request.headers.get(headerKey) match {
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
-            if (hasAccess(apiKey, request.method, request.path))
+            if (ApiKey.hasAccess(apiKey, request))
               block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
             else
               Future.successful(ApiKey.unauthorizedResult)
