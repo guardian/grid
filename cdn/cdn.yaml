@@ -1,6 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Image CDN for the Grid
 
+# TODO
+#   - Move away from AWS::Serverless::Function and simply use an alias updated by RiffRaff
+#   - Rationalise names of lambda functions in ZIP packaging and in dist bucket
+#   - Could we replace the whole lot with authentication in Fastly VCL?
+#       - Depends on the outcome of the Fastly trial on frontend
+#       - https://www.fastly.com/blog/how-solve-anything-vcl-part-3-authentication-and-feature-flags-edge
+#       - https://docs.fastly.com/guides/vcl/cryptographic-and-hashing-related-vcl-functions.html#rsa_verify
+
 # Required because we appear to have to use AWS::Serverless::Function
 # rather than AWS::Lambda::Function so we can access the current version
 # to pass to CloudFront
