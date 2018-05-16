@@ -82,6 +82,7 @@ guDateRange.directive('guDateRange', [function () {
           var endContainer = originalEl
             .querySelectorAll('.gu-date-range__overlay__pikaday--end')[0];
 
+
           var iso8601Format = 'YYYY-MM-DDTHH:mm:ssZ';
           const tenYearsInMilliseconds = (10 * 365 * 24 * 60 * 60 * 1000);
           const tenYearsFromNow =  new Date(Date.now() + tenYearsInMilliseconds);
