@@ -41,6 +41,11 @@ checkRequirements() {
 setupImgops() {
     if [ ! -f ./imgops/dev/nginx.conf ]; then
         bucket=`bash get-stack-resource.sh ImageBucket`
+        if [ -z "$bucket" ]; then
+            echo -e "${red}[CANNOT GET ImageBucket] This may be because your default region for the media-service profile has not been set."
+            exit 1
+        fi
+
         sed -e 's/{{BUCKET}}/'${bucket}'/g' ./imgops/dev/nginx.conf.template > ./imgops/dev/nginx.conf
     fi
 }
@@ -53,9 +58,17 @@ startPlayApps() {
     sbt runAll
 }
 
+# We use auth.properties as a proxy for whether all the configuration files have been downloaded given the implementation of `fetchConfig.sh`.
+downloadApplicationConfig() {
+    if [ ! -f /etc/gu/auth.properties ]; then
+        bash ./fetch-config.sh
+    fi
+}
+
 main() {
     checkRequirements
     setupImgops
+    downloadApplicationConfig
     startDockerContainers
     startPlayApps
 }
