@@ -6,6 +6,8 @@ import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Ignore, Matchers, FunSpec}
 import org.scalatest.concurrent.ScalaFutures
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
 // This test is disabled for now as it doesn't run on our CI environment, because GraphicsMagick is not present...
 @Ignore
 class ImageOperationsTest extends FunSpec with Matchers with ScalaFutures {

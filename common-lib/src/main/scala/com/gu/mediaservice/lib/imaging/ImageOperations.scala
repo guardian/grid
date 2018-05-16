@@ -5,10 +5,11 @@ import java.io._
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
 
 
@@ -38,30 +39,6 @@ class ImageOperations(playPath: String) {
   }
 
   private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(profileLocation("RGB", optimised))
-
-  def identifyColourModel(sourceFile: File, mimeType: String): Future[Option[String]] = {
-    // TODO: use mimeType to lookup other properties once we support other formats
-
-    mimeType match {
-      case "image/jpeg" => {
-
-        val source = addImage(sourceFile)
-
-        val formatter = format(source)("%[JPEG-Colorspace-Name]")
-
-        for {
-          output <- runIdentifyCmd(formatter)
-          colourModel = output.headOption
-        } yield colourModel
-      }
-
-      case "image/png" => {
-
-        // assume that the colour model is RGB for pngs
-        Future.successful(Some("RGB"))
-      }
-    }
-  }
 
   // Optionally apply transforms to the base operation if the colour space
   // in the ICC profile doesn't match the colour model of the image data
@@ -164,5 +141,24 @@ object ImageOperations {
   case object Jpeg extends MimeType {
     val name = "image/jpeg"
     val extension = "jpg"
+  }
+
+  def identifyColourModel(sourceFile: File, mimeType: String)(implicit ec: ExecutionContext): Future[Option[String]] = {
+    // TODO: use mimeType to lookup other properties once we support other formats
+
+    mimeType match {
+      case "image/jpeg" =>
+        val source = addImage(sourceFile)
+        val formatter = format(source)("%[JPEG-Colorspace-Name]")
+
+        for {
+          output <- runIdentifyCmd(formatter)
+          colourModel = output.headOption
+        } yield colourModel
+
+      case "image/png" =>
+        // assume that the colour model is RGB for pngs
+        Future.successful(Some("RGB"))
+    }
   }
 }

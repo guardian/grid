@@ -106,7 +106,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
       // These futures are started outside the for-comprehension, otherwise they will not run in parallel
       val sourceStoreFuture = storeSource(uploadRequest)
       // FIXME: pass mimeType
-      val colourModelFuture = imageOps.identifyColourModel(uploadedFile, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
       val thumbFuture = for {
