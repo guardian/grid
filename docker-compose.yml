@@ -1,0 +1,21 @@
+version: '3'
+services:
+  elasticsearch:
+    build:
+      context: ./elasticsearch/dev
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - "./elasticsearch/dev/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+  imgops:
+    build:
+      context: ./imgops/dev
+    ports:
+      - "9008:80"
+    volumes:
+      - "./imgops/dev/nginx.conf:/etc/nginx/nginx.conf"

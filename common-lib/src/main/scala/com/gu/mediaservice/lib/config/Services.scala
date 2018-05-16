@@ -14,9 +14,6 @@ class Services(val domainRoot: String, stage: String) {
   val leasesHost: String   = s"$appName-leases.$domainRoot"
   val authHost: String     = s"$appName-auth.$domainRoot"
 
-  val composerDomain: String   = if(stage == "TEST") { domainRoot.replace("test", "code") } else { domainRoot}
-  val composerHost: String     = s"composer.$composerDomain"
-
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)
   val loaderBaseUri      = baseUri(loaderHost)
@@ -28,7 +25,13 @@ class Services(val domainRoot: String, stage: String) {
   val leasesBaseUri      = baseUri(leasesHost)
   val authBaseUri        = baseUri(authHost)
 
-  val composerBaseUri    = baseUri(composerHost)
+  val toolsDomain: String   = if(stage == "TEST") { domainRoot.replace("test", "code") } else { domainRoot}
+
+  // TODO move to config
+  val corsAllowedTools = Set(
+    baseUri(s"composer.$toolsDomain"),
+    baseUri(s"fronts.$toolsDomain")
+  )
 
   val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
 
