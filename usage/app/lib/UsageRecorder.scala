@@ -4,7 +4,7 @@ import model._
 import play.api.Logger
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
-import rx.lang.scala.{Observable, Subscriber}
+import rx.lang.scala.{Observable, Subscriber, Subscription}
 
 case class ResetException() extends Exception
 
@@ -14,8 +14,9 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
   val liveUsageStream: Observable[UsageGroup] = usageStream.liveObservable.merge(usageSubject)
 
   val subscriber = Subscriber((_:Any) => Logger.debug(s"Sent Usage Notification"))
-  def subscribeToPreview  = previewObservable.subscribe(subscriber)
-  def subscribeToLive  = liveObservable.subscribe(subscriber)
+
+  var subscribeToPreview: Option[Subscription] = None
+  var subscribeToLive: Option[Subscription] = None
 
   def recordUpdate(update: JsObject): JsObject = {
     Logger.info(s"Usage update processed: $update")
@@ -29,6 +30,17 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsageGroup: UsageGroup)
   case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
+
+  def start(): Unit = {
+    // Eval subscription to start stream
+    subscribeToPreview = Some(previewObservable.subscribe(subscriber))
+    subscribeToLive = Some(liveObservable.subscribe(subscriber))
+  }
+
+  def stop(): Unit = {
+    subscribeToPreview.foreach(_.unsubscribe())
+    subscribeToLive.foreach(_.unsubscribe())
+  }
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
     .retry((_, error) => {
