@@ -24,7 +24,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   import Files._
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: String, isMaster: Boolean = false): String = {
-    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.${fileType}"
+    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.$fileType"
   }
 
   def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: MimeType, colourModel: Option[String],
@@ -54,7 +54,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType.extension, true)
       sizing      = store.storeCropSizing(file, filename, mediaType.name, crop, dimensions)
       dirtyAspect = source.bounds.width.toFloat / source.bounds.height
-      aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean(_)).getOrElse(dirtyAspect)
+      aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
 
     }
     yield MasterCrop(sizing, optimisedFile, dimensions, aspect)
@@ -68,9 +68,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
         file          <- imageOperations.resizeImage(sourceFile, dimensions, 75d, config.tempDir, mediaType.extension)
         optimisedFile = imageOperations.optimiseImage(file, mediaType)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, mediaType.extension)
-        sizing       <- store.storeCropSizing(optimisedFile, filename, mediaType.extension, crop, dimensions)
-        _            <- delete(file)
-        _            <- delete(optimisedFile)
+        sizing        <- store.storeCropSizing(optimisedFile, filename, mediaType.extension, crop, dimensions)
+        _             <- delete(file)
+        _             <- delete(optimisedFile)
       }
       yield sizing
     })
@@ -96,7 +96,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val source    = crop.specification
     val mediaType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
-    val colourType = apiImage.fileMetadata.colourModelInformation.get("colorType").getOrElse("")
+    val colourType = apiImage.fileMetadata.colourModelInformation.getOrElse("colorType", "")
 
     val cropType = if (mediaType == "image/png" && colourType != "True Color")
       ImageOperations.Png
@@ -105,7 +105,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-      colourModel <- imageOperations.identifyColourModel(sourceFile, mediaType)
+      colourModel <- ImageOperations.identifyColourModel(sourceFile, mediaType)
       masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, colourType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions

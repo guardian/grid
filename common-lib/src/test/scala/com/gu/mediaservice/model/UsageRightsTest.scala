@@ -26,7 +26,7 @@ class UsageRightsTest extends FunSpec with Matchers {
     (json \ "category").as[String] should be (Agency.category)
     (json \ "supplier").as[String] should be (supplier)
     (json \ "suppliersCollection").as[String] should be (suppliersCollection)
-    (json \ "restrictions").as[Option[String]] should be (restrictions)
+    (json \ "restrictions").asOpt[String] should be (restrictions)
   }
 
   it ("should deserialise from JSON correctly") {
@@ -85,7 +85,7 @@ class UsageRightsTest extends FunSpec with Matchers {
     val noRights = TestImage("test", NoRights)
     val agency = TestImage("test", Agency("Getty Images"))
 
-    (Json.toJson(noRights) \ "usageRights") should be (NoRights.jsonVal)
+    (Json.toJson(noRights) \ "usageRights").get should be (NoRights.jsonVal)
     (Json.toJson(agency) \ "usageRights" \ "supplier").as[String] should be ("Getty Images")
   }
 
