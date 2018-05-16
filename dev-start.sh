@@ -28,6 +28,7 @@ checkRequirements() {
 
     # image libraries
     checkRequirement gm # GraphicsMagick
+    checkRequirement imagemagick #ImageMagick
     checkRequirement convert
     checkRequirement pngquant
 
