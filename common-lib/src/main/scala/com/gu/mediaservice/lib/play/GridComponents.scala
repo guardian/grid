@@ -22,7 +22,7 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
   implicit val ec: ExecutionContext = executionContext
 
   final override def httpFilters: Seq[EssentialFilter] = {
-    Seq(corsFilter, csrfFilter, securityHeadersFilter, gzipFilter, new RequestLoggingFilter(materializer))
+    Seq(corsFilter, securityHeadersFilter, gzipFilter, new RequestLoggingFilter(materializer))
   }
 
   final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
