@@ -9,6 +9,8 @@ import play.filters.cors.CORSComponents
 import play.filters.gzip.GzipFilterComponents
 import router.Routes
 
+import scala.concurrent.Future
+
 class UsageComponents(context: Context) extends GridComponents(context) {
 
   final override lazy val config = new UsageConfig(configuration)
@@ -24,6 +26,18 @@ class UsageComponents(context: Context) extends GridComponents(context) {
   val usageStream = new UsageStream(usageGroup)
   val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageStream, usageNotifier, usageNotifier)
   val notifications = new Notifications(config)
+
+  val apiOnly = config.appTagBasedConfig.getOrElse("apiOnly", false)
+  if(!apiOnly) {
+    val crierReader = new CrierStreamReader(config)
+    crierReader.start()
+  }
+
+  usageRecorder.start()
+  context.lifecycle.addStopHook(() => {
+    usageRecorder.stop()
+    Future.successful(())
+  })
 
   val controller = new UsageApi(auth, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
 
