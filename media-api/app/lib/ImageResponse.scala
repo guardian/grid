@@ -115,10 +115,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
       (image, source)
     }.recoverWith {
-      case e => {
-        Logger.error(s"Failed to read ElasticSearch response ${id} into Image object: ${e.getMessage}")
+      case e =>
+        Logger.error(s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")
         Failure(e)
-      }
     }.get
 
     val pngFileUri = (source \ "optimisedPng" \ "file").validate[String].asOpt.map(new URI(_))
