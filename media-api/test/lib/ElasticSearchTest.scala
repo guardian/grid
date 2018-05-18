@@ -15,7 +15,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   override def beforeAll {
     val createTestImages =
       Future.sequence(List(createImage(Handout()), createImage(StaffPhotographer("Yellow Giraffe", "The Guardian"))).map(saveToES))
-    Await.ready(createTestImages, 5.seconds)
+    Await.ready(createTestImages, 2.seconds)
   }
 
   describe("ES") {
@@ -37,6 +37,6 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   }
 
   override def afterAll {
-    Await.ready(cleanTestUserImages(), 5.seconds)
+    Await.ready(cleanTestUserImages(), 2.seconds)
   }
 }

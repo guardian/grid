@@ -56,6 +56,7 @@ trait ElasticSearchHelper {
     val json = Json.toJson(image)
     ES.client
       .prepareIndex("images", "image", image.id)
+      .setRefresh(true)
       .setSource(json.toString())
       .executeAndLog(s"Saving test image with id ${image.id}")
   }
