@@ -52,7 +52,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
-            if (ApiKey.hasAccess(apiKey, request))
+            if (ApiKey.hasAccess(apiKey, request, config.services))
               block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
             else
               Future.successful(ApiKey.unauthorizedResult)
@@ -88,6 +88,6 @@ object Authentication {
 
   def getEmail(principal: Principal): String = principal match {
     case PandaUser(user) => user.email
-    case _ => principal.apiKey.value
+    case _ => principal.apiKey.name
   }
 }

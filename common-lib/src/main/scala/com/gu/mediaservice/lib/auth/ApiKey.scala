@@ -1,7 +1,8 @@
 package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import play.api.mvc.Request
+import com.gu.mediaservice.lib.config.Services
+import play.api.mvc.{Request, Result}
 
 sealed trait Tier
 case object Internal extends Tier
@@ -14,9 +15,9 @@ object Tier {
   }
 }
 
-case class ApiKey(value: String, tier: Tier)
+case class ApiKey(name: String, tier: Tier)
 object ApiKey extends ArgoHelpers {
-  val unauthorizedResult = respondError(Forbidden, "forbidden", "Unauthorized - the API key is not allowed to perform this operation", List.empty)
+  val unauthorizedResult: Result = respondError(Forbidden, "forbidden", "Unauthorized - the API key is not allowed to perform this operation", List.empty)
 
   def apply(content: String): ApiKey = {
     val rows = content.split("\n")
@@ -25,8 +26,8 @@ object ApiKey extends ArgoHelpers {
     ApiKey(name, tier)
   }
 
-  def hasAccess(apiKey: ApiKey, request: Request[Any]): Boolean = apiKey.tier match {
-    case External if request.method != "GET" || !request.path.startsWith("/images") => false //TODO: Also check domain to be api.media
+  def hasAccess(apiKey: ApiKey, request: Request[Any], services: Services): Boolean = apiKey.tier match {
+    case External if request.method != "GET" || !request.path.startsWith("/images") || !services.apiHost.startsWith("api.media.") => false
     case _ => true
   }
 }

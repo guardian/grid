@@ -133,7 +133,7 @@ val testSettings = Seq(
   testOptions in Test += Tests.Setup(_ => {
 
     println(s"Launching docker container with ES")
-    s"docker-compose up -d".!
+    s"docker-compose up -d elasticsearch".!
 
     // This is needed to ensure docker has had enough time to start up
     Thread.sleep(5000)

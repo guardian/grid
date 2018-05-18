@@ -13,9 +13,9 @@ import play.api.libs.json._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 trait ElasticSearchHelper {
-  val mediaApiConfig = new MediaApiConfig(Configuration.from(Map("es.cluster" -> "media-service", "es.port" -> "9300")))
-  val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val searchFilters = new SearchFilters(mediaApiConfig)
+  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map("es.cluster" -> "media-service", "es.port" -> "9300")))
+  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
+  private val searchFilters = new SearchFilters(mediaApiConfig)
   val ES = new ElasticSearch(mediaApiConfig, searchFilters, mediaApiMetrics)
 
   val testUser = "yellow-giraffe@theguardian.com"
