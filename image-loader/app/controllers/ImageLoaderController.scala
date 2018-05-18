@@ -43,7 +43,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
     auth.async(DigestBodyParser.create(createTempFile("requestBody"))) { req =>
-      loadFile(uploadedBy, identifiers, uploadTime, filename)(req)
+      val result = loadFile(uploadedBy, identifiers, uploadTime, filename)(req)
+      result.onComplete { _ => req.body.file.delete() }
+
+      result
     }
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
