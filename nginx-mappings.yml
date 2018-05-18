@@ -21,3 +21,5 @@ mappings:
     port: 9011
   - prefix: media-leases
     port: 9012
+  - prefix: es.media
+    port: 9200
