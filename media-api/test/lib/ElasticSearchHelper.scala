@@ -7,13 +7,18 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{ElasticSearch, SearchFilters, filters}
 import org.joda.time.DateTime
+import org.scalatest.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-trait ElasticSearchHelper {
-  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map("es.cluster" -> "media-service", "es.port" -> "9300")))
+trait ElasticSearchHelper extends MockitoSugar {
+  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
+    "es.cluster" -> "media-service",
+    "es.port" -> "9300",
+    "persistence.identifier" -> "picdarUrn",
+    "es.index.aliases.read" -> "readAlias")))
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
   private val searchFilters = new SearchFilters(mediaApiConfig)
   val ES = new ElasticSearch(mediaApiConfig, searchFilters, mediaApiMetrics)
