@@ -37,9 +37,11 @@ trait CommonConfig {
 
   final val stage: String = stageFromFile getOrElse "DEV"
 
+  val isProd: Boolean = stage == "PROD"
+
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
-  lazy val services = new Services(domainRoot, stage)
+  lazy val services = new Services(domainRoot, isProd)
 
   final def apply(key: String): String =
     string(key)
