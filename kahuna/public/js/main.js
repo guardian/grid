@@ -51,7 +51,7 @@ var config = {
     'pandular.reAuthUri': reauthLink && reauthLink.getAttribute('href'),
 
     // Number of millis before pandular stops trying to reauth
-    // This number is relatively hagh to cater for AUS
+    // This number is relatively high to cater for AUS
     'pandular.reAuthTimeout': 7000,
 
     vndMimeTypes: new Map([
@@ -133,7 +133,7 @@ kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaAp
         // Ping API at init time to ensure we're logged in
         .catch(error => {
             // If missing a session, send for auth
-            if (error && error.status === 401) {
+            if (error && error.status === 401 || error.status === 419) {
                 $log.info('No session, send for auth');
 
                 if (reauthLink) {
@@ -206,6 +206,7 @@ kahuna.factory('httpErrorInterceptor',
 // global errors UI
 kahuna.run(['$rootScope', 'globalErrors',
             function($rootScope, globalErrors) {
+
 
     $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
     $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('authFailed'));
