@@ -30,7 +30,7 @@ object KahunaSecurityConfig {
       config.services.authBaseUri
     )
 
-    val frameSources = s"frame-src ${config.services.authBaseUri} https://accounts.google.com"
+    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"
     val frameAncestors = s"frame-ancestors ${config.services.toolsDomains.map(domain => s"*.$domain").mkString(" ")}"
     val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self'"
 
