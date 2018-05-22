@@ -73,7 +73,7 @@ class AuthController(auth: Authentication, config: AuthConfig,
     // We use the `Try` here as the `GoogleAuthException` are thrown before we
     // get to the asynchronicity of the `Future` it returns.
     // We then have to flatten the Future[Future[T]]. Fiddly...
-    Future.fromTry(Try(auth.processGoogleCallback)).flatMap(successF => successF).recover {
+    Future.fromTry(Try(auth.processGoogleCallback)).flatten.recover {
       // This is when session session args are missing
       case e: GoogleAuthException =>
         respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)

@@ -31,10 +31,9 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
     try
       Some(IOUtils.toString(stream).trim)
     catch {
-      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" => {
+      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
         log.warn(s"Cannot find key: $key in bucket: $bucket")
         None
-      }
     }
     finally
       stream.close()

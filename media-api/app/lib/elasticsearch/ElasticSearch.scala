@@ -59,7 +59,6 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
 
   val queryBuilder = new QueryBuilder(matchFields)
 
-
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
     val query = queryBuilder.makeQuery(params.structuredQuery)
@@ -104,7 +103,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
       uploadedByFilter ++ idsFilter ++ validityFilter ++ simpleCostFilter ++ costFilter ++
       hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter ++
-      usageFilter ++ hasRightsCategory
+      usageFilter ++ hasRightsCategory ++ searchFilters.tierFilter(params.tier)
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
     val filter = filterOpt getOrElse filters.matchAll
 

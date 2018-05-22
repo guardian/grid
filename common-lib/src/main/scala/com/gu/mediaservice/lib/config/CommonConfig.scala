@@ -19,8 +19,8 @@ trait CommonConfig {
 
   final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
   final val elasticsearchStack = "media-service"
-  final val elasticsearchApp   = "elasticsearch"
-  final val stackName          = "media-service"
+  final val elasticsearchApp = "elasticsearch"
+  final val stackName = "media-service"
 
   final val sessionId = UUID.randomUUID().toString
 
@@ -29,7 +29,7 @@ trait CommonConfig {
     InstanceProfileCredentialsProvider.getInstance()
   )
 
-  lazy val awsRegion = properties("aws.region")
+  lazy val awsRegion = properties.getOrElse("aws.region", "eu-west-1")
 
   def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
     .withRegion(awsRegion)

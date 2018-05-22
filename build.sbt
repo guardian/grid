@@ -1,4 +1,5 @@
 import PlayKeys._
+import scala.sys.process._
 
 val commonSettings = Seq(
   scalaVersion := "2.12.5",
@@ -71,7 +72,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "org.http4s" %% "http4s-core" % "0.18.7",
     "org.mockito" % "mockito-core" % "2.18.0"
   )
-)
+).settings(testSettings)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
@@ -127,3 +128,14 @@ def playProject(projectName: String, port: Int): Project =
         file(s"$projectName/conf/riff-raff.yaml") -> "riff-raff.yaml"
       )
     ))
+
+val testSettings = Seq(
+  testOptions in Test += Tests.Setup(_ => {
+
+    println(s"Launching docker container with ES")
+    s"docker-compose up -d elasticsearch".!
+
+    // This is needed to ensure docker has had enough time to start up
+    Thread.sleep(5000)
+  })
+)

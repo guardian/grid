@@ -9,32 +9,24 @@ import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaU
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
-import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
+import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import lib.elasticsearch._
-import lib.querysyntax._
 import lib.{ImageResponse, MediaApiConfig, Notifications}
+import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-import scalaz.syntax.applicative._
-import scalaz.syntax.std.list._
-import scalaz.syntax.validation._
-import scalaz.{Validation, ValidationNel}
-import org.http4s.{Uri, UriTemplate}
-import org.http4s.UriTemplate.Path
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-
 
 class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch: ElasticSearch, imageResponse: ImageResponse,
                override val config: MediaApiConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers with PermissionsHandler {
 
-  val searchParamList = List("q", "ids", "offset", "length", "orderBy",
+  private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
     "uploadedBy", "archived", "valid", "free", "payType",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
@@ -44,7 +36,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
 
   private val searchLink = Link("search", searchLinkHref)
 
-  val indexResponse = {
+  private val indexResponse = {
     val indexData = Json.obj(
       "description" -> "This is the Media API",
       "configuration" -> Map(
@@ -71,11 +63,13 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     respond(indexData, indexLinks)
   }
 
+  private val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
+  private val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
+  private val ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
+  private val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
+  private val ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
+
   def index = auth { indexResponse }
-
-
-  val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
-  val ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
 
   def getIncludedFromParams(request: AuthenticatedRequest[AnyContent, Principal]): List[String] = {
     val includedQuery: Option[String] = request.getQueryString("include")
@@ -83,8 +77,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     includedQuery.map(_.split(",").map(_.trim).toList).getOrElse(List())
   }
 
-
-  def isUploaderOrHasPermission(
+  private def isUploaderOrHasPermission(
     request: AuthenticatedRequest[AnyContent, Principal],
     source: JsValue,
     permission: Permission
@@ -108,11 +101,18 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     isUploaderOrHasPermission(request, source, Permissions.DeleteImage)
   }
 
+  private def hasStaffPhotographer(json: JsValue): Boolean = (json \ "usageRights" \ "category").validate[String].asOpt.contains(StaffPhotographer.category)
+
+  private def hasPermission(request: Authentication.Request[Any], json: JsValue): Boolean = request.user.apiKey.tier match {
+    case External if !hasStaffPhotographer(json) => false
+    case _ => true
+  }
+
   def getImage(id: String) = auth.async { request =>
     val include = getIncludedFromParams(request)
 
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val withWritePermission = canUserWriteMetadata(request, source)
         val withDeletePermission = canUserDeleteImage(request, source)
 
@@ -122,49 +122,47 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
               imageResponse.create(id, source, writePermission, deletePermission, include)
             respond(imageData, imageLinks, imageActions)
         }
-      case None => Future.successful(ImageNotFound)
+      case _ => Future.successful(ImageNotFound)
     }
   }
 
   def getImageFileMetadata(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) map {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond((source \ "fileMetadata").getOrElse(JsNull), links)
-      case None => ImageNotFound
+      case _ => ImageNotFound
     }
   }
 
   def getImageExports(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) map {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond((source \ "exports").getOrElse(JsNull), links)
-      case None         => ImageNotFound
+      case _ => ImageNotFound
     }
   }
 
-  def getImageExport(imageId: String, exportId: String) = auth.async { _ =>
+  def getImageExport(imageId: String, exportId: String) = auth.async { request =>
     elasticSearch.getImageById(imageId) map {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val exportOption = source.as[Image].exports.find(_.id.contains(exportId))
         exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
-      case None => ImageNotFound
+      case _ => ImageNotFound
     }
 
   }
 
-  val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
-  val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
-  val ImageEditForbidden   = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
+
 
   def deleteImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         val image = source.as[Image]
 
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
@@ -181,16 +179,14 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
           Future.successful(ImageCannotBeDeleted)
         }
 
-      case None => Future.successful(ImageNotFound)
+      case _ => Future.successful(ImageNotFound)
     }
   }
 
-
-  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
-
   def reindexImage(id: String) = auth.async { request =>
+    val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) =>
+      case Some(source) if hasPermission(request, source) =>
         // TODO: apply rights to edits API too
         // TODO: helper to abstract boilerplate
         canUserWriteMetadata(request, source) map { canWrite =>
@@ -227,8 +223,9 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     }
   }
 
-
   def imageSearch = auth.async { request =>
+    implicit val apiKey: ApiKey = request.user.apiKey
+
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
@@ -265,11 +262,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     )
   }
 
-  //s"${config.rootUri}/images{?$searchParamList}"
-  val searchTemplate = UriTemplate()
-
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
-
     // Enforce a toDate to exclude new images since the current request
     val toDate = searchParams.until.getOrElse(DateTime.now)
 
@@ -279,7 +272,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
       "toDate" -> printDateTime(toDate)
     )
 
-    paramMap.foldLeft(searchTemplate){ (acc, pair) => acc.expandAny(pair._1, pair._2)}.toString
+    paramMap.foldLeft(UriTemplate()){ (acc, pair) => acc.expandAny(pair._1, pair._2)}.toString
   }
 
   private def getPrevLink(searchParams: SearchParams): Option[Link] = {
@@ -303,154 +296,5 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
       None
     }
   }
-
-}
-
-case class SearchParams(
-  query: Option[String],
-  structuredQuery: List[Condition],
-  ids: Option[List[String]],
-  offset: Int,
-  length: Int,
-  orderBy: Option[String],
-  since: Option[DateTime],
-  until: Option[DateTime],
-  modifiedSince: Option[DateTime],
-  modifiedUntil: Option[DateTime],
-  takenSince: Option[DateTime],
-  takenUntil: Option[DateTime],
-  archived: Option[Boolean],
-  hasExports: Option[Boolean],
-  hasIdentifier: Option[String],
-  missingIdentifier: Option[String],
-  valid: Option[Boolean],
-  free: Option[Boolean],
-  payType: Option[PayType.Value],
-  hasRightsCategory: Option[Boolean],
-  uploadedBy: Option[String],
-  labels: List[String],
-  hasMetadata: List[String],
-  persisted: Option[Boolean],
-  usageStatus: List[String],
-  usagePlatform: List[String]
-)
-
-case class InvalidUriParams(message: String) extends Throwable
-object InvalidUriParams {
-  val errorKey = "invalid-uri-parameters"
-}
-
-object PayType extends Enumeration {
-  type PayType = Value
-  val Free = Value("free")
-  val MaybeFree = Value("maybe-free")
-  val All = Value("all")
-  val Pay = Value("pay")
-
-  def create(s: String) = s match {
-    case "free" => Some(Free)
-    case "maybe-free" => Some(MaybeFree)
-    case "all" => Some(All)
-    case "pay" => Some(Pay)
-    case _ => None
-  }
-}
-
-object SearchParams {
-
-
-  def commasToList(s: String): List[String] = s.trim.split(',').toList
-  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
-
-  // TODO: return descriptive 400 error if invalid
-  def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
-  def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
-  def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
-
-  def apply(request: Request[Any]): SearchParams = {
-
-    def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
-
-    val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List()
-
-    SearchParams(
-      query,
-      structuredQuery,
-      request.getQueryString("ids").map(_.split(",").toList),
-      request.getQueryString("offset") flatMap parseIntFromQuery getOrElse 0,
-      request.getQueryString("length") flatMap parseIntFromQuery getOrElse 10,
-      request.getQueryString("orderBy"),
-      request.getQueryString("since") flatMap parseDateFromQuery,
-      request.getQueryString("until") flatMap parseDateFromQuery,
-      request.getQueryString("modifiedSince") flatMap parseDateFromQuery,
-      request.getQueryString("modifiedUntil") flatMap parseDateFromQuery,
-      request.getQueryString("takenSince") flatMap parseDateFromQuery,
-      request.getQueryString("takenUntil") flatMap parseDateFromQuery,
-      request.getQueryString("archived") flatMap parseBooleanFromQuery,
-      request.getQueryString("hasExports") flatMap parseBooleanFromQuery,
-      request.getQueryString("hasIdentifier"),
-      request.getQueryString("missingIdentifier"),
-      request.getQueryString("valid") flatMap parseBooleanFromQuery,
-      request.getQueryString("free") flatMap parseBooleanFromQuery,
-      request.getQueryString("payType") flatMap parsePayTypeFromQuery,
-      request.getQueryString("hasRightsCategory") flatMap parseBooleanFromQuery,
-      request.getQueryString("uploadedBy"),
-      commaSep("labels"),
-      commaSep("hasMetadata"),
-      request.getQueryString("persisted") flatMap parseBooleanFromQuery,
-      commaSep("usageStatus"),
-      commaSep("usagePlatform")
-    )
-  }
-
-
-  def toStringMap(searchParams: SearchParams): Map[String, String] =
-    Map(
-      "q"                 -> searchParams.query,
-      "ids"               -> searchParams.ids.map(_.mkString(",")),
-      "offset"            -> Some(searchParams.offset.toString),
-      "length"            -> Some(searchParams.length.toString),
-      "since"             -> searchParams.since.map(printDateTime),
-      "until"             -> searchParams.until.map(printDateTime),
-      "modifiedSince"     -> searchParams.modifiedSince.map(printDateTime),
-      "modifiedUntil"     -> searchParams.modifiedUntil.map(printDateTime),
-      "takenSince"        -> searchParams.takenSince.map(printDateTime),
-      "takenUntil"        -> searchParams.takenUntil.map(printDateTime),
-      "archived"          -> searchParams.archived.map(_.toString),
-      "hasExports"        -> searchParams.hasExports.map(_.toString),
-      "hasIdentifier"     -> searchParams.hasIdentifier,
-      "missingIdentifier" -> searchParams.missingIdentifier,
-      "valid"             -> searchParams.valid.map(_.toString),
-      "free"              -> searchParams.free.map(_.toString),
-      "payType"           -> searchParams.payType.map(_.toString),
-      "uploadedBy"        -> searchParams.uploadedBy,
-      "labels"            -> listToCommas(searchParams.labels),
-      "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
-      "persisted"         -> searchParams.persisted.map(_.toString),
-      "usageStatus"       -> listToCommas(searchParams.usageStatus),
-      "usagePlatform"     -> listToCommas(searchParams.usagePlatform)
-    ).foldLeft(Map[String, String]()) {
-      case (acc, (key, Some(value))) => acc + (key -> value)
-      case (acc, (_,   None))        => acc
-    }
-
-    type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
-    type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
-    val maxSize = 200
-
-    def validate(searchParams: SearchParams): SearchParamValidations = {
-      // we just need to return the first `searchParams` as we don't need to manipulate them
-      // TODO: try reduce these
-      (validateLength(searchParams).toValidationNel |@| validateOffset(searchParams).toValidationNel)((s1, s2) => s1)
-    }
-
-    def validateOffset(searchParams: SearchParams): SearchParamValidation = {
-      if (searchParams.offset < 0) InvalidUriParams("offset cannot be less than 0").failure else searchParams.success
-    }
-
-    def validateLength(searchParams: SearchParams): SearchParamValidation = {
-      if (searchParams.length > maxSize) InvalidUriParams(s"length cannot exceed $maxSize").failure else searchParams.success
-    }
 
 }

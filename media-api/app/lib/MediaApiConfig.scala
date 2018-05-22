@@ -16,13 +16,13 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   final override lazy val appName = "media-api"
 
-  val keyStoreBucket: String = properties("auth.keystore.bucket")
+  lazy val keyStoreBucket: String = properties("auth.keystore.bucket")
 
-  val configBucket: String = properties("s3.config.bucket")
-  val usageMailBucket: String = properties("s3.usagemail.bucket")
+  lazy val configBucket: String = properties("s3.config.bucket")
+  lazy val usageMailBucket: String = properties("s3.usagemail.bucket")
 
-  val quotaStoreKey: String = properties("quota.store.key")
-  val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
+  lazy val quotaStoreKey: String = properties("quota.store.key")
+  lazy val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
   private lazy val ec2Client: AmazonEC2 = withAWSCredentials(AmazonEC2ClientBuilder.standard()).build()
 
@@ -36,21 +36,20 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
         "App"   -> Seq(elasticsearchApp)
       ))
 
-  val imageBucket: String = properties("s3.image.bucket")
-  val thumbBucket: String = properties("s3.thumb.bucket")
+  lazy val imageBucket: String = properties("s3.image.bucket")
+  lazy val thumbBucket: String = properties("s3.thumb.bucket")
 
-  val cloudFrontPrivateKeyLocation: String = "/etc/gu/ssl/private/cloudfront.pem"
+  lazy val cloudFrontPrivateKeyLocation: String = "/etc/gu/ssl/private/cloudfront.pem"
 
-  val cloudFrontDomainImageBucket: Option[String] = properties.get("cloudfront.domain.imagebucket")
-  val cloudFrontDomainThumbBucket: Option[String] = properties.get("cloudfront.domain.thumbbucket")
-  val cloudFrontKeyPairId: Option[String]         = properties.get("cloudfront.keypair.id")
+  lazy val cloudFrontDomainImageBucket: Option[String] = properties.get("cloudfront.domain.imagebucket")
+  lazy val cloudFrontDomainThumbBucket: Option[String] = properties.get("cloudfront.domain.thumbbucket")
+  lazy val cloudFrontKeyPairId: Option[String]         = properties.get("cloudfront.keypair.id")
 
-  val topicArn: String = properties("sns.topic.arn")
+  lazy val topicArn: String = properties("sns.topic.arn")
 
+  lazy val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
 
-  val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
-
-  val imagesAlias: String = properties("es.index.aliases.read")
+  lazy val imagesAlias: String = properties.getOrElse("es.index.aliases.read", configuration.get[String]("es.index.aliases.read"))
 
   // Note: had to make these lazy to avoid init order problems ;_;
 
@@ -66,9 +65,10 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   lazy val loginUriTemplate: String = services.loginUriTemplate
   lazy val collectionsUri: String = services.collectionsBaseUri
 
-  val requiredMetadata = List("credit", "description", "usageRights")
+  lazy val requiredMetadata = List("credit", "description", "usageRights")
 
-  val persistenceIdentifier = properties("persistence.identifier")
-  val queriableIdentifiers = Seq(persistenceIdentifier)
+  lazy val persistenceIdentifier = properties.getOrElse("persistence.identifier", configuration.get[String]("persistence.identifier"))
+  lazy val queriableIdentifiers = Seq(persistenceIdentifier)
+
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
 }

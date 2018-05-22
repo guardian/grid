@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
-import com.gu.mediaservice.lib.config.{CommonConfig, Properties}
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
@@ -13,7 +13,6 @@ import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 class Authentication(config: CommonConfig, actorSystem: ActorSystem,
                      override val parser: BodyParser[AnyContent],
@@ -33,7 +32,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   val notAuthenticatedResult = respondError(Unauthorized, "unauthorized", "Not authenticated", loginLinks)
   val invalidCookieResult    = notAuthenticatedResult
   val expiredResult          = respondError(new Status(419), "session-expired", "Session expired, required to log in again", loginLinks)
-  val notAuthorizedResult    = respondError(Forbidden, "forbidden", "Not authorized", loginLinks)
 
   // API key errors
   val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
@@ -53,7 +51,11 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
     request.headers.get(headerKey) match {
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
-          case Some(name) => block(new AuthenticatedRequest(AuthenticatedService(name), request))
+          case Some(apiKey) =>
+            if (ApiKey.hasAccess(apiKey, request, config.services))
+              block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
+            else
+              Future.successful(ApiKey.unauthorizedResult)
           case None => Future.successful(invalidApiKeyResult)
         }
       case None =>
@@ -77,16 +79,15 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   }
 }
 
-
 object Authentication {
-  sealed trait Principal { def name: String }
-  case class PandaUser(user: User) extends Principal { def name: String = s"${user.firstName} ${user.lastName}" }
-  case class AuthenticatedService(name: String) extends Principal
+  sealed trait Principal { def apiKey: ApiKey }
+  case class PandaUser(user: User) extends Principal { def apiKey: ApiKey = ApiKey(s"${user.firstName} ${user.lastName}", Internal) }
+  case class AuthenticatedService(apiKey: ApiKey) extends Principal
 
   type Request[A] = AuthenticatedRequest[A, Principal]
 
   def getEmail(principal: Principal): String = principal match {
     case PandaUser(user) => user.email
-    case _ => principal.name
+    case _ => principal.apiKey.name
   }
 }

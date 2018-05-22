@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.lib.auth.{External, Tier}
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.config.UsageRightsConfig
@@ -68,6 +69,13 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   )
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
+
+  val staffFilter: FilterBuilder = filters.term("usageRights.category", StaffPhotographer.category)
+
+  def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
+    case External => Some(staffFilter)
+    case _ => None
+  }
 
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
     case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
