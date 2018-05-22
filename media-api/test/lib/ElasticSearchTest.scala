@@ -13,8 +13,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers with ElasticSearchHelper with ScalaFutures {
 
   override def beforeAll {
+    ES.ensureAliasAssigned()
     val createTestImages =
-      Future.sequence(List(createImage(Handout()), createImage(StaffPhotographer("Yellow Giraffe", "The Guardian"))).map(saveToES))
+      Future.sequence(List(
+        createImage(Handout()),
+        createImage(StaffPhotographer("Yellow Giraffe", "The Guardian"))
+      ).map(saveToES))
     Await.ready(createTestImages, 2.seconds)
   }
 
