@@ -4,7 +4,7 @@ import java.net.URI
 
 import com.gu.editorial.permissions.client.Permission
 import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
@@ -158,8 +158,6 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
 
   }
 
-
-
   def deleteImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
       case Some(source) if hasPermission(request, source) =>
@@ -223,9 +221,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     }
   }
 
-  def imageSearch = auth.async { request =>
-    implicit val apiKey: ApiKey = request.user.apiKey
-
+  def imageSearch(isExample: Boolean) = auth.async { request =>
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
@@ -242,8 +238,14 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
       }
     }
 
+    def imageJsonToSearchResult(jsonOpt: Option[JsValue]): SearchResults = jsonOpt.map { json =>
+      SearchResults(hits = Seq((config.exampleImageId, json)), total = 1)
+    }.getOrElse(SearchResults(hits = Seq.empty, 0))
+
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount) <- elasticSearch.search(searchParams)
+      SearchResults(hits, totalCount) <-
+        if(isExample) elasticSearch.getImageById(config.exampleImageId).map(imageJsonToSearchResult)
+        else elasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)

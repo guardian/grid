@@ -12,13 +12,14 @@ GET     /images/edits/:field                          controllers.SuggestionCont
 GET     /images/aggregations/date/:field              controllers.AggregationController.dateHistogram(field: String, q: Option[String])
 
 # Images
+GET     /images/example                               controllers.MediaApi.imageSearch(isExample: Boolean = true)
 GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
 GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
 GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
-GET     /images                                       controllers.MediaApi.imageSearch
+GET     /images                                       controllers.MediaApi.imageSearch(isExample: Boolean = false)
 
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
