@@ -119,7 +119,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
         Future.sequence(List(withWritePermission, withDeletePermission)).map {
           case List(writePermission, deletePermission) =>
             val (imageData, imageLinks, imageActions) =
-              imageResponse.create(id, source, writePermission, deletePermission, include)
+              imageResponse.create(id, source, writePermission, deletePermission, include, request.user.apiKey.tier)
             respond(imageData, imageLinks, imageActions)
         }
       case _ => Future.successful(ImageNotFound)
@@ -231,7 +231,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
       Future.sequence(List(withWritePermission, withDeletePermission)).map {
         case List(writePermission, deletePermission) =>
           val (imageData, imageLinks, imageActions) =
-            imageResponse.create(elasticId, source, writePermission, deletePermission, include)
+            imageResponse.create(elasticId, source, writePermission, deletePermission, include, request.user.apiKey.tier)
           val id = (imageData \ "id").as[String]
           val imageUri = URI.create(s"${config.rootUri}/images/$id")
           EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)

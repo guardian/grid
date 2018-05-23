@@ -1,23 +1,21 @@
 package lib
 
-import lib.usagerights.CostCalculator
-
 import java.net.URI
-import scala.collection.mutable.ListBuffer
-import scala.util.{Try, Failure}
-import org.joda.time.{DateTime, Duration}
 
-import play.utils.UriEncoding
-import play.api.Logger
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
-
-import com.gu.mediaservice.model._
-import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.FeatureToggle
+import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
+import com.gu.mediaservice.model._
+import lib.usagerights.CostCalculator
+import org.joda.time.{DateTime, Duration}
+import play.api.Logger
+import play.api.libs.functional.syntax._
+import play.api.libs.json._
+import play.utils.UriEncoding
 
-import controllers.Quotas
+import scala.collection.mutable.ListBuffer
+import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
 //  implicit val dateTimeFormat = DateFormat
@@ -105,7 +103,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
 
   def create(id: String, esSource: JsValue, withWritePermission: Boolean,
-             withDeletePermission: Boolean, included: List[String] = List()):
+             withDeletePermission: Boolean, included: List[String] = List(), tier: Tier):
             (JsValue, List[Link], List[Action]) = {
     val (image: Image, source: JsValue) = Try {
       val image = esSource.as[Image]
@@ -159,11 +157,11 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
 
-    val links = imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
+    val links: List[Link] = if(tier == Internal) imageLinks(id, imageUrl, pngUrl, withWritePermission, valid) else Nil
 
     val isDeletable = canBeDeleted(image) && withDeletePermission
 
-    val actions = imageActions(id, isDeletable, withWritePermission)
+    val actions: List[Action] = if(tier == Internal) imageActions(id, isDeletable, withWritePermission) else Nil
 
     (data, links, actions)
   }
@@ -195,7 +193,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     if (valid) cropLink :: baseLinksWithOptimised else baseLinksWithOptimised
   }
 
-  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean) = {
+  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean): List[Action] = {
 
     val imageUri = URI.create(s"${config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${config.rootUri}/images/$id/reindex")
@@ -280,7 +278,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   }
 
 
-  import play.api.libs.json.JodaReads._
   import play.api.libs.json.JodaWrites._
 
   def imageResponseWrites(id: String, expandFileMetaData: Boolean): Writes[Image] = (
