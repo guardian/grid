@@ -22,7 +22,7 @@ object ApiKey extends ArgoHelpers {
   def apply(content: String): ApiKey = {
     val rows = content.split("\n")
     val name = rows.headOption.getOrElse("")
-    val tier = rows.tail.headOption.map(Tier(_)).getOrElse(External)
+    val tier = rows.tail.headOption.map(Tier(_)).getOrElse(Internal)
     ApiKey(name, tier)
   }
 
