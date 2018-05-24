@@ -8,6 +8,8 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
+import org.slf4j.{Marker, MarkerFactory}
+import play.api.{Logger, MarkerContext}
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
@@ -52,6 +54,9 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
+            val marker: Marker = MarkerFactory.getMarker(apiKey.name)
+            val mc: MarkerContext = MarkerContext(marker)
+            Logger.info(s"Using api key with name ${apiKey.name} and tier ${apiKey.tier}")(mc)
             if (ApiKey.hasAccess(apiKey, request, config.services))
               block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
             else
