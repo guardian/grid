@@ -18,7 +18,6 @@ class KahunaController(config: KahunaConfig, override val controllerComponents: 
       config.mediaApiUri,
       config.authUri,
       s"${config.authUri}/login?redirectUri=$returnUri",
-      config.watUri,
       config.sentryDsn,
       config.sessionId
     ))
