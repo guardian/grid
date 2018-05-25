@@ -162,6 +162,7 @@ query.controller('SearchQueryCtrl',
     mediaApi.getSession().then(session => {
         ctrl.user = session.user;
         ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
+        ctrl.filter.nonFree = session.user.permissions.showPaid;
     });
 
     function resetQuery() {
