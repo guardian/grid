@@ -33,32 +33,28 @@ class AuthController(auth: Authentication, val config: AuthConfig,
 
   def index = auth.AuthAction { indexResponse }
 
-  def session = auth.AuthAction { request =>
+  def session = auth.AuthAction.async { request =>
     val user = request.user
-
     val firstName = user.firstName
     val lastName = user.lastName
 
-    val showPaidFuture: Future[Boolean] = hasPermission(PandaUser(request.user), Permissions.ShowPaid)
-
-
-    val showPaid: Boolean = Await.result(showPaidFuture, 100.millis)
-
-    respond(
-      Json.obj("user" ->
-        Json.obj(
-          "name" -> s"$firstName $lastName",
-          "firstName" -> firstName,
-          "lastName" -> lastName,
-          "email" -> user.email,
-          "avatarUrl" -> user.avatarUrl,
-          "permissions" ->
-            Json.obj(
-              "showPaid" -> showPaid
-            )
+    hasPermission(PandaUser(request.user), Permissions.ShowPaid) map { showPaid =>
+      respond(
+        Json.obj("user" ->
+          Json.obj(
+            "name" -> s"$firstName $lastName",
+            "firstName" -> firstName,
+            "lastName" -> lastName,
+            "email" -> user.email,
+            "avatarUrl" -> user.avatarUrl,
+            "permissions" ->
+              Json.obj(
+                "showPaid" -> showPaid
+              )
+          )
         )
       )
-    )
+    }
   }
 
 
