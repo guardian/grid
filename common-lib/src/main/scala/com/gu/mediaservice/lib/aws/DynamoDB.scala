@@ -59,7 +59,7 @@ class DynamoDB(config: CommonConfig, tableName: String) {
 
   def deleteItem(id: String)(implicit ex: ExecutionContext): Future[Unit] = Future {
     table.deleteItem(new DeleteItemSpec().withPrimaryKey(IdKey, id))
-  }.mapTo[Unit]
+  }
 
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Option[Boolean]] =
