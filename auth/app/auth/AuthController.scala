@@ -4,18 +4,21 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
+import com.gu.mediaservice.lib.auth.Authentication.PandaUser
 import com.gu.pandomainauth.service.GoogleAuthException
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.duration._
 import scala.util.Try
 
-class AuthController(auth: Authentication, config: AuthConfig,
+class AuthController(auth: Authentication, val config: AuthConfig,
                      override val controllerComponents: ControllerComponents)(implicit ec: ExecutionContext)
   extends BaseController
-  with ArgoHelpers {
+  with ArgoHelpers
+  with PermissionsHandler {
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
@@ -30,23 +33,28 @@ class AuthController(auth: Authentication, config: AuthConfig,
 
   def index = auth.AuthAction { indexResponse }
 
-  def session = auth.AuthAction { request =>
+  def session = auth.AuthAction.async { request =>
     val user = request.user
-
     val firstName = user.firstName
     val lastName = user.lastName
 
-    respond(
-      Json.obj("user" ->
-        Json.obj(
-          "name"      -> s"$firstName $lastName",
-          "firstName" -> firstName,
-          "lastName"  -> lastName,
-          "email"     -> user.email,
-          "avatarUrl" -> user.avatarUrl
+    hasPermission(PandaUser(request.user), Permissions.ShowPaid) map { showPaid =>
+      respond(
+        Json.obj("user" ->
+          Json.obj(
+            "name" -> s"$firstName $lastName",
+            "firstName" -> firstName,
+            "lastName" -> lastName,
+            "email" -> user.email,
+            "avatarUrl" -> user.avatarUrl,
+            "permissions" ->
+              Json.obj(
+                "showPaid" -> showPaid
+              )
+          )
         )
       )
-    )
+    }
   }
 
 

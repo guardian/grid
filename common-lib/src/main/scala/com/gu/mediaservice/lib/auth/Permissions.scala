@@ -21,6 +21,7 @@ object Permissions {
   val EditMetadata = Permission("edit_metadata", app, PermissionDenied)
   val DeleteImage = Permission("delete_image", app, PermissionDenied)
   val DeleteCrops = Permission("delete_crops", app, PermissionDenied)
+  val ShowPaid = Permission("show_paid", app, PermissionDenied)
 
   val all = Seq(EditMetadata, DeleteImage, DeleteCrops)
 }
