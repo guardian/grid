@@ -53,27 +53,27 @@
         </div>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" ng-disabled="ctrl.cropType"/>
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" ng-disabled="ctrl.cropType" name="aspect" />
             <gr-icon-label gr-icon="crop_landscape">Landscape</gr-icon-label> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [p]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" ng-disabled="ctrl.cropType"/>
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" ng-disabled="ctrl.cropType" name="portrait ratio" />
             <gr-icon-label gr-icon="crop_portrait">Portrait</gr-icon-label> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="video [v]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" ng-disabled="ctrl.cropType"/>
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" ng-disabled="ctrl.cropType" name="video ratio" />
             <gr-icon-label gr-icon="crop_16_9">Video</gr-icon-label> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="square [s]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.squareRatio}}" ng-disabled="ctrl.cropType"/>
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.squareRatio}}" ng-disabled="ctrl.cropType" name="square ratio" />
             <gr-icon-label gr-icon="crop_square">Square</gr-icon-label> ({{::ctrl.getRatioString(ctrl.squareRatio)}})
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="free-form [F]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" ng-disabled="ctrl.cropType"/>
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" ng-disabled="ctrl.cropType" name="free ratio" />
             <gr-icon-label gr-icon="crop_free">Free-form</gr-icon-label>
         </label>
 

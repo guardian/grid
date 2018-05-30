@@ -11,7 +11,7 @@ panelService.factory('panelService', ['storage', function (storage) {
         // TODO: Error on a client asking for that state, given that we don't expose a method
         // to do that it's okay.
         const locked = n.hidden === true ? false :
-            (angular.isDefined(n.locked) ? n.locked: o.locked);
+            (angular.isDefined(n.locked) ? n.locked : o.locked);
         const hidden = n.locked === true ? false :
             (angular.isDefined(n.hidden) ? n.hidden : o.hidden);
 

@@ -155,7 +155,6 @@ grChips.controller('grChipsCtrl', ['$scope', function($scope) {
         // If chip to remove is focused, move focus right before or after
         const removedItem = $grChipsCtrl.items[index];
         if (removedItem === $grChipsCtrl.focusedItem) {
-            /* jshint expr: true */
             $grChipsCtrl.focusEndOfChipBefore(removedItem) ||
                 $grChipsCtrl.focusStartOfChipAfter(removedItem);
         }
