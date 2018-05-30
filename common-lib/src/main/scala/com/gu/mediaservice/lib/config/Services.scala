@@ -25,6 +25,8 @@ class Services(val domainRoot: String, isProd: Boolean) {
   val leasesBaseUri      = baseUri(leasesHost)
   val authBaseUri        = baseUri(authHost)
 
+  val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
+
   val toolsDomains: Set[String] = if(isProd) {
     Set(domainRoot)
   } else {

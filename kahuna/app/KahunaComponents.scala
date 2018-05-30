@@ -27,7 +27,8 @@ object KahunaSecurityConfig {
       config.services.usageBaseUri,
       config.services.collectionsBaseUri,
       config.services.leasesBaseUri,
-      config.services.authBaseUri
+      config.services.authBaseUri,
+      config.services.guardianWitnessBaseUri
     )
 
     val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"

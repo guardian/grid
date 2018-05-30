@@ -55,7 +55,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
       Link("loader",          config.loaderUri),
       Link("edits",           config.metadataUri),
       Link("session",         s"${config.authUri}/session"),
-      Link("witness-report",  s"https://n0ticeapis.com/2/report/{id}"),
+      Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri)
