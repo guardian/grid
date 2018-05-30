@@ -1,11 +1,10 @@
 import {fieldFilter, maybeQuoted} from '../query-filter';
 import {getLabel, getCollection} from '../../search-query/query-syntax';
 
-// Line too long for jshint, but can't break it down..
-/*jshint -W101 */
+// Line too long for eslint, but can't break it down..
+/*eslint-disable max-len */
 const parserRe = /(-?)(?:(?:([a-zA-Z@><]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([a-zA-Z0-9]+)|"([^"]*)"|'([^']*)')/g;
-/*jshint +W101 */
-
+/*eslint-enable max-len */
 // TODO: expose the server-side query parser via an API instead of
 // replicating it poorly here
 export function structureQuery(query) {
