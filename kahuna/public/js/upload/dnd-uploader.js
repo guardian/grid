@@ -135,8 +135,10 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 
                 // or `data` (uris etc) ondragenter, only drop.
                 const types       = Array.from(e.dataTransfer.types);
 
-                // Dragging out of the Firefox URL bar uses a Mozilla specific MIME type without text/uri-list as a fallback
-                const isUri       = hasType(types, 'text/uri-list') || hasType(types, 'text/x-moz-url');
+                // Dragging out of the Firefox URL bar uses a Mozilla specific MIME type without
+                // text/uri-list as a fallback
+                const isUri = hasType(types, 'text/uri-list') || hasType(types, 'text/x-moz-url');
+
                 const hasFiles    = hasType(types, 'Files');
                 const isGridImage = hasGridMimetype(types);
 
