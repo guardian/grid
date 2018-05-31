@@ -40,6 +40,13 @@
     width: 365px;
     background: #444;
     z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.collection-overlay__collections__heading-text {
+  margin: 0 10px 0 0;
 }
 
 .collection-overlay__collections gr-collection-tree > :first-child {
