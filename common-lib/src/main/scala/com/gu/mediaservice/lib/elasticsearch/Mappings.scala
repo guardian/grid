@@ -107,6 +107,23 @@ object Mappings {
     "suppliers" -> standardAnalysedString
   )
 
+  val syndicationRightsMapping = nonDynamicObj(
+    "published" -> dateFormat,
+    "properties" -> syndicationRightsPropertiesMapping
+  )
+
+  val syndicationRightsListMapping = nonDynamicObj(
+    "rightCode" -> nonAnalyzedString,
+    "acquired" -> boolean,
+    "properties" -> syndicationRightsPropertiesMapping
+  )
+
+  val syndicationRightsPropertiesMapping = nonDynamicObj(
+    "propertyCode" -> nonAnalyzedString,
+    "expiresOn" -> dateFormat,
+    "value" -> nonAnalyzedString
+  )
+
   val exportsMapping =
     nonDynamicObj(
       "id" -> nonAnalyzedString,
@@ -228,6 +245,7 @@ object Mappings {
           "metadata" -> metadataMapping,
           "originalMetadata" -> metadataMapping,
           "usageRights" -> usageRightsMapping,
+          "syndicationRights" -> syndicationRightsMapping,
           "originalUsageRights" -> usageRightsMapping,
           "source" -> assetMapping,
           "thumbnail" -> assetMapping,
