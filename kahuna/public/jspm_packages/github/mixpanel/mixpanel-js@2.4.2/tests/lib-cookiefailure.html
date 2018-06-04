@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="vendor/qunit.css" type="text/css" media="screen">
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+        <script type="text/javascript" src="vendor/jquery.qunit.js?v=159"></script>
+        <script type="text/javascript" src="vendor/sinon.js?v=159"></script>
+        <script type="text/javascript" src="vendor/underscore.js"></script>
+        <script type="text/javascript">window.COOKIE_FAILURE_TEST = true;</script>
+        <script type="text/javascript" src="test.js"></script>
+        <link rel="stylesheet" type="text/css" href="tests.css">
+    </head>
+    <body>
+        <h1 id="qunit-header">lib 2.2 (cookie cannot be set) <a id="other-test" href="/tests/">other tests</a></h1>
+        <h2 id="qunit-banner"></h2>
+        <div id="qunit-testrunner-toolbar"></div>
+        <h2 id="qunit-userAgent"></h2>
+        <ol id="qunit-tests"></ol>
+        <div id="qunit-fixture"></div>
+        <script>window.MIXPANEL_CUSTOM_LIB_URL = '../mixpanel.js';</script>
+        <script type="text/javascript" src="../mixpanel-jslib-snippet.js"></script>
+        <script type="text/javascript">
+            function redirect(url) {
+                if (/MSIE (\d+\.\d+);/.test(navigator.userAgent)){
+                    var referLink = document.createElement('a');
+                    referLink.href = url;
+                    document.body.appendChild(referLink);
+                    referLink.click();
+                } else {
+                    window.location = url;
+                }
+            }
+
+            if (!document.referrer) {
+                // force referrer for tests
+                redirect(window.location + "?ref");
+            }
+            $('#qunit-tests').addClass('hidepass')
+
+            mixpanel.init("MIXPANEL_TOKEN",
+            {
+                cookie_name: "test",
+                reset_cookie: true,
+                debug: true,
+                loaded: function(mixpanel) {
+                    // monkey-patch cookie set to use incorrect domain
+                    mixpanel._.cookie.set = function(name, value, days, cross_subdomain, is_secure) {
+                        var cdomain = "", expires = "", secure = "";
+
+                        if (cross_subdomain) {
+                            cdomain = "; domain=.incorrectdomain.com";
+                        }
+
+                        if (days) {
+                            var date = new Date();
+                            date.setTime(date.getTime()+(days*24*60*60*1000));
+                            expires = "; expires=" + date.toGMTString();
+                        }
+
+                        if (is_secure) {
+                            secure = "; secure";
+                        }
+
+                        document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/" + cdomain + secure;
+                    };
+                    test_mixpanel(mixpanel);
+                }
+            });
+
+            test_async(mixpanel);
+        </script>
+    </body>
+</html>

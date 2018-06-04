@@ -1,0 +1,25 @@
+{
+  "name": "rxjs-dom",
+  "version": "6.0.0",
+  "main": [
+    "dist/rx.dom.js",
+    "dist/rx.dom.compat.js"
+  ],
+  "dependencies": {
+    "rxjs": "*"
+  },
+  "ignore": [
+    ".*",
+    "*.bat",
+    "*.md",
+    "*.min.*",
+    "*.txt",
+    "*.log",
+    "package.json",
+    "node_modules",
+    "doc",
+    "examples",
+    "src",
+    "tests"
+  ]
+}

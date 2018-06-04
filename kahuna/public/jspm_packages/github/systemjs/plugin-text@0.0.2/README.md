@@ -1,0 +1,4 @@
+plugin-text
+===========
+
+Text plugin

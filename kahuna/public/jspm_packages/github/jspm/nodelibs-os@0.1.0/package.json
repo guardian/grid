@@ -1,0 +1,6 @@
+{
+  "registry": "npm",
+  "dependencies": {
+    "os-browserify": "^0.1.2"
+  }
+}

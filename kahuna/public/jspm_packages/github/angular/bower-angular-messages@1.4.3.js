@@ -1,0 +1,1 @@
+module.exports = require("github:angular/bower-angular-messages@1.4.3/index.js");

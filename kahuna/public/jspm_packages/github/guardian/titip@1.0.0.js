@@ -1,0 +1,1 @@
+module.exports = require("github:guardian/titip@1.0.0/dist/css/titip.css!");

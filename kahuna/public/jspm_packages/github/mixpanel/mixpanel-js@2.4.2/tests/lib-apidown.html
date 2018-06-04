@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="vendor/qunit.css" type="text/css" media="screen">
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+        <script type="text/javascript" src="vendor/jquery.qunit.js?v=159"></script>
+        <script type="text/javascript" src="vendor/sinon.js?v=159"></script>
+        <script type="text/javascript" src="vendor/underscore.js"></script>
+        <script type="text/javascript" src="test.js"></script>
+        <link rel="stylesheet" type="text/css" href="tests.css">
+    </head>
+    <body>
+        <h1 id="qunit-header">lib 2.2 (API down) <a id="other-test" href="/tests/">other tests</a></h1>
+        <h2 id="qunit-banner"></h2>
+        <div id="qunit-testrunner-toolbar"></div>
+        <h2 id="qunit-userAgent"></h2>
+        <ol id="qunit-tests"></ol>
+        <div id="qunit-fixture"></div>
+        <script type="text/javascript">
+            window.onload_ran = false;
+            window.lib_onload_ran = false;
+            window.onload = function() { window.onload_ran = true; };
+
+            asyncTest('onload functions fire within 5 seconds when api "down"', 2, function() {
+                setTimeout(function() {
+                   ok(window.onload_ran, 'window.onload ran');
+                   ok(window.lib_onload_ran, 'mixpanel lib onload ran');
+                   start();
+                }, 5000);
+            });
+        </script>
+        <script>window.MIXPANEL_CUSTOM_LIB_URL = '../mixpanel.js';</script>
+        <script type="text/javascript" src="../mixpanel-jslib-snippet.js"></script>
+        <script type="text/javascript">
+            mixpanel.init("4874fb5a6ac20d3c883349defcfb9c99",
+            {
+                cookie_name: "test",
+                reset_cookie: true,
+                debug: true,
+
+                // make it fail
+                api_host: 'http://1.2.3.4',
+                track_pageview: true,
+                img: false,
+
+                loaded: function(mixpanel) { window.lib_onload_ran = true; }
+            });
+            QUnit.done = function(details) {
+                mixpanel.cookie.clear();
+            };
+        </script>
+    </body>
+</html>

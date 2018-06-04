@@ -1,0 +1,14 @@
+﻿.titip-skin(@color; @bg-color; @border-color) {
+    &[class*="titip"][data-title]:before,
+    > .titip-content:before {
+        border-color:@bg-color;
+    }
+    &[class*="titip"][data-title]:after,
+    > .titip-content {
+        background-color: @bg-color;
+        color: @color;
+    }
+    > .titip-content {
+        border-color:@border-color;
+    }
+}

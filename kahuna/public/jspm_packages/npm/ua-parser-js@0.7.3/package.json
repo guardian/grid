@@ -1,0 +1,74 @@
+{
+  "title": "UAParser.js",
+  "name": "ua-parser-js",
+  "version": "0.7.3",
+  "author": "Faisal Salman <fyzlman@gmail.com> (http://faisalman.com)",
+  "description": "Lightweight JavaScript-based user-agent string parser",
+  "keywords": [
+    "user-agent",
+    "parser",
+    "browser",
+    "engine",
+    "os",
+    "device",
+    "cpu"
+  ],
+  "homepage": "http://github.com/faisalman/ua-parser-js",
+  "contributors": [
+    "Faisal Salman <fyzlman@gmail.com>",
+    "Benjamin Bertrand <bertrand.design@gmail.com>",
+    "Carl C Von Lewin <carlchristianlewin@gmail.com>",
+    "Christopher De Cairos <chris.decairos@gmail.com>",
+    "Davit Barbakadze <jayarjo@gmail.com>",
+    "Dmitry Tyschenko <dtyschenko@gmail.com>",
+    "Douglas Li <doug@knotch.it>",
+    "Dumitru Uzun <duzun@mail.ru>",
+    "Erik Hesselink <hesselink@gmail.com>",
+    "Fabian Becker <halfdan@xnorfz.de>",
+    "Hendrik Helwich <h.helwich@iplabs.de>",
+    "Jackpoll <jackpoll123456@gmail.com>",
+    "Jake Mc <startswithaj@users.noreply.github.com>",
+    "John Tantalo <john.tantalo@gmail.com>",
+    "John Yanarella <jmy@codecatalyst.com>",
+    "Jon Buckley <jon@jbuckley.ca>",
+    "Kendall Buchanan <kendall@kendagriff.com>",
+    "Lee Treveil <leetreveil@gmail.com>",
+    "Leonardo <leofiore@libero.it>",
+    "Max Maurer <maxemanuel.maurer@gmail.com>",
+    "Michael Hess <mhess@connectify.me>",
+    "OtakuSiD <otakusid@gmail.com>",
+    "Ross Noble <rosshnoble@gmail.com>",
+    "Sandro Sonntag <sandro.sonntag@adorsys.de>"
+  ],
+  "main": "src/ua-parser.js",
+  "scripts": {
+    "test": "./build/build.sh"
+  },
+  "devDependencies": {
+    "jshint": "~1.1.0",
+    "mocha": "~1.8.0",
+    "uglify-js": "~1.3.4"
+  },
+  "repository" : {
+    "type": "git",
+    "url": "https://github.com/faisalman/ua-parser-js.git"
+  },
+  "licenses": [
+    {
+      "type": "GPLv2",
+      "url": "http://www.gnu.org/licenses/gpl-2.0.html"
+    },
+    {
+      "type": "MIT",
+      "url": "http://www.opensource.org/licenses/mit-license.php"
+    }
+  ],
+  "engines": {
+    "node": "*"
+  },
+  "directories": {
+    "dist": "dist",
+    "src": "src",
+    "test": "test"
+  }
+}

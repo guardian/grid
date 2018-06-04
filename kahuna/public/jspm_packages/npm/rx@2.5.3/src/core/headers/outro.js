@@ -1,0 +1,3 @@
+/* */ 
+"format cjs";
+}.call(this));

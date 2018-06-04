@@ -1,0 +1,1 @@
+module.exports = require("npm:ua-parser-js@0.7.3/src/ua-parser.js");

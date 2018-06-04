@@ -1,0 +1,1 @@
+module.exports = require("npm:uri-templates@0.1.5/uri-templates.js");

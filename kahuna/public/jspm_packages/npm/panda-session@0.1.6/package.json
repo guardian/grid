@@ -1,0 +1,18 @@
+{
+  "name": "panda-session",
+  "version": "0.1.6",
+  "description": "Helper library to re-establish a pan-domain auth (aka panda) session",
+  "keywords": [
+    "panda",
+    "pan-domain",
+    "authentication"
+  ],
+  "homepage": "https://github.com/guardian/panda-session",
+  "main": "src/session.js",
+  "author": "Sébastien Cevey <seb.cevey@guardian.co.uk>",
+  "license": "Apache-2",
+  "jspm": {
+    "registry": "jspm",
+    "format": "es6"
+  }
+}

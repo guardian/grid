@@ -119,10 +119,17 @@ object Mappings {
     "properties" -> syndicationRightsPropertiesMapping
   )
 
+  val suppliersMapping = nonDynamicObj(
+    "supplierId" -> nonAnalyzedString,
+    "supplierName" -> nonAnalyzedString
+  )
+
   val syndicationRightsMapping = nonDynamicObj(
     "published" -> dateFormat,
-    "properties" -> syndicationRightsPropertiesMapping
+    "suppliers" -> suppliersMapping,
+    "rights" -> syndicationRightsListMapping
   )
+
   val exportsMapping =
     nonDynamicObj(
       "id" -> nonAnalyzedString,

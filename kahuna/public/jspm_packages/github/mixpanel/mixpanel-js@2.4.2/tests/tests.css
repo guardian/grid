@@ -1,0 +1,7 @@
+#other-test {
+    float: right;
+    margin-right: 10px;
+}
+#mixpanel-notification-wrapper #mixpanel-notification-overlay {
+    display: none;
+}

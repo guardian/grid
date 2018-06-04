@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta charset="utf-8">
+  <title>RxJS for AngularJS Rocks</title>
+  <link rel="stylesheet" href="http://ajax.aspnetcdn.com/ajax/bootstrap/3.2.0/css/bootstrap.min.css">
+</head>
+<body ng-app="example">
+  <div class="container" ng-controller="AppCtrl">
+    <form>
+      <h2>Reactive Angular - Wikipedia Example</h2>
+      <input type="text" ng-model="search">
+    </form>
+
+    <ul>
+      <li ng-repeat="result in results">
+        {{ result }}
+      </li>
+    </ul>
+
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/rxjs/2.2.27/rx.lite.compat.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.2.19/angular.min.js"></script>
+    <script src="../../dist/rx.angular.js"></script>
+    <script src="app.js"></script>
+  </div>
+</body>
+</html>

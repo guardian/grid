@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <meta name="author" content="">    
+    <title>Rx for JavaScript Rocks!</title>
+    <link rel="stylesheet" href="../vendor/bootstrap-3.2.0/css/bootstrap.min.css">
+    <!--[if lt IE 9]>
+      <script src="../vendor/html5shiv-3.7.2/html5shiv.min.js"></script>
+      <script src="../vendor/respond-1.4.2/respond.min.js"></script>
+    <![endif]-->   
+</head>
+
+<body>
+    <div id="textContainer"></div>
+    <div class="container">
+        <div class="page-header">
+            <h1>Mutation Observer Scheduler Example</h1>
+            <p class="lead">Example to show using the Mutation Observer scheduler</p>
+        </div>
+        <div class="row">    
+            <ul id="results"></ul>
+        </div>        
+    </div>    
+    <!--[if lt IE 9]>
+    <script src="../../node_modules/rx/dist/rx.lite.compat.js"></script>
+    <![endif]--> 
+    <!--[if gte IE 9]><!-->        
+    <script src="../../node_modules/rx/dist/rx.lite.js"></script>
+    <!--<![endif]-->
+    <script src="../../dist/rx.dom.js"></script>
+    <script src="mutationobserverscheduler.js"></script>
+</body>
+</html>

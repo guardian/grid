@@ -1,0 +1,17 @@
+{
+    "Custom Examples 1": {
+        "variables": {
+            "path": "a/b/c",
+            "path2": "/a/b",
+            "query": {"abc": 123},
+            "date": "20140101",
+            "id": "1",
+            "page": null
+        },
+        "testcases": [
+            ["{path}{?query*}", "a%2Fb%2Fc?abc=123"],
+            ["{+path}{?query*}", "a/b/c?abc=123"],
+            ["{+path2}/c/capture{/date,id,page}", "/a/b/c/capture/20140101/1"]
+        ]
+    }
+}

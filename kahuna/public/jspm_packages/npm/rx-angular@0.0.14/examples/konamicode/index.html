@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html ng-app="example">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Rx for AngularJS Rocks!</title>
+    <link rel="stylesheet" href="http://ajax.aspnetcdn.com/ajax/bootstrap/3.2.0/css/bootstrap.min.css">
+</head>
+<body ng-controller="AppCtrl" konami-code="result()">
+    <div class="container">
+        <div class="page-header">
+            <h1>RxJS for AngularJS Bindings Konami Code example</h1>
+            <p class="lead">Example to show the Konami Code in action!</p>
+        </div>
+        <div class="row">
+            <h3>Enter the Konami Code</h3>
+            <p>Up Up Down Down Left Right Left Right B A</p>
+        </div>
+        <div class="row">
+            <h1 ng-if="konami">
+                KONAMI
+            </h1>
+        </div>
+    </div>
+    <!-- make sure you include angular before Rx -->
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.2.19/angular.js"></script>
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/rxjs/2.2.27/rx.all.js"></script>
+    <script src="../../dist/rx.angular.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

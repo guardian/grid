@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>RxJS-Bridges-Angular</id>
+    <title>Reactive Extensions for JavaScript - Bridges to AngularJS</title>
+    <!-- Automatically updated by build, keeping fixed dev build number here in case of local build -->
+    <version>0.0.3</version>
+    <authors>MS Open Tech</authors>
+    <description>This project provides Reactive Extensions for JavaScript (RxJS) bindings for AngularJS.</description>
+    <projectUrl>https://github.com/Reactive-Extensions/rx.angular.js</projectUrl>
+    <iconUrl>http://go.microsoft.com/fwlink/?LinkId=261274</iconUrl>
+    <requireLicenseAcceptance>true</requireLicenseAcceptance>
+    <licenseUrl>http://www.apache.org/licenses/LICENSE-2.0.html</licenseUrl>
+    <language>en-US</language>
+    <tags>Rx RxJS Reactive Extensions Observable AngularJS Angular</tags>
+    <dependencies>
+      <!-- Automatically updated by build, keeping fixed dev build number here in case of local build -->
+      <dependency id="RxJS-Main" version="2.2" />
+      <dependency id="RxJS-Binding" version="2.2" />
+      <dependency id="RxJS-Async" version="2.2" />
+      <dependency id="RxJS-Lite" version="2.2" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="..\..\dist\rx.angular.js" target="content\Scripts\rx.angular.js" />
+    <file src="..\..\dist\rx.angular.min.js" target="content\Scripts\rx.angular.min.js" />
+  </files>
+</package>

@@ -1,0 +1,1 @@
+To make element editable via textbox just add `editable-text="model.field"` attribute.

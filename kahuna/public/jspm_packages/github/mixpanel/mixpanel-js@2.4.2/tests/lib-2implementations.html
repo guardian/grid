@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="vendor/qunit.css" type="text/css" media="screen">
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+        <script type="text/javascript" src="vendor/jquery.qunit.js?v=159"></script>
+        <script type="text/javascript" src="vendor/sinon.js?v=159"></script>
+        <script type="text/javascript" src="vendor/underscore.js"></script>
+        <script type="text/javascript" src="test.js"></script>
+        <link rel="stylesheet" type="text/css" href="tests.css">
+    </head>
+    <body>
+        <h1 id="qunit-header">lib 2.2 (two implementations) <a id="other-test" href="/tests/">other tests</a></h1>
+        <h2 id="qunit-banner"></h2>
+        <div id="qunit-testrunner-toolbar"></div>
+        <h2 id="qunit-userAgent"></h2>
+        <ol id="qunit-tests"></ol>
+        <div id="qunit-fixture"></div>
+        <script type="text/javascript">
+            var value = Math.random();
+            var mixpanel = [['register', { 'test_value': value }]];
+            mixpanel.people = [function() { this.val_to_change = 42; }];
+        </script>
+        <script>window.MIXPANEL_CUSTOM_LIB_URL = '../mixpanel.js';</script>
+        <script type="text/javascript" src="../mixpanel-jslib-snippet.js"></script>
+        <script type="text/javascript">
+            // Test that the base lib is correctly initialized
+            mixpanel.init("4874fb5a6ac20d3c883349defcfb9c99",
+            {
+                cookie_name: "test",
+                reset_cookie: true,
+                debug: true,
+                loaded: function(mixpanel) {
+                    test('Existing array parsed', 1, function() {
+                        same(mixpanel.cookie.props.test_value, value, "Initial super property was set correctly");
+                    });
+                    test('People array parsed', 1, function() {
+                        same(mixpanel.people.val_to_change, 42, "Function pushed onto people array was called");
+                    });
+                }
+            });
+
+            // Test that additional libs are correctly initialized
+            var val2 = Math.random();
+            var lib_loaded = false, vals_preinited = false;
+            mixpanel.init("76ftyh",
+            {
+                cookie_name: "test_additional",
+                reset_cookie: true,
+                debug: true,
+                loaded: function(instance) {
+                    lib_loaded = true;
+                    if (vals_preinited) {
+                        test('Existing array parsed', 1, function() {
+                            same(instance.cookie.props['test val 1'], val2, "Initial super property was set correctly");
+                        });
+                        test('People array parsed', 1, function() {
+                            same(instance.people.val_to_change, 41, "Function pushed onto people array was called");
+                        });
+                    }
+                    instance.set_config({api_host: 'https://api.mixpanel.com'});
+                    test('Setting api_host to https in init callback works', function() {
+                        stop();
+                        instance.track("some event", {}, function(response) {
+                            same(response, 1, "tracking event to https should succeed");
+                            start();
+                        });
+                    });
+                }
+            }, "additional");
+            if (!lib_loaded) {
+                mixpanel.additional.register({ 'test val 1': val2 });
+                mixpanel.additional.people.push(function() { this.val_to_change = 41 });
+            }
+            vals_preinited = true;
+
+            // Have to save these now, because qunit doesn't actually run until much later.
+            var later_tests = [
+                [mixpanel.toString(), "mixpanel (stub)"],
+                [mixpanel.people.toString(), "mixpanel.people (stub)"],
+                [mixpanel.additional.toString(), "mixpanel.additional (stub)"],
+                [mixpanel.additional.people.toString(), "mixpanel.additional.people (stub)"]
+            ];
+
+            if (!lib_loaded) {
+                test("stub toString", later_tests.length, function() {
+                    _.each(later_tests, function(test) {
+                        same(test[0], test[1]);
+                    });
+                });
+            }
+
+            QUnit.done = function(details) {
+                mixpanel.cookie.clear();
+                mixpanel.additional.cookie.clear();
+            };
+        </script>
+    </body>
+</html>

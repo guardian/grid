@@ -1,0 +1,37 @@
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/asyncintro.js:33:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/asyncintro.js:33:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/asyncintro.js:33:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/intro.js:29:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/intro.js:29:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/liteintro.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/liteintro.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/liteintro.js:32:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/liteintro-compat.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/liteintro-compat.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/liteintro-compat.js:32:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/litetestintro-compat.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/litetestintro-compat.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/litetestintro-compat.js:32:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/litetestintro.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/litetestintro.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/litetestintro.js:32:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/outro.js:1:1: Unexpected token }
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/subintro.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/subintro.js:32:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/subintro.js:32:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/suboutro.js:1:5: Illegal return statement
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/suboutro.js:2:1: Unexpected token }
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/testintro.js:33:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/testintro.js:33:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/headers/testintro.js:33:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx@2.5.3/src/core/internal/deprecate.js:5:1: Unexpected token End of File

@@ -1,0 +1,33 @@
+{
+  "name": "titip",
+  "version": "0.0.1",
+  "authors": [
+    "mehmetotkun <info@angularui.net>"
+  ],
+  "description": "Pure CSS tooltip with 8 placements, 6 themes and and 12 effects.",
+  "main": [
+    "less/titip.less",
+    "dist/css/titip.css"
+  ],
+  "keywords": [
+    "tooltip",
+    "less",
+    "css",
+    "angularui",
+    "pure css",
+    "effect",
+    "animation",
+    "web"
+  ],
+  "license": "MIT",
+  "homepage": "http://quantumui.org",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+  }
+}

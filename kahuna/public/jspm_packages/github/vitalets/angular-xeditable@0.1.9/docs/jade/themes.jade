@@ -1,0 +1,77 @@
+:markdown
+  There are several themes that can be used to style editable controls.
+
+section#bootstrap3
+h2 Bootstrap 3
+:markdown
+  Include [Bootstrap 3](http://getbootstrap.com) CSS
+
+pre.prettyprint
+  = '<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">'
+
+:markdown
+  Set theme in `app.run`:
+
+pre.prettyprint.
+  app.run(function(editableOptions) {
+    editableOptions.theme = 'bs3';
+  });
+
+:markdown
+  To have smaller or bigger controls modify `inputClass` and `buttonsClass` properties of theme:
+
+pre.prettyprint.
+  app.run(function(editableOptions, editableThemes) {
+    editableThemes.bs3.inputClass = 'input-sm';
+    editableThemes.bs3.buttonsClass = 'btn-sm';
+    editableOptions.theme = 'bs3';
+  });
+
+section#bootstrap2
+h2 Bootstrap 2
+:markdown
+  Include [Bootstrap 2](http://getbootstrap.com/2.3.2) CSS
+
+pre.prettyprint
+  = '<link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.2/css/bootstrap-combined.min.css" rel="stylesheet">'
+
+:markdown
+  Set theme in `app.run`:
+
+pre.prettyprint.
+  app.run(function(editableOptions) {
+    editableOptions.theme = 'bs2';
+  });
+
+section#default
+h2 Default
+:markdown
+  No additional CSS required.  
+  You can customize theme in `app.run` by overwriting properties:
+
+pre.prettyprint.
+  app.run(function(editableOptions, editableThemes) {
+    // set `default` theme
+    editableOptions.theme = 'default';
+
+    // overwrite submit button template
+    editableThemes['default'].submitTpl = '&lt;button type="submit"&gt;ok&lt;/button&gt;';
+  });
+
+:markdown
+  Available properties of each theme you can see in source
+  [themes.js](https://github.com/vitalets/angular-xeditable/tree/master/src/js/themes.js)
+
+  To change appearance of editable links you should overwrite CSS:
+
+pre.prettyprint.
+  a.editable-click { 
+      color: green;
+      border-bottom: dotted 2px green;
+  }
+  a.editable-click:hover { 
+      color: #47a447;
+      border-bottom-color: #47a447;
+  }
+
+a.btn.btn-info(href="http://jsfiddle.net/NfPcH/48/", target="_blank") View customized theme in jsFiddle

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="vendor/qunit.css" type="text/css" media="screen">
+        <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+        <script type="text/javascript" src="vendor/jquery.qunit.js?v=159"></script>
+        <script type="text/javascript" src="vendor/sinon.js?v=159"></script>
+        <script type="text/javascript" src="vendor/underscore.js"></script>
+        <script type="text/javascript" src="test.js"></script>
+        <link rel="stylesheet" type="text/css" href="tests.css">
+        <script>window.MIXPANEL_CUSTOM_LIB_URL = '../mixpanel.js';</script>
+        <script type="text/javascript" src="../mixpanel-jslib-snippet.js"></script>
+        <script type="text/javascript">
+            if (document.referrer) {
+
+                var called_all_mixpanel_functions = false;
+
+                mixpanel.init("MIXPANEL_HEADCALLS_TOKEN", {
+                    cookie_name: "headtest",
+                    reset_cookie: true,
+                    debug: true,
+                    loaded: function(headtest) {
+                        test('functions queued in <head> before lib loads are later executed successfully', 7, function() {
+                            stop(); stop();
+                            ok(headtest._flags.identify_called);
+                            headtest.track("purchase llamas", {}, function(response) {
+                                same(response, 0, "tracking disabled event should fail");
+                                start();
+                            });
+                            headtest.track("purchase capybaras", {}, function(response) {
+                                same(response, 1, "tracking enabled event should succeed");
+                                start();
+                            });
+                            var props = headtest.cookie.properties();
+                            ok(props.wombat);
+                            ok(!props.wookie);
+                            same(headtest.config.track_links_timeout, 200);
+                            ok(props.distinct_id === 'q-bert' || props.distinct_id === 'spyhunter');
+                        });
+
+                        test('functions continue to work after lib loads', 6, function() {
+                            headtest.disable(['purchase capybaras']);
+                            headtest.track("purchase capybaras", {}, function(response) {
+                                same(response, 0, "tracking disabled event should fail");
+                            });
+                            headtest.track_links("#nav", "Clicked Nav Link redux");
+                            headtest.track_forms("#myform", "Submitted my form redux");
+                            headtest.register({wombat: true, wookie: 1521});
+                            headtest.register_once({wombat: false});
+                            headtest.unregister('wombat');
+                            headtest.set_config({track_links_timeout: 300});
+
+                            headtest.alias('bentley');
+                            headtest.identify('defender');
+
+                            s = headtest.people.set({purchases: 5}, function(resp) {
+                                same(resp, 1, "responded with 'success'");
+                            });
+                            same(s['$set'].purchases, 5);
+                            headtest.people.set_once({purchases: 2});
+                            headtest.people.increment('purchases');
+                            headtest.people.append({'dragon': 'ninja'});
+                            headtest.people.track_charge(19.99);
+                            headtest.people.clear_charges();
+                            headtest.people.delete_user();
+
+                            var props = headtest.cookie.properties();
+                            ok(!props.wombat);
+                            same(props.wookie, 1521);
+                            same(headtest.config.track_links_timeout, 300);
+                            ok(props.distinct_id === 'bentley' || props.distinct_id === 'defender');
+                        });
+                    }
+                }, 'headtest');
+
+                // test is executed later; queue it up here to check that the rest of this
+                // block executes immediately and successfully
+                test('all functions are queued before loading without stopping execution', function() {
+                    ok(called_all_mixpanel_functions);
+                });
+                asyncTest('mixpanel lib loads successfully', function() {
+                    setTimeout(function() {
+                        ok(window.mixpanel.headtest.__loaded);
+                        start();
+                    }, 2000);
+                });
+
+                mixpanel.headtest.disable(['purchase llamas']);
+                mixpanel.headtest.track('another event');
+                mixpanel.headtest.track_links("#nav", "Clicked Nav Link");
+                mixpanel.headtest.track_forms("#myform", "Submitted my form");
+                mixpanel.headtest.register({wombat: true, wookie: 1516});
+                mixpanel.headtest.register_once({wombat: false});
+                mixpanel.headtest.unregister('wookie');
+                mixpanel.headtest.set_config({track_links_timeout: 200});
+
+                mixpanel.headtest.alias('spyhunter');
+                mixpanel.headtest.identify('q-bert');
+
+                mixpanel.headtest.people.set({purchases: 5});
+                mixpanel.headtest.people.set_once({purchases: 2});
+                mixpanel.headtest.people.increment('purchases');
+                mixpanel.headtest.people.append({'bad': 'dudes'});
+                mixpanel.headtest.people.track_charge(89.99);
+                mixpanel.headtest.people.clear_charges();
+                mixpanel.headtest.people.delete_user();
+
+                called_all_mixpanel_functions = true;
+
+                QUnit.done = function(details) {
+                    mixpanel.headtest.cookie.clear();
+                };
+            }
+        </script>
+    </head>
+    <body>
+        <script type="text/javascript">
+            function redirect(url) {
+                window.location.href = url;
+                if (/MSIE (\d+\.\d+);/.test(navigator.userAgent)) {
+                    var referLink = document.createElement('a');
+                    referLink.href = url;
+                    document.body.appendChild(referLink);
+                    referLink.click();
+                } else {
+                    window.location = url;
+                }
+            }
+
+            if (!document.referrer) {
+                // force referrer for tests
+                redirect(window.location + "?ref");
+            }
+        </script>
+        <h1 id="qunit-header">lib 2.2 (mixpanel calls in head tag) <a id="other-test" href="/tests/">other tests</a></h1>
+        <h2 id="qunit-banner"></h2>
+        <div id="qunit-testrunner-toolbar"></div>
+        <h2 id="qunit-userAgent"></h2>
+        <ol id="qunit-tests"></ol>
+        <div id="qunit-fixture"></div>
+        <div id="nav"/>
+        <div id="myform"/>
+    </body>
+</html>

@@ -1,0 +1,6 @@
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx-angular@0.0.14/src/intro.js:33:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx-angular@0.0.14/src/intro.js:33:1: Unexpected token End of File
+/Users/mliviachiorean/.jspm/packages/npm/rx-angular@0.0.14/src/intro.js:33:1: Unexpected token End of File
+
+MultipleErrors: /Users/mliviachiorean/.jspm/packages/npm/rx-angular@0.0.14/src/outro.js:1:3: Illegal return statement
+/Users/mliviachiorean/.jspm/packages/npm/rx-angular@0.0.14/src/outro.js:2:1: Unexpected token }

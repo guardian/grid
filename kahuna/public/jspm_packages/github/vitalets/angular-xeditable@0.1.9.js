@@ -1,0 +1,1 @@
+module.exports = require("github:vitalets/angular-xeditable@0.1.9/dist/js/xeditable");

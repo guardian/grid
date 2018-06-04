@@ -1,0 +1,25 @@
+﻿.titip-default {
+  .titip-skin(@btn-default-color; @btn-default-bg; @btn-default-border);
+  &[class*="titip"][data-title]:before {
+        border-color:darken(@btn-default-bg, 2%);
+    }
+}
+.titip-primary {
+  .titip-skin(@btn-primary-color; @btn-primary-bg; @btn-primary-border);
+}
+// Success appears as green
+.titip-success {
+  .titip-skin(@btn-success-color; @btn-success-bg; @btn-success-border);
+}
+// Info appears as blue-green
+.titip-info {
+  .titip-skin(@btn-info-color; @btn-info-bg; @btn-info-border);
+}
+// Warning appears as orange
+.titip-warning {
+  .titip-skin(@btn-warning-color; @btn-warning-bg; @btn-warning-border);
+}
+// Danger and error appear as red
+.titip-danger {
+  .titip-skin(@btn-danger-color; @btn-danger-bg; @btn-danger-border);
+}

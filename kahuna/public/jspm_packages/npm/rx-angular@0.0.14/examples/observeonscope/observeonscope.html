@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta charset="utf-8">
+  <title>RxJS for AngularJS Rocks</title>
+  <link rel="stylesheet" href="http://ajax.aspnetcdn.com/ajax/bootstrap/3.2.0/css/bootstrap.min.css">
+</head>
+<body ng-app="observeOnScopeApp">
+  <div class="container" ng-controller="AppCtrl">
+    <h2>Reactive Angular</h2>
+    <ul class="list-unstyled">
+      <li>observedChange {{ observedChange }}</li>
+      <li>newValue: {{ newValue }}</li>
+      <li>oldValue: {{ oldValue }}</li>
+    </ul>
+
+    <input type="text" ng-model="name" />
+    <script src="http://cdnjs.cloudflare.com/ajax/libs/rxjs/2.2.27/rx.lite.compat.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.2.19/angular.min.js"></script>
+    <script src="../../dist/rx.angular.js"></script>
+    <script src="app.js"></script>
+  </div>
+</body>
+</html>

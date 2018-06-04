@@ -1,0 +1,282 @@
+﻿<!DOCTYPE html>
+<html style="height:100%;">
+<head>
+
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width" />
+
+
+    <title>Titip - Pure Css Tooltip| angularui.net</title>
+    <link rel="shortcut icon" href="http://angularui.net/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="http://angularui.net/favicon.ico" type="image/x-icon">
+    
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="dist/css/addon/effect-light.min.css">
+    <link rel="stylesheet" href="dist/css/titip.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#" style="padding:5px 15px;">
+                    <img src="http://angularui.net/data/logos/angularui_logo_40_alt.png" alt="AngularUI Logo" />
+                </a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+               
+            </div><!--/.navbar-collapse -->
+        </div>
+    </nav>
+    
+    <div class="jumbotron">
+        <div class="container">
+            <h1>
+                Titip <span style="font-size:0.8em;">Pure CSS tooltip</span>
+            </h1>
+            <p>
+                Titip is free and open source pure css based tooltip. it work on IE9+ and all other modern browsers.
+            </p>
+            <p>
+                Titip has 8 placement options, 6 theme options and 12 animation effect options which based on effect.css.
+            </p>
+            <p style="text-align:right;">
+                <a class="btn btn-danger btn-lg" href="http://angularui.net" role="button">Learn more »</a>
+                <a class="btn btn-primary btn-lg" href="http://angularui.net/appdoc/documents/home/titip" role="button">Documentation »</a>
+            </p>
+        </div>
+    </div>
+    <div class="container">
+        <div>
+<pre>
+<span style='color:#696969; '>&lt;!-- Light package of effect.css It is optional if you want to use css3 animation effects --></span>
+<span style='color:#a65700; '>&lt;</span><span style='color:#800000; font-weight:bold; '>link</span><span style='color:#274796; '> </span><span style='color:#074726; '>rel</span><span style='color:#808030; '>=</span><span style='color:#0000e6; '>"stylesheet"</span><span style='color:#274796; '> </span><span style='color:#074726; '>href</span><span style='color:#808030; '>=</span><span style='color:#0000e6; '>"..path/css/addon/effect-light.min.css"</span><span style='color:#a65700; '>></span>
+<span style='color:#696969; '>&lt;!-- Latest compiled and minified CSS on head of your page --></span>
+<span style='color:#a65700; '>&lt;</span><span style='color:#800000; font-weight:bold; '>link</span><span style='color:#274796; '> </span><span style='color:#074726; '>rel</span><span style='color:#808030; '>=</span><span style='color:#0000e6; '>"stylesheet"</span><span style='color:#274796; '> </span><span style='color:#074726; '>href</span><span style='color:#808030; '>=</span><span style='color:#0000e6; '>"..path/css/titip.min.css"</span><span style='color:#a65700; '>></span>
+</pre>
+        </div>
+        <h2>Using <code>data-title</code> attribute</h2>
+        <p class="help-block">
+            You can use titip classes with any element.
+        </p>
+        <p>
+            <code class="titip-right" data-title="hello titip-right">.titip-right</code>
+            <code class="titip-bottom" data-title="Yes! I am at bottom">.titip-bottom</code>
+            <code class="titip-left" data-title="This is left titip">.titip-left</code>
+            <code class="titip-top" data-title="this is titip-top...">.titip-top</code>
+        </p>
+        <p>
+            <code class="titip-top-right" data-title="hello titip-top-right">.titip-top-right</code>
+            <code class="titip-top-left" data-title="Yes! I am titip-top-left">.titip-top-left</code>
+            <code class="titip-bottom-right" data-title="hello titip-top-right">.titip-bottom-right</code>
+            <code class="titip-bottom-left" data-title="Yes! I am titip-top-left">.titip-bottom-left</code>
+        </p>
+
+        <h2>Using Sub Element</h2>
+        <p>
+            <span class="help-block text-md">
+                Instead of <code>data-title="[your content]"</code> attribute you can use a child element which have <code>.titip-content</code> class. By this way you can freely design your tooltip content.
+            </span>
+        </p>
+        <p>
+            <code class="titip-right">
+                .titip-right
+                <span class="titip-content">
+                    <strong>Hello</strong> this is a content
+                    <br> <span class="yellow">you can use custom</span> html,
+                    <br> etc. in content element
+                </span>
+            </code>
+            <code class="titip-bottom">
+                .titip-bottom
+                <span class="titip-content text-sm">
+                    <span class="label label-warning">Warning!!</span> You should not use
+                    <br>
+                    <br>
+                    <strong class="yellow">data-title="[]"</strong> and <br><br>
+                    <strong class="yellow">.titip-content</strong> together.
+                </span>
+            </code>
+            <code class="titip-left">
+                .titip-left
+                <span class="titip-content">
+                    AngularUI titip has <br> many placement options
+                    <br> this is titip-left
+                </span>
+            </code>
+            <code class="titip-top">
+                .titip-top
+                <span class="titip-content">
+                    AngularUI titip has <br> many placement options
+                    <br> this is titip-top
+                </span>
+            </code>
+        </p>
+        <p>
+            <code class="titip-top-right">
+                .titip-top-right
+                <span class="titip-content" style="font-weight:normal">
+                    Instead of <strong>data-title="[your content]"</strong><br>
+                    attribute you can use a child element <br>
+                    which have <strong>.titip-content</strong> class.<br>
+                    By this way you can freely design your <br>
+                    tooltip content.
+                </span>
+            </code>
+            <code class="titip-top-left">
+                .titip-top-left
+                <span class="titip-content">
+                    AngularUI titip has <br> many placement options
+                    <br> titip-top-left...
+                </span>
+            </code>
+            <code class="titip-bottom-right">
+                .titip-bottom-right
+                <span class="titip-content" style="font-weight:normal">
+                    Instead of <strong>data-title="[your content]"</strong><br>
+                    attribute you can use a child element <br>
+                    which have <strong>.titip-content</strong> class.<br>
+                    By this way you can freely design your <br>
+                    tooltip content.
+                </span>
+            </code>
+            <code class="titip-bottom-left">
+                .titip-bottom-left
+                <span class="titip-content">
+                    AngularUI titip has <br> many placement options
+                    <br> titip-bottom-left...
+                </span>
+            </code>
+        </p>
+
+        <h2><code>.titip-active</code> class</h2>
+        <p>
+            <code class="titip-bottom titip-active">
+                .titip-bottom .titip-active
+                <span class="titip-content thick-border">
+                    <strong>Hello</strong> this is an active content
+                    <br> <span class="text-warning">you can use custom</span> html,
+                    <br> etc. in content element
+                </span>
+            </code>
+            <code class="titip-right titip-active titip-danger" data-title="hello active attribute">
+                .titip-top .titip-active
+            </code>
+        </p>
+        <h2><code>.titip-wrapped</code> <code>.titip-wrapped-large</code> classes</h2>
+        <p class="help-block text-md">
+            <code>.titip-wrapped</code> wrap content <code>170px</code> and <code>.titip-wrapped-large</code> wrap content <code>300px</code>
+        </p>
+        <p>
+            <code class="titip-top-right titip-wrapped titip-info" data-title="this is wrapped content on attribute. by default, text on attribute or titip-content white space has no-wrap">
+                .titip-wrapped
+            </code>
+            <code class="titip-top-right titip-wrapped-large titip-primary">
+                .titip-bottom-left
+                <span class="titip-content">
+                    this is wrapped content inside titip-content. by default, text on attribute or titip-content white space has no-wrap.
+                    wrapped size is 300px
+                </span>
+            </code>
+        </p>
+        <div style="margin-bottom:20px;">
+            <div role="button" class="btn btn-primary titip-top-right titip-default titip-fade">
+                <img class="img-circle" src="http://angularui.net/data/images/users/thumbs/f10_24.jpg">
+                Titip Content image
+                <div class="titip-content thick-border" style="opacity:1;">
+                    <div class="clearfix" style="width:250px; white-space:normal; text-align:left;">
+                        <span class="thumbnail pull-left" style="width: 70px; margin-right: 10px; margin-bottom: 5px; height: 70px;">
+                            <img class="img-circle" src="http://angularui.net/data/images/users/thumbs/f10_64.jpg">
+                        </span>
+                        <h4>Alice Jarde</h4>
+                        <span class="help-block">alice@alicejarde.net</span>
+                        My name is Alice Jarde. I am from UK. I was born in London on 1982. I am a software developer worked on Angular...
+                        <br />
+                        Lorem impus dolor....
+
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <h2>Titip Themes Options</h2>
+        <p class="help-block text-md">
+            Titip themes based on Bootstrap buttons theme options. Ex. instead of <code>btn-warning</code>  you should add <code>titip-warning</code>
+        </p>
+        <div style="margin-bottom:20px;">
+            <div class="col-xs-4">
+                <code class="titip-top titip-info" data-title="attribute titip with default theme"> titip-default</code>
+            </div>
+            <div class="col-xs-4">
+                <code class="titip-top-right titip-info">
+                    titip-default
+                    <span class="titip-content">
+                        <strong>DEFAULT THEME</strong><br>
+                        This is titip content element.
+                    </span>
+                </code>
+            </div>
+            <div class="col-xs-4">
+                <code class="titip-bottom-left titip-info">
+                    titip-default thick-border
+                    <span class="titip-content thick-border">
+                        <strong>DEFAULT THEME</strong><br>
+                        This is titip content element.<br>
+                        thick border...
+                    </span>
+                </code>
+            </div>
+        </div>
+        <h2>Titip Animation Options</h2>
+        <p class="help-block text-md">
+            Titip animations based on <a href="https://github.com/angularui/effect.css" target="_blank">effect.css</a> keyframes dictionary.
+            There are <b>12</b> keyframe effects which we implemented for titip. If you have already have <code>effect-light-css</code> You don't need include it again.
+        </p>
+        <div style="margin-bottom:20px;">
+            <div class="col-xs-4">
+                <code class="titip-top titip-danger titip-flip-x" data-title="attribute titip with titip-flip-x"> titip-flip-x</code>
+            </div>
+            <div class="col-xs-4">
+                <code class="titip-top-right titip-danger titip-flip-x">
+                    titip-flip-x
+                    <span class="titip-content">
+                        <strong>Fade Effect</strong><br>
+                        This is titip content element.
+                    </span>
+                </code>
+            </div>
+            <div class="col-xs-4">
+                <code class="titip-bottom-left titip-danger titip-flip-x">
+                    titip-flip-x thick-border
+                    <span class="titip-content thick-border">
+                        <strong>Fade Effect</strong><br>
+                        This is titip content element.<br>
+                        thick border...
+                    </span>
+                </code>
+            </div>
+        </div>
+        <p class="lead">
+            For more examples and detailed information please visit below links
+        </p>
+        <p style="text-align:right;">
+            <a class="btn btn-danger btn-lg" href="http://angularui.net" role="button">Learn more »</a>
+            <a class="btn btn-primary btn-lg" href="http://angularui.net/appdoc/documents/home/titip" role="button">Documentation »</a>
+        </p>
+        <hr>
+
+        <footer>
+            <p>© <a href="http://angularui.net"></a>AngularUI 2014-2015</p>
+        </footer>
+    </div>
+
+
+
+</body>
+</html>

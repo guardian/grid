@@ -1,0 +1,21 @@
+html  {
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+[rx-drag] {
+    background-image: url(logo.png);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    height: 200px;
+    width: 200px;
+    background-color: #000000;
+    border: 1px solid #666666;
+    color: #ffffff;
+    padding: 10px;
+    position: absolute;
+    cursor: move;
+}
