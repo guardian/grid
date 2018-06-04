@@ -2,7 +2,8 @@
   authApiUri: String,
   reauthUri: String,
   sentryDsn: Option[String],
-  sessionId: String)
+  sessionId: String,
+  googleTrackingId: String)
 <!DOCTYPE html>
 <html>
   <head>
@@ -31,7 +32,8 @@
 
     <script>
         this._clientConfig = {
-          sessionId: "@Html(sessionId)"
+          sessionId: "@Html(sessionId)",
+          googleTrackingId: "@Html(googleTrackingId)"
         }
     </script>
 

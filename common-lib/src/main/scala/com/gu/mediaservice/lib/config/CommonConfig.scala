@@ -43,6 +43,9 @@ trait CommonConfig {
   lazy val domainRoot: String = properties("domain.root")
   lazy val services = new Services(domainRoot, isProd)
 
+  lazy val googleTrackingId: String =
+    configuration.getOptional[String]("google.tracking.id") getOrElse ""
+
   final def apply(key: String): String =
     string(key)
 
