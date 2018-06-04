@@ -113,11 +113,13 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   def updateImageSyndicationRights(id: String, rights: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "syndicationRights" -> asGroovy(rights.getOrElse(JsNull))
+        "syndicationRights" -> asGroovy(rights.getOrElse(JsNull)),
+        "lastModified" -> asGroovy(Json.toJson(DateTime.now().toString()))
       ).asJava)
         .setScript(
           s"""
              |   $replaceSyndicationRightsScript
+             |   $updateLastModifiedScript
         """.stripMargin,
           scriptType)
         .executeAndLog(s"updating syndicationRights on image $id")
