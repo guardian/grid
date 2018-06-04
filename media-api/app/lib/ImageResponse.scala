@@ -304,7 +304,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (__ \ "leases").write[MediaLeasesEntity]
         .contramap(leasesEntity(id, _: LeaseByMedia)) ~
     (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
-      .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c)))
+      .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
+    (__ \ "syndicationRights").write[Option[SyndicationRights]]
+//      .contramap((syndicationRights: SyndicationRights) => syndicationRights.map(c => collectionsEntity(id, c)))
   )(unlift(Image.unapply))
 
   def fileMetaDataUri(id: String) = URI.create(s"${config.rootUri}/images/$id/fileMetadata")
