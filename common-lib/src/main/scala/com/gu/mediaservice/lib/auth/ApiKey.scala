@@ -27,7 +27,7 @@ object ApiKey extends ArgoHelpers {
   }
 
   def hasAccess(apiKey: ApiKey, request: Request[Any], services: Services): Boolean = apiKey.tier match {
-    case External if request.method != "GET" || !request.path.startsWith("/images") || !services.apiHost.startsWith("api.media.") => false
+    case External if request.method != "GET" || request.host != services.apiHost || !request.path.startsWith("/images") => false
     case _ => true
   }
 }
