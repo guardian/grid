@@ -11,8 +11,6 @@ import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 
-import {track} from '../analytics/track';
-
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
     // 'ngAnimate',
@@ -20,12 +18,11 @@ export var query = angular.module('kahuna.search.query', [
     guDateRange.name,
     syntax.name,
     grStructuredQuery.name,
-    track.name
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', 'track',
-                 function($scope, $state, $stateParams, onValChange , mediaApi, track) {
+                 ['$rootScope', '$scope', '$state', '$stateParams', 'onValChange', 'mediaApi',
+                 function($rootScope, $scope, $state, $stateParams, onValChange , mediaApi) {
 
     const ctrl = this;
 
@@ -106,7 +103,7 @@ query.controller('SearchQueryCtrl',
 
             // don't track changes to `query` as it would trigger on every keypress
             if (key !== 'query') {
-                track.success('Query change', { field: key, value: newVal });
+                $rootScope.$emit('track:event', 'Query', 'Change', 'Success', null, { field: key, value: newVal });
             }
         }));
     }

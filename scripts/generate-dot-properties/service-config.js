@@ -80,7 +80,6 @@ function getMediaApiConfig(config) {
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
-        |mixpanel.token=${config.mixpanel.token}
         |es.index.aliases.read=readAlias
         |quota.store.key=rcs-quota.json
         |`;

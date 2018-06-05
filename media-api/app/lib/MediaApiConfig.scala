@@ -49,8 +49,6 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val topicArn: String = properties("sns.topic.arn")
 
-  lazy val mixpanelToken: Option[String] = properties.get("mixpanel.token").filterNot(_.isEmpty)
-
   lazy val imagesAlias: String = properties.getOrElse("es.index.aliases.read", configuration.get[String]("es.index.aliases.read"))
 
   // Note: had to make these lazy to avoid init order problems ;_;

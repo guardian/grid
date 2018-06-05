@@ -4,7 +4,6 @@ import template from './gr-image-metadata.html';
 
 import '../../image/service';
 import '../../edits/service';
-import '../../analytics/track';
 
 
 export const module = angular.module('gr.imageMetadata', [
@@ -22,7 +21,6 @@ module.controller('grImageMetadataCtrl', [
     'mediaApi',
     'editsApi',
     'collections',
-    'track',
 
     function ($rootScope,
               $scope,
@@ -31,8 +29,7 @@ module.controller('grImageMetadataCtrl', [
               editsService,
               mediaApi,
               editsApi,
-              collections,
-              track) {
+              collections) {
 
         let ctrl = this;
 
@@ -110,11 +107,11 @@ module.controller('grImageMetadataCtrl', [
                     if (updatedImage) {
                         ctrl.image = updatedImage;
                         updateAbilities(updatedImage);
-                        track.success('Metadata edit', { field: field });
+                        $rootScope.$emit('track:event', 'Metadata', 'Edit', 'Success', null, {field: field});
                     }
                 })
                 .catch(() => {
-                    track.failure('Metadata edit', { field: field });
+                  $rootScope.$emit('track:event', 'Metadata', 'Edit', 'Failure', null, {field: field});
 
                     /*
                      Save failed.

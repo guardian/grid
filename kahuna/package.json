@@ -15,7 +15,6 @@
     "immutable": "^3.7.5",
     "javascript-detect-element-resize": "^0.5.3",
     "jszip": "2.5.0",
-    "mixpanel-browser": "^2.4.2",
     "moment": "^2.9.0",
     "panda-session": "0.1.4",
     "pandular": "0.1.6",

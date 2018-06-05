@@ -9,10 +9,6 @@
   // Domain root of your site, e.g. foobar.co.uk
   domainRoot: '',
 
-  mixpanel: {
-    token: ''
-  },
-
   // The minimum number of messages to retrieve from SQS to be deemed healthy.
   sqsMessageMinFrequency: 5,
 

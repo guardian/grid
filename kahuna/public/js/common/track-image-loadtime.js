@@ -14,9 +14,9 @@ trackImageLoadtime.controller('TrackImageLoadtimeCtrl',
     var imageProps;
 
     // TODO: Get these to work with the new timed events
-    ctrl.trackStart   = () => track.action(trackEventName, getTrackProps('start'));
-    ctrl.trackSuccess = () => track.action(trackEventName, getTrackProps('success'));
-    ctrl.trackError   = () => track.action(trackEventName, getTrackProps('error'));
+    ctrl.trackStart = () => $rootScope.$emit('track:event', trackEventName, null, 'Start', null, getTrackProps('start'));
+    ctrl.trackSuccess = () => $rootScope.$emit('track:event', trackEventName, null, 'Success', null, getTrackProps('success'));
+    ctrl.trackError   = () => $rootScope.$emit('track:event', trackEventName, null, 'Error', null, getTrackProps('error'));
     ctrl.init = init;
 
     function init(image, location) {
