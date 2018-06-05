@@ -17,4 +17,5 @@ class KahunaConfig(override val configuration: Configuration) extends CommonConf
   val fullOrigin: String = properties("origin.full")
   val cropOrigin: String = properties("origin.crops")
   val imageOrigin: String = properties("origin.images")
+  val googleTrackingId: String = properties("google.tracking.id")
 }
