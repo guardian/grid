@@ -1,1 +1,0 @@
-module.exports = require("npm:system-css@0.1.0/css");

@@ -1,1 +1,0 @@
-module.exports = require("github:monospaced/angular-elastic@2.5.1/elastic");

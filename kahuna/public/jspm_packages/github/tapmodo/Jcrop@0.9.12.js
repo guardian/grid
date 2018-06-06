@@ -1,1 +1,0 @@
-module.exports = require("github:tapmodo/Jcrop@0.9.12/js/jquery.Jcrop");

@@ -1,1 +1,0 @@
-module.exports = require("github:sdecima/javascript-detect-element-resize@0.5.3/detect-element-resize.js");

@@ -1,1 +1,0 @@
-module.exports = require("github:mixpanel/mixpanel-js@2.4.2/mixpanel-jslib-snippet.js");

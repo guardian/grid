@@ -1,1 +1,0 @@
-module.exports = require("github:christopherthielen/ui-router-extras@0.0.14/release/ct-ui-router-extras");

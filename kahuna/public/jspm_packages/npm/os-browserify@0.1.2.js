@@ -1,1 +1,0 @@
-module.exports = require("npm:os-browserify@0.1.2/browser.js");
