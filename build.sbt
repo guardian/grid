@@ -41,7 +41,8 @@ lazy val commonLib = project("common-lib").settings(
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
-    "org.scalacheck" %% "scalacheck" % "1.14.0"
+    "org.scalacheck" %% "scalacheck" % "1.14.0",
+    "org.codehaus.janino" % "janino" % "3.0.6"
   )
 )
 
