@@ -31,6 +31,7 @@ checkRequirements() {
     checkRequirement magick #ImageMagick
     checkRequirement convert
     checkRequirement pngquant
+    checkRequirement exiftool
 
     # other
     checkRequirement nginx
