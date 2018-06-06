@@ -46,8 +46,7 @@ lazy val commonLib = project("common-lib").settings(
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
-    "org.codehaus.janino" % "janino" % "3.0.6",
-    "org.scalacheck" %% "scalacheck" % "1.14.0"
+    "org.codehaus.janino" % "janino" % "3.0.6"
   )
 )
 

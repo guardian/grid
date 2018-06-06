@@ -121,7 +121,8 @@ object Mappings {
 
   val suppliersMapping = nonDynamicObj(
     "supplierId" -> nonAnalyzedString,
-    "supplierName" -> nonAnalyzedString
+    "supplierName" -> nonAnalyzedString,
+    "prAgreement" -> boolean
   )
 
   val syndicationRightsMapping = nonDynamicObj(

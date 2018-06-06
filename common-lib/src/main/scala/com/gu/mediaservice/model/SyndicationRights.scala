@@ -9,7 +9,6 @@ import play.api.libs.functional.syntax._
 case class SyndicationRights(
   published: Option[DateTime],
   suppliers: Seq[Supplier],
-  prAgreement: Option[Boolean],
   rights: Seq[Right])
 object SyndicationRights {
   implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
@@ -19,22 +18,23 @@ object SyndicationRights {
   val writes: Writes[SyndicationRights] = (
     (__ \ "published").write[Option[DateTime]] ~
     (__ \ "suppliers").write[Seq[Supplier]] ~
-    (__ \ "prAgreement").write[Option[Boolean]] ~
     (__ \ "rights").write[Seq[Right]]
-  ){ sr: SyndicationRights => (sr.published, sr.suppliers, sr.prAgreement, sr.rights) }
+  ){ sr: SyndicationRights => (sr.published, sr.suppliers, sr.rights) }
 
   implicit val formats: Format[SyndicationRights] = Format(reads, writes)
 }
 
 case class Supplier(
   supplierName: Option[String],
-  supplierId: Option[String])
+  supplierId: Option[String],
+  prAgreement: Option[Boolean])
 object Supplier {
   val reads: Reads[Supplier] = Json.reads[Supplier]
   val writes: Writes[Supplier] = (
     (__ \ "supplierName").write[Option[String]] ~
-    (__ \ "supplierId").write[Option[String]]
-  ){ s: Supplier => (s.supplierName, s.supplierId) }
+    (__ \ "supplierId").write[Option[String]] ~
+    (__ \ "prAgreement").write[Option[Boolean]]
+  ){ s: Supplier => (s.supplierName, s.supplierId, s.prAgreement) }
 
   implicit val formats: Format[Supplier] = Format(reads, writes)
 }

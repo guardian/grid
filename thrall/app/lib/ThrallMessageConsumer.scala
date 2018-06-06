@@ -79,7 +79,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
     )
 
   def deleteAllUsages(usage: JsValue) =
-    Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)))
+    Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
   def updateRcsRights(rights: JsValue) =
     Future.sequence( withImageId(rights)(id => es.updateImageSyndicationRights(id, rights \ "data")) )
