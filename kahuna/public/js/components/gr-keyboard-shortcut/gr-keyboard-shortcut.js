@@ -1,6 +1,6 @@
 import angular from 'angular';
 import 'angular-hotkeys';
-
+import 'angular-hotkeys/build/hotkeys.min.css';
 import '../../analytics/track';
 
 const module = angular.module('gr.keyboardShortcut', [
