@@ -136,7 +136,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       .must(bePublished)
       .must(beInLastPeriod)
 
-    val beSupplier = termQuery("usageRights.supplier",supplierName)
+    val beSupplier = termQuery("usageRights.supplier", supplierName)
     val haveNestedUsage = nestedQuery("usages", haveUsageInLastPeriod)
 
     val query = boolQuery

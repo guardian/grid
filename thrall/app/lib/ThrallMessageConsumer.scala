@@ -3,6 +3,7 @@ package lib
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import org.elasticsearch.action.delete.DeleteResponse
+import org.joda.time.DateTime
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -23,6 +24,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
+      case "update-rcs-rights"          => updateRcsRights
     }
   }
 
@@ -77,7 +79,10 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
     )
 
   def deleteAllUsages(usage: JsValue) =
-    Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id) ))
+    Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
+
+  def updateRcsRights(rights: JsValue) =
+    Future.sequence( withImageId(rights)(id => es.updateImageSyndicationRights(id, rights \ "data")) )
 }
 
 // TODO: improve and use this (for logging especially) else where.

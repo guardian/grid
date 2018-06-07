@@ -18,6 +18,8 @@ class ThrallMetrics(config: ThrallConfig) extends CloudWatchMetrics(s"${config.s
 
   val failedUsagesUpdates = new CountMetric("FailedUsagesUpdates")
 
+  val failedSyndicationRightsUpdates = new CountMetric("FailedSyndicationRightsUpdates")
+
   val failedQueryUpdates = new CountMetric("FailedQueryUpdates")
 
   val failedDeletedAllUsages = new CountMetric("FailedDeletedAllUsages")

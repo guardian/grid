@@ -110,6 +110,24 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     }
   }
 
+  def updateImageSyndicationRights(id: String, rights: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    prepareImageUpdate(id) { request =>
+      request.setScriptParams(Map(
+        "syndicationRights" -> asGroovy(rights.getOrElse(JsNull)),
+        "lastModified" -> asGroovy(Json.toJson(DateTime.now().toString()))
+      ).asJava)
+        .setScript(
+          s"""
+             |   $replaceSyndicationRightsScript
+             |   $updateLastModifiedScript
+        """.stripMargin,
+          scriptType)
+        .executeAndLog(s"updating syndicationRights on image $id")
+        .recover { case e: DocumentMissingException => new UpdateResponse }
+        .incrementOnFailure(metrics.failedSyndicationRightsUpdates) { case e: VersionConflictEngineException => true }
+    }
+  }
+
   def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScript(
@@ -121,7 +139,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     }
   }
 
-  def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext) : List[Future[UpdateResponse]] = {
+  def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id){ request =>
       request.setScriptParams( Map(
         "leaseByMedia" -> asGroovy(leaseByMedia.getOrElse(JsNull)),
@@ -253,6 +271,9 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
        | ctx._source.usages = usages;
        | ctx._source.usagesLastModified = lastModified;
     """
+
+  private val replaceSyndicationRightsScript =
+    """ctx._source.syndicationRights = syndicationRights;"""
 
   private val replaceLeasesScript =
     """ctx._source.leases = leaseByMedia;"""

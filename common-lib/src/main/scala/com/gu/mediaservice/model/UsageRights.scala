@@ -163,7 +163,7 @@ object Agencies {
     "alamy" -> Agency("Alamy")
   )
 
-  def get(id: String) = all.get(id).getOrElse(Agency(id))
+  def get(id: String) = all.getOrElse(id, Agency(id))
 
   def lookupId(lookupSupplierName: String): Option[String] = all.collectFirst {
     case (id, Agency(supplierName, _, _)) if lookupSupplierName == supplierName => { id }
