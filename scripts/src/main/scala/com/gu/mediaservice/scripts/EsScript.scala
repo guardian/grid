@@ -210,7 +210,6 @@ object UpdateMapping extends EsScript {
 object GetMapping extends EsScript {
 
   def run(esHost: String, extraArgs: List[String]) {
-    // TODO: add the ability to update a section of the mapping
     object EsClient extends ElasticSearchClient {
       val imagesAlias = "writeAlias"
       val port = esPort
@@ -234,7 +233,7 @@ object GetMapping extends EsScript {
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: UpdateMapping <ES_HOST>")
+    System.err.println("Usage: GetMapping <ES_HOST>")
     sys.exit(1)
   }
 }
