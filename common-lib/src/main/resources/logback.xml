@@ -30,13 +30,14 @@
     <logger name="request" level="INFO" />
 
     <root level="WARN">
-        <appender-ref ref="ASYNCSTDOUT" />
-
         <!-- only log to disk in DEV -->
         <if condition='property("STAGE").contains("DEV")'>
             <then>
                 <appender-ref ref="LOGFILE"/>
             </then>
+            <else>
+                <appender-ref ref="ASYNCSTDOUT" />
+            </else>
         </if>
     </root>
 
