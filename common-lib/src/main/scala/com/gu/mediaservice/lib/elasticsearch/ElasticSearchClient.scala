@@ -24,7 +24,7 @@ trait ElasticSearchClient {
   private lazy val settings: Settings =
     ImmutableSettings.settingsBuilder
       .put("cluster.name", cluster)
-      .put("client.transport.sniff", true)
+      .put("client.transport.sniff", false)
       .build
 
   lazy val client: Client =
@@ -45,7 +45,7 @@ trait ElasticSearchClient {
     val indexExists = client.admin.indices.prepareExists(index)
                         .execute.actionGet.isExists
 
-    if (! indexExists) createIndex(index)
+    if (!indexExists) createIndex(index)
   }
 
   def createIndex(index: String) {
