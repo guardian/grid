@@ -4,7 +4,7 @@ import java.net.URI
 
 import com.gu.editorial.permissions.client.Permission
 import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model.{Action, _}
+import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
@@ -101,10 +101,10 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     isUploaderOrHasPermission(request, source, Permissions.DeleteImage)
   }
 
-  private def hasStaffPhotographer(json: JsValue): Boolean = (json \ "usageRights" \ "category").validate[String].asOpt.contains(StaffPhotographer.category)
+  private def isSyndicateable(json: JsValue): Boolean = (json \ "syndicationRights" \ "rights" \ "acquired").validate[Boolean].getOrElse(false)
 
   private def hasPermission(request: Authentication.Request[Any], json: JsValue): Boolean = request.user.apiKey.tier match {
-    case External if !hasStaffPhotographer(json) => false
+    case Syndication => isSyndicateable(json)
     case _ => true
   }
 
