@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.auth.{External, Tier}
+import com.gu.mediaservice.lib.auth.{Syndication, Tier}
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.config.UsageRightsConfig
@@ -72,8 +72,10 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val staffFilter: FilterBuilder = filters.term("usageRights.category", StaffPhotographer.category)
 
+  val syndicatableFilter: FilterBuilder = filters.bool.must(filters.boolTerm("syndicationRights.rights.acquired", value = true))
+
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case External => Some(staffFilter)
+    case Syndication => Some(syndicatableFilter)
     case _ => None
   }
 

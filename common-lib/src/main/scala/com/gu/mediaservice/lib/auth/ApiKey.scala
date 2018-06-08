@@ -6,12 +6,14 @@ import play.api.mvc.{Request, Result}
 
 sealed trait Tier
 case object Internal extends Tier
-case object External extends Tier
+case object ReadOnly extends Tier
+case object Syndication extends Tier
+
 object Tier {
   def apply(value: String): Tier = value.toLowerCase match {
     case "internal" => Internal
-    case "external" => External
-    case _ => External
+    case "syndication" => Syndication
+    case _ => ReadOnly // readonly by default
   }
 }
 
@@ -27,7 +29,8 @@ object ApiKey extends ArgoHelpers {
   }
 
   def hasAccess(apiKey: ApiKey, request: Request[Any], services: Services): Boolean = apiKey.tier match {
-    case External if request.method != "GET" || request.host != services.apiHost || !request.path.startsWith("/images") => false
-    case _ => true
+    case Internal => true
+    case ReadOnly => request.method == "GET"
+    case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")
   }
 }
