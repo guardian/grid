@@ -25,7 +25,7 @@ trait ElasticSearchHelper extends MockitoSugar {
 
   val testUser = "yellow-giraffe@theguardian.com"
 
-  def createImage(usageRights: UsageRights) = {
+  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None) = {
     val id = UUID.randomUUID().toString
     Image(
       id = id,
@@ -53,8 +53,15 @@ trait ElasticSearchHelper extends MockitoSugar {
       originalMetadata = ImageMetadata(),
       usageRights = usageRights,
       originalUsageRights = usageRights,
-      exports = Nil
+      exports = Nil,
+      syndicationRights = syndicationRights
     )
+  }
+
+  def createImageWithSyndicationRights(usageRights: UsageRights, rightsAcquired: Boolean): Image = {
+    val rights = List( Right("test", Some(rightsAcquired), Nil) )
+    val syndicationRights = SyndicationRights(None, Nil, rights)
+    createImage(usageRights, Some(syndicationRights))
   }
 
   def saveToES(image: Image) = {
