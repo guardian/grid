@@ -83,12 +83,26 @@ jobs.controller('UploadJobsCtrl', [
                     labelService.add(image, presetLabels);
                 }
 
-                $rootScope.$emit('track:event', eventName, null, 'Success', null, { 'Labels' : presetLabels.length});
+                $rootScope.$emit(
+                  'track:event',
+                  eventName,
+                  null,
+                  'Success',
+                  null,
+                  { 'Labels' : presetLabels.length}
+                );
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
 
-                $rootScope.$emit('track:event', eventName, null, 'Failure', null, { 'Failed on': 'index'});
+                $rootScope.$emit(
+                  'track:event',
+                  eventName,
+                  null,
+                  'Failure',
+                  null,
+                  { 'Failed on': 'index'}
+                );
             });
         }, error => {
             const reason = error.body && error.body.errorKey;
@@ -101,7 +115,14 @@ jobs.controller('UploadJobsCtrl', [
             jobItem.status = 'upload error';
             jobItem.error = message;
 
-            $rootScope.$emit('track:event', eventName, null, 'Failure', null, { 'Failed on': 'upload'});
+            $rootScope.$emit(
+              'track:event',
+              eventName,
+              null,
+              'Failure',
+              null,
+              { 'Failed on': 'upload'}
+            );
         });
     });
 

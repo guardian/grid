@@ -106,11 +106,15 @@ module.controller('grImageMetadataCtrl', [
                     if (updatedImage) {
                         ctrl.image = updatedImage;
                         updateAbilities(updatedImage);
-                        $rootScope.$emit('track:event', 'Metadata', 'Edit', 'Success', null, {field: field});
+                        $rootScope.$emit(
+                          'track:event', 'Metadata', 'Edit', 'Success', null, {field: field}
+                        );
                     }
                 })
                 .catch(() => {
-                  $rootScope.$emit('track:event', 'Metadata', 'Edit', 'Failure', null, {field: field});
+                  $rootScope.$emit(
+                    'track:event', 'Metadata', 'Edit', 'Failure', null, {field: field}
+                  );
 
                     /*
                      Save failed.

@@ -36,7 +36,8 @@ wfAnalyticsServiceMod.service('wfAnalyticsService', [
             // Screen res and viewport may change, so re-tracking
             const fullDimensions = Object.assign({}, {
               'Screen resolution': window.screen.width + ' x ' + window.screen.height,
-              'Screen viewport': document.documentElement.clientWidth + ' x ' + document.documentElement.clientHeight
+              'Screen viewport':`${document.documentElement.clientWidth} x
+                ${document.documentElement.clientHeight}`
             }, dimensions);
 
 

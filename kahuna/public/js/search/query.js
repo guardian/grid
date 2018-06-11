@@ -17,7 +17,7 @@ export var query = angular.module('kahuna.search.query', [
     eq.name,
     guDateRange.name,
     syntax.name,
-    grStructuredQuery.name,
+    grStructuredQuery.name
 ]);
 
 query.controller('SearchQueryCtrl',
@@ -103,7 +103,9 @@ query.controller('SearchQueryCtrl',
 
             // don't track changes to `query` as it would trigger on every keypress
             if (key !== 'query') {
-                $rootScope.$emit('track:event', 'Query', 'Change', 'Success', null, { field: key, value: newVal });
+                $rootScope.$emit(
+                  'track:event', 'Query', 'Change', 'Success', null, { field: key, value: newVal }
+                );
             }
         }));
     }

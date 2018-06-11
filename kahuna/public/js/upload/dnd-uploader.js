@@ -155,7 +155,14 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
                 if (isGridFriendly(event)) {
                     dragging = true;
                     activate();
-                    $rootScope.$emit('track:event', trackEvent, 'Drag', 'Enter', null, trackAction('Drag enter'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drag',
+                      'Enter',
+                      null,
+                      trackAction('Drag enter')
+                    );
                 }
             }
 
@@ -184,13 +191,27 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
             function performDropAction(files, uri) {
                 if (files.length > 0) {
                     ctrl.uploadFiles(files);
-                    $rootScope.$emit('track:event', trackEvent, 'Drop', 'Files', null, dropAction('Files'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drop',
+                      'Files',
+                      null,
+                      dropAction('Files')
+                    );
                 } else if (ctrl.isWitnessUri(uri)) {
                     ctrl.importing = true;
                     ctrl.importWitnessImage(uri).finally(() => {
                         ctrl.importing = false;
                     });
-                    $rootScope.$emit('track:event', trackEvent, 'Drop', 'Witness', null, dropAction('Eitness'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drop',
+                      'Witness',
+                      null,
+                      dropAction('Eitness')
+                    );
                 } else if (ctrl.isNotGridThumbnail(uri)) {
                     ctrl.loadUriImage(uri);
                 }
@@ -198,7 +219,14 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
                     $window.alert('You must drop valid files or ' +
                         'URLs to upload them');
 
-                    $rootScope.$emit('track:event', trackEvent, 'Drop', 'Invalid', null, dropAction('Invalid'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drop',
+                      'Invalid',
+                      null,
+                      dropAction('Invalid')
+                    );
                 }
             }
 
