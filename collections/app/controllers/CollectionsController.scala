@@ -15,6 +15,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
 import store.{CollectionsStore, CollectionsStoreError}
+import com.gu.mediaservice.lib.net.{ URI => UriOps }
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -148,11 +149,11 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
     }
 
   def removeCollection(collectionPath: String) = authenticated.async { req =>
-    val path = CollectionsManager.uriToPath(collectionPath)
+    val path = CollectionsManager.uriToPath(UriOps.encode(collectionPath))
 
     hasChildren(path).flatMap { noRemove =>
       if(noRemove) {
-        throw new HasChildrenError(
+        throw HasChildrenError(
           s"$collectionPath has children, can't delete!"
         )
       } else {
