@@ -26,7 +26,6 @@ import wfAnalyticsServiceMod  from './analytics/analytics';
 import {sentry} from './sentry/sentry';
 
 import {userActions}        from './common/user-actions';
-import {trackImageLoadtime} from './common/track-image-loadtime';
 
 import {httpErrors}   from './errors/http';
 import {globalErrors} from './errors/global';
@@ -83,7 +82,6 @@ var kahuna = angular.module('kahuna', [
     search.name,
     edits.name,
     userActions.name,
-    trackImageLoadtime.name,
     httpErrors.name,
     globalErrors.name,
 
@@ -222,10 +220,10 @@ kahuna.run(['$rootScope', 'httpErrors',
             function($rootScope, httpErrors) {
 
     $rootScope.$on('events:error:unauthorised', () =>
-        $rootScope.emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.unauthorised.errorCode }));
+        $rootScope.$emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.unauthorised.errorCode }));
 
     $rootScope.$on('pandular:re-establishment:fail', () =>
-      $rootScope.emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.authFailed.errorCode }));
+      $rootScope.$emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.authFailed.errorCode }));
 }]);
 
 /**

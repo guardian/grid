@@ -8,8 +8,7 @@ import '../../edits/service';
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
-    'kahuna.edits.service',
-    'analytics.track'
+    'kahuna.edits.service'
 ]);
 
 module.controller('grImageMetadataCtrl', [
