@@ -30,7 +30,8 @@ imageService.factory('imageService', ['imageLogic', function(imageLogic) {
             canDelete: imageLogic.canBeDeleted(image),
             canArchive: imageLogic.canBeArchived(image),
             persistedReasons: imageLogic.getPersistenceExplanation(image).join('; '),
-            isStaffPhotographer: imageLogic.isStaffPhotographer(image)
+            isStaffPhotographer: imageLogic.isStaffPhotographer(image),
+            isSyndicated: imageLogic.isSyndicated(image)
         };
     }
 

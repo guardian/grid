@@ -61,12 +61,25 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         });
     }
 
+    function isSyndicated(image) {
+        const syndicationRights = image.data.syndicationRights;
+
+        const hasSyndicationRights = !!syndicationRights;
+
+        if (!hasSyndicationRights) {
+            return false;
+        }
+
+        return syndicationRights.rights.find(_ => _.acquired === true);
+    }
+
     return {
         canBeDeleted,
         canBeArchived,
         getArchivedState,
         getPersistenceExplanation,
-        isStaffPhotographer
+        isStaffPhotographer,
+        isSyndicated
     };
 }]);
 
