@@ -15,7 +15,7 @@
 }
 
 .gr-panel--locked:first-child {
-  width: 230px;
+  width: 250px;
   box-sizing: border-box; /* @TODO: Apply border-box to everything, then resize everything that breaks */
 }
 
@@ -37,7 +37,10 @@
 }
 .gr-panel__content--left {
     left: 0;
-    width: 250px;
+}
+
+.gr-panel__content--left:not(.gr-panel__content--hidden) {
+  width: 250px;
 }
 
 .gr-panel__content--right {
