@@ -99,12 +99,28 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       params.usageStatus.toNel.map(filters.terms(usagesField("status"), _)) ++
       params.usagePlatform.toNel.map(filters.terms(usagesField("platform"), _))
 
+    val rightsAcquiredFilter = params.hasRightsAcquired.map(searchFilters.rightsAcquiredFilter)
+
     val filterOpt = (
-      metadataFilter.toList ++ persistFilter ++ labelFilter ++ archivedFilter ++
-      uploadedByFilter ++ idsFilter ++ validityFilter ++ simpleCostFilter ++ costFilter ++
-      hasExports ++ hasIdentifier ++ missingIdentifier ++ dateFilter ++
-      usageFilter ++ hasRightsCategory ++ searchFilters.tierFilter(params.tier)
+      metadataFilter.toList
+      ++ persistFilter
+      ++ labelFilter
+      ++ archivedFilter
+      ++ uploadedByFilter
+      ++ idsFilter
+      ++ validityFilter
+      ++ simpleCostFilter
+      ++ costFilter
+      ++ hasExports
+      ++ hasIdentifier
+      ++ missingIdentifier
+      ++ dateFilter
+      ++ usageFilter
+      ++ hasRightsCategory
+      ++ searchFilters.tierFilter(params.tier)
+      ++ rightsAcquiredFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
+
     val filter = filterOpt getOrElse filters.matchAll
 
     val queryFiltered = new FilteredQueryBuilder(query, filter)

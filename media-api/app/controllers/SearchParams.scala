@@ -38,7 +38,8 @@ case class SearchParams(
   persisted: Option[Boolean] = None,
   usageStatus: List[String] = List.empty,
   usagePlatform: List[String] = List.empty,
-  tier: Tier
+  tier: Tier,
+  hasRightsAcquired: Option[Boolean] = None
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -105,7 +106,8 @@ object SearchParams {
       request.getQueryString("persisted") flatMap parseBooleanFromQuery,
       commaSep("usageStatus"),
       commaSep("usagePlatform"),
-      request.user.apiKey.tier
+      request.user.apiKey.tier,
+      request.getQueryString("hasRightsAcquired") flatMap parseBooleanFromQuery
     )
   }
 
