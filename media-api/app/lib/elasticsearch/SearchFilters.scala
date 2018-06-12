@@ -72,10 +72,16 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val staffFilter: FilterBuilder = filters.term("usageRights.category", StaffPhotographer.category)
 
-  val syndicatableFilter: FilterBuilder = filters.bool.must(filters.boolTerm("syndicationRights.rights.acquired", value = true))
+  def rightsAcquiredFilter(isAcquired: Boolean): FilterBuilder =
+    filters.bool.must(
+      filters.boolTerm(
+        field = "syndicationRights.rights.acquired",
+        value = isAcquired
+      )
+    )
 
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case Syndication => Some(syndicatableFilter)
+    case Syndication => Some(rightsAcquiredFilter(isAcquired = true))
     case _ => None
   }
 
