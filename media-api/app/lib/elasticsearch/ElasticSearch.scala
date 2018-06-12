@@ -119,6 +119,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       ++ hasRightsCategory
       ++ searchFilters.tierFilter(params.tier)
       ++ rightsAcquiredFilter
+      ++ searchFilters.exampleImageFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val filter = filterOpt getOrElse filters.matchAll

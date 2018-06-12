@@ -70,7 +70,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
 
-  val staffFilter: FilterBuilder = filters.term("usageRights.category", StaffPhotographer.category)
+  val exampleImageFilter: Option[FilterBuilder] = Some(filters.bool.mustNot(filters.term("id", config.exampleImageId)))
 
   def rightsAcquiredFilter(isAcquired: Boolean): FilterBuilder =
     filters.bool.must(
