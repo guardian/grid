@@ -16,8 +16,7 @@ mediaApi.factory('mediaApi',
     function search(query = '', {ids, since, until, archived, valid, free,
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
-                                 modifiedSince, modifiedUntil} = {}) {
-
+                                 modifiedSince, modifiedUntil, hasRightsAcquired} = {}) {
         return root.follow('search', {
             q:          query,
             since:      since,
@@ -34,8 +33,21 @@ mediaApi.factory('mediaApi',
             archived:   archived,
             offset:     offset,
             length:     angular.isDefined(length) ? length : 50,
-            orderBy:    getOrder(orderBy)
+            orderBy:    getOrder(orderBy),
+            hasRightsAcquired: getHasRightsAcquired(hasRightsAcquired)
         }).get();
+    }
+
+    function getHasRightsAcquired(hasRightsAcquired) {
+        if (hasRightsAcquired === 'true') {
+            return true;
+        }
+
+        if (hasRightsAcquired === 'false') {
+            return false;
+        }
+
+        return undefined;
     }
 
     function getOrder(orderBy) {
