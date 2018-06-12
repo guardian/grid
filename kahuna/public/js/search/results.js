@@ -323,7 +323,8 @@ results.controller('SearchResultsCtrl', [
                 since:      since,
                 offset:     offset,
                 length:     length,
-                orderBy:    orderBy
+                orderBy:    orderBy,
+                hasRightsAcquired: $stateParams.hasRightsAcquired
             }));
         }
 
