@@ -149,7 +149,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
     }
 
   def removeCollection(collectionPath: String) = authenticated.async { req =>
-    val path = CollectionsManager.uriToPath(UriOps.encode(collectionPath))
+    val path = CollectionsManager.uriToPath(UriOps.encodePlus(collectionPath))
 
     hasChildren(path).flatMap { noRemove =>
       if(noRemove) {
