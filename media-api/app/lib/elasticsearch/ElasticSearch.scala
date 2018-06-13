@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.{Internal, Syndication, Tier}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
@@ -59,7 +60,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
 
   val queryBuilder = new QueryBuilder(matchFields)
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
+  def search(params: SearchParams, tier: Tier = Internal)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
     val query = queryBuilder.makeQuery(params.structuredQuery)
 
@@ -119,7 +120,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       ++ hasRightsCategory
       ++ searchFilters.tierFilter(params.tier)
       ++ rightsAcquiredFilter
-      ++ searchFilters.exampleImageFilter
+      ++ (if (tier == Syndication) searchFilters.exampleImageFilter else None)
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val filter = filterOpt getOrElse filters.matchAll
