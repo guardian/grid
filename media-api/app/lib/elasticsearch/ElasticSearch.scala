@@ -60,7 +60,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
 
   val queryBuilder = new QueryBuilder(matchFields)
 
-  def search(params: SearchParams, tier: Tier = Internal)(implicit ex: ExecutionContext): Future[SearchResults] = {
+  def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
     val query = queryBuilder.makeQuery(params.structuredQuery)
 
@@ -120,7 +120,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       ++ hasRightsCategory
       ++ searchFilters.tierFilter(params.tier)
       ++ rightsAcquiredFilter
-      ++ (if (tier == Syndication) searchFilters.exampleImageFilter else None)
+      ++ (if (params.tier == Syndication) searchFilters.exampleImageFilter else None)
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val filter = filterOpt getOrElse filters.matchAll

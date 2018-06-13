@@ -20,13 +20,14 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
         createImage(StaffPhotographer("Yellow Giraffe", "The Guardian")),
         createImage(Handout()),
         createImageWithSyndicationRights(Handout(), rightsAcquired = true),
-        createImageWithSyndicationRights(Handout(), rightsAcquired = false)
+        createImageWithSyndicationRights(Handout(), rightsAcquired = false),
+        createExampleImage()
       ).map(saveToES))
     Await.ready(createTestImages, 2.seconds)
   }
 
   describe("ES") {
-    it("ES should return only rights acquired pictures for a syndication tier search") {
+    it("ES should return only rights acquired pictures for a syndication tier search and filter out example image") {
       val searchParams = SearchParams(tier = Syndication, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
@@ -38,7 +39,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchParams = SearchParams(tier = Internal, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
-        result.total shouldBe 5
+        result.total shouldBe 6
       }
     }
 
@@ -46,7 +47,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchParams = SearchParams(tier = ReadOnly, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
-        result.total shouldBe 5
+        result.total shouldBe 6
       }
     }
   }

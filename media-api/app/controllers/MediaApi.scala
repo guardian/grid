@@ -245,7 +245,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     def respondSuccess(searchParams: SearchParams) = for {
       SearchResults(hits, totalCount) <-
         if(isExample) elasticSearch.getImageById(config.exampleImageId).map(imageJsonToSearchResult)
-        else elasticSearch.search(searchParams, request.user.apiKey.tier)
+        else elasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
