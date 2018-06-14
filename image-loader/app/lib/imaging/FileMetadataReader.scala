@@ -2,21 +2,20 @@ package lib.imaging
 
 import java.io.File
 import java.util.concurrent.Executors
-import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
 
 import com.drew.imaging.ImageMetadataReader
-import com.drew.metadata.{Metadata, Directory}
+import com.drew.metadata.exif.{ExifIFD0Directory, ExifSubIFDDirectory}
+import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.iptc.IptcDirectory
 import com.drew.metadata.jpeg.JpegDirectory
 import com.drew.metadata.png.PngDirectory
-import com.drew.metadata.icc.IccDirectory
-import com.drew.metadata.exif.{ExifSubIFDDirectory, ExifIFD0Directory}
 import com.drew.metadata.xmp.XmpDirectory
-
-import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
+import com.gu.mediaservice.model.{Dimensions, FileMetadata}
 
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
 object FileMetadataReader {
 
@@ -42,25 +41,22 @@ object FileMetadataReader {
       getMetadataWithICPTCHeaders(metadata).copy(colourModelInformation = colourModelInformation)
     }
 
-  private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata = {
-
+  private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata =
     FileMetadata(
       exportDirectory(metadata, classOf[IptcDirectory]),
       exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-      exportDirectory(metadata, classOf[XmpDirectory]),
       exportDirectory(metadata, classOf[IccDirectory]),
       exportGettyDirectory(metadata),
       None,
       Map()
     )
-  }
 
   // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(directoryClass)) map { directory =>
       directory.getTags.asScala.
-        filter(tag => tag.hasTagName()).
+        filter(tag => tag.hasTagName).
         // Ignore seemingly useless "Padding" fields
         // see: https://github.com/drewnoakes/metadata-extractor/issues/100
         filter(tag => tag.getTagName != "Padding").
