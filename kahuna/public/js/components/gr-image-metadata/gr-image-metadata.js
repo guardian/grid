@@ -107,13 +107,29 @@ module.controller('grImageMetadataCtrl', [
                         ctrl.image = updatedImage;
                         updateAbilities(updatedImage);
                         $rootScope.$emit(
-                          'track:event', 'Metadata', 'Edit', 'Success', null, {field: field}
+                          'track:event',
+                          'Metadata',
+                          'Edit',
+                          'Success',
+                          null,
+                          {
+                            field: field,
+                            value: value
+                          }
                         );
                     }
                 })
                 .catch(() => {
                   $rootScope.$emit(
-                    'track:event', 'Metadata', 'Edit', 'Failure', null, {field: field}
+                    'track:event',
+                    'Metadata',
+                    'Edit',
+                    'Failure',
+                    null,
+                    {
+                      field: field,
+                      value: value
+                    }
                   );
 
                     /*

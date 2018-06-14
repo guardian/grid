@@ -210,7 +210,7 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
                       'Drop',
                       'Witness',
                       null,
-                      dropAction('Eitness')
+                      dropAction('Witness')
                     );
                 } else if (ctrl.isNotGridThumbnail(uri)) {
                     ctrl.loadUriImage(uri);
