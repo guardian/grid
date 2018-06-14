@@ -129,7 +129,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Object Name" -> "CRICKET England Moeen 111162",
         "Reference Date" -> "2015:04:02",
         "Original Transmission Reference" -> "CRICKET_England_Moeen_111162.JPG",
-        "Date Created" -> "2015:04:02"
+        "Date Created" -> "Thu Apr 02 16:10:41 BST 2015"
       )
       val exif = Map(
         "Image Description" -> "England's Moeen Ali plays defensively from the bowling of Sri Lanka's Shaminda Eranga, during day five of the second Investec Test match at Headingley, Leeds. PRESS ASSOCIATION Photo. Picture date: Tuesday June 24, 2014. See PA Story CRICKET England. Photo credit should read: Martin Rickett/PA Wire. Editorial use only. RESTRICTIONS: Use subject to restrictions. Editorial use only. No commercial use. Call 44 (0)1158 447447 for further information.",
@@ -203,7 +203,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "Time Created" -> "01:08:44+0000",
       "By-line" -> "Graham Turner",
       "Object Name" -> "Tulips",
-      "Date Created" -> "2015:04:15"
+      "Date Created" -> "Wed Apr 15 02:08:44 BST 2015"
     )
     val exif = Map(
       "Image Description" -> "Reuben Smith age 5 from Hampshire and  \"Darwin Hybrid Mix' tulips in the cut flower Garden at Arundel Castle.\n18,000 tulips were planted in  a total of 52,000 spring bulbs last autumn.\nPhotograph: Graham Turner.",

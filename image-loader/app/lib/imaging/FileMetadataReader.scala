@@ -43,7 +43,7 @@ object FileMetadataReader {
 
   private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata =
     FileMetadata(
-      exportDirectory(metadata, classOf[IptcDirectory]),
+      exportIptcDirectory(metadata),
       exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
       exportDirectory(metadata, classOf[IccDirectory]),
@@ -51,6 +51,20 @@ object FileMetadataReader {
       None,
       Map()
     )
+
+  // Export all the metadata in the directory
+  private def exportIptcDirectory[T <: Directory](metadata: Metadata): Map[String, String] =
+    Option(metadata.getFirstDirectoryOfType(classOf[IptcDirectory])) map { directory =>
+      directory.getTags.asScala.
+        filter(tag => tag.hasTagName).flatMap { tag =>
+        nonEmptyTrimmed(tag.getDescription) map { value =>
+          tag.getTagName match {
+            case name@"Date Created" => name -> (try { directory.getDateCreated.toString } catch {case e: Throwable => value})
+            case name => name -> value
+          }
+        }
+      }.toMap
+    } getOrElse Map()
 
   // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
