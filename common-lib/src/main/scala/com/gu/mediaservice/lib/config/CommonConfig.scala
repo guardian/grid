@@ -49,6 +49,8 @@ trait CommonConfig {
   final def string(key: String): String =
     configuration.getOptional[String](key) getOrElse missing(key, "string")
 
+  final def stringOpt(key: String): Option[String] = configuration.getOptional[String](key)
+
   final def int(key: String): Int =
     configuration.getOptional[Int](key) getOrElse missing(key, "integer")
 
