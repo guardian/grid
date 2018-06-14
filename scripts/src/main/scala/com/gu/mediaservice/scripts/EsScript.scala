@@ -223,7 +223,11 @@ object GetMapping extends EsScript {
           .prepareGetMappings(index)
           .execute.actionGet
 
-        println(result.getMappings.get(index).get(imageType).getSourceAsMap)
+        try {
+          println(result.getMappings.get(index).get(imageType).getSourceAsMap)
+        } catch {
+          case e: Throwable => throw new Exception(s"Error while getting mappings: ${e.getMessage}")
+        }
 
         client.close()
       }
