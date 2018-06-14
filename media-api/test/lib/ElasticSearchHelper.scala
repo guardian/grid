@@ -18,6 +18,7 @@ trait ElasticSearchHelper extends MockitoSugar {
     "es.cluster" -> "media-service",
     "es.port" -> "9300",
     "persistence.identifier" -> "picdarUrn",
+    "example.image.id" -> "id-abc",
     "es.index.aliases.read" -> "readAlias")))
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
   private val searchFilters = new SearchFilters(mediaApiConfig)
@@ -25,8 +26,7 @@ trait ElasticSearchHelper extends MockitoSugar {
 
   val testUser = "yellow-giraffe@theguardian.com"
 
-  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None) = {
-    val id = UUID.randomUUID().toString
+  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None, id: String = UUID.randomUUID().toString): Image = {
     Image(
       id = id,
       uploadTime = DateTime.now(),
@@ -63,6 +63,8 @@ trait ElasticSearchHelper extends MockitoSugar {
     val syndicationRights = SyndicationRights(None, Nil, rights)
     createImage(usageRights, Some(syndicationRights))
   }
+
+  def createExampleImage(): Image = createImageWithSyndicationRights(Handout(), rightsAcquired = true).copy(id = "id-abc")
 
   def saveToES(image: Image) = {
     val json = Json.toJson(image)

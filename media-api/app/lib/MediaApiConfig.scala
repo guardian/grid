@@ -36,7 +36,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
         "App"   -> Seq(elasticsearchApp)
       ))
 
-  lazy val exampleImageId = properties("example.image.id")
+  lazy val exampleImageId: String = stringOpt("example.image.id").getOrElse(properties("example.image.id"))
 
   lazy val imageBucket: String = properties("s3.image.bucket")
   lazy val thumbBucket: String = properties("s3.thumb.bucket")
