@@ -19,8 +19,7 @@ object ImageMetadataConverter {
       .get("Category")
 
     (supplementalCategories ::: category.toList)
-      .map(Subject.create)
-      .flatten
+      .flatMap(Subject.create)
       .map(_.toString)
       .distinct
   }

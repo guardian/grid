@@ -43,13 +43,14 @@ object FileMetadataReader {
 
   private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata =
     FileMetadata(
-      exportIptcDirectory(metadata),
-      exportDirectory(metadata, classOf[ExifIFD0Directory]),
-      exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-      exportDirectory(metadata, classOf[IccDirectory]),
-      exportGettyDirectory(metadata),
-      None,
-      Map()
+      iptc = exportIptcDirectory(metadata),
+      exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
+      exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
+      xmp = exportXmpProperties(metadata),
+      icc = exportDirectory(metadata, classOf[IccDirectory]),
+      getty = exportGettyDirectory(metadata),
+      colourModel = None,
+      colourModelInformation = Map()
     )
 
   // Export all the metadata in the directory
@@ -81,33 +82,37 @@ object FileMetadataReader {
         }.toMap
     } getOrElse Map()
 
+  private def exportXmpProperties(metadata: Metadata): Map[String, String] =
+    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
+      directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
+        case (key, Some(value)) => key -> value
+      }
+    } getOrElse Map()
+
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
   // this only extracts a small subset of properties as a means to identify Getty images.
-  private def exportGettyDirectory(metadata: Metadata): Map[String, String] =
-    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
-      val xmpProperties = directory.getXmpProperties.asScala.toMap
+  private def exportGettyDirectory(metadata: Metadata): Map[String, String] = {
+      val xmpProperties = exportXmpProperties(metadata)
 
-      def readProperty(name: String): Option[String] = xmpProperties.get(name) flatMap nonEmptyTrimmed
+      def readProperty(name: String): Option[String] = xmpProperties.get(name)
 
-      def readAssetId : Option[String] = {
-        readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
-      }
+      def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
 
       Map(
-        "Asset ID"                  -> readAssetId,
-        "Call For Image"            -> readProperty("GettyImagesGIFT:CallForImage"),
-        "Camera Filename"           -> readProperty("GettyImagesGIFT:CameraFilename"),
-        "Camera Make Model"         -> readProperty("GettyImagesGIFT:CameraMakeModel"),
-        "Composition"               -> readProperty("GettyImagesGIFT:Composition"),
-        "Exclusive Coverage"        -> readProperty("GettyImagesGIFT:ExclusiveCoverage"),
-        "Image Rank"                -> readProperty("GettyImagesGIFT:ImageRank"),
+        "Asset ID" -> readAssetId,
+        "Call For Image" -> readProperty("GettyImagesGIFT:CallForImage"),
+        "Camera Filename" -> readProperty("GettyImagesGIFT:CameraFilename"),
+        "Camera Make Model" -> readProperty("GettyImagesGIFT:CameraMakeModel"),
+        "Composition" -> readProperty("GettyImagesGIFT:Composition"),
+        "Exclusive Coverage" -> readProperty("GettyImagesGIFT:ExclusiveCoverage"),
+        "Image Rank" -> readProperty("GettyImagesGIFT:ImageRank"),
         "Original Create Date Time" -> readProperty("GettyImagesGIFT:OriginalCreateDateTime"),
-        "Original Filename"         -> readProperty("GettyImagesGIFT:OriginalFilename"),
-        "Personality"               -> readProperty("GettyImagesGIFT:Personality"),
-        "Time Shot"                 -> readProperty("GettyImagesGIFT:TimeShot")
+        "Original Filename" -> readProperty("GettyImagesGIFT:OriginalFilename"),
+        "Personality" -> readProperty("GettyImagesGIFT:Personality"),
+        "Time Shot" -> readProperty("GettyImagesGIFT:TimeShot")
       ).flattenOptions
-    } getOrElse Map()
+  }
 
 
   def dimensions(image: File, mimeType: Option[String]): Future[Option[Dimensions]] =

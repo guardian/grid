@@ -8,6 +8,7 @@ case class FileMetadata(
   iptc: Map[String, String]                     = Map(),
   exif: Map[String, String]                     = Map(),
   exifSub: Map[String, String]                  = Map(),
+  xmp: Map[String, String]                      = Map(),
   icc: Map[String, String]                      = Map(),
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
@@ -22,6 +23,7 @@ object FileMetadata {
     (__ \ "iptc").read[Map[String,String]] ~
     (__ \ "exif").read[Map[String,String]] ~
     (__ \ "exifSub").read[Map[String,String]] ~
+    (__ \ "xmp").read[Map[String,String]] ~
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "colourModel").readNullable[String] ~
