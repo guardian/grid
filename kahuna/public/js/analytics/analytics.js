@@ -19,7 +19,7 @@ const initGA = gaId => {
 
         return ga;
     }
-    return (...args) => window.debugGA && console.log(...args);
+    return (...args) => window.debugGA;
 };
 
 
