@@ -1,0 +1,5 @@
+<div ng:click="ctrl.callBatchCrop(); $event.stopPropagation();"
+     gr:track-click="Full frame button"
+     class="inner-clickable clickable">
+        <gr-icon-label gr-icon="crop">Creat<span ng:hide="ctrl.cropping">e</span><span ng:if="ctrl.cropping">ing</span> full frame<span ng:if="ctrl.cropping">…</span></gr-icon-label>
+</div>
