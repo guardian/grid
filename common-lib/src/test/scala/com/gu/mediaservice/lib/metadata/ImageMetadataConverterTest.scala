@@ -78,72 +78,85 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
 
   // Date Taken
 
-  def normalizeDate(dateTime: DateTime) = dateTime.withZone(DateTimeZone.UTC)
+  private def parseDate(dateTime: String) = DateTime.parse(dateTime).withZone(DateTimeZone.UTC)
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (2014-12-16T02:23:45+01:00)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "2014-12-16T02:23:45+01:00"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from EXIF Date/Time Original Composite (Mon Jun 18 01:23:45 BST 2018)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map("Date/Time Original Composite" -> "Mon Jun 18 01:23:45 BST 2018"), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45Z")))
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T01:23:45")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (2014-12-16T02:23+01:00)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "2014-12-16T02:23+01:00"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from IPTC Date Time Created Composite (Mon Jun 18 01:23:45 BST 2018)") {
+    val fileMetadata = FileMetadata(iptc = Map("Date Time Created Composite" -> "Mon Jun 18 01:23:45 BST 2018"), exif = Map(), exifSub = Map(), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:00Z")))
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T01:23:45")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 GMT 2014)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 GMT 2014"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (2014-12-16T02:23:45+01:00)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "2014-12-16T02:23:45+01:00"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45Z")))
+    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T01:23:45Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 UTC 2014)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 UTC 2014"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (2014-12-16T02:23+01:00)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "2014-12-16T02:23+01:00"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45Z")))
+    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T01:23:00Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 BST 2014)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 BST 2014"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (Tue Dec 16 01:23:45 GMT 2014)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "Tue Dec 16 01:23:45 GMT 2014"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45+01:00").withZone(DateTimeZone.UTC)))
+    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T01:23:45Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (Tue Dec 16 01:23:45 PDT 2014)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "Tue Dec 16 01:23:45 PDT 2014"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (Tue Dec 16 01:23:45 UTC 2014)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "Tue Dec 16 01:23:45 UTC 2014"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T01:23:45-08:00").withZone(DateTimeZone.UTC)))
+    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T01:23:45Z")))
   }
 
-  it("should populate the dateTaken field of ImageMetadata from IPTC Date Created (2014-12-16)") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "2014-12-16"), Map(), Map(), Map())
+  it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (Tue Dec 16 01:23:45 BST 2014)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "Tue Dec 16 01:23:45 BST 2014"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T01:23:45")))
+  }
+
+  it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (Tue Dec 16 01:23:45 PDT 2014)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "Tue Dec 16 01:23:45 PDT 2014"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T01:23:45-08:00")))
+  }
+
+  it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (2014-12-16)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "2014-12-16"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
     imageMetadata.dateTaken should be (Some(DateTime.parse("2014-12-16T00:00:00Z")))
   }
 
-  it("should leave the dateTaken field of ImageMetadata empty if IPTC Date Created is not a valid date") {
-    val fileMetadata = FileMetadata(Map("Date Created" -> "not a date"), Map(), Map(), Map())
+  it("should leave the dateTaken field of ImageMetadata empty if no date present") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be ('empty)
+    imageMetadata.dateTaken should be (None)
   }
 
-
-  it("should populate the dateTaken field of ImageMetadata from EXIF Sub Date/Time Original if present") {
-    // Thankfully standard datetime format (albeit weird and with no TZ offset)
-    val fileMetadata = FileMetadata(Map(), Map(), Map("Date/Time Original" -> "2014:12:16 01:23:45"), Map())
+  it("should leave the dateTaken field of ImageMetadata empty if EXIF Date/Time Original Composite is not a valid date") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map("Date/Time Original Composite" -> "not a date"), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    // Note: we assume UTC as timezone (not necessarily correct but no way to tell)
-    imageMetadata.dateTaken should be (Some(new DateTime("2014-12-16T01:23:45Z")))
+    imageMetadata.dateTaken should be (None)
   }
 
-  it("should leave the dateTaken field of ImageMetadata empty if EXIF Sub Date/Time Original is not a valid date") {
-    // Thankfully standard datetime format (albeit weird and with no TZ offset)
-    val fileMetadata = FileMetadata(Map(), Map(), Map("Date/Time Original" -> "not a date"), Map())
+  it("should leave the dateTaken field of ImageMetadata empty if IPTC Date Time Created Composite is not a valid date") {
+    val fileMetadata = FileMetadata(iptc = Map("Date Time Created Composite" -> "not a date"), exif = Map(), exifSub = Map(), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be ('empty)
+    imageMetadata.dateTaken should be (None)
   }
 
+  it("should leave the dateTaken field of ImageMetadata empty if XMP photoshop:DateCreated is not a valid date") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "not a date"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be (None)
+  }
 
   // Keywords
 

@@ -26,8 +26,8 @@ object ImageMetadataConverter {
 
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
     ImageMetadata(
-      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseBstHumanDate) orElse
-                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseBstHumanDate) orElse
+      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseRandomDate) orElse
+                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseRandomDate) orElse
                             (fileMetadata.xmp.get("photoshop:DateCreated") flatMap parseRandomDate),
       description         = fileMetadata.iptc.get("Caption/Abstract"),
       credit              = fileMetadata.iptc.get("Credit"),
@@ -53,12 +53,11 @@ object ImageMetadataConverter {
     val parsers = Array(
       // 2014-12-16T02:23:45+01:00 - Standard dateTimeNoMillis
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZZ").getParser,
-      DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss").getParser,
       // 2014-12-16T02:23+01:00 - Same as above but missing seconds lol
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mmZZ").getParser,
       // Tue Dec 16 01:23:45 GMT 2014 - Let's make machine metadata human readable!
       DateTimeFormat.forPattern("E MMM d HH:mm:ss z yyyy").getParser,
-      //      DateTimeFormat.forPattern("E MMM d HH:mm:ss 'BST' yyyy").getParser,
+      DateTimeFormat.forPattern("E MMM d HH:mm:ss 'BST' yyyy").getParser,
       // 2014-12-16 - Maybe it's just a date
       ISODateTimeFormat.date.getParser
     )
@@ -67,13 +66,8 @@ object ImageMetadataConverter {
       toFormatter
   }
 
-  private lazy val bstHumanDateFormat = DateTimeFormat.forPattern("E MMM d HH:mm:ss 'BST' yyyy")
-  private def parseBstHumanDate(str: String): Option[DateTime] =
-  // Emulate BST by taking 1 hour from UTC
-    safeParsing(bstHumanDateFormat.parseDateTime(str)) map (_.minusHours(1))
-
   private def parseRandomDate(str: String): Option[DateTime] =
-    safeParsing(randomDateFormat.parseDateTime(str)) orElse parseBstHumanDate(str) map (_.withZone(DateTimeZone.UTC))
+    safeParsing(randomDateFormat.parseDateTime(str)) map (_.withZone(DateTimeZone.UTC))
 
   private def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption
 
