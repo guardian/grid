@@ -10,7 +10,7 @@ import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
 object ImageMetadataConverter {
 
-  def extractSubjects(fileMetadata: FileMetadata): List[String] = {
+  private def extractSubjects(fileMetadata: FileMetadata): List[String] = {
     val supplementalCategories = fileMetadata.iptc
       .get("Supplemental Category(s)")
       .toList.flatMap(_.split("\\s+"))
@@ -26,8 +26,9 @@ object ImageMetadataConverter {
 
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
     ImageMetadata(
-      dateTaken           = (fileMetadata.iptc.get("Date Created") flatMap parseRandomDate) orElse
-                            (fileMetadata.exifSub.get("Date/Time Original") flatMap parseColonDate),
+      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseBstHumanDate) orElse
+                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseBstHumanDate) orElse
+                            (fileMetadata.xmp.get("photoshop:DateCreated") flatMap parseRandomDate),
       description         = fileMetadata.iptc.get("Caption/Abstract"),
       credit              = fileMetadata.iptc.get("Credit"),
       byline              = fileMetadata.iptc.get("By-line"),
@@ -46,17 +47,13 @@ object ImageMetadataConverter {
       country             = fileMetadata.iptc.get("Country/Primary Location Name"),
       subjects            = extractSubjects(fileMetadata))
 
-  // Note: because no timezone is given, we have to assume UTC :-(
-  lazy val colonDateFormat = DateTimeFormat.forPattern("yyyy:MM:dd HH:mm:ss")
-  def parseColonDate(str: String): Option[DateTime] =
-    safeParsing(colonDateFormat.parseDateTime(str))
-
   // IPTC doesn't appear to enforce the datetime format of the field, which means we have to
   // optimistically attempt various formats observed in the wild. Dire times.
-  lazy val randomDateFormat = {
+  private lazy val randomDateFormat = {
     val parsers = Array(
       // 2014-12-16T02:23:45+01:00 - Standard dateTimeNoMillis
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZZ").getParser,
+      DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss").getParser,
       // 2014-12-16T02:23+01:00 - Same as above but missing seconds lol
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mmZZ").getParser,
       // Tue Dec 16 01:23:45 GMT 2014 - Let's make machine metadata human readable!
@@ -70,15 +67,15 @@ object ImageMetadataConverter {
       toFormatter
   }
 
-  lazy val bstHumanDateFormat = DateTimeFormat.forPattern("E MMM d HH:mm:ss 'BST' yyyy")
-  def parseBstHumanDate(str: String) =
+  private lazy val bstHumanDateFormat = DateTimeFormat.forPattern("E MMM d HH:mm:ss 'BST' yyyy")
+  private def parseBstHumanDate(str: String): Option[DateTime] =
   // Emulate BST by taking 1 hour from UTC
     safeParsing(bstHumanDateFormat.parseDateTime(str)) map (_.minusHours(1))
 
-  def parseRandomDate(str: String): Option[DateTime] =
+  private def parseRandomDate(str: String): Option[DateTime] =
     safeParsing(randomDateFormat.parseDateTime(str)) orElse parseBstHumanDate(str) map (_.withZone(DateTimeZone.UTC))
 
-  def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption
+  private def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption
 
 }
 

@@ -43,7 +43,7 @@ object FileMetadataReader {
 
   private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata =
     FileMetadata(
-      iptc = exportIptcDirectory(metadata),
+      iptc = exportDirectory(metadata, classOf[IptcDirectory]),
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
       xmp = exportXmpProperties(metadata),
@@ -54,23 +54,9 @@ object FileMetadataReader {
     )
 
   // Export all the metadata in the directory
-  private def exportIptcDirectory[T <: Directory](metadata: Metadata): Map[String, String] =
-    Option(metadata.getFirstDirectoryOfType(classOf[IptcDirectory])) map { directory =>
-      directory.getTags.asScala.
-        filter(tag => tag.hasTagName).flatMap { tag =>
-        nonEmptyTrimmed(tag.getDescription) map { value =>
-          tag.getTagName match {
-            case name@"Date Created" => name -> (try { directory.getDateCreated.toString } catch {case e: Throwable => value})
-            case name => name -> value
-          }
-        }
-      }.toMap
-    } getOrElse Map()
-
-  // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(directoryClass)) map { directory =>
-      directory.getTags.asScala.
+      val metaTagsMap = directory.getTags.asScala.
         filter(tag => tag.hasTagName).
         // Ignore seemingly useless "Padding" fields
         // see: https://github.com/drewnoakes/metadata-extractor/issues/100
@@ -80,6 +66,33 @@ object FileMetadataReader {
         flatMap { tag =>
           nonEmptyTrimmed(tag.getDescription) map { value => tag.getTagName -> value }
         }.toMap
+
+      directory match {
+        case d: IptcDirectory =>
+          val dateTimeCreated = try {
+            Map("Date Time Created Composite" -> d.getDateCreated.toString)
+          } catch {
+            case _: Throwable => Map()
+          }
+
+          val digitalDateTimeCreated = try {
+            Map("Digital Date Time Created Composite" -> d.getDigitalDateCreated.toString)
+          } catch {
+            case _: Throwable => Map()
+          }
+
+          metaTagsMap ++ dateTimeCreated ++ digitalDateTimeCreated
+
+        case d: ExifSubIFDDirectory =>
+          val dateTimeCreated = try {
+            Map("Date/Time Original Composite" -> d.getDateOriginal.toString)
+          } catch {
+            case _: Throwable => Map()
+          }
+          metaTagsMap ++ dateTimeCreated
+
+        case _ => metaTagsMap
+      }
     } getOrElse Map()
 
   private def exportXmpProperties(metadata: Metadata): Map[String, String] =
