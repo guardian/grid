@@ -1,7 +1,6 @@
 import angular from 'angular';
 import template from './upload-jobs.html';
 import '../../preview/image';
-import '../../analytics/track';
 import '../../components/gr-delete-image/gr-delete-image';
 import '../../image/service';
 import '../../edits/service';
@@ -11,7 +10,6 @@ import '../../services/preset-label';
 export var jobs = angular.module('kahuna.upload.jobs', [
     'kahuna.preview.image',
     'gr.image.service',
-    'analytics.track',
     'kahuna.services.label',
     'kahuna.services.presetLabel',
     'kahuna.edits.service'
@@ -23,7 +21,6 @@ jobs.controller('UploadJobsCtrl', [
     '$scope',
     '$window',
     'apiPoll',
-    'track',
     'imageService',
     'labelService',
     'presetLabelService',
@@ -33,7 +30,6 @@ jobs.controller('UploadJobsCtrl', [
             $scope,
             $window,
             apiPoll,
-            track,
             imageService,
             labelService,
             presetLabelService,
@@ -47,8 +43,6 @@ jobs.controller('UploadJobsCtrl', [
 
     ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
-
-        const timedTrack = track.makeTimedTrack();
 
         jobItem.resourcePromise.then(resource => {
             jobItem.status = 'indexing';
@@ -89,12 +83,26 @@ jobs.controller('UploadJobsCtrl', [
                     labelService.add(image, presetLabels);
                 }
 
-                timedTrack.success(eventName, { 'Labels' : presetLabels.length} );
+                $rootScope.$emit(
+                  'track:event',
+                  eventName,
+                  null,
+                  'Success',
+                  null,
+                  { 'Labels' : presetLabels.length}
+                );
             }, error => {
                 jobItem.status = 'upload error';
                 jobItem.error = error.message;
 
-                timedTrack.failure(eventName, { 'Failed on': 'index' });
+                $rootScope.$emit(
+                  'track:event',
+                  eventName,
+                  null,
+                  'Failure',
+                  null,
+                  { 'Failed on': 'index'}
+                );
             });
         }, error => {
             const reason = error.body && error.body.errorKey;
@@ -107,7 +115,14 @@ jobs.controller('UploadJobsCtrl', [
             jobItem.status = 'upload error';
             jobItem.error = message;
 
-            timedTrack.failure(eventName, { 'Failed on': 'upload' });
+            $rootScope.$emit(
+              'track:event',
+              eventName,
+              null,
+              'Failure',
+              null,
+              { 'Failed on': 'upload'}
+            );
         });
     });
 

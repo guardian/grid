@@ -1,14 +1,13 @@
 import angular from 'angular';
 import 'angular-hotkeys';
 import 'angular-hotkeys/build/hotkeys.min.css';
-import '../../analytics/track';
+
 
 const module = angular.module('gr.keyboardShortcut', [
-    'cfp.hotkeys',
-    'analytics.track'
+    'cfp.hotkeys'
 ]);
 
-module.factory('keyboardShortcut', ['hotkeys', 'track', function (hotkeys, track) {
+module.factory('keyboardShortcut', ['$rootScope', 'hotkeys', function ($rootScope, hotkeys) {
     return {
         // drop-in replacement for `hotkeys.bindTo` to add tracking
         bindTo: function (scope) {
@@ -16,7 +15,14 @@ module.factory('keyboardShortcut', ['hotkeys', 'track', function (hotkeys, track
                 add: function (args) {
                     const hotKeyDefinition = angular.extend({}, args, {
                         callback: function (...params) {
-                            track.success('Keyboard shortcut', { shortcut: args.description });
+                            $rootScope.$emit(
+                              'track:event',
+                              'Keyboard',
+                              'Shortcut',
+                              'Success',
+                              null,
+                              { shortcut: args.description }
+                            );
                             args.callback(...params);
                         }
                     });

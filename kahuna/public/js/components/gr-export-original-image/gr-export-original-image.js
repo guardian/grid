@@ -1,11 +1,8 @@
 import angular from 'angular';
 
 import template from './gr-export-original-image.html';
-import '../../analytics/track';
 
-export const exportOriginalImage = angular.module('gr.exportOriginalImage', [
-    'analytics.track'
-]);
+export const exportOriginalImage = angular.module('gr.exportOriginalImage', []);
 
 exportOriginalImage.controller('grExportOriginalImageCtrl', [
     '$scope', '$rootScope', '$state', '$stateParams', 'mediaCropper',

@@ -56,6 +56,7 @@ function getKahunaConfig(config) {
         |origin.full=${config.stackProps.ImageBucket}.s3.${config.aws.region}.amazonaws.com
         |origin.thumb=${config.stackProps.ThumbBucket}.s3.${config.aws.region}.amazonaws.com
         |origin.images=${config.stackProps.ImageBucket}.s3.${config.aws.region}.amazonaws.com
+        |google.tracking.id=${config.google.tracking.id}
         |`;
 }
 
@@ -80,7 +81,6 @@ function getMediaApiConfig(config) {
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
-        |mixpanel.token=${config.mixpanel.token}
         |es.index.aliases.read=readAlias
         |quota.store.key=rcs-quota.json
         |`;

@@ -2,7 +2,8 @@
   authApiUri: String,
   reauthUri: String,
   sentryDsn: Option[String],
-  sessionId: String)
+  sessionId: String,
+  googleTrackingId: Option[String])
 <!DOCTYPE html>
 <html>
   <head>
@@ -31,7 +32,8 @@
 
     <script>
         this._clientConfig = {
-          sessionId: "@Html(sessionId)"
+          sessionId: "@Html(sessionId)",
+          googleTrackingId: "@Html(googleTrackingId.getOrElse(""))"
         }
     </script>
 
@@ -43,6 +45,14 @@
 
     <ui-global-errors></ui-global-errors>
 
+    @googleTrackingId.map { id => (
+      <script>
+        window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
+      </script>
+      <script async src='https://www.google-analytics.com/analytics.js'></script>
+    )}
+
     <script src="@routes.Assets.versioned("dist/build.js")"></script>
+
   </body>
 </html>

@@ -1,11 +1,9 @@
 import angular from 'angular';
 import template from './file-uploader.html';
 
-import '../analytics/track';
 import '../directives/gr-file-change';
 
 export var fileUploader = angular.module('kahuna.upload.fileUploader', [
-    'analytics.track',
     'gr.fileChange'
 ]);
 

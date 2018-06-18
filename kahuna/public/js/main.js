@@ -22,11 +22,10 @@ import {edits}  from './edits/index';
 import {async}  from './util/async';
 import {digest} from './util/digest';
 
-import {track}  from './analytics/track';
+import wfAnalyticsServiceMod  from './analytics/analytics';
 import {sentry} from './sentry/sentry';
 
 import {userActions}        from './common/user-actions';
-import {trackImageLoadtime} from './common/track-image-loadtime';
 
 import {httpErrors}   from './errors/http';
 import {globalErrors} from './errors/global';
@@ -75,7 +74,7 @@ var kahuna = angular.module('kahuna', [
     mediaApi.name,
     async.name,
     digest.name,
-    track.name,
+    wfAnalyticsServiceMod.name,
     sentry.name,
     crop.name,
     image.name,
@@ -83,7 +82,6 @@ var kahuna = angular.module('kahuna', [
     search.name,
     edits.name,
     userActions.name,
-    trackImageLoadtime.name,
     httpErrors.name,
     globalErrors.name,
 
@@ -203,6 +201,9 @@ kahuna.factory('httpErrorInterceptor',
     };
 }]);
 
+// set up tracking
+kahuna.run(['wfAnalyticsService', function(){}]);
+
 // global errors UI
 kahuna.run(['$rootScope', 'globalErrors',
             function($rootScope, globalErrors) {
@@ -215,19 +216,14 @@ kahuna.run(['$rootScope', 'globalErrors',
 }]);
 
 // tracking errors
-kahuna.run(['$rootScope', 'httpErrors', 'track',
-            function($rootScope, httpErrors, track) {
+kahuna.run(['$rootScope', 'httpErrors',
+            function($rootScope, httpErrors) {
 
     $rootScope.$on('events:error:unauthorised', () =>
-        track.action('Authentication error', { 'Error code': httpErrors.unauthorised.errorCode }));
+        $rootScope.$emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.unauthorised.errorCode }));
 
     $rootScope.$on('pandular:re-establishment:fail', () =>
-        track.action('Authentication error', { 'Error code': httpErrors.authFailed.errorCode }));
-}]);
-
-
-kahuna.run(['track', function(track) {
-    track.action('Page viewed');
+      $rootScope.$emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.authFailed.errorCode }));
 }]);
 
 /**

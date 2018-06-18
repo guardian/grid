@@ -3,8 +3,6 @@ import Rx from 'rx';
 
 import '../util/rx';
 
-import '../analytics/track';
-
 import template from './image.html';
 import templateLarge from './image-large.html';
 
@@ -17,7 +15,6 @@ import '../components/gr-archiver-status/gr-archiver-status';
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
     'gr.image-usages.service',
-    'analytics.track',
     'gr.addLabel',
     'gr.archiverStatus',
     'util.rx',

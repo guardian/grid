@@ -2,14 +2,12 @@ import angular from 'angular';
 import template from './dnd-uploader.html';
 
 import {witnessApi} from '../services/api/witness';
-import '../analytics/track';
 
 export var dndUploader = angular.module('kahuna.upload.dndUploader', [
     'kahuna.upload.manager',
     witnessApi.name,
     'kahuna.edits.service',
-    'util.async',
-    'analytics.track'
+    'util.async'
 ]);
 
 
@@ -97,8 +95,8 @@ dndUploader.controller('DndUploaderCtrl',
  * This behaviour is pretty well observed:
  * https://code.google.com/p/chromium/issues/detail?id=131325
  */
-dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 'vndMimeTypes',
-                       function($window, delay, safeApply, track, vndMimeTypes) {
+dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApply', 'vndMimeTypes',
+                       function($window, $rootScope, delay, safeApply, vndMimeTypes) {
 
     return {
         restrict: 'E',
@@ -157,7 +155,14 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 
                 if (isGridFriendly(event)) {
                     dragging = true;
                     activate();
-                    track.action(trackEvent, trackAction('Drag enter'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drag',
+                      'Enter',
+                      null,
+                      trackAction('Drag enter')
+                    );
                 }
             }
 
@@ -186,13 +191,27 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 
             function performDropAction(files, uri) {
                 if (files.length > 0) {
                     ctrl.uploadFiles(files);
-                    track.action(trackEvent, dropAction('Files'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drop',
+                      'Files',
+                      null,
+                      dropAction('Files')
+                    );
                 } else if (ctrl.isWitnessUri(uri)) {
                     ctrl.importing = true;
                     ctrl.importWitnessImage(uri).finally(() => {
                         ctrl.importing = false;
                     });
-                    track.action(trackEvent, dropAction('Witness'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drop',
+                      'Witness',
+                      null,
+                      dropAction('Witness')
+                    );
                 } else if (ctrl.isNotGridThumbnail(uri)) {
                     ctrl.loadUriImage(uri);
                 }
@@ -200,7 +219,14 @@ dndUploader.directive('dndUploader', ['$window', 'delay', 'safeApply', 'track', 
                     $window.alert('You must drop valid files or ' +
                         'URLs to upload them');
 
-                    track.action(trackEvent, dropAction('Invalid'));
+                    $rootScope.$emit(
+                      'track:event',
+                      trackEvent,
+                      'Drop',
+                      'Invalid',
+                      null,
+                      dropAction('Invalid')
+                    );
                 }
             }
 

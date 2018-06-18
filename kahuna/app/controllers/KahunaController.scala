@@ -19,7 +19,8 @@ class KahunaController(config: KahunaConfig, override val controllerComponents: 
       config.authUri,
       s"${config.authUri}/login?redirectUri=$returnUri",
       config.sentryDsn,
-      config.sessionId
+      config.sessionId,
+      config.googleTrackingId
     ))
   }
 

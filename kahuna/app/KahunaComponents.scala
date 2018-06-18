@@ -33,15 +33,15 @@ object KahunaSecurityConfig {
 
     val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"
     val frameAncestors = s"frame-ancestors ${config.services.toolsDomains.map(domain => s"*.$domain").mkString(" ")}"
-    val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self'"
+    val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self' www.google-analytics.com"
 
-    val imageSources = s"img-src data:* ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} ${config.cropOrigin} 'self'"
+    val imageSources = s"img-src data:* ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} ${config.cropOrigin} www.google-analytics.com 'self'"
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
       frameOptions = None,
       // We use inline styles and script tags <sad face>
-      contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $imageSources; default-src 'unsafe-inline' 'self';")
+      contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $imageSources; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' www.google-analytics.com;")
     )
   }
 }

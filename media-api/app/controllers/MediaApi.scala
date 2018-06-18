@@ -38,10 +38,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
 
   private val indexResponse = {
     val indexData = Json.obj(
-      "description" -> "This is the Media API",
-      "configuration" -> Map(
-        "mixpanelToken" -> config.mixpanelToken
-      ).collect { case (key, Some(value)) => key -> value }
+      "description" -> "This is the Media API"
       // ^ Flatten None away
     )
     val indexLinks = List(
