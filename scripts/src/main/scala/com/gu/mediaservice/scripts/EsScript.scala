@@ -6,12 +6,12 @@ import org.elasticsearch.action.bulk.BulkRequestBuilder
 import org.elasticsearch.action.index.IndexRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.index.query.QueryBuilders.{ matchAllQuery, rangeQuery}
+import org.elasticsearch.index.query.QueryBuilders.{matchAllQuery, rangeQuery}
 import org.elasticsearch.common.unit.TimeValue
-
-
-import com.gu.mediaservice.lib.elasticsearch.{IndexSettings, Mappings, ElasticSearchClient}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, IndexSettings, Mappings}
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse
 import org.joda.time.DateTime
+
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import ExecutionContext.Implicits.global
@@ -175,8 +175,6 @@ object Reindex extends EsScript {
   }
 }
 
-
-
 object UpdateMapping extends EsScript {
 
   def run(esHost: String, extraArgs: List[String]) {
@@ -196,17 +194,50 @@ object UpdateMapping extends EsScript {
           .setSource(Mappings.imageMapping)
           .execute.actionGet
 
-
         client.close
       }
     }
-
 
     EsClient.updateMappings(extraArgs.headOption)
   }
 
   def usageError: Nothing = {
     System.err.println("Usage: UpdateMapping <ES_HOST>")
+    sys.exit(1)
+  }
+}
+
+object GetMapping extends EsScript {
+
+  def run(esHost: String, extraArgs: List[String]) {
+    object EsClient extends ElasticSearchClient {
+      val imagesAlias = "writeAlias"
+      val port = esPort
+      val host = esHost
+      val cluster = esCluster
+
+      def getMappings(specifiedIndex: Option[String]) {
+        val index = getCurrentAlias.getOrElse(imagesAlias)
+        println(s"getting mapping on index: $index")
+        val result = client.admin.indices
+          .prepareGetMappings(index)
+          .execute.actionGet
+
+        try {
+          println(result.getMappings.get(index).get(imageType).getSourceAsMap)
+        } catch {
+          case e: Throwable => throw new Exception(s"Error while getting mappings: ${e.getMessage}")
+        }
+
+        client.close()
+      }
+    }
+
+    EsClient.getMappings(extraArgs.headOption)
+  }
+
+  def usageError: Nothing = {
+    System.err.println("Usage: GetMapping <ES_HOST>")
     sys.exit(1)
   }
 }
