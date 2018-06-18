@@ -45,12 +45,12 @@
 
     <ui-global-errors></ui-global-errors>
 
-    @googleTrackingId.map { id => (
+    @googleTrackingId.map { id =>
       <script>
         window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
       </script>
       <script async src='https://www.google-analytics.com/analytics.js'></script>
-    )}
+    }
 
     <script src="@routes.Assets.versioned("dist/build.js")"></script>
 
