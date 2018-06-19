@@ -23,7 +23,7 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
               mediaCropper.createFullCrop(image).then(crop => {
                   //Global notification of action
                   $rootScope.$emit('events:crop-created', {
-                      image: ctrl.image,
+                      image: image,
                       crop: crop
                   });
               });
