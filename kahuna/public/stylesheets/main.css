@@ -1123,6 +1123,7 @@ textarea.ng-invalid {
 
 .preview__image.preview__image--staff {
     border: 10px solid #005689;
+    box-sizing: border-box;
 }
 
 .preview__info {
