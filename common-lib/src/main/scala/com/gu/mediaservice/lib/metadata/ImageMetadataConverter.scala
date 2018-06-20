@@ -52,12 +52,16 @@ object ImageMetadataConverter {
   private lazy val randomDateFormat = {
     val parsers = Array(
       // 2014-12-16T02:23:45+01:00 - Standard dateTimeNoMillis
+      DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ").getParser,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZZ").getParser,
       // 2014-12-16T02:23+01:00 - Same as above but missing seconds lol
+      DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm.SSSZZ").getParser,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mmZZ").getParser,
       // Tue Dec 16 01:23:45 GMT 2014 - Let's make machine metadata human readable!
-      DateTimeFormat.forPattern("E MMM d HH:mm:ss z yyyy").getParser,
-      DateTimeFormat.forPattern("E MMM d HH:mm:ss 'BST' yyyy").getParser,
+      DateTimeFormat.forPattern("E MMM dd HH:mm:ss.SSS z yyyy").getParser,
+      DateTimeFormat.forPattern("E MMM dd HH:mm:ss z yyyy").getParser,
+      DateTimeFormat.forPattern("E MMM dd HH:mm:ss.SSS 'BST' yyyy").getParser,
+      DateTimeFormat.forPattern("E MMM dd HH:mm:ss 'BST' yyyy").getParser,
       // 2014-12-16 - Maybe it's just a date
       ISODateTimeFormat.date.getParser
     )

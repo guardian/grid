@@ -1,6 +1,8 @@
 package lib.imaging
 
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.concurrent.Executors
 
 import com.drew.imaging.ImageMetadataReader
@@ -64,13 +66,13 @@ object FileMetadataReader {
       directory match {
         case d: IptcDirectory =>
           val dateTimeCreated = try {
-            Map("Date Time Created Composite" -> d.getDateCreated.toString)
+            Map("Date Time Created Composite" -> dateToString(d.getDateCreated))
           } catch {
             case _: Throwable => Map()
           }
 
           val digitalDateTimeCreated = try {
-            Map("Digital Date Time Created Composite" -> d.getDigitalDateCreated.toString)
+            Map("Digital Date Time Created Composite" -> dateToString(d.getDigitalDateCreated))
           } catch {
             case _: Throwable => Map()
           }
@@ -79,7 +81,7 @@ object FileMetadataReader {
 
         case d: ExifSubIFDDirectory =>
           val dateTimeCreated = try {
-            Map("Date/Time Original Composite" -> d.getDateOriginal.toString)
+            Map("Date/Time Original Composite" -> dateToString(d.getDateOriginal))
           } catch {
             case _: Throwable => Map()
           }
@@ -121,6 +123,7 @@ object FileMetadataReader {
       ).flattenOptions
   }
 
+  private def dateToString(date: Date): String = new SimpleDateFormat("E MMM dd HH:mm:ss.SSS z yyyy").format(date.getTime)
 
   def dimensions(image: File, mimeType: Option[String]): Future[Option[Dimensions]] =
     for {

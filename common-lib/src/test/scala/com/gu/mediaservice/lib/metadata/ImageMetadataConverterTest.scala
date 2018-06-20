@@ -86,6 +86,12 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T01:23:45")))
   }
 
+  it("should populate the dateTaken field of ImageMetadata from EXIF Date/Time Original Composite with milliseconds (Mon Jun 18 01:23:45.025 BST 2018)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map("Date/Time Original Composite" -> "Mon Jun 18 01:23:45.025 BST 2018"), xmp = Map())
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T01:23:45.025")))
+  }
+
   it("should populate the dateTaken field of ImageMetadata from IPTC Date Time Created Composite (Mon Jun 18 01:23:45 BST 2018)") {
     val fileMetadata = FileMetadata(iptc = Map("Date Time Created Composite" -> "Mon Jun 18 01:23:45 BST 2018"), exif = Map(), exifSub = Map(), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
