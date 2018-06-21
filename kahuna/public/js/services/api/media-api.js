@@ -16,7 +16,7 @@ mediaApi.factory('mediaApi',
     function search(query = '', {ids, since, until, archived, valid, free,
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
-                                 modifiedSince, modifiedUntil, hasRightsAcquired} = {}) {
+                                 modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops} = {}) {
         return root.follow('search', {
             q:          query,
             since:      since,
@@ -34,16 +34,16 @@ mediaApi.factory('mediaApi',
             offset:     offset,
             length:     angular.isDefined(length) ? length : 50,
             orderBy:    getOrder(orderBy),
-            hasRightsAcquired: getHasRightsAcquired(hasRightsAcquired)
+            hasRightsAcquired: maybeStringToBoolean(hasRightsAcquired),
+            hasExports: maybeStringToBoolean(hasCrops) // Grid API calls crops exports...
         }).get();
     }
 
-    function getHasRightsAcquired(hasRightsAcquired) {
-        if (hasRightsAcquired === 'true') {
+    function maybeStringToBoolean(maybeString) {
+        if (maybeString === 'true') {
             return true;
         }
-
-        if (hasRightsAcquired === 'false') {
+        if (maybeString === 'false') {
             return false;
         }
 
