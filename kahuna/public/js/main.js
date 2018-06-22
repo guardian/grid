@@ -4,8 +4,6 @@ import angular from 'angular';
 import 'angular-ui-router';
 import {heal} from 'pandular';
 
-import uriTemplates from 'uri-templates';
-
 import {cropperApi} from './services/api/media-cropper';
 import {editsApi}   from './services/api/edits-api';
 import {loaderApi}  from './services/api/loader';
@@ -220,10 +218,24 @@ kahuna.run(['$rootScope', 'httpErrors',
             function($rootScope, httpErrors) {
 
     $rootScope.$on('events:error:unauthorised', () =>
-        $rootScope.$emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.unauthorised.errorCode }));
+        $rootScope.$emit(
+          'track:event',
+          'Authentication',
+          null,
+          'Error',
+          null,
+          { 'Error code': httpErrors.unauthorised.errorCode }
+      ));
 
     $rootScope.$on('pandular:re-establishment:fail', () =>
-      $rootScope.$emit('track:event', 'Authentication', null, 'Error', null, { 'Error code': httpErrors.authFailed.errorCode }));
+      $rootScope.$emit(
+        'track:event',
+        'Authentication',
+        null,
+        'Error',
+        null,
+        { 'Error code': httpErrors.authFailed.errorCode }
+      ));
 }]);
 
 /**
