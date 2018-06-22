@@ -260,6 +260,9 @@ results.controller('SearchResultsCtrl', [
             var val = {};
             val[key] = image.data.uploadTime;
 
+            // Tracking to potentially kill this feature off
+            $rootScope.$emit('track:event', 'Mark as seen', 'Clicked', null, null, {image: image});
+
             return val;
         }
 

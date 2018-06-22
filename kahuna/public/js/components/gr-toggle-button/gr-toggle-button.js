@@ -4,7 +4,7 @@ import template from './gr-toggle-button.html';
 
 export const toggleButton = angular.module('gr.toggleButton', []);
 
-toggleButton.directive('grToggleButton', [function() {
+toggleButton.directive('grToggleButton', ['$rootScope',function($rootScope) {
     return {
         restrict: 'E',
         template: template,
@@ -20,6 +20,14 @@ toggleButton.directive('grToggleButton', [function() {
             };
 
             scope.toggle = function() {
+                $rootScope.$emit(
+                  'track:event',
+                  'Toggle',
+                  'Clicked',
+                  null,
+                  null,
+                  {value: scope.toggleVar}
+                );
                 scope.toggleVar = !scope.toggleVar;
                 setName();
             };
