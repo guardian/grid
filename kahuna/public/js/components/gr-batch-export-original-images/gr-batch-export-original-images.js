@@ -10,15 +10,26 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
         let ctrl = this;
 
         ctrl.callBatchCrop = function() {
-            //prevents return key on the crop button posting crop twice
-            if (!ctrl.cropping) {
-              cropImages();
+
+            //Slightly backwards, if needsConfirmation is true, then this is second click
+            if (ctrl.needsConfirmation) {
+              ctrl.confirmed = true;
+            }
+
+            // Safety first
+            if (!ctrl.confirmed) {
+              ctrl.needsConfirmation = true;
+            } else {
+              //prevents return key on the crop button posting crop twice
+              if (!ctrl.cropping) {
+                cropImages();
+              }
             }
         };
 
         function cropImages() {
             ctrl.cropping = true;
-
+            ctrl.needsConfirmation = false;
             const cropImages = ctrl.images.map(image => {
               mediaCropper.createFullCrop(image).then(crop => {
                   //Global notification of action
@@ -44,7 +55,9 @@ batchExportOriginalImages.directive('grBatchExportOriginalImages', [function() {
         bindToController: true,
         scope: {
             images: '=',
-            cropping: '='
+            cropping: '=',
+            needsConfirmation: '=',
+            confirmed: '='
         },
         template: template
     };

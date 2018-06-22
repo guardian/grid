@@ -1,5 +1,8 @@
 <div ng:click="ctrl.callBatchCrop(); $event.stopPropagation();"
      gr:track-click="Full frame button"
+     confirmed="false"
+     needsConfirmation="false"
      class="inner-clickable clickable">
-        <gr-icon-label gr-icon="crop">Creat<span ng:hide="ctrl.cropping">e</span><span ng:if="ctrl.cropping">ing</span> full frame<span ng:if="ctrl.cropping">…</span></gr-icon-label>
+        <gr-icon-label gr-icon="crop" ng:hide="ctrl.needsConfirmation">Creat<span ng:hide="ctrl.cropping">e</span><span ng:if="ctrl.cropping">ing</span> full frame<span ng:if="ctrl.cropping">…</span></gr-icon-label>
+        <gr-icon-label gr-icon="check_circle" ng:show="ctrl.needsConfirmation">Confirm full frame</gr-icon-label>
 </div>
