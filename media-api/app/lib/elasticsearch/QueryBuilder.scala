@@ -5,6 +5,7 @@ import lib.querysyntax._
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder, NestedQueryBuilder}
 import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.FilterBuilders._
 
 
 class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
@@ -38,6 +39,10 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
     case HierarchyField => condition.value match {
       case Phrase(value) => termQuery(getFieldPath("pathHierarchy"), value)
       case _ => throw InvalidQuery("Cannot accept non-Phrase value for HierarchyField Match")
+    }
+    case HasField => condition.value match {
+      case HasValue(value) => boolQuery().must(filteredQuery(null, existsFilter(getFieldPath(value))))
+      case _ => throw InvalidQuery(s"Cannot perform booleanQuery on ${condition.value}")
     }
   }
 
