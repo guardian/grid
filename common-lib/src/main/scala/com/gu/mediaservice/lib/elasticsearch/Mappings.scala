@@ -161,7 +161,8 @@ object Mappings {
       "archived"    -> boolean,
       "labels"      -> (nonAnalysedList("label") ++ copyTo("metadata.englishAnalysedCatchAll")),
       "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping
+      "usageRights" -> usageRightsMapping,
+      "shootId" -> nonAnalyzedString
     )
 
   val uploadInfoMapping =
