@@ -90,7 +90,8 @@ object Mappings {
     "city" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "state" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "country" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
-    "englishAnalysedCatchAll" -> sStemmerAnalysedString
+    "englishAnalysedCatchAll" -> sStemmerAnalysedString,
+    "shootId" -> nonAnalyzedString
   )
 
   val usageRightsMapping = nonDynamicObj(
@@ -161,8 +162,7 @@ object Mappings {
       "archived"    -> boolean,
       "labels"      -> (nonAnalysedList("label") ++ copyTo("metadata.englishAnalysedCatchAll")),
       "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping,
-      "shootId" -> nonAnalyzedString
+      "usageRights" -> usageRightsMapping
     )
 
   val uploadInfoMapping =
