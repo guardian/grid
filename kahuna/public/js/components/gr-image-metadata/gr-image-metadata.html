@@ -64,6 +64,22 @@
                                  'text-input': true}"
                     e:form="descriptionEditForm">{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}</dd>
             </div>
+
+            <div class="image-info__wrap" ng:if="ctrl.metadata.shootId || ctrl.userCanEdit">
+                <button class="image-info__edit"
+                        ng:if="ctrl.userCanEdit"
+                        ng:click="shootIdEditForm.$show()"
+                        ng:hide="shootIdEditForm.$visible">✎</button>
+                <dt class="metadata-line metadata-line__key">Shoot ID</dt>
+                <dd class="image-info__title metadata-line__info"
+                    editable-text="ctrl.metadata.shootId"
+                    onbeforesave="ctrl.updateMetadataField('shootId', $data)"
+                    e:ng-class="{'image-info__editor--error': $error,
+                                 'image-info__editor--saving': shootIdEditForm.$waiting,
+                                 'text-input': true}"
+                    e:form="shootIdEditForm">{{ctrl.metadata.shootId || "Unknown (click ✎ to add)" }}</dd>
+            </div>
+
         </dl>
     </div>
 
