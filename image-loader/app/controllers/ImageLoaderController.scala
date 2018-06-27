@@ -19,8 +19,8 @@ import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 import scala.util.control.NonFatal
+import scala.util.{Failure, Try}
 
 class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications, config: ImageLoaderConfig, imageUploadOps: ImageUploadOps,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
@@ -147,8 +147,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       case e =>
         Logger.warn(s"Rejected ${uploadRequestDescription(uploadRequest)}: ${e.getMessage}.", e)
 
-        // TODO: Log when an image isn't deleted
-        store.deleteOriginal(uploadRequest.id)
+        store.deleteOriginal(uploadRequest.id).onComplete {
+          case Failure(err) => Logger.error(s"Failed to delete image for ${uploadRequest.id}: $err")
+          case _ =>
+        }
         respondError(BadRequest, "upload-error", e.getMessage)
     }
   }
