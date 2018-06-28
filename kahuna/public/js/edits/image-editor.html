@@ -167,27 +167,6 @@
             </div>
         </div>
 
-        <label class="job-info--editor__field flex-center">
-          <div class="job-info--editor__label text-small">Shoot ID</div>
-          <input
-              type="text"
-              name="shootId"
-              class="text-input job-info--editor__input"
-              ng:model="ctrl.metadata.shootId"
-              ng:change="ctrl.save()"
-              ng:model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
-              ng:class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
-          />
-
-          <button
-              class="job-editor__apply-to-all"
-              title="Apply this shoot ID to all your current uploads"
-              type="button"
-              ng:if="ctrl.withBatch"
-              ng:click="ctrl.batchApplyMetadata('shootId')"
-          >⇔</button>
-        </label>
-
         <div class="result-editor__field-container flex-container">
             <span class="result-editor__field-label  flex-no-shrink text-small">
                 Leases
