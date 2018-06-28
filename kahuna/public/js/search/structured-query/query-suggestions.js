@@ -28,7 +28,8 @@ export const filterFields = [
     'usages@<added',
     'usages@>added',
     'usages@platform',
-    'usages@status'
+    'usages@status',
+    'has'
 ];
 // TODO: add date fields
 
@@ -135,7 +136,6 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'by':       return listPhotographers().then(prefixFilter(value));
         case 'illustrator': return listIllustrators().then(prefixFilter(value));
         case 'category': return listCategories().then(prefixFilter(value));
-
         // No suggestions
         default:         return [];
         }

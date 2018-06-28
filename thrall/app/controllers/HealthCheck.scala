@@ -1,7 +1,6 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication
 import play.api.mvc._
 import lib._
 import com.gu.mediaservice.syntax._

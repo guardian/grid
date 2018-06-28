@@ -28,7 +28,7 @@
     // our identation is a bit more complex than this, so don't check it
     "indent-width": false,
     "label-req-for": true,
-    "line-end-style": "lf",
+    "line-end-style": false,
     "spec-char-escape": false,
     "table-req-caption": true,
     "tag-bans": false,
