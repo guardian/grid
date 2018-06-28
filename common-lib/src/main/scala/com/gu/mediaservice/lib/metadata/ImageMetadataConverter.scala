@@ -54,6 +54,8 @@ object ImageMetadataConverter {
       // 2014-12-16T02:23:45+01:00 - Standard dateTimeNoMillis
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ").getParser,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZZ").getParser,
+      DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss").getParser,
+      DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").getParser,
       // 2014-12-16T02:23+01:00 - Same as above but missing seconds lol
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm.SSSZZ").getParser,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mmZZ").getParser,
