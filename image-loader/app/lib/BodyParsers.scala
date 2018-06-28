@@ -3,9 +3,11 @@ package lib
 import java.io.{File, FileOutputStream}
 import java.security.MessageDigest
 
+import akka.stream.scaladsl.Sink
+import akka.util.ByteString
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import play.api.Logger
-import play.api.libs.iteratee.Iteratee
+import play.api.libs.streams.Accumulator
 import play.api.mvc._
 
 import scala.concurrent.ExecutionContext
@@ -32,15 +34,15 @@ object DigestBodyParser extends ArgoHelpers {
     s"Incorrect content-length. The specified content-length does match that of the received file."
   )
 
-  def slurp(to: File)(implicit ec: ExecutionContext): Iteratee[Array[Byte], (MessageDigest, FileOutputStream)] =
-    Iteratee.fold[Array[Byte], (MessageDigest, FileOutputStream)](
+  def slurp(to: File)(implicit ec: ExecutionContext): Accumulator[ByteString, (MessageDigest, FileOutputStream)] =
+    Accumulator(Sink.fold[(MessageDigest, FileOutputStream), ByteString](
       (MessageDigest.getInstance("SHA-1"), new FileOutputStream(to))) {
       case ((md, os), data) =>
-        md.update(data)
-        os.write(data)
+        md.update(data.toArray)
+        os.write(data.toArray)
 
         (md, os)
-    }
+    })
 
   def failValidation(foo: Result, message: String) = {
     Logger.info(message)
