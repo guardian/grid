@@ -49,6 +49,7 @@ trait ImageFields {
     case f if editsFields.contains(f)       => editsField(f)
     case f if collectionsFields.contains(f) => collectionsField(f)
     case f if usagesFields.contains(f)      => usagesField(f)
+    case "crops" => "exports"
     case f => f
   }
 

@@ -396,4 +396,32 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
     }
 
   }
+
+  describe("has filter") {
+    it("should find images with crops") {
+      Parser.run("has:crops") should be (List(
+        Match(HasField, HasValue("crops"))
+      ))
+    }
+
+    it("should match multiple terms and the has query") {
+      Parser.run("cats dogs has:rightsSyndication") should be (List(
+        Match(AnyField, Words("cats dogs")),
+        Match(HasField, HasValue("rightsSyndication"))
+      ))
+    }
+
+    it("should match negated has queries") {
+      Parser.run("-has:foo") should be (List(
+        Negation(Match(HasField, HasValue("foo")))
+      ))
+    }
+
+    it("should match aliases and a has query") {
+      Parser.run("by:cats has:paws") should be (List(
+        Match(bylineField, Words("cats")),
+        Match(HasField, HasValue("paws"))
+      ))
+    }
+  }
 }
