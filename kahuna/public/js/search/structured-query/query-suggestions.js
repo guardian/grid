@@ -30,7 +30,7 @@ export const filterFields = [
     'usages@platform',
     'usages@status',
     'has'
-];
+].sort();
 // TODO: add date fields
 
 const subjects = [
