@@ -45,6 +45,7 @@ const subjects = [
     'labour',
     'lifestyle',
     'nature',
+    'news',
     'politics',
     'religion',
     'science',
