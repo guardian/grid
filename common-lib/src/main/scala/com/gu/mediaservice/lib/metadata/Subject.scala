@@ -14,6 +14,7 @@ object Subject extends Enumeration {
   val Labour = Value("labour")
   val Lifestyle = Value("lifestyle")
   val Nature = Value("nature")
+  val News = Value("news")
   val Politics = Value("politics")
   val Religion = Value("religion")
   val Science = Value("science")
@@ -25,12 +26,15 @@ object Subject extends Enumeration {
   // These category codes are now deprecated but still populated
   def create(category: String): Option[Subject.Value] = category.toLowerCase match {
     // ANPA-1312 Codes: https://en.wikipedia.org/wiki/ANPA-1312
+    // http://www.eznews.com/help/ezsend/index.html?ANPAStandard
     case "f" => Some(Finance)
     case "l" => Some(Lifestyle)
     case "e" => Some(Arts)
     case "s" => Some(Sport)
     case "o" => Some(Weather)
     case "p" => Some(Politics)
+    case "i" => Some(News)
+    case "a" => Some(News)
 
     // See: https://www.iptc.org/std/photometadata/documentation/GenericGuidelines/index.htm#!Documents/guidelineformappingcategorycodestosubjectnewscodes.htm
     case "ace" => Some(Arts)
