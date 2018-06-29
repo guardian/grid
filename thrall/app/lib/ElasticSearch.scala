@@ -254,7 +254,10 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       (__ \ "uploadTime").json.prune andThen
       (__ \ "userMetadata").json.prune andThen
       (__ \ "exports").json.prune andThen
-      (__ \ "uploadedBy").json.prune
+      (__ \ "uploadedBy").json.prune andThen
+      (__ \ "collections").json.prune andThen
+      (__ \ "leases").json.prune andThen
+      (__ \ "usages").json.prune
 
     image.transform(removeUploadInformation).get
   }
