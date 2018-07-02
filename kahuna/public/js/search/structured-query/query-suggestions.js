@@ -29,7 +29,8 @@ export const filterFields = [
     'usages@>added',
     'usages@platform',
     'usages@status',
-    'has'
+    'has',
+    'croppedBy'
 ].sort();
 // TODO: add date fields
 
