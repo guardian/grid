@@ -1,8 +1,9 @@
 package lib
 
-import com.gu.mediaservice.lib.auth.{ReadOnly, Internal, Syndication}
+import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model.{Handout, StaffPhotographer}
 import controllers.SearchParams
+import org.joda.time.{DateTime, DateTimeUtils}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
@@ -19,11 +20,17 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
         createImage(Handout()),
         createImage(StaffPhotographer("Yellow Giraffe", "The Guardian")),
         createImage(Handout()),
-        createImageWithSyndicationRights(Handout(), rightsAcquired = true),
-        createImageWithSyndicationRights(Handout(), rightsAcquired = false),
+        createImageWithSyndicationRights(Handout(), rightsAcquired = true, None),
+        createImageWithSyndicationRights(Handout(), rightsAcquired = true, Some(DateTime.parse("2018-01-01"))),
+        createImageWithSyndicationRights(Handout(), rightsAcquired = true, Some(DateTime.parse("2018-07-02T00:00:00"))),
+        createImageWithSyndicationRights(Handout(), rightsAcquired = false, None),
         createExampleImage()
       ).map(saveToES))
     Await.ready(createTestImages, 2.seconds)
+
+    // mocks `DateTime.now`
+    val startDate = DateTime.parse("2018-03-01")
+    DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
   }
 
   describe("ES") {
@@ -39,7 +46,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchParams = SearchParams(tier = Internal, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
-        result.total shouldBe 6
+        result.total shouldBe 8
       }
     }
 
@@ -47,12 +54,13 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchParams = SearchParams(tier = ReadOnly, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
-        result.total shouldBe 6
+        result.total shouldBe 8
       }
     }
   }
 
   override def afterAll {
     Await.ready(cleanTestUserImages(), 2.seconds)
+    DateTimeUtils.setCurrentMillisSystem()
   }
 }
