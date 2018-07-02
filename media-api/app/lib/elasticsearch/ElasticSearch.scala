@@ -56,7 +56,8 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
     Seq("description", "title", "byline", "source", "credit", "keywords",
       "subLocation", "city", "state", "country", "suppliersReference", "englishAnalysedCatchAll").map(metadataField) ++
     Seq("labels").map(editsField) ++
-    config.queriableIdentifiers.map(identifierField)
+    config.queriableIdentifiers.map(identifierField) ++
+    Seq("restrictions").map(usageRightsField)
 
   val queryBuilder = new QueryBuilder(matchFields)
 
