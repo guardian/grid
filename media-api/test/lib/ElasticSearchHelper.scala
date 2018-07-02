@@ -58,13 +58,13 @@ trait ElasticSearchHelper extends MockitoSugar {
     )
   }
 
-  def createImageWithSyndicationRights(usageRights: UsageRights, rightsAcquired: Boolean): Image = {
+  def createImageWithSyndicationRights(usageRights: UsageRights, rightsAcquired: Boolean, publishDate: Option[DateTime]): Image = {
     val rights = List( Right("test", Some(rightsAcquired), Nil) )
-    val syndicationRights = SyndicationRights(None, Nil, rights)
+    val syndicationRights = SyndicationRights(publishDate, Nil, rights)
     createImage(usageRights, Some(syndicationRights))
   }
 
-  def createExampleImage(): Image = createImageWithSyndicationRights(Handout(), rightsAcquired = true).copy(id = "id-abc")
+  def createExampleImage(): Image = createImageWithSyndicationRights(Handout(), rightsAcquired = true, None).copy(id = "id-abc")
 
   def saveToES(image: Image) = {
     val json = Json.toJson(image)
