@@ -5,7 +5,8 @@ const Rx = require('rx');
 module.exports = {
     buildUpload: function(config, s3Event) {
          const headers = {
-            'X-Gu-Media-Key': config.apiKey
+            'X-Gu-Media-Key': config.apiKey,
+            'Content-Length': s3Event.size
         };
 
          const buildUploadedBy = function(path){
