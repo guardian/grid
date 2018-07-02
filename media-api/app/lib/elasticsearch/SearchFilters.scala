@@ -8,6 +8,7 @@ import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
 import lib.MediaApiConfig
+import org.joda.time.DateTime
 
 
 class SearchFilters(config: MediaApiConfig) extends ImageFields {
@@ -80,8 +81,15 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
       )
     )
 
+  def syndicationRightsAcquiredFilter(): FilterBuilder = {
+    filters.and(
+      rightsAcquiredFilter(isAcquired = true),
+      filters.date(field = "syndicationRights.published", None, Some(DateTime.now)).get
+    )
+  }
+
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case Syndication => Some(rightsAcquiredFilter(isAcquired = true))
+    case Syndication => Some(syndicationRightsAcquiredFilter())
     case _ => None
   }
 
