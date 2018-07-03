@@ -9,7 +9,15 @@ import play.api.libs.functional.syntax._
 case class SyndicationRights(
   published: Option[DateTime],
   suppliers: Seq[Supplier],
-  rights: Seq[Right])
+  rights: Seq[Right]) {
+
+  def isAvailableForSyndication: Boolean = {
+    val rightsAcquired = rights.flatMap(_.acquired).contains(true)
+    val isPublished = published.exists(_.isBeforeNow)
+
+    rightsAcquired && isPublished
+  }
+}
 object SyndicationRights {
   implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
   implicit val dateReads = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
