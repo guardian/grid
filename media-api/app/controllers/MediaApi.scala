@@ -13,7 +13,7 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import lib.elasticsearch._
-import lib.{ImageResponse, MediaApiConfig, Notifications, S3Client}
+import lib._
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.Logger
@@ -30,7 +30,8 @@ class MediaApi(
   imageResponse: ImageResponse,
   override val config: MediaApiConfig,
   override val controllerComponents: ControllerComponents,
-  s3Client: S3Client
+  s3Client: S3Client,
+  mediaApiMetrics: MediaApiMetrics
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -188,7 +189,8 @@ class MediaApi(
   def downloadOriginalImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
       case Some(source) if hasPermission(request, source) => {
-        Logger.info(s"downloading original image ${id}")
+        Logger.info(s"Download original image $id by ${request.user.apiKey.tier}/${request.user.apiKey.name}")
+        mediaApiMetrics.incrementOriginalImageDownload(request.user.apiKey)
         val image = source.as[Image]
         val fileUri = image.source.file
         val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image)
