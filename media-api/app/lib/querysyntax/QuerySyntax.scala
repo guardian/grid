@@ -105,7 +105,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "supplier" |
     "collection" |
     "keyword" |
-    "label"
+    "label" |
+    "croppedBy"
   }
 
   def resolveNamedField(name: String): Field = (name match {
@@ -117,6 +118,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "location"            => "subLocation"
     case "by" | "photographer" => "byline"
     case "keyword"             => "keywords"
+    case "croppedBy"           => "exports.author"
     case fieldName             => fieldName
   }) match {
     case "publication" => MultipleField(List("publicationName", "publicationCode"))
