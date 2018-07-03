@@ -118,9 +118,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
         Failure(e)
     }.get
 
-    val pngFileUri = (source \ "optimisedPng" \ "file").validate[String].asOpt.map(new URI(_))
+    val pngFileUri = image.optimisedPng.map(_.file)
 
-    val fileUri = new URI((source \ "source" \ "file").as[String])
+    val fileUri = image.source.file
 
     val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image)
     val pngUrl: Option[String] = pngFileUri
