@@ -9,7 +9,7 @@ import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.Image
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, Duration}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -54,7 +54,13 @@ class S3(config: CommonConfig) {
     }
   }
 
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime): String = {
+  private def roundDateTime(t: DateTime, d: Duration): DateTime = t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
+
+  // Round expiration time to try and hit the cache as much as possible
+  // TODO: do we really need these expiration tokens? they kill our ability to cache...
+  private def defaultExpiration: DateTime = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
+
+  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = defaultExpiration): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 

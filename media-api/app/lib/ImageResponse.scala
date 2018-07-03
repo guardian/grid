@@ -120,17 +120,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val pngFileUri = (source \ "optimisedPng" \ "file").validate[String].asOpt.map(new URI(_))
 
-    // Round expiration time to try and hit the cache as much as possible
-    // TODO: do we really need these expiration tokens? they kill our ability to cache...
-    val expiration = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
-
     val fileUri = new URI((source \ "source" \ "file").as[String])
 
-    val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image, expiration)
+    val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image)
     val pngUrl: Option[String] = pngFileUri
-      .map(s3Client.signUrl(config.imageBucket, _, image, expiration))
+      .map(s3Client.signUrl(config.imageBucket, _, image))
 
-    def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, expiration)
+    def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image)
     val thumbUrl = if(FeatureToggle.get("cloudfront-signing")) {
       config.cloudFrontDomainThumbBucket
         .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
@@ -265,10 +261,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
-
-  def roundDateTime(t: DateTime, d: Duration) = {
-    t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
-  }
 
   def makeImgopsUri(uri: URI): String =
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
