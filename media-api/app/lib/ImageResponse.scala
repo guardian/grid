@@ -140,7 +140,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
 
-    val data = source.transform(addSecureSourceUrl(image.id))
+    val data = source.transform(addSecureSourceUrl(imageUrl))
       .flatMap(_.transform(wrapUserMetadata(id)))
       .flatMap(_.transform(addSecureThumbUrl(thumbUrl)))
       .flatMap(_.transform(
@@ -247,10 +247,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       root ++ Json.obj("userMetadata" -> editsJson)
     }
 
-  def addSecureSourceUrl(id: String): Reads[JsObject] = {
-    val url = s"${config.rootUri}/images/$id/download"
+  def addSecureSourceUrl(url: String): Reads[JsObject] =
     (__ \ "source").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
-  }
 
   def addSecureOptimisedPngUrl(url: String): Reads[JsObject] =
     (__ \ "optimisedPng").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
