@@ -13,26 +13,18 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import lib.elasticsearch._
-import lib._
+import lib.{ImageResponse, MediaApiConfig, Notifications}
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MediaApi(
-  auth: Authentication,
-  notifications: Notifications,
-  elasticSearch: ElasticSearch,
-  imageResponse: ImageResponse,
-  override val config: MediaApiConfig,
-  override val controllerComponents: ControllerComponents,
-  s3Client: S3Client,
-  mediaApiMetrics: MediaApiMetrics
-)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
+class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch: ElasticSearch, imageResponse: ImageResponse,
+               override val config: MediaApiConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -182,21 +174,6 @@ class MediaApi(
           Future.successful(ImageCannotBeDeleted)
         }
 
-      case _ => Future.successful(ImageNotFound)
-    }
-  }
-
-  def downloadOriginalImage(id: String) = auth.async { request =>
-    elasticSearch.getImageById(id) flatMap {
-      case Some(source) if hasPermission(request, source) => {
-        Logger.info(s"Download original image $id by ${request.user.apiKey.tier}/${request.user.apiKey.name}")
-        mediaApiMetrics.incrementOriginalImageDownload(request.user.apiKey)
-        val image = source.as[Image]
-        val fileUri = image.source.file
-        val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image)
-
-        Future.successful(Redirect(imageUrl))
-      }
       case _ => Future.successful(ImageNotFound)
     }
   }
