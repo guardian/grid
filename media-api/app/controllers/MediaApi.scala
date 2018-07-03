@@ -98,10 +98,10 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
     isUploaderOrHasPermission(request, source, Permissions.DeleteImage)
   }
 
-  private def isSyndicateable(json: JsValue): Boolean = (json \ "syndicationRights" \ "rights" \ "acquired").validate[Boolean].getOrElse(false)
+  private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
   private def hasPermission(request: Authentication.Request[Any], json: JsValue): Boolean = request.user.apiKey.tier match {
-    case Syndication => isSyndicateable(json)
+    case Syndication => isAvailableForSyndication(json.as[Image])
     case _ => true
   }
 
