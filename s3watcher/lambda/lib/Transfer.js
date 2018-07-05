@@ -40,7 +40,7 @@ module.exports = {
 
         // TODO: Use stream API
         const operation = function() {
-            logger.log('Importing via image-loader.', s3Object);
+            logger.log('Importing via image-loader with settings: ' + JSON.stringify(upload), s3Object);
 
             const urlExpiryInSeconds = config.s3UrlExpiry;
             const signedUrl = S3Helper.getSignedUrl('getObject', {
