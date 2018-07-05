@@ -63,7 +63,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
   private val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
   private val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
   private val ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
-  private val ImageNotFound = respondError(NotFound, "image-not-found", "No image found with the given id")
+  private def ImageNotFound(id: String) = respondError(NotFound, "image-not-found", s"No image found with the given id $id")
   private val ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
 
   def index = auth { indexResponse }
@@ -119,7 +119,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
               imageResponse.create(id, source, writePermission, deletePermission, include, request.user.apiKey.tier)
             respond(imageData, imageLinks, imageActions)
         }
-      case _ => Future.successful(ImageNotFound)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
@@ -130,7 +130,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond((source \ "fileMetadata").getOrElse(JsNull), links)
-      case _ => ImageNotFound
+      case _ => ImageNotFound(id)
     }
   }
 
@@ -141,7 +141,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond((source \ "exports").getOrElse(JsNull), links)
-      case _ => ImageNotFound
+      case _ => ImageNotFound(id)
     }
   }
 
@@ -150,7 +150,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
       case Some(source) if hasPermission(request, source) =>
         val exportOption = source.as[Image].exports.find(_.id.contains(exportId))
         exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
-      case _ => ImageNotFound
+      case _ => ImageNotFound(imageId)
     }
 
   }
@@ -174,7 +174,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
           Future.successful(ImageCannotBeDeleted)
         }
 
-      case _ => Future.successful(ImageNotFound)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
@@ -214,7 +214,7 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
             ImageEditForbidden
           }
         }
-      case None => Future.successful(ImageNotFound)
+      case None => Future.successful(ImageNotFound(id))
     }
   }
 
