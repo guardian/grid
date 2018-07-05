@@ -30,7 +30,8 @@ export const filterFields = [
     'usages@platform',
     'usages@status',
     'has',
-    'croppedBy'
+    'croppedBy',
+    'filename'
 ].sort();
 // TODO: add date fields
 
