@@ -2,6 +2,7 @@ package controllers
 
 import java.net.URI
 
+import akka.stream.scaladsl.StreamConverters
 import com.gu.editorial.permissions.client.Permission
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
@@ -17,6 +18,7 @@ import lib._
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.Logger
+import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
@@ -192,10 +194,13 @@ class MediaApi(
         Logger.info(s"Download original image $id by ${request.user.apiKey.tier}/${request.user.apiKey.name}")
         mediaApiMetrics.incrementOriginalImageDownload(request.user.apiKey)
         val image = source.as[Image]
-        val fileUri = image.source.file
-        val imageUrl = s3Client.signUrl(config.imageBucket, fileUri, image)
+        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+        val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
 
-        Future.successful(Redirect(imageUrl))
+        Future.successful(
+          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image))
+        )
       }
       case _ => Future.successful(ImageNotFound)
     }

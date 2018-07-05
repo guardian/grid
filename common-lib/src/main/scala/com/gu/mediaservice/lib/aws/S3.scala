@@ -54,6 +54,13 @@ class S3(config: CommonConfig) {
     }
   }
 
+  def getContentDisposition(image: Image): String = {
+    // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
+    // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
+    // See http://tools.ietf.org/html/rfc6266#section-5
+    s"""attachment; filename="${getContentDispositionFilename(image, StandardCharsets.ISO_8859_1)}"; filename*=UTF-8''${getContentDispositionFilename(image, StandardCharsets.UTF_8)}"""
+  }
+
   private def roundDateTime(t: DateTime, d: Duration): DateTime = t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
 
   // Round expiration time to try and hit the cache as much as possible
@@ -64,15 +71,18 @@ class S3(config: CommonConfig) {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
-    // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
-    // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
-    // See http://tools.ietf.org/html/rfc6266#section-5
-    val contentDisposition = s"""attachment; filename="${getContentDispositionFilename(image, StandardCharsets.ISO_8859_1)}"; filename*=UTF-8''${getContentDispositionFilename(image, StandardCharsets.UTF_8)}"""
+    val contentDisposition = getContentDisposition(image)
 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
     client.generatePresignedUrl(request).toExternalForm
+  }
+
+  def getObject(bucket: Bucket, url: URI) = {
+    // get path and remove leading `/`
+    val key: Key = url.getPath.drop(1)
+    client.getObject(new GetObjectRequest(bucket, key))
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
