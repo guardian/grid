@@ -43,14 +43,19 @@ trait ImageFields {
   def collectionsField(field: String) = s"collections.$field"
   def usagesField(field: String)      = s"usages.$field"
 
+  val aliases = Map(
+    "crops"     -> "exports",
+    "croppedBy" -> "exports.author",
+    "filename"  -> "uploadInfo.filename"
+  )
+
   def getFieldPath(field: String) = field match {
     case f if metadataFields.contains(f)    => metadataField(f)
     case f if usageRightsFields.contains(f) => usageRightsField(f)
     case f if editsFields.contains(f)       => editsField(f)
     case f if collectionsFields.contains(f) => collectionsField(f)
     case f if usagesFields.contains(f)      => usagesField(f)
-    case "crops" => "exports"
-    case f => f
+    case f => aliases.getOrElse(f, f)
   }
 
 }
