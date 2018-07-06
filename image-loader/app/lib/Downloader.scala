@@ -36,9 +36,9 @@ class Downloader(implicit ec: ExecutionContext) {
 
     val actualSize = Files.size(file.toPath)
 
-    if (actualSize != expectedSize) {
-      throw TruncatedDownload
-    }
+//    if (actualSize != expectedSize) {
+//      throw TruncatedDownload
+//    }
 
     DigestedFile(file, hash)
   }
