@@ -21,7 +21,7 @@ class Downloader(implicit ec: ExecutionContext) {
     val request = new Request.Builder().url(uri.toString).build()
     val response = client.newCall(request).execute()
 
-    val expectedSize = response.header("Content-Length").toInt
+//    val expectedSize = response.header("Content-Length").toInt
     val input = response.body().byteStream()
 
     val output = new FileOutputStream(file)
@@ -34,7 +34,7 @@ class Downloader(implicit ec: ExecutionContext) {
     input.close()
     hashedOutput.close()
 
-    val actualSize = Files.size(file.toPath)
+//    val actualSize = Files.size(file.toPath)
 
 //    if (actualSize != expectedSize) {
 //      throw TruncatedDownload
