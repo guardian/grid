@@ -19,7 +19,10 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   elasticSearch.ensureAliasAssigned()
 
   val s3Client = new S3Client(config)
-  val usageQuota = new UsageQuota(config, elasticSearch)
+
+  val usageQuota = new UsageQuota(config, elasticSearch, actorSystem.scheduler)
+  usageQuota.scheduleUpdates()
+
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
   val mediaApi = new MediaApi(auth, notifications, elasticSearch, imageResponse, config, controllerComponents)
