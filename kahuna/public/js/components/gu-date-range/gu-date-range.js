@@ -94,7 +94,8 @@ guDateRange.directive('guDateRange', [function () {
               maxDate: tenYearsFromNow,
               yearRange: 100,
               firstDay: parseInt(ctrl.guFirstDay),
-              format: iso8601Format
+              format: iso8601Format,
+              keyboardInput: false
           });
 
           var pikaEnd = new Pikaday({
@@ -104,7 +105,8 @@ guDateRange.directive('guDateRange', [function () {
               maxDate: tenYearsFromNow,
               firstDay: parseInt(ctrl.guFirstDay),
               format: iso8601Format,
-              yearRange: 100
+              yearRange: 100,
+              keyboardInput: false
           });
 
           $scope.$watch('pikaStartValue', function (pikaStartValue) {
