@@ -74,6 +74,7 @@
                     <dt class="metadata-line metadata-line__key">Title</dt>
                     <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
                          editable-text="ctrl.metadata.title"
+                         ng:hide="titleEditForm.$visible"
                          onbeforesave="ctrl.updateMetadataField('title', $data)"
                          e:form="titleEditForm"
                          e:ng-class="{'image-info__editor--error': $error,
@@ -110,6 +111,7 @@
                     <dt class="metadata-line metadata-line__key">Description</dt>
                     <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                          editable-textarea="ctrl.metadata.description"
+                         ng:hide="descriptionEditForm.$visible"
                          onbeforesave="ctrl.updateMetadataField('description', $data)"
                          e:msd-elastic
                          e:form="descriptionEditForm"
@@ -157,6 +159,7 @@
 
                 <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
                      editable-textarea="ctrl.metadata.specialInstructions"
+                     ng:hide="specialInstructionsEditForm.$visible"
                      onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
                      e:msd-elastic
                      e:form="specialInstructionsEditForm"
@@ -202,6 +205,7 @@
                             >✎</button>
                     <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.byline)}"
                           editable-text="ctrl.metadata.byline"
+                          ng:hide="bylineEditForm.$visible"
                           onbeforesave="ctrl.updateMetadataField('byline', $data)"
                           e:form="bylineEditForm"
                           e:ng-class="{'image-info__editor--error': $error,
@@ -236,6 +240,7 @@
 
                     <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.credit)}"
                           editable-text="ctrl.metadata.credit"
+                          ng:hide="creditEditForm.$visible"
                           e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
                           onbeforesave="ctrl.updateMetadataField('credit', $data)"
                           e:form="creditEditForm"
@@ -270,6 +275,7 @@
                             >✎</button>
                     <span ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.copyright)}"
                           editable-text="ctrl.metadata.copyright"
+                          ng:hide="copyrightEditForm.$visible"
                           onbeforesave="ctrl.updateMetadataField('copyright', $data)"
                           e:form="copyrightEditForm"
                           e:ng-class="{'image-info__editor--error': $error,

@@ -42,6 +42,7 @@
                 <dt class="metadata-line metadata-line__key">Title</dt>
                 <dd class="image-info__title metadata-line__info"
                     editable-text="ctrl.metadata.title"
+                    ng:hide="titleEditForm.$visible"
                     onbeforesave="ctrl.updateMetadataField('title', $data)"
                     e:ng-class="{'image-info__editor--error': $error,
                                  'image-info__editor--saving': titleEditForm.$waiting,
@@ -57,6 +58,7 @@
                 <dt class="metadata-line metadata-line__key">Description</dt>
                 <dd class="image-info__description"
                     editable-textarea="ctrl.metadata.description"
+                    ng:hide="descriptionEditForm.$visible"
                     onbeforesave="ctrl.updateMetadataField('description', $data)"
                     e:msd-elastic
                     e:ng-class="{'image-info__editor--error': $error,
@@ -76,6 +78,7 @@
             <dt class="metadata-line metadata-line__key">Special instructions</dt>
             <dd class="image-info__special-instructions"
                 editable-textarea="ctrl.metadata.specialInstructions"
+                ng:hide="specialInstructionsEditForm.$visible"
                 onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
                 e:msd-elastic
                 e:ng-class="{'image-info__editor--error': $error,
@@ -99,6 +102,7 @@
                     >✎</button>
                         <span class="image-info__byline"
                               editable-text="ctrl.metadata.byline"
+                              ng:hide="bylineEditForm.$visible"
                               onbeforesave="ctrl.updateMetadataField('byline', $data)"
                               e:ng-class="{'image-info__editor--error': $error,
                                            'image-info__editor--saving': bylineEditForm.$waiting,
@@ -124,6 +128,7 @@
 
                         <span class="metadata-line__info"
                               editable-text="ctrl.metadata.credit"
+                              ng:hide="creditEditForm.$visible"
                               e:typeahead="credit for credit in ctrl.credits($viewValue) | limitTo:8"
                               onbeforesave="ctrl.updateMetadataField('credit', $data)"
                               e:ng-class="{'image-info__editor--error': $error,
@@ -143,10 +148,16 @@
 
             <dt ng:if="ctrl.hasLocationInformation" class="image-info__group--dl__key metadata-line__key image-info__wrap">Location</dt>
             <dd ng:if="ctrl.hasLocationInformation" class="image-info__group--dl__value metadata-line__info">
-                        <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
-                            <span class="metadata-line__info">
-                                <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">{{ctrl.metadata[prop]}}</a></span><span ng:if="! $last">,</span>
-                        </span>
+                <span ng:repeat="prop in ['subLocation', 'city', 'state', 'country']" ng:if="ctrl.metadata[prop]">
+                    <span class="metadata-line__info">
+                        <a ui:sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">
+                            {{ctrl.metadata[prop]}}
+                        </a>
+                    </span>
+                    <span ng:if="! $last">
+                        ,
+                    </span>
+                </span>
             </dd>
 
 
@@ -159,6 +170,7 @@
                     >✎</button>
                         <span class="image-info__copyright"
                               editable-text="ctrl.metadata.copyright"
+                              ng:hide="copyrightEditForm.$visible"
                               onbeforesave="ctrl.updateMetadataField('copyright', $data)"
                               e:ng-class="{'image-info__editor--error': $error,
                                            'image-info__editor--saving': copyrightEditForm.$waiting,
