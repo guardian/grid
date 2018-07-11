@@ -11,7 +11,8 @@ case class Edits(
   archived: Boolean = false,
   labels: List[String] = List(),
   metadata: ImageMetadata,
-  usageRights: Option[UsageRights] = None
+  usageRights: Option[UsageRights] = None,
+  photoshoot: Option[Photoshoot] = None
 )
 
 object Edits {
@@ -21,14 +22,16 @@ object Edits {
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
-    (__ \ "usageRights").readNullable[UsageRights]
+    (__ \ "usageRights").readNullable[UsageRights] ~
+    (__ \ "photoshoot").readNullable[Photoshoot]
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
     (__ \ "archived").write[Boolean] ~
     (__ \ "labels").write[List[String]] ~
     (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
-    (__ \ "usageRights").writeNullable[UsageRights]
+    (__ \ "usageRights").writeNullable[UsageRights] ~
+    (__ \ "photoshoot").writeNullable[Photoshoot]
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)
@@ -45,6 +48,7 @@ trait EditsResponse {
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
+  type PhotoshootEntity = EmbeddedEntity[Photoshoot]
 
   def editsEmbeddedEntity(id: String, edits: Edits) =
     EmbeddedEntity(entityUri(id), Some(Json.toJson(edits)(editsEntity(id))))
@@ -54,8 +58,12 @@ trait EditsResponse {
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
-      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
+      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
+      (__ \ "photoshoot").write[PhotoshootEntity].contramap(photoshootEntity(id, _: Option[Photoshoot]))
     )(unlift(Edits.unapply))
+
+  def photoshootEntity(id: String, photoshoot: Option[Photoshoot]): PhotoshootEntity =
+    EmbeddedEntity(entityUri(id, "/photoshoot"), photoshoot)
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))
