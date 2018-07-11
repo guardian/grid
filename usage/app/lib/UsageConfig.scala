@@ -2,6 +2,7 @@ package lib
 
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
+import com.gu.mediaservice.lib.aws.AwsInstanceTags
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.{Configuration, Logger}
 
@@ -10,10 +11,10 @@ import scala.util.Try
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(override val configuration: Configuration) extends CommonConfig {
+class UsageConfig(override val configuration: Configuration) extends CommonConfig with AwsInstanceTags {
 
   final override lazy val appName = "usage"
-  lazy val appTag = Try { properties("app.name") }
+  lazy val appTag = readTag("App")
 
   val keyStoreBucket = properties("auth.keystore.bucket")
 
@@ -40,7 +41,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val topicArn = properties("sns.topic.arn")
 
   val composerBaseUrl: String = properties("composer.baseUrl")
-  val composerContentBaseUrl: String = s"${composerBaseUrl}/content"
+  val composerContentBaseUrl: String = s"$composerBaseUrl/content"
 
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 

@@ -34,6 +34,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.0",
     "com.gu" %% "editorial-permissions-client" % "0.8",
     "com.amazonaws" % "aws-java-sdk" % "1.11.302",
+    "com.amazonaws" % "aws-java-sdk-ec2" % "1.11.302",
     "org.elasticsearch" % "elasticsearch" % "1.7.6",
     "com.gu" %% "box" % "0.2.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
