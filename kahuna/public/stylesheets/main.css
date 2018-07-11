@@ -225,6 +225,11 @@ button[disabled],
     color: white;
 }
 
+.button-save,
+.button-cancel {
+    margin-left: 5px;
+}
+
 .button--confirm-delete {
     background: red;
 }
@@ -1731,8 +1736,8 @@ FIXME: what to do with touch devices
 .image-info__wrap .editable-buttons {
     display: flex;
     justify-content: flex-end;
-    float: right;
     padding-top: 2px;
+    margin-bottom: 5px;
 }
 
 .image-info__usage-rights .ure {
