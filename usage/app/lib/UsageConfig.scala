@@ -2,7 +2,6 @@ package lib
 
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
-import com.gu.mediaservice.lib.aws.AwsInstanceTags
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.{Configuration, Logger}
 
@@ -11,7 +10,7 @@ import scala.util.Try
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(override val configuration: Configuration) extends CommonConfig with AwsInstanceTags {
+class UsageConfig(override val configuration: Configuration) extends CommonConfig {
 
   final override lazy val appName = "usage"
 
@@ -46,7 +45,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val awsRegionName = properties("aws.region")
 
   val crierLiveKinesisStream = Try { properties("crier.live.name") }
-  val crierPreviewKinesisStream = Try {properties("crier.preview.name") }
+  val crierPreviewKinesisStream = Try { properties("crier.preview.name") }
 
   val crierLiveArn = Try { properties("crier.live.arn") }
   val crierPreviewArn = Try { properties("crier.preview.arn") }
@@ -78,7 +77,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val liveAppName = s"media-service-livex-$postfix"
   val previewAppName = s"media-service-previewx-$postfix"
 
-  val apiOnly: Boolean = readTag("App") match {
+  val apiOnly: Boolean = Try(properties("app.name")).toOption match {
     case Some("usage-stream") =>
       Logger.info(s"Starting as Stream Reader Usage.")
       false
