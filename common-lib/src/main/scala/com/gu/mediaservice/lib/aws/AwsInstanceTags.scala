@@ -9,9 +9,9 @@ import play.Logger
 import scala.collection.JavaConverters._
 
 trait AwsInstanceTags {
-  lazy val instanceId = Option(EC2MetadataUtils.getInstanceId)
+  private lazy val instanceId = Option(EC2MetadataUtils.getInstanceId)
 
-  lazy val ec2Client: AmazonEC2 = AmazonEC2ClientBuilder.standard().withRegion(Regions.EU_WEST_1).build()
+  private lazy val ec2Client: AmazonEC2 = AmazonEC2ClientBuilder.standard().withRegion(Regions.EU_WEST_1).build()
 
   def readTag(tagName: String): Option[String] = {
     instanceId.flatMap { id =>

@@ -1,6 +1,6 @@
 <configuration>
 
-    <contextName>usance</contextName>
+    <contextName>usage</contextName>
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

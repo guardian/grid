@@ -3,7 +3,6 @@ import controllers.UsageApi
 import lib._
 import model._
 import play.api.ApplicationLoader.Context
-import play.api.Logger
 import router.Routes
 
 import scala.concurrent.Future
@@ -24,9 +23,7 @@ class UsageComponents(context: Context) extends GridComponents(context) {
   val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageStream, usageNotifier, usageNotifier)
   val notifications = new Notifications(config)
 
-  val apiOnly = config.appTagBasedConfig.getOrElse("apiOnly", false)
-  Logger.info(s"ApiOnly = $apiOnly")
-  if(!apiOnly) {
+  if(!config.apiOnly) {
     val crierReader = new CrierStreamReader(config)
     crierReader.start()
   }

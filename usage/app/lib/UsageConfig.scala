@@ -14,7 +14,6 @@ case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 class UsageConfig(override val configuration: Configuration) extends CommonConfig with AwsInstanceTags {
 
   final override lazy val appName = "usage"
-  lazy val appTag = readTag("App")
 
   lazy val rootUri: String = services.metadataBaseUri
   lazy val kahunaUri: String = services.kahunaBaseUri
@@ -79,12 +78,12 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val liveAppName = s"media-service-livex-$postfix"
   val previewAppName = s"media-service-previewx-$postfix"
 
-  val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("usage") match {
-    case "usage-stream" =>
+  val apiOnly: Boolean = readTag("App") match {
+    case Some("usage-stream") =>
       Logger.info(s"Starting as Stream Reader Usage.")
-      Map("apiOnly" -> false)
+      false
     case _ =>
       Logger.info(s"Starting as API only Usage.")
-      Map("apiOnly" -> true)
+      true
   }
 }
