@@ -1,12 +1,9 @@
-import com.gu.mediaservice.lib.play.{GridComponents, RequestLoggingFilter}
+import com.gu.mediaservice.lib.play.GridComponents
 import controllers.UsageApi
 import lib._
 import model._
 import play.api.ApplicationLoader.Context
-import play.api.mvc.EssentialFilter
-import play.filters.HttpFiltersComponents
-import play.filters.cors.CORSComponents
-import play.filters.gzip.GzipFilterComponents
+import play.api.Logger
 import router.Routes
 
 import scala.concurrent.Future
@@ -28,6 +25,7 @@ class UsageComponents(context: Context) extends GridComponents(context) {
   val notifications = new Notifications(config)
 
   val apiOnly = config.appTagBasedConfig.getOrElse("apiOnly", false)
+  Logger.info(s"ApiOnly = $apiOnly")
   if(!apiOnly) {
     val crierReader = new CrierStreamReader(config)
     crierReader.start()

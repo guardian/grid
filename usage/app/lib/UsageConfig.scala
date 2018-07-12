@@ -16,8 +16,6 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   final override lazy val appName = "usage"
   lazy val appTag = readTag("App")
 
-  val keyStoreBucket = properties("auth.keystore.bucket")
-
   lazy val rootUri: String = services.metadataBaseUri
   lazy val kahunaUri: String = services.kahunaBaseUri
   lazy val usageUri: String = services.usageBaseUri
