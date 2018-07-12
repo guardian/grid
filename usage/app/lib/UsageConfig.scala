@@ -13,9 +13,6 @@ case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 class UsageConfig(override val configuration: Configuration) extends CommonConfig {
 
   final override lazy val appName = "usage"
-  lazy val appTag = Try { properties("app.name") }
-
-  val keyStoreBucket = properties("auth.keystore.bucket")
 
   lazy val rootUri: String = services.metadataBaseUri
   lazy val kahunaUri: String = services.kahunaBaseUri
@@ -40,7 +37,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val topicArn = properties("sns.topic.arn")
 
   val composerBaseUrl: String = properties("composer.baseUrl")
-  val composerContentBaseUrl: String = s"${composerBaseUrl}/content"
+  val composerContentBaseUrl: String = s"$composerBaseUrl/content"
 
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
 
@@ -48,7 +45,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val awsRegionName = properties("aws.region")
 
   val crierLiveKinesisStream = Try { properties("crier.live.name") }
-  val crierPreviewKinesisStream = Try {properties("crier.preview.name") }
+  val crierPreviewKinesisStream = Try { properties("crier.preview.name") }
 
   val crierLiveArn = Try { properties("crier.live.arn") }
   val crierPreviewArn = Try { properties("crier.preview.arn") }
@@ -80,12 +77,12 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val liveAppName = s"media-service-livex-$postfix"
   val previewAppName = s"media-service-previewx-$postfix"
 
-  val appTagBasedConfig: Map[String, Boolean] = appTag.getOrElse("usage") match {
-    case "usage-stream" =>
+  val apiOnly: Boolean = Try(properties("app.name")).toOption match {
+    case Some("usage-stream") =>
       Logger.info(s"Starting as Stream Reader Usage.")
-      Map("apiOnly" -> false)
+      false
     case _ =>
       Logger.info(s"Starting as API only Usage.")
-      Map("apiOnly" -> true)
+      true
   }
 }

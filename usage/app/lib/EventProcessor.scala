@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.util.{List => JList}
 
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
-import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownReason
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream
 import com.gu.contentapi.client.GuardianContentClient
