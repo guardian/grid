@@ -93,7 +93,7 @@ lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client" % "11.53",
     "io.reactivex" %% "rxscala" % "0.26.5",
-    "com.amazonaws" % "amazon-kinesis-client" % "1.2.1"
+    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10"
   )
 )
 

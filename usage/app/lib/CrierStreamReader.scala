@@ -56,8 +56,8 @@ class CrierStreamReader(config: UsageConfig) {
       new CrierPreviewEventProcessor(config)
   }
 
-  lazy val liveWorker = liveConfig.map(new Worker(LiveEventProcessorFactory, _))
-  lazy val previewWorker = previewConfig.map(new Worker(PreviewEventProcessorFactory, _))
+  lazy val liveWorker = liveConfig.map(new Worker.Builder().recordProcessorFactory(LiveEventProcessorFactory).config(_).build())
+  lazy val previewWorker = previewConfig.map(new Worker.Builder().recordProcessorFactory(PreviewEventProcessorFactory).config(_).build())
 
   private def makeThread(worker: Runnable) =
     new Thread(worker, s"${getClass.getSimpleName}-$workerId")
