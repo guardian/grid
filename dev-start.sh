@@ -4,6 +4,15 @@ green='\x1B[0;32m'
 red='\x1B[0;31m'
 plain='\x1B[0m' # No Color
 
+IS_DEBUG=false
+for arg in "$@"
+do
+    if [ "$arg" == "--debug" ]; then
+        IS_DEBUG=true
+        shift
+    fi
+done
+
 isInstalled() {
   hash "$1" 2>/dev/null
 }
@@ -56,7 +65,11 @@ startDockerContainers() {
 }
 
 startPlayApps() {
-    sbt runAll
+    if [ "$IS_DEBUG" = true ] ; then
+        sbt -jvm-debug 5005 runAll
+    else
+        sbt runAll
+    fi
 }
 
 # We use auth.properties as a proxy for whether all the configuration files have been downloaded given the implementation of `fetchConfig.sh`.
