@@ -2,11 +2,20 @@
 
     <conversionRule conversionWord="coloredLevel" converterClass="play.api.libs.logback.ColoredLevel" />
 
+    <if condition='property("STAGE").contains("DEV")'>
+        <then>
+            <property name="LOGS_LOCATION" value="${application.home}/logs" />
+        </then>
+        <else>
+            <property name="LOGS_LOCATION" value="logs" />
+        </else>
+    </if>
+
     <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${application.home}/logs/application.log</file>
+        <file>${LOGS_LOCATION}/application.log</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${application.home}/logs/application.log.%d{yyyy-MM-dd}.gz</fileNamePattern>
+            <fileNamePattern>${LOGS_LOCATION}/application.log.%d{yyyy-MM-dd}.gz</fileNamePattern>
             <maxHistory>7</maxHistory>
         </rollingPolicy>
 
@@ -15,30 +24,12 @@
         </encoder>
     </appender>
 
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%coloredLevel %logger{15} - %message%n%xException{10}</pattern>
-        </encoder>
-    </appender>
-
-    <appender name="ASYNCSTDOUT" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="STDOUT" />
-    </appender>
-
     <logger name="play" level="INFO" />
     <logger name="application" level="INFO" />
     <logger name="request" level="INFO" />
 
-    <root level="WARN">
-        <!-- only log to disk in DEV -->
-        <if condition='property("STAGE").contains("DEV")'>
-            <then>
-                <appender-ref ref="LOGFILE"/>
-            </then>
-            <else>
-                <appender-ref ref="ASYNCSTDOUT" />
-            </else>
-        </if>
+    <root level="INFO">
+        <appender-ref ref="LOGFILE"/>
     </root>
 
 </configuration>
