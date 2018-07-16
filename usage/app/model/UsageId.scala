@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.model.PrintUsageRecord
+import com.gu.mediaservice.model.{PrintUsageRecord, FrontUsageRequest}
 import lib.MD5
 
 
@@ -17,6 +17,12 @@ object UsageId {
     Some(printUsageRecord.printUsageMetadata.sectionCode),
     Some(printUsageRecord.printUsageMetadata.issueDate),
     Some(printUsageRecord.usageStatus)
+  ))
+
+  def build(frontUsageRequest: FrontUsageRequest) = buildId(List(
+    Some(frontUsageRequest.mediaId),
+    Some(frontUsageRequest.containerId),
+    Some(frontUsageRequest.usageStatus)
   ))
 
   def build(mediaWrapper: MediaWrapper) = buildId(List(

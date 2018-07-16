@@ -18,7 +18,8 @@ object UsageBuilder {
     usage.dateRemoved,
     usage.lastModified,
     usage.printUsageMetadata,
-    usage.digitalUsageMetadata
+    usage.digitalUsageMetadata,
+    usage.frontUsageMetadata
   )
 
   private def buildStatusString(usage: MediaUsage) = if (usage.status match {
@@ -34,6 +35,7 @@ object UsageBuilder {
     usage.usageType match {
       case "digital" => buildWebUsageReference(usage)
       case "print" => buildPrintUsageReference(usage)
+      case "front" => buildFrontUsageReference(usage)
     }
   }
 
@@ -48,6 +50,11 @@ object UsageBuilder {
 
       List(UsageReference("indesign", None, Some(title)))
 
+    }).getOrElse(List[UsageReference]())
+
+  private def buildFrontUsageReference(usage: MediaUsage): List[UsageReference] =
+    usage.frontUsageMetadata.map(metadata => {
+      List(UsageReference("Added by", None, Some(metadata.addedBy)))
     }).getOrElse(List[UsageReference]())
 
   private def buildWebUsageReference(usage: MediaUsage) =
