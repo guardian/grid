@@ -6,21 +6,20 @@ import java.util.concurrent.atomic.AtomicReference
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
 import akka.actor.ActorSystem
-import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.cloudwatch.model.Dimension
-import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
+import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
+import scalaz.syntax.id._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.syntax.id._
 
 abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) {
   val actorSystem = ActorSystem("MessageConsumer")
@@ -49,7 +48,7 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
         _ <- processor.fold(
           sys.error(s"Unrecognised message subject ${message.subject}"))(
             _.apply(message.body))
-        _ = recordMessageLatency(message)
+        _ = recordMessageCount(message)
         _ = timeMessageLastProcessed.lazySet(DateTime.now)
       } yield ()
       future |> deleteOnSuccess(msg)
@@ -58,13 +57,12 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
     processMessages()
   }
 
-  private def recordMessageLatency(message: SNSMessage) = {
-    val latency = DateTime.now.getMillis - message.timestamp.getMillis
+  private def recordMessageCount(message: SNSMessage) = {
     val dimensions = message.subject match {
       case Some(subject) => List(new Dimension().withName("subject").withValue(subject))
       case None          => List()
     }
-    metric.runRecordOne(latency, dimensions)
+    metric.runRecordOne(1L, dimensions)
   }
 
   private def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
