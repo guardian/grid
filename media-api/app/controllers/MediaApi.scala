@@ -2,6 +2,7 @@ package controllers
 
 import java.net.URI
 
+import akka.stream.scaladsl.StreamConverters
 import com.gu.editorial.permissions.client.Permission
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
@@ -13,18 +14,27 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import lib.elasticsearch._
-import lib.{ImageResponse, MediaApiConfig, Notifications}
+import lib._
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
+import play.api.Logger
+import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch: ElasticSearch, imageResponse: ImageResponse,
-               override val config: MediaApiConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers with PermissionsHandler {
+class MediaApi(
+  auth: Authentication,
+  notifications: Notifications,
+  elasticSearch: ElasticSearch,
+  imageResponse: ImageResponse,
+  override val config: MediaApiConfig,
+  override val controllerComponents: ControllerComponents,
+  s3Client: S3Client,
+  mediaApiMetrics: MediaApiMetrics
+)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -175,6 +185,24 @@ class MediaApi(auth: Authentication, notifications: Notifications, elasticSearch
         }
 
       case _ => Future.successful(ImageNotFound(id))
+    }
+  }
+
+  def downloadOriginalImage(id: String) = auth.async { request =>
+    elasticSearch.getImageById(id) flatMap {
+      case Some(source) if hasPermission(request, source) => {
+        Logger.info(s"Download original image $id by ${request.user.apiKey.tier}/${request.user.apiKey.name}")
+        mediaApiMetrics.incrementOriginalImageDownload(request.user.apiKey)
+        val image = source.as[Image]
+        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+        val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
+
+        Future.successful(
+          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image))
+        )
+      }
+      case _ => Future.successful(ImageNotFound)
     }
   }
 
