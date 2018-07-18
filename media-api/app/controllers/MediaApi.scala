@@ -202,7 +202,7 @@ class MediaApi(
           Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image))
         )
       }
-      case _ => Future.successful(ImageNotFound)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
