@@ -9,7 +9,7 @@ import play.api.Logger
 import scala.concurrent.{ExecutionContext, Future}
 
 class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, notifications: DynamoNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
-  config.queueUrl, config.awsEndpoint, config, thrallMetrics.processingLatency) {
+  config.queueUrl, config.awsEndpoint, config, thrallMetrics.snsMessage) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     PartialFunction.condOpt(subject) {

@@ -26,4 +26,6 @@ class ThrallMetrics(config: ThrallConfig) extends CloudWatchMetrics(s"${config.s
 
   val processingLatency = new TimeMetric("ProcessingLatency")
 
+  val snsMessage = new CountMetric("SNSMessage")
+
 }
