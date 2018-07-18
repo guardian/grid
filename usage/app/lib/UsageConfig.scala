@@ -81,8 +81,11 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
     case Some("usage-stream") =>
       Logger.info(s"Starting as Stream Reader Usage.")
       false
-    case _ =>
+    case Some("usage") =>
       Logger.info(s"Starting as API only Usage.")
       true
+    case name =>
+      Logger.error(s"App name is invalid: $name")
+      sys.exit(1)
   }
 }
