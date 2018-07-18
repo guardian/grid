@@ -110,7 +110,10 @@ private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcesso
 
       val buffer: Array[Byte] = record.getData.array()
       CrierDeserializer.deserialize(buffer).map(processEvent)
+
     }
+
+    checkpointer.checkpoint(records.asScala.last)
   }
 }
 
@@ -128,5 +131,7 @@ private class CrierPreviewEventProcessor(config: UsageConfig) extends EventProce
       CrierDeserializer.deserialize(buffer).map(processEvent)
 
     }
+
+    checkpointer.checkpoint(records.asScala.last)
   }
 }
