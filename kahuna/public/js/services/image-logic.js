@@ -55,6 +55,8 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
                 return 'categorised as illustrator';
             case 'commissioned-agency':
                 return 'categorised as agency commissioned';
+            case 'persisted-collection':
+                return 'is in a persisted collection';
             default:
                 return reason;
             }
