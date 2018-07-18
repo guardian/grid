@@ -12,35 +12,43 @@ sealed trait MediaLeaseType { def name: String }
 object MediaLeaseType {
   implicit val reads: Reads[MediaLeaseType] = {
     JsPath.read[String].map {
-      case "allow" => AllowUseLease
-      case "deny" => DenyUseLease
+      case "allow-use"          => AllowUseLease
+      case "deny-use"           => DenyUseLease
+      case "allow-syndication"  => AllowSyndicationLease
+      case "deny-syndication"   => DenySyndicationLease
+
+      // legacy values before syndication leases existed
+      case "allow"              => AllowUseLease
+      case "deny"               => DenyUseLease
     }
   }
 
-  implicit val writer: Writes[MediaLeaseType] = new Writes[MediaLeaseType] {
-    def writes(mediaLeaseType: MediaLeaseType) = JsString(mediaLeaseType.name)
-  }
+  implicit val writer: Writes[MediaLeaseType] = (mediaLeaseType: MediaLeaseType) => JsString(mediaLeaseType.name)
 
   def apply(leaseType: String): MediaLeaseType = leaseType match {
     case "AllowUseLease" => AllowUseLease
     case "DenyUseLease" => DenyUseLease
+    case "AllowSyndicationLease" => AllowSyndicationLease
+    case "DenySyndicationLease" => DenySyndicationLease
   }
 }
-case object AllowUseLease extends MediaLeaseType { val name = "allow" }
-case object DenyUseLease extends MediaLeaseType { val name = "deny" }
+case object AllowUseLease extends MediaLeaseType { val name = "allow-use" }
+case object DenyUseLease extends MediaLeaseType { val name = "deny-use" }
+case object AllowSyndicationLease extends MediaLeaseType { val name = "allow-syndication" }
+case object DenySyndicationLease extends MediaLeaseType { val name = "deny-syndication" }
 
 case class MediaLease(
-                       id: Option[String],
-                       leasedBy: Option[String],
-                       startDate: Option[DateTime] = None,
-                       endDate: Option[DateTime] = None,
-                       access: MediaLeaseType = AllowUseLease,
-                       notes: Option[String],
-                       mediaId: String,
-                       createdAt: DateTime = new DateTime()
-                     ) {
-  private def afterStart = startDate.map(start => (new DateTime()).isAfter(start)).getOrElse(true)
-  private def beforeEnd  = endDate.map(end => (new DateTime()).isBefore(end)).getOrElse(true)
+  id: Option[String],
+  leasedBy: Option[String],
+  startDate: Option[DateTime] = None,
+  endDate: Option[DateTime] = None,
+  access: MediaLeaseType = AllowUseLease,
+  notes: Option[String],
+  mediaId: String,
+  createdAt: DateTime = new DateTime()
+) {
+  private def afterStart = startDate.forall(start => new DateTime().isAfter(start))
+  private def beforeEnd  = endDate.forall(end => new DateTime().isBefore(end))
 
   def active = afterStart && beforeEnd
 }
@@ -54,6 +62,4 @@ case object MediaLease {
       Json.toJson(mediaLease)(MediaLeasePlainWrites).as[JsObject] +
         ("active" -> JsBoolean(mediaLease.active))
   }
-
-
 }
