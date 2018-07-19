@@ -70,5 +70,10 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   lazy val persistenceIdentifier = properties.getOrElse("persistence.identifier", configuration.get[String]("persistence.identifier"))
   lazy val queriableIdentifiers = Seq(persistenceIdentifier)
 
+  lazy val persistedRootCollections: List[String] = properties.get("persistence.collections") match {
+    case Some(collections) => collections.split(',').toList
+    case None => List("GNM Archive")
+  }
+
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
 }

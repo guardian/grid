@@ -52,6 +52,14 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def hasLeases(image: Image) =
     image.leases.leases.nonEmpty
 
+  def isInPersistedCollection(image: Image): Boolean = {
+    // list of the first element of each collection's `path`, i.e all the root collections
+    val collectionPaths: List[String] = image.collections.map(_.path.head)
+
+    // is image in at least one persisted collection?
+    (collectionPaths diff config.persistedRootCollections).length < collectionPaths.length
+  }
+
   def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _:Photographer => true
@@ -96,6 +104,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     if (hasLeases(image))
       reasons += "leases"
+
+    if (isInPersistedCollection(image)) {
+      reasons += "persisted-collection"
+    }
 
     reasons.toList
   }
