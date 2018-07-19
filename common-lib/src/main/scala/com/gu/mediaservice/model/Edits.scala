@@ -11,7 +11,8 @@ case class Edits(
   archived: Boolean = false,
   labels: List[String] = List(),
   metadata: ImageMetadata,
-  usageRights: Option[UsageRights] = None
+  usageRights: Option[UsageRights] = None,
+  album: Option[Album] = None
 )
 
 object Edits {
@@ -21,14 +22,16 @@ object Edits {
     (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
-    (__ \ "usageRights").readNullable[UsageRights]
+    (__ \ "usageRights").readNullable[UsageRights] ~
+    (__ \ "album").readNullable[Album]
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
     (__ \ "archived").write[Boolean] ~
     (__ \ "labels").write[List[String]] ~
     (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
-    (__ \ "usageRights").writeNullable[UsageRights]
+    (__ \ "usageRights").writeNullable[UsageRights] ~
+    (__ \ "album").writeNullable[Album]
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)
@@ -45,6 +48,7 @@ trait EditsResponse {
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
+  type AlbumEntity = EmbeddedEntity[Album]
 
   def editsEmbeddedEntity(id: String, edits: Edits) =
     EmbeddedEntity(entityUri(id), Some(Json.toJson(edits)(editsEntity(id))))
@@ -54,8 +58,12 @@ trait EditsResponse {
       (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
-      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights]))
+      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
+      (__ \ "album").write[AlbumEntity].contramap(albumEntity(id, _: Option[Album]))
     )(unlift(Edits.unapply))
+
+  def albumEntity(id: String, album: Option[Album]): AlbumEntity =
+    EmbeddedEntity(entityUri(id, "/album"), album)
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))

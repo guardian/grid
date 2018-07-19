@@ -156,12 +156,17 @@ object Mappings {
     "actionData" -> actionDataMapping
   ))
 
+  val albumMapping = nonDynamicObj(
+    "title" -> nonAnalyzedString
+  )
+
   val userMetadataMapping =
     nonDynamicObj(
       "archived"    -> boolean,
       "labels"      -> (nonAnalysedList("label") ++ copyTo("metadata.englishAnalysedCatchAll")),
       "metadata"    -> metadataMapping,
-      "usageRights" -> usageRightsMapping
+      "usageRights" -> usageRightsMapping,
+      "album" -> albumMapping
     )
 
   val uploadInfoMapping =

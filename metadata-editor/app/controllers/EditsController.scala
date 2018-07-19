@@ -94,6 +94,29 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     }
   }
 
+  def getAlbum(id: String) = auth.async {
+    store.jsonGet(id, "album").map(dynamoEntry => {
+      val album = (dynamoEntry \ "album").as[Album]
+      respond(album)
+    }) recover {
+      case NoItemFound => respondNotFound("No album found")
+    }
+  }
+
+  def setAlbum(id: String) = auth.async(parse.json) { req => {
+    (req.body \ "data").asOpt[Album].map(album => {
+      store.jsonAdd(id, "album", caseClassToMap(album))
+        .map(publish(id))
+        .map(_ => respond(album))
+    }).getOrElse(
+      Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
+    )
+  }}
+
+  def deleteAlbum(id: String) = auth.async {
+    store.removeKey(id, "album").map(publish(id)).map(_ => Accepted)
+  }
+
   def addLabels(id: String) = auth.async(parse.json) { req =>
     (req.body \ "data").validate[List[String]].fold(
       errors =>
