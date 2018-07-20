@@ -31,13 +31,24 @@
 
   <select id="access-select" ng:model="ctrl.access" ng-required="required">
       <option ng-selected="true" value="">Please select access</option>
-      <option value="allow-use">Allow cropping</option>
-      <option value="deny-use">Deny cropping</option>
-      <option value="allow-syndication">Allow syndication</option>
-      <option value="deny-syndication">Deny syndication</option>
+      <optgroup label="Cropping">
+          <option value="allow-use">Allow cropping</option>
+          <option value="deny-use">Deny cropping</option>
+      </optgroup>
+      <optgroup label="Syndication">
+          <option value="allow-syndication">Allow syndication</option>
+          <option value="deny-syndication">Deny syndication</option>
+      </optgroup>
   </select>
+
+  <label ng:if="ctrl.access === 'deny-syndication'">
+    <input type="checkbox"
+           ng:model="ctrl.showCalendar" />
+    Expires
+  </label>
+
   <gu-date-range class="lease__date"
-     ng:if="ctrl.access !== 'allow-syndication' && ctrl.access !== 'deny-syndication'"
+     ng:if="ctrl.access !== 'allow-syndication' && !(ctrl.access === 'deny-syndication' && ctrl.showCalendar === false)"
      gu:start-date="ctrl.newLease.startDate"
      gu:end-date="ctrl.newLease.endDate"
      gu:show-extras="false"
