@@ -51,6 +51,10 @@ case class MediaLease(
   private def beforeEnd  = endDate.forall(end => new DateTime().isBefore(end))
 
   def active = afterStart && beforeEnd
+
+  def isSyndication = access == AllowSyndicationLease || access == DenySyndicationLease
+
+  def isUse = access == AllowUseLease || access == DenyUseLease
 }
 case object MediaLease {
   implicit val MediaLeaseReads = Json.reads[MediaLease]
