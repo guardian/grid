@@ -77,14 +77,12 @@
 
         <div class="lease__current" ng:class="ctrl.leaseStatus(lease).current" ng:if="ctrl.leaseStatus(lease).current"></div>
 
-        <div class="lease__access"
-            ng:class="ctrl.leaseStatus(lease).access"
-        ></div>
-
+        <div class="lease__access" ng:class="ctrl.leaseStatus(lease).access"></div>
 
         <div class="lease__wrapper" ng:class="ctrl.leaseStatus(lease).current">
           <div class="lease">
             <div class="lease__text">
+              <div>{{lease.access}}</div>
               <p class="expiration-date">{{::ctrl.formatTimestamp(lease.endDate)}}</p>
               <div>{{lease.notes}}</div>
             </div>
