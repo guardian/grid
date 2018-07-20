@@ -33,9 +33,7 @@ case object LeaseByMedia {
     val sortedLeases = leases
       .sortWith(sortLease)
 
-    val currentLease = sortedLeases
-      .filter(_.active)
-      .headOption
+    val currentLease = sortedLeases.find(lease => lease.active && lease.isUse)
 
     val lastModified = sortedLeases
       .headOption
