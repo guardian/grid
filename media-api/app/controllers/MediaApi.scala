@@ -11,6 +11,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import lib.elasticsearch._
@@ -191,8 +192,9 @@ class MediaApi(
   def downloadOriginalImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
       case Some(source) if hasPermission(request, source) => {
-        Logger.info(s"Download original image $id by ${request.user.apiKey.tier}/${request.user.apiKey.name}")
-        mediaApiMetrics.incrementOriginalImageDownload(request.user.apiKey)
+        val apiKey = request.user.apiKey
+        GridLogger.info(s"Download original image $id", apiKey)
+        mediaApiMetrics.incrementOriginalImageDownload(apiKey)
         val image = source.as[Image]
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)

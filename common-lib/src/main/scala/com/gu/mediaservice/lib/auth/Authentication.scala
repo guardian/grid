@@ -5,11 +5,10 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
-import org.slf4j.{Marker, MarkerFactory}
-import play.api.{Logger, MarkerContext}
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
@@ -54,9 +53,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
-            val marker: Marker = MarkerFactory.getMarker(apiKey.name)
-            val mc: MarkerContext = MarkerContext(marker)
-            Logger.info(s"Using api key with name ${apiKey.name} and tier ${apiKey.tier}")(mc)
+            GridLogger.info(s"Using api key with name ${apiKey.name} and tier ${apiKey.tier}", apiKey)
             if (ApiKey.hasAccess(apiKey, request, config.services))
               block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
             else
