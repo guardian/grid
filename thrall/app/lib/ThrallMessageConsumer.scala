@@ -2,6 +2,7 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
+import com.gu.mediaservice.lib.logging.GridLogger
 import org.elasticsearch.action.delete.DeleteResponse
 import org.joda.time.DateTime
 import play.api.Logger
@@ -71,7 +72,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
-              Logger.info(s"Could not delete image $id")
+              GridLogger.info("Could not delete image", id)
               Future.successful(EsResponse(s"Image cannot be deleted: $id"))
           }
         }

@@ -13,12 +13,16 @@ object GridLogger {
 
   def error(message: String, markers: Map[String, Any] = Map()): Unit = logger.error(Markers.appendEntries(markers.asJava), message)
 
-  def info(message: String, apiKey: ApiKey): Unit = {
-    val markers = Map(
-      "tier" -> apiKey.tier,
-      "name" -> apiKey.name
-    )
+  def info(message: String, apiKey: ApiKey): Unit = info(message, apiKeyMarkers(apiKey))
 
-    info(message, markers)
-  }
+  def info(message: String, apiKey: ApiKey, imageId: String): Unit = info(message, apiKeyMarkers(apiKey) ++ imageIdMarker(imageId))
+
+  def info(message: String, imageId: String): Unit = info(message, imageIdMarker(imageId))
+
+  private def apiKeyMarkers(apiKey: ApiKey) = Map(
+    "key-tier" -> apiKey.tier,
+    "key-name" -> apiKey.name
+  )
+
+  private def imageIdMarker(imageId: String) = Map("image-id" -> imageId)
 }

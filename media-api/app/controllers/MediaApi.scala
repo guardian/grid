@@ -193,7 +193,7 @@ class MediaApi(
     elasticSearch.getImageById(id) flatMap {
       case Some(source) if hasPermission(request, source) => {
         val apiKey = request.user.apiKey
-        GridLogger.info(s"Download original image $id", apiKey)
+        GridLogger.info(s"Download original image $id", apiKey, id)
         mediaApiMetrics.incrementOriginalImageDownload(apiKey)
         val image = source.as[Image]
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
