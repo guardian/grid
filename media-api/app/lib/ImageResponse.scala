@@ -54,7 +54,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def isInPersistedCollection(image: Image): Boolean = {
     // list of the first element of each collection's `path`, i.e all the root collections
-    val collectionPaths: List[String] = image.collections.map(_.path.head)
+    val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
 
     // is image in at least one persisted collection?
     (collectionPaths diff config.persistedRootCollections).length < collectionPaths.length
