@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.play
 
-import lib.LogConfig
+import com.gu.mediaservice.lib.logging.LogConfig
 import play.api.ApplicationLoader.Context
 import play.api.{Application, ApplicationLoader}
 

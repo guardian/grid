@@ -62,9 +62,9 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
 
   private val iamClient: AmazonIdentityManagement = withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()
 
-  val postfix: String = if (stage == "DEV") {
+  val postfix: String = if (isDev) {
     try {
-      iamClient.getUser().getUser().getUserName()
+      iamClient.getUser.getUser.getUserName
     } catch {
       case e:com.amazonaws.AmazonServiceException=>
         Logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names")
