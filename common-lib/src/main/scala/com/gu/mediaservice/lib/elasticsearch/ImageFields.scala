@@ -42,6 +42,7 @@ trait ImageFields {
   def usageRightsField(field: String) = s"usageRights.$field"
   def collectionsField(field: String) = s"collections.$field"
   def usagesField(field: String)      = s"usages.$field"
+  def albumField(field: String) = editsField(s"album.$field")
 
   val aliases = Map(
     "crops"     -> "exports",

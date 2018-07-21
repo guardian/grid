@@ -196,7 +196,8 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
             |   $updateLastModifiedScript
             | }
       """.stripMargin +
-          refreshEditsScript,
+          refreshEditsScript +
+          albumSuggestionScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(metrics.failedMetadataUpdates) { case e: VersionConflictEngineException => true }
@@ -266,6 +267,12 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     """
       | suggestMetadataCredit = [ input: [ ctx._source.metadata.credit] ];
       | ctx._source.suggestMetadataCredit = suggestMetadataCredit;
+    """.stripMargin
+
+  private val albumSuggestionScript =
+    """
+      | albumSuggestion = [ input: [ ctx._source.userMetadata.album.title] ];
+      | ctx._source.userMetadata.album.suggest = albumSuggestion;
     """.stripMargin
 
   // Create the exports key or add to it

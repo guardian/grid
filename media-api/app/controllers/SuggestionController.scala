@@ -2,6 +2,7 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import lib.elasticsearch.ElasticSearch
 import play.api.mvc.{BaseController, ControllerComponents}
 
@@ -9,11 +10,15 @@ import scala.concurrent.ExecutionContext
 
 class SuggestionController(auth: Authentication, elasticSearch: ElasticSearch,
                            override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with ArgoHelpers with ImageFields {
 
-  def suggestMetadataCredit(q: Option[String], size: Option[Int]) = auth.async { _ =>
+  def suggestMetadataCredit(q: Option[String], size: Option[Int]) = suggestion("suggestMetadataCredit", q, size)
+
+  def suggestAlbum(q: Option[String], size: Option[Int]) = suggestion(albumField("suggest"), q, size)
+
+  private def suggestion(field: String, q: Option[String], size: Option[Int]) = auth.async { _ =>
     elasticSearch
-      .completionSuggestion("suggestMetadataCredit", q.getOrElse(""), size.getOrElse(10))
+      .completionSuggestion(field, q.getOrElse(""), size.getOrElse(10))
       .map(c => respondCollection(c.results))
   }
 
