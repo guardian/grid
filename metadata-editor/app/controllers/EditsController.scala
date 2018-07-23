@@ -96,8 +96,10 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
 
   def getAlbum(id: String) = auth.async {
     store.jsonGet(id, "album").map(dynamoEntry => {
-      val album = (dynamoEntry \ "album").as[Album]
-      respond(album)
+      (dynamoEntry \ "album").toOption match {
+        case Some(album) => respond(album.as[Album])
+        case None => respondNotFound("No album found")
+      }
     }) recover {
       case NoItemFound => respondNotFound("No album found")
     }
