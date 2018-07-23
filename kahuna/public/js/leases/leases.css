@@ -6,10 +6,14 @@
     box-sizing: border-box;
 }
 .lease__form select,
-.lease__form input,
+.lease__form input[type='text'],
 .lease__form .lease__date {
   box-sizing: border-box;
   width: 100%;
+  margin-bottom: 10px;
+}
+.lease__form input {
+  box-sizing: border-box;
   margin-bottom: 10px;
 }
 .leases__apply-all {

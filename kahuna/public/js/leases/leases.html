@@ -41,11 +41,11 @@
       </optgroup>
   </select>
 
-  <label ng:if="ctrl.access === 'deny-syndication'">
+  <div ng:if="ctrl.access === 'deny-syndication'">
     <input type="checkbox"
            ng:model="ctrl.showCalendar" />
     Expires
-  </label>
+  </div>
 
   <gu-date-range class="lease__date"
      ng:if="ctrl.access !== 'allow-syndication' && !(ctrl.access === 'deny-syndication' && ctrl.showCalendar === false)"
