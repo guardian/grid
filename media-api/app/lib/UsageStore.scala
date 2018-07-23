@@ -4,6 +4,7 @@ import java.io.InputStream
 import java.util.Properties
 
 import com.gu.mediaservice.lib.BaseStore
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
 import javax.mail.Session
 import javax.mail.internet.{MimeBodyPart, MimeMultipart}
@@ -192,7 +193,11 @@ class QuotaStore(
   def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
 
   def update() {
-    store.send(_ => fetchQuota)
+    if (config.quotaUpdateEnabled) {
+      store.send(_ => fetchQuota)
+    } else {
+      GridLogger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
+    }
   }
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {

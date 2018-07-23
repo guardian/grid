@@ -24,6 +24,9 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   lazy val quotaStoreKey: String = properties("quota.store.key")
   lazy val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
+  // quota updates can only be turned off in DEV
+  lazy val quotaUpdateEnabled: Boolean = if (isDev) properties.getOrElse("quota.update.enabled", "false").toBoolean else true
+
   private lazy val ec2Client: AmazonEC2 = withAWSCredentials(AmazonEC2ClientBuilder.standard()).build()
 
   val elasticsearchHost: String =
