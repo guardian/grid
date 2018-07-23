@@ -52,6 +52,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def hasLeases(image: Image) =
     image.leases.leases.nonEmpty
 
+  def hasAlbum(image: Image): Boolean = image.userMetadata.exists(_.album.isDefined)
+
   def isInPersistedCollection(image: Image): Boolean = {
     // list of the first element of each collection's `path`, i.e all the root collections
     val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
@@ -107,6 +109,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     if (isInPersistedCollection(image)) {
       reasons += "persisted-collection"
+    }
+
+    if (hasAlbum(image)) {
+      reasons += "album"
     }
 
     reasons.toList

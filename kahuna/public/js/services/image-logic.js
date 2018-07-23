@@ -57,6 +57,8 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
                 return 'categorised as agency commissioned';
             case 'persisted-collection':
                 return 'is in a persisted collection';
+            case 'album':
+                return 'is in an album';
             default:
                 return reason;
             }
