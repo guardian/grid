@@ -55,8 +55,12 @@ leases.controller('LeasesCtrl', [
                     ctrl.newLease.endDate = null;
                 }
 
-                if (ctrl.access.endsWith('-syndication') && ctrl.leases.leases.filter((l) => l.access.endsWith('-syndication')).length > 0) {
-                    alertFailed('Something went wrong when saving: you can not set more than one syndication lease.')
+                let syndLeases = ctrl.leases.leases.filter((l) =>
+                    l.access.endsWith('-syndication')
+                );
+
+                if (ctrl.access.endsWith('-syndication') && syndLeases.length > 0) {
+                        alertFailed('You can only set one syndication lease.');
                 } else {
                     leaseService.batchAdd(ctrl.newLease, ctrl.leases, ctrl.images)
                         .catch(() =>
