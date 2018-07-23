@@ -4,6 +4,7 @@
     border: 1px solid #999;
     padding: 5px;
     box-sizing: border-box;
+    width: 100%;
 }
 .lease__form select,
 .lease__form input[type='text'],
@@ -137,8 +138,13 @@ gr-leases .gu-date-range__display {
 gr-leases.leases-flex {
   display: flex;
   flex-direction: row;
+  width: 100%;
 }
 
+.result-editor__field-container__leases {
+  flex-grow: 1;
+}
+result-editor__field-container__leases
 gr-leases.leases-flex ul {
   display:flex;
   flex-direction: row;
