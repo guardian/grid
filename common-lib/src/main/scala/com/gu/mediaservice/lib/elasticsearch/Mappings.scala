@@ -157,7 +157,8 @@ object Mappings {
   ))
 
   val albumMapping = nonDynamicObj(
-    "title" -> nonAnalyzedString
+    "title" -> nonAnalyzedString,
+    "suggest" -> simpleSuggester
   )
 
   val userMetadataMapping =
