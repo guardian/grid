@@ -271,8 +271,11 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   private val albumSuggestionScript =
     """
-      | albumSuggestion = [ input: [ ctx._source.userMetadata.album.title] ];
-      | ctx._source.userMetadata.album.suggest = albumSuggestion;
+      | album = ctx._source.userMetadata.album;
+      | if (album) {
+      |   albumSuggestion = [ input: [ ctx._source.userMetadata.album.title] ];
+      |   ctx._source.userMetadata.album.suggest = albumSuggestion;
+      | }
     """.stripMargin
 
   // Create the exports key or add to it
