@@ -19,7 +19,7 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
   val elasticsearchHost: String =
-    if (stage == "DEV")
+    if (isDev)
       properties.getOrElse("es.host", "localhost")
     else
       EC2.findElasticsearchHost(ec2Client, Map(

@@ -27,7 +27,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   private lazy val ec2Client: AmazonEC2 = withAWSCredentials(AmazonEC2ClientBuilder.standard()).build()
 
   val elasticsearchHost: String =
-    if (stage == "DEV")
+    if (isDev)
       properties.getOrElse("es.host", "localhost")
     else
       findElasticsearchHost(ec2Client, Map(
