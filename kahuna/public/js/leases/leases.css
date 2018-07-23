@@ -144,7 +144,7 @@ gr-leases.leases-flex {
 .result-editor__field-container__leases {
   flex-grow: 1;
 }
-result-editor__field-container__leases
+.result-editor__field-container__leases
 gr-leases.leases-flex ul {
   display:flex;
   flex-direction: row;

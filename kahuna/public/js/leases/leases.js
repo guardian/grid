@@ -173,6 +173,17 @@ leases.controller('LeasesCtrl', [
             };
         };
 
+        ctrl.leaseName = (lease) => {
+            const leasesNameMappings = {
+                'allow-use':  'Allow use',
+                'deny-use': 'Deny use',
+                'allow-syndication': 'Allow syndication',
+                'deny-syndication': 'Deny syndication'
+            };
+
+            return leasesNameMappings[lease.access];
+        };
+
         function alertFailed(message) {
             $window.alert(message);
             ctrl.adding = false;
