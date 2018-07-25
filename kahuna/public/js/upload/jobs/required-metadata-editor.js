@@ -75,7 +75,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
             credit: originalMetadata.credit,
             copyright: originalMetadata.copyright,
             specialInstructions: originalMetadata.specialInstructions,
-            description: originalMetadata.description
+            description: originalMetadata.description,
+            shootId: originalMetadata.shootId
         };
     }
 }]);

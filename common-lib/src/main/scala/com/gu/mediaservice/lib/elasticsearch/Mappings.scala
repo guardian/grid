@@ -90,7 +90,8 @@ object Mappings {
     "city" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "state" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
     "country" -> (standardAnalysedString ++ copyTo("metadata.englishAnalysedCatchAll")),
-    "englishAnalysedCatchAll" -> sStemmerAnalysedString
+    "englishAnalysedCatchAll" -> sStemmerAnalysedString,
+    "shootId" -> nonAnalyzedString
   )
 
   val usageRightsMapping = nonDynamicObj(

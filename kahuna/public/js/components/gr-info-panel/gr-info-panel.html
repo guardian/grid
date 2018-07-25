@@ -145,6 +145,47 @@
                     </div>
                 </div>
 
+                <div class="image-info__wrap">
+                    <button class="image-info__edit"
+                            ng:if="ctrl.userCanEdit"
+                            ng:click="shootIdEditForm.$show()"
+                            ng:hide="shootIdEditForm.$visible">✎</button>
+                    <dt class="metadata-line metadata-line__key">Shoot ID</dt>
+                    <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.shootId)}"
+                         editable-textarea="ctrl.metadata.shootId"
+                         onbeforesave="ctrl.updateMetadataField('shootId', $data)"
+                         e:msd-elastic
+                         e:form="shootIdEditForm"
+                         e:ng-class="{'image-info__editor--error': $error,
+                                      'image-info__editor--saving': shootIdEditForm.$waiting,
+                                      'text-input': true}">
+
+                        <div ng:if="ctrl.userCanEdit">
+                            <dd class="image-info__description"
+                                ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.shootId)"
+                                >Multiple shoot IDs (click ✎ to edit <strong>all</strong>)
+                            </dd>
+
+                            <dd class="image-info__description"
+                                ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.shootId)"
+                                >{{ctrl.metadata.shootId || "Unknown (click ✎ to add the shoot ID)"}}
+                            </dd>
+                        </div>
+
+                        <div ng:if="!ctrl.userCanEdit">
+                            <dd class="image-info__description"
+                                ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.shootId)"
+                                >Multiple shoot IDs
+                            </dd>
+
+                            <dd class="image-info__description"
+                                ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.shootId)"
+                                >{{ctrl.metadata.schootId || "unknown"}}
+                            </dd>
+                        </div>
+                    </div>
+                </div>
+
             </dl>
         </div>
 
