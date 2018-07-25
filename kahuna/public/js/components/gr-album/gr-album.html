@@ -18,7 +18,13 @@
         </span>
 
         <span ng:if="ctrl.hasAlbumData">
-            {{ctrl.albumData.title}}
+            <span ng:if="ctrl.hasSingleAlbum">
+                {{ctrl.albumData.title}}
+            </span>
+
+            <span ng:if="!ctrl.hasSingleAlbum">
+                Multiple albums (click ✎ to edit <strong>all</strong>)
+            </span>
         </span>
     </span>
 </section>
