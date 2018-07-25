@@ -1,4 +1,4 @@
-<section>
+<section ng:if="! ctrl.editInline">
     <button class="image-info__edit"
             ng:click="albumEditForm.$show()"
             ng:hide="albumEditForm.$visible">
@@ -27,4 +27,24 @@
             </span>
         </span>
     </span>
+</section>
+
+<section ng:if="ctrl.editInline" class="edit-inline flex-container">
+    <gr-datalist class="job-info--editor__input"
+                 gr:search="ctrl.search(q)">
+        <input type="text"
+               name="album"
+               class="text-input job-info--credit full-width"
+               gr:datalist-input
+               ng:model="ctrl.albumData.title"
+               ng:change="ctrl.save(ctrl.albumData.title)"
+               ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
+    </gr-datalist>
+
+    <button type="button"
+            class="job-editor__apply-to-all"
+            title="Apply this album to all your current uploads"
+            ng:if="ctrl.withBatch"
+            ng:click="ctrl.batchApply(ctrl.albumData.title)"
+    >⇔</button>
 </section>
