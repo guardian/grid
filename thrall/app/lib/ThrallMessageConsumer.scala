@@ -4,12 +4,10 @@ import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import com.gu.mediaservice.lib.logging.GridLogger
 import org.elasticsearch.action.delete.DeleteResponse
-import org.joda.time.DateTime
-import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, notifications: DynamoNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
+class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, dynamoNotifications: DynamoNotifications, notifications: ThrallNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
   config.queueUrl, config.awsEndpoint, config, thrallMetrics.snsMessage) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
@@ -25,7 +23,8 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
-      case "update-rcs-rights"          => updateRcsRights
+      case "update-rcs-rights"          => updateRcsRights // Used by the RCS-poller-lambda
+      case "apply-rcs-rights"           => applyRcsRights // Used to propagate rights in an album
     }
   }
 
@@ -68,7 +67,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)
-              notifications.publish(Json.obj("id" -> id), "image-deleted")
+              dynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
@@ -82,8 +81,34 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
   def deleteAllUsages(usage: JsValue) =
     Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
-  def updateRcsRights(rights: JsValue) =
-    Future.sequence( withImageId(rights)(id => es.updateImageSyndicationRights(id, rights \ "data")) )
+  def applyRcsRights(rightsWithId: JsValue)=
+    Future.sequence(withImageId(rightsWithId) { id =>
+      println(s"Apply rcs rights: $id")
+      es.updateImageSyndicationRights(id, rightsWithId \ "data")
+    })
+
+  def updateRcsRights(rightsWithId: JsValue) =
+    Future.sequence( withImageId(rightsWithId) { id =>
+      println(s"Update rcs rights: $id")
+      val rightsData = rightsWithId \ "data"
+      (rightsData \ "rights").toOption match {
+        case Some(_) =>
+          // Apply rights to all album images that have no syndication rights
+          for {
+            albumName <- es.getImageAlbum(id)
+            imagesInAlbum <- es.getImageIdsInAlbum(albumName)
+          } yield {
+            imagesInAlbum.filter(_ != id).foreach { imgId =>
+              val newRights: JsValue = Json.obj("id" -> imgId, "data" -> rightsData.getOrElse(JsNull)).as[JsValue]
+
+              notifications.publish(newRights, "apply-rcs-rights")
+            }
+          }
+
+          es.updateImageSyndicationRights(id, rightsData)
+        case None => es.updateImageSyndicationRights(id, rightsData)
+      }
+    })
 }
 
 // TODO: improve and use this (for logging especially) else where.
