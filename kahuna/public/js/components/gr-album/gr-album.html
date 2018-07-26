@@ -20,7 +20,9 @@
 
         <span ng:if="ctrl.hasAlbumData">
             <span ng:if="ctrl.hasSingleAlbum">
-                {{ctrl.albumData.title}}
+                <a ui:sref="search.results({query: (ctrl.albumData.title | queryFilter:'album')})">
+                    {{ctrl.albumData.title}}
+                </a>
             </span>
 
             <span ng:if="!ctrl.hasSingleAlbum">
