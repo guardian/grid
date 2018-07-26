@@ -65,6 +65,15 @@
         </div>
 
         <div class="image-info__group">
+            <dl class="image-info__wrap">
+                <dt class="metadata-line metadata-line__key">Album</dt>
+                <dd>
+                    <gr-album images="ctrl.selectedImages"/>
+                </dd>
+            </dl>
+        </div>
+
+        <div class="image-info__group">
             <dl>
                 <div class="image-info__wrap" ng:if="ctrl.rawMetadata.title">
                     <button class="image-info__edit"
