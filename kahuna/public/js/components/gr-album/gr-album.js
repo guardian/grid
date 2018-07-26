@@ -1,5 +1,6 @@
 import angular from 'angular';
 
+import './gr-album.css';
 import template from './gr-album.html';
 
 import '../../image/service';
@@ -13,13 +14,14 @@ export const album = angular.module('gr.album', [
 ]);
 
 album.controller('GrAlbumCtrl', [
+    '$rootScope',
     '$scope',
     'imageService',
     'mediaApi',
     'imageAccessor',
     'albumService',
 
-    function($scope, imageService, mediaApi, imageAccessor, albumService) {
+    function($rootScope, $scope, imageService, mediaApi, imageAccessor, albumService) {
         const ctrl = this;
 
         function refreshForOne() {
@@ -81,6 +83,16 @@ album.controller('GrAlbumCtrl', [
                 });
         };
 
+        if (Boolean(ctrl.withBatch)) {
+            const batchApplyEvent = 'events:batch-apply:album';
+
+            $scope.$on(batchApplyEvent, (e, { title }) => {
+                ctrl.save(title);
+            });
+
+            ctrl.batchApply = (title) => $rootScope.$broadcast(batchApplyEvent, { title });
+        }
+
         $scope.$watchCollection(() => Array.from(ctrl.images), refresh);
     }
 ]);
@@ -89,7 +101,9 @@ album.directive('grAlbum', [function() {
     return {
         restrict: 'E',
         scope: {
-            images: '='
+            images: '=',
+            withBatch: '=?',
+            editInline: '=?'
         },
         controller: 'GrAlbumCtrl',
         controllerAs: 'ctrl',
