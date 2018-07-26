@@ -12,6 +12,7 @@
           e:ng-class="{'image-info__editor--error': $error,
                        'image-info__editor--saving': albumEditForm.$waiting,
                        'text-input': true}"
+          e:placeholder="describing a group of images, e.g. a photoshoot"
           onbeforesave="ctrl.save($data)">
         <span ng:if="! ctrl.hasAlbumData">
             Unknown (click ✎ to add)
@@ -35,6 +36,7 @@
         <input type="text"
                name="album"
                class="text-input job-info--credit full-width"
+               placeholder="describing a group of images, e.g. a photoshoot"
                gr:datalist-input
                ng:model="ctrl.albumData.title"
                ng:change="ctrl.save(ctrl.albumData.title)"
