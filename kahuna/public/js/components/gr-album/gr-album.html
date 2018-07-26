@@ -1,0 +1,24 @@
+<section>
+    <button class="image-info__edit"
+            ng:click="albumEditForm.$show()"
+            ng:hide="albumEditForm.$visible">
+        ✎
+    </button>
+
+    <span editable-text="ctrl.albumData.title"
+          ng:hide="albumEditForm.$visible"
+          e:form="albumEditForm"
+          e:uib-:typeahead="album for album in ctrl.search($viewValue) | limitTo:8"
+          e:ng-class="{'image-info__editor--error': $error,
+                       'image-info__editor--saving': albumEditForm.$waiting,
+                       'text-input': true}"
+          onbeforesave="ctrl.save($data)">
+        <span ng:if="! ctrl.hasAlbumData">
+            Unknown (click ✎ to add)
+        </span>
+
+        <span ng:if="ctrl.hasAlbumData">
+            {{ctrl.albumData.title}}
+        </span>
+    </span>
+</section>

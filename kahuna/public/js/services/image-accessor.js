@@ -65,6 +65,11 @@ imageAccessor.factory('imageAccessor', function() {
         return collections.map(col => col.data.pathId);
     }
 
+    function getAlbum(image) {
+        const userMetadata = extractUserMetadata(image);
+        return userMetadata.data.album;
+    }
+
     return {
         readCost,
         readLabels,
@@ -76,7 +81,8 @@ imageAccessor.factory('imageAccessor', function() {
         isPersisted,
         isArchived,
         readCollections,
-        getCollectionsIds
+        getCollectionsIds,
+        getAlbum
     };
 });
 

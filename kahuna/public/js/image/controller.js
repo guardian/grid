@@ -5,6 +5,7 @@ import '../services/image/usages';
 import '../image/service';
 
 import '../components/gr-add-label/gr-add-label';
+import '../components/gr-album/gr-album';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-collection-overlay/gr-collection-overlay';
 import '../components/gr-crop-image/gr-crop-image';
@@ -27,6 +28,7 @@ var image = angular.module('kahuna.image.controller', [
     'gr.image-usages.service',
 
     'gr.addLabel',
+    'gr.album',
     'gr.archiver',
     'gr.collectionOverlay',
     'gr.cropImage',
