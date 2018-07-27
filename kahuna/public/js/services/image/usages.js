@@ -16,12 +16,24 @@ imageUsagesService.factory('imageUsagesService', [function() {
     return {
         getUsages: (imageResource) => {
 
+            function getReferenceType(platform) {
+              if (platform === 'print') {
+                return 'indesign';
+              }
+              if (platform === 'front') {
+                return 'front';
+              }
+
+              return 'frontend';
+            }
+
             function usageTitle(usage) {
-                const referenceType =
-                    usage.get('platform') == 'print' ? 'indesign' : 'frontend';
+
+                const platform = usage.get('platform');
+                const referenceType = getReferenceType(platform);
 
                 const reference = usage.get('references').find(u =>
-                        u.get('type') == referenceType);
+                    u.get('type') == referenceType);
 
                 return (reference && reference.get('name')) ?
                     reference.get('name') : 'No title found.';

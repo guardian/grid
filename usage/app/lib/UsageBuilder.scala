@@ -54,7 +54,9 @@ object UsageBuilder {
 
   private def buildFrontUsageReference(usage: MediaUsage): List[UsageReference] =
     usage.frontUsageMetadata.map(metadata => {
-      List(UsageReference("Added by", None, Some(metadata.addedBy)))
+
+      val usageString = s"${metadata.front}, ${metadata.addedBy}" 
+      List(UsageReference("front", None, Some(usageString)))
     }).getOrElse(List[UsageReference]())
 
   private def buildWebUsageReference(usage: MediaUsage) =

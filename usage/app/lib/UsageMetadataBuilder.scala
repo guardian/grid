@@ -48,7 +48,8 @@ class UsageMetadataBuilder(config: UsageConfig) {
   def buildFront(metadataMap: Map[String, Any]): Option[FrontUsageMetadata] = {
     Try {
       FrontUsageMetadata(
-        metadataMap("addedBy").asInstanceOf[String]
+        metadataMap("addedBy").asInstanceOf[String],
+        metadataMap("front").asInstanceOf[String]
       )
     }.toOption
   }
