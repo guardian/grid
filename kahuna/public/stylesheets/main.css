@@ -1525,7 +1525,7 @@ FIXME: what to do with touch devices
 
 .image-details--scroll {
     height: calc(100vh - 50px - 35px); /* viewport - top-bar - tab-bar */
-    overflow: scroll;
+    overflow-y: scroll;
 }
 
 .image-details--crop {
