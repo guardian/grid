@@ -31,7 +31,8 @@ export const filterFields = [
     'usages@status',
     'has',
     'croppedBy',
-    'filename'
+    'filename',
+    'album'
 ].sort();
 // TODO: add date fields
 
@@ -127,6 +128,11 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
             then(labels => labels.data);
     }
 
+    function suggestAlbum(prefix) {
+        return mediaApi.metadataSearch('album', {q: prefix}).
+        then(results => results.data.map(res => res.key));
+    }
+
     function getFilterSuggestions(field, value) {
         switch (field) {
         case 'usages@status': return ['published', 'pending'];
@@ -139,6 +145,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'by':       return listPhotographers().then(prefixFilter(value));
         case 'illustrator': return listIllustrators().then(prefixFilter(value));
         case 'category': return listCategories().then(prefixFilter(value));
+        case 'album': return suggestAlbum(value);
         // No suggestions
         default:         return [];
         }
