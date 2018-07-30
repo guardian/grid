@@ -119,6 +119,17 @@
             </div>
         </div>
 
+        <div class="result-editor__field-container flex-container flex-center">
+            <span class="result-editor__field-label flex-no-shrink text-small">
+                Album
+            </span>
+            <gr-album class="flex-spacer"
+                      images="[ctrl.image]"
+                      with-batch="ctrl.withBatch"
+                      edit-inline="true">
+            </gr-album>
+        </div>
+
         <ui-required-metadata-editor
             class="result-editor__metadata-editor"
             resource="ctrl.image.data.userMetadata.data.metadata"
