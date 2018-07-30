@@ -2,6 +2,7 @@ package controllers
 
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
+import com.gu.mediaservice.model.UsageStatus
 import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import scalaz.syntax.applicative._
@@ -36,7 +37,7 @@ case class SearchParams(
   labels: List[String] = List.empty,
   hasMetadata: List[String] = List.empty,
   persisted: Option[Boolean] = None,
-  usageStatus: List[String] = List.empty,
+  usageStatus: List[UsageStatus] = List.empty,
   usagePlatform: List[String] = List.empty,
   tier: Tier,
   hasRightsAcquired: Option[Boolean] = None
@@ -104,7 +105,7 @@ object SearchParams {
       commaSep("labels"),
       commaSep("hasMetadata"),
       request.getQueryString("persisted") flatMap parseBooleanFromQuery,
-      commaSep("usageStatus"),
+      commaSep("usageStatus").map(UsageStatus(_)),
       commaSep("usagePlatform"),
       request.user.apiKey.tier,
       request.getQueryString("hasRightsAcquired") flatMap parseBooleanFromQuery
@@ -135,7 +136,7 @@ object SearchParams {
       "labels"            -> listToCommas(searchParams.labels),
       "hasMetadata"       -> listToCommas(searchParams.hasMetadata),
       "persisted"         -> searchParams.persisted.map(_.toString),
-      "usageStatus"       -> listToCommas(searchParams.usageStatus),
+      "usageStatus"       -> listToCommas(searchParams.usageStatus.map(_.toString)),
       "usagePlatform"     -> listToCommas(searchParams.usagePlatform)
     ).foldLeft(Map[String, String]()) {
       case (acc, (key, Some(value))) => acc + (key -> value)
