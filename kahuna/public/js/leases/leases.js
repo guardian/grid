@@ -41,6 +41,10 @@ leases.controller('LeasesCtrl', [
         ctrl.adding = false;
         ctrl.showCalendar = false;
 
+        ctrl.calendarVisible = () =>
+            ctrl.access !== 'allow-syndication' &&
+            !(ctrl.access === 'deny-syndication' && ctrl.showCalendar === false);
+
         ctrl.cancel = () => ctrl.editing = false;
 
         ctrl.save = () => {

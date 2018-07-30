@@ -48,7 +48,7 @@
   </div>
 
   <gu-date-range class="lease__date"
-     ng:if="ctrl.access !== 'allow-syndication' && !(ctrl.access === 'deny-syndication' && ctrl.showCalendar === false)"
+     ng:if="ctrl.calendarVisible()"
      gu:start-date="ctrl.newLease.startDate"
      gu:end-date="ctrl.newLease.endDate"
      gu:show-extras="false"
