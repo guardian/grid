@@ -1,7 +1,9 @@
 package lib
 
 import _root_.play.api.libs.json._
+import com.amazonaws.services.appstream.model.Image
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
+import com.gu.mediaservice.model.Album
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import org.elasticsearch.action.delete.DeleteResponse
@@ -220,25 +222,19 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       .incrementOnFailure(metrics.failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
     }
 
-  def getImageAlbum(id: String)(implicit ex: ExecutionContext): Future[Option[String]] =
+  def getAlbumForId(id: String)(implicit ex: ExecutionContext): Future[Option[Album]] =
     client.prepareGet(readAlias, imageType, id)
       .setFetchSource("userMetadata.album.title", null)
       .executeAndLog(s"get album for image $id")
       .map{res =>
-        res.sourceOpt.map(json => (json \ "userMetadata" \ "album" \ "title").as[String])}
+        res.sourceOpt.map(json => (json \ "userMetadata" \ "album").as[Album])}
 
-  def getImageIdsInAlbum(albumNameOpt: Option[String])(implicit ex: ExecutionContext): Future[List[String]] = albumNameOpt match {
+  def getAlbumImages(albumNameOpt: Option[Album])(implicit ex: ExecutionContext): Future[List[JsValue]] = albumNameOpt match {
     case Some(albumName) =>
-      val q = filteredQuery(
-        matchQuery("userMetadata.album.title", albumName),
-        andFilter(
-          missingOrEmptyFilter("syndicationRights"))
-      )
-
       client.prepareSearch(readAlias).setTypes(imageType)
-        .setQuery(q)
-        .executeAndLog(s"get ids for album $albumName")
-        .map(_.getHits.hits.toList.map(_.id))
+        .setQuery(matchQuery("userMetadata.album.title", albumName.title))
+        .executeAndLog(s"get images from album ${albumName.title}")
+        .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
 
     case None => Future.successful(List.empty)
   }

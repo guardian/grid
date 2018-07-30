@@ -3,6 +3,7 @@ package lib
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.model.SyndicationRights
 import org.elasticsearch.action.delete.DeleteResponse
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -79,35 +80,30 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
     )
 
   def deleteAllUsages(usage: JsValue) =
-    Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
+    Future.sequence(withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
   def applyRcsRights(rightsWithId: JsValue)=
     Future.sequence(withImageId(rightsWithId) { id =>
-      println(s"Apply rcs rights: $id")
       es.updateImageSyndicationRights(id, rightsWithId \ "data")
     })
 
   def updateRcsRights(rightsWithId: JsValue) =
-    Future.sequence( withImageId(rightsWithId) { id =>
-      println(s"Update rcs rights: $id")
+    Future.sequence(withImageId(rightsWithId) { id =>
       val rightsData = rightsWithId \ "data"
-      (rightsData \ "rights").toOption match {
-        case Some(_) =>
-          // Apply rights to all album images that have no syndication rights
-          for {
-            albumName <- es.getImageAlbum(id)
-            imagesInAlbum <- es.getImageIdsInAlbum(albumName)
-          } yield {
-            imagesInAlbum.filter(_ != id).foreach { imgId =>
-              val newRights: JsValue = Json.obj("id" -> imgId, "data" -> rightsData.getOrElse(JsNull)).as[JsValue]
+      val rcsSyndicationRights = rightsData.as[SyndicationRights]
 
-              notifications.publish(newRights, "apply-rcs-rights")
-            }
-          }
-
-          es.updateImageSyndicationRights(id, rightsData)
-        case None => es.updateImageSyndicationRights(id, rightsData)
+      for {
+        album <- es.getAlbumForId(id)
+        imagesInAlbum <- es.getAlbumImages(album)
+        newRights = SyndicationRightsUpdates.processRightsUpdates(imagesInAlbum.filter(_ != id), rcsSyndicationRights)
+      } yield {
+        GridLogger.info(s"Copying rights from image id $id to ${newRights.length} other image(s) from album $album.")
+        newRights.foreach { imgUpdate =>
+          notifications.publish(imgUpdate.toJson, "apply-rcs-rights")
+        }
       }
+
+      es.updateImageSyndicationRights(id, rightsData)
     })
 }
 
