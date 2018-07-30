@@ -10,8 +10,12 @@ object SyndicationRightsUpdates {
   private def processImage(image: JsValue, rcsSyndicationRights: SyndicationRights): Option[SyndicationRightsUpdates] = {
     val imageRights = (image \ "syndicationRights").asOpt[SyndicationRights]
 
-    if (rcsSyndicationRights.rightsAcquired && (imageRights.isEmpty || imageRights.exists(_.rightsAcquired))) {
-      Some(SyndicationRightsUpdates((image \ "id").as[String], Json.toJson(rcsSyndicationRights)))
+    if (rcsSyndicationRights.rightsAcquired) {
+      if(imageRights.isEmpty)
+        Some(SyndicationRightsUpdates((image \ "id").as[String], Json.toJson(rcsSyndicationRights.copy(published = None))))
+      else if(imageRights.exists(_.rightsAcquired))
+        Some(SyndicationRightsUpdates((image \ "id").as[String], Json.toJson(rcsSyndicationRights.copy(published = imageRights.flatMap(_.published)))))
+      else None
     } else None
   }
 

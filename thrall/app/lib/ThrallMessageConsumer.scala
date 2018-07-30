@@ -95,7 +95,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       for {
         album <- es.getAlbumForId(id)
         imagesInAlbum <- es.getAlbumImages(album)
-        newRights = SyndicationRightsUpdates.processRightsUpdates(imagesInAlbum.filter(_ != id), rcsSyndicationRights)
+        newRights = SyndicationRightsUpdates.processRightsUpdates(imagesInAlbum.filter(img => (img \ "id").as[String] != id), rcsSyndicationRights)
       } yield {
         GridLogger.info(s"Copying rights from image id $id to ${newRights.length} other image(s) from album $album.")
         newRights.foreach { imgUpdate =>
