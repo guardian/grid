@@ -137,16 +137,16 @@
         <section>
             <h1>Management</h1>
             <div class="result-editor__field-container flex-container">
-                <span class="result-editor__field-label  flex-no-shrink text-small">
-                    Leases
-                </span>
-                <div class="result-editor__field-container__leases">
-                    <gr-leases
-                            gr:images="[ctrl.image]"
-                            with-batch="ctrl.withBatch"
-                            class="leases-flex"
-                            gr:user-can-edit="true">
-                    </gr-leases>
+              <span class="result-editor__field-label flex-no-shrink text-small">
+                  Leases
+              </span>
+              <div class="result-editor__field-container__leases flex-spacer">
+                  <gr-leases
+                      gr:images="[ctrl.image]"
+                      with-batch="ctrl.withBatch"
+                      class="leases-flex"
+                      gr:user-can-edit="true">
+                  </gr-leases>
                 </div>
             </div>
         </section>

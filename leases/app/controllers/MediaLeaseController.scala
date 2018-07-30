@@ -45,7 +45,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     respondError(BadRequest, "media-leases-parse-failed", JsError.toJson(e).toString)
 
   private def addLease(mediaLease: MediaLease, userId: Option[String]) = store
-    .put(mediaLease.copy(leasedBy = userId)).map { _ =>
+    .put(mediaLease.prepareForSave.copy(leasedBy = userId)).map { _ =>
       notify(mediaLease.mediaId)
     }
 

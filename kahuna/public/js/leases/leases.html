@@ -25,16 +25,30 @@
 </span>
 
 
-<form class="lease__form"
+<form class="lease__form full-width"
       ng:show="!ctrl.adding && ctrl.editing"
       ng:submit="ctrl.save()">
 
   <select id="access-select" ng:model="ctrl.access" ng-required="required">
       <option ng-selected="true" value="">Please select access</option>
-      <option value="allow-use">Allow cropping</option>
-      <option value="deny-use">Deny cropping</option>
+      <optgroup label="Cropping">
+          <option value="allow-use">Allow cropping</option>
+          <option value="deny-use">Deny cropping</option>
+      </optgroup>
+      <optgroup label="Syndication">
+          <option value="allow-syndication">Allow syndication</option>
+          <option value="deny-syndication">Deny syndication</option>
+      </optgroup>
   </select>
+
+  <div ng:if="ctrl.access === 'deny-syndication'">
+    <input type="checkbox"
+           ng:model="ctrl.showCalendar" />
+    Expires
+  </div>
+
   <gu-date-range class="lease__date"
+     ng:if="ctrl.calendarVisible()"
      gu:start-date="ctrl.newLease.startDate"
      gu:end-date="ctrl.newLease.endDate"
      gu:show-extras="false"
@@ -74,14 +88,12 @@
 
         <div class="lease__current" ng:class="ctrl.leaseStatus(lease).current" ng:if="ctrl.leaseStatus(lease).current"></div>
 
-        <div class="lease__access"
-            ng:class="ctrl.leaseStatus(lease).access"
-        ></div>
-
+        <div class="lease__access" ng:class="ctrl.leaseStatus(lease).access"></div>
 
         <div class="lease__wrapper" ng:class="ctrl.leaseStatus(lease).current">
           <div class="lease">
             <div class="lease__text">
+              <div>{{ctrl.leaseName(lease)}}</div>
               <p class="expiration-date">{{::ctrl.formatTimestamp(lease.endDate)}}</p>
               <div>{{lease.notes}}</div>
             </div>

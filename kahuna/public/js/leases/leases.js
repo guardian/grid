@@ -39,6 +39,11 @@ leases.controller('LeasesCtrl', [
         ctrl.grSmall = true;
         ctrl.editing = false;
         ctrl.adding = false;
+        ctrl.showCalendar = false;
+
+        ctrl.calendarVisible = () =>
+            ctrl.access !== 'allow-syndication' &&
+            !(ctrl.access === 'deny-syndication' && ctrl.showCalendar === false);
 
         ctrl.cancel = () => ctrl.editing = false;
 
@@ -49,14 +54,26 @@ leases.controller('LeasesCtrl', [
                 ctrl.adding = true;
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
+                if (!ctrl.showCalendar && ctrl.access === 'deny-syndication') {
+                    ctrl.newLease.startDate = null;
+                    ctrl.newLease.endDate = null;
+                }
 
-                leaseService.batchAdd(ctrl.newLease, ctrl.leases, ctrl.images)
-                    .catch(() =>
-                        alertFailed('Something went wrong when saving, please try again.')
+                let syndLeases = ctrl.leases.leases.filter((l) =>
+                    l.access.endsWith('-syndication')
+                );
+
+                if (ctrl.access.endsWith('-syndication') && syndLeases.length > 0) {
+                        alertFailed('You can only set one syndication lease.');
+                } else {
+                    leaseService.batchAdd(ctrl.newLease, ctrl.leases, ctrl.images)
+                        .catch(() =>
+                            alertFailed('Something went wrong when saving, please try again.')
                     )
                     .finally(() => {
                         ctrl.resetLeaseForm();
-                });
+                    });
+                }
             }
         };
 
@@ -128,6 +145,7 @@ leases.controller('LeasesCtrl', [
                 access: null
             };
             ctrl.access = null;
+            ctrl.showCalendar = false;
         };
 
         ctrl.formatTimestamp = (timestamp) => {
@@ -157,6 +175,17 @@ leases.controller('LeasesCtrl', [
                 current: current,
                 access: access
             };
+        };
+
+        ctrl.leaseName = (lease) => {
+            const leasesNameMappings = {
+                'allow-use':  'Allow use',
+                'deny-use': 'Deny use',
+                'allow-syndication': 'Allow syndication',
+                'deny-syndication': 'Deny syndication'
+            };
+
+            return leasesNameMappings[lease.access];
         };
 
         function alertFailed(message) {
