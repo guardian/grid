@@ -47,7 +47,8 @@ trait ImageFields {
   val aliases = Map(
     "crops"     -> "exports",
     "croppedBy" -> "exports.author",
-    "filename"  -> "uploadInfo.filename"
+    "filename"  -> "uploadInfo.filename",
+    "album"     -> albumField("title")
   )
 
   def getFieldPath(field: String) = field match {

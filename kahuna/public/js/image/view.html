@@ -159,8 +159,10 @@
             </label>
         </div>
 
-        <gr-image-metadata gr-image="ctrl.image" ng:if="showMetadata"></gr-image-metadata>
-        <gr-image-usage gr-image="ctrl.image" ng:if="! showMetadata"></gr-image-usage>
+        <div class="image-details image-details--scroll">
+            <gr-image-metadata gr-image="ctrl.image" ng:if="showMetadata"></gr-image-metadata>
+            <gr-image-usage gr-image="ctrl.image" ng:if="! showMetadata"></gr-image-usage>
+        </div>
     </div>
 </div>
 

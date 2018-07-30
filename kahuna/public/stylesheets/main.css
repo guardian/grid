@@ -1523,6 +1523,11 @@ FIXME: what to do with touch devices
     border-left: 1px solid #565656;
 }
 
+.image-details--scroll {
+    height: calc(100vh - 50px - 35px); /* viewport - top-bar - tab-bar */
+    overflow-y: scroll;
+}
+
 .image-details--crop {
     float: left;
     width: 130px;
