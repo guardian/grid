@@ -14,6 +14,7 @@ import play.api.libs.json.{JsError, JsValue, Json}
 import play.api.mvc._
 import play.utils.UriEncoding
 import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
+import com.gu.mediaservice.lib.logging.GridLogger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -51,6 +52,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
   def index = auth { indexResponse }
 
   def forUsage(usageId: String) = auth.async {
+    GridLogger.info(s"Request for single usage $usageId")
     val usageFuture = usageTable.queryByUsageId(usageId)
 
     usageFuture.map[play.api.mvc.Result]((mediaUsageOption: Option[MediaUsage]) => {
