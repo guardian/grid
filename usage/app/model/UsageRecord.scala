@@ -59,7 +59,7 @@ object UsageRecord {
     Some(mediaUsage.usageType),
     Some(mediaUsage.mediaType),
     Some(mediaUsage.lastModified),
-    Some(mediaUsage.status.toString),
+    mediaUsage.status.map(_.toString),
     mediaUsage.printUsageMetadata,
     mediaUsage.digitalUsageMetadata
   )
@@ -71,7 +71,7 @@ object UsageRecord {
     Some(mediaUsage.usageType),
     Some(mediaUsage.mediaType),
     Some(mediaUsage.lastModified),
-    Some(mediaUsage.status.toString),
+    mediaUsage.status.map(_.toString),
     mediaUsage.printUsageMetadata,
     mediaUsage.digitalUsageMetadata,
     Some(mediaUsage.lastModified),

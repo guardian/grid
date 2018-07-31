@@ -9,7 +9,7 @@ case class Usage(
   references: List[UsageReference],
   platform: String,
   media: String,
-  status: UsageStatus,
+  status: Option[UsageStatus],
   dateAdded: Option[DateTime],
   dateRemoved: Option[DateTime],
   lastModified: DateTime,

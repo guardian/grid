@@ -65,13 +65,16 @@ class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoD
   }
 
   def hidePendingIfRemoved(usages: Set[MediaUsage]): Set[MediaUsage] = usages.filterNot((mediaUsage: MediaUsage) => {
-    mediaUsage.status.isInstanceOf[PendingUsageStatus] && mediaUsage.isRemoved
+    mediaUsage.status match {
+      case Some(PendingUsageStatus()) => mediaUsage.isRemoved
+      case _ => false
+    }
   })
 
   def hidePendingIfPublished(usages: Set[MediaUsage]): Set[MediaUsage] = usages.groupBy(_.grouping).flatMap {
     case (grouping, groupedUsages) =>
       val publishedUsage = groupedUsages.find(_.status match {
-        case _: PublishedUsageStatus => true
+        case Some(PublishedUsageStatus()) => true
         case _ => false
       })
 
