@@ -12,7 +12,7 @@ case class Edits(
   labels: List[String] = List(),
   metadata: ImageMetadata,
   usageRights: Option[UsageRights] = None,
-  album: Option[Album] = None
+  photoshoot: Option[Photoshoot] = None
 )
 
 object Edits {
@@ -23,7 +23,7 @@ object Edits {
     (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
     (__ \ "usageRights").readNullable[UsageRights] ~
-    (__ \ "album").readNullable[Album]
+    (__ \ "photoshoot").readNullable[Photoshoot]
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
@@ -31,7 +31,7 @@ object Edits {
     (__ \ "labels").write[List[String]] ~
     (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
     (__ \ "usageRights").writeNullable[UsageRights] ~
-    (__ \ "album").writeNullable[Album]
+    (__ \ "photoshoot").writeNullable[Photoshoot]
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)
@@ -48,7 +48,7 @@ trait EditsResponse {
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
   type MetadataEntity = EmbeddedEntity[ImageMetadata]
   type UsageRightsEntity = EmbeddedEntity[UsageRights]
-  type AlbumEntity = EmbeddedEntity[Album]
+  type PhotoshootEntity = EmbeddedEntity[Photoshoot]
 
   def editsEmbeddedEntity(id: String, edits: Edits) =
     EmbeddedEntity(entityUri(id), Some(Json.toJson(edits)(editsEntity(id))))
@@ -59,11 +59,11 @@ trait EditsResponse {
       (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
       (__ \ "metadata").write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
       (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
-      (__ \ "album").write[AlbumEntity].contramap(albumEntity(id, _: Option[Album]))
+      (__ \ "photoshoot").write[PhotoshootEntity].contramap(photoshootEntity(id, _: Option[Photoshoot]))
     )(unlift(Edits.unapply))
 
-  def albumEntity(id: String, album: Option[Album]): AlbumEntity =
-    EmbeddedEntity(entityUri(id, "/album"), album)
+  def photoshootEntity(id: String, photoshoot: Option[Photoshoot]): PhotoshootEntity =
+    EmbeddedEntity(entityUri(id, "/photoshoot"), photoshoot)
 
   def archivedEntity(id: String, a: Boolean): ArchivedEntity =
     EmbeddedEntity(entityUri(id, "/archived"), Some(a))
