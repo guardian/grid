@@ -1,5 +1,6 @@
 GET     /                                               controllers.UsageApi.index
 
+POST    /usages/front                                   controllers.UsageApi.setFrontUsages
 GET     /usages/:id                                     controllers.UsageApi.forUsage(id: String)
 GET     /usages/media/:mediaId                          controllers.UsageApi.forMedia(mediaId: String)
 DELETE  /usages/media/:mediaId                          controllers.UsageApi.deleteUsages(mediaId: String)

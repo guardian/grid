@@ -14,8 +14,10 @@ case class Usage(
   dateRemoved: Option[DateTime],
   lastModified: DateTime,
   printUsageMetadata: Option[PrintUsageMetadata] = None,
-  digitalUsageMetadata: Option[DigitalUsageMetadata] = None
-)
+  digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
+  frontUsageMetadata: Option[FrontUsageMetadata] = None
+
+                )
 object Usage {
   import JodaWrites._
   import JodaReads._

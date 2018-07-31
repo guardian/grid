@@ -17,6 +17,7 @@ case class MediaUsage(
   status: UsageStatus,
   printUsageMetadata: Option[PrintUsageMetadata],
   digitalUsageMetadata: Option[DigitalUsageMetadata],
+  frontUsageMetadata: Option[FrontUsageMetadata],
   lastModified: DateTime,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
@@ -49,11 +50,14 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       item.getString("usage_status") match {
         case "pending" => PendingUsageStatus()
         case "published" => PublishedUsageStatus()
+        case "front_usage" => FrontUsageStatus()
       },
       Option(item.getMap[Any]("print_metadata"))
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildPrint),
       Option(item.getMap[Any]("digital_metadata"))
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildDigital),
+      Option(item.getMap[Any]("front_metadata"))
+        .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildFront),
       new DateTime(item.getLong("last_modified")),
       Try { item.getLong("date_added") }.toOption.map(new DateTime(_)),
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
@@ -67,7 +71,8 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
     "image",
     printUsage.usageStatus,
     Some(printUsage.printUsageMetadata),
-    None,
+    digitalUsageMetadata = None,
+    frontUsageMetadata = None,
     printUsage.dateAdded
   )
 
@@ -83,7 +88,21 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       status = mediaWrapper.contentStatus,
       printUsageMetadata = None,
       digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
+      frontUsageMetadata = None,
       lastModified = mediaWrapper.lastModified
     )
   }
+
+  def build(frontUsage: FrontUsageRequest, usageId: UsageId, grouping: String) = MediaUsage(
+    usageId,
+    grouping,
+    frontUsage.mediaId,
+    "front",
+    "image",
+    frontUsage.usageStatus,
+    printUsageMetadata = None,
+    digitalUsageMetadata = None,
+    frontUsageMetadata = Some(frontUsage.frontUsageMetadata),
+    lastModified = frontUsage.dateAdded
+  )
 }

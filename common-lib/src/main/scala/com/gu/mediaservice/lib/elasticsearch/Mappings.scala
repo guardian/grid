@@ -213,6 +213,12 @@ object Mappings {
       "composerUrl" -> nonAnalyzedString
     )
 
+  val frontUsageMetadata =
+    nonDynamicObj(
+      "addedBy" -> nonAnalyzedString,
+      "front" -> nonAnalyzedString
+    )
+
   val usagesMapping =
     nonDynamicObjWithAttrs(
       "id"           -> nonAnalyzedString,
@@ -225,7 +231,8 @@ object Mappings {
       "dateRemoved"  -> dateFormat,
       "lastModified" -> dateFormat,
       "printUsageMetadata" -> printUsageMetadata,
-      "digitalUsageMetadata" -> digitalUsageMetadata
+      "digitalUsageMetadata" -> digitalUsageMetadata,
+      "frontUsageMetadata" -> frontUsageMetadata
     )(nestedType)
 
 

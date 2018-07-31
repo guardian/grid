@@ -36,6 +36,8 @@ module.controller('grImageUsageCtrl', [
                     return 'Pending publication';
                 case 'published':
                     return 'Published';
+                case 'front_usage':
+                    return 'Front usage';
                 default:
                     return usageType;
             }

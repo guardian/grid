@@ -6,7 +6,7 @@ import com.gu.contentapi.client.model.ItemQuery
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.model.{PrintUsageRequest, Usage}
+import com.gu.mediaservice.model.{PrintUsageRequest, FrontUsageRequest, Usage}
 import lib._
 import model._
 import play.api.Logger
@@ -145,6 +145,24 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         }
       )
     }
+  }
+
+  def setFrontUsages = {
+    auth(playBodyParsers.json) { request => {
+
+      val frontUsageResult = request.body.validate[FrontUsageRequest]
+      frontUsageResult.fold(
+        e => {
+          respondError(BadRequest, "front-usage-request-parse-failed", JsError.toJson(e).toString)
+        },
+        frontUsageRecordResult => {
+          val group = usageGroup.build(frontUsageRecordResult)
+          usageRecorder.usageSubject.onNext(group)
+
+          Accepted
+        }
+      )
+    }}
   }
 
   def deleteUsages(mediaId: String) = auth.async {
