@@ -1,8 +1,7 @@
 package lib
 
 import org.joda.time.DateTime
-import com.gu.mediaservice.model.{Usage, UsageReference, PublishedUsageStatus}
-
+import com.gu.mediaservice.model._
 import model.{MediaUsage, UsageTableFullKey}
 
 object UsageBuilder {
@@ -21,10 +20,7 @@ object UsageBuilder {
     usage.digitalUsageMetadata
   )
 
-  private def buildStatusString(usage: MediaUsage) = if (usage.status match {
-    case _: PublishedUsageStatus => usage.isRemoved
-    case _ => false
-  }) "removed" else usage.status.toString
+  private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus() else usage.status
 
   private def buildId(usage: MediaUsage): String = {
     UsageTableFullKey.build(usage).toString

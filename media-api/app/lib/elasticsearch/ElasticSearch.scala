@@ -3,7 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.{Internal, Syndication, Tier}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
-import com.gu.mediaservice.model.Agencies
+import com.gu.mediaservice.model.{Agencies, UsageStatus}
 import com.gu.mediaservice.syntax._
 import controllers.{AggregateSearchParams, PayType, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
@@ -98,7 +98,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
     }
 
     val usageFilter =
-      params.usageStatus.toNel.map(filters.terms(usagesField("status"), _)) ++
+      params.usageStatus.toNel.map(status => filters.terms(usagesField("status"), status.map(_.toString))) ++
       params.usagePlatform.toNel.map(filters.terms(usagesField("platform"), _))
 
     val rightsAcquiredFilter = params.hasRightsAcquired.map(searchFilters.rightsAcquiredFilter)
