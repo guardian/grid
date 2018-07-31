@@ -65,9 +65,9 @@ imageAccessor.factory('imageAccessor', function() {
         return collections.map(col => col.data.pathId);
     }
 
-    function getAlbum(image) {
+    function getPhotoshoot(image) {
         const userMetadata = extractUserMetadata(image);
-        return userMetadata.data.album;
+        return userMetadata.data.photoshoot;
     }
 
     return {
@@ -82,7 +82,7 @@ imageAccessor.factory('imageAccessor', function() {
         isArchived,
         readCollections,
         getCollectionsIds,
-        getAlbum
+        getPhotoshoot
     };
 });
 

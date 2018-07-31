@@ -24,7 +24,7 @@ GET     /images                                       controllers.MediaApi.image
 
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
-GET     /suggest/metadata/album                       controllers.SuggestionController.suggestAlbum(q: Option[String], size: Option[Int])
+GET     /suggest/metadata/photoshoot                  controllers.SuggestionController.suggestPhotoshoot(q: Option[String], size: Option[Int])
 
 # usage quotas
 GET     /usage/suppliers                              controllers.UsageController.bySupplier

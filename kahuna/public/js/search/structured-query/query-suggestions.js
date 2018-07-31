@@ -32,7 +32,7 @@ export const filterFields = [
     'has',
     'croppedBy',
     'filename',
-    'album'
+    'photoshoot'
 ].sort();
 // TODO: add date fields
 
@@ -128,8 +128,8 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
             then(labels => labels.data);
     }
 
-    function suggestAlbum(prefix) {
-        return mediaApi.metadataSearch('album', {q: prefix}).
+    function suggestPhotoshoot(prefix) {
+        return mediaApi.metadataSearch('photoshoot', {q: prefix}).
         then(results => results.data.map(res => res.key));
     }
 
@@ -145,7 +145,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'by':       return listPhotographers().then(prefixFilter(value));
         case 'illustrator': return listIllustrators().then(prefixFilter(value));
         case 'category': return listCategories().then(prefixFilter(value));
-        case 'album': return suggestAlbum(value);
+        case 'photoshoot': return suggestPhotoshoot(value);
         // No suggestions
         default:         return [];
         }

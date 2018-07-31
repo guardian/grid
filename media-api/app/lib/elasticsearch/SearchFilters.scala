@@ -68,7 +68,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
     filters.bool.must(filters.boolTerm(editsField("archived"), value = true)),
     filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories)),
     filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get)),
-    filters.exists(NonEmptyList(editsField("album")))
+    filters.exists(NonEmptyList(editsField("photoshoot")))
   )
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)

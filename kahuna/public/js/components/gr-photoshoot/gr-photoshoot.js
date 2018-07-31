@@ -1,52 +1,52 @@
 import angular from 'angular';
 
-import './gr-album.css';
-import template from './gr-album.html';
+import './gr-photoshoot.css';
+import template from './gr-photoshoot.html';
 
 import '../../image/service';
-import '../../services/album';
+import '../../services/photoshoot';
 import '../../services/image-accessor';
 
-export const album = angular.module('gr.album', [
+export const photoshoot = angular.module('gr.photoshoot', [
     'gr.image.service',
     'kahuna.services.image-accessor',
-    'kahuna.services.album'
+    'kahuna.services.photoshoot'
 ]);
 
-album.controller('GrAlbumCtrl', [
+photoshoot.controller('GrPhotoshootCtrl', [
     '$rootScope',
     '$scope',
     'imageService',
     'mediaApi',
     'imageAccessor',
-    'albumService',
+    'photoshootService',
 
-    function($rootScope, $scope, imageService, mediaApi, imageAccessor, albumService) {
+    function($rootScope, $scope, imageService, mediaApi, imageAccessor, photoshootService) {
         const ctrl = this;
 
         function refreshForOne() {
             const image = ctrl._images[0];
-            const albumResource = imageAccessor.getAlbum(image);
-            ctrl.hasAlbumData = !!albumResource.data;
-            ctrl.hasSingleAlbum = ctrl.hasAlbumData;
-            ctrl.albumData = ctrl.hasAlbumData && albumResource.data || {};
+            const photoshootResource = imageAccessor.getPhotoshoot(image);
+            ctrl.hasPhotoshootData = !!photoshootResource.data;
+            ctrl.hasSinglePhotoshoot = ctrl.hasPhotoshootData;
+            ctrl.photoshootData = ctrl.hasPhotoshootData && photoshootResource.data || {};
         }
 
         function refreshForMany() {
-            const apiAlbums = ctrl._images.map(image => imageAccessor.getAlbum(image));
+            const apiPhotoshoots = ctrl._images.map(image => imageAccessor.getPhotoshoot(image));
 
-            const albums = apiAlbums.reduce((acc, album) => {
-                return album.data ? [...acc, album.data] : acc;
+            const photoshoots = apiPhotoshoots.reduce((acc, photoshoot) => {
+                return photoshoot.data ? [...acc, photoshoot.data] : acc;
             }, []);
 
-            ctrl.hasAlbumData = albums.length > 0;
+            ctrl.hasPhotoshootData = photoshoots.length > 0;
 
-            if (ctrl.hasAlbumData) {
-                const allImagesHaveAlbum = albums.length === ctrl._images.length;
-                const uniqueAlbumTitles = new Set(albums.map(album => album.title));
+            if (ctrl.hasPhotoshootData) {
+                const allImagesHavePhotoshoot = photoshoots.length === ctrl._images.length;
+                const uniqueTitles = new Set(photoshoots.map(p => p.title));
 
-                ctrl.hasSingleAlbum = uniqueAlbumTitles.size === 1 && allImagesHaveAlbum;
-                ctrl.albumData = ctrl.hasSingleAlbum ? albums[0] : {};
+                ctrl.hasSinglePhotoshoot = uniqueTitles.size === 1 && allImagesHavePhotoshoot;
+                ctrl.photoshootData = ctrl.hasSinglePhotoshoot ? photoshoots[0] : {};
             }
         }
 
@@ -57,7 +57,7 @@ album.controller('GrAlbumCtrl', [
         }
 
         ctrl.search = (q) => {
-            return mediaApi.metadataSearch('album', { q })
+            return mediaApi.metadataSearch('photoshoot', { q })
                 .then(resource => resource.data.map(d => d.key));
         };
 
@@ -66,7 +66,7 @@ album.controller('GrAlbumCtrl', [
                 return ctrl.remove();
             }
 
-            return albumService.batchAdd({ images: ctrl.images, data: { title } })
+            return photoshootService.batchAdd({ images: ctrl.images, data: { title } })
                 .then(images => {
                     // TODO be better! Pretty sure this isn't performant
                     // reassign images to trigger a `refresh` by the `$watchCollection` below
@@ -75,7 +75,7 @@ album.controller('GrAlbumCtrl', [
         };
 
         ctrl.remove = () => {
-            return albumService.batchRemove({ images: ctrl.images })
+            return photoshootService.batchRemove({ images: ctrl.images })
                 .then(images => {
                     // TODO be better! Pretty sure this isn't performant
                     // reassign images to trigger a `refresh` by the `$watchCollection` below
@@ -84,7 +84,7 @@ album.controller('GrAlbumCtrl', [
         };
 
         if (Boolean(ctrl.withBatch)) {
-            const batchApplyEvent = 'events:batch-apply:album';
+            const batchApplyEvent = 'events:batch-apply:photoshoot';
 
             $scope.$on(batchApplyEvent, (e, { title }) => {
                 ctrl.save(title);
@@ -97,7 +97,7 @@ album.controller('GrAlbumCtrl', [
     }
 ]);
 
-album.directive('grAlbum', [function() {
+photoshoot.directive('grPhotoshoot', [function() {
     return {
         restrict: 'E',
         scope: {
@@ -105,7 +105,7 @@ album.directive('grAlbum', [function() {
             withBatch: '=?',
             editInline: '=?'
         },
-        controller: 'GrAlbumCtrl',
+        controller: 'GrPhotoshootCtrl',
         controllerAs: 'ctrl',
         bindToController: true,
         template
