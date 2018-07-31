@@ -8,7 +8,7 @@ import org.elasticsearch.action.delete.DeleteResponse
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, dynamoNotifications: DynamoNotifications, notifications: ThrallNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
+class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, dynamoNotifications: DynamoNotifications, syndicationRightsOps: SyndicationRightsOps)(implicit ec: ExecutionContext) extends MessageConsumer(
   config.queueUrl, config.awsEndpoint, config, thrallMetrics.snsMessage) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
@@ -19,6 +19,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       case "delete-image-exports"       => deleteImageExports
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
+      case "update-image-album"         => updateAlbum
       case "update-image-usages"        => updateImageUsages
       case "update-image-leases"        => updateImageLeases
       case "set-image-collections"      => setImageCollections
@@ -51,6 +52,17 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
     Future.sequence( withImageId(metadata)(id => es.applyImageMetadataOverride(id, data, lastModified)))
   }
 
+  def updateAlbum(metadata: JsValue) = {
+    val data = metadata \ "data"
+    val lastModified = metadata \ "lastModified"
+    Future.sequence(withImageId(metadata) { id =>
+      es.applyImageMetadataOverride(id, data, lastModified)
+    }).flatMap { result =>
+      val id = result.map(_.getId).head
+      syndicationRightsOps.inferRightsForAlbum(id)
+    }
+  }
+
   def updateImageLeases(leaseByMedia: JsValue) =
     Future.sequence( withImageId(leaseByMedia)(id => es.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")) )
 
@@ -63,8 +75,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
         // if we cannot delete the image as it's "protected", succeed and delete
         // the message anyway.
         es.deleteImage(id).map { requests =>
-          requests.map {
-            case r: DeleteResponse =>
+          requests.map { _ =>
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)
@@ -92,17 +103,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       val rightsData = rightsWithId \ "data"
       val rcsSyndicationRights = rightsData.as[SyndicationRights]
 
-      for {
-        album <- es.getAlbumForId(id)
-        imagesInAlbum <- es.getAlbumImages(album)
-        rightsUpdates = SyndicationRightsUpdate.processRightsUpdates(imagesInAlbum.filter(img => (img \ "id").as[String] != id), rcsSyndicationRights)
-      } yield {
-        GridLogger.info(s"Copying rights from image id $id to ${rightsUpdates.length} other image(s) from album $album.")
-        rightsUpdates.foreach { imgUpdate =>
-          notifications.publish(imgUpdate.toJson, "apply-rcs-rights")
-        }
-      }
-
+      syndicationRightsOps.inferRightsForAlbum(id, Some(rcsSyndicationRights))
       es.updateImageSyndicationRights(id, rightsData)
     })
 }

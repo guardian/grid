@@ -222,6 +222,11 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       .incrementOnFailure(metrics.failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
     }
 
+  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
+    client.prepareGet(readAlias, imageType, id)
+      .executeAndLog(s"get image by id $id")
+      .map{res => res.sourceOpt}
+
   def getAlbumForId(id: String)(implicit ex: ExecutionContext): Future[Option[Album]] =
     client.prepareGet(readAlias, imageType, id)
       .setFetchSource("userMetadata.album.title", null)
