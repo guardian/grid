@@ -108,7 +108,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
   def setAlbum(id: String) = auth.async(parse.json) { req => {
     (req.body \ "data").asOpt[Album].map(album => {
       store.jsonAdd(id, "album", caseClassToMap(album))
-        .map(publish(id))
+        .map(publish(id, "update-image-album"))
         .map(_ => respond(album))
     }).getOrElse(
       Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
@@ -116,7 +116,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
   }}
 
   def deleteAlbum(id: String) = auth.async {
-    store.removeKey(id, "album").map(publish(id)).map(_ => Accepted)
+    store.removeKey(id, "album").map(publish(id, "update-image-album")).map(_ => Accepted)
   }
 
   def addLabels(id: String) = auth.async(parse.json) { req =>
@@ -213,7 +213,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
     (labelsUri(id), labels.map(setUnitEntity(id, "labels", _)).toSeq)
 
-  def publish(id: String)(metadata: JsObject): Edits = {
+  def publish(id: String, subject: String = "update-image-user-metadata")(metadata: JsObject): Edits = {
     val edits = metadata.as[Edits]
     val message = Json.obj(
       "id" -> id,
@@ -221,7 +221,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
       "lastModified" -> printDateTime(new DateTime())
     )
 
-    notifications.publish(message, "update-image-user-metadata")
+    notifications.publish(message, subject)
 
     edits
   }

@@ -3,13 +3,12 @@ package lib
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.model.SyndicationRights
 import org.elasticsearch.action.delete.DeleteResponse
-import org.joda.time.DateTime
-import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, notifications: DynamoNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
+class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, dynamoNotifications: DynamoNotifications, syndicationRightsOps: SyndicationRightsOps)(implicit ec: ExecutionContext) extends MessageConsumer(
   config.queueUrl, config.awsEndpoint, config, thrallMetrics.snsMessage) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
@@ -20,12 +19,14 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       case "delete-image-exports"       => deleteImageExports
       case "update-image-exports"       => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
+      case "update-image-album"         => updateAlbum
       case "update-image-usages"        => updateImageUsages
       case "update-image-leases"        => updateImageLeases
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
-      case "update-rcs-rights"          => updateRcsRights
+      case "update-rcs-rights"          => updateRcsRights // Used by the RCS-poller-lambda
+      case "apply-rcs-rights"           => applyRcsRights // Used to propagate rights in an album
     }
   }
 
@@ -51,6 +52,17 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
     Future.sequence( withImageId(metadata)(id => es.applyImageMetadataOverride(id, data, lastModified)))
   }
 
+  def updateAlbum(metadata: JsValue) = {
+    val data = metadata \ "data"
+    val lastModified = metadata \ "lastModified"
+    Future.sequence(withImageId(metadata) { id =>
+      es.applyImageMetadataOverride(id, data, lastModified)
+    }).flatMap { result =>
+      val id = result.map(_.getId).head
+      syndicationRightsOps.inferRightsForAlbum(id)
+    }
+  }
+
   def updateImageLeases(leaseByMedia: JsValue) =
     Future.sequence( withImageId(leaseByMedia)(id => es.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")) )
 
@@ -63,12 +75,11 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
         // if we cannot delete the image as it's "protected", succeed and delete
         // the message anyway.
         es.deleteImage(id).map { requests =>
-          requests.map {
-            case r: DeleteResponse =>
+          requests.map { _ =>
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)
-              notifications.publish(Json.obj("id" -> id), "image-deleted")
+              dynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
@@ -80,10 +91,21 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
     )
 
   def deleteAllUsages(usage: JsValue) =
-    Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
+    Future.sequence(withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
-  def updateRcsRights(rights: JsValue) =
-    Future.sequence( withImageId(rights)(id => es.updateImageSyndicationRights(id, rights \ "data")) )
+  def applyRcsRights(rightsWithId: JsValue)=
+    Future.sequence(withImageId(rightsWithId) { id =>
+      es.updateImageSyndicationRights(id, rightsWithId \ "data")
+    })
+
+  def updateRcsRights(rightsWithId: JsValue) =
+    Future.sequence(withImageId(rightsWithId) { id =>
+      val rightsData = rightsWithId \ "data"
+      val rcsSyndicationRights = rightsData.as[SyndicationRights]
+
+      syndicationRightsOps.inferRightsForAlbum(id, Some(rcsSyndicationRights))
+      es.updateImageSyndicationRights(id, rightsData)
+    })
 }
 
 // TODO: improve and use this (for logging especially) else where.

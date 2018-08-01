@@ -15,6 +15,7 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   val imageBucket: String = properties("s3.image.bucket")
 
   val writeAlias = properties("es.index.aliases.write")
+  val readAlias = properties("es.index.aliases.read")
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
 
@@ -34,4 +35,5 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 
   val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
+  val topicArn = properties("sns.topic.arn")
 }

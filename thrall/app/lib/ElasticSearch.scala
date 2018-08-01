@@ -1,10 +1,13 @@
 package lib
 
 import _root_.play.api.libs.json._
+import com.amazonaws.services.appstream.model.Image
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
+import com.gu.mediaservice.model.Album
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import org.elasticsearch.action.delete.DeleteResponse
+import org.elasticsearch.action.get.{GetRequestBuilder, GetResponse}
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
@@ -24,6 +27,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   import com.gu.mediaservice.lib.formatting._
 
   val imagesAlias = config.writeAlias
+  val readAlias = config.readAlias
   val host = config.elasticsearchHost
   val port = config.int("es.port")
   val cluster = config("es.cluster")
@@ -218,20 +222,37 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       .incrementOnFailure(metrics.failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
     }
 
-  def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
-    prepareForMultipleIndexes( index => {
-          val updateRequest = client.prepareUpdate(index, imageType, id)
-            .setScriptLang("groovy")
-          op(updateRequest)
-        }
-    )
+  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
+    client.prepareGet(readAlias, imageType, id)
+      .executeAndLog(s"get image by id $id")
+      .map{res => res.sourceOpt}
+
+  def getAlbumForId(id: String)(implicit ex: ExecutionContext): Future[Option[Album]] =
+    client.prepareGet(readAlias, imageType, id)
+      .setFetchSource("userMetadata.album.title", null)
+      .executeAndLog(s"get album for image $id")
+      .map{res =>
+        res.sourceOpt.map(json => (json \ "userMetadata" \ "album").as[Album])}
+
+  def getAlbumImages(albumNameOpt: Option[Album])(implicit ex: ExecutionContext): Future[List[JsValue]] = albumNameOpt match {
+    case Some(albumName) =>
+      client.prepareSearch(readAlias).setTypes(imageType)
+        .setQuery(matchQuery("userMetadata.album.title", albumName.title))
+        .executeAndLog(s"get images from album ${albumName.title}")
+        .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
+
+    case None => Future.successful(List.empty)
   }
 
-  def prepareForMultipleIndexes[A](op: String => Future[A]) : List[Future[A]] = {
-    getCurrentIndices.map( index => {
-      op(index)
+  def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
+    prepareForMultipleIndexes( index => {
+      val updateRequest = client.prepareUpdate(index, imageType, id)
+        .setScriptLang("groovy")
+      op(updateRequest)
     })
   }
+
+  def prepareForMultipleIndexes[A](op: String => Future[A]): List[Future[A]] = getCurrentIndices.map(op)
 
 
   def updateByQuery(script: String)(implicit ex: ExecutionContext): Future[UpdateByQueryResponse] =
