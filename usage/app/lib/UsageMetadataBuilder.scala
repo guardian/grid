@@ -1,9 +1,9 @@
 package lib
 
-import java.net.URL
+import java.net.URI
 
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.mediaservice.model.{ArticleUsageMetadata, DigitalUsageMetadata, PrintImageSize, PrintUsageMetadata}
+import com.gu.mediaservice.model.{ArticleUsageMetadata, PrintImageSize, PrintUsageMetadata}
 import org.joda.time.format.ISODateTimeFormat
 
 import scala.util.Try
@@ -13,10 +13,10 @@ class UsageMetadataBuilder(config: UsageConfig) {
   def buildDigital(metadataMap: Map[String, Any]): Option[ArticleUsageMetadata] = {
     Try {
       ArticleUsageMetadata(
+        URI.create(metadataMap("webUrl").asInstanceOf[String]),
         metadataMap("webTitle").asInstanceOf[String],
-        metadataMap("webUrl").asInstanceOf[String],
         metadataMap("sectionId").asInstanceOf[String],
-        metadataMap.get("composerUrl").map(_.asInstanceOf[String])
+        metadataMap.get("composerUrl").map(x => URI.create(x.asInstanceOf[String]))
       )
     }.toOption
   }
@@ -47,17 +47,17 @@ class UsageMetadataBuilder(config: UsageConfig) {
 
   def build(content: Content): ArticleUsageMetadata = {
     ArticleUsageMetadata(
+      URI.create(content.webUrl),
       content.webTitle,
-      content.webUrl,
       content.sectionId.getOrElse("none"),
       composerUrl(content)
     )
   }
 
-  def composerUrl(content: Content): Option[String] = content.fields
+  def composerUrl(content: Content): Option[URI] = content.fields
     .flatMap(_.internalComposerCode)
     .flatMap(composerId => {
-      Try(new URL(s"${config.composerContentBaseUrl}/$composerId").toString).toOption
+      Try(URI.create(s"${config.composerContentBaseUrl}/$composerId")).toOption
     })
 
 }

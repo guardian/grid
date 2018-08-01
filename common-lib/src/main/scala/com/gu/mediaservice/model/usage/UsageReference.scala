@@ -1,11 +1,13 @@
 package com.gu.mediaservice.model
 
-import play.api.libs.json._
+import java.net.URI
 
+import play.api.libs.json._
+import com.gu.mediaservice.syntax._
 
 case class UsageReference(
   `type`: String,
-  uri: Option[String] = None,
+  uri: Option[URI] = None,
   name: Option[String] = None
 )
 object UsageReference {

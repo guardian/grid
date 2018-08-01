@@ -1,30 +1,32 @@
 package com.gu.mediaservice.model
 
+import java.net.URI
 import play.api.libs.json._
+import com.gu.mediaservice.syntax._
 
 sealed trait DigitalUsageMetadata {
-  val url: String
+  val url: URI
   val title: String
   def toMap: Map[String, String]
 }
 
 case class ArticleUsageMetadata (
-  webUrl: String,
+  webUrl: URI,
   webTitle: String,
   sectionId: String,
-  composerUrl: Option[String] = None
+  composerUrl: Option[URI] = None
 ) extends DigitalUsageMetadata {
-  override val url: String = webUrl
+  override val url: URI = webUrl
   override val title: String = webTitle
 
   private val placeholderWebTitle = "No title given"
   private val dynamoSafeWebTitle = if(webTitle.isEmpty) placeholderWebTitle else webTitle
 
   override def toMap: Map[String, String] = Map(
+    "webUrl" -> webUrl.toString,
     "webTitle" -> dynamoSafeWebTitle,
-    "webUrl" -> webUrl,
     "sectionId" -> sectionId
-  ) ++ composerUrl.map("composerUrl" -> _)
+  ) ++ composerUrl.map("composerUrl" -> _.toString)
 }
 
 object ArticleUsageMetadata {
