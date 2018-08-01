@@ -94,29 +94,29 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     }
   }
 
-  def getAlbum(id: String) = auth.async {
-    store.jsonGet(id, "album").map(dynamoEntry => {
-      (dynamoEntry \ "album").toOption match {
-        case Some(album) => respond(album.as[Album])
-        case None => respondNotFound("No album found")
+  def getPhotoshoot(id: String) = auth.async {
+    store.jsonGet(id, "photoshoot").map(dynamoEntry => {
+      (dynamoEntry \ "photoshoot").toOption match {
+        case Some(photoshoot) => respond(photoshoot.as[Photoshoot])
+        case None => respondNotFound("No photoshoot found")
       }
     }) recover {
-      case NoItemFound => respondNotFound("No album found")
+      case NoItemFound => respondNotFound("No photoshoot found")
     }
   }
 
-  def setAlbum(id: String) = auth.async(parse.json) { req => {
-    (req.body \ "data").asOpt[Album].map(album => {
-      store.jsonAdd(id, "album", caseClassToMap(album))
+  def setPhotoshoot(id: String) = auth.async(parse.json) { req => {
+    (req.body \ "data").asOpt[Photoshoot].map(photoshoot => {
+      store.jsonAdd(id, "photoshoot", caseClassToMap(photoshoot))
         .map(publish(id))
-        .map(_ => respond(album))
+        .map(_ => respond(photoshoot))
     }).getOrElse(
       Future.successful(respondError(BadRequest, "invalid-form-data", "Invalid form data"))
     )
   }}
 
-  def deleteAlbum(id: String) = auth.async {
-    store.removeKey(id, "album").map(publish(id)).map(_ => Accepted)
+  def deletePhotoshoot(id: String) = auth.async {
+    store.removeKey(id, "photoshoot").map(publish(id)).map(_ => Accepted)
   }
 
   def addLabels(id: String) = auth.async(parse.json) { req =>

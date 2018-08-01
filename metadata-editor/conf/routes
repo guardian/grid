@@ -20,9 +20,9 @@ GET     /metadata/:id/usage-rights                      controllers.EditsControl
 PUT     /metadata/:id/usage-rights                      controllers.EditsController.setUsageRights(id: String)
 DELETE  /metadata/:id/usage-rights                      controllers.EditsController.deleteUsageRights(id: String)
 
-GET     /metadata/:id/album                             controllers.EditsController.getAlbum(id: String)
-PUT     /metadata/:id/album                             controllers.EditsController.setAlbum(id: String)
-DELETE  /metadata/:id/album                             controllers.EditsController.deleteAlbum(id: String)
+GET     /metadata/:id/photoshoot                        controllers.EditsController.getPhotoshoot(id: String)
+PUT     /metadata/:id/photoshoot                        controllers.EditsController.setPhotoshoot(id: String)
+DELETE  /metadata/:id/photoshoot                        controllers.EditsController.deletePhotoshoot(id: String)
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck

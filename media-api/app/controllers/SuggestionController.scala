@@ -14,7 +14,7 @@ class SuggestionController(auth: Authentication, elasticSearch: ElasticSearch,
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = suggestion("suggestMetadataCredit", q, size)
 
-  def suggestAlbum(q: Option[String], size: Option[Int]) = suggestion(albumField("suggest"), q, size)
+  def suggestPhotoshoot(q: Option[String], size: Option[Int]) = suggestion(photoshootField("suggest"), q, size)
 
   private def suggestion(field: String, q: Option[String], size: Option[Int]) = auth.async { _ =>
     elasticSearch

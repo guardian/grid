@@ -197,7 +197,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
             | }
       """.stripMargin +
           refreshEditsScript +
-          albumSuggestionScript,
+          photoshootSuggestionScript,
         scriptType)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(metrics.failedMetadataUpdates) { case e: VersionConflictEngineException => true }
@@ -269,12 +269,12 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       | ctx._source.suggestMetadataCredit = suggestMetadataCredit;
     """.stripMargin
 
-  private val albumSuggestionScript =
+  private val photoshootSuggestionScript =
     """
-      | album = ctx._source.userMetadata.album;
-      | if (album) {
-      |   albumSuggestion = [ input: [ ctx._source.userMetadata.album.title] ];
-      |   ctx._source.userMetadata.album.suggest = albumSuggestion;
+      | photoshoot = ctx._source.userMetadata.photoshoot;
+      | if (photoshoot) {
+      |   photoshootSuggestion = [ input: [ ctx._source.userMetadata.photoshoot.title] ];
+      |   ctx._source.userMetadata.photoshoot.suggest = photoshootSuggestion;
       | }
     """.stripMargin
 

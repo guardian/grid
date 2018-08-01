@@ -1,8 +1,8 @@
 import angular from 'angular';
 
-export const albumService = angular.module('kahuna.services.album', []);
+export const photoshootService = angular.module('kahuna.services.photoshoot', []);
 
-albumService.factory('albumService', [
+photoshootService.factory('photoshootService', [
     '$rootScope', '$q', 'apiPoll', 'imageAccessor',
     function ($rootScope, $q, apiPoll, imageAccessor) {
         function add({ data, image }) {
@@ -14,37 +14,42 @@ albumService.factory('albumService', [
         }
 
         function batchAdd({ data, images }) {
-            return $q.all(images.map(image => putAlbum({data, image})));
+            return $q.all(images.map(image => putPhotoshoot({data, image})));
         }
 
         function batchRemove({ images }) {
-            return $q.all(images.map(image => deleteAlbum({ image })));
+            return $q.all(images.map(image => deletePhotoshoot({ image })));
         }
 
-        function putAlbum({ data, image }) {
-            return imageAccessor.getAlbum(image)
+        function putPhotoshoot({ data, image }) {
+            return imageAccessor.getPhotoshoot(image)
                 .put({ data })
-                .then(newAlbum => apiPoll(() => untilEqual({image, expectedAlbum: newAlbum.data})))
+                .then(newPhotoshoot => apiPoll(() => untilEqual({
+                    image,
+                    expectedPhotoshoot: newPhotoshoot.data
+                })))
                 .then(newImage => {
                     $rootScope.$emit('image-updated', newImage, image);
                     return newImage;
                 });
         }
 
-        function deleteAlbum({ image }) {
-            return imageAccessor.getAlbum(image)
+        function deletePhotoshoot({ image }) {
+            return imageAccessor.getPhotoshoot(image)
                 .delete()
-                .then(() => apiPoll(() => untilEqual({image, expectedAlbum: undefined })))
+                .then(() => apiPoll(() => untilEqual({image, expectedPhotoshoot: undefined })))
                 .then(newImage => {
                     $rootScope.$emit('image-updated', newImage, image);
                     return newImage;
                 });
         }
 
-        function untilEqual({ image, expectedAlbum }) {
+        function untilEqual({ image, expectedPhotoshoot }) {
             return image.get().then(apiImage => {
-                const apiAlbum = imageAccessor.getAlbum(apiImage);
-                return angular.equals(apiAlbum.data, expectedAlbum) ? apiImage : $q.reject();
+                const apiPhotoshoot = imageAccessor.getPhotoshoot(apiImage);
+                return angular.equals(apiPhotoshoot.data, expectedPhotoshoot)
+                    ? apiImage
+                    : $q.reject();
             });
         }
 
