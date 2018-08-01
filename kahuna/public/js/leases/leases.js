@@ -197,12 +197,12 @@ leases.controller('LeasesCtrl', [
             ctrl.updateLeases();
         });
 
-        $scope.$watch(() => ctrl.images.length, () => {
+        $scope.$watchCollection(() => Array.from(ctrl.images), () => {
+            ctrl.totalImages = ctrl.images.size;
             ctrl.updateLeases();
         });
 
         ctrl.resetLeaseForm();
-        ctrl.updateLeases();
 }]);
 
 leases.directive('grLeases', [function() {

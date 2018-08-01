@@ -76,11 +76,11 @@
 
 
 <div class="leases__wrapper image-info__wrap">
-  <div class="image-info__lease" ng:if="ctrl.images.length > 1">
+  <div class="image-info__lease" ng:if="ctrl.totalImages > 1">
     {{ctrl.leases.current.length}} current leases + {{ctrl.inactiveLeases(ctrl.leases)}} inactive leases
   </div>
 
-  <ul ng:if="ctrl.images.length === 1">
+  <ul ng:if="ctrl.totalImages === 1">
     <li ng-repeat="lease in ctrl.leases.leases"
         gr:tooltip="{{ctrl.toolTip(lease)}}"
         class="lease__item"
