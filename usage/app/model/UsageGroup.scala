@@ -11,7 +11,7 @@ import org.joda.time.DateTime
 case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
-  status: UsageStatus,
+  status: Option[UsageStatus],
   lastModified: DateTime,
   isReindex: Boolean = false
 )
@@ -29,7 +29,7 @@ class UsageGroupOps(config: UsageConfig, mediaUsageOps: MediaUsageOps, liveConte
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
       Logger.info(s"Built UsageGroup: ${contentWrapper.id}")
-      UsageGroup(usages.toSet, contentWrapper.id, status, lastModified, isReindex)
+      UsageGroup(usages.toSet, contentWrapper.id, Some(status), lastModified, isReindex)
     })
 
   def build(printUsageRecords: List[PrintUsageRecord]) =
@@ -39,7 +39,7 @@ class UsageGroupOps(config: UsageConfig, mediaUsageOps: MediaUsageOps, liveConte
       UsageGroup(
         Set(mediaUsageOps.build(printUsageRecord, usageId, buildId(printUsageRecord))),
         usageId.toString,
-        printUsageRecord.usageStatus,
+        Some(printUsageRecord.usageStatus),
         printUsageRecord.dateAdded
       )
     })

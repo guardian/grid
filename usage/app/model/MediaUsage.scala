@@ -14,7 +14,7 @@ case class MediaUsage(
   mediaId: String,
   usageType: String,
   mediaType: String,
-  status: UsageStatus,
+  status: Option[UsageStatus],
   printUsageMetadata: Option[PrintUsageMetadata],
   digitalUsageMetadata: Option[DigitalUsageMetadata],
   lastModified: DateTime,
@@ -46,10 +46,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       item.getString("media_id"),
       item.getString("usage_type"),
       item.getString("media_type"),
-      item.getString("usage_status") match {
-        case "pending" => PendingUsageStatus()
-        case "published" => PublishedUsageStatus()
-      },
+      Option(item.getString("usage_status")).map(UsageStatus(_)),
       Option(item.getMap[Any]("print_metadata"))
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildPrint),
       Option(item.getMap[Any]("digital_metadata"))
@@ -65,7 +62,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
     printUsage.mediaId,
     "print",
     "image",
-    printUsage.usageStatus,
+    Some(printUsage.usageStatus),
     Some(printUsage.printUsageMetadata),
     None,
     printUsage.dateAdded
@@ -80,7 +77,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       mediaId = mediaWrapper.mediaId,
       usageType = "digital",
       mediaType = "image",
-      status = mediaWrapper.contentStatus,
+      status = Some(mediaWrapper.contentStatus),
       printUsageMetadata = None,
       digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
       lastModified = mediaWrapper.lastModified
