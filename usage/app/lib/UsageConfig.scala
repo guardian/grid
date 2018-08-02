@@ -1,5 +1,7 @@
 package lib
 
+import java.net.URI
+
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -36,7 +38,14 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
 
   val topicArn = properties("sns.topic.arn")
 
-  val composerBaseUrl: String = properties("composer.baseUrl")
+  private val composerBaseUrlProperty: String = properties("composer.baseUrl")
+  private val composerBaseUrlPropertyURI = URI.create(composerBaseUrlProperty)
+  private val composerBaseUrl: String = (Option(composerBaseUrlPropertyURI.getScheme), Option(composerBaseUrlPropertyURI.getHost)) match {
+    case (Some("https"), _) => composerBaseUrlProperty
+    case (Some("http"), Some(host)) => s"https://$host"
+    case (_, _) => s"https://$composerBaseUrlProperty"
+  }
+
   val composerContentBaseUrl: String = s"$composerBaseUrl/content"
 
   val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
