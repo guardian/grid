@@ -14,8 +14,8 @@ class UsageStream(usageGroup: UsageGroupOps) {
   val liveObservable: Observable[UsageGroup] = getObservable(liveContentStream)
 
   def createStatus(container: ContentContainer) = container match {
-    case PreviewContentItem(_,_,_) => PendingUsageStatus()
-    case LiveContentItem(_,_,_) => PublishedUsageStatus()
+    case PreviewContentItem(_,_,_) => PendingUsageStatus
+    case LiveContentItem(_,_,_) => PublishedUsageStatus
   }
 
   private def getObservable(contentStream: Observable[ContentContainer]) = {

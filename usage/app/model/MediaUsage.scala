@@ -46,10 +46,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       item.getString("media_id"),
       item.getString("usage_type"),
       item.getString("media_type"),
-      item.getString("usage_status") match {
-        case "pending" => PendingUsageStatus()
-        case "published" => PublishedUsageStatus()
-      },
+      UsageStatus(item.getString("usage_status")),
       Option(item.getMap[Any]("print_metadata"))
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildPrint),
       Option(item.getMap[Any]("digital_metadata"))
