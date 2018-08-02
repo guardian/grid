@@ -46,12 +46,9 @@ object UsageBuilder {
 
     }).getOrElse(List[UsageReference]())
 
-  private def buildWebUsageReference(usage: MediaUsage) =
-    usage.digitalUsageMetadata.map(metadata => {
-      List(
-        UsageReference("frontend", Some(metadata.webUrl), Some(metadata.webTitle))
-      ) ++ metadata.composerUrl.map(url => UsageReference("composer", Some(url)))
-
-    }).getOrElse(List[UsageReference]())
-
+  private def buildWebUsageReference(usage: MediaUsage): List[UsageReference] = usage.digitalUsageMetadata.map {
+    case article: ArticleUsageMetadata => List(
+      UsageReference("frontend", Some(article.webUrl), Some(article.webTitle))
+    ) ++ article.composerUrl.map(url => UsageReference("composer", Some(url)))
+  }.getOrElse(List[UsageReference]())
 }
