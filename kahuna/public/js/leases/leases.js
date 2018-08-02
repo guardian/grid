@@ -197,8 +197,8 @@ leases.controller('LeasesCtrl', [
             ctrl.updateLeases();
         });
 
-        $scope.$watchCollection(() => Array.from(ctrl.images), () => {
-            ctrl.totalImages = ctrl.images.size;
+        $scope.$watchCollection(() => Array.from(ctrl.images), (images) => {
+            ctrl.totalImages = images.length;
             ctrl.updateLeases();
         });
 
