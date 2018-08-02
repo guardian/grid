@@ -6,6 +6,7 @@ import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.{Configuration, Logger}
+import com.gu.mediaservice.lib.net.URI.ensureSecure
 
 import scala.util.Try
 
@@ -39,12 +40,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val topicArn = properties("sns.topic.arn")
 
   private val composerBaseUrlProperty: String = properties("composer.baseUrl")
-  private val composerBaseUrlPropertyURI = URI.create(composerBaseUrlProperty)
-  private val composerBaseUrl: String = (Option(composerBaseUrlPropertyURI.getScheme), Option(composerBaseUrlPropertyURI.getHost)) match {
-    case (Some("https"), _) => composerBaseUrlProperty
-    case (Some("http"), Some(host)) => s"https://$host"
-    case (_, _) => s"https://$composerBaseUrlProperty"
-  }
+  private val composerBaseUrl = ensureSecure(composerBaseUrlProperty)
 
   val composerContentBaseUrl: String = s"$composerBaseUrl/content"
 
