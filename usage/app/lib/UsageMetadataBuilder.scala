@@ -3,16 +3,16 @@ package lib
 import java.net.URI
 
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.mediaservice.model.usage.{ArticleUsageMetadata, PrintImageSize, PrintUsageMetadata}
+import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintImageSize, PrintUsageMetadata}
 import org.joda.time.format.ISODateTimeFormat
 
 import scala.util.Try
 
 class UsageMetadataBuilder(config: UsageConfig) {
 
-  def buildDigital(metadataMap: Map[String, Any]): Option[ArticleUsageMetadata] = {
+  def buildDigital(metadataMap: Map[String, Any]): Option[DigitalUsageMetadata] = {
     Try {
-      ArticleUsageMetadata(
+      DigitalUsageMetadata(
         URI.create(metadataMap("webUrl").asInstanceOf[String]),
         metadataMap("webTitle").asInstanceOf[String],
         metadataMap("sectionId").asInstanceOf[String],
@@ -45,8 +45,8 @@ class UsageMetadataBuilder(config: UsageConfig) {
     }.toOption
   }
 
-  def build(content: Content): ArticleUsageMetadata = {
-    ArticleUsageMetadata(
+  def build(content: Content): DigitalUsageMetadata = {
+    DigitalUsageMetadata(
       URI.create(content.webUrl),
       content.webTitle,
       content.sectionId.getOrElse("none"),

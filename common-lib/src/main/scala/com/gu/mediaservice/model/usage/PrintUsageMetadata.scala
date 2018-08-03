@@ -8,8 +8,8 @@ import scala.collection.JavaConverters._
 case class PrintImageSize(
   x: Int,
   y: Int
-) {
-  def toMap = Map(
+) extends UsageMetadata {
+  override def toMap = Map(
     "x" -> x,
     "y" -> y
   )
@@ -33,14 +33,14 @@ case class PrintUsageMetadata(
   sectionCode: String,
   notes: Option[String] = None,
   source: Option[String] = None
-) {
+) extends UsageMetadata {
 
   type MapStringIntElement = List[(String, java.util.Map[String, Int])]
   type StringElement = List[(String,String)]
   type LongElement = List[(String,Long)]
   type IntElement = List[(String,Int)]
 
-  def toMap = Map(
+  override def toMap = Map(
     "sectionName" -> sectionName,
     "issueDate" -> issueDate.toString,
     "pageNumber" -> pageNumber,
