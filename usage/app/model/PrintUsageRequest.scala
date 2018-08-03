@@ -1,5 +1,6 @@
-package com.gu.mediaservice.model.usage
+package model
 
+import com.gu.mediaservice.model.usage.{PrintUsageMetadata, UsageStatus}
 import org.joda.time.DateTime
 import play.api.libs.json._
 

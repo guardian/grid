@@ -4,7 +4,7 @@ import play.api.Logger
 import play.api.libs.json._
 import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.{Atom, AtomData}
-import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintUsageRecord, PublishedUsageStatus, UsageStatus}
+import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PublishedUsageStatus, UsageStatus}
 import lib.{UsageConfig, LiveContentApi, MD5, UsageMetadataBuilder}
 import org.joda.time.DateTime
 
