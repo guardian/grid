@@ -1,7 +1,7 @@
 package model
 
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.mediaservice.model.UsageStatus
+import com.gu.mediaservice.model.usage.UsageStatus
 
 import org.joda.time.DateTime
 

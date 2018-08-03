@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
+import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus}
 import model._
 import rx.lang.scala.Observable
 

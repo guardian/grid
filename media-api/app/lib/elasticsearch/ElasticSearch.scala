@@ -1,9 +1,9 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.{Internal, Syndication, Tier}
+import com.gu.mediaservice.lib.auth.Syndication
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
-import com.gu.mediaservice.model.{Agencies, UsageStatus}
+import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
 import controllers.{AggregateSearchParams, PayType, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}

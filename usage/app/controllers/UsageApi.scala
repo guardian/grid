@@ -6,7 +6,7 @@ import com.gu.contentapi.client.model.ItemQuery
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.model.{PrintUsageRequest, Usage}
+import com.gu.mediaservice.model.usage.Usage
 import lib._
 import model._
 import play.api.Logger

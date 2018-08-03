@@ -4,7 +4,7 @@ import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateIt
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.model.{PendingUsageStatus, PublishedUsageStatus}
+import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus}
 import lib.UsageConfig
 import org.joda.time.DateTime
 import play.api.Logger
