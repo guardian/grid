@@ -21,7 +21,7 @@ object UsageBuilder {
     usage.digitalUsageMetadata
   )
 
-  private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus() else usage.status
+  private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus else usage.status
 
   private def buildId(usage: MediaUsage): String = {
     UsageTableFullKey.build(usage).toString

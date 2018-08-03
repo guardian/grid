@@ -88,7 +88,7 @@ class UsageGroupOps(config: UsageConfig, mediaUsageOps: MediaUsageOps, liveConte
     val dateLimit = new DateTime(config.usageDateLimit)
     val contentFirstPublished = liveContentApi.getContentFirstPublished(content)
     usageStatus match {
-      case _: PublishedUsageStatus => contentFirstPublished.exists(_.isAfter(dateLimit))
+      case PublishedUsageStatus => contentFirstPublished.exists(_.isAfter(dateLimit))
       case _ => true
     }
   }

@@ -65,13 +65,16 @@ class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoD
   }
 
   def hidePendingIfRemoved(usages: Set[MediaUsage]): Set[MediaUsage] = usages.filterNot((mediaUsage: MediaUsage) => {
-    mediaUsage.status.isInstanceOf[PendingUsageStatus] && mediaUsage.isRemoved
+    mediaUsage.status match {
+      case PendingUsageStatus => mediaUsage.isRemoved
+      case _ => false
+    }
   })
 
   def hidePendingIfPublished(usages: Set[MediaUsage]): Set[MediaUsage] = usages.groupBy(_.grouping).flatMap {
     case (grouping, groupedUsages) =>
       val publishedUsage = groupedUsages.find(_.status match {
-        case _: PublishedUsageStatus => true
+        case PublishedUsageStatus => true
         case _ => false
       })
 
@@ -86,7 +89,7 @@ class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoD
     Logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
     Observable.from(Future {
-      val status = s"${usageGroup.status}"
+      val status = usageGroup.status
       val grouping = usageGroup.grouping
       val keyAttribute = new KeyAttribute("grouping", grouping)
 
@@ -95,9 +98,8 @@ class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoD
 
       val usages = queryResult.asScala
         .map(mediaUsage.build)
-        .filter(usage => {
-          s"${usage.status}" == status
-        }).toSet
+        .filter(_.status == status)
+        .toSet
 
       Logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
