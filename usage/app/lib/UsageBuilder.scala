@@ -2,7 +2,7 @@ package lib
 
 import org.joda.time.DateTime
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.usage.{DigitalUsage, PrintUsage}
+import com.gu.mediaservice.model.usage._
 import model.{MediaUsage, UsageTableFullKey}
 
 object UsageBuilder {
@@ -43,13 +43,13 @@ object UsageBuilder {
         s"Page ${metadata.pageNumber}"
       ).mkString(", ")
 
-      List(UsageReference("indesign", None, Some(title)))
+      List(UsageReference(InDesignUsageReference, None, Some(title)))
 
     }).getOrElse(List[UsageReference]())
 
   private def buildWebUsageReference(usage: MediaUsage): List[UsageReference] = usage.digitalUsageMetadata.map {
     case article: ArticleUsageMetadata => List(
-      UsageReference("frontend", Some(article.webUrl), Some(article.webTitle))
-    ) ++ article.composerUrl.map(url => UsageReference("composer", Some(url)))
+      UsageReference(FrontendUsageReference, Some(article.webUrl), Some(article.webTitle))
+    ) ++ article.composerUrl.map(url => UsageReference(ComposerUsageReference, Some(url)))
   }.getOrElse(List[UsageReference]())
 }
