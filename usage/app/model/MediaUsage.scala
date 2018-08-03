@@ -2,6 +2,7 @@ package model
 
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage.{PrintUsage, DigitalUsage, UsageType}
 import lib.UsageMetadataBuilder
 import org.joda.time.DateTime
 
@@ -12,7 +13,7 @@ case class MediaUsage(
   usageId: UsageId,
   grouping: String,
   mediaId: String,
-  usageType: String,
+  usageType: UsageType,
   mediaType: String,
   status: UsageStatus,
   printUsageMetadata: Option[PrintUsageMetadata],
@@ -44,7 +45,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       UsageId(item.getString("usage_id")),
       item.getString("grouping"),
       item.getString("media_id"),
-      item.getString("usage_type"),
+      UsageType(item.getString("usage_type")),
       item.getString("media_type"),
       item.getString("usage_status") match {
         case "pending" => PendingUsageStatus()
@@ -63,7 +64,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
     usageId,
     grouping,
     printUsage.mediaId,
-    "print",
+    PrintUsage,
     "image",
     printUsage.usageStatus,
     Some(printUsage.printUsageMetadata),
@@ -78,7 +79,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       usageId = usageId,
       grouping = mediaWrapper.usageGroupId,
       mediaId = mediaWrapper.mediaId,
-      usageType = "digital",
+      DigitalUsage,
       mediaType = "image",
       status = mediaWrapper.contentStatus,
       printUsageMetadata = None,

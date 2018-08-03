@@ -2,6 +2,7 @@ package lib
 
 import org.joda.time.DateTime
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage.{DigitalUsage, PrintUsage}
 import model.{MediaUsage, UsageTableFullKey}
 
 object UsageBuilder {
@@ -28,8 +29,8 @@ object UsageBuilder {
 
   private def buildUsageReference(usage: MediaUsage): List[UsageReference] = {
     usage.usageType match {
-      case "digital" => buildWebUsageReference(usage)
-      case "print" => buildPrintUsageReference(usage)
+      case DigitalUsage => buildWebUsageReference(usage)
+      case PrintUsage => buildPrintUsageReference(usage)
     }
   }
 

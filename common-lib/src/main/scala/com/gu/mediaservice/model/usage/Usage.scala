@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.model.usage.UsageType
 import play.api.libs.json._
 import org.joda.time.DateTime
 
@@ -7,7 +8,7 @@ import org.joda.time.DateTime
 case class Usage(
   id: String,
   references: List[UsageReference],
-  platform: String,
+  platform: UsageType,
   media: String,
   status: UsageStatus,
   dateAdded: Option[DateTime],
