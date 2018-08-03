@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.model.PrintUsageRecord
+import com.gu.mediaservice.model.usage.PrintUsageRecord
 import lib.MD5
 
 

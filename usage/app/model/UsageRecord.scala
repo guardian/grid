@@ -4,7 +4,7 @@ import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
 import com.gu.mediaservice.model.usage.UsageType
 import scalaz.syntax.id._
-import com.gu.mediaservice.model.{DigitalUsageMetadata, PrintUsageMetadata}
+import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintUsageMetadata}
 
 import scala.collection.JavaConverters._
 import org.joda.time.DateTime

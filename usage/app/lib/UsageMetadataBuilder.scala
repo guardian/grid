@@ -3,7 +3,7 @@ package lib
 import java.net.URI
 
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.mediaservice.model.{ArticleUsageMetadata, PrintImageSize, PrintUsageMetadata}
+import com.gu.mediaservice.model.usage.{ArticleUsageMetadata, PrintImageSize, PrintUsageMetadata}
 import org.joda.time.format.ISODateTimeFormat
 
 import scala.util.Try

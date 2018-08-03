@@ -1,8 +1,6 @@
-package com.gu.mediaservice.model
+package com.gu.mediaservice.model.usage
 
 import java.net.URI
-
-import com.gu.mediaservice.model.usage.UsageReferenceType
 import play.api.libs.json._
 import com.gu.mediaservice.syntax._
 

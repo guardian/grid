@@ -1,8 +1,7 @@
 package model
 
 import com.amazonaws.services.dynamodbv2.document.Item
-import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.usage.{PrintUsage, DigitalUsage, UsageType}
+import com.gu.mediaservice.model.usage._
 import lib.UsageMetadataBuilder
 import org.joda.time.DateTime
 

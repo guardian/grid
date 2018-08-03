@@ -1,4 +1,4 @@
-package com.gu.mediaservice.model
+package com.gu.mediaservice.model.usage
 
 import play.api.libs.json._
 import org.joda.time.DateTime
