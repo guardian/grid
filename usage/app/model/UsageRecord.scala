@@ -1,20 +1,19 @@
 package model
 
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
-import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{S, N, M}
+import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
+import com.gu.mediaservice.model.usage.UsageType
 import scalaz.syntax.id._
-
-import com.gu.mediaservice.model.{PrintUsageMetadata, DigitalUsageMetadata}
+import com.gu.mediaservice.model.{DigitalUsageMetadata, PrintUsageMetadata}
 
 import scala.collection.JavaConverters._
-
 import org.joda.time.DateTime
 
 case class UsageRecord(
   hashKey: String,
   rangeKey: String,
   mediaId: Option[String] = None,
-  usageType: Option[String] = None,
+  usageType: Option[UsageType] = None,
   mediaType: Option[String] = None,
   lastModified: Option[DateTime] = None,
   usageStatus: Option[String] = None,
@@ -29,7 +28,7 @@ case class UsageRecord(
     (new ExpressionSpecBuilder() <| (xspec => {
       List(
         mediaId.filter(_.nonEmpty).map(S("media_id").set(_)),
-        usageType.filter(_.nonEmpty).map(S("usage_type").set(_)),
+        usageType.map(usageType => S("usage_type").set(usageType.toString)),
         mediaType.filter(_.nonEmpty).map(S("media_type").set(_)),
         lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
         usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
