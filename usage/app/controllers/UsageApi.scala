@@ -149,6 +149,23 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     }
   }
 
+  def setSyndicationUsages() = auth(parse.json) { req => {
+    val syndicationUsageRequest = (req.body \ "data").validate[SyndicationUsageRequest]
+    syndicationUsageRequest.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "syndication-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      sur => {
+        GridLogger.info("recording syndication usage", req.user.apiKey, sur.mediaId)
+        val group = usageGroup.build(sur)
+        usageRecorder.usageSubject.onNext(group)
+        Accepted
+      }
+    )
+  }}
+
   def deleteUsages(mediaId: String) = auth.async {
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)

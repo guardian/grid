@@ -1,7 +1,6 @@
 package lib
 
 import org.joda.time.DateTime
-import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage._
 import model.{MediaUsage, UsageTableFullKey}
 
@@ -18,7 +17,8 @@ object UsageBuilder {
     usage.dateRemoved,
     usage.lastModified,
     usage.printUsageMetadata,
-    usage.digitalUsageMetadata
+    usage.digitalUsageMetadata,
+    usage.syndicationUsageMetadata
   )
 
   private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus else usage.status
@@ -31,6 +31,7 @@ object UsageBuilder {
     usage.usageType match {
       case DigitalUsage => buildWebUsageReference(usage)
       case PrintUsage => buildPrintUsageReference(usage)
+      case SyndicationUsage => buildSyndicationUsageReference(usage)
     }
   }
 
@@ -51,6 +52,16 @@ object UsageBuilder {
     List(
       UsageReference(FrontendUsageReference, Some(metadata.webUrl), Some(metadata.webTitle))
     ) ++ metadata.composerUrl.map(url => UsageReference(ComposerUsageReference, Some(url)))
+  }).getOrElse(
+    List[UsageReference]()
+  )
+
+  private def buildSyndicationUsageReference(usage: MediaUsage): List[UsageReference] = usage.syndicationUsageMetadata.map (metadata => {
+    List(
+      UsageReference(
+        SyndicationUsageReference, None, Some(metadata.partnerName)
+      )
+    )
   }).getOrElse(
     List[UsageReference]()
   )

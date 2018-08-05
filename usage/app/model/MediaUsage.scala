@@ -17,6 +17,7 @@ case class MediaUsage(
   status: UsageStatus,
   printUsageMetadata: Option[PrintUsageMetadata],
   digitalUsageMetadata: Option[DigitalUsageMetadata],
+  syndicationUsageMetadata: Option[SyndicationUsageMetadata],
   lastModified: DateTime,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
@@ -51,6 +52,8 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildPrint),
       Option(item.getMap[Any]("digital_metadata"))
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildDigital),
+      Option(item.getMap[Any]("syndication_metadata"))
+        .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildSyndication),
       new DateTime(item.getLong("last_modified")),
       Try { item.getLong("date_added") }.toOption.map(new DateTime(_)),
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
@@ -64,6 +67,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
     "image",
     printUsage.usageStatus,
     Some(printUsage.printUsageMetadata),
+    None,
     None,
     printUsage.dateAdded
   )
@@ -80,7 +84,24 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       status = mediaWrapper.contentStatus,
       printUsageMetadata = None,
       digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
+      None,
       lastModified = mediaWrapper.lastModified
+    )
+  }
+
+  def build(syndicationUsageRequest: SyndicationUsageRequest, groupId: String): MediaUsage = {
+    val usageId = UsageId.build(syndicationUsageRequest)
+    MediaUsage(
+      usageId,
+      groupId,
+      syndicationUsageRequest.mediaId,
+      SyndicationUsage,
+      mediaType = "image",
+      syndicationUsageRequest.status,
+      printUsageMetadata = None,
+      digitalUsageMetadata = None,
+      syndicationUsageMetadata = Some(syndicationUsageRequest.metadata),
+      lastModified = syndicationUsageRequest.dateAdded
     )
   }
 }

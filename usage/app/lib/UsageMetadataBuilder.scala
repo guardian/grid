@@ -3,12 +3,20 @@ package lib
 import java.net.URI
 
 import com.gu.contentapi.client.model.v1.Content
-import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintImageSize, PrintUsageMetadata}
+import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintImageSize, PrintUsageMetadata, SyndicationUsageMetadata}
 import org.joda.time.format.ISODateTimeFormat
 
 import scala.util.Try
 
 class UsageMetadataBuilder(config: UsageConfig) {
+
+  def buildSyndication(metadataMap: Map[String, Any]): Option[SyndicationUsageMetadata] = {
+    Try {
+      SyndicationUsageMetadata(
+        metadataMap("partnerName").asInstanceOf[String]
+      )
+    }.toOption
+  }
 
   def buildDigital(metadataMap: Map[String, Any]): Option[DigitalUsageMetadata] = {
     Try {
