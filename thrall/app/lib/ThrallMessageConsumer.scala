@@ -25,7 +25,8 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
-      case "update-rcs-rights"          => updateRcsRights
+      case "upsert-rcs-rights"          => updateRcsRights
+      case "update-rcs-rights"          => updateRcsRights // TODO delete once `upsert-rcs-rights` is being received
     }
   }
 
