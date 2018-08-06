@@ -12,7 +12,7 @@
           e:ng-class="{'image-info__editor--error': $error,
                        'image-info__editor--saving': photoshootEditForm.$waiting,
                        'text-input': true}"
-          e:placeholder="describing a set of images, e.g. for syndication purposes"
+          e:placeholder="describing a set of related images, e.g. for syndication purposes"
           onbeforesave="ctrl.save($data)">
         <span ng:if="! ctrl.hasPhotoshootData">
             Unknown (click ✎ to add)
@@ -38,7 +38,7 @@
         <input type="text"
                name="photoshoot"
                class="text-input job-info--credit full-width"
-               placeholder="describing a set of images, e.g. for syndication purposes"
+               placeholder="describing a set of related images, e.g. for syndication purposes"
                gr:datalist-input
                ng:model="ctrl.photoshootData.title"
                ng:change="ctrl.save(ctrl.photoshootData.title)"
