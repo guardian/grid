@@ -32,6 +32,13 @@ class UsageGroupOps(config: UsageConfig, mediaUsageOps: MediaUsageOps, liveConte
     ).mkString("_"))
   }"
 
+  def buildId(frontUsageRequest: FrontUsageRequest): String = s"front/${
+    MD5.hash(List(
+      frontUsageRequest.mediaId,
+      frontUsageRequest.metadata.front
+    ).mkString("_"))
+  }"
+
   def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
@@ -58,6 +65,16 @@ class UsageGroupOps(config: UsageConfig, mediaUsageOps: MediaUsageOps, liveConte
       usageGroupId,
       syndicationUsageRequest.status,
       syndicationUsageRequest.dateAdded
+    )
+  }
+
+  def build(frontUsageRequest: FrontUsageRequest): UsageGroup = {
+    val usageGroupId = buildId(frontUsageRequest)
+    UsageGroup(
+      Set(mediaUsageOps.build(frontUsageRequest, usageGroupId)),
+      usageGroupId,
+      frontUsageRequest.status,
+      frontUsageRequest.dateAdded
     )
   }
 

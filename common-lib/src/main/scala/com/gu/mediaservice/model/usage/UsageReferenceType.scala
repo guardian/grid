@@ -8,6 +8,7 @@ trait UsageReferenceType {
     case FrontendUsageReference => "frontend"
     case ComposerUsageReference => "composer"
     case SyndicationUsageReference => "syndication"
+    case FrontUsageReference => "front"
   }
 }
 
@@ -20,6 +21,7 @@ object UsageReferenceType {
     case "frontend" => FrontendUsageReference
     case "composer" => ComposerUsageReference
     case "syndication" => SyndicationUsageReference
+    case "front" => FrontUsageReference
   }
 }
 
@@ -27,3 +29,4 @@ object InDesignUsageReference extends UsageReferenceType
 object FrontendUsageReference extends UsageReferenceType
 object ComposerUsageReference extends UsageReferenceType
 object SyndicationUsageReference extends UsageReferenceType
+object FrontUsageReference extends UsageReferenceType

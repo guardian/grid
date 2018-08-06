@@ -8,6 +8,7 @@ sealed trait UsageStatus {
     case PublishedUsageStatus => "published"
     case RemovedUsageStatus => "removed"
     case SyndicatedUsageStatus => "syndicated"
+    case UnknownUsageStatus => "unknown"
   }
 }
 
@@ -17,6 +18,7 @@ object UsageStatus {
     case "published" => PublishedUsageStatus
     case "removed" => RemovedUsageStatus
     case "syndicated" => SyndicatedUsageStatus
+    case "unknown" => UnknownUsageStatus
   }
 
   implicit val reads: Reads[UsageStatus] = JsPath.read[String].map(UsageStatus(_))
@@ -30,3 +32,7 @@ object PendingUsageStatus extends UsageStatus
 object PublishedUsageStatus extends UsageStatus
 object RemovedUsageStatus extends UsageStatus
 object SyndicatedUsageStatus extends UsageStatus
+
+// For Fronts usages as we don't know if a front is in draft or is live
+// TODO remove this once we do!
+object UnknownUsageStatus extends UsageStatus
