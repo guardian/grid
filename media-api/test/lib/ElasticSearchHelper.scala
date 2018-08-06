@@ -26,7 +26,7 @@ trait ElasticSearchHelper extends MockitoSugar {
 
   val testUser = "yellow-giraffe@theguardian.com"
 
-  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None, id: String = UUID.randomUUID().toString): Image = {
+  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None, id: String = UUID.randomUUID().toString, leases: Option[LeaseByMedia] = None): Image = {
     Image(
       id = id,
       uploadTime = DateTime.now(),
@@ -54,17 +54,38 @@ trait ElasticSearchHelper extends MockitoSugar {
       usageRights = usageRights,
       originalUsageRights = usageRights,
       exports = Nil,
-      syndicationRights = syndicationRights
+      syndicationRights = syndicationRights,
+      leases = leases.getOrElse(LeaseByMedia.build(Nil))
     )
   }
 
-  def createImageWithSyndicationRights(usageRights: UsageRights, rightsAcquired: Boolean, publishDate: Option[DateTime]): Image = {
-    val rights = List( Right("test", Some(rightsAcquired), Nil) )
-    val syndicationRights = SyndicationRights(publishDate, Nil, rights)
-    createImage(usageRights, Some(syndicationRights))
+  def createImageForSyndication(rightsAcquired: Boolean, rcsPublishDate: Option[DateTime], allowLease: Option[Boolean]): Image = {
+    val imageId = UUID.randomUUID().toString
+
+    val rights = List(
+      Right("test", Some(rightsAcquired), Nil)
+    )
+
+    val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
+
+    val leaseByMedia = allowLease.map(allowed => LeaseByMedia(
+      lastModified = None,
+      current = None,
+      leases = List(MediaLease(
+        id = None,
+        leasedBy = None,
+        startDate = None,
+        endDate = None,
+        access = if (allowed) AllowSyndicationLease else DenySyndicationLease,
+        notes = None,
+        mediaId = imageId
+      ))
+    ))
+
+    createImage(StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), imageId, leaseByMedia)
   }
 
-  def createExampleImage(): Image = createImageWithSyndicationRights(Handout(), rightsAcquired = true, None).copy(id = "id-abc")
+  def createExampleImage(): Image = createImageForSyndication(rightsAcquired = true, None, None).copy(id = "id-abc")
 
   def saveToES(image: Image) = {
     val json = Json.toJson(image)

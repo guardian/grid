@@ -20,13 +20,27 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
         createImage(Handout()),
         createImage(StaffPhotographer("Yellow Giraffe", "The Guardian")),
         createImage(Handout()),
-        createImageWithSyndicationRights(Handout(), rightsAcquired = true, None),
-        createImageWithSyndicationRights(Handout(), rightsAcquired = true, Some(DateTime.parse("2018-01-01"))),
-        createImageWithSyndicationRights(Handout(), rightsAcquired = true, Some(DateTime.parse("2018-07-02T00:00:00"))),
-        createImageWithSyndicationRights(Handout(), rightsAcquired = false, None),
+
+        // available for syndication
+        createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(true)),
+
+        // rights acquired, explicit allow syndication lease but unknown publish date, not available for syndication
+        createImageForSyndication(rightsAcquired = true, None, Some(true)),
+
+        // explicit deny syndication lease, not available for syndication
+        createImageForSyndication(rightsAcquired = true, None, Some(false)),
+        createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(false)),
+
+        // images published after "today", not available for syndication
+        createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-07-02T00:00:00")), Some(true)),
+        createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-07-03T00:00:00")), Some(false)),
+
+        // no rights acquired, not available for syndication
+        createImageForSyndication(rightsAcquired = false, None, None),
+
         createExampleImage()
       ).map(saveToES))
-    Await.ready(createTestImages, 2.seconds)
+    Await.ready(createTestImages, 5.seconds)
 
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
@@ -34,7 +48,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   }
 
   describe("ES") {
-    it("ES should return only rights acquired pictures for a syndication tier search and filter out example image") {
+    it("ES should return only rights acquired pictures with an allow syndication lease for a syndication tier search and filter out example image") {
       val searchParams = SearchParams(tier = Syndication, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
@@ -46,7 +60,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchParams = SearchParams(tier = Internal, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
-        result.total shouldBe 8
+        result.total shouldBe 11
       }
     }
 
@@ -54,7 +68,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchParams = SearchParams(tier = ReadOnly, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult) { result =>
-        result.total shouldBe 8
+        result.total shouldBe 11
       }
     }
   }
