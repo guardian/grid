@@ -96,9 +96,9 @@ trait ElasticSearchHelper extends MockitoSugar {
       .executeAndLog(s"Saving test image with id ${image.id}")
   }
 
-  def cleanTestUserImages() = {
+  def deleteImages() = {
     ES.prepareImagesSearch
-      .setPostFilter(filters.term("uploadedBy", testUser))
+      .setPostFilter(filters.existsOrMissing("id", exists = true))
       .executeAndLog("Querying images to delete")
       .map(_.getHits)
       .map { results =>
