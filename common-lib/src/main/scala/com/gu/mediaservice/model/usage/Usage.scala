@@ -13,8 +13,11 @@ case class Usage(
   dateAdded: Option[DateTime],
   dateRemoved: Option[DateTime],
   lastModified: DateTime,
+
+  // TODO collapse this field into an `Option[UsageMetadata]`
   printUsageMetadata: Option[PrintUsageMetadata] = None,
-  digitalUsageMetadata: Option[DigitalUsageMetadata] = None
+  digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
+  syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None
 )
 object Usage {
   import JodaWrites._

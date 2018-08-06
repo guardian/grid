@@ -25,6 +25,13 @@ class UsageGroupOps(config: UsageConfig, mediaUsageOps: MediaUsageOps, liveConte
     Some(printUsage.printUsageMetadata.issueDate)
   ).flatten.map(_.toString).mkString("_"))}"
 
+  def buildId(syndicationUsageRequest: SyndicationUsageRequest): String = s"syndication/${
+    MD5.hash(List(
+      syndicationUsageRequest.metadata.partnerName,
+      syndicationUsageRequest.mediaId
+    ).mkString("_"))
+  }"
+
   def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
@@ -43,6 +50,16 @@ class UsageGroupOps(config: UsageConfig, mediaUsageOps: MediaUsageOps, liveConte
         printUsageRecord.dateAdded
       )
     })
+
+  def build(syndicationUsageRequest: SyndicationUsageRequest): UsageGroup = {
+    val usageGroupId = buildId(syndicationUsageRequest)
+    UsageGroup(
+      Set(mediaUsageOps.build(syndicationUsageRequest, usageGroupId)),
+      usageGroupId,
+      syndicationUsageRequest.status,
+      syndicationUsageRequest.dateAdded
+    )
+  }
 
   def createUsages(contentWrapper: ContentWrapper, isReindex: Boolean) = {
     // Generate unique UUID to track extract job

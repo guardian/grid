@@ -7,6 +7,7 @@ sealed trait UsageStatus {
     case PendingUsageStatus => "pending"
     case PublishedUsageStatus => "published"
     case RemovedUsageStatus => "removed"
+    case SyndicatedUsageStatus => "syndicated"
   }
 }
 
@@ -15,6 +16,7 @@ object UsageStatus {
     case "pending" => PendingUsageStatus
     case "published" => PublishedUsageStatus
     case "removed" => RemovedUsageStatus
+    case "syndicated" => SyndicatedUsageStatus
   }
 
   implicit val reads: Reads[UsageStatus] = JsPath.read[String].map(UsageStatus(_))
@@ -27,3 +29,4 @@ object UsageStatus {
 object PendingUsageStatus extends UsageStatus
 object PublishedUsageStatus extends UsageStatus
 object RemovedUsageStatus extends UsageStatus
+object SyndicatedUsageStatus extends UsageStatus

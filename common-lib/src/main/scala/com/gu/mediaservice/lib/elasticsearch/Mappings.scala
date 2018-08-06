@@ -213,6 +213,11 @@ object Mappings {
       "composerUrl" -> nonAnalyzedString
     )
 
+  val syndicationUsageMetadata =
+    nonDynamicObj(
+      "partnerName" -> nonAnalyzedString
+    )
+
   val usagesMapping =
     nonDynamicObjWithAttrs(
       "id"           -> nonAnalyzedString,
@@ -225,7 +230,8 @@ object Mappings {
       "dateRemoved"  -> dateFormat,
       "lastModified" -> dateFormat,
       "printUsageMetadata" -> printUsageMetadata,
-      "digitalUsageMetadata" -> digitalUsageMetadata
+      "digitalUsageMetadata" -> digitalUsageMetadata,
+      "syndicationUsageMetadata" -> syndicationUsageMetadata
     )(nestedType)
 
 

@@ -6,6 +6,7 @@ trait UsageType {
   override def toString = this match {
     case PrintUsage => "print"
     case DigitalUsage => "digital"
+    case SyndicationUsage => "syndication"
   }
 }
 
@@ -16,8 +17,10 @@ object UsageType {
   def apply(usageType: String): UsageType = usageType.toLowerCase match {
     case "print" => PrintUsage
     case "digital" => DigitalUsage
+    case "syndication" => SyndicationUsage
   }
 }
 
 object PrintUsage extends UsageType
 object DigitalUsage extends UsageType
+object SyndicationUsage extends UsageType

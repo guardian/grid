@@ -2,9 +2,8 @@ package model
 
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder
 import com.amazonaws.services.dynamodbv2.xspec.ExpressionSpecBuilder.{M, N, S}
-import com.gu.mediaservice.model.usage.UsageType
+import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintUsageMetadata, SyndicationUsageMetadata, UsageType}
 import scalaz.syntax.id._
-import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, PrintUsageMetadata}
 
 import scala.collection.JavaConverters._
 import org.joda.time.DateTime
@@ -19,6 +18,7 @@ case class UsageRecord(
   usageStatus: Option[String] = None,
   printUsageMetadata: Option[PrintUsageMetadata] = None,
   digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
+  syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
   dateAdded: Option[DateTime] = None,
   // Either is used here to represent 3 possible states:
   // remove-date, add-date and no-date
@@ -34,6 +34,7 @@ case class UsageRecord(
         usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
         printUsageMetadata.map(_.toMap).map(map => M("print_metadata").set(map.asJava)),
         digitalUsageMetadata.map(_.toMap).map(map => M("digital_metadata").set(map.asJava)),
+        syndicationUsageMetadata.map(_.toMap).map(map => M("syndication_metadata").set(map.asJava)),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.fold(
           _ => Some(N("date_removed").remove),
@@ -73,6 +74,7 @@ object UsageRecord {
     Some(mediaUsage.status.toString),
     mediaUsage.printUsageMetadata,
     mediaUsage.digitalUsageMetadata,
+    mediaUsage.syndicationUsageMetadata,
     Some(mediaUsage.lastModified),
     Left("clear")
   )
