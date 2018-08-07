@@ -82,7 +82,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   }
 
   override def afterAll  {
-    Await.ready(deleteImages(images), 5.seconds)
+    Await.ready(deleteImages(), 5.seconds)
     DateTimeUtils.setCurrentMillisSystem()
   }
 }

@@ -99,12 +99,7 @@ trait ElasticSearchHelper extends MockitoSugar {
     )
   }
 
-  def deleteImages(images: List[Image]) = {
-    Future.sequence(
-      images.map(image => {
-        ES.client.prepareDelete("images", "image", image.id)
-          .executeAndLog(s"Deleting image with id: ${image.id}")
-      })
-    )
+  def deleteImages() = {
+    ES.client.prepareDelete().setIndex("images").executeAndLog(s"Deleting index")
   }
 }
