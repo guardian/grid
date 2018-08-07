@@ -12,6 +12,7 @@ import play.api.Configuration
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 trait ElasticSearchHelper extends MockitoSugar {
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
@@ -59,8 +60,8 @@ trait ElasticSearchHelper extends MockitoSugar {
     )
   }
 
-  def createImageForSyndication(rightsAcquired: Boolean, rcsPublishDate: Option[DateTime], allowLease: Option[Boolean]): Image = {
-    val imageId = UUID.randomUUID().toString
+  def createImageForSyndication(rightsAcquired: Boolean, rcsPublishDate: Option[DateTime], allowLease: Option[Boolean], id: Option[String] = None): Image = {
+    val imageId = id.getOrElse(UUID.randomUUID().toString)
 
     val rights = List(
       Right("test", Some(rightsAcquired), Nil)
@@ -87,26 +88,23 @@ trait ElasticSearchHelper extends MockitoSugar {
 
   def createExampleImage(): Image = createImageForSyndication(rightsAcquired = true, None, None).copy(id = "id-abc")
 
-  def saveToES(image: Image) = {
-    val json = Json.toJson(image)
-    ES.client
-      .prepareIndex("images", "image", image.id)
-      .setRefresh(true)
-      .setSource(json.toString())
-      .executeAndLog(s"Saving test image with id ${image.id}")
+  def saveImages(images: List[Image]) = {
+    Future.sequence(
+      images.map(image => {
+        ES.client.prepareIndex("images", "image")
+          .setId(image.id)
+          .setSource(Json.toJson(image).toString())
+          .executeAndLog(s"Saving test image with id ${image.id}")
+      })
+    )
   }
 
-  def deleteImages() = {
-    ES.prepareImagesSearch
-      .setPostFilter(filters.existsOrMissing("id", exists = true))
-      .executeAndLog("Querying images to delete")
-      .map(_.getHits)
-      .map { results =>
-        println(s"Found ${results.getTotalHits} images to delete")
-        results.hits.toList.foreach { hit =>
-          val idToDelete = hit.getId
-          ES.client.prepareDelete("images", "image", idToDelete).executeAndLog(s"Deleting image with id: $idToDelete")
-        }
-      }
+  def deleteImages(images: List[Image]) = {
+    Future.sequence(
+      images.map(image => {
+        ES.client.prepareDelete("images", "image", image.id)
+          .executeAndLog(s"Deleting image with id: ${image.id}")
+      })
+    )
   }
 }

@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.model.{Handout, StaffPhotographer}
+import com.gu.mediaservice.model.{Handout, Image, StaffPhotographer}
 import controllers.SearchParams
 import org.joda.time.{DateTime, DateTimeUtils}
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
@@ -17,13 +17,13 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   val interval = Interval(Span(5, Seconds))
   val timeout = Timeout(Span(30, Seconds))
 
-  lazy val images = List(
+  lazy val images: List[Image] = List(
     createImage(Handout()),
     createImage(StaffPhotographer("Yellow Giraffe", "The Guardian")),
     createImage(Handout()),
 
     // available for syndication
-    createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(true)),
+    createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(true), Some("can-syndicate")),
 
     // rights acquired, explicit allow syndication lease but unknown publish date, not available for syndication
     createImageForSyndication(rightsAcquired = true, None, Some(true)),
@@ -44,7 +44,8 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
 
   override def beforeAll {
     ES.ensureAliasAssigned()
-    Await.ready(Future.sequence(images.map(saveToES)), 5.seconds)
+    Await.ready(saveImages(images), 1.minute)
+    Thread.sleep(5000)
 
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
@@ -57,6 +58,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchResult = ES.search(searchParams)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 1
+        result.hits.head._1 shouldBe "can-syndicate"
       }
     }
 
@@ -78,7 +80,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   }
 
   override def afterAll  {
-    Await.ready(deleteImages(), 5.seconds)
+    Await.ready(deleteImages(images), 5.seconds)
     DateTimeUtils.setCurrentMillisSystem()
   }
 }
