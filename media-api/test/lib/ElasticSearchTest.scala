@@ -5,13 +5,13 @@ import com.gu.mediaservice.model.{Handout, StaffPhotographer}
 import controllers.SearchParams
 import org.joda.time.{DateTime, DateTimeUtils}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with BeforeAndAfterEach with Matchers with ElasticSearchHelper with ScalaFutures {
+class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers with ElasticSearchHelper with ScalaFutures {
   lazy val images = List(
     createImage(Handout()),
     createImage(StaffPhotographer("Yellow Giraffe", "The Guardian")),
@@ -39,13 +39,12 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with BeforeAndAft
 
   override def beforeAll {
     ES.ensureAliasAssigned()
+    Await.ready(Future.sequence(images.map(saveToES)), 5.seconds)
 
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
     DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
   }
-
-  override def beforeEach(): Unit = Await.ready(Future.sequence(images.map(saveToES)), 5.seconds)
 
   describe("ES") {
     it("ES should return only rights acquired pictures with an allow syndication lease for a syndication tier search and filter out example image") {
@@ -73,7 +72,8 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with BeforeAndAft
     }
   }
 
-  override def afterAll():Unit = DateTimeUtils.setCurrentMillisSystem()
-
-  override def afterEach(): Unit = Await.ready(deleteImages(), 5.seconds)
+  override def afterAll  {
+    Await.ready(deleteImages(), 5.seconds)
+    DateTimeUtils.setCurrentMillisSystem()
+  }
 }

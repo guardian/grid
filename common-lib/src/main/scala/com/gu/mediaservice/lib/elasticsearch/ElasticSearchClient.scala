@@ -5,7 +5,7 @@ import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-
+import org.elasticsearch.common.unit.TimeValue
 import play.api.Logger
 
 
@@ -37,7 +37,17 @@ trait ElasticSearchClient {
     if (getCurrentAlias.isEmpty) {
       ensureIndexExists(initialImagesIndex)
       assignAliasTo(initialImagesIndex)
+      waitUntilHealthy()
     }
+  }
+
+  def waitUntilHealthy(): Unit = {
+    Logger.info("waiting for cluster health to be green")
+    client.admin.cluster
+      .prepareHealth()
+      .setWaitForGreenStatus()
+      .setTimeout(TimeValue.timeValueSeconds(30))
+      .execute.actionGet
   }
 
   def ensureIndexExists(index: String) {
