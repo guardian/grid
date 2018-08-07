@@ -1,16 +1,26 @@
 package lib
 
-import _root_.play.api.libs.json._
+import play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.model.SyndicationRights
 import org.elasticsearch.action.delete.DeleteResponse
-import org.joda.time.DateTime
-import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, notifications: DynamoNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
-  config.queueUrl, config.awsEndpoint, config, thrallMetrics.snsMessage) {
+class ThrallMessageConsumer(
+  config: ThrallConfig,
+  es: ElasticSearch,
+  thrallMetrics: ThrallMetrics,
+  store: ThrallStore,
+  notifications: DynamoNotifications,
+  syndicationRightsOps: SyndicationRightsOps
+)(implicit ec: ExecutionContext) extends MessageConsumer(
+  config.queueUrl,
+  config.awsEndpoint,
+  config,
+  thrallMetrics.snsMessage
+) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     PartialFunction.condOpt(subject) {
@@ -25,8 +35,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
-      case "upsert-rcs-rights"          => updateRcsRights
-      case "update-rcs-rights"          => updateRcsRights // TODO delete once `upsert-rcs-rights` is being received
+      case "upsert-rcs-rights"          => upsertRcsRights
     }
   }
 
@@ -83,9 +92,20 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
   def deleteAllUsages(usage: JsValue) =
     Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
-  def updateRcsRights(rights: JsValue) =
-    Future.sequence( withImageId(rights)(id => es.updateImageSyndicationRights(id, rights \ "data")) )
+  def upsertRcsRights(rights: JsValue) = {
+    (rights \ "data").validate[SyndicationRights].fold(
+      err => {
+        val msg = s"Unable to parse message as SyndicationRights ${JsError.toJson(err).toString}"
+        GridLogger.error(msg)
+        Future.failed(SNSBodyParseError(msg))
+      },
+      syndicationRights => Future.sequence(
+        withImageId(rights)(id => syndicationRightsOps.upsertImageSyndicationRights(id, Some(syndicationRights)))
+      )
+    )
+  }
 }
 
 // TODO: improve and use this (for logging especially) else where.
 case class EsResponse(message: String)
+case class SNSBodyParseError(message: String) extends Exception

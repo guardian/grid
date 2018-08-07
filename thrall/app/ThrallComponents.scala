@@ -14,7 +14,9 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val es = new ElasticSearch(config, thrallMetrics)
   es.ensureAliasAssigned()
 
-  val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, notifications)
+  val syndicationRightsOps = new SyndicationRightsOps(es)
+
+  val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, notifications, syndicationRightsOps)
   
   thrallMessageConsumer.startSchedule()
   context.lifecycle.addStopHook {
