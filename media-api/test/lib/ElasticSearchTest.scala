@@ -45,6 +45,8 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   override def beforeAll {
     ES.ensureAliasAssigned()
     Await.ready(saveImages(images), 1.minute)
+
+    // allow the cluster to distribute documents... eventual consistency!
     Thread.sleep(5000)
 
     // mocks `DateTime.now`
