@@ -1,0 +1,14 @@
+version: '3'
+services:
+  elasticsearch:
+    image: elasticsearch:1.7.1
+    ports:
+    - "9201:9200"
+    - "9301:9300"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    environment:
+    - cluster.name=media-service-test
+    - network.publish_host=127.0.0.1

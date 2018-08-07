@@ -15,8 +15,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 trait ElasticSearchHelper extends MockitoSugar {
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service",
-    "es.port" -> "9300",
+    "es.cluster" -> "media-service-test",
+    "es.port" -> "9301",
     "persistence.identifier" -> "picdarUrn",
     "example.image.id" -> "id-abc",
     "es.index.aliases.read" -> "readAlias")))
