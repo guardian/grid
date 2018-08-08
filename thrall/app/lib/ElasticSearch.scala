@@ -2,6 +2,7 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
+import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import org.elasticsearch.action.delete.DeleteResponse
@@ -110,10 +111,15 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     }
   }
 
-  def updateImageSyndicationRights(id: String, rights: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+  def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    val rightsJson = rights match {
+      case Some(sr) => Json.toJson(sr)
+      case None => JsNull
+    }
+
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "syndicationRights" -> asGroovy(rights.getOrElse(JsNull)),
+        "syndicationRights" -> asGroovy(rightsJson),
         "lastModified" -> asGroovy(Json.toJson(DateTime.now().toString()))
       ).asJava)
         .setScript(
