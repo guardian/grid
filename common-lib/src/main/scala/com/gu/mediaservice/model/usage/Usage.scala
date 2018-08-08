@@ -17,7 +17,8 @@ case class Usage(
   // TODO collapse this field into an `Option[UsageMetadata]`
   printUsageMetadata: Option[PrintUsageMetadata] = None,
   digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
-  syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None
+  syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
+  frontUsageMetadata: Option[FrontUsageMetadata] = None
 )
 object Usage {
   import JodaWrites._

@@ -18,6 +18,7 @@ case class MediaUsage(
   printUsageMetadata: Option[PrintUsageMetadata],
   digitalUsageMetadata: Option[DigitalUsageMetadata],
   syndicationUsageMetadata: Option[SyndicationUsageMetadata],
+  frontUsageMetadata: Option[FrontUsageMetadata],
   lastModified: DateTime,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
@@ -54,6 +55,8 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildDigital),
       Option(item.getMap[Any]("syndication_metadata"))
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildSyndication),
+      Option(item.getMap[Any]("front_metadata"))
+        .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildFront),
       new DateTime(item.getLong("last_modified")),
       Try { item.getLong("date_added") }.toOption.map(new DateTime(_)),
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
@@ -67,6 +70,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
     "image",
     printUsage.usageStatus,
     Some(printUsage.printUsageMetadata),
+    None,
     None,
     None,
     printUsage.dateAdded
@@ -85,6 +89,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       printUsageMetadata = None,
       digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
       None,
+      None,
       lastModified = mediaWrapper.lastModified
     )
   }
@@ -101,7 +106,26 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       printUsageMetadata = None,
       digitalUsageMetadata = None,
       syndicationUsageMetadata = Some(syndicationUsageRequest.metadata),
+      None,
       lastModified = syndicationUsageRequest.dateAdded
+    )
+  }
+
+  def build(frontUsageRequest: FrontUsageRequest, groupId: String): MediaUsage = {
+    val usageId = UsageId.build(frontUsageRequest)
+
+    MediaUsage (
+      usageId,
+      groupId,
+      frontUsageRequest.mediaId,
+      DigitalUsage,
+      mediaType = "image",
+      frontUsageRequest.status,
+      printUsageMetadata = None,
+      digitalUsageMetadata = None,
+      syndicationUsageMetadata = None,
+      frontUsageMetadata = Some(frontUsageRequest.metadata),
+      lastModified = frontUsageRequest.dateAdded
     )
   }
 }

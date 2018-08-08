@@ -29,4 +29,10 @@ object UsageId {
     Some(syndicationUsageRequest.metadata.partnerName),
     Some(syndicationUsageRequest.status)
   ))
+
+  def build(frontUsageRequest: FrontUsageRequest) = buildId(List(
+    Some(frontUsageRequest.mediaId),
+    Some(frontUsageRequest.metadata.front),
+    Some(frontUsageRequest.status)
+  ))
 }

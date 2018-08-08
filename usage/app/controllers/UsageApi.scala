@@ -166,6 +166,23 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     )
   }}
 
+  def setFrontUsages() = auth(parse.json) { req => {
+    val request = (req.body \ "data").validate[FrontUsageRequest]
+    request.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "front-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      fur => {
+        GridLogger.info("recording front usage", req.user.apiKey, fur.mediaId)
+        val group = usageGroup.build(fur)
+        usageRecorder.usageSubject.onNext(group)
+        Accepted
+      }
+    )
+  }}
+
   def deleteUsages(mediaId: String) = auth.async {
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)

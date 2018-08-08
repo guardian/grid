@@ -218,6 +218,11 @@ object Mappings {
       "partnerName" -> nonAnalyzedString
     )
 
+  val frontUsageMetadata = nonDynamicObj(
+    "addedBy" -> nonAnalyzedString,
+    "front" -> nonAnalyzedString
+  )
+
   val usagesMapping =
     nonDynamicObjWithAttrs(
       "id"           -> nonAnalyzedString,
@@ -231,7 +236,8 @@ object Mappings {
       "lastModified" -> dateFormat,
       "printUsageMetadata" -> printUsageMetadata,
       "digitalUsageMetadata" -> digitalUsageMetadata,
-      "syndicationUsageMetadata" -> syndicationUsageMetadata
+      "syndicationUsageMetadata" -> syndicationUsageMetadata,
+      "frontUsageMetadata" -> frontUsageMetadata
     )(nestedType)
 
 
