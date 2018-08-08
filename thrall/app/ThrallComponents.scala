@@ -8,15 +8,15 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ThrallConfig(configuration)
 
   val store = new ThrallStore(config)
-  val notifications = new DynamoNotifications(config)
+  val dynamoNotifications = new DynamoNotifications(config)
+  val thrallNotifications = new ThrallNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
   val es = new ElasticSearch(config, thrallMetrics)
   es.ensureAliasAssigned()
 
-  val syndicationRightsOps = new SyndicationRightsOps(es)
 
-  val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, notifications, syndicationRightsOps)
+  val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, dynamoNotifications, thrallNotifications)
   
   thrallMessageConsumer.startSchedule()
   context.lifecycle.addStopHook {

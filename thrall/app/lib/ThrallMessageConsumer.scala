@@ -3,8 +3,9 @@ package lib
 import play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.model.SyndicationRights
+import com.gu.mediaservice.model.{Image, SyndicationRights}
 import org.elasticsearch.action.delete.DeleteResponse
+import org.elasticsearch.action.update.UpdateResponse
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -13,8 +14,8 @@ class ThrallMessageConsumer(
   es: ElasticSearch,
   thrallMetrics: ThrallMetrics,
   store: ThrallStore,
-  notifications: DynamoNotifications,
-  syndicationRightsOps: SyndicationRightsOps
+  dynamoNotifications: DynamoNotifications,
+  thrallNotifications: ThrallNotifications
 )(implicit ec: ExecutionContext) extends MessageConsumer(
   config.queueUrl,
   config.awsEndpoint,
@@ -35,7 +36,8 @@ class ThrallMessageConsumer(
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
-      case "upsert-rcs-rights"          => upsertRcsRights
+      case "upsert-rcs-rights"          => upsertSyndicationRights
+      case "refresh-inferred-rights"    => refreshInferredSyndicationRights
     }
   }
 
@@ -78,7 +80,7 @@ class ThrallMessageConsumer(
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)
-              notifications.publish(Json.obj("id" -> id), "image-deleted")
+              dynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
@@ -92,17 +94,59 @@ class ThrallMessageConsumer(
   def deleteAllUsages(usage: JsValue) =
     Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
-  def upsertRcsRights(rights: JsValue) = {
+  def refreshInferredSyndicationRights(imageJson: JsValue) = {
+    Future.sequence(
+      withImageId(imageJson) { id =>
+        val image = imageJson.as[Image]
+        GridLogger.info(s"upserting inferred rights", id)
+        es.updateImageSyndicationRights(id, image.syndicationRights)
+      }
+    )
+  }
+
+  def upsertSyndicationRights(rights: JsValue) = {
     (rights \ "data").validate[SyndicationRights].fold(
       err => {
         val msg = s"Unable to parse message as SyndicationRights ${JsError.toJson(err).toString}"
         GridLogger.error(msg)
         Future.failed(SNSBodyParseError(msg))
       },
-      syndicationRights => Future.sequence(
-        withImageId(rights)(id => syndicationRightsOps.upsertImageSyndicationRights(id, Some(syndicationRights)))
-      )
+      rightsFromRcs => withImageId(rights) { id =>
+        es.getImage(id) map {
+          case Some(image) => {
+            GridLogger.info(s"Upserting syndication rights from RCS feed", image.id)
+            es.updateImageSyndicationRights(id, Some(rightsFromRcs))
+
+            image.userMetadata.map{edits => {
+              edits.photoshoot match {
+                case Some(photoshoot) if !rightsFromRcs.isInferred => {
+                  // Image is in a photoshoot and has real rights
+                  // Update the other images in the photoshoot
+                  es.getImagesWithInferredSyndicationRights(photoshoot, image)
+                    .map(initiateInferredRightsRefresh(_, rightsFromRcs))
+                  image
+                }
+                case _ => image
+              }
+            }}
+          }
+          case _ => {
+            GridLogger.info(s"image $id not found")
+            None
+          }
+        }
+      }
     )
+  }
+
+  private def initiateInferredRightsRefresh(images: List[Image], rightsFromRcs: SyndicationRights) = {
+    GridLogger.info(s"initiating refresh of inferred rights for ${images.size} images")
+    val inferredRights = rightsFromRcs.copy(published = None)
+
+    images.foreach(image => {
+      val updatedImage = image.copy(syndicationRights = Some(inferredRights))
+      thrallNotifications.publish(Json.toJson(updatedImage), subject = "refresh-inferred-rights")
+    })
   }
 }
 

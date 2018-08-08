@@ -34,4 +34,6 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 
   val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
+
+  val topicArn: String = properties("sns.topic.arn")
 }

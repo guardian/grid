@@ -10,7 +10,8 @@ import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.{DocumentMissingException, VersionConflictEngineException}
-import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
+import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter, notFilter, idsFilter}
+import org.elasticsearch.index.query.FilteredQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
 import org.joda.time.DateTime
@@ -267,6 +268,32 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       (__ \ "usages").json.prune
 
     image.transform(removeUploadInformation).get
+  }
+
+  def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
+    client.prepareGet(imagesAlias, imageType, id)
+      .executeAndLog(s"get image by $id")
+      .map(_.sourceOpt)
+      .map {
+        case Some(source) => Some(source.as[Image])
+        case _ => None
+      }
+  }
+
+  def getImagesWithInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Image)(implicit ex: ExecutionContext): Future[List[Image]] = {
+    val filteredQuery = new FilteredQueryBuilder(
+      matchQuery(photoshootField("title"), photoshoot.title),
+      andFilter(
+        notFilter(idsFilter().addIds(excludedImage.id)),
+        missingFilter("syndicationRights.published") // absence of `published` field means `syndicationRights` hasn't come from RCS
+      )
+    )
+
+    client.prepareSearch(imagesAlias).setTypes(imageType)
+      .setQuery(filteredQuery)
+      .executeAndLog(s"get images in photoshoot ${photoshoot.title} with inferred syndication rights")
+      .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
+      .map(_.map(_.as[Image]))
   }
 
   private val addToSuggestersScript =
