@@ -1,0 +1,10 @@
+cluster.name: media-service-test
+
+# necessary for running within Docker so apps running on the host can connect using the transport client on 9300
+network.publish_host: 127.0.0.1
+
+script.inline: on
+script.indexed: on
+
+index.number_of_shards: 1
+index.number_of_replicas: 0

@@ -12,11 +12,12 @@ import play.api.Configuration
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 trait ElasticSearchHelper extends MockitoSugar {
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service",
-    "es.port" -> "9300",
+    "es.cluster" -> "media-service-test",
+    "es.port" -> "9301",
     "persistence.identifier" -> "picdarUrn",
     "example.image.id" -> "id-abc",
     "es.index.aliases.read" -> "readAlias")))
@@ -26,7 +27,7 @@ trait ElasticSearchHelper extends MockitoSugar {
 
   val testUser = "yellow-giraffe@theguardian.com"
 
-  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None, id: String = UUID.randomUUID().toString): Image = {
+  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None, id: String = UUID.randomUUID().toString, leases: Option[LeaseByMedia] = None): Image = {
     Image(
       id = id,
       uploadTime = DateTime.now(),
@@ -54,38 +55,51 @@ trait ElasticSearchHelper extends MockitoSugar {
       usageRights = usageRights,
       originalUsageRights = usageRights,
       exports = Nil,
-      syndicationRights = syndicationRights
+      syndicationRights = syndicationRights,
+      leases = leases.getOrElse(LeaseByMedia.build(Nil))
     )
   }
 
-  def createImageWithSyndicationRights(usageRights: UsageRights, rightsAcquired: Boolean, publishDate: Option[DateTime]): Image = {
-    val rights = List( Right("test", Some(rightsAcquired), Nil) )
-    val syndicationRights = SyndicationRights(publishDate, Nil, rights)
-    createImage(usageRights, Some(syndicationRights))
+  def createImageForSyndication(rightsAcquired: Boolean, rcsPublishDate: Option[DateTime], allowLease: Option[Boolean], id: Option[String] = None): Image = {
+    val imageId = id.getOrElse(UUID.randomUUID().toString)
+
+    val rights = List(
+      Right("test", Some(rightsAcquired), Nil)
+    )
+
+    val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
+
+    val leaseByMedia = allowLease.map(allowed => LeaseByMedia(
+      lastModified = None,
+      current = None,
+      leases = List(MediaLease(
+        id = None,
+        leasedBy = None,
+        startDate = None,
+        endDate = None,
+        access = if (allowed) AllowSyndicationLease else DenySyndicationLease,
+        notes = None,
+        mediaId = imageId
+      ))
+    ))
+
+    createImage(StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), imageId, leaseByMedia)
   }
 
-  def createExampleImage(): Image = createImageWithSyndicationRights(Handout(), rightsAcquired = true, None).copy(id = "id-abc")
+  def createExampleImage(): Image = createImageForSyndication(rightsAcquired = true, None, None).copy(id = "id-abc")
 
-  def saveToES(image: Image) = {
-    val json = Json.toJson(image)
-    ES.client
-      .prepareIndex("images", "image", image.id)
-      .setRefresh(true)
-      .setSource(json.toString())
-      .executeAndLog(s"Saving test image with id ${image.id}")
+  def saveImages(images: List[Image]) = {
+    Future.sequence(
+      images.map(image => {
+        ES.client.prepareIndex("images", "image")
+          .setId(image.id)
+          .setSource(Json.toJson(image).toString())
+          .executeAndLog(s"Saving test image with id ${image.id}")
+      })
+    )
   }
 
-  def cleanTestUserImages() = {
-    ES.prepareImagesSearch
-      .setPostFilter(filters.term("uploadedBy", testUser))
-      .executeAndLog("Querying images to delete")
-      .map(_.getHits)
-      .map { results =>
-        println(s"Found ${results.getTotalHits} images to delete")
-        results.hits.toList.foreach { hit =>
-          val idToDelete = hit.getId
-          ES.client.prepareDelete("images", "image", idToDelete).executeAndLog(s"Deleting image with id: $idToDelete")
-        }
-      }
+  def deleteImages() = {
+    ES.client.prepareDelete().setIndex("images").executeAndLog(s"Deleting index")
   }
 }

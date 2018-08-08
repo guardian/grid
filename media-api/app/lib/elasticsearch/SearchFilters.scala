@@ -86,7 +86,8 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   def syndicationRightsAcquiredFilter(): FilterBuilder = {
     filters.and(
       rightsAcquiredFilter(isAcquired = true),
-      filters.date(field = "syndicationRights.published", None, Some(DateTime.now)).get
+      filters.date(field = "syndicationRights.published", None, Some(DateTime.now)).get,
+      filters.term(field = "leases.leases.access", term = AllowSyndicationLease.name)
     )
   }
 
