@@ -37,7 +37,7 @@ class ThrallMessageConsumer(
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
       case "upsert-rcs-rights"          => upsertSyndicationRights
-      case "refresh-inferred-rights"    => refreshInferredSyndicationRights
+      case "refresh-inferred-rights"    => upsertSyndicationRights
     }
   }
 
@@ -94,49 +94,48 @@ class ThrallMessageConsumer(
   def deleteAllUsages(usage: JsValue) =
     Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
-  def refreshInferredSyndicationRights(imageJson: JsValue) = {
-    Future.sequence(
-      withImageId(imageJson) { id =>
-        val image = imageJson.as[Image]
-        GridLogger.info(s"upserting inferred rights", id)
-        es.updateImageSyndicationRights(id, image.syndicationRights)
-      }
-    )
-  }
-
-  def upsertSyndicationRights(rights: JsValue) = {
+  def upsertSyndicationRights(rights: JsValue): Future[List[UpdateResponse]] = {
     (rights \ "data").validate[SyndicationRights].fold(
       err => {
         val msg = s"Unable to parse message as SyndicationRights ${JsError.toJson(err).toString}"
         GridLogger.error(msg)
         Future.failed(SNSBodyParseError(msg))
       },
-      rightsFromRcs => withImageId(rights) { id =>
-        es.getImage(id) map {
-          case Some(image) => {
-            GridLogger.info(s"Upserting syndication rights from RCS feed", image.id)
-            es.updateImageSyndicationRights(id, Some(rightsFromRcs))
+      syndicationRights => withImageId(rights) { id =>
+        GridLogger.info(s"upserting syndication rights", Map("image-id" -> id, "inferred" -> syndicationRights.isInferred))
 
-            image.userMetadata.map{edits => {
-              edits.photoshoot match {
-                case Some(photoshoot) if !rightsFromRcs.isInferred => {
-                  // Image is in a photoshoot and has real rights
-                  // Update the other images in the photoshoot
-                  es.getImagesWithInferredSyndicationRights(photoshoot, image)
-                    .map(initiateInferredRightsRefresh(_, rightsFromRcs))
-                  image
-                }
-                case _ => image
-              }
-            }}
-          }
-          case _ => {
-            GridLogger.info(s"image $id not found")
-            None
+        if (!syndicationRights.isInferred) {
+          refreshInferredSyndicationRights(id, syndicationRights)
+        }
+
+        Future.sequence(
+          es.updateImageSyndicationRights(id, Some(syndicationRights))
+        )
+      }
+    )
+  }
+
+  private def refreshInferredSyndicationRights(id: String, syndicationRights: SyndicationRights) = {
+    es.getImage(id) map {
+      case Some(image) => {
+        image.userMetadata.map { edits =>
+          edits.photoshoot match {
+            case Some(photoshoot) if !syndicationRights.isInferred => {
+              // Image is in a photoshoot and has real rights
+              // Update the other images in the photoshoot
+              es.getImagesWithInferredSyndicationRights(photoshoot, image)
+                .map(initiateInferredRightsRefresh(_, syndicationRights))
+              image
+            }
+            case _ => image
           }
         }
       }
-    )
+      case _ => {
+        GridLogger.info(s"image $id not found")
+        None
+      }
+    }
   }
 
   private def initiateInferredRightsRefresh(images: List[Image], rightsFromRcs: SyndicationRights) = {
@@ -144,8 +143,12 @@ class ThrallMessageConsumer(
     val inferredRights = rightsFromRcs.copy(published = None)
 
     images.foreach(image => {
-      val updatedImage = image.copy(syndicationRights = Some(inferredRights))
-      thrallNotifications.publish(Json.toJson(updatedImage), subject = "refresh-inferred-rights")
+      val message = Json.obj(
+        "id" -> image.id,
+        "data" -> Json.toJson(inferredRights)
+      )
+
+      thrallNotifications.publish(message, subject = "refresh-inferred-rights")
     })
   }
 }
