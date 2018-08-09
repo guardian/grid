@@ -2,6 +2,7 @@ package lib
 
 import _root_.play.api.libs.json._
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
+import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import org.elasticsearch.action.delete.DeleteResponse
@@ -9,7 +10,8 @@ import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.{DocumentMissingException, VersionConflictEngineException}
-import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter}
+import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter, notFilter, idsFilter}
+import org.elasticsearch.index.query.FilteredQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
 import org.joda.time.DateTime
@@ -110,10 +112,15 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     }
   }
 
-  def updateImageSyndicationRights(id: String, rights: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+  def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    val rightsJson = rights match {
+      case Some(sr) => Json.toJson(sr)
+      case None => JsNull
+    }
+
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "syndicationRights" -> asGroovy(rights.getOrElse(JsNull)),
+        "syndicationRights" -> asGroovy(rightsJson),
         "lastModified" -> asGroovy(Json.toJson(DateTime.now().toString()))
       ).asJava)
         .setScript(
@@ -261,6 +268,32 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       (__ \ "usages").json.prune
 
     image.transform(removeUploadInformation).get
+  }
+
+  def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
+    client.prepareGet(imagesAlias, imageType, id)
+      .executeAndLog(s"get image by $id")
+      .map(_.sourceOpt)
+      .map {
+        case Some(source) => Some(source.as[Image])
+        case _ => None
+      }
+  }
+
+  def getImagesWithInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Image)(implicit ex: ExecutionContext): Future[List[Image]] = {
+    val filteredQuery = new FilteredQueryBuilder(
+      matchQuery(photoshootField("title"), photoshoot.title),
+      andFilter(
+        notFilter(idsFilter().addIds(excludedImage.id)),
+        missingFilter("syndicationRights.published") // absence of `published` field means `syndicationRights` hasn't come from RCS
+      )
+    )
+
+    client.prepareSearch(imagesAlias).setTypes(imageType)
+      .setQuery(filteredQuery)
+      .executeAndLog(s"get images in photoshoot ${photoshoot.title} with inferred syndication rights")
+      .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
+      .map(_.map(_.as[Image]))
   }
 
   private val addToSuggestersScript =

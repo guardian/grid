@@ -1,16 +1,27 @@
 package lib
 
-import _root_.play.api.libs.json._
+import play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.model.{Image, SyndicationRights}
 import org.elasticsearch.action.delete.DeleteResponse
-import org.joda.time.DateTime
-import play.api.Logger
+import org.elasticsearch.action.update.UpdateResponse
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetrics: ThrallMetrics, store: ThrallStore, notifications: DynamoNotifications)(implicit ec: ExecutionContext) extends MessageConsumer(
-  config.queueUrl, config.awsEndpoint, config, thrallMetrics.snsMessage) {
+class ThrallMessageConsumer(
+  config: ThrallConfig,
+  es: ElasticSearch,
+  thrallMetrics: ThrallMetrics,
+  store: ThrallStore,
+  dynamoNotifications: DynamoNotifications,
+  thrallNotifications: ThrallNotifications
+)(implicit ec: ExecutionContext) extends MessageConsumer(
+  config.queueUrl,
+  config.awsEndpoint,
+  config,
+  thrallMetrics.snsMessage
+) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     PartialFunction.condOpt(subject) {
@@ -25,8 +36,8 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
-      case "upsert-rcs-rights"          => updateRcsRights
-      case "update-rcs-rights"          => updateRcsRights // TODO delete once `upsert-rcs-rights` is being received
+      case "upsert-rcs-rights"          => upsertSyndicationRights
+      case "refresh-inferred-rights"    => upsertSyndicationRights
     }
   }
 
@@ -69,7 +80,7 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)
-              notifications.publish(Json.obj("id" -> id), "image-deleted")
+              dynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
@@ -83,9 +94,65 @@ class ThrallMessageConsumer(config: ThrallConfig, es: ElasticSearch, thrallMetri
   def deleteAllUsages(usage: JsValue) =
     Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
-  def updateRcsRights(rights: JsValue) =
-    Future.sequence( withImageId(rights)(id => es.updateImageSyndicationRights(id, rights \ "data")) )
+  def upsertSyndicationRights(rights: JsValue): Future[List[UpdateResponse]] = {
+    (rights \ "data").validate[SyndicationRights].fold(
+      err => {
+        val msg = s"Unable to parse message as SyndicationRights ${JsError.toJson(err).toString}"
+        GridLogger.error(msg)
+        Future.failed(SNSBodyParseError(msg))
+      },
+      syndicationRights => withImageId(rights) { id =>
+        GridLogger.info(s"upserting syndication rights", Map("image-id" -> id, "inferred" -> syndicationRights.isInferred))
+
+        if (!syndicationRights.isInferred) {
+          refreshInferredSyndicationRights(id, syndicationRights)
+        }
+
+        Future.sequence(
+          es.updateImageSyndicationRights(id, Some(syndicationRights))
+        )
+      }
+    )
+  }
+
+  private def refreshInferredSyndicationRights(id: String, syndicationRights: SyndicationRights) = {
+    es.getImage(id) map {
+      case Some(image) => {
+        image.userMetadata.map { edits =>
+          edits.photoshoot match {
+            case Some(photoshoot) if !syndicationRights.isInferred => {
+              // Image is in a photoshoot and has real rights
+              // Update the other images in the photoshoot
+              es.getImagesWithInferredSyndicationRights(photoshoot, image)
+                .map(initiateInferredRightsRefresh(_, syndicationRights))
+              image
+            }
+            case _ => image
+          }
+        }
+      }
+      case _ => {
+        GridLogger.info(s"image $id not found")
+        None
+      }
+    }
+  }
+
+  private def initiateInferredRightsRefresh(images: List[Image], rightsFromRcs: SyndicationRights) = {
+    GridLogger.info(s"initiating refresh of inferred rights for ${images.size} images")
+    val inferredRights = rightsFromRcs.copy(published = None)
+
+    images.foreach(image => {
+      val message = Json.obj(
+        "id" -> image.id,
+        "data" -> Json.toJson(inferredRights)
+      )
+
+      thrallNotifications.publish(message, subject = "refresh-inferred-rights")
+    })
+  }
 }
 
 // TODO: improve and use this (for logging especially) else where.
 case class EsResponse(message: String)
+case class SNSBodyParseError(message: String) extends Exception

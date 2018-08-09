@@ -17,6 +17,8 @@ case class SyndicationRights(
 
     rightsAcquired && isPublished
   }
+
+  def isInferred = published.isEmpty
 }
 object SyndicationRights {
   implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
