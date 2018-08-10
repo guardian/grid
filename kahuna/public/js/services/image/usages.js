@@ -16,7 +16,15 @@ imageUsagesService.factory('imageUsagesService', [function() {
     return {
         getUsages: (imageResource) => {
 
+            function frontsUsageTitle(usage) {
+              const metadata = usage.get('frontUsageMetadata');
+              return `${metadata.get('front')}, ${metadata.get('addedBy')}`;
+            }
+
             function usageTitle(usage) {
+                if (usage.has('frontUsageMetadata')) {
+                  return frontsUsageTitle(usage);
+                }
                 const referenceType =
                     usage.get('platform') == 'print' ? 'indesign' : 'frontend';
 
