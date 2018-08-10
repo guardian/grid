@@ -1,11 +1,10 @@
 package lib
 
-import play.api.libs.json._
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.model.{Edits, Image, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.model.{Edits, SyndicationRights}
 import org.elasticsearch.action.delete.DeleteResponse
-import org.elasticsearch.action.update.UpdateResponse
+import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -14,8 +13,8 @@ class ThrallMessageConsumer(
   es: ElasticSearch,
   thrallMetrics: ThrallMetrics,
   store: ThrallStore,
-  dynamoNotifications: DynamoNotifications,
-  syndicationNotifications: SyndicationNotifications
+  notifications: DynamoNotifications,
+  syndicationRightsOps: SyndicationRightsOps
 )(implicit ec: ExecutionContext) extends MessageConsumer(
   config.queueUrl,
   config.awsEndpoint,
@@ -82,7 +81,7 @@ class ThrallMessageConsumer(
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)
-              dynamoNotifications.publish(Json.obj("id" -> id), "image-deleted")
+              notifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
@@ -96,7 +95,7 @@ class ThrallMessageConsumer(
   def deleteAllUsages(usage: JsValue) =
     Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
-  def upsertSyndicationRights(rights: JsValue): Future[List[UpdateResponse]] = {
+  def upsertSyndicationRights(rights: JsValue) = {
     (rights \ "data").validate[SyndicationRights].fold(
       err => {
         val msg = s"Unable to parse message as SyndicationRights ${JsError.toJson(err).toString}"
@@ -106,13 +105,21 @@ class ThrallMessageConsumer(
       syndicationRights => withImageId(rights) { id =>
         GridLogger.info(s"upserting syndication rights", Map("image-id" -> id, "inferred" -> syndicationRights.isInferred))
 
-        if (!syndicationRights.isInferred) {
-          refreshInferredSyndicationRights(id, syndicationRights)
-        }
+        es.getImage(id) map {
+          case Some(image) => {
+            if (!syndicationRights.isInferred) {
+              syndicationRightsOps.refreshInferredRights(image, syndicationRights)
+            }
 
-        Future.sequence(
-          es.updateImageSyndicationRights(id, Some(syndicationRights))
-        )
+            Future.sequence(
+              es.updateImageSyndicationRights(id, Some(syndicationRights))
+            )
+          }
+          case _ => {
+            GridLogger.info(s"image $id not found")
+            None
+          }
+        }
       }
     )
   }
@@ -130,8 +137,10 @@ class ThrallMessageConsumer(
         es.getImage(id) map {
           case Some(image) => {
             image.syndicationRights match {
-              case Some(rights) if !rights.isInferred => notInferred(image, upcomingEdits)
-              case _ => inferred(image, upcomingEdits)
+              case Some(rights) if !rights.isInferred =>
+                syndicationRightsOps.moveExplicitRightsToPhotoshoot(image, upcomingEdits.photoshoot)
+              case _ =>
+                syndicationRightsOps.moveInferredRightsToPhotoshoot(image, upcomingEdits.photoshoot)
             }
 
             updateImageUserMetadata(message)
@@ -145,114 +154,9 @@ class ThrallMessageConsumer(
     )
   }
 
-  def deleteInferredRights(message: JsValue) = {
-    Future.sequence(
-      withImageId(message) { id =>
-        GridLogger.info("deleting inferred rights", id)
-        es.deleteSyndicationRights(id)
-      }
-    )
-  }
-
-  private def notInferred(image: Image, upcomingEdits: Edits) = {
-    image.userMetadata.flatMap(_.photoshoot).foreach(currentPhotoshoot => {
-      // lookup latest rcs published image in current shoot
-      // compare to this image
-      // if this image is most recent
-      //    refresh shoot with second most recent if exists, else remove inferred rights
-      // else no-op
-
-      es.getMostRecentSyndicationRights(currentPhotoshoot, Some(image)) map {
-        case Some(mostRecentImage) if image.rcsPublishDate.get.isAfter(mostRecentImage.rcsPublishDate.get) => {
-          GridLogger.info(s"refreshing inferred syndication rights for images using ${mostRecentImage.id} because ${image.id} has moved", Map("image-id" -> image.id, "photoshoot" -> currentPhotoshoot.title))
-          refreshInferredSyndicationRightsAcrossPhotoshoot(currentPhotoshoot, mostRecentImage.syndicationRights.get, None)
-        }
-        case None => {
-          // remove all inferred syndication rights from photoshoot
-          GridLogger.info(s"removing inferred rights from photoshoot as it no longer contains an image with direct rights", Map("image-id" -> image.id, "photoshoot" -> currentPhotoshoot.title))
-          es.getImagesWithInferredSyndicationRights(currentPhotoshoot, None)
-            .map(syndicationNotifications.sendRemoval)
-        }
-        case _ => None // no-op
-      }
-    })
-
-    upcomingEdits.photoshoot.foreach(newPhotoshoot => {
-      // lookup latest rcs published image in new shoot
-      // compare to this image
-      // if this image is more recent, copy
-      // else no-op
-
-      es.getMostRecentSyndicationRights(newPhotoshoot, None) map {
-        case Some(mostRecentImage) if image.rcsPublishDate.get.isAfter(mostRecentImage.rcsPublishDate.get) => {
-          GridLogger.info(s"refreshing inferred syndication rights for images using ${image.id} because its the most recent", Map("image-id" -> image.id, "photoshoot" -> newPhotoshoot.title))
-          refreshInferredSyndicationRightsAcrossPhotoshoot(newPhotoshoot, image.syndicationRights.get, None)
-        }
-        case None => {
-          GridLogger.info(s"refreshing inferred syndication rights for images using ${image.id} because none previously existed", Map("image-id" -> image.id, "photoshoot" -> newPhotoshoot.title))
-          refreshInferredSyndicationRightsAcrossPhotoshoot(newPhotoshoot, image.syndicationRights.get, None)
-        }
-        case _ => None // no-op
-      }
-    })
-  }
-
-  private def inferred(image: Image, upcomingEdits: Edits) = {
-    val maybeCurrentPhotoshoot = image.userMetadata.flatMap(_.photoshoot)
-    val maybeNewPhotoshoot = upcomingEdits.photoshoot
-
-    (maybeCurrentPhotoshoot, maybeNewPhotoshoot) match {
-      case (Some(_), None) => {
-        // removed from photoshoot, remove inferred rights
-        GridLogger.info("image removed from photoshoot, removing inferred rights", image.id)
-        syndicationNotifications.sendRemoval(image)
-      }
-      case (_, Some(newPhotoshoot)) => {
-        // moved to new photoshoot
-        // lookup latest rcs published image in new photoshoot
-        // if exists replace inferred rights
-        // else remove inferred rights
-
-        es.getMostRecentSyndicationRights(newPhotoshoot, None) map {
-          case Some(i) => {
-            GridLogger.info(s"inferring rights from ${i.id} as its the most recent in photoshoot", image.id)
-            syndicationNotifications.sendRefresh(image, i.syndicationRights.get)
-          }
-          case None => {
-            GridLogger.info("cannot infer rights from new photoshoot", image.id)
-            syndicationNotifications.sendRemoval(image)
-          }
-        }
-      }
-      case (None, None) => None // no-op, shouldn't happen
-    }
-  }
-
-  private def refreshInferredSyndicationRights(id: String, syndicationRights: SyndicationRights) = {
-    es.getImage(id) map {
-      case Some(image) => {
-        image.userMetadata.map { edits =>
-          edits.photoshoot match {
-            case Some(photoshoot) if !syndicationRights.isInferred => {
-              refreshInferredSyndicationRightsAcrossPhotoshoot(photoshoot, syndicationRights, Some(image))
-              image
-            }
-            case _ => image
-          }
-        }
-      }
-      case _ => {
-        GridLogger.info(s"image $id not found")
-        None
-      }
-    }
-  }
-
-  private def refreshInferredSyndicationRightsAcrossPhotoshoot(photoshoot: Photoshoot, syndicationRights: SyndicationRights, excludedImage: Option[Image]) = {
-    GridLogger.info("setting inferred rights for photoshoot")
-    es.getImagesWithInferredSyndicationRights(photoshoot, excludedImage)
-      .map(syndicationNotifications.sendRefresh(_, syndicationRights))
-  }
+  def deleteInferredRights(message: JsValue) = Future.sequence(
+    withImageId(message)(id => es.deleteSyndicationRights(id))
+  )
 }
 
 // TODO: improve and use this (for logging especially) else where.

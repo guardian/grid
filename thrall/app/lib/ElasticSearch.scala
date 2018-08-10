@@ -290,7 +290,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       }
   }
 
-  def getImagesWithInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[List[Image]] = {
+  def getInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[List[Image]] = {
     // absence of `published` field means `syndicationRights` hasn't come from RCS
     val inferredSyndicationRights = missingFilter("syndicationRights.published")
 
@@ -314,7 +314,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       .map(_.map(_.as[Image]))
   }
 
-  def getMostRecentSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[Option[Image]] = {
+  def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[Option[Image]] = {
     // presence of `published` field means `syndicationRights` has come from RCS
     val nonInferredSyndicationRights = existsFilter("syndicationRights.published")
 
