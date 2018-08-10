@@ -10,10 +10,11 @@ import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.{DocumentMissingException, VersionConflictEngineException}
-import org.elasticsearch.index.query.FilterBuilders.{andFilter, missingFilter, notFilter, idsFilter}
+import org.elasticsearch.index.query.FilterBuilders.{andFilter, existsFilter, idsFilter, missingFilter, notFilter}
 import org.elasticsearch.index.query.FilteredQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
+import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import org.joda.time.DateTime
 
 import scala.collection.JavaConverters._
@@ -143,6 +144,15 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
         .executeAndLog(s"removing all usages on image $id")
         .recover { case e: DocumentMissingException => new UpdateResponse }
         .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+    }
+  }
+
+  def deleteSyndicationRights(id: String)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    prepareImageUpdate(id) { request =>
+      request.setScript(deleteSyndicationRightsScript, scriptType)
+        .executeAndLog(s"removing syndication rights on image $id")
+        .recover { case e: DocumentMissingException => new UpdateResponse }
+        .incrementOnFailure(metrics.failedSyndicationRightsUpdates) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -280,13 +290,21 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       }
   }
 
-  def getImagesWithInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Image)(implicit ex: ExecutionContext): Future[List[Image]] = {
+  def getImagesWithInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[List[Image]] = {
+    // absence of `published` field means `syndicationRights` hasn't come from RCS
+    val inferredSyndicationRights = missingFilter("syndicationRights.published")
+
+    val filter = excludedImage match {
+      case Some(image) => andFilter(
+        notFilter(idsFilter().addIds(image.id)),
+        inferredSyndicationRights
+      )
+      case _ => inferredSyndicationRights
+    }
+
     val filteredQuery = new FilteredQueryBuilder(
       matchQuery(photoshootField("title"), photoshoot.title),
-      andFilter(
-        notFilter(idsFilter().addIds(excludedImage.id)),
-        missingFilter("syndicationRights.published") // absence of `published` field means `syndicationRights` hasn't come from RCS
-      )
+      filter
     )
 
     client.prepareSearch(imagesAlias).setTypes(imageType)
@@ -294,6 +312,35 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       .executeAndLog(s"get images in photoshoot ${photoshoot.title} with inferred syndication rights")
       .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
       .map(_.map(_.as[Image]))
+  }
+
+  def getMostRecentSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[Option[Image]] = {
+    // presence of `published` field means `syndicationRights` has come from RCS
+    val nonInferredSyndicationRights = existsFilter("syndicationRights.published")
+
+    val filter = excludedImage match {
+      case Some(image) => andFilter(
+        nonInferredSyndicationRights,
+        notFilter(idsFilter().addIds(image.id))
+      )
+      case _ => nonInferredSyndicationRights
+    }
+
+    val filteredQuery = new FilteredQueryBuilder(
+      matchQuery(photoshootField("title"), photoshoot.title),
+      filter
+    )
+
+    val order = SortBuilders
+      .fieldSort("syndicationRights.published")
+      .order(SortOrder.DESC)
+
+    client.prepareSearch(imagesAlias).setTypes(imageType)
+      .setQuery(filteredQuery)
+      .addSort(order)
+      .executeAndLog(s"get images in photoshoot ${photoshoot.title} with rcs syndication rights")
+      .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
+      .map(_.map(_.as[Image]).headOption)
   }
 
   private val addToSuggestersScript =
@@ -338,6 +385,9 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   private val deleteUsagesScript =
     "ctx._source.remove('usages');".stripMargin
+
+  private val deleteSyndicationRightsScript =
+    "ctx._source.remove('syndicationRights');".stripMargin
 
   // Script that refreshes the "metadata" object by recomputing it
   // from the original metadata and the overrides

@@ -27,7 +27,9 @@ case class Image(
   leases:              LeaseByMedia     = LeaseByMedia.build(Nil),
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None
-)
+) {
+  def rcsPublishDate: Option[DateTime] = syndicationRights.flatMap(_.published)
+}
 
 object Image {
 
