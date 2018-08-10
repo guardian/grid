@@ -15,7 +15,7 @@ class ThrallMessageConsumer(
   thrallMetrics: ThrallMetrics,
   store: ThrallStore,
   dynamoNotifications: DynamoNotifications,
-  thrallNotifications: ThrallNotifications
+  syndicationNotifications: SyndicationNotifications
 )(implicit ec: ExecutionContext) extends MessageConsumer(
   config.queueUrl,
   config.awsEndpoint,
@@ -37,9 +37,9 @@ class ThrallMessageConsumer(
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
       case "upsert-rcs-rights"          => upsertSyndicationRights
-      case "refresh-inferred-rights"    => upsertSyndicationRights
       case "update-image-photoshoot"    => updateImagePhotoshoot
-      case "delete-inferred-rights"     => deleteInferredRights
+      case SyndicationNotifications.refreshSubject => upsertSyndicationRights
+      case SyndicationNotifications.deleteSubject  => deleteInferredRights
     }
   }
 
@@ -171,7 +171,7 @@ class ThrallMessageConsumer(
           // remove all inferred syndication rights from photoshoot
           GridLogger.info(s"removing inferred rights from photoshoot as it no longer contains an image with direct rights", Map("image-id" -> image.id, "photoshoot" -> currentPhotoshoot.title))
           es.getImagesWithInferredSyndicationRights(currentPhotoshoot, None)
-            .map(initiateRightsRemoval)
+            .map(syndicationNotifications.sendRemoval)
         }
         case _ => None // no-op
       }
@@ -205,7 +205,7 @@ class ThrallMessageConsumer(
       case (Some(_), None) => {
         // removed from photoshoot, remove inferred rights
         GridLogger.info("image removed from photoshoot, removing inferred rights", image.id)
-        initiateRightsRemoval(List(image))
+        syndicationNotifications.sendRemoval(image)
       }
       case (_, Some(newPhotoshoot)) => {
         // moved to new photoshoot
@@ -216,23 +216,16 @@ class ThrallMessageConsumer(
         es.getMostRecentSyndicationRights(newPhotoshoot, None) map {
           case Some(i) => {
             GridLogger.info(s"inferring rights from ${i.id} as its the most recent in photoshoot", image.id)
-            initiateInferredRightsRefresh(List(image), i.syndicationRights.get)
+            syndicationNotifications.sendRefresh(image, i.syndicationRights.get)
           }
           case None => {
             GridLogger.info("cannot infer rights from new photoshoot", image.id)
-            initiateRightsRemoval(List(image))
+            syndicationNotifications.sendRemoval(image)
           }
         }
       }
       case (None, None) => None // no-op, shouldn't happen
     }
-  }
-
-  private def initiateRightsRemoval(images: List[Image]) = {
-    images.foreach(image => thrallNotifications.publish(
-      Json.obj("id" -> image.id),
-      subject = "delete-inferred-rights"
-    ))
   }
 
   private def refreshInferredSyndicationRights(id: String, syndicationRights: SyndicationRights) = {
@@ -258,21 +251,7 @@ class ThrallMessageConsumer(
   private def refreshInferredSyndicationRightsAcrossPhotoshoot(photoshoot: Photoshoot, syndicationRights: SyndicationRights, excludedImage: Option[Image]) = {
     GridLogger.info("setting inferred rights for photoshoot")
     es.getImagesWithInferredSyndicationRights(photoshoot, excludedImage)
-      .map(initiateInferredRightsRefresh(_, syndicationRights))
-  }
-
-  private def initiateInferredRightsRefresh(images: List[Image], rightsFromRcs: SyndicationRights) = {
-    GridLogger.info(s"initiating refresh of inferred rights for ${images.size} images")
-    val inferredRights = rightsFromRcs.copy(published = None)
-
-    images.foreach(image => {
-      val message = Json.obj(
-        "id" -> image.id,
-        "data" -> Json.toJson(inferredRights)
-      )
-
-      thrallNotifications.publish(message, subject = "refresh-inferred-rights")
-    })
+      .map(syndicationNotifications.sendRefresh(_, syndicationRights))
   }
 }
 
