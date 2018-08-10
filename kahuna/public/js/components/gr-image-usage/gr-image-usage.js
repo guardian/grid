@@ -28,6 +28,7 @@ module.controller('grImageUsageCtrl', [
         const usages$ = usages.groupedByState$.map((u) => u.toJS());
         const usagesCount$ = usages.count$;
 
+      // TODO match on `platform` rather than `type` as `platform` includes more detail
         ctrl.usageTypeToName = (usageType) => {
             switch (usageType) {
                 case 'removed':
@@ -36,6 +37,8 @@ module.controller('grImageUsageCtrl', [
                     return 'Pending publication';
                 case 'published':
                     return 'Published';
+                case 'unknown':
+                    return 'Front'; // currently only fronts have an `unknown` type, see TODO above
                 default:
                     return usageType;
             }
