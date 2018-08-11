@@ -248,7 +248,7 @@ class MediaApi(
     }
   }
 
-  def imageSearch(isExample: Boolean) = auth.async { request =>
+  def imageSearch() = auth.async { request =>
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
@@ -265,14 +265,8 @@ class MediaApi(
       }
     }
 
-    def imageJsonToSearchResult(jsonOpt: Option[JsValue]): SearchResults = jsonOpt.map { json =>
-      SearchResults(hits = Seq((config.exampleImageId, json)), total = 1)
-    }.getOrElse(SearchResults(hits = Seq.empty, 0))
-
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount) <-
-        if(isExample) elasticSearch.getImageById(config.exampleImageId).map(imageJsonToSearchResult)
-        else elasticSearch.search(searchParams)
+      SearchResults(hits, totalCount) <- elasticSearch.search(searchParams)
       imageEntities <- Future.sequence(hits map (hitToImageEntity _).tupled)
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
