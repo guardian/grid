@@ -20,10 +20,16 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   lazy val images: List[Image] = List(
     createImage(Handout()),
     createImage(StaffPhotographer("Yellow Giraffe", "The Guardian")),
-    createImage(Handout()),
+    createImage(Handout(), usages = List(createDigitalUsage())),
 
     // available for syndication
-    createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(true), Some("can-syndicate")),
+    createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(true), Some("test-image-1")),
+
+    // has a digital usage, still eligible for syndication
+    createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(true), Some("test-image-2"), List(createDigitalUsage())),
+
+    // has syndication usage, not available for syndication
+    createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-01-01T00:00:00")), Some(true), None, List(createDigitalUsage(), createSyndicationUsage())),
 
     // rights acquired, explicit allow syndication lease but unknown publish date, not available for syndication
     createImageForSyndication(rightsAcquired = true, None, Some(true)),
@@ -59,8 +65,12 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val searchParams = SearchParams(tier = Syndication, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 1
-        result.hits.head._1 shouldBe "can-syndicate"
+        result.total shouldBe 2
+
+        val imageIds = result.hits.map(_._1)
+        imageIds.size shouldBe 2
+        imageIds.contains("test-image-1") shouldBe true
+        imageIds.contains("test-image-2") shouldBe true
       }
     }
 

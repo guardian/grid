@@ -4,8 +4,10 @@ import java.net.URI
 import java.util.UUID
 
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage._
+import com.gu.mediaservice.model.usage.{UsageStatus => Status}
 import com.gu.mediaservice.syntax._
-import lib.elasticsearch.{ElasticSearch, SearchFilters, filters}
+import lib.elasticsearch.{ElasticSearch, SearchFilters}
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
 import play.api.Configuration
@@ -27,7 +29,13 @@ trait ElasticSearchHelper extends MockitoSugar {
 
   val testUser = "yellow-giraffe@theguardian.com"
 
-  def createImage(usageRights: UsageRights, syndicationRights: Option[SyndicationRights] = None, id: String = UUID.randomUUID().toString, leases: Option[LeaseByMedia] = None): Image = {
+  def createImage(
+     usageRights: UsageRights,
+     syndicationRights: Option[SyndicationRights] = None,
+     id: String = UUID.randomUUID().toString,
+     leases: Option[LeaseByMedia] = None,
+     usages: List[Usage] = Nil
+  ): Image = {
     Image(
       id = id,
       uploadTime = DateTime.now(),
@@ -56,11 +64,18 @@ trait ElasticSearchHelper extends MockitoSugar {
       originalUsageRights = usageRights,
       exports = Nil,
       syndicationRights = syndicationRights,
-      leases = leases.getOrElse(LeaseByMedia.build(Nil))
+      leases = leases.getOrElse(LeaseByMedia.build(Nil)),
+      usages = usages
     )
   }
 
-  def createImageForSyndication(rightsAcquired: Boolean, rcsPublishDate: Option[DateTime], allowLease: Option[Boolean], id: Option[String] = None): Image = {
+  def createImageForSyndication(
+    rightsAcquired: Boolean,
+    rcsPublishDate: Option[DateTime],
+    allowLease: Option[Boolean],
+    id: Option[String] = None,
+    usages: List[Usage] = Nil
+  ): Image = {
     val imageId = id.getOrElse(UUID.randomUUID().toString)
 
     val rights = List(
@@ -83,10 +98,31 @@ trait ElasticSearchHelper extends MockitoSugar {
       ))
     ))
 
-    createImage(StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), imageId, leaseByMedia)
+    createImage(StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), imageId, leaseByMedia, usages)
   }
 
   def createExampleImage(): Image = createImageForSyndication(rightsAcquired = true, None, None).copy(id = "id-abc")
+
+  def createSyndicationUsage(): Usage = {
+    createUsage(SyndicationUsageReference, SyndicationUsage, SyndicatedUsageStatus)
+  }
+
+  def createDigitalUsage(): Usage = {
+    createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus)
+  }
+
+  private def createUsage(t: UsageReferenceType, usageType: UsageType, status: Status): Usage = {
+    Usage(
+      UUID.randomUUID().toString,
+      List(UsageReference(t)),
+      usageType,
+      "image",
+      status,
+      Some(DateTime.now()),
+      None,
+      DateTime.now()
+    )
+  }
 
   def saveImages(images: List[Image]) = {
     Future.sequence(
