@@ -103,6 +103,8 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
 
     val rightsAcquiredFilter = params.hasRightsAcquired.map(searchFilters.rightsAcquiredFilter)
 
+    val syndicationStatusFilter = params.syndicationStatus.map(searchFilters.syndicationStatusFilter)
+
     val filterOpt = (
       metadataFilter.toList
       ++ persistFilter
@@ -121,6 +123,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       ++ hasRightsCategory
       ++ searchFilters.tierFilter(params.tier)
       ++ rightsAcquiredFilter
+      ++ syndicationStatusFilter
     ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val filter = filterOpt getOrElse filters.matchAll
