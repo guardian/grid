@@ -330,7 +330,8 @@ results.controller('SearchResultsCtrl', [
                 length:     length,
                 orderBy:    orderBy,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
-                hasCrops: $stateParams.hasCrops
+                hasCrops: $stateParams.hasCrops,
+                syndicationStatus: $stateParams.syndicationStatus
             }));
         }
 
