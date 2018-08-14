@@ -21,7 +21,6 @@ trait ElasticSearchHelper extends MockitoSugar {
     "es.cluster" -> "media-service-test",
     "es.port" -> "9301",
     "persistence.identifier" -> "picdarUrn",
-    "example.image.id" -> "id-abc",
     "es.index.aliases.read" -> "readAlias")))
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
   private val searchFilters = new SearchFilters(mediaApiConfig)
@@ -100,8 +99,6 @@ trait ElasticSearchHelper extends MockitoSugar {
 
     createImage(StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), imageId, leaseByMedia, usages)
   }
-
-  def createExampleImage(): Image = createImageForSyndication(rightsAcquired = true, None, None).copy(id = "id-abc")
 
   def createSyndicationUsage(): Usage = {
     createUsage(SyndicationUsageReference, SyndicationUsage, SyndicatedUsageStatus)

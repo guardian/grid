@@ -43,9 +43,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
     createImageForSyndication(rightsAcquired = true, Some(DateTime.parse("2018-07-03T00:00:00")), Some(false)),
 
     // no rights acquired, not available for syndication
-    createImageForSyndication(rightsAcquired = false, None, None),
-
-    createExampleImage()
+    createImageForSyndication(rightsAcquired = false, None, None)
   )
 
   override def beforeAll {
@@ -61,7 +59,7 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
   }
 
   describe("ES") {
-    it("ES should return only rights acquired pictures with an allow syndication lease for a syndication tier search and filter out example image") {
+    it("ES should return only rights acquired pictures with an allow syndication lease for a syndication tier search") {
       val searchParams = SearchParams(tier = Syndication, uploadedBy = Some(testUser))
       val searchResult = ES.search(searchParams)
       whenReady(searchResult, timeout, interval) { result =>
