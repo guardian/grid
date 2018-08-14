@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import lib.querysyntax.{Condition, Parser}
+import model.SyndicationStatus
 import org.joda.time.DateTime
 import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._
@@ -40,7 +41,8 @@ case class SearchParams(
   usageStatus: List[UsageStatus] = List.empty,
   usagePlatform: List[String] = List.empty,
   tier: Tier,
-  hasRightsAcquired: Option[Boolean] = None
+  hasRightsAcquired: Option[Boolean] = None,
+  syndicationStatus: Option[SyndicationStatus]
 )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -72,6 +74,7 @@ object SearchParams {
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
   def parsePayTypeFromQuery(s: String): Option[PayType.Value] = PayType.create(s)
   def parseBooleanFromQuery(s: String): Option[Boolean] = Try(s.toBoolean).toOption
+  def parseSyndicationStatus(s: String): Option[SyndicationStatus] = Some(SyndicationStatus(s))
 
   def apply(request: Authentication.Request[Any]): SearchParams = {
 
@@ -108,7 +111,8 @@ object SearchParams {
       commaSep("usageStatus").map(UsageStatus(_)),
       commaSep("usagePlatform"),
       request.user.apiKey.tier,
-      request.getQueryString("hasRightsAcquired") flatMap parseBooleanFromQuery
+      request.getQueryString("hasRightsAcquired") flatMap parseBooleanFromQuery,
+      request.getQueryString("syndicationStatus") flatMap parseSyndicationStatus
     )
   }
 

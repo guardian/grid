@@ -9,6 +9,7 @@ import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
 import lib.MediaApiConfig
+import model._
 import org.joda.time.DateTime
 
 
@@ -96,6 +97,36 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
     case Syndication => Some(syndicationRightsAcquiredFilter())
     case _ => None
+  }
+
+  def syndicationStatusFilter(status: SyndicationStatus): FilterBuilder = {
+    status match {
+      case SentForSyndication => filters.and(
+        rightsAcquiredFilter(isAcquired = true),
+        filters.term("leases.leases.access", AllowSyndicationLease.name),
+        filters.term("usages.platform", SyndicationUsage.toString)
+      )
+      case QueuedForSyndication => filters.and(
+        rightsAcquiredFilter(isAcquired = true),
+        filters.term("leases.leases.access", AllowSyndicationLease.name),
+        filters.bool.mustNot(
+          filters.term("usages.platform", SyndicationUsage.toString)
+        )
+      )
+      case BlockedForSyndication => filters.and(
+        rightsAcquiredFilter(isAcquired = true),
+        filters.term("leases.leases.access", DenySyndicationLease.name)
+      )
+      case AwaitingReviewForSyndication => filters.and(
+        rightsAcquiredFilter(isAcquired = true),
+        filters.bool.mustNot(
+          filters.or(
+            filters.term("leases.leases.access", AllowSyndicationLease.name),
+            filters.term("leases.leases.access", DenySyndicationLease.name)
+          )
+        )
+      )
+    }
   }
 
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
