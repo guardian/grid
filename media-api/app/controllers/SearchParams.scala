@@ -42,7 +42,7 @@ case class SearchParams(
   usagePlatform: List[String] = List.empty,
   tier: Tier,
   hasRightsAcquired: Option[Boolean] = None,
-  syndicationStatus: Option[SyndicationStatus]
+  syndicationStatus: Option[SyndicationStatus] = None
 )
 
 case class InvalidUriParams(message: String) extends Throwable
