@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.auth.{Syndication, Tier}
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.model.usage.SyndicationUsage
 import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
@@ -87,7 +88,10 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
     filters.and(
       rightsAcquiredFilter(isAcquired = true),
       filters.date(field = "syndicationRights.published", None, Some(DateTime.now)).get,
-      filters.term(field = "leases.leases.access", term = AllowSyndicationLease.name)
+      filters.term(field = "leases.leases.access", term = AllowSyndicationLease.name),
+      filters.bool.mustNot(
+        filters.term("usages.platform", term = SyndicationUsage.toString)
+      )
     )
   }
 
