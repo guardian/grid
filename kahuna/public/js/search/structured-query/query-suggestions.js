@@ -32,7 +32,8 @@ export const filterFields = [
     'has',
     'croppedBy',
     'filename',
-    'photoshoot'
+    'photoshoot',
+    'leasedBy'
 ].sort();
 // TODO: add date fields
 
