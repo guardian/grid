@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.UploadInfo
 import lib._
 import lib.imaging.MimeTypeDetection
@@ -49,6 +50,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
     auth.async { request =>
+      GridLogger.info(s"request to import an image", request.user.apiKey)
       Try(URI.create(uri)) map { validUri =>
         val tmpFile = createTempFile("download")
 
