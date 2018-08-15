@@ -108,7 +108,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "label" |
     "croppedBy" |
     "filename" |
-    "photoshoot"
+    "photoshoot" |
+    "leasedBy"
   }
 
   def resolveNamedField(name: String): Field = (name match {

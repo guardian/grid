@@ -48,7 +48,8 @@ trait ImageFields {
     "crops"     -> "exports",
     "croppedBy" -> "exports.author",
     "filename"  -> "uploadInfo.filename",
-    "photoshoot"-> photoshootField("title")
+    "photoshoot"-> photoshootField("title"),
+    "leasedBy" -> "leases.leases.leasedBy"
   )
 
   def getFieldPath(field: String) = field match {
