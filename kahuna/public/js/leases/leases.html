@@ -2,7 +2,7 @@
         ng:click="ctrl.editing = true"
         ng:if="ctrl.userCanEdit"
         gr:tooltip="Add lease"
-        gr:tooltip-position="left">
+        gr:tooltip-position="bottom">
 
     <gr-icon ng-show="!ctrl.editing" ng:class="{'spin': ctrl.adding}">add_box</gr-icon>
     <span>
@@ -84,7 +84,7 @@
     <li ng-repeat="lease in ctrl.leases.leases"
         gr:tooltip="{{ctrl.toolTip(lease)}}"
         class="lease__item"
-        gr:tooltip-position="left">
+        gr:tooltip-position="bottom">
 
         <div class="lease__current" ng:class="ctrl.leaseStatus(lease).current" ng:if="ctrl.leaseStatus(lease).current"></div>
 
