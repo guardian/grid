@@ -107,6 +107,11 @@ button {
     padding: 5px;
     box-sizing: border-box;
 }
+
+.text-input::placeholder {
+    color: #888;
+}
+
 textarea {
     resize: vertical;
 }
