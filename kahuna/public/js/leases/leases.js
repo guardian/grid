@@ -59,6 +59,14 @@ leases.controller('LeasesCtrl', [
 
                 if (ctrl.access === 'allow-syndication') {
                     ctrl.newLease.endDate = null;
+
+                    const noteWithClause = [
+                        ctrl.noteCallAgencyClause ? 'CALL AGENCY' : undefined,
+                        ctrl.notePremiumClause ? 'PREMIUM' : undefined,
+                        ctrl.newLease.notes
+                    ].filter(Boolean);
+
+                    ctrl.newLease.notes = noteWithClause.join(', ');
                 }
 
                 let syndLeases = ctrl.leases.leases.filter((l) =>
