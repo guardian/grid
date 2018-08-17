@@ -14,6 +14,7 @@ import com.drew.metadata.png.PngDirectory
 import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model.{Dimensions, FileMetadata}
 
 import scala.collection.JavaConverters._
@@ -91,9 +92,11 @@ object FileMetadataReader {
       }
     } getOrElse Map()
 
+  private val datePattern = "(.*[Dd]ate.*)".r
   private def exportXmpProperties(metadata: Metadata): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
+        case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key)
         case (key, Some(value)) => key -> value
       }
     } getOrElse Map()
