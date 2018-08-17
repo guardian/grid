@@ -41,9 +41,7 @@ leases.controller('LeasesCtrl', [
         ctrl.adding = false;
         ctrl.showCalendar = false;
 
-        ctrl.calendarVisible = () =>
-            ctrl.access !== 'allow-syndication' &&
-            !(ctrl.access === 'deny-syndication' && ctrl.showCalendar === false);
+        ctrl.midnightTomorrow = moment().add(1, 'days').startOf('day').toDate();
 
         ctrl.cancel = () => ctrl.editing = false;
 
@@ -54,8 +52,12 @@ leases.controller('LeasesCtrl', [
                 ctrl.adding = true;
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
-                if (!ctrl.showCalendar && ctrl.access === 'deny-syndication') {
+
+                if (ctrl.access === 'deny-syndication') {
                     ctrl.newLease.startDate = null;
+                }
+
+                if (ctrl.access === 'allow-syndication') {
                     ctrl.newLease.endDate = null;
                 }
 
