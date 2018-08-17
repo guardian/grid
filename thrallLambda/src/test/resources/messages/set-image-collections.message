@@ -1,0 +1,12 @@
+{
+  "Type" : "Notification",
+  "MessageId" : "09d1c339-a536-5746-bc54-90f0950a28d3",
+  "TopicArn" : "arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL",
+  "Subject" : "set-image-collections",
+  "Message" : "{\"id\":\"set-image-collections-id\",\"data\":[{\"path\":[\"Culture\",\"Reviews\",\"SUN\"],\"pathId\":\"culture/reviews/sun\",\"description\":\"SUN\",\"actionData\":{\"author\":\"josy.forsdike@guardian.co.uk\",\"date\":\"2018-07-04T14:13:57.048+00:00\"}},{\"path\":[\"Observer\",\"New Review\",\"Critics\",\"shorts\"],\"pathId\":\"observer/new review/critics/shorts\",\"description\":\"shorts\",\"actionData\":{\"author\":\"josy.forsdike@guardian.co.uk\",\"date\":\"2018-07-18T12:09:32.359+00:00\"}}]}",
+  "Timestamp" : "2018-07-18T12:09:32.446Z",
+  "SignatureVersion" : "1",
+  "Signature" : "dDdJRSivfbgDyFkARuwGvZymtBKjUQPh/MqmUIpCP+2cKcxxUlkxE7soysBGmTG/OStwSQFZhUcZf4uCxISsXIBfvMw3OIHLl9BwvJpxqJhDKv9RYaf0XZfPSzkrJoSlXd5tj6F5v7EGMy2p6f7m7fcGx/EezX2Q5YGb1+I6aro/c5m1E1pfoqyiRHcLJYyco3Wh4iX+LuWGZKmT8qgm2oIQEt4f+aAMvRg9cfB8h4qEipF7mHgPiJacB0u08S3g+At6M4S8Vi92y4uu6Rq1raH8nd+3gD/fPobJh88nPlp9Ugi8t17fRDuWcV723dW9r2u9ma982PlZEnl1FEJMFA==",
+  "SigningCertURL" : "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-eaea6120e66ea12e88dcd8bcbddca752.pem",
+  "UnsubscribeURL" : "https://sns.eu-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL:0b49e1a1-dafd-4443-ac0c-3af20f4bb5a3"
+}

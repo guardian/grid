@@ -1,0 +1,12 @@
+{
+  "Type" : "Notification",
+  "MessageId" : "a0555e70-568d-5c38-a451-0db97973bf25",
+  "TopicArn" : "arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL",
+  "Subject" : "update-image-user-metadata",
+  "Message" : "{\"id\":\"update-image-user-metadata-id\",\"data\":{\"archived\":false,\"labels\":[\"ASTRONOMY PHOTOGRAPHER\",\"bs\"],\"metadata\":{\"description\":\"Guardian of Tre Cime © Carlos F. Turienzo. EMBARGOED until 00.01am BST Thursday 19 July 2018* INSIGHT INVESTMENT ASTRONOMY PHOTOGRAPHER OF THE YEAR 2018 SHORTLISTED IMAGES\\nGuardian of Tre Cime © Carlos F. Turienzo (Spain)\\nThis panoramic image, composed out of eight photos, depicts the Milky Way emerging over the rocky Dolomites in Tre Crime on the left and on the right the lights from a house illuminating the beautiful terrain. The photographer noted that the image represents sharing unforgettable moment with the ones you love.    \\nTre Cime, Italy, 25 June 2017\",\"credit\":\"Carlos F. Turienzo\"},\"usageRights\":{\"category\":\"handout\"}},\"lastModified\":\"2018-07-18T12:08:30.021Z\"}",
+  "Timestamp" : "2018-07-18T12:08:30.317Z",
+  "SignatureVersion" : "1",
+  "Signature" : "p3jc660hijTc6fkO9MfjBontSDoyXGI2G6yZwyX2UrBk2H+29S6TUG8SA+7hkDPjvo8CrPEoBEfOPYTtVhIbcYrOzC/3nV0u9a4ZcFEuuZ1a4rtpNNNXR3HLkDHyEsYD1CUmWbl+BjPsg/f6nmGuJ2HREL9coPrej+fmC68S1sMEmzPHsf1Y6rdpc7CSo5tpMMikTyO7F4+qN/RHuZi+ZMiB4mHyfaDwOsieA+NP8PHdlh6chaeKTmN7Kry2fe45wQ0mkEp3BOkFlFaYoGCUf1vWcCtG/JUM9K53W6rSchYszBUMVl3rddZUTD+upmmRsGSGIjpFd2QYQZ5V4CjB0Q==",
+  "SigningCertURL" : "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-eaea6120e66ea12e88dcd8bcbddca752.pem",
+  "UnsubscribeURL" : "https://sns.eu-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL:0b49e1a1-dafd-4443-ac0c-3af20f4bb5a3"
+}

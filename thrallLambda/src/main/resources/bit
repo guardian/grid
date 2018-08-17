@@ -1,0 +1,24 @@
+{
+    "script": {
+        "lang": "painless",
+        "source": "ctx._source.collections = params.collections",
+        "params": {
+            "collections": [
+                {
+                    "path": [
+                        "Observer",
+                        "New Review",
+                        "TV",
+                        "18 Saturday"
+                    ],
+                    "pathId": "observer/new review/tv/18 saturday",
+                    "description": "18 Saturday",
+                    "actionData": {
+                        "author": "josy.forsdike@guardian.co.uk",
+                        "date": "2018-08-08T09:57:00.303+00:00"
+                    }
+                }
+            ]
+        }
+    }
+}

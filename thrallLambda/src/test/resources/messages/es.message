@@ -1,0 +1,25 @@
+{
+  "took":1,
+  "timed_out":false,
+  "_shards":{
+    "total":1,
+    "successful":1,
+    "skipped":0,
+    "failed":0
+  },
+  "hits":{
+    "total":1,
+    "max_score":1.0,
+    "hits":[
+      {
+        "_index":"images_7",
+        "_type":"doc",
+        "_id":"1",
+        "_score":1.0,
+        "_source":{
+          "id":1
+        }
+      }
+    ]
+  }
+}

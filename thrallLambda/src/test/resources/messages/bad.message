@@ -1,0 +1,12 @@
+{
+  "Type" : "Notification",
+  "MessageId" : "58da74dd-4328-59a5-ba71-27146c999324",
+  "TopicArn" : "arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL",
+  "Subject" : "bad",
+  "Message" : "{}",
+  "Timestamp" : "2018-07-18T12:07:13.208Z",
+  "SignatureVersion" : "1",
+  "Signature" : "saDLr9SzrnxpMNQT1Zj5aqndOSvrqgVFYI3dD7fsrcGDGQh9WZggTB4yaLe+g++jQJKD4E5HuPja+kGf29SW9WdtrxcFMLIIVRk9jt3563qbumTqtqR4zvrXLdsXBJWxTbpAVv2Mkd0pHry4Hy3dOSFZyZ6qFpPW6GhOBsVADn01k9Ayl6qGPFw9UE6kYYdzLTlc0xBIpAYgOM4b2/LJv5RAHr2dcTb7IpOKKEdi9dDh5WvZd4WZXe20UX6pgmIjui/HOrfW+hDpc1MAPiSF8NX9u/zfx57ZUeuy/mTTgblwzJI9w2Wq0/2NDltZ4kXd+CKSwLo8nVWZvgiQV7bEgw==",
+  "SigningCertURL" : "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-eaea6120e66ea12e88dcd8bcbddca752.pem",
+  "UnsubscribeURL" : "https://sns.eu-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL:0b49e1a1-dafd-4443-ac0c-3af20f4bb5a3"
+}

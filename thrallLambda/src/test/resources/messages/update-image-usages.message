@@ -1,0 +1,12 @@
+{
+  "Type" : "Notification",
+  "MessageId" : "141821a6-5e0a-5660-a1e3-726f71bcbe24",
+  "TopicArn" : "arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL",
+  "Subject" : "update-image-usages",
+  "Message" : "{\"id\":\"update-image-usages-id\",\"data\":[{\"id\":\"print/dfb05b73fe34083afabd8de5a47d057a_e46806dde2d317438e187835ad986f11\",\"references\":[{\"type\":\"indesign\",\"name\":\"2018-07-22, Observer, Critics (Observer Review), Page 40\"}],\"platform\":\"print\",\"media\":\"image\",\"status\":\"pending\",\"dateAdded\":\"2018-07-18T13:07:18.142Z\",\"lastModified\":\"2018-07-18T13:07:18.142Z\",\"printUsageMetadata\":{\"sectionName\":\"Critics (Observer Review)\",\"issueDate\":\"2018-07-22T00:00:00.000Z\",\"pageNumber\":40,\"storyName\":\"cumming.22july\",\"publicationCode\":\"obs\",\"publicationName\":\"Observer\",\"layoutId\":13812970,\"edition\":1,\"size\":{\"x\":744,\"y\":558},\"orderedBy\":\"Carol McDaid\",\"sectionCode\":\"2rc\"}}],\"lastModified\":\"2018-07-18T12:07:18.350Z\"}",
+  "Timestamp" : "2018-07-18T12:07:18.360Z",
+  "SignatureVersion" : "1",
+  "Signature" : "ReClUmz3lCRLiuY4chbRWVAfPf/HtAhJ4ACU/Rd+6zc2wSJAQoGxdI9+30IOokH/2qnJ7GZkouHXBXI3w0cHT2KXhK6R/HUbF3J0paPPMaGrsXGhrj4voH4Kivh+5NVXpI+6LRX7cGK3bI4hPIiiAt+LcN/kaL81xK7LHYcUxKRjrds82mshZUxLbWGP9aGFPn+rComZ2jS+ZscK8MlMr8H12MM9dr6j3Nl+CI3VRHLX0C6R1fU06NvgxhL+al7d6iKj1tyGl8WMhbYXyOOvN/dW6pGwd0JVU5TdHOqz4D4c+1pxXb2aFtKzry7nPBYvwWvcPt9vVdqjmuNvuXS+xA==",
+  "SigningCertURL" : "https://sns.eu-west-1.amazonaws.com/SimpleNotificationService-eaea6120e66ea12e88dcd8bcbddca752.pem",
+  "UnsubscribeURL" : "https://sns.eu-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-west-1:563563610310:media-service-PROD-Topic-N4PL17E9KKDL:0b49e1a1-dafd-4443-ac0c-3af20f4bb5a3"
+}

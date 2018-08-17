@@ -77,7 +77,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "org.http4s" %% "http4s-core" % "0.18.7",
     "org.mockito" % "mockito-core" % "2.18.0"
   )
-).settings(testSettings)
+).settings(es171DockerSettings)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
@@ -98,6 +98,30 @@ lazy val usage = playProject("usage", 9009).settings(
 
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
+
+lazy val thrallLambda = project("thrallLambda")
+  .settings(
+  libraryDependencies ++= Seq(
+    "com.typesafe.play" %% "play" % "2.6.13",
+    ws,
+    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+    "com.amazonaws" % "aws-lambda-java-events" % "1.3.0",
+    "com.amazonaws" % "aws-lambda-java-core" % "1.1.0",
+    "com.amazonaws" % "aws-java-sdk-lambda" % "1.11.302",
+    "com.amazonaws" % "aws-java-sdk-s3" % "1.11.302",
+    "com.amazonaws" % "aws-java-sdk-sns" % "1.11.302",
+    "org.slf4j" % "slf4j-log4j12" % "1.7.25",
+    "org.slf4j" % "jcl-over-slf4j" % "1.7.25",
+    "com.amazonaws" % "aws-lambda-java-log4j" % "1.0.0",
+    "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "6.3.1",
+    "com.typesafe.play" %% "play-json" % "2.6.9",
+    "org.scalacheck" %% "scalacheck" % "1.14.0",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.8.0"),
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    }
+).settings(es611DockerSettings)
 
 def project(projectName: String, path: Option[String] = None): Project =
   Project(projectName, file(path.getOrElse(projectName)))
@@ -134,7 +158,18 @@ def playProject(projectName: String, port: Int): Project =
       )
     ))
 
-val testSettings = Seq(
+val es611DockerSettings = Seq(
+  testOptions in Test += Tests.Setup(_ => {
+
+    println(s"Launching docker container with ES")
+    s"docker-compose up -d elasticsearch6".!
+
+    // This is needed to ensure docker has had enough time to start up
+    Thread.sleep(5000)
+  })
+)
+
+val es171DockerSettings = Seq(
   testOptions in Test += Tests.Setup(_ => {
 
     println(s"Launching docker container with ES")

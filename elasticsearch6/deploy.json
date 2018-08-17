@@ -1,0 +1,23 @@
+{
+    "defaultStacks": ["media-service"],
+    "packages": {
+        "elasticsearch": {
+            "type": "elasticsearch",
+            "data": {
+                "bucket": "media-service-dist",
+                "publicReadAcl": false
+            }
+        }
+    },
+    "recipes": {
+        "default": {
+            "depends": ["artifactUploadOnly", "deployOnly"]
+        },
+        "deployOnly": {
+            "actionsBeforeApp": ["elasticsearch.deploy"]
+        },
+        "artifactUploadOnly": {
+            "actionsBeforeApp": ["elasticsearch.uploadArtifacts"]
+        }
+    }
+}

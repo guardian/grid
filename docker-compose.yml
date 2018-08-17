@@ -12,6 +12,18 @@ services:
       memlock:
         soft: -1
         hard: -1
+  elasticsearch6:
+    build:
+      context: ./elasticsearch6/dev
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - "./elasticsearch6/dev/elasticsearch.yml"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
   imgops:
     build:
       context: ./imgops/dev
