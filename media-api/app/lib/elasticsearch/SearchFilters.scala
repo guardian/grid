@@ -75,7 +75,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
 
-  def rightsAcquiredFilter(isAcquired: Boolean): FilterBuilder =
+  private def rightsAcquiredFilter(isAcquired: Boolean): FilterBuilder =
     filters.bool.must(
       filters.boolTerm(
         field = "syndicationRights.rights.acquired",
@@ -83,19 +83,8 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
       )
     )
 
-  def syndicationRightsAcquiredFilter(): FilterBuilder = {
-    filters.and(
-      rightsAcquiredFilter(isAcquired = true),
-      filters.date(field = "syndicationRights.published", None, Some(DateTime.now)).get,
-      filters.term(field = "leases.leases.access", term = AllowSyndicationLease.name),
-      filters.bool.mustNot(
-        filters.term("usages.platform", term = SyndicationUsage.toString)
-      )
-    )
-  }
-
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case Syndication => Some(syndicationRightsAcquiredFilter())
+    case Syndication => Some(syndicationStatusFilter(QueuedForSyndication))
     case _ => None
   }
 
@@ -108,7 +97,16 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
       )
       case QueuedForSyndication => filters.and(
         rightsAcquiredFilter(isAcquired = true),
-        filters.term("leases.leases.access", AllowSyndicationLease.name),
+        filters.bool.must(
+          filters.and(
+            filters.term("leases.leases.access", AllowSyndicationLease.name),
+            filters.or(
+              filters.existsOrMissing("leases.leases.startDate", exists = false),
+              filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
+            )
+          )
+        ),
+        filters.date(field = "syndicationRights.published", None, Some(DateTime.now)).get,
         filters.bool.mustNot(
           filters.term("usages.platform", SyndicationUsage.toString)
         )
@@ -120,9 +118,15 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
       case AwaitingReviewForSyndication => filters.and(
         rightsAcquiredFilter(isAcquired = true),
         filters.bool.mustNot(
-          filters.or(
-            filters.term("leases.leases.access", AllowSyndicationLease.name),
-            filters.term("leases.leases.access", DenySyndicationLease.name)
+          filters.term("leases.leases.access", AllowSyndicationLease.name)
+        ),
+        filters.bool.mustNot(
+          filters.and(
+            filters.term("leases.leases.access", DenySyndicationLease.name),
+            filters.or(
+              filters.existsOrMissing("leases.leases.endDate", exists = false),
+              filters.date("leases.leases.endDate", Some(DateTime.now), None).get
+            )
           )
         )
       )
