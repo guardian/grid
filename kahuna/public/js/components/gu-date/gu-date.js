@@ -4,6 +4,7 @@ import Pikaday from 'pikaday';
 import 'pikaday/css/pikaday.css';
 
 import template from './gu-date.html';
+import rangeTemplate from './gu-date-range-x.html';
 import './gu-date.css';
 
 const ISO8601_FORMAT = 'YYYY-MM-DDTHH:mm:ssZ';
@@ -97,6 +98,16 @@ guDate.directive('guDate', [function () {
             $scope.$on('$destroy', () => pika.destroy);
 
             pika.setDate($scope.date);
+        }
+    };
+}]);
+
+guDate.directive('guDateRangeX', [function () {
+    return {
+        template: rangeTemplate,
+        scope: {
+            start: '=',
+            end: '='
         }
     };
 }]);

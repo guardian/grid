@@ -71,13 +71,10 @@
         </gu-date>
     </div>
     <div ng-switch-default>
-        <gu-date-range class="lease__date"
-           ng:if="ctrl.access"
-           gu:start-date="ctrl.newLease.startDate"
-           gu:end-date="ctrl.newLease.endDate"
-           gu:show-extras="false"
-           gu:first-day="1">
-        </gu-date-range>
+        <gu-date-range-x ng:if="ctrl.access"
+                        start="ctrl.newLease.startDate"
+                        end="ctrl.newLease.endDate">
+        </gu-date-range-x>
     </div>
   </div>
 
