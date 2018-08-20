@@ -50,7 +50,7 @@ case class MediaLease(
   private def afterStart = startDate.forall(start => new DateTime().isAfter(start))
   private def beforeEnd  = endDate.forall(end => new DateTime().isBefore(end))
 
-  def prepareForSave: MediaLease = if (access == AllowSyndicationLease) this.copy(startDate = None, endDate = None) else this
+  def prepareForSave: MediaLease = if (access == AllowSyndicationLease) this.copy(endDate = None) else this
 
   def active = afterStart && beforeEnd
 

@@ -41,21 +41,50 @@
       </optgroup>
   </select>
 
-  <div ng:if="ctrl.access === 'deny-syndication'">
-    <input type="checkbox"
-           ng:model="ctrl.showCalendar" />
-    Expires
+  <div ng-switch="ctrl.access">
+    <div ng-switch-when="deny-syndication">
+        <div class="flex-container">
+            <label class="full-width">
+                <input type="checkbox" ng:model="showCal" />
+                Expire
+            </label>
+        </div>
+        <gu-date ng:if="showCal"
+                 class="full-width"
+                 date="ctrl.newLease.endDate"
+                 min-date="ctrl.midnightTomorrow"
+                 label="after">
+        </gu-date>
+    </div>
+    <div ng-switch-when="allow-syndication">
+        <div class="flex-container">
+            <label class="full-width">
+                <input type="checkbox" ng:model="showCal" />
+                Delay
+            </label>
+        </div>
+        <gu-date ng:if="showCal"
+                 class="full-width"
+                 date="ctrl.newLease.startDate"
+                 min-date="ctrl.midnightTomorrow"
+                 label="after">
+        </gu-date>
+    </div>
+    <div ng-switch-default>
+        <gu-date-range class="lease__date"
+           ng:if="ctrl.access"
+           gu:start-date="ctrl.newLease.startDate"
+           gu:end-date="ctrl.newLease.endDate"
+           gu:show-extras="false"
+           gu:first-day="1">
+        </gu-date-range>
+    </div>
   </div>
 
-  <gu-date-range class="lease__date"
-     ng:if="ctrl.calendarVisible()"
-     gu:start-date="ctrl.newLease.startDate"
-     gu:end-date="ctrl.newLease.endDate"
-     gu:show-extras="false"
-     gu:first-day="1">
-  </gu-date-range>
-
-  <input type="text" ng:model="ctrl.newLease.notes" placeholder="Notes..."/>
+  <input type="text"
+         ng:if="ctrl.access"
+         ng:model="ctrl.newLease.notes"
+         placeholder="Notes..."/>
 
   <div class="lease__form__buttons">
     <button class="lease__form__buttons__button-cancel button-cancel" type="button" ng:click="ctrl.cancel()" title="Close">
