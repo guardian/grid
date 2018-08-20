@@ -75,65 +75,9 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
 
-  private val rightsAcquiredFilter: FilterBuilder =
-    filters.bool.must(
-      filters.boolTerm(
-        field = "syndicationRights.rights.acquired",
-        value = true
-      )
-    )
-
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case Syndication => Some(syndicationStatusFilter(QueuedForSyndication))
+    case Syndication => Some(SyndicationFilter.statusFilter(QueuedForSyndication))
     case _ => None
-  }
-
-  def syndicationStatusFilter(status: SyndicationStatus): FilterBuilder = {
-    status match {
-      case SentForSyndication => filters.and(
-        rightsAcquiredFilter,
-        filters.term("leases.leases.access", AllowSyndicationLease.name),
-        filters.term("usages.platform", SyndicationUsage.toString)
-      )
-      case QueuedForSyndication => filters.and(
-        rightsAcquiredFilter,
-        filters.bool.must(
-          filters.and(
-            filters.term("leases.leases.access", AllowSyndicationLease.name),
-            filters.or(
-              filters.existsOrMissing("leases.leases.startDate", exists = false),
-              filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
-            ),
-            filters.or(
-              filters.existsOrMissing("syndicationRights.published", exists = false),
-              filters.date("syndicationRights.published", None, Some(DateTime.now)).get
-            )
-          )
-        ),
-        filters.bool.mustNot(
-          filters.term("usages.platform", SyndicationUsage.toString)
-        )
-      )
-      case BlockedForSyndication => filters.and(
-        rightsAcquiredFilter,
-        filters.term("leases.leases.access", DenySyndicationLease.name)
-      )
-      case AwaitingReviewForSyndication => filters.and(
-        rightsAcquiredFilter,
-        filters.bool.mustNot(
-          filters.term("leases.leases.access", AllowSyndicationLease.name)
-        ),
-        filters.bool.mustNot(
-          filters.and(
-            filters.term("leases.leases.access", DenySyndicationLease.name),
-            filters.or(
-              filters.existsOrMissing("leases.leases.endDate", exists = false),
-              filters.date("leases.leases.endDate", Some(DateTime.now), None).get
-            )
-          )
-        )
-      )
-    }
   }
 
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
