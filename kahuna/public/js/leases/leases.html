@@ -69,6 +69,17 @@
                  min-date="ctrl.midnightTomorrow"
                  label="after">
         </gu-date>
+
+        <div class="flex-container">
+            <label class="full-width">
+                <input type="checkbox" ng:model="ctrl.noteCallAgencyClause" />
+                Call Agency
+            </label>
+            <label class="full-width">
+                <input type="checkbox" ng:model="ctrl.notePremiumClause" />
+                Premium
+            </label>
+        </div>
     </div>
     <div ng-switch-default>
         <gu-date-range-x ng:if="ctrl.access"
