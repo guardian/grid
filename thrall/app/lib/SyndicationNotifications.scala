@@ -21,7 +21,7 @@ class SyndicationNotifications(thrallNotifications: ThrallNotifications) {
 
   def sendRefresh(image: Image, syndicationRights: SyndicationRights): Unit = {
     GridLogger.info(s"refreshing inferred rights", image.id)
-    val inferredRights = syndicationRights.copy(published = None)
+    val inferredRights = syndicationRights.copy(isInferred = true)
 
     val message = Json.obj(
       "id" -> image.id,

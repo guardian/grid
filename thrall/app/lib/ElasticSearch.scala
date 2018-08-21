@@ -10,7 +10,7 @@ import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.{DocumentMissingException, VersionConflictEngineException}
-import org.elasticsearch.index.query.FilterBuilders.{andFilter, existsFilter, idsFilter, missingFilter, notFilter}
+import org.elasticsearch.index.query.FilterBuilders.{andFilter, idsFilter, missingFilter, notFilter, termFilter}
 import org.elasticsearch.index.query.FilteredQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
@@ -291,8 +291,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   }
 
   def getInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[List[Image]] = {
-    // absence of `published` field means `syndicationRights` hasn't come from RCS
-    val inferredSyndicationRights = missingFilter("syndicationRights.published")
+    val inferredSyndicationRights = termFilter("syndicationRights.isInferred", true)
 
     val filter = excludedImage match {
       case Some(image) => andFilter(
@@ -315,8 +314,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   }
 
   def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[Option[Image]] = {
-    // presence of `published` field means `syndicationRights` has come from RCS
-    val nonInferredSyndicationRights = existsFilter("syndicationRights.published")
+    val nonInferredSyndicationRights = termFilter("syndicationRights.isInferred", false)
 
     val filter = excludedImage match {
       case Some(image) => andFilter(
