@@ -41,7 +41,6 @@ case class SearchParams(
   usageStatus: List[UsageStatus] = List.empty,
   usagePlatform: List[String] = List.empty,
   tier: Tier,
-  hasRightsAcquired: Option[Boolean] = None,
   syndicationStatus: Option[SyndicationStatus] = None
 )
 
@@ -111,7 +110,6 @@ object SearchParams {
       commaSep("usageStatus").map(UsageStatus(_)),
       commaSep("usagePlatform"),
       request.user.apiKey.tier,
-      request.getQueryString("hasRightsAcquired") flatMap parseBooleanFromQuery,
       request.getQueryString("syndicationStatus") flatMap parseSyndicationStatus
     )
   }
