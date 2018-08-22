@@ -7,11 +7,18 @@ import org.elasticsearch.index.query.FilterBuilder
 import org.joda.time.DateTime
 
 object SyndicationFilter extends ImageFields {
+  private def syndicationRightsAcquired(acquired: Boolean): FilterBuilder = filters.boolTerm(
+    field = "syndicationRights.rights.acquired",
+    value = acquired
+  )
+
+  private val noRightsAcquired: FilterBuilder = filters.or(
+    filters.existsOrMissing("syndicationRights.rights.acquired", exists = false),
+    syndicationRightsAcquired(false)
+  )
+
   private val hasRightsAcquired: FilterBuilder = filters.bool.must(
-    filters.boolTerm(
-      field = "syndicationRights.rights.acquired",
-      value = true
-    )
+    syndicationRightsAcquired(true)
   )
 
   private val hasAllowLease: FilterBuilder = filters.term(
@@ -73,5 +80,6 @@ object SyndicationFilter extends ImageFields {
         )
       )
     )
+    case UnsuitableForSyndication => noRightsAcquired
   }
 }
