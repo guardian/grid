@@ -34,7 +34,9 @@
 
 <section ng:if="ctrl.editInline" class="edit-inline flex-container">
     <gr-datalist class="job-info--editor__input"
-                 gr:search="ctrl.search(q)">
+                 gr:search="ctrl.search(q)"
+                 gr-tooltip="Recommended naming convention: photographer initials-date-title e.g. SL-07/18-heatwave"
+                 gr-tooltip-position="bottom">
         <input type="text"
                name="photoshoot"
                class="text-input job-info--credit full-width"
