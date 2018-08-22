@@ -2,8 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model.usage.SyndicationUsage
-import com.gu.mediaservice.model.{AllowSyndicationLease, DenySyndicationLease}
-import model._
+import com.gu.mediaservice.model._
 import org.elasticsearch.index.query.FilterBuilder
 import org.joda.time.DateTime
 

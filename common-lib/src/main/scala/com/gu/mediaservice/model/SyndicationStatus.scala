@@ -1,4 +1,4 @@
-package model
+package com.gu.mediaservice.model
 
 import play.api.libs.json._
 

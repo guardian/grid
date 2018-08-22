@@ -9,7 +9,6 @@ import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
 import lib.MediaApiConfig
-import model._
 import org.joda.time.DateTime
 
 
