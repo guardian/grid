@@ -146,12 +146,11 @@ leases.controller('LeasesCtrl', [
         ctrl.inactiveLeases = (leases) => leases.leases.length - leases.current.length;
 
         ctrl.resetLeaseForm = () => {
-            const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);
             ctrl.newLease = {
                 mediaId: null,
                 createdAt:  new Date(),
-                startDate: new Date(Date.now() - oneDayInMilliSeconds),
-                endDate: new Date(Date.now() + oneDayInMilliSeconds),
+                startDate: null,
+                endDate: null,
                 access: null
             };
             ctrl.access = null;
