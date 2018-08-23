@@ -157,7 +157,17 @@ leases.controller('LeasesCtrl', [
             ctrl.showCalendar = false;
         };
 
-        ctrl.formatTimestamp = (timestamp) => {
+        ctrl.formatStartTimestamp = (timestamp) => {
+            if (timestamp) {
+                const fromNow = moment(timestamp).fromNow();
+
+                return moment(timestamp).diff(moment()) > 0
+                    ? `Starts ${fromNow}`
+                    : `Started ${fromNow}`;
+            }
+        };
+
+        ctrl.formatEndTimestamp = (timestamp) => {
             if (timestamp){
                 const fromNow = moment(timestamp).fromNow();
                 if (moment(timestamp).diff(moment()) > 0) {
