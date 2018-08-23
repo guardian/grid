@@ -131,7 +131,8 @@
           <div class="lease">
             <div class="lease__text">
               <div>{{ctrl.leaseName(lease)}}</div>
-              <p class="expiration-date">{{::ctrl.formatTimestamp(lease.endDate)}}</p>
+              <p>{{::ctrl.formatStartTimestamp(lease.startDate)}}</p>
+              <p>{{::ctrl.formatEndTimestamp(lease.endDate)}}</p>
               <div>{{lease.notes}}</div>
             </div>
             <gr-confirm-delete class="gr-delete-lease flex-right"
