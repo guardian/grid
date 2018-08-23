@@ -1,0 +1,15 @@
+.syndication-status--sent {
+    color: green;
+}
+
+.syndication-status--queued {
+    color: orange;
+}
+
+.syndication-status--blocked {
+    color: red;
+}
+
+.syndication-status--review {
+    color: white;
+}

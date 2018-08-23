@@ -11,12 +11,14 @@ import '../imgops/service';
 import '../services/image/usages';
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-archiver-status/gr-archiver-status';
+import '../components/gr-syndication-icon/gr-syndication-icon';
 
 export var image = angular.module('kahuna.preview.image', [
     'gr.image.service',
     'gr.image-usages.service',
     'gr.addLabel',
     'gr.archiverStatus',
+    'gr.syndicationIcon',
     'util.rx',
     'kahuna.imgops'
 ]);
