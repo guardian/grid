@@ -4,11 +4,13 @@ import template from './required-metadata-editor.html';
 
 import '../../edits/service';
 import '../../forms/datalist';
+import '../../components/gr-description-warning/gr-description-warning';
 
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
     'kahuna.edits.service',
     'kahuna.forms.datalist',
-    'monospaced.elastic'
+    'monospaced.elastic',
+    'gr.descriptionWarning'
 ]);
 
 

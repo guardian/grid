@@ -67,6 +67,7 @@
                                  'text-input': true}"
                     e:form="descriptionEditForm">{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}</dd>
             </div>
+            <gr-description-warning description="ctrl.metadata.description"></gr-description-warning>
         </dl>
     </div>
 
