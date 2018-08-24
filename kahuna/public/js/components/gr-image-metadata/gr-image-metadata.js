@@ -4,11 +4,12 @@ import template from './gr-image-metadata.html';
 
 import '../../image/service';
 import '../../edits/service';
-
+import '../gr-description-warning/gr-description-warning';
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
-    'kahuna.edits.service'
+    'kahuna.edits.service',
+    'gr.descriptionWarning'
 ]);
 
 module.controller('grImageMetadataCtrl', [
