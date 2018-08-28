@@ -1,6 +1,6 @@
 package com.gu.mediaservice.model
 
-import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.model.usage.{SyndicationUsage, Usage}
 import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -29,6 +29,29 @@ case class Image(
   syndicationRights:   Option[SyndicationRights] = None
 ) {
   def rcsPublishDate: Option[DateTime] = syndicationRights.flatMap(_.published)
+
+  def syndicationStatus: SyndicationStatus = {
+    val isRightsAcquired: Boolean = syndicationRights.exists(_.isRightsAcquired)
+
+    if (!isRightsAcquired) {
+      UnsuitableForSyndication
+    } else {
+      val hasSyndicationUsage = usages.exists(_.platform == SyndicationUsage)
+
+      if (hasSyndicationUsage) {
+        SentForSyndication
+      } else {
+        val allowSyndicationLease = leases.leases.find(_.access == AllowSyndicationLease)
+        val denySyndicationLease = leases.leases.find(_.access == DenySyndicationLease)
+
+        (allowSyndicationLease, denySyndicationLease) match {
+          case (Some(_), None) => QueuedForSyndication
+          case (None, Some(_)) => BlockedForSyndication
+          case (_, _) => AwaitingReviewForSyndication
+        }
+      }
+    }
+  }
 }
 
 object Image {

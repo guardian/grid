@@ -12,13 +12,8 @@ case class SyndicationRights(
   rights: Seq[Right],
   isInferred: Boolean = false
 ) {
-
-  def isAvailableForSyndication: Boolean = {
-    val rightsAcquired = rights.flatMap(_.acquired).contains(true)
-    val isPublished = published.exists(_.isBeforeNow)
-
-    rightsAcquired && isPublished
-  }
+  def isRightsAcquired: Boolean = rights.flatMap(_.acquired).contains(true)
+  def isAvailableForSyndication: Boolean = isRightsAcquired && published.exists(_.isBeforeNow)
 }
 object SyndicationRights {
   implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")

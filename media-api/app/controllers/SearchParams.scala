@@ -2,9 +2,9 @@ package controllers
 
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
+import com.gu.mediaservice.model.SyndicationStatus
 import com.gu.mediaservice.model.usage.UsageStatus
 import lib.querysyntax.{Condition, Parser}
-import model.SyndicationStatus
 import org.joda.time.DateTime
 import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._

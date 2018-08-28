@@ -121,10 +121,8 @@
                 <gr-icon>today</gr-icon>
             </div>
 
-            <div class="bottom-bar__action"
-                 ng-if="ctrl.states.isSyndicated"
-                 title="Image is available to syndication partners">
-                <gr-icon>monetization_on</gr-icon>
+            <div class="bottom-bar__action" ng-if="ctrl.states.syndicationStatus !== 'unsuitable'">
+                <gr-syndication-icon image="ctrl.image"></gr-syndication-icon>
             </div>
 
             <div class="bottom-bar__action bottom-bar__action--cost preview__cost"

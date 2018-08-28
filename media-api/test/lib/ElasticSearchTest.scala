@@ -3,9 +3,8 @@ package lib
 import java.util.UUID
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.model.{Handout, Image, StaffPhotographer}
+import com.gu.mediaservice.model._
 import controllers.SearchParams
-import model._
 import org.joda.time.{DateTime, DateTimeUtils}
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
