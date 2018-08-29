@@ -3,6 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model.usage.SyndicationUsage
 import com.gu.mediaservice.model._
+import lib.MediaApiConfig
 import org.elasticsearch.index.query.FilterBuilder
 import org.joda.time.DateTime
 
@@ -51,7 +52,21 @@ object SyndicationFilter extends ImageFields {
     filters.date("syndicationRights.published", None, Some(DateTime.now)).get
   )
 
-  def statusFilter(status: SyndicationStatus): FilterBuilder = status match {
+  private val syndicationStartDateFilter: FilterBuilder = {
+    // syndication starts on 23 August 2018 as that's when training had been completed
+    // don't show images uploaded prior to this date to keep the review queue manageable
+    // for Editorial by not showing past images that RCS has told us about (~5k images)
+    // TODO move this to config?
+    val startDate = new DateTime()
+      .withYear(2018)
+      .withMonthOfYear(8)
+      .withDayOfMonth(23)
+      .withTimeAtStartOfDay()
+
+    filters.date("uploadTime", Some(startDate), None).get
+  }
+
+  def statusFilter(status: SyndicationStatus, config: MediaApiConfig): FilterBuilder = status match {
     case SentForSyndication => filters.and(
       hasRightsAcquired,
       hasAllowLease,
@@ -70,16 +85,27 @@ object SyndicationFilter extends ImageFields {
       hasRightsAcquired,
       hasDenyLease
     )
-    case AwaitingReviewForSyndication => filters.and(
-      hasRightsAcquired,
-      filters.bool.mustNot(
-        hasAllowLease,
-        filters.and(
-          hasDenyLease,
-          leaseHasEnded
+    case AwaitingReviewForSyndication => {
+      val rightsAcquiredNoLeaseFilter = filters.and(
+        hasRightsAcquired,
+        filters.bool.mustNot(
+          hasAllowLease,
+          filters.and(
+            hasDenyLease,
+            leaseHasEnded
+          )
         )
       )
-    )
+
+      if (config.isProd) {
+        filters.and(
+          syndicationStartDateFilter,
+          rightsAcquiredNoLeaseFilter
+        )
+      } else {
+        rightsAcquiredNoLeaseFilter
+      }
+    }
     case UnsuitableForSyndication => noRightsAcquired
   }
 }
