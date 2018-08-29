@@ -75,7 +75,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
 
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case Syndication => Some(SyndicationFilter.statusFilter(QueuedForSyndication))
+    case Syndication => Some(SyndicationFilter.statusFilter(QueuedForSyndication, config))
     case _ => None
   }
 

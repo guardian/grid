@@ -101,7 +101,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       params.usageStatus.toNel.map(status => filters.terms(usagesField("status"), status.map(_.toString))) ++
       params.usagePlatform.toNel.map(filters.terms(usagesField("platform"), _))
 
-    val syndicationStatusFilter = params.syndicationStatus.map(SyndicationFilter.statusFilter)
+    val syndicationStatusFilter = params.syndicationStatus.map(status => SyndicationFilter.statusFilter(status, config))
 
     val filterOpt = (
       metadataFilter.toList
