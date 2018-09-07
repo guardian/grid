@@ -31,13 +31,11 @@
             {{:: node.data.data.description}}
         </a>
 
-
-        <button class="node__action clickable" type="button"
-                title="Delete this collection"
-                ng:if="ctrl.deletable && grCollectionTreeCtrl.editing"
-                ng:click="ctrl.remove()">
-            <gr-icon-label gr-icon="delete"></gr-icon-label>
-        </button>
+        <gr-confirm-delete class="node__action clickable"
+                           title="Delete this collection"
+                           ng:if="ctrl.deletable && grCollectionTreeCtrl.editing"
+                           gr-on-confirm="ctrl.remove()">
+        </gr-confirm-delete>
 
         <button class="node__action clickable"
                 type="button"
