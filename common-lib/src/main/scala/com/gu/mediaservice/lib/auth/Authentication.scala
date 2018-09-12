@@ -38,8 +38,8 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
   private val headerKey = "X-Gu-Media-Key"
-  private val keyStoreBucket: String = config.properties("auth.keystore.bucket")
-  val keyStore = new KeyStore(keyStoreBucket, config)
+  private val keyStoreTableName: String = config.properties("auth.keystore.table")
+  val keyStore = new KeyStore(keyStoreTableName, config)
 
   keyStore.scheduleUpdates(actorSystem.scheduler)
 

@@ -21,13 +21,6 @@ case class ApiKey(name: String, tier: Tier)
 object ApiKey extends ArgoHelpers {
   val unauthorizedResult: Result = respondError(Forbidden, "forbidden", "Unauthorized - the API key is not allowed to perform this operation", List.empty)
 
-  def apply(content: String): ApiKey = {
-    val rows = content.split("\n")
-    val name = rows.headOption.getOrElse("")
-    val tier = rows.tail.headOption.map(Tier(_)).getOrElse(Internal)
-    ApiKey(name, tier)
-  }
-
   def hasAccess(apiKey: ApiKey, request: Request[Any], services: Services): Boolean = apiKey.tier match {
     case Internal => true
     case ReadOnly => request.method == "GET"
