@@ -50,6 +50,7 @@ image.controller('ImageCtrl', [
     '$rootScope',
     '$scope',
     '$state',
+    '$stateParams',
     '$window',
     '$filter',
     'inject$',
@@ -67,6 +68,7 @@ image.controller('ImageCtrl', [
     function ($rootScope,
               $scope,
               $state,
+              $stateParams,
               $window,
               $filter,
               inject$,
@@ -110,7 +112,11 @@ image.controller('ImageCtrl', [
 
         ctrl.image.allCrops = [];
 
-        ctrl. cropType = storage.getJs('cropType', true);
+        if ($stateParams.cropType) {
+            storage.setJs('cropType', $stateParams.cropType, true);
+        }
+
+        ctrl.cropType = storage.getJs('cropType', true);
 
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
