@@ -36,7 +36,7 @@ object ByLineCreditReorganise extends MetadataCleaner {
     // Convert the strings back to `Option`s
     .map{ case (b, c) => (Some(b), Some(c)) }
     // return the defaults if they both didn't exist
-    .getOrElse((creditField, bylineField))
+    .getOrElse((bylineField, creditField))
 
   def cleanField(field: Field) =
     field.map(condenseSpaceySlashes)
