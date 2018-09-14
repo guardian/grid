@@ -343,8 +343,11 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   private val addToSuggestersScript =
     """
-      | suggestMetadataCredit = [ input: [ ctx._source.metadata.credit] ];
-      | ctx._source.suggestMetadataCredit = suggestMetadataCredit;
+      | credit = ctx._source.metadata.credit;
+      | if (credit) {
+      |   suggestMetadataCredit = [ input: [ credit ] ];
+      |   ctx._source.suggestMetadataCredit = suggestMetadataCredit;
+      | }
     """.stripMargin
 
   private val photoshootSuggestionScript =
