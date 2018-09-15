@@ -142,7 +142,7 @@ object BarcroftParser extends ImageProcessor {
   def apply(image: Image): Image =
     // We search the credit and the source here as Barcroft seems to use both
     if(List(image.metadata.credit, image.metadata.source).flatten.map(_.toLowerCase).exists { s =>
-      List("barcroft media", "barcroft india", "barcroft usa", "barcroft cars").exists(s.contains)
+      List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars").exists(s.contains)
     }) image.copy(usageRights = Agency("Barcroft Media")) else image
 }
 
