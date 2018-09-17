@@ -24,6 +24,10 @@ class KahunaController(config: KahunaConfig, override val controllerComponents: 
     ))
   }
 
+  def quotas = Action { req =>
+    Ok(views.html.quotas(config.mediaApiUri))
+  }
+
   def ok = Action { implicit request =>
     Ok("ok")
   }
