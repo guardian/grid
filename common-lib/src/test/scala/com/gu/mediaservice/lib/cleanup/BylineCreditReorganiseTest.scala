@@ -14,6 +14,11 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
     .whenCleaned("Man/In/Suit"  , "Presseye/INPHO/REX")
   }
 
+  it ("should leave matching credit in byline") {
+    CreditByline("Silver River TV/BBC", "Silver River TV")
+      .whenCleaned("Silver River TV/BBC", "Silver River TV")
+  }
+
   it ("should leave non matching byline and credit") {
     CreditByline("Ella/BPI/REX", "Ella Ling/BPI/REX")
     .whenCleaned("Ella/BPI/REX", "Ella Ling/BPI/REX")
