@@ -12,11 +12,12 @@ function renderSupplier(name, entry) {
     const quota = entry.quota ? entry.quota.count : "unknown";
 
     return `
-        <h3 style="background-color: ${colour}">${name}</h3>
-        <small>
-            ${usage}/${quota}
-        </small>
-        <hr />
+        <li>
+            <h3 style="background-color: ${colour}">${name}</h3>
+            <small>
+                ${usage}/${quota}
+            </small>
+        </li>
     `;
 }
 
@@ -25,7 +26,7 @@ fetch(usageUri, { credentials: "include" })
     .then(r => r.data.store)
     .then(r => {
         const entries = Object.keys(r).map(name => renderSupplier(name, r[name]));
-        show(entries.join("\n"));
+        show(`<ul>${entries.join("\n")}</ul>`);
     }).catch(err => {
         console.log(err);
         show("Error getting quotas. Are you logged in?");
