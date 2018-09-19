@@ -135,6 +135,6 @@ object PhotographerRenamer extends MetadataCleaner {
   )
 
   override def clean(metadata: ImageMetadata): ImageMetadata = {
-    metadata.copy(byline = metadata.byline.flatMap(names.get))
+    metadata.copy(byline = metadata.byline.flatMap(names.get(_).orElse(metadata.byline)))
   }
 }
