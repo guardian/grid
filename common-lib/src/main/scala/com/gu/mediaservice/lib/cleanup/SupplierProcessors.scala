@@ -274,8 +274,8 @@ object RexParser extends ImageProcessor {
 
 object RonaldGrantParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("www.ronaldgrantarchive.com") => image.copy(
-      usageRights = Agency("Ronald Grant Archive")
+    case Some("www.ronaldgrantarchive.com") | Some("Ronald Grant Archive") => image.copy(
+      usageRights = Agency("Ronald Grant Archive"),
       metadata    = image.metadata.copy(credit = Some("Ronald Grant"))
     )
     case _ => image
