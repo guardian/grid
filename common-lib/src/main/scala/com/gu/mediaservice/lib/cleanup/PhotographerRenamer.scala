@@ -24,7 +24,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Bartlomiej Zborowski" -> "Bartłomiej Zborowski",
     "Berk Ozkan" -> "Berk Özkan",
     "Bernadett Szabo" -> "Bernadett Szabó",
-    "Bilgin S. Sasmaz" -> "Bilgin S. Şaşmaz",
+    "Bilgin S. Sasmaz" -> "Bilgin S Şaşmaz",
     "Bjorn Larsson Rosvall" -> "Björn Larsson Rosvall",
     "Boris Kovacev" -> "Boris Kovačev",
     "Bulent Kilic" -> "Bülent Kılıç",
