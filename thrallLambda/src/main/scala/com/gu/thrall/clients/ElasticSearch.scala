@@ -82,7 +82,7 @@ class ElasticSearch(host: String, port: Integer, protocol: String, indexName: St
         | }
         | ctx._source = params.update_doc;
         |
-        | if (ctx._source.metadata != null) {
+        | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
         |   ctx._source.suggestMetadataCredit = [ \"input\": [ ctx._source.metadata.credit ] ]
         | }
       """)
