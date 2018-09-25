@@ -32,7 +32,14 @@ object FileMetadata {
   )(FileMetadata.apply _)
 
   private val maximumValueLengthBytes = 5000
-  private def removeLongValues = { m:Map[String, String] => m.filter(_._2.length < maximumValueLengthBytes) }
+  private def removeLongValues = { m:Map[String, String] => {
+    val (short, long) =  m.partition(_._2.length <= maximumValueLengthBytes)
+    if (long.size>0) {
+      short + ("removedFields" -> long.map(_._1).mkString(", "))
+    } else {
+      m
+    }
+  } }
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
 }
