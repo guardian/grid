@@ -3,7 +3,6 @@ package com.gu.mediaservice.model
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-
 case class FileMetadata(
   iptc: Map[String, String]                     = Map(),
   exif: Map[String, String]                     = Map(),
@@ -41,5 +40,14 @@ object FileMetadata {
     }
   } }
 
-  implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
+  implicit val FileMetadataWrites: Writes[FileMetadata] = (
+    (JsPath \ "iptc").write[Map[String,String]] and
+      (JsPath \ "exif").write[Map[String,String]] and
+      (JsPath \ "exifSub").write[Map[String,String]] and
+      (JsPath \ "xmp").write[Map[String,String]] and
+      (JsPath \ "icc").write[Map[String,String]].contramap[Map[String, String]](removeLongValues) and
+      (JsPath \ "getty").write[Map[String,String]] and
+      (JsPath \ "colourModel").writeNullable[String] and
+      (JsPath \ "colourModelInformation").write[Map[String,String]]
+  )(unlift(FileMetadata.unapply))
 }
