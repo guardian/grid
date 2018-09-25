@@ -24,12 +24,22 @@ object FileMetadata {
     (__ \ "exif").read[Map[String,String]] ~
     (__ \ "exifSub").read[Map[String,String]] ~
     (__ \ "xmp").read[Map[String,String]] ~
-    (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
+    (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()).map(removeLongValues) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "colourModel").readNullable[String] ~
     (__ \ "colourModelInformation").readNullable[Map[String,String]].map(_ getOrElse Map())
 
   )(FileMetadata.apply _)
+
+  private val maximumValueLengthBytes = 5000
+  private def removeLongValues = { m:Map[String, String] => {
+    val (short, long) =  m.partition(_._2.length <= maximumValueLengthBytes)
+    if (long.size>0) {
+      short + ("removedFields" -> long.map(_._1).mkString(", "))
+    } else {
+      m
+    }
+  } }
 
   implicit val FileMetadataWrites: Writes[FileMetadata] = Json.writes[FileMetadata]
 }
