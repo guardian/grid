@@ -1,12 +1,13 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
 import lib.KahunaConfig
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class KahunaController(config: KahunaConfig, override val controllerComponents: ControllerComponents)
+class KahunaController(auth: Authentication, config: KahunaConfig, override val controllerComponents: ControllerComponents)
                       (implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
 
   def index(ignored: String) = Action { req =>
@@ -22,6 +23,10 @@ class KahunaController(config: KahunaConfig, override val controllerComponents: 
       config.sessionId,
       config.googleTrackingId
     ))
+  }
+
+  def quotas = auth { req =>
+    Ok(views.html.quotas(config.mediaApiUri))
   }
 
   def ok = Action { implicit request =>

@@ -23,6 +23,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   import scala.concurrent.ExecutionContext.Implicits.global
   import Files._
 
+  private val cropQuality = 75d
+  private val masterCropQuality = 95d
+
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: String, isMaster: Boolean = false): String = {
     s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.$fileType"
   }
@@ -35,7 +38,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
-      strip <- imageOperations.cropImage(sourceFile, source.bounds, 100d, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
+      strip <- imageOperations.cropImage(sourceFile, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
       file: File <- imageOperations.appendMetadata(strip, metadata)
 
 
@@ -65,7 +68,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
-        file          <- imageOperations.resizeImage(sourceFile, dimensions, 75d, config.tempDir, mediaType.extension)
+        file          <- imageOperations.resizeImage(sourceFile, dimensions, cropQuality, config.tempDir, mediaType.extension)
         optimisedFile = imageOperations.optimiseImage(file, mediaType)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, mediaType.extension)
         sizing        <- store.storeCropSizing(optimisedFile, filename, mediaType.extension, crop, dimensions)

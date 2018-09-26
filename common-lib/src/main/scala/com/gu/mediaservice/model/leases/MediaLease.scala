@@ -50,7 +50,27 @@ case class MediaLease(
   private def afterStart = startDate.forall(start => new DateTime().isAfter(start))
   private def beforeEnd  = endDate.forall(end => new DateTime().isBefore(end))
 
-  def prepareForSave: MediaLease = if (access == AllowSyndicationLease) this.copy(startDate = None, endDate = None) else this
+  private def withValidNotesField: MediaLease = notes match {
+    case Some(note) if note.trim.length == 0 => this.copy(notes = None) // cannot save empty string in dynamo
+    case _ => this
+  }
+
+  private def withValidEndDateField: MediaLease = if (access == AllowSyndicationLease) {
+    this.copy(endDate = None) // an allow-syndication cannot end
+  } else {
+    this
+  }
+
+  private def withValidStartDateField: MediaLease = if (access == DenySyndicationLease) {
+    this.copy(startDate = None) // a deny-syndication cannot start
+  } else {
+    this
+  }
+
+  def prepareForSave: MediaLease = this
+    .withValidNotesField
+    .withValidStartDateField
+    .withValidEndDateField
 
   def active = afterStart && beforeEnd
 

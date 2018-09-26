@@ -35,8 +35,13 @@ leaseService.factory('leaseService', [
       }
 
     function add(image, lease) {
-      var newLease = angular.copy(lease);
+      const newLease = angular.copy(lease);
       newLease.mediaId = image.data.id;
+
+      if (angular.isDefined(newLease.notes) && newLease.notes.trim().length === 0) {
+        newLease.notes = null;
+      }
+
       return image.perform('add-lease', {body: newLease});
     }
 

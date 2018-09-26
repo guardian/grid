@@ -170,7 +170,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
-      .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons))).get
+      .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
+      .flatMap(_.transform(addSyndicationStatus(image))).get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -255,6 +256,12 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val cost = Costing.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
+  }
+
+  def addSyndicationStatus(image: Image): Reads[JsObject] = {
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
+      "syndicationStatus" -> image.syndicationStatus
+    ))
   }
 
   def addPersistedState(isPersisted: Boolean, persistenceReasons: List[String]): Reads[JsObject] =

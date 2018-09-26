@@ -1,10 +1,13 @@
 const path = require('path');
 
 module.exports = {
-  entry: './public/js/main.js',
+  entry: {
+    build: './public/js/main.js',
+    quotas: './public/js/quotas.js'
+  },
   output: {
     path: path.resolve(__dirname, 'public', 'dist'),
-    filename: 'build.js',
+    filename: '[name].js',
   },
   module: {
     rules: [

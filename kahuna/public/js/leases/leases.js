@@ -41,9 +41,7 @@ leases.controller('LeasesCtrl', [
         ctrl.adding = false;
         ctrl.showCalendar = false;
 
-        ctrl.calendarVisible = () =>
-            ctrl.access !== 'allow-syndication' &&
-            !(ctrl.access === 'deny-syndication' && ctrl.showCalendar === false);
+        ctrl.midnightTomorrow = moment().add(1, 'days').startOf('day').toDate();
 
         ctrl.cancel = () => ctrl.editing = false;
 
@@ -54,9 +52,21 @@ leases.controller('LeasesCtrl', [
                 ctrl.adding = true;
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
-                if (!ctrl.showCalendar && ctrl.access === 'deny-syndication') {
+
+                if (ctrl.access === 'deny-syndication') {
                     ctrl.newLease.startDate = null;
+                }
+
+                if (ctrl.access === 'allow-syndication') {
                     ctrl.newLease.endDate = null;
+
+                    const noteWithClause = [
+                        ctrl.noteCallAgencyClause ? 'CALL AGENCY' : undefined,
+                        ctrl.notePremiumClause ? 'PREMIUM' : undefined,
+                        ctrl.newLease.notes
+                    ].filter(Boolean);
+
+                    ctrl.newLease.notes = noteWithClause.join(', ');
                 }
 
                 let syndLeases = ctrl.leases.leases.filter((l) =>
@@ -136,19 +146,28 @@ leases.controller('LeasesCtrl', [
         ctrl.inactiveLeases = (leases) => leases.leases.length - leases.current.length;
 
         ctrl.resetLeaseForm = () => {
-            const oneDayInMilliSeconds = (24 * 60 * 60 * 1000);
             ctrl.newLease = {
                 mediaId: null,
                 createdAt:  new Date(),
-                startDate: new Date(Date.now() - oneDayInMilliSeconds),
-                endDate: new Date(Date.now() + oneDayInMilliSeconds),
+                startDate: null,
+                endDate: null,
                 access: null
             };
             ctrl.access = null;
             ctrl.showCalendar = false;
         };
 
-        ctrl.formatTimestamp = (timestamp) => {
+        ctrl.formatStartTimestamp = (timestamp) => {
+            if (timestamp) {
+                const fromNow = moment(timestamp).fromNow();
+
+                return moment(timestamp).diff(moment()) > 0
+                    ? `Starts ${fromNow}`
+                    : `Started ${fromNow}`;
+            }
+        };
+
+        ctrl.formatEndTimestamp = (timestamp) => {
             if (timestamp){
                 const fromNow = moment(timestamp).fromNow();
                 if (moment(timestamp).diff(moment()) > 0) {

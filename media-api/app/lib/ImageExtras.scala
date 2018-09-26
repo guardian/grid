@@ -17,7 +17,8 @@ object ImageExtras {
     "missing_description"         -> "Missing description *",
     "paid_image"                  -> "Paid imagery requires a lease",
     "over_quota"                  -> "The quota for this supplier has been exceeded",
-    "conditional_paid"            -> "This image is restricted use"
+    "conditional_paid"            -> "This image is restricted use",
+    "current_deny_lease"          -> "Cropping has been denied using a lease"
   )
 
   def validityOverrides(image: Image, withWritePermission: Boolean): Map[String, Boolean] = Map(

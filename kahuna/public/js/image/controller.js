@@ -19,6 +19,7 @@ import '../components/gr-image-usage/gr-image-usage';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
 import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-display-crops/gr-display-crops';
+import '../components/gu-date/gu-date';
 
 
 var image = angular.module('kahuna.image.controller', [
@@ -41,13 +42,15 @@ var image = angular.module('kahuna.image.controller', [
     'gr.imageUsage',
     'gr.keyboardShortcut',
     'gr.metadataValidity',
-    'gr.displayCrops'
+    'gr.displayCrops',
+    'gu.date'
 ]);
 
 image.controller('ImageCtrl', [
     '$rootScope',
     '$scope',
     '$state',
+    '$stateParams',
     '$window',
     '$filter',
     'inject$',
@@ -65,6 +68,7 @@ image.controller('ImageCtrl', [
     function ($rootScope,
               $scope,
               $state,
+              $stateParams,
               $window,
               $filter,
               inject$,
@@ -108,7 +112,11 @@ image.controller('ImageCtrl', [
 
         ctrl.image.allCrops = [];
 
-        ctrl. cropType = storage.getJs('cropType', true);
+        if ($stateParams.cropType) {
+            storage.setJs('cropType', $stateParams.cropType, true);
+        }
+
+        ctrl.cropType = storage.getJs('cropType', true);
 
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;
