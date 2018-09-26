@@ -29,7 +29,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for Getty JPG images") {
     val image = fileAt("getty.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     whenReady(metadataFuture) { metadata =>
       val iptc = Map(
         "By-line Title" -> "Stringer",
@@ -63,19 +63,46 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Image Rank" -> "3",
         "Original Filename" -> "43885812_SEA.jpg",
         "Exclusive Coverage" -> "False",
-        "Original Create Date Time" -> "0001-01-01T00:00:00 +00:00"
+        "Original Create Date Time" -> "0001-01-01T00:00:00.000+00:00"
+      )
+      val xmp = Map(
+        "GettyImagesGIFT:ImageRank" -> "3",
+        "GettyImagesGIFT:OriginalFilename" -> "43885812_SEA.jpg",
+        "dc:creator[1]" -> "CHRISTOF STACHE",
+        "dc:title[1]" -> "536991815",
+        "dc:title[1]/xml:lang" -> "x-default",
+        "photoshop:SupplementalCategories[1]" -> "SKI",
+        "photoshop:Headline" -> "Austria's Matthias Mayer attends the men",
+        "photoshop:TransmissionReference" -> "-",
+        "dc:description[1]/xml:lang" -> "x-default",
+        "photoshop:AuthorsPosition" -> "Stringer",
+        "photoshop:CaptionWriter" -> "CS/IW",
+        "plus:ImageSupplierImageId" -> "DV1945213",
+        "dc:description[1]" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images",
+        "photoshop:City" -> "KITZBUEHEL",
+        "GettyImagesGIFT:ExclusiveCoverage" -> "False",
+        "photoshop:DateCreated" -> "2015-01-22T00:00:00.000+00:00",
+        "photoshop:Credit" -> "AFP/Getty Images",
+        "dc:Rights" -> "CHRISTOF STACHE",
+        "GettyImagesGIFT:OriginalCreateDateTime" -> "0001-01-01T00:00:00.000+00:00",
+        "Iptc4xmpCore:CountryCode" -> "AUT",
+        "GettyImagesGIFT:CallForImage" -> "False",
+        "photoshop:Country" -> "AUSTRIA",
+        "photoshop:Source" -> "AFP",
+        "photoshop:Category" -> "S"
       )
 
       sameMaps(metadata.iptc, iptc)
       sameMaps(metadata.exif, exif)
       sameMaps(metadata.exifSub, Map())
       sameMaps(metadata.getty, getty)
+      sameMaps(metadata.xmp, xmp)
     }
   }
 
   it("should read the correct metadata for Corbis JPG images") {
     val image = fileAt("corbis.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     whenReady(metadataFuture) { metadata =>
       val iptc = Map(
         "Country/Primary Location Name" -> "USA",
@@ -107,7 +134,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for PA JPG images") {
     val image = fileAt("pa.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     whenReady(metadataFuture) { metadata =>
       val iptc = Map(
         "Country/Primary Location Name" -> "United Kingdom",
@@ -197,7 +224,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for Guardian photographer JPG images") {
     val image = fileAt("guardian-turner.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     val iptc = Map(
       "Coded Character Set" -> "UTF-8",
       "Application Record Version" -> "0",

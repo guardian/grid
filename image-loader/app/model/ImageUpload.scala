@@ -97,8 +97,8 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
 
 
     val fileMetadataFuture = uploadRequest.mimeType match {
-      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile)
-      case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile)
+      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id)
+      case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile, uploadRequest.id)
     }
 
     fileMetadataFuture.flatMap(fileMetadata => {

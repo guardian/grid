@@ -7,6 +7,7 @@ import scala.util.Try
 
 import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
+import play.api.Logger
 
 object ImageMetadataConverter {
 
@@ -53,6 +54,7 @@ object ImageMetadataConverter {
     val parsers = Array(
       // 2014-12-16T02:23:45+01:00 - Standard dateTimeNoMillis
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ").getParser,
+      DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss' 'ZZ").getParser,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZZ").getParser,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss").getParser,
       DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSS").getParser,
@@ -76,6 +78,16 @@ object ImageMetadataConverter {
     safeParsing(randomDateFormat.parseDateTime(str)) map (_.withZone(DateTimeZone.UTC))
 
   private def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption
+
+  private def cleanDateFormat = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
+  def cleanDate(dirtyDate: String, fieldName: String = "none", imageId:String = "none"): String = parseRandomDate(dirtyDate) match {
+    case Some(cleanDate) => cleanDateFormat.print(cleanDate)
+    case None => {
+      Logger.info(s"Unable to parse date $dirtyDate from field $fieldName for image $imageId")
+      dirtyDate
+    }
+  }
+
 
 }
 
