@@ -80,11 +80,10 @@ object ImageMetadataConverter {
   private def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption
 
   private def cleanDateFormat = DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
-  def cleanDate(dirtyDate: String, fieldName: String = "none"): String = parseRandomDate(dirtyDate) match {
+  def cleanDate(dirtyDate: String, fieldName: String = "none", imageId:String = "none"): String = parseRandomDate(dirtyDate) match {
     case Some(cleanDate) => cleanDateFormat.print(cleanDate)
     case None => {
-      println(s"I give up: $dirtyDate")
-      Logger.info(s"Unable to parse date $dirtyDate from field $fieldName")
+      Logger.info(s"Unable to parse date $dirtyDate from field $fieldName for image $imageId")
       dirtyDate
     }
   }

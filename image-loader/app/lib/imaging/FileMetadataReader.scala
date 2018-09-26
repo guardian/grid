@@ -25,27 +25,27 @@ object FileMetadataReader {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def fromIPTCHeaders(image: File): Future[FileMetadata] =
+  def fromIPTCHeaders(image: File, imageId:String): Future[FileMetadata] =
     for {
       metadata <- readMetadata(image)
     }
-    yield getMetadataWithICPTCHeaders(metadata) // FIXME: JPEG, JFIF, Photoshop, GPS, File
+    yield getMetadataWithICPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
-  def fromICPTCHeadersWithColorInfo(image: File): Future[FileMetadata] =
+  def fromICPTCHeadersWithColorInfo(image: File, imageId:String): Future[FileMetadata] =
     for {
       metadata <- readMetadata(image)
       colourModelInformation <- getColorModelInformation(image, metadata)
     }
-    yield getMetadataWithICPTCHeaders(metadata).copy(colourModelInformation = colourModelInformation)
+    yield getMetadataWithICPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
 
-  private def getMetadataWithICPTCHeaders(metadata: Metadata): FileMetadata =
+  private def getMetadataWithICPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =
     FileMetadata(
       iptc = exportDirectory(metadata, classOf[IptcDirectory]),
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-      xmp = exportXmpProperties(metadata),
+      xmp = exportXmpProperties(metadata, imageId),
       icc = exportDirectory(metadata, classOf[IccDirectory]),
-      getty = exportGettyDirectory(metadata),
+      getty = exportGettyDirectory(metadata, imageId),
       colourModel = None,
       colourModelInformation = Map()
     )
@@ -93,10 +93,10 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
-  private def exportXmpProperties(metadata: Metadata): Map[String, String] =
+  private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
-        case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key)
+        case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
         case (key, Some(value)) => key -> value
       }
     } getOrElse Map()
@@ -104,8 +104,8 @@ object FileMetadataReader {
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
   // this only extracts a small subset of properties as a means to identify Getty images.
-  private def exportGettyDirectory(metadata: Metadata): Map[String, String] = {
-      val xmpProperties = exportXmpProperties(metadata)
+  private def exportGettyDirectory(metadata: Metadata, imageId:String): Map[String, String] = {
+      val xmpProperties = exportXmpProperties(metadata, imageId)
 
       def readProperty(name: String): Option[String] = xmpProperties.get(name)
 
