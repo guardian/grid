@@ -29,7 +29,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for Getty JPG images") {
     val image = fileAt("getty.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     whenReady(metadataFuture) { metadata =>
       val iptc = Map(
         "By-line Title" -> "Stringer",
@@ -102,7 +102,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for Corbis JPG images") {
     val image = fileAt("corbis.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     whenReady(metadataFuture) { metadata =>
       val iptc = Map(
         "Country/Primary Location Name" -> "USA",
@@ -134,7 +134,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for PA JPG images") {
     val image = fileAt("pa.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     whenReady(metadataFuture) { metadata =>
       val iptc = Map(
         "Country/Primary Location Name" -> "United Kingdom",
@@ -224,7 +224,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for Guardian photographer JPG images") {
     val image = fileAt("guardian-turner.jpg")
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image)
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
     val iptc = Map(
       "Coded Character Set" -> "UTF-8",
       "Application Record Version" -> "0",
