@@ -106,7 +106,9 @@ class ElasticSearch(host: String, port: Integer, protocol: String, indexName: St
     executeAndHandle(upsertScript, method, address, s"Updated image index $id")
   }
 
-  def getImage(id: String): Future[Either[String, Image]] = Future {
+  def getImageFuture(id: String): Future[Either[String, Image]] = Future { getImage(id) }
+
+  def getImage(id: String): Either[String, Image] = {
     val response = restHighLevelClient.search(
       new SearchRequest(indexName).source(
         new SearchSourceBuilder()
@@ -132,15 +134,13 @@ class ElasticSearch(host: String, port: Integer, protocol: String, indexName: St
 
   def updateImageUserMetadata(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = updateImageField(id, data, lastModified, "metadata")
 
+  def updateImageSyndicationRights(id: String, data: JsValue): Future[Either[String, String]] = updateImageField(id, data, DateTime.now(), "syndicationRights")
+
   def updateImageLeases(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = updateImageField(id, data, DateTime.now(), "leaseByMedia")
 
   def updateRcsRights(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = updateImageField(id, data, lastModified, "rights")
 
   def deleteInferredRights(id: String): Future[Either[String, String]] = deleteField(id, "syndicationRights")
-
-  def upsertSyndicationRights(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = ???
-
-  def updateImagePhotoshoot(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = ???
 
   def setImageCollections(id: String, data: JsValue): Future[Either[String, String]] = updateImageField(id, data, DateTime.now(), "collections")
 
@@ -204,15 +204,14 @@ class ElasticSearch(host: String, port: Integer, protocol: String, indexName: St
   private def executeAndHandle(script: String, method: String, address: String, message: String) = {
     try {
       logger.debug(s"Provided script length is ${script.length} bytes")
-      logger.debug(s"Provided address is '${address}'")
-      logger.debug(s"Provided method is '${method}'")
+      logger.debug(s"Provided address is '$address'")
+      logger.debug(s"Provided method is '$method'")
       execute(script, method.trim, address.trim)
       Right(message)
     } catch {
-      case e:ResponseException => {
-        val headers = e.getResponse.getHeaders map (h => h.toString) mkString("\n")
+      case e:ResponseException =>
+        val headers = e.getResponse.getHeaders map (h => h.toString) mkString "\n"
         Left(s"'${e.getMessage}' with headers\n$headers\nreceived from $method request to $address\n$script")
-      }
     }
   }
 

@@ -1,5 +1,6 @@
 package com.gu.thrall
 
+import com.gu.mediaservice.model.{Edits, SyndicationRights}
 import com.gu.thrall.config.{ElasticSearchResponse, _}
 import com.typesafe.scalalogging.StrictLogging
 import org.joda.time.DateTime
@@ -67,6 +68,7 @@ object JsonParsing extends StrictLogging {
         JsSuccess(Image(
           id,
           (js \ "data").toOption,
+          (js \ "syndicationRights").asOpt[SyndicationRights],
           (js \ "lastModified").asOpt[String].map(s => DateTime.parse(s)),
           Some(Json.stringify(js))
         ))
@@ -117,6 +119,10 @@ object JsonParsing extends StrictLogging {
   }
 
   def imageDetails(record: JsValue): Either[String, Image] = extractEither[Image](record)
+
+  def editDetails(record: JsValue): Either[String, Edits] = extractEither[Edits](record)
+
+  def syndicationRightsDetails(record: JsValue): Either[String, SyndicationRights] = extractEither[SyndicationRights](record)
 
   def recordDetails(record: String): Future[InvokingEventRecord] = extractFuture[InvokingEventRecord](record)
 

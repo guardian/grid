@@ -54,7 +54,7 @@ class ElasticSearchDataTest extends FreeSpec with Matchers with Checkers with Pr
       whenReady(es.getImage(id)) {
         result =>
           result should matchPattern {
-            case Right(Image("3", None, None, Some("""{"id":3}"""))) =>
+            case Right(Image("3", None, None, None, Some("""{"id":3}"""))) =>
           }
       }
     }

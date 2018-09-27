@@ -39,7 +39,7 @@ class ElasticSearchExportsTest extends FreeSpec with Matchers with Checkers with
     }
 
     "check no images present in the new index" in {
-      whenReady(es.getImage(id)) {
+      whenReady(es.getImageFuture(id)) {
         result =>
           result shouldBe Left(s"Failed to find a single image with id $id")
       }
@@ -54,10 +54,10 @@ class ElasticSearchExportsTest extends FreeSpec with Matchers with Checkers with
     }
 
     "get image from the new index" in {
-      whenReady(es.getImage(id)) {
+      whenReady(es.getImageFuture(id)) {
         result =>
           result should matchPattern {
-            case Right(Image("2", None, None, Some("""{"id":2}"""))) =>
+            case Right(Image("2", None, None, None, Some("""{"id":2}"""))) =>
           }
       }
     }
@@ -71,10 +71,10 @@ class ElasticSearchExportsTest extends FreeSpec with Matchers with Checkers with
     }
 
     "get image again" in {
-      whenReady(es.getImage(id)) {
+      whenReady(es.getImageFuture(id)) {
         result =>
           result should matchPattern {
-            case Right(Image("2", None, None, Some("""{"id":2}"""))) =>
+            case Right(Image("2", None, None, None, Some("""{"id":2}"""))) =>
           }
       }
     }

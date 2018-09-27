@@ -1,6 +1,7 @@
 package com.gu.thrall
 
 import com.gu.mediaservice.lib.ImageIngestOperations
+import com.gu.mediaservice.model.{Supplier, SyndicationRights}
 import com.gu.thrall.clients.{DynamoNotifications, ElasticSearch}
 import com.gu.thrall.config._
 import com.typesafe.scalalogging.StrictLogging
@@ -23,22 +24,22 @@ class Consumer(
   if (!dynamoActionsFlag) logger.debug("Note that the lambda is configured NOT to update dynamo")
 
   def process(sns: Sns): Future[Either[String, String]] = sns match {
-    case Sns("image", Image(id, None, _, Some(data)))                             => indexImage(id, data)
-    case Sns("delete-image", Image(id, None, _, _))                               => deleteImage(id)
-    case Sns("update-image", Image(id, None, _, Some(data)))                      => indexImage(id, data)
-    case Sns("delete-image-exports", Image(id, None, _, _))                       => deleteImageExports(id)
-    case Sns("update-image-exports", Image(id, Some(data), _, _))                 => updateImageExports(id, data)
-    case Sns("update-image-user-metadata", Image(id, Some(data), Some(lastModified), _))
+    case Sns("image", Image(id, None, _, _, Some(data)))                             => indexImage(id, data)
+    case Sns("delete-image", Image(id, None, _, _, _))                               => deleteImage(id)
+    case Sns("update-image", Image(id, None, _, _, Some(data)))                      => indexImage(id, data)
+    case Sns("delete-image-exports", Image(id, None, _, _, _))                       => deleteImageExports(id)
+    case Sns("update-image-exports", Image(id, Some(data), _, _, _))                 => updateImageExports(id, data)
+    case Sns("update-image-user-metadata", Image(id, Some(data), _, Some(lastModified), _))
                                                                                   => updateImageUserMetadata(id, data, lastModified)
-    case Sns("update-image-usages", Image(id, Some(data), Some(lastModified), _)) => updateImageUsages(id, data, lastModified)
-    case Sns("update-image-leases", Image(id, Some(data), Some(lastModified), _)) => updateImageLeases(id, data, lastModified)
-    case Sns("set-image-collections", Image(id, Some(data), _, _))                => setImageCollections(id, data)
-    case Sns("heartbeat", Image(_, None, None, _))                                => heartbeat()
-    case Sns("delete-usages", Image(id, None, _, _))                              => deleteAllUsages(id)
-    case Sns("update-rcs-rights", Image(id, Some(data), _, _))                    => updateRcsRights(id, data)
-    case Sns("update-image-photoshoot", Image(id, Some(data), _, _))              => updateImagePhotoshoot(id, data)
-    case Sns("refresh-inferred-rights", Image(id, Some(data), _, _))              => upsertSyndicationRights(id, data)
-    case Sns("delete-inferred-rights", Image(id, Some(data), _, _))               => deleteInferredRights(id, data)
+    case Sns("update-image-usages", Image(id, Some(data), _, Some(lastModified), _)) => updateImageUsages(id, data, lastModified)
+    case Sns("update-image-leases", Image(id, Some(data), _, Some(lastModified), _)) => updateImageLeases(id, data, lastModified)
+    case Sns("set-image-collections", Image(id, Some(data), _, _, _))                => setImageCollections(id, data)
+    case Sns("heartbeat", Image(_, None, _, None, _))                                => heartbeat()
+    case Sns("delete-usages", Image(id, None, _, _, _))                              => deleteAllUsages(id)
+    case Sns("update-rcs-rights", Image(id, Some(data), _, _, _))                    => updateRcsRights(id, data)
+    case Sns("update-image-photoshoot", Image(id, Some(data), _, _, _))              => updateImagePhotoshoot(id, data)
+    case Sns("refresh-inferred-rights", Image(id, Some(data), _, _, _))              => upsertSyndicationRights(id, data)
+    case Sns("delete-inferred-rights", Image(id, Some(data), _, _, _))               => deleteInferredRights(id, data)
     case a => noMatch(a)
   }
 
@@ -47,19 +48,45 @@ class Consumer(
   }
 
   private def deleteInferredRights(id: String, data: JsValue) = {
-    if (esActionsFlag) elasticSearch.deleteInferredRights(id, data, DateTime.now())
+    if (esActionsFlag) elasticSearch.deleteInferredRights(id)
     else Future.successful(Right(s"Not deleting inferred rights for $id"))
   }
 
-  private def upsertSyndicationRights(id: String, data: JsValue) = {
-    if (esActionsFlag) elasticSearch.upsertSyndicationRights(id, data, DateTime.now())
-    else Future.successful(Right(s"Not upserting syndication rights for $id"))
+  // Needs to:
+  //   do the actual operations
+  private def upsertSyndicationRights(id: String, data: JsValue): Future[Either[String, String]] = {
+    if (esActionsFlag) {
+      Future {
+        for {
+          syndicationRights <- JsonParsing.syndicationRightsDetails(data)
+          image <- elasticSearch.getImage(id)
+          _ <- syndicationRightsOps.refreshInferredRights(image, syndicationRights) if (!syndicationRights.isInferred)
+        } yield elasticSearch.updateImageSyndicationRights(id, data)
+      }
+    } else {
+      Future.successful(Right(s"Not upserting syndication rights for $id"))
+    }
   }
 
-  private def updateImagePhotoshoot(id: String, data: JsValue) = {
-    if (esActionsFlag) elasticSearch.updateImagePhotoshoot(id, data, DateTime.now())
-    else Future.successful(Right(s"Not updating image photoshoot for $id"))
+  // Needs to:
+  //   do the actual operations
+  private def updateImagePhotoshoot(id: String, data: JsValue): Future[Either[String, String]] = {
+    if (esActionsFlag) {
+      Future {
+        for {
+          upcomingEdits <- JsonParsing.editDetails(data)
+          image <- elasticSearch.getImage(id)
+          inferredRights = (image.syndicationRights getOrElse SyndicationRights(None, Seq.empty[Supplier], Seq.empty[com.gu.mediaservice.model.Right], false)).isInferred
+          _ <- syndicationRightsOps.moveInferredRightsToPhotoshoot(image, upcomingEdits.photoshoot) if (inferredRights)
+          _ <- syndicationRightsOps.moveExplicitRightsToPhotoshoot(image, upcomingEdits.photoshoot) if (!inferredRights)
+        } yield updateImageUserMetadata(id, data, DateTime.now())
+      }
+    } else {
+      Future.successful(Right(s"Not updating image photoshoot for $id"))
+    }
   }
+
+
 
   private def updateRcsRights(id: String, data: JsValue) = {
     if (esActionsFlag) elasticSearch.updateRcsRights(id, data, DateTime.now())
