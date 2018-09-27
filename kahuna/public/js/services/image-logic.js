@@ -65,16 +65,23 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         });
     }
 
-    function isSyndicated(image) {
-        const syndicationRights = image.data.syndicationRights;
+    function getSyndicationStatus(image) {
+        return imageAccessor.readSyndicationStatus(image);
+    }
 
-        const hasSyndicationRights = !!syndicationRights;
-
-        if (!hasSyndicationRights) {
-            return false;
+    function getSyndicationReason(image) {
+        switch (getSyndicationStatus(image)) {
+            case 'sent':
+                return 'image has been sent for syndication';
+            case 'queued':
+                return 'image will soon be sent for syndication';
+            case 'blocked':
+                return 'image will not be sent for syndication';
+            case 'review':
+                return 'image is awaiting editorial review';
+            default:
+                return;
         }
-
-        return syndicationRights.rights.find(_ => _.acquired === true);
     }
 
     return {
@@ -83,7 +90,8 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         getArchivedState,
         getPersistenceExplanation,
         isStaffPhotographer,
-        isSyndicated
+        getSyndicationStatus,
+        getSyndicationReason
     };
 }]);
 

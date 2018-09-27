@@ -22,6 +22,7 @@ object SupplierProcessors {
     PaParser,
     ReutersParser,
     RexParser,
+    RonaldGrantParser,
     PhotographerParser
   )
 
@@ -142,7 +143,7 @@ object BarcroftParser extends ImageProcessor {
   def apply(image: Image): Image =
     // We search the credit and the source here as Barcroft seems to use both
     if(List(image.metadata.credit, image.metadata.source).flatten.map(_.toLowerCase).exists { s =>
-      List("barcroft media", "barcroft india", "barcroft usa", "barcroft cars").contains(s)
+      List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars").exists(s.contains)
     }) image.copy(usageRights = Agency("Barcroft Media")) else image
 }
 
@@ -267,6 +268,16 @@ object RexParser extends ImageProcessor {
     // TODO: cleanup byline/credit
     case (Some("Rex Features"), _) => image.copy(usageRights = rexAgency)
     case (_, Some(SlashRex()))     => image.copy(usageRights = rexAgency)
+    case _ => image
+  }
+}
+
+object RonaldGrantParser extends ImageProcessor {
+  def apply(image: Image): Image = image.metadata.credit match {
+    case Some("www.ronaldgrantarchive.com") | Some("Ronald Grant Archive") => image.copy(
+      usageRights = Agency("Ronald Grant Archive"),
+      metadata    = image.metadata.copy(credit = Some("Ronald Grant"))
+    )
     case _ => image
   }
 }

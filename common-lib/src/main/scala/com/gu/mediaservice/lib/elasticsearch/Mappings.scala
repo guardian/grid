@@ -128,7 +128,8 @@ object Mappings {
   val syndicationRightsMapping = nonDynamicObj(
     "published" -> dateFormat,
     "suppliers" -> suppliersMapping,
-    "rights" -> syndicationRightsListMapping
+    "rights" -> syndicationRightsListMapping,
+    "isInferred" -> boolean
   )
 
   val exportsMapping =

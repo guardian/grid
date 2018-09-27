@@ -34,11 +34,13 @@
 
 <section ng:if="ctrl.editInline" class="edit-inline flex-container">
     <gr-datalist class="job-info--editor__input"
-                 gr:search="ctrl.search(q)">
+                 gr:search="ctrl.search(q)"
+                 gr-tooltip="Naming a set of images for syndication etc, e.g. SL-07/18-heatwave (initials-MM/YY-title)."
+                 gr-tooltip-position="bottom">
         <input type="text"
                name="photoshoot"
                class="text-input job-info--credit full-width"
-               placeholder="describing a set of related images, e.g. for syndication purposes"
+               placeholder="Naming a set of images for syndication etc, e.g. SL-07/18-heatwave (initials-MM/YY-title)."
                gr:datalist-input
                ng:model="ctrl.photoshootData.title"
                ng:change="ctrl.save(ctrl.photoshootData.title)"

@@ -29,9 +29,9 @@ trait ElasticSearchHelper extends MockitoSugar {
   val testUser = "yellow-giraffe@theguardian.com"
 
   def createImage(
+     id: String,
      usageRights: UsageRights,
      syndicationRights: Option[SyndicationRights] = None,
-     id: String = UUID.randomUUID().toString,
      leases: Option[LeaseByMedia] = None,
      usages: List[Usage] = Nil
   ): Image = {
@@ -69,35 +69,37 @@ trait ElasticSearchHelper extends MockitoSugar {
   }
 
   def createImageForSyndication(
+    id: String,
     rightsAcquired: Boolean,
     rcsPublishDate: Option[DateTime],
-    allowLease: Option[Boolean],
-    id: Option[String] = None,
+    lease: Option[MediaLease],
     usages: List[Usage] = Nil
   ): Image = {
-    val imageId = id.getOrElse(UUID.randomUUID().toString)
-
     val rights = List(
       Right("test", Some(rightsAcquired), Nil)
     )
 
     val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
 
-    val leaseByMedia = allowLease.map(allowed => LeaseByMedia(
+    val leaseByMedia = lease.map(l => LeaseByMedia(
       lastModified = None,
       current = None,
-      leases = List(MediaLease(
-        id = None,
-        leasedBy = None,
-        startDate = None,
-        endDate = None,
-        access = if (allowed) AllowSyndicationLease else DenySyndicationLease,
-        notes = None,
-        mediaId = imageId
-      ))
+      leases = List(l)
     ))
 
-    createImage(StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), imageId, leaseByMedia, usages)
+    createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), leaseByMedia, usages)
+  }
+
+  def createSyndicationLease(allowed: Boolean, imageId: String, startDate: Option[DateTime] = None, endDate: Option[DateTime] = None): MediaLease = {
+    MediaLease(
+      id = None,
+      leasedBy = None,
+      startDate = startDate,
+      endDate = endDate,
+      access = if (allowed) AllowSyndicationLease else DenySyndicationLease,
+      notes = None,
+      mediaId = imageId
+    )
   }
 
   def createSyndicationUsage(): Usage = {

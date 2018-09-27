@@ -9,7 +9,6 @@ import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
 import scalaz.syntax.std.list._
 import scalaz.NonEmptyList
 import lib.MediaApiConfig
-import model._
 import org.joda.time.DateTime
 
 
@@ -75,58 +74,9 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
 
-  def rightsAcquiredFilter(isAcquired: Boolean): FilterBuilder =
-    filters.bool.must(
-      filters.boolTerm(
-        field = "syndicationRights.rights.acquired",
-        value = isAcquired
-      )
-    )
-
-  def syndicationRightsAcquiredFilter(): FilterBuilder = {
-    filters.and(
-      rightsAcquiredFilter(isAcquired = true),
-      filters.date(field = "syndicationRights.published", None, Some(DateTime.now)).get,
-      filters.term(field = "leases.leases.access", term = AllowSyndicationLease.name),
-      filters.bool.mustNot(
-        filters.term("usages.platform", term = SyndicationUsage.toString)
-      )
-    )
-  }
-
   def tierFilter(tier: Tier): Option[FilterBuilder] = tier match {
-    case Syndication => Some(syndicationRightsAcquiredFilter())
+    case Syndication => Some(SyndicationFilter.statusFilter(QueuedForSyndication, config))
     case _ => None
-  }
-
-  def syndicationStatusFilter(status: SyndicationStatus): FilterBuilder = {
-    status match {
-      case SentForSyndication => filters.and(
-        rightsAcquiredFilter(isAcquired = true),
-        filters.term("leases.leases.access", AllowSyndicationLease.name),
-        filters.term("usages.platform", SyndicationUsage.toString)
-      )
-      case QueuedForSyndication => filters.and(
-        rightsAcquiredFilter(isAcquired = true),
-        filters.term("leases.leases.access", AllowSyndicationLease.name),
-        filters.bool.mustNot(
-          filters.term("usages.platform", SyndicationUsage.toString)
-        )
-      )
-      case BlockedForSyndication => filters.and(
-        rightsAcquiredFilter(isAcquired = true),
-        filters.term("leases.leases.access", DenySyndicationLease.name)
-      )
-      case AwaitingReviewForSyndication => filters.and(
-        rightsAcquiredFilter(isAcquired = true),
-        filters.bool.mustNot(
-          filters.or(
-            filters.term("leases.leases.access", AllowSyndicationLease.name),
-            filters.term("leases.leases.access", DenySyndicationLease.name)
-          )
-        )
-      )
-    }
   }
 
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {

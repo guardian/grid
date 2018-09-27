@@ -1,4 +1,4 @@
-package model
+package com.gu.mediaservice.model
 
 import play.api.libs.json._
 
@@ -8,6 +8,7 @@ sealed trait SyndicationStatus {
     case QueuedForSyndication => "queued"
     case BlockedForSyndication => "blocked"
     case AwaitingReviewForSyndication => "review"
+    case UnsuitableForSyndication => "unsuitable"
   }
 }
 
@@ -17,6 +18,7 @@ object SyndicationStatus {
     case "queued" => QueuedForSyndication
     case "blocked" => BlockedForSyndication
     case "review" => AwaitingReviewForSyndication
+    case "unsuitable" => UnsuitableForSyndication
   }
 
   implicit val reads: Reads[SyndicationStatus] = JsPath.read[String].map(SyndicationStatus(_))
@@ -30,3 +32,4 @@ object SentForSyndication extends SyndicationStatus
 object QueuedForSyndication extends SyndicationStatus
 object BlockedForSyndication extends SyndicationStatus
 object AwaitingReviewForSyndication extends SyndicationStatus
+object UnsuitableForSyndication extends SyndicationStatus

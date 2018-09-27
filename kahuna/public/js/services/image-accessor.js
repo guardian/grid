@@ -60,6 +60,10 @@ imageAccessor.factory('imageAccessor', function() {
         return image.data.collections;
     }
 
+    function readSyndicationStatus(image) {
+        return image.data.syndicationStatus;
+    }
+
     function getCollectionsIds(image) {
         const collections = readCollections(image);
         return collections.map(col => col.data.pathId);
@@ -82,7 +86,8 @@ imageAccessor.factory('imageAccessor', function() {
         isArchived,
         readCollections,
         getCollectionsIds,
-        getPhotoshoot
+        getPhotoshoot,
+        readSyndicationStatus
     };
 });
 
