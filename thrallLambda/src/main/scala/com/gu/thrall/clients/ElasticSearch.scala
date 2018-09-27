@@ -136,6 +136,12 @@ class ElasticSearch(host: String, port: Integer, protocol: String, indexName: St
 
   def updateRcsRights(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = updateImageField(id, data, lastModified, "rights")
 
+  def deleteInferredRights(id: String): Future[Either[String, String]] = deleteField(id, "syndicationRights")
+
+  def upsertSyndicationRights(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = ???
+
+  def updateImagePhotoshoot(id: String, data: JsValue, lastModified: DateTime): Future[Either[String, String]] = ???
+
   def setImageCollections(id: String, data: JsValue): Future[Either[String, String]] = updateImageField(id, data, DateTime.now(), "collections")
 
   def updateImageField(id: String, data: JsValue, lastModified: DateTime, fieldName: String): Future[Either[String, String]] = Future {
@@ -173,7 +179,7 @@ class ElasticSearch(host: String, port: Integer, protocol: String, indexName: St
       case Right(ElasticSearchResponse(Some(1), _, _)) => Right("OK")
       case Right(ElasticSearchResponse(None, _, _))    => Left(s"Unable to delete image, no total found")
       case Right(ElasticSearchResponse(_, _, _))       => Left("Image not deletable")
-      case Left(s)                                      => Left(s)
+      case Left(s)                                     => Left(s)
     }
   }
 

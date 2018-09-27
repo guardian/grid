@@ -36,11 +36,29 @@ class Consumer(
     case Sns("heartbeat", Image(_, None, None, _))                                => heartbeat()
     case Sns("delete-usages", Image(id, None, _, _))                              => deleteAllUsages(id)
     case Sns("update-rcs-rights", Image(id, Some(data), _, _))                    => updateRcsRights(id, data)
+    case Sns("update-image-photoshoot", Image(id, Some(data), _, _))              => updateImagePhotoshoot(id, data)
+    case Sns("refresh-inferred-rights", Image(id, Some(data), _, _))              => upsertSyndicationRights(id, data)
+    case Sns("delete-inferred-rights", Image(id, Some(data), _, _))               => deleteInferredRights(id, data)
     case a => noMatch(a)
   }
 
   private def noMatch(a: Sns) = {
     Future.successful(Left(s"No match for message $a"))
+  }
+
+  private def deleteInferredRights(id: String, data: JsValue) = {
+    if (esActionsFlag) elasticSearch.deleteInferredRights(id, data, DateTime.now())
+    else Future.successful(Right(s"Not deleting inferred rights for $id"))
+  }
+
+  private def upsertSyndicationRights(id: String, data: JsValue) = {
+    if (esActionsFlag) elasticSearch.upsertSyndicationRights(id, data, DateTime.now())
+    else Future.successful(Right(s"Not upserting syndication rights for $id"))
+  }
+
+  private def updateImagePhotoshoot(id: String, data: JsValue) = {
+    if (esActionsFlag) elasticSearch.updateImagePhotoshoot(id, data, DateTime.now())
+    else Future.successful(Right(s"Not updating image photoshoot for $id"))
   }
 
   private def updateRcsRights(id: String, data: JsValue) = {
