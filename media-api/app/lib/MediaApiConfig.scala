@@ -3,6 +3,7 @@ package lib
 import com.amazonaws.services.ec2.{AmazonEC2, AmazonEC2ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.elasticsearch.EC2._
+import com.gu.mediaservice.lib.logging.GridLogger
 import play.api.Configuration
 
 import scala.util.Try
@@ -30,14 +31,20 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   private lazy val ec2Client: AmazonEC2 = withAWSCredentials(AmazonEC2ClientBuilder.standard()).build()
 
   val elasticsearchHost: String =
-    if (isDev)
+    if (isDev) {
+      GridLogger.info("Using localhost database")
       properties.getOrElse("es.host", "localhost")
-    else
-      findElasticsearchHost(ec2Client, Map(
+    }
+    else {
+      GridLogger.info(s"Searching for database using stage=$stage; stack=$elasticsearchStack; app=$elasticsearchApp")
+      val host = findElasticsearchHost(ec2Client, Map(
         "Stage" -> Seq(stage),
         "Stack" -> Seq(elasticsearchStack),
         "App"   -> Seq(elasticsearchApp)
       ))
+      GridLogger.info(s"Found host $host")
+      host
+    }
 
   lazy val imageBucket: String = properties("s3.image.bucket")
   lazy val thumbBucket: String = properties("s3.thumb.bucket")
