@@ -26,7 +26,8 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     CapitaliseState,
     CapitaliseCity,
     CapitaliseSubLocation,
-    DropRedundantTitle
+    DropRedundantTitle,
+    PhotographerRenamer
   )
 
   def clean(inputMetadata: ImageMetadata): ImageMetadata =
