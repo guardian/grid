@@ -66,6 +66,12 @@ object SyndicationFilter extends ImageFields {
     filters.date("uploadTime", Some(startDate), None).get
   }
 
+  private val illustratorFilter: FilterBuilder = filters.or(
+    filters.term(usageRightsField("category"), ContractIllustrator.category),
+    filters.term(usageRightsField("category"), StaffIllustrator.category),
+    filters.term(usageRightsField("category"), CommissionedIllustrator.category)
+  )
+
   def statusFilter(status: SyndicationStatus, config: MediaApiConfig): FilterBuilder = status match {
     case SentForSyndication => filters.and(
       hasRightsAcquired,
@@ -89,6 +95,7 @@ object SyndicationFilter extends ImageFields {
       val rightsAcquiredNoLeaseFilter = filters.and(
         hasRightsAcquired,
         filters.bool.mustNot(
+          illustratorFilter,
           hasAllowLease,
           filters.and(
             hasDenyLease,
