@@ -106,7 +106,7 @@ object MetadataConfig {
     "Louise Hagger"       -> "The Guardian",
     "Martin Godwin"       -> "The Guardian",
     "Mike Bowers"         -> "The Guardian",
-    "Murdo Macleod"       -> "The Guardian",
+    "Murdo MacLeod"       -> "The Guardian",
     "Sarah Lee"           -> "The Guardian",
     "Tom Jenkins"         -> "The Guardian",
     "Tristram Kenton"     -> "The Guardian",

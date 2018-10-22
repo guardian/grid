@@ -84,7 +84,7 @@ object UsageRightsProperty {
 
     case CommissionedPhotographer => List(
       publicationField(false),
-      photographerField("Sophia Evans, Murdo Macleod")
+      photographerField("Sophia Evans, Murdo MacLeod")
     )
 
     case ContractIllustrator => List(
