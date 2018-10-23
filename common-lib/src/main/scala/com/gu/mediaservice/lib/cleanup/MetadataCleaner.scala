@@ -21,6 +21,7 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
   ) ++ attrCreditFromBylineCleaners ++ List(
     StripBylineFromCredit,
     CountryCode,
+    GuardianStyleByline,
     CapitaliseByline,
     CapitaliseCountry,
     CapitaliseState,
