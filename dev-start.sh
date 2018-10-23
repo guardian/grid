@@ -52,7 +52,7 @@ setupImgops() {
     if [ ! -f ./imgops/dev/nginx.conf ]; then
         bucket=`bash get-stack-resource.sh ImageBucket`
         if [ -z "$bucket" ]; then
-            echo -e "${red}[CANNOT GET ImageBucket] This may be because your default region for the media-service profile has not been set."
+            echo -e "${red}[CANNOT GET ImageBucket] This may be because your default region for the media-service profile has not been set.${plain}"
             exit 1
         fi
 
