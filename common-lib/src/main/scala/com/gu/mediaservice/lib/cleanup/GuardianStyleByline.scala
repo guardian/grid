@@ -20,10 +20,7 @@ object GuardianStyleByline extends MetadataCleaner {
 
   // Guardian style guide says there shoulnd't be full stops after intials
   private def cleanInitials(byline: String): String = {
-    val noDots = byline.replaceAll("\\b(\\w)\\.(?:\\s|\\b|$)", "$1 ").trim
-
-    // Squish initials together if there's two
-    noDots.replaceAll("\\b(\\p{Lu})\\s(\\p{Lu})\\b", "$1$2")
+    byline.replaceAll("\\b(\\w)\\.(?:\\s|\\b|$)", "$1 ").trim
   }
 
 }
