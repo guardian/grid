@@ -55,17 +55,13 @@ case class MediaLease(
     case _ => this
   }
 
-  private def withValidEndDateField: MediaLease = if (access == AllowSyndicationLease) {
-    this.copy(endDate = None) // an allow-syndication cannot end
-  } else {
-    this
-  }
+  private def withValidEndDateField: MediaLease =
+    if (access == AllowSyndicationLease) this.copy(endDate = None) // an allow-syndication cannot end
+    else this
 
-  private def withValidStartDateField: MediaLease = if (access == DenySyndicationLease) {
-    this.copy(startDate = None) // a deny-syndication cannot start
-  } else {
-    this
-  }
+  private def withValidStartDateField: MediaLease =
+    if (access == DenySyndicationLease) this.copy(startDate = None) // a deny-syndication cannot start
+    else this
 
   def prepareForSave: MediaLease = this
     .withValidNotesField

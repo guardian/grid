@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.aws.SNS
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.LeaseByMedia
+import com.gu.mediaservice.model.{LeaseByMedia, MediaLease}
 import org.joda.time.DateTime
 import play.api.libs.json._
 
@@ -26,6 +26,10 @@ object LeaseNotice {
       )
     }
   }
+  def apply(mediaLease: MediaLease): LeaseNotice = LeaseNotice(
+    mediaLease.mediaId,
+    Json.toJson(LeaseByMedia.build(List(mediaLease)))
+  )
 }
 
 class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends SNS(config, config.topicArn) {
@@ -36,5 +40,9 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends SNS(config,
 
   def send(mediaId: String) = {
     publish(build(mediaId).toJson, "update-image-leases")
+  }
+
+  def send(mediaLease: MediaLease) = {
+    publish(LeaseNotice(mediaLease).toJson, "update-image-leases")
   }
 }

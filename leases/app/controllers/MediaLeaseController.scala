@@ -32,6 +32,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   }
 
   private def notify(mediaId: String): Unit =  notifications.send(mediaId)
+  private def notify(mediaId: MediaLease): Unit =  notifications.send(mediaId)
 
   private def clearLease(id: String) = store.get(id).map { lease =>
     store.delete(id).map { _ => notify(lease.mediaId) }
@@ -46,7 +47,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
 
   private def addLease(mediaLease: MediaLease, userId: Option[String]) = store
     .put(mediaLease.prepareForSave.copy(leasedBy = userId)).map { _ =>
-      notify(mediaLease.mediaId)
+      notify(mediaLease)
     }
 
   def index = auth { _ => indexResponse }
