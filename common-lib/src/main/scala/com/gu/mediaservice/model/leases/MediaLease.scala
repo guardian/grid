@@ -1,13 +1,10 @@
 package com.gu.mediaservice.model
 
 import play.api.libs.json._
-import play.api.libs.functional.syntax._
 import org.joda.time.DateTime
 import JodaWrites._
 import JodaReads._
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.gu.mediaservice.model.MediaLease.MediaLeasePlainWrites
-
 
 sealed trait MediaLeaseType { def name: String }
 object MediaLeaseType {
@@ -75,16 +72,14 @@ case class MediaLease(
 
   def isUse = access == AllowUseLease || access == DenyUseLease
 }
+
 object MediaLease {
-  implicit val MediaLeaseReads = Json.reads[MediaLease]
+  implicit val MediaLeaseReads: Reads[MediaLease] = Json.reads[MediaLease]
 
-  val MediaLeasePlainWrites = Json.writes[MediaLease]
+  val MediaLeasePlainWrites: OWrites[MediaLease] = Json.writes[MediaLease]
 
-  implicit val MediaLeaseWrites: Writes[MediaLease] = new Writes[MediaLease] {
-    def writes(mediaLease: MediaLease) =
-      Json.toJson(mediaLease)(MediaLeasePlainWrites).as[JsObject] +
-        ("active" -> JsString(mediaLease.active.toString))
-  }
+  implicit val MediaLeaseWrites: Writes[MediaLease] = (mediaLease: MediaLease) =>
+    Json.toJson(mediaLease)(MediaLeasePlainWrites).as[JsObject] + ("active" -> JsBoolean(mediaLease.active))
 
   def toJson(lease: MediaLease): JsValue = Json.obj(
     "id" -> lease.mediaId,

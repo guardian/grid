@@ -9,22 +9,20 @@ import JodaWrites._
 
 case class LeasesByMedia(
   leases: List[MediaLease],
-  lastModified: Option[DateTime],
-  current: Option[MediaLease]
+  lastModified: Option[DateTime]
 )
-case object LeasesByMedia {
+
+object LeasesByMedia {
   implicit val reader : Reads[LeasesByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeasesByMedia.build)
 
   implicit val writer = new Writes[LeasesByMedia] {
     def writes(leaseByMedia: LeasesByMedia) = {
       LeasesByMedia.toJson(
         Json.toJson(leaseByMedia.leases),
-        Json.toJson(leaseByMedia.current),
         Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
       )
     }
   }
-
 
   def build(leases: List[MediaLease]): LeasesByMedia = {
     def sortLease(a: MediaLease, b: MediaLease) =
@@ -33,20 +31,17 @@ case object LeasesByMedia {
     val sortedLeases = leases
       .sortWith(sortLease)
 
-    val currentLease = sortedLeases.find(lease => lease.active && lease.isUse)
-
     val lastModified = sortedLeases
       .headOption
       .map(_.createdAt)
 
-    LeasesByMedia(sortedLeases, lastModified, currentLease)
+    LeasesByMedia(sortedLeases, lastModified)
   }
 
-  def toJson(leases: JsValue, current: JsValue, lastModified: JsValue) : JsObject = {
+  def toJson(leases: JsValue, lastModified: JsValue) : JsObject = {
     JsObject(
       Seq(
         "leases" -> leases,
-        "current" -> current,
         "lastModified" -> lastModified
       )
     )

@@ -24,7 +24,7 @@ case class Image(
   originalUsageRights: UsageRights,
   exports:             List[Crop]       = Nil,
   usages:              List[Usage]      = Nil,
-  leases:              LeaseByMedia     = LeaseByMedia.build(Nil),
+  leases:              LeasesByMedia     = LeasesByMedia.build(Nil),
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None
 ) {

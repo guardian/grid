@@ -21,7 +21,6 @@ object LeaseNotice {
     def writes(leaseByMedia: LeasesByMedia) = {
       LeasesByMedia.toJson(
         Json.toJson(leaseByMedia.leases),
-        Json.toJson(leaseByMedia.current),
         Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
       )
     }
