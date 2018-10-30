@@ -102,7 +102,6 @@ class ImageTest extends FunSpec with Matchers {
 
       val leaseByMedia = LeasesByMedia(
         lastModified = None,
-        current = None,
         leases = List(MediaLease(
           id = None,
           leasedBy = None,
@@ -141,7 +140,6 @@ class ImageTest extends FunSpec with Matchers {
 
     val leaseByMedia = LeasesByMedia(
       lastModified = None,
-      current = None,
       leases = List(MediaLease(
         id = None,
         leasedBy = None,
@@ -170,7 +168,6 @@ class ImageTest extends FunSpec with Matchers {
 
     val leaseByMedia = LeasesByMedia(
       lastModified = None,
-      current = None,
       leases = List(MediaLease(
         id = None,
         leasedBy = None,

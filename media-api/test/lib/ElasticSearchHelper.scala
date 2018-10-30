@@ -83,7 +83,6 @@ trait ElasticSearchHelper extends MockitoSugar {
 
     val leaseByMedia = lease.map(l => LeasesByMedia(
       lastModified = None,
-      current = None,
       leases = List(l)
     ))
 
