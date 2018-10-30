@@ -9,7 +9,7 @@ import org.scalatest.{FunSpec, Matchers}
 
 class ImageTest extends FunSpec with Matchers {
 
-  def createImage(id: String = UUID.randomUUID().toString, usages: List[Usage] = List(), leases: Option[LeaseByMedia] = None, syndicationRights: Option[SyndicationRights] = None): Image = {
+  def createImage(id: String = UUID.randomUUID().toString, usages: List[Usage] = List(), leases: Option[LeasesByMedia] = None, syndicationRights: Option[SyndicationRights] = None): Image = {
     Image(
       id = id,
       uploadTime = DateTime.now(),
@@ -36,7 +36,7 @@ class ImageTest extends FunSpec with Matchers {
 
       syndicationRights = syndicationRights,
       usages = usages,
-      leases = leases.getOrElse(LeaseByMedia.build(Nil))
+      leases = leases.getOrElse(LeasesByMedia.build(Nil))
     )
   }
 
@@ -100,7 +100,7 @@ class ImageTest extends FunSpec with Matchers {
         digitalUsage
       )
 
-      val leaseByMedia = LeaseByMedia(
+      val leaseByMedia = LeasesByMedia(
         lastModified = None,
         current = None,
         leases = List(MediaLease(
@@ -139,7 +139,7 @@ class ImageTest extends FunSpec with Matchers {
   it("should be QueuedForSyndication if there is an allow syndication lease and no syndication usage") {
     val imageId = UUID.randomUUID().toString
 
-    val leaseByMedia = LeaseByMedia(
+    val leaseByMedia = LeasesByMedia(
       lastModified = None,
       current = None,
       leases = List(MediaLease(
@@ -168,7 +168,7 @@ class ImageTest extends FunSpec with Matchers {
   it("should be BlockedForSyndication if there is a deny syndication lease and no syndication usage") {
     val imageId = UUID.randomUUID().toString
 
-    val leaseByMedia = LeaseByMedia(
+    val leaseByMedia = LeasesByMedia(
       lastModified = None,
       current = None,
       leases = List(MediaLease(

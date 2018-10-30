@@ -172,6 +172,21 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     }
   }
 
+  def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    prepareImageUpdate(id){ request =>
+      request.setScriptParams(Map(
+        "lease" -> asGroovy(lease.getOrElse(JsNull)),
+        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
+      ).asJava)
+        .setScript(
+          addLeaseScript + updateLastModifiedScript,
+          scriptType)
+        .executeAndLog(s"adding lease on image $id with: $lease")
+        .recover { case _: DocumentMissingException => new UpdateResponse }
+        .incrementOnFailure(metrics.failedUsagesUpdates) { case _: VersionConflictEngineException => true }
+    }
+  }
+
   def updateImageExports(id: String, exports: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
@@ -371,6 +386,14 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   private val replaceLeasesScript =
     """ctx._source.leases = leaseByMedia;"""
+
+  private val addLeaseScript =
+    """| if (ctx._source.leases.leases == null) {
+       |   ctx._source.leases.leases = lease;
+       | } else {
+       |   ctx._source.leases.leases += lease;
+       | }
+    """.stripMargin
 
   // Create the exports key or add to it
   private val addExportsScript =

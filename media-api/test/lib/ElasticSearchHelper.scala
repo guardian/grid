@@ -29,11 +29,11 @@ trait ElasticSearchHelper extends MockitoSugar {
   val testUser = "yellow-giraffe@theguardian.com"
 
   def createImage(
-     id: String,
-     usageRights: UsageRights,
-     syndicationRights: Option[SyndicationRights] = None,
-     leases: Option[LeaseByMedia] = None,
-     usages: List[Usage] = Nil
+                   id: String,
+                   usageRights: UsageRights,
+                   syndicationRights: Option[SyndicationRights] = None,
+                   leases: Option[LeasesByMedia] = None,
+                   usages: List[Usage] = Nil
   ): Image = {
     Image(
       id = id,
@@ -63,7 +63,7 @@ trait ElasticSearchHelper extends MockitoSugar {
       originalUsageRights = usageRights,
       exports = Nil,
       syndicationRights = syndicationRights,
-      leases = leases.getOrElse(LeaseByMedia.build(Nil)),
+      leases = leases.getOrElse(LeasesByMedia.build(Nil)),
       usages = usages
     )
   }
@@ -81,7 +81,7 @@ trait ElasticSearchHelper extends MockitoSugar {
 
     val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
 
-    val leaseByMedia = lease.map(l => LeaseByMedia(
+    val leaseByMedia = lease.map(l => LeasesByMedia(
       lastModified = None,
       current = None,
       leases = List(l)

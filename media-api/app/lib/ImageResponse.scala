@@ -36,7 +36,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   type UsagesEntity = EmbeddedEntity[List[UsageEntity]]
 
   type MediaLeaseEntity = EmbeddedEntity[MediaLease]
-  type MediaLeasesEntity = EmbeddedEntity[LeaseByMedia]
+  type MediaLeasesEntity = EmbeddedEntity[LeasesByMedia]
 
   def hasPersistenceIdentifier(image: Image) =
     image.identifiers.contains(config.persistenceIdentifier)
@@ -325,7 +325,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (__ \ "usages").write[UsagesEntity]
       .contramap(usagesEntity(id, _: List[Usage])) ~
     (__ \ "leases").write[MediaLeasesEntity]
-        .contramap(leasesEntity(id, _: LeaseByMedia)) ~
+        .contramap(leasesEntity(id, _: LeasesByMedia)) ~
     (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
     (__ \ "syndicationRights").write[Option[SyndicationRights]]
@@ -343,8 +343,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def usagesEntity(id: String, usages: List[Usage]) =
     EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
 
-  def leasesEntity(id: String, leaseByMedia: LeaseByMedia) =
-    EmbeddedEntity[LeaseByMedia](leasesUri(id), Some(leaseByMedia))
+  def leasesEntity(id: String, leaseByMedia: LeasesByMedia) =
+    EmbeddedEntity[LeasesByMedia](leasesUri(id), Some(leaseByMedia))
 
   def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
       collectionEntity(config.collectionsUri, id, c)

@@ -7,17 +7,17 @@ import com.gu.mediaservice.lib.argo.model._
 import org.joda.time.DateTime
 import JodaWrites._
 
-case class LeaseByMedia(
+case class LeasesByMedia(
   leases: List[MediaLease],
   lastModified: Option[DateTime],
   current: Option[MediaLease]
 )
-case object LeaseByMedia {
-  implicit val reader : Reads[LeaseByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeaseByMedia.build(_))
+case object LeasesByMedia {
+  implicit val reader : Reads[LeasesByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeasesByMedia.build)
 
-  implicit val writer = new Writes[LeaseByMedia] {
-    def writes(leaseByMedia: LeaseByMedia) = {
-      LeaseByMedia.toJson(
+  implicit val writer = new Writes[LeasesByMedia] {
+    def writes(leaseByMedia: LeasesByMedia) = {
+      LeasesByMedia.toJson(
         Json.toJson(leaseByMedia.leases),
         Json.toJson(leaseByMedia.current),
         Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
@@ -26,7 +26,7 @@ case object LeaseByMedia {
   }
 
 
-  def build(leases: List[MediaLease]): LeaseByMedia = {
+  def build(leases: List[MediaLease]): LeasesByMedia = {
     def sortLease(a: MediaLease, b: MediaLease) =
       a.createdAt.isAfter(b.createdAt)
 
@@ -39,7 +39,7 @@ case object LeaseByMedia {
       .headOption
       .map(_.createdAt)
 
-    LeaseByMedia(sortedLeases, lastModified, currentLease)
+    LeasesByMedia(sortedLeases, lastModified, currentLease)
   }
 
   def toJson(leases: JsValue, current: JsValue, lastModified: JsValue) : JsObject = {

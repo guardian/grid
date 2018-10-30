@@ -30,9 +30,9 @@ object ImageExtras {
   def hasCredit(meta: ImageMetadata) = meta.credit.isDefined
   def hasDescription(meta: ImageMetadata) = meta.description.isDefined
 
-  def hasCurrentAllowLease(leases: LeaseByMedia) = leases.current.exists(_.access == AllowUseLease)
+  def hasCurrentAllowLease(leases: LeasesByMedia) = leases.current.exists(_.access == AllowUseLease)
 
-  def hasCurrentDenyLease(leases: LeaseByMedia) = leases.current.exists(_.access == DenyUseLease)
+  def hasCurrentDenyLease(leases: LeasesByMedia) = leases.current.exists(_.access == DenyUseLease)
 
   def validityMap(image: Image, withWritePermission: Boolean)(
     implicit cost: CostCalculator, quotas: UsageQuota): ValidMap = {

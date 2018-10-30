@@ -32,6 +32,7 @@ class ThrallMessageConsumer(
       case "update-image-user-metadata" => updateImageUserMetadata
       case "update-image-usages"        => updateImageUsages
       case "update-image-leases"        => updateImageLeases
+      case "add-image-lease"            => addImageLease
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
@@ -66,6 +67,9 @@ class ThrallMessageConsumer(
 
   def updateImageLeases(leaseByMedia: JsValue) =
     Future.sequence( withImageId(leaseByMedia)(id => es.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")) )
+
+  def addImageLease(lease: JsValue) =
+    Future.sequence( withImageId(lease)(id => es.addImageLease(id, lease \ "data", lease \ "lastModified")) )
 
   def setImageCollections(collections: JsValue) =
     Future.sequence(withImageId(collections)(id => es.setImageCollection(id, collections \ "data")) )
