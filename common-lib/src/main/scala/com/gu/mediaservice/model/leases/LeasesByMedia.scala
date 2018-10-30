@@ -1,9 +1,6 @@
 package com.gu.mediaservice.model
 
-
 import play.api.libs.json._
-import play.api.libs.functional.syntax._
-import com.gu.mediaservice.lib.argo.model._
 import org.joda.time.DateTime
 import JodaWrites._
 

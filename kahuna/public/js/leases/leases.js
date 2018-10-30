@@ -183,6 +183,7 @@ leases.controller('LeasesCtrl', [
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';
 
+            // Current only makes sense for use leases
             const current = (lease.active && lease.access.match(/-use/i)) ? 'current' : '';
 
             const access = (lease.access.match(/allow/i)) ? 'allowed' : 'denied';

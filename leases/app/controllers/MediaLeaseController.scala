@@ -1,5 +1,7 @@
 package controllers
 
+import java.util.UUID
+
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
@@ -31,11 +33,8 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     respond(appIndex, indexLinks)
   }
 
-  private def notify(mediaId: String): Unit =  notifications.send(mediaId)
-  private def notify(mediaLease: MediaLease): Unit =  notifications.send(mediaLease)
-
   private def clearLease(id: String) = store.get(id).map { lease =>
-    store.delete(id).map { _ => notify(lease.mediaId) }
+    store.delete(id).map { _ => notifications.sendRemoveLease(lease.mediaId, id)}
   }
 
   private def clearLeases(id: String) = store.getForMedia(id)
@@ -46,10 +45,9 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     respondError(BadRequest, "media-leases-parse-failed", JsError.toJson(e).toString)
 
   private def addLease(mediaLease: MediaLease, userId: Option[String]) = {
-    val lease: MediaLease = mediaLease.prepareForSave.copy(leasedBy = userId)
-    store
-      .put(lease).map { _ =>
-      notify(lease)
+    val lease = mediaLease.prepareForSave.copy(id = Some(UUID.randomUUID().toString), leasedBy = userId)
+    store.put(lease).map { _ =>
+      notifications.sendAddLease(lease)
     }
   }
 
@@ -59,7 +57,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     store.forEach { leases =>
       leases
         .foldLeft(Set[String]())((ids, lease) =>  ids + lease.mediaId)
-        .foreach(notify)
+        .foreach(notifications.sendReindexLeases)
     }
     Accepted
   }}

@@ -166,7 +166,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
           replaceLeasesScript +
             updateLastModifiedScript,
           scriptType)
-      .executeAndLog(s"updating leases on image $id with: $leaseByMedia")
+      .executeAndLog(s"updating all leases on image $id with: $leaseByMedia")
       .recover { case e: DocumentMissingException => new UpdateResponse }
       .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
     }
@@ -182,6 +182,21 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
           addLeaseScript + updateLastModifiedScript,
           scriptType)
         .executeAndLog(s"adding lease on image $id with: $lease")
+        .recover { case _: DocumentMissingException => new UpdateResponse }
+        .incrementOnFailure(metrics.failedUsagesUpdates) { case _: VersionConflictEngineException => true }
+    }
+  }
+
+  def removeImageLease(id: String, leaseId: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[UpdateResponse]] = {
+    prepareImageUpdate(id){ request =>
+      request.setScriptParams(Map(
+        "leaseId" -> asGroovy(leaseId.getOrElse(JsNull)),
+        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
+      ).asJava)
+        .setScript(
+          removeLeaseScript + updateLastModifiedScript,
+          scriptType)
+        .executeAndLog(s"removing lease with id $leaseId from image $id ")
         .recover { case _: DocumentMissingException => new UpdateResponse }
         .incrementOnFailure(metrics.failedUsagesUpdates) { case _: VersionConflictEngineException => true }
     }
@@ -384,14 +399,22 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   private val replaceSyndicationRightsScript =
     """ctx._source.syndicationRights = syndicationRights;"""
 
-  private val replaceLeasesScript =
-    """ctx._source.leases = leaseByMedia;"""
-
   private val addLeaseScript =
     """| if (ctx._source.leases.leases == null) {
        |   ctx._source.leases.leases = lease;
        | } else {
        |   ctx._source.leases.leases += lease;
+       | }
+    """.stripMargin
+
+  private val replaceLeasesScript =
+    """ctx._source.leases = leaseByMedia;"""
+
+  private val removeLeaseScript =
+    """| for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
+       |    if(ctx._source.leases.leases[i].id == leaseId) {
+       |      ctx._source.leases.leases.remove(i);
+       |    }
        | }
     """.stripMargin
 
