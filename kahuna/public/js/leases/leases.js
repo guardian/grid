@@ -143,8 +143,8 @@ leases.controller('LeasesCtrl', [
             return leasedBy;
         };
 
-        ctrl.inactiveLeases = (leases) => leases.leases.filter(ctrl.isCurrent).length;
-        ctrl.activeLeases = (leases) => leases.leases.filter(ctrl.isCurrent).length;
+        ctrl.inactiveLeases = (leases) => leases.leases.filter((l) => !ctrl.isCurrent(l)).length;
+        ctrl.activeLeases = (leases) => leases.leases.filter((l) => ctrl.isCurrent(l)).length;
 
         ctrl.resetLeaseForm = () => {
             ctrl.newLease = {
