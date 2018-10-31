@@ -117,10 +117,6 @@
                                 readonly="ctrl.selectionMode">
             </gr-archiver-status>
 
-            <div class="bottom-bar__action bottom-bar__action--lease" ng:if="ctrl.leaseStatus(ctrl.image)">
-                <gr-icon>today</gr-icon>
-            </div>
-
             <div class="bottom-bar__action" ng-if="ctrl.states.syndicationStatus !== 'unsuitable'">
                 <gr-syndication-icon image="ctrl.image"></gr-syndication-icon>
             </div>
