@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.aws.SNS
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.LeaseByMedia
+import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
 import org.joda.time.DateTime
 import play.api.libs.json._
 
@@ -17,24 +17,40 @@ case class LeaseNotice(mediaId: String, leaseByMedia: JsValue) {
 object LeaseNotice {
   import JodaWrites._
 
-  implicit val writer = new Writes[LeaseByMedia] {
-    def writes(leaseByMedia: LeaseByMedia) = {
-      LeaseByMedia.toJson(
+  implicit val writer = new Writes[LeasesByMedia] {
+    def writes(leaseByMedia: LeasesByMedia) = {
+      LeasesByMedia.toJson(
         Json.toJson(leaseByMedia.leases),
-        Json.toJson(leaseByMedia.current),
         Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
       )
     }
   }
+  def apply(mediaLease: MediaLease): LeaseNotice = LeaseNotice(
+    mediaLease.mediaId,
+    Json.toJson(LeasesByMedia.build(List(mediaLease)))
+  )
 }
 
 class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends SNS(config, config.topicArn) {
   private def build(mediaId: String): LeaseNotice = {
     val leases = store.getForMedia(mediaId)
-    LeaseNotice(mediaId, Json.toJson(LeaseByMedia.build(leases)))
+    LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(leases)))
   }
 
-  def send(mediaId: String) = {
+  def sendReindexLeases(mediaId: String) = {
     publish(build(mediaId).toJson, "update-image-leases")
+  }
+
+  def sendAddLease(mediaLease: MediaLease) = {
+    publish(MediaLease.toJson(mediaLease), "add-image-lease")
+  }
+
+  def sendRemoveLease(mediaId: String, leaseId: String) = {
+    val leaseInfo = Json.obj(
+      "leaseId" -> leaseId,
+      "id" -> mediaId,
+      "lastModified" -> printDateTime(DateTime.now())
+    )
+    publish(leaseInfo, "remove-image-lease")
   }
 }

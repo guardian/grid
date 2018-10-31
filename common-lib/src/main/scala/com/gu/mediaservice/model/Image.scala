@@ -24,7 +24,7 @@ case class Image(
   originalUsageRights: UsageRights,
   exports:             List[Crop]       = Nil,
   usages:              List[Usage]      = Nil,
-  leases:              LeaseByMedia     = LeaseByMedia.build(Nil),
+  leases:              LeasesByMedia     = LeasesByMedia.build(Nil),
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None
 ) {
@@ -78,7 +78,7 @@ object Image {
       (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
       (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List()) ~
       (__ \ "usages").readNullable[List[Usage]].map(_ getOrElse List()) ~
-      (__ \ "leases").readNullable[LeaseByMedia].map(_ getOrElse LeaseByMedia.build(Nil)) ~
+      (__ \ "leases").readNullable[LeasesByMedia].map(_ getOrElse LeasesByMedia.build(Nil)) ~
       (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil) ~
       (__ \ "syndicationRights").readNullable[SyndicationRights]
     )(Image.apply _)
@@ -101,7 +101,7 @@ object Image {
       (__ \ "originalUsageRights").write[UsageRights] ~
       (__ \ "exports").write[List[Crop]] ~
       (__ \ "usages").write[List[Usage]] ~
-      (__ \ "leases").write[LeaseByMedia] ~
+      (__ \ "leases").write[LeasesByMedia] ~
       (__ \ "collections").write[List[Collection]] ~
       (__ \ "syndicationRights").writeNullable[SyndicationRights]
     )(unlift(Image.unapply))

@@ -1,9 +1,11 @@
 package controllers
 
+import java.util.UUID
+
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.model.{LeaseByMedia, MediaLease}
+import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
 import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
 import play.api.libs.json._
 import play.api.mvc._
@@ -31,10 +33,8 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     respond(appIndex, indexLinks)
   }
 
-  private def notify(mediaId: String): Unit =  notifications.send(mediaId)
-
   private def clearLease(id: String) = store.get(id).map { lease =>
-    store.delete(id).map { _ => notify(lease.mediaId) }
+    store.delete(id).map { _ => notifications.sendRemoveLease(lease.mediaId, id)}
   }
 
   private def clearLeases(id: String) = store.getForMedia(id)
@@ -44,10 +44,12 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   private def badRequest(e:  Seq[(JsPath, Seq[JsonValidationError])]) =
     respondError(BadRequest, "media-leases-parse-failed", JsError.toJson(e).toString)
 
-  private def addLease(mediaLease: MediaLease, userId: Option[String]) = store
-    .put(mediaLease.prepareForSave.copy(leasedBy = userId)).map { _ =>
-      notify(mediaLease.mediaId)
+  private def addLease(mediaLease: MediaLease, userId: Option[String]) = {
+    val lease = mediaLease.prepareForSave.copy(id = Some(UUID.randomUUID().toString), leasedBy = userId)
+    store.put(lease).map { _ =>
+      notifications.sendAddLease(lease)
     }
+  }
 
   def index = auth { _ => indexResponse }
 
@@ -55,7 +57,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     store.forEach { leases =>
       leases
         .foldLeft(Set[String]())((ids, lease) =>  ids + lease.mediaId)
-        .foreach(notify)
+        .foreach(notifications.sendReindexLeases)
     }
     Accepted
   }}
@@ -110,10 +112,10 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   def getLeasesForMedia(id: String) = auth.async { _ => Future {
       val leases = store.getForMedia(id)
 
-      respond[LeaseByMedia](
+      respond[LeasesByMedia](
         uri = config.leasesMediaUri(id),
         links = List(config.mediaApiLink(id)),
-        data = LeaseByMedia.build(leases)
+        data = LeasesByMedia.build(leases)
       )
     }
   }

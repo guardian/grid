@@ -32,6 +32,8 @@ class ThrallMessageConsumer(
       case "update-image-user-metadata" => updateImageUserMetadata
       case "update-image-usages"        => updateImageUsages
       case "update-image-leases"        => updateImageLeases
+      case "add-image-lease"            => addImageLease
+      case "remove-image-lease"         => removeImageLease
       case "set-image-collections"      => setImageCollections
       case "heartbeat"                  => heartbeat
       case "delete-usages"              => deleteAllUsages
@@ -66,6 +68,12 @@ class ThrallMessageConsumer(
 
   def updateImageLeases(leaseByMedia: JsValue) =
     Future.sequence( withImageId(leaseByMedia)(id => es.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")) )
+
+  def addImageLease(lease: JsValue) =
+    Future.sequence( withImageId(lease)(id => es.addImageLease(id, lease \ "data", lease \ "lastModified")) )
+
+  def removeImageLease(leaseInfo: JsValue) =
+    Future.sequence( withImageId(leaseInfo)(id => es.removeImageLease(id, leaseInfo \ "leaseId", leaseInfo \ "lastModified")) )
 
   def setImageCollections(collections: JsValue) =
     Future.sequence(withImageId(collections)(id => es.setImageCollection(id, collections \ "data")) )
@@ -106,7 +114,7 @@ class ThrallMessageConsumer(
         GridLogger.info(s"upserting syndication rights", Map("image-id" -> id, "inferred" -> syndicationRights.isInferred))
 
         es.getImage(id) map {
-          case Some(image) => {
+          case Some(image) =>
             if (!syndicationRights.isInferred) {
               syndicationRightsOps.refreshInferredRights(image, syndicationRights)
             }
@@ -114,11 +122,9 @@ class ThrallMessageConsumer(
             Future.sequence(
               es.updateImageSyndicationRights(id, Some(syndicationRights))
             )
-          }
-          case _ => {
+          case _ =>
             GridLogger.info(s"image $id not found")
             None
-          }
         }
       }
     )
@@ -135,7 +141,7 @@ class ThrallMessageConsumer(
         GridLogger.info("updating photoshoot", id)
 
         es.getImage(id) map {
-          case Some(image) => {
+          case Some(image) =>
             image.syndicationRights match {
               case Some(rights) if !rights.isInferred =>
                 syndicationRightsOps.moveExplicitRightsToPhotoshoot(image, upcomingEdits.photoshoot)
@@ -144,11 +150,9 @@ class ThrallMessageConsumer(
             }
 
             updateImageUserMetadata(message)
-          }
-          case _ => {
+          case _ =>
             GridLogger.info(s"image not found", id)
             None
-          }
         }
       }}
     )

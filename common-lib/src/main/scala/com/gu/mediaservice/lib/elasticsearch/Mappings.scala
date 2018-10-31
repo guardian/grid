@@ -258,7 +258,7 @@ object Mappings {
   val leasesMapping =
     nonDynamicObj(
       "leases"       -> leaseMapping,
-      "current"      -> leaseMapping,
+      "current"      -> leaseMapping, //Field not used anymore
       "lastModified" -> dateFormat
     )
 
