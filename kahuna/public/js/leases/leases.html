@@ -114,7 +114,7 @@
 
 <div class="leases__wrapper image-info__wrap">
   <div class="image-info__lease" ng:if="ctrl.totalImages > 1">
-    {{ctrl.leases.current.length}} current leases + {{ctrl.inactiveLeases(ctrl.leases)}} inactive leases
+    {{ctrl.activeLeases(ctrl.leases)}} current leases + {{ctrl.inactiveLeases(ctrl.leases)}} inactive leases
   </div>
 
   <ul ng:if="ctrl.totalImages === 1">

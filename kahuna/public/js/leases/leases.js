@@ -143,7 +143,8 @@ leases.controller('LeasesCtrl', [
             return leasedBy;
         };
 
-        ctrl.inactiveLeases = (leases) => leases.leases.length - leases.current.length;
+        ctrl.inactiveLeases = (leases) => leases.leases.filter(ctrl.isCurrent).length;
+        ctrl.activeLeases = (leases) => leases.leases.filter(ctrl.isCurrent).length;
 
         ctrl.resetLeaseForm = () => {
             ctrl.newLease = {
@@ -180,11 +181,13 @@ leases.controller('LeasesCtrl', [
             }
         };
 
+        ctrl.isCurrent = (lease) => lease.active && lease.access.match(/-use/i);
+
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';
 
             // Current only makes sense for use leases
-            const current = (lease.active && lease.access.match(/-use/i)) ? 'current' : '';
+            const current = ctrl.isCurrent(lease) ? 'current' : '';
 
             const access = (lease.access.match(/allow/i)) ? 'allowed' : 'denied';
 
