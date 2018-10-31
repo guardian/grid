@@ -10,7 +10,7 @@ case class LeasesByMedia(
 )
 
 object LeasesByMedia {
-  implicit val reader : Reads[LeasesByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeasesByMedia.build)
+  implicit val reader: Reads[LeasesByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeasesByMedia.build)
 
   implicit val writer = new Writes[LeasesByMedia] {
     def writes(leaseByMedia: LeasesByMedia) = {
@@ -21,14 +21,12 @@ object LeasesByMedia {
     }
   }
 
+  implicit def dateTimeOrdering: Ordering[DateTime] = Ordering.fromLessThan(_ isBefore _)
+
   def build(leases: List[MediaLease]): LeasesByMedia = {
-    def sortLease(a: MediaLease, b: MediaLease) =
-      a.createdAt.isAfter(b.createdAt)
+    val sortedLeases = leases.sortBy(_.createdAt).reverse
 
-    val sortedLeases = leases
-      .sortWith(sortLease)
-
-    val lastModified = sortedLeases
+    val lastModified: Option[DateTime] = sortedLeases
       .headOption
       .map(_.createdAt)
 
