@@ -17,9 +17,9 @@ leaseService.factory('leaseService', [
   'editsService',
   'apiPoll',
   function ($rootScope, $q, imageAccessor, imageList, mediaApi, editsService, apiPoll) {
-    var leasesRoot;
+    let leasesRoot;
     function getLeasesRoot() {
-        if (! leasesRoot) {
+        if (!leasesRoot) {
             leasesRoot = mediaApi.root.follow('leases');
         }
         return leasesRoot;
@@ -113,17 +113,6 @@ leaseService.factory('leaseService', [
       return getLeasesRoot().follow('by-media-id', {id: image.data.id}).get();
     }
 
-    function allowedByLease(image) {
-      return getByMediaId(image).then(
-        (imageLeases) => {
-          imageLeases = imageLeases.data;
-          if (imageLeases.current) {
-            return imageLeases.current.data.access;
-          }
-        }
-      );
-    }
-
     function pollLeases(images, originalLeaseCount){
       apiPoll(() => {
         return untilLeasesChange(images, originalLeaseCount);
@@ -144,7 +133,6 @@ leaseService.factory('leaseService', [
 
     function flattenLeases(leaseByMedias) {
       return {
-        current: leaseByMedias.map(l => l.current).filter(c => c !== null),
         leases: leaseByMedias.map(l => l.leases).reduce((a, b) => a.concat(b)),
         lastModified: leaseByMedias.map(l => l.lastModified).sort()[0]
       };
@@ -159,7 +147,6 @@ leaseService.factory('leaseService', [
         getByMediaId,
         replace,
         clear,
-        allowedByLease,
         flattenLeases
     };
 }]);
