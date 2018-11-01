@@ -17,8 +17,8 @@ class SyndicationRightsOps(
       case _ => Future.successful(())
     }
 
-  def moveExplicitRightsToPhotoshoot(image: Image, maybeNewPhotoshoot: Option[Photoshoot]): Option[Image] = {
-    def updateOldPhotoshoot(photoshoot: Photoshoot): Future[Object] = {
+  def moveExplicitRightsToPhotoshoot(image: Image, maybeNewPhotoshoot: Option[Photoshoot]) = {
+    def updateOldPhotoshoot(photoshoot: Photoshoot): Future[Unit] = {
       es.getLatestSyndicationRights(photoshoot, Some(image)) map {
         case Some(latestImageWithExplicitRights) if image.rcsPublishDate.get.isAfter(latestImageWithExplicitRights.rcsPublishDate.get) =>
           GridLogger.info(s"refreshing inferred syndication rights for images using ${latestImageWithExplicitRights.id} because ${image.id} has moved", Map("image-id" -> image.id, "photoshoot" -> photoshoot.title))
@@ -27,26 +27,28 @@ class SyndicationRightsOps(
           GridLogger.info(s"removing inferred rights from photoshoot as it no longer contains an image with direct rights", Map("image-id" -> image.id, "photoshoot" -> photoshoot.title))
           es.getInferredSyndicationRights(photoshoot, None)
             .map(notifications.sendRemoval)
-        case _ => None // no-op
+        case _ => // no-op
       }
     }
 
-    def updateNewPhotoshoot(photoshoot: Photoshoot): Future[Object] = {
+    def updateNewPhotoshoot(photoshoot: Photoshoot): Future[Unit] = {
       es.getLatestSyndicationRights(photoshoot, None) map {
-        case Some(mostRecentImage) if image.rcsPublishDate.get.isAfter(mostRecentImage.rcsPublishDate.get) =>
-          GridLogger.info(s"refreshing inferred syndication rights for images using ${image.id} because its the most recent", Map("image-id" -> image.id, "photoshoot" -> photoshoot.title))
-          refreshRightsInferenceInPhotoshoot(photoshoot, image.syndicationRights.get, None)
+        case Some(latestImageWithExplicitRights) =>
+          val imageWithMostRecentRights =
+            if(image.rcsPublishDate.get.isAfter(latestImageWithExplicitRights.rcsPublishDate.get)) image
+            else latestImageWithExplicitRights
+
+          GridLogger.info(s"refreshing inferred syndication rights for images using ${imageWithMostRecentRights.id} because its the most recent", Map("image-id" -> imageWithMostRecentRights.id, "photoshoot" -> photoshoot.title))
+          refreshRightsInferenceInPhotoshoot(photoshoot, imageWithMostRecentRights.syndicationRights.get, None)
         case None =>
           GridLogger.info(s"refreshing inferred syndication rights for images using ${image.id} because none previously existed", Map("image-id" -> image.id, "photoshoot" -> photoshoot.title))
           refreshRightsInferenceInPhotoshoot(photoshoot, image.syndicationRights.get, None)
-        case _ => None // no-op
+        case _ => // no-op
       }
     }
 
-    for {
-      _ <- image.userMetadata.flatMap(_.photoshoot).map(updateOldPhotoshoot)
-      _ <- maybeNewPhotoshoot.map(updateNewPhotoshoot)
-    } yield image
+    image.userMetadata.flatMap(_.photoshoot).map(updateOldPhotoshoot)
+    maybeNewPhotoshoot.map(updateNewPhotoshoot)
   }
 
   def moveInferredRightsToPhotoshoot(image: Image, maybeNewPhotoshoot: Option[Photoshoot]): Unit = {
