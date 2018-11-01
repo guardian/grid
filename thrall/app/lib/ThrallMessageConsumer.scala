@@ -124,7 +124,6 @@ class ThrallMessageConsumer(
             )
           case _ =>
             GridLogger.info(s"image $id not found")
-            None
         }
       }
     )
@@ -137,7 +136,7 @@ class ThrallMessageConsumer(
         GridLogger.error(msg)
         Future.failed(SNSBodyParseError(msg))
       },
-      upcomingEdits => withImageId(message) { id => {
+      upcomingEdits => withImageId(message) { id =>
         GridLogger.info("updating photoshoot", id)
 
         es.getImage(id) map {
@@ -154,7 +153,7 @@ class ThrallMessageConsumer(
             GridLogger.info(s"image not found", id)
             None
         }
-      }}
+      }
     )
   }
 

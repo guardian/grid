@@ -10,9 +10,9 @@ import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
 import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.{DocumentMissingException, VersionConflictEngineException}
-import org.elasticsearch.index.query.FilterBuilders.{andFilter, idsFilter, missingFilter, notFilter, termFilter}
-import org.elasticsearch.index.query.FilteredQueryBuilder
+import org.elasticsearch.index.query.FilterBuilders._
 import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
+import org.elasticsearch.index.query.{BaseFilterBuilder, FilteredQueryBuilder}
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import org.joda.time.DateTime
@@ -321,7 +321,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   }
 
   def getInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[List[Image]] = {
-    val inferredSyndicationRights = termFilter("syndicationRights.isInferred", true)
+    val inferredSyndicationRights = notFilter(termFilter("syndicationRights.isInferred", false)) // Using 'not' to include nulls
 
     val filter = excludedImage match {
       case Some(image) => andFilter(
