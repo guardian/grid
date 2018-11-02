@@ -30,22 +30,46 @@ object ImageMetadataConverter {
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseRandomDate) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseRandomDate) orElse
                             (fileMetadata.xmp.get("photoshop:DateCreated") flatMap parseRandomDate),
-      description         = fileMetadata.iptc.get("Caption/Abstract"),
-      credit              = fileMetadata.iptc.get("Credit"),
-      byline              = fileMetadata.iptc.get("By-line"),
-      bylineTitle         = fileMetadata.iptc.get("By-line Title"),
-      title               = fileMetadata.iptc.get("Headline"),
-      copyrightNotice     = fileMetadata.iptc.get("Copyright Notice"),
+      description         = fileMetadata.xmp.get("dc:description[1]") orElse
+                            fileMetadata.iptc.get("Caption/Abstract") orElse
+                            fileMetadata.exif.get("Image Description"),
+      credit              = fileMetadata.xmp.get("photoshop:Credit") orElse
+                            fileMetadata.iptc.get("Credit"),
+      // FIXME: Have a way of dealing with arrays, like [1] here. Not much of a practical problem in our corpus, but still..
+      byline              = fileMetadata.xmp.get("dc:creator[1]") orElse
+                            fileMetadata.iptc.get("By-line") orElse
+                            fileMetadata.exif.get("Artist"),
+      bylineTitle         = fileMetadata.xmp.get("photoshop:AuthorsPosition") orElse
+                            fileMetadata.iptc.get("By-line Title"),
+      title               = fileMetadata.xmp.get("photoshop:Headline") orElse
+                            fileMetadata.iptc.get("Headline"),
+      copyrightNotice     = fileMetadata.xmp.get("dc:Rights") orElse
+                            fileMetadata.iptc.get("Copyright Notice"),
       // FIXME: why default to copyrightNotice again?
-      copyright           = fileMetadata.exif.get("Copyright") orElse fileMetadata.iptc.get("Copyright Notice"),
-      suppliersReference  = fileMetadata.iptc.get("Original Transmission Reference") orElse fileMetadata.iptc.get("Object Name"),
-      source              = fileMetadata.iptc.get("Source"),
-      specialInstructions = fileMetadata.iptc.get("Special Instructions"),
+      // I don't get what you mean, Mate. This makes no sense: our copyright and copyrightNotice fields
+      // read from equivalent fields in a stupid order. Not fixing, cause wrong logic is wide-spread.
+      copyright           = fileMetadata.exif.get("Copyright") orElse
+                            fileMetadata.iptc.get("Copyright Notice"),
+      // Another conflation of two separate fields, based on bad habits of our suppliers. We shouldn't do that:
+      suppliersReference  = fileMetadata.xmp.get("photoshop:TransmissionReference") orElse
+                            fileMetadata.iptc.get("Original Transmission Reference") orElse
+                            fileMetadata.xmp.get("dc:title[1]") orElse
+                            fileMetadata.iptc.get("Object Name"),
+      source              = fileMetadata.xmp.get("photoshop:Source") orElse
+                            fileMetadata.iptc.get("Source"),
+      specialInstructions = fileMetadata.xmp.get("photoshop:Instructions") orElse
+                            fileMetadata.iptc.get("Special Instructions"),
+      // FIXME: Read XMP dc:subject array:
       keywords            = fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil,
-      subLocation         = fileMetadata.iptc.get("Sub-location"),
-      city                = fileMetadata.iptc.get("City"),
-      state               = fileMetadata.iptc.get("Province/State"),
-      country             = fileMetadata.iptc.get("Country/Primary Location Name"),
+      // FIXME: Parse newest location schema: http://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#location-structure
+      subLocation         = fileMetadata.xmp.get("Iptc4xmpCore:Location") orElse
+                            fileMetadata.iptc.get("Sub-location"),
+      city                = fileMetadata.xmp.get("photoshop:City") orElse
+                            fileMetadata.iptc.get("City"),
+      state               = fileMetadata.xmp.get("photoshop:State") orElse
+                            fileMetadata.iptc.get("Province/State"),
+      country             = fileMetadata.xmp.get("photoshop:Country") orElse
+                            fileMetadata.iptc.get("Country/Primary Location Name"),
       subjects            = extractSubjects(fileMetadata))
 
   // IPTC doesn't appear to enforce the datetime format of the field, which means we have to
@@ -91,11 +115,11 @@ object ImageMetadataConverter {
 
 }
 
-// TODO: add category
+// TODO: add category - this is done, I think
 // TODO: add Supplemental Category(s)
 //       https://www.iptc.org/std/photometadata/documentation/GenericGuidelines/index.htm#!Documents/guidelineformappingcategorycodestosubjectnewscodes.htm
 //       http://www.shutterpoint.com/Help-iptc.cfm#IC
 // TODO: add Subject Reference?
 //       http://cv.iptc.org/newscodes/subjectcode/
 // TODO: add Coded Character Set ?
-// TODO: add Application Record Version ?
+// TODO: add Application Record Version ? - nah, who cares, but there are many more intersting things to add!
