@@ -4,7 +4,7 @@
             <div class="job-info--editor__label job-info--editor__label flex-center text-small">Description</div>
             <textarea
                 name="description"
-                placeholder="e.g. {{funnyDescription}}…"
+                placeholder="eg {{funnyDescription}}…"
                 required
                 class="text-input job-info--editor__input job-info--editor__input--description"
                 msd-elastic
@@ -32,7 +32,7 @@
             <input
                 type="text"
                 name="byline"
-                placeholder="e.g. Tom Jenkins…"
+                placeholder="eg Tom Jenkins (author’s name ONLY, leave empty if unknown)"
                 class="text-input job-info--editor__input job-info--editor__input--byline"
                 ng:model="ctrl.metadata.byline"
                 ng:change="ctrl.save()"
@@ -57,6 +57,7 @@
                 gr:search="ctrl.metadataSearch('credit', q)">
 
                 <input type="text"
+                    placeholder="eg The Guardian (source, agency or institution which owns the image)"
                     class="text-input job-info__credit"
                     required
                     gr:datalist-input
@@ -78,7 +79,6 @@
             <input
                 type="text"
                 name="copyright"
-                placeholder="e.g. …"
                 class="text-input job-info--editor__input job-info--editor__input--copyright"
                 ng:model="ctrl.metadata.copyright"
                 ng:change="ctrl.save()"
