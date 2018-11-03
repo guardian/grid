@@ -14,10 +14,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val es = new ElasticSearch(config, thrallMetrics)
   es.ensureAliasAssigned()
 
-  private val thrallNotifications = new ThrallNotifications(config)
-  val syndicationNotifications = new SyndicationNotifications(thrallNotifications)
-
-  val syndicationOps = new SyndicationRightsOps(es, syndicationNotifications)
+  val syndicationOps = new SyndicationRightsOps(es)
 
   val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, dynamoNotifications, syndicationOps)
   

@@ -11,6 +11,7 @@ import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageReq
 import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
@@ -85,7 +86,20 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
     (image \ "id").validate[String].asOpt.map(f).getOrElse {
       sys.error(s"No id field present in message body: $image")
     }
+
+  def withData[A : Reads](message: JsValue)(f: A => Future[Unit]): Future[Unit] =
+    (message \ "data").validate[A].fold(
+      err => {
+        val msg = s"Unable to parse message as Edits ${JsError.toJson(err).toString}"
+        GridLogger.error(msg)
+        Future.failed(SNSBodyParseError(msg))
+      }, data => f(data)
+    )
 }
+
+// TODO: improve and use this (for logging especially) else where.
+case class EsResponse(message: String)
+case class SNSBodyParseError(message: String) extends Exception
 
 case class SNSMessage(
   messageType: String,
