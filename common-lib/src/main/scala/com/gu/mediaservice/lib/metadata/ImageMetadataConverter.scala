@@ -35,7 +35,7 @@ object ImageMetadataConverter {
                             fileMetadata.exif.get("Image Description"),
       credit              = fileMetadata.xmp.get("photoshop:Credit") orElse
                             fileMetadata.iptc.get("Credit"),
-      // FIXME: Have a way of dealing with arrays, like [1] here. Not much of a practical problem in our corpus, but still..
+      // FIXME: Have a way of dealing with arrays, like [1] here.
       byline              = fileMetadata.xmp.get("dc:creator[1]") orElse
                             fileMetadata.iptc.get("By-line") orElse
                             fileMetadata.exif.get("Artist"),
@@ -45,12 +45,10 @@ object ImageMetadataConverter {
                             fileMetadata.iptc.get("Headline"),
       copyrightNotice     = fileMetadata.xmp.get("dc:Rights") orElse
                             fileMetadata.iptc.get("Copyright Notice"),
-      // FIXME: why default to copyrightNotice again?
-      // I don't get what you mean, Mate. This makes no sense: our copyright and copyrightNotice fields
-      // read from equivalent fields in a stupid order. Not fixing, cause wrong logic is wide-spread.
+      // FIXME: our copyright and copyrightNotice fields should be one field (they read from equivalent fields).
       copyright           = fileMetadata.exif.get("Copyright") orElse
                             fileMetadata.iptc.get("Copyright Notice"),
-      // Another conflation of two separate fields, based on bad habits of our suppliers. We shouldn't do that:
+      // Here we combine two separate fields, based on bad habits of our suppliers.
       suppliersReference  = fileMetadata.xmp.get("photoshop:TransmissionReference") orElse
                             fileMetadata.iptc.get("Original Transmission Reference") orElse
                             fileMetadata.xmp.get("dc:title[1]") orElse
@@ -115,11 +113,9 @@ object ImageMetadataConverter {
 
 }
 
-// TODO: add category - this is done, I think
 // TODO: add Supplemental Category(s)
 //       https://www.iptc.org/std/photometadata/documentation/GenericGuidelines/index.htm#!Documents/guidelineformappingcategorycodestosubjectnewscodes.htm
 //       http://www.shutterpoint.com/Help-iptc.cfm#IC
 // TODO: add Subject Reference?
 //       http://cv.iptc.org/newscodes/subjectcode/
 // TODO: add Coded Character Set ?
-// TODO: add Application Record Version ? - nah, who cares, but there are many more intersting things to add!
