@@ -401,7 +401,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   private val addLeaseScript =
     """| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
-       |   ctx._source.leases = [leases: lease];
+       |   ctx._source.leases = [leases: [lease]];
        | } else {
        |   ctx._source.leases.leases += lease;
        | }
