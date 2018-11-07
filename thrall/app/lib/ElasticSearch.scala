@@ -400,8 +400,8 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     """ctx._source.syndicationRights = syndicationRights;"""
 
   private val addLeaseScript =
-    """| if (ctx._source.leases.leases == null) {
-       |   ctx._source.leases.leases = lease;
+    """| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
+       |   ctx._source.leases = [leases: [lease]];
        | } else {
        |   ctx._source.leases.leases += lease;
        | }
