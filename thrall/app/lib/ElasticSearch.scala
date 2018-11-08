@@ -338,6 +338,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
     client.prepareSearch(imagesAlias).setTypes(imageType)
       .setQuery(filteredQuery)
+      .setSize(200)
       .executeAndLog(s"get images in photoshoot ${photoshoot.title} with inferred syndication rights")
       .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
       .map(_.map(_.as[Image]))
