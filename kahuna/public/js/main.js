@@ -370,7 +370,8 @@ kahuna.filter('asAspectRatioWord', function() {
     var aspectToName = {
         '5:3': 'landscape',
         '2:3': 'portrait',
-        '16:9': 'video'
+        '16:9': 'video',
+        '1:1': 'square'
     };
     var defaultName = 'freeform';
 
