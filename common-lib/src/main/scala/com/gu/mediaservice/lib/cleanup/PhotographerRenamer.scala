@@ -90,7 +90,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Francois G Durand" -> "François Durand",
     "Francois Guillot" -> "François Guillot",
     "Francois Lenoir" -> "François Lenoir",
-    "Francois Lepage " -> "François Lepage ",
+    "Francois Lepage" -> "François Lepage",
     "Francois Lo Presti" -> "François Lo Presti",
     "Francois Mori" -> "François Mori",
     "Francois Nascimbeni" -> "François Nascimbeni",
