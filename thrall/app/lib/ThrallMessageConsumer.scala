@@ -108,7 +108,7 @@ class ThrallMessageConsumer(
           case Some(image) =>
             GridLogger.info(s"Upserting syndication rights for image $id", id)
             syndicationRightsOps.upsertOrRefreshRights(
-              imageId = id,
+              image = image,
               currentPhotoshootOpt = image.userMetadata.flatMap(_.photoshoot),
               newRightsOpt =  Some(syndicationRights)
             )
@@ -126,7 +126,7 @@ class ThrallMessageConsumer(
           prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
           _ <- updateImageUserMetadata(message)
           _ <- syndicationRightsOps.upsertOrRefreshRights(
-            imageId = id,
+            image = imageOpt.get,
             currentPhotoshootOpt = upcomingEdits.photoshoot,
             previousPhotoshootOpt = prevPhotoshootOpt
           )

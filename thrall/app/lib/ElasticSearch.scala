@@ -246,7 +246,6 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
           refreshEditsScript +
           photoshootSuggestionScript,
         scriptType)
-      .setRefresh(true)
       .executeAndLog(s"updating user metadata on image $id")
       .incrementOnFailure(metrics.failedMetadataUpdates) { case e: VersionConflictEngineException => true }
     }
@@ -309,7 +308,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       }
   }
 
-  def getInferredSyndicationRights(photoshoot: Photoshoot, excludedImageId: Option[String] = None)(implicit ex: ExecutionContext): Future[List[Image]] = {
+  def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String] = None)(implicit ex: ExecutionContext): Future[List[Image]] = {
     val inferredSyndicationRights = notFilter(termFilter("syndicationRights.isInferred", false)) // Using 'not' to include nulls
 
     val filter = excludedImageId match {
