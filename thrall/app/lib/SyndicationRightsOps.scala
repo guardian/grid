@@ -57,16 +57,16 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
     inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, latestRights.map(_.copy(isInferred = true))))
   }
 
-  // The following methods are needed because ES is not read write consistent
+  // The following methods are needed because ES is eventually consistent
   private def getLatestSyndicationRights(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[Option[SyndicationRights]] = excludedImageId match {
     case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
     case None => es.getLatestSyndicationRights(photoshoot).map {
-        case Some(dbImage) => if(!isInferred(image)) mostRecentSyndicationRights(dbImage, image) else dbImage.syndicationRights
-        case None => if(!isInferred(image)) image.syndicationRights else None
+        case Some(dbImage) => if(!image.isInferred) mostRecentSyndicationRights(dbImage, image) else dbImage.syndicationRights
+        case None => if(!image.isInferred) image.syndicationRights else None
       }
   }
 
-  private def mostRecentSyndicationRights(image1: Image, image2: Image): Option[SyndicationRights] = (image1.syndicationRights.flatMap(_.published), image2.syndicationRights.flatMap(_.published)) match {
+  private def mostRecentSyndicationRights(image1: Image, image2: Image): Option[SyndicationRights] = (image1.rcsPublishDate, image2.rcsPublishDate) match {
     case (Some(date1), Some(date2)) => if(date1.isAfter(date2)) image1.syndicationRights else image2.syndicationRights
     case (Some(_), None) => image1.syndicationRights
     case (None, Some(_)) => image2.syndicationRights
@@ -76,9 +76,7 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
   private def getInferredSyndicationRightsImages(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[List[Image]] = excludedImageId match {
     case Some(_) => es.getInferredSyndicationRightsImages(photoshoot, excludedImageId)
     case None => es.getInferredSyndicationRightsImages(photoshoot).map { images =>
-      if(isInferred(image)) images :+ image else images
+      if(image.isInferred) images :+ image else images
     }
   }
-
-  private def isInferred(image: Image): Boolean = image.syndicationRights.forall(_.isInferred == true)
 }
