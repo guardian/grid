@@ -25,10 +25,10 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   import com.gu.mediaservice.lib.formatting._
 
-  val imagesAlias = config.writeAlias
-  val host = config.elasticsearchHost
-  val port = config.int("es.port")
-  val cluster = config("es.cluster")
+  lazy val imagesAlias = config.writeAlias
+  lazy val host = config.elasticsearchHost
+  lazy val port = config.int("es.port")
+  lazy val cluster = config("es.cluster")
 
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
 
@@ -355,7 +355,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     client.prepareSearch(imagesAlias).setTypes(imageType)
       .setQuery(filteredQuery)
       .addSort(order)
-      .executeAndLog(s"get images in photoshoot ${photoshoot.title} with rcs syndication rights (excluding $excludedImageId)")
+      .executeAndLog(s"get image in photoshoot ${photoshoot.title} with latest rcs syndication rights (excluding $excludedImageId)")
       .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
       .map(_.map(_.as[Image]).headOption)
   }

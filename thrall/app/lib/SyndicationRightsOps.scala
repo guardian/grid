@@ -29,7 +29,7 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
     newRightsOpt match {
       case Some(_) => for {
           _ <- Future.sequence(es.updateImageSyndicationRights(image.id, newRightsOpt))
-          _ <- refreshCurrentPhotoshoot(image, currentPhotoshootOpt)
+          _ <- refreshCurrentPhotoshoot(image, currentPhotoshootOpt, newRightsOpt)
         } yield ()
       case None =>
         refreshCurrentPhotoshoot(image, currentPhotoshootOpt)
@@ -41,11 +41,11 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
       case None => Future.successful(())
     }
 
-  private def refreshCurrentPhotoshoot(image: Image, currentPhotoshootOpt: Option[Photoshoot]): Future[Unit] =
+  private def refreshCurrentPhotoshoot(image: Image, currentPhotoshootOpt: Option[Photoshoot], newRightsOpt: Option[SyndicationRights] = None): Future[Unit] =
     currentPhotoshootOpt match {
       case Some(photoshoot) => refreshPhotoshoot(image, photoshoot)
       case None =>
-        if (image.syndicationRights.forall(_.isInferred == true)) Future.sequence(es.deleteSyndicationRights(image.id)).map(_ => ())
+        if (image.syndicationRights.forall(_.isInferred == true) && newRightsOpt.isEmpty) Future.sequence(es.deleteSyndicationRights(image.id)).map(_ => ())
         else Future.successful(())
     }
 
@@ -57,7 +57,13 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
     inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, latestRights.map(_.copy(isInferred = true))))
   }
 
-  // The following methods are needed because ES is eventually consistent
+  /* The following methods are needed because ES is eventually consistent.
+   * When we move an image into a photoshoot we have to refresh the photoshoot by querying for the latest syndication
+   * rights and for all the images that have inferred rights.
+   * Without these helpers the image that has just been moved into the photoshoot will not be taken into account and we
+   * risk missing important rights information.
+   * Therefore, we have to make sure we are taking it into consideration.
+   */
   private def getLatestSyndicationRights(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[Option[SyndicationRights]] = excludedImageId match {
     case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
     case None => es.getLatestSyndicationRights(photoshoot).map {
@@ -66,7 +72,7 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
       }
   }
 
-  private def mostRecentSyndicationRights(image1: Image, image2: Image): Option[SyndicationRights] = (image1.rcsPublishDate, image2.rcsPublishDate) match {
+  def mostRecentSyndicationRights(image1: Image, image2: Image): Option[SyndicationRights] = (image1.rcsPublishDate, image2.rcsPublishDate) match {
     case (Some(date1), Some(date2)) => if(date1.isAfter(date2)) image1.syndicationRights else image2.syndicationRights
     case (Some(_), None) => image1.syndicationRights
     case (None, Some(_)) => image2.syndicationRights
