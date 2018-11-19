@@ -129,7 +129,6 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
              |   $updateLastModifiedScript
         """.stripMargin,
           scriptType)
-        .setRefresh(true)
         .executeAndLog(s"updating syndicationRights on image $id with rights $rightsJson")
         .recover { case e: DocumentMissingException => new UpdateResponse }
         .incrementOnFailure(metrics.failedSyndicationRightsUpdates) { case e: VersionConflictEngineException => true }
