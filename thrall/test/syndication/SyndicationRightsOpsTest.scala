@@ -29,9 +29,9 @@ class SyndicationRightsOpsTest extends FreeSpec with Matchers with Elasticsearch
     val images = (1 until 5).map { _ =>
       val image = imageWithPhotoshoot(photoshoot)
       ES.indexImage(image.id, Json.toJson(image))
-      Thread.sleep(5000)
       image
     }.toList
+    Thread.sleep(5000)
     test(images)
   }
 
@@ -70,7 +70,6 @@ class SyndicationRightsOpsTest extends FreeSpec with Matchers with Elasticsearch
         withPhotoshoot(photoshootTitle) { images =>
           withImage(imageWithSyndRights) { imageWithRights =>
             whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-              Thread.sleep(5000)
               images.foreach { img =>
                 whenReady(ES.getImage(img.id)) { optImg =>
                   optImg.get.syndicationRights shouldBe imageWithRights.syndicationRights.map(_.copy(isInferred = true))
@@ -87,7 +86,6 @@ class SyndicationRightsOpsTest extends FreeSpec with Matchers with Elasticsearch
         withPhotoshoot(photoshootTitle) { images =>
           withImage(imageWithSyndRights) { imageWithRights =>
             whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-              Thread.sleep(5000)
               whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = Some(photoshootTitle), currentPhotoshootOpt = None)) { _ =>
                 images.foreach { img =>
                   whenReady(ES.getImage(img.id)) { optImg =>
@@ -106,7 +104,6 @@ class SyndicationRightsOpsTest extends FreeSpec with Matchers with Elasticsearch
         withPhotoshoot(photoshootTitle) { images =>
           val imageWithRights = images.head
           whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-            Thread.sleep(5000)
             images.foreach { img =>
               whenReady(ES.getImage(img.id)) { optImg =>
                 optImg.get.syndicationRights shouldBe imageWithRights.syndicationRights.map(_.copy(isInferred = true))

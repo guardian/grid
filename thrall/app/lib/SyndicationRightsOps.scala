@@ -67,8 +67,8 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
   private def getLatestSyndicationRights(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[Option[SyndicationRights]] = excludedImageId match {
     case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
     case None => es.getLatestSyndicationRights(photoshoot).map {
-        case Some(dbImage) => if(!image.isInferred) mostRecentSyndicationRights(dbImage, image) else dbImage.syndicationRights
-        case None => if(!image.isInferred) image.syndicationRights else None
+        case Some(dbImage) => if(!image.hasInferredRights) mostRecentSyndicationRights(dbImage, image) else dbImage.syndicationRights
+        case None => if(!image.hasInferredRights) image.syndicationRights else None
       }
   }
 
@@ -82,7 +82,7 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
   private def getInferredSyndicationRightsImages(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[List[Image]] = excludedImageId match {
     case Some(_) => es.getInferredSyndicationRightsImages(photoshoot, excludedImageId)
     case None => es.getInferredSyndicationRightsImages(photoshoot).map { images =>
-      if(image.isInferred) images :+ image else images
+      if(image.hasInferredRights) images :+ image else images
     }
   }
 }
