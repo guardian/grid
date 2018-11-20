@@ -1,5 +1,5 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.SNS
+import com.gu.mediaservice.lib.aws.{MessageSender, SNS}
 
-class Notifications(config: UsageConfig) extends SNS(config, config.topicArn)
+class Notifications(config: UsageConfig) extends MessageSender(config, config.topicArn)

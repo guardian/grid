@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.SNS
+import com.gu.mediaservice.lib.aws.{MessageSender, SNS}
 import com.gu.mediaservice.lib.formatting._
 import model.{MediaUsage, UsageTable}
 import org.joda.time.DateTime
@@ -33,7 +33,7 @@ case class UsageNotice(mediaId: String, usageJson: JsArray) {
   }
 }
 
-class UsageNotifier(config: UsageConfig, usageTable: UsageTable) extends SNS(config, config.topicArn) {
+class UsageNotifier(config: UsageConfig, usageTable: UsageTable) extends MessageSender(config, config.topicArn) {
   def build(mediaId: String) = Observable.from(
     usageTable.queryByImageId(mediaId).map((usages: Set[MediaUsage]) => {
       val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsArray]

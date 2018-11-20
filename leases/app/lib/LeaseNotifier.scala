@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.SNS
+import com.gu.mediaservice.lib.aws.{MessageSender, SNS}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
 import org.joda.time.DateTime
@@ -31,7 +31,7 @@ object LeaseNotice {
   )
 }
 
-class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends SNS(config, config.topicArn) {
+class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSender(config, config.topicArn) {
   private def build(mediaId: String): LeaseNotice = {
     val leases = store.getForMedia(mediaId)
     LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(leases)))
