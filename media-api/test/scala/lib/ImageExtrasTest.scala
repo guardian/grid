@@ -82,13 +82,24 @@ class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
       validity should be(false)
     }
     it("should report all invalid reasons") {
-      val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = true)
+      val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = false)
       val invalidReasons = ImageExtras.invalidReasons(validityMap)
       val expectedInvalidReasons = Map(
         "paid_image" -> "Paid imagery requires a lease",
         "missing_description" -> "Missing description *",
         "missing_credit" -> "Missing credit information *",
         "no_rights" -> "No rights to use this image"
+      )
+
+      expectedInvalidReasons should be(invalidReasons)
+    }
+
+    it("should report all invalid reasons if write permissions are true") {
+      val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = true)
+      val invalidReasons = ImageExtras.invalidReasons(validityMap)
+      val expectedInvalidReasons = Map(
+        "missing_description" -> "Missing description *",
+        "missing_credit" -> "Missing credit information *"
       )
 
       expectedInvalidReasons should be(invalidReasons)
