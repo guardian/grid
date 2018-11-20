@@ -1,64 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Media Service Dev
 Resources:
-  Group:
-    Type: AWS::IAM::Group
-    Properties:
-      Policies:
-      - PolicyName: Group-Policy
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - ec2:DescribeInstances
-            - cloudwatch:PutMetricData
-            Resource: '*'
-          - Effect: Allow
-            Action:
-            - sqs:DeleteMessage
-            - sqs:ReceiveMessage
-            Resource:
-            - !GetAtt 'Queue.Arn'
-          - Effect: Allow
-            Action:
-            - sqs:DeleteMessage
-            - sqs:ReceiveMessage
-            Resource:
-            - !GetAtt 'IndexedImageMetadataQueue.Arn'
-          - Effect: Allow
-            Action:
-            - sns:Publish
-            Resource: !Ref 'Topic'
-          - Effect: Allow
-            Action:
-            - sns:Publish
-            Resource: !Ref 'IndexedImageTopic'
-          - Effect: Allow
-            Action:
-            - dynamodb:*
-            Resource:
-            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${EditsDynamoTable}'
-          - Effect: Allow
-            Action:
-            - dynamodb:*
-            Resource:
-            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${CollectionsDynamoTable}'
-          - Effect: Allow
-            Action:
-            - dynamodb:*
-            Resource:
-            - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ImageCollectionsDynamoTable}'
-  User:
-    Type: AWS::IAM::User
-    Properties:
-      Path: /
-      Groups:
-      - !Ref 'Group'
-  HostKeys:
-    Type: AWS::IAM::AccessKey
-    Properties:
-      UserName: !Ref 'User'
   ImageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -71,61 +13,13 @@ Resources:
           ExposedHeaders:
           - Date
           MaxAge: '3600'
-  ImageBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: MyPolicy
-        Statement:
-        - Sid: ImageBucketWriteAccess
-          Action:
-          - s3:PutObject
-          - s3:GetObject
-          - s3:DeleteObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${ImageBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'ImageBucket'
+
   ThumbBucket:
     Type: AWS::S3::Bucket
-  ThumbBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: MyPolicy
-        Statement:
-        - Sid: ThumbBucketWriteAccess
-          Action:
-          - s3:PutObject
-          - s3:GetObject
-          - s3:DeleteObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${ThumbBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'ThumbBucket'
+
   KeyBucket:
     Type: AWS::S3::Bucket
-  KeyBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: KeyBucketPolicy
-        Statement:
-        - Action:
-          - s3:GetObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${KeyBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-        - Action:
-          - s3:ListBucket
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${KeyBucket}'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'KeyBucket'
+
   ImageOriginBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -133,113 +27,25 @@ Resources:
       WebsiteConfiguration:
         IndexDocument: index.html
         ErrorDocument: error.html
-  ImageOriginBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: ImageOriginBucketPolicy
-        Statement:
-        - Sid: ImageOriginBucketWriteAccess
-          Action:
-          - s3:PutObject
-          - s3:GetObject
-          - s3:DeleteObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${ImageOriginBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-        - Sid: ImageOriginBucketPublicReadAccess
-          Action:
-          - s3:GetObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${ImageOriginBucket}/*'
-          Principal: '*'
-      Bucket: !Ref 'ImageOriginBucket'
+
   ConfigBucket:
     Type: AWS::S3::Bucket
-  ConfigBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: ConfigBucketPolicy
-        Statement:
-        - Action:
-          - s3:GetObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${ConfigBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'ConfigBucket'
+
   S3WatcherIngestBucket:
     Type: AWS::S3::Bucket
-  S3WatcherIngestBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: S3WatcherIngestBucketPolicy
-        Statement:
-        - Action:
-          - s3:*
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${S3WatcherIngestBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'S3WatcherIngestBucket'
+
   S3WatcherFailBucket:
     Type: AWS::S3::Bucket
-  S3WatcherFailBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: S3WatcherFailBucketPolicy
-        Statement:
-        - Action:
-          - s3:PutObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${S3WatcherFailBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'S3WatcherFailBucket'
+
   CollectionsBucket:
     Type: AWS::S3::Bucket
-  CollectionsBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: CollectionsBucketPolicy
-        Statement:
-        - Action:
-          - s3:GetObject
-          - s3:PutObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${CollectionsBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'CollectionsBucket'
+
   UsageMailBucket:
     Type: AWS::S3::Bucket
     Properties:
       VersioningConfiguration:
         Status: Enabled
-  UsageMailBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: UsageMailBucketPolicy
-        Statement:
-        - Action:
-          - s3:ListBucket
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${UsageMailBucket}'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-        - Action:
-          - s3:GetObject
-          Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${UsageMailBucket}/*'
-          Principal:
-            AWS: !GetAtt 'User.Arn'
-      Bucket: !Ref 'UsageMailBucket'
+
   EditsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -252,6 +58,7 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: '1'
         WriteCapacityUnits: '1'
+
   CollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -264,6 +71,7 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: '1'
         WriteCapacityUnits: '1'
+
   ImageCollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -276,6 +84,7 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: '1'
         WriteCapacityUnits: '1'
+
   LeasesDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -300,25 +109,7 @@ Resources:
         ProvisionedThroughput:
           ReadCapacityUnits: '1'
           WriteCapacityUnits: '1'
-  LeasesTablePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: LeasesTablePolicy
-      PolicyDocument:
-        Id: LeasesTablePolicy
-        Statement:
-        - Effect: Allow
-          Action:
-          - dynamodb:*
-          Resource:
-          - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${LeasesDynamoTable}'
-        - Effect: Allow
-          Action:
-          - dynamodb:*
-          Resource:
-          - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${LeasesDynamoTable}/index/mediaId'
-      Users:
-      - !Ref 'User'
+
   Topic:
     Type: AWS::SNS::Topic
     Properties:
@@ -373,6 +164,7 @@ Resources:
               aws:SourceArn: !Ref 'IndexedImageTopic'
       Queues:
       - !Ref 'IndexedImageMetadataQueue'
+
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -401,27 +193,7 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: '1'
         WriteCapacityUnits: '1'
-  UsageRecordTablePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: UsageRecordTablePolicy
-      PolicyDocument:
-        Id: UsageRecordTablePolicy
-        Statement:
-        - Effect: Allow
-          Action:
-          - dynamodb:*
-          Resource:
-          - !Sub ['arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:${Param1}', {
-              Param1: !Join [/, [table, !Ref 'UsageRecordTable']]}]
-        - Effect: Allow
-          Action:
-          - dynamodb:*
-          Resource:
-          - !Sub ['arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:${Param1}', {
-              Param1: !Join [/, [table, !Ref 'UsageRecordTable', index, media_id]]}]
-      Users:
-      - !Ref 'User'
+
   LiveContentPollTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -434,21 +206,7 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: '1'
         WriteCapacityUnits: '1'
-  LiveContentPollTablePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: LiveContentPollTablePolicy
-      PolicyDocument:
-        Id: LiveContentPollTablePolicy
-        Statement:
-        - Effect: Allow
-          Action:
-          - dynamodb:*
-          Resource:
-          - !Sub ['arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:${Param1}', {
-              Param1: !Join [/, [table, !Ref 'LiveContentPollTable']]}]
-      Users:
-      - !Ref 'User'
+
   PreviewContentPollTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -461,26 +219,8 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: '1'
         WriteCapacityUnits: '1'
-  PreviewContentPollTablePolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: PreviewContentPollTablePolicy
-      PolicyDocument:
-        Id: PreviewContentPollTablePolicy
-        Statement:
-        - Effect: Allow
-          Action:
-          - dynamodb:*
-          Resource:
-          - !Sub ['arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:${Param1}', {
-              Param1: !Join [/, [table, !Ref 'PreviewContentPollTable']]}]
-      Users:
-      - !Ref 'User'
+
 Outputs:
-  AwsId:
-    Value: !Ref 'HostKeys'
-  AwsSecret:
-    Value: !GetAtt 'HostKeys.SecretAccessKey'
   ImageBucket:
     Value: !Ref 'ImageBucket'
   ThumbBucket:
