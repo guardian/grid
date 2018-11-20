@@ -56,7 +56,7 @@ object ImageExtras {
   }
 
   def invalidReasons(validityMap: ValidMap) = validityMap
-    .filter { case (_, v) => v.invalid }
+    .filter { case (_, v) => !v.isValid }
     .map { case (id, _) => id -> validityDescription.get(id) }
     .map {
       case (id, Some(reason)) => id -> reason
