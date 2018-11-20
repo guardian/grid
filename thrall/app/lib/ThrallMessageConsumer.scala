@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.MessageConsumer
+import com.gu.mediaservice.lib.aws.{EsResponse, MessageConsumer}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Edits, SyndicationRights}
 import org.elasticsearch.action.delete.DeleteResponse
@@ -39,8 +39,6 @@ class ThrallMessageConsumer(
       case "delete-usages"              => deleteAllUsages
       case "upsert-rcs-rights"          => upsertSyndicationRights
       case "update-image-photoshoot"    => updateImagePhotoshoot
-      case SyndicationNotifications.refreshSubject => upsertSyndicationRights
-      case SyndicationNotifications.deleteSubject  => deleteInferredRights
     }
   }
 
@@ -104,64 +102,36 @@ class ThrallMessageConsumer(
     Future.sequence( withImageId(usage)(id => es.deleteAllImageUsages(id)) )
 
   def upsertSyndicationRights(rights: JsValue) = {
-    (rights \ "data").validate[SyndicationRights].fold(
-      err => {
-        val msg = s"Unable to parse message as SyndicationRights ${JsError.toJson(err).toString}"
-        GridLogger.error(msg)
-        Future.failed(SNSBodyParseError(msg))
-      },
-      syndicationRights => withImageId(rights) { id =>
-        GridLogger.info(s"upserting syndication rights", Map("image-id" -> id, "inferred" -> syndicationRights.isInferred))
-
+    withData[SyndicationRights](rights){ syndicationRights =>
+      withImageId(rights) { id =>
         es.getImage(id) map {
           case Some(image) =>
-            if (!syndicationRights.isInferred) {
-              syndicationRightsOps.refreshInferredRights(image, syndicationRights)
-            }
-
-            Future.sequence(
-              es.updateImageSyndicationRights(id, Some(syndicationRights))
+            GridLogger.info(s"Upserting syndication rights for image $id", id)
+            syndicationRightsOps.upsertOrRefreshRights(
+              image = image,
+              currentPhotoshootOpt = image.userMetadata.flatMap(_.photoshoot),
+              newRightsOpt =  Some(syndicationRights)
             )
-          case _ =>
-            GridLogger.info(s"image $id not found")
+          case _ => GridLogger.info(s"Image $id not found")
         }
       }
-    )
+    }
   }
 
   def updateImagePhotoshoot(message: JsValue) = {
-    (message \ "data").validate[Edits].fold(
-      err => {
-        val msg = s"Unable to parse message as Edits ${JsError.toJson(err).toString}"
-        GridLogger.error(msg)
-        Future.failed(SNSBodyParseError(msg))
-      },
-      upcomingEdits => withImageId(message) { id =>
-        GridLogger.info("updating photoshoot", id)
-
-        es.getImage(id) map {
-          case Some(image) =>
-            image.syndicationRights match {
-              case Some(rights) if !rights.isInferred =>
-                syndicationRightsOps.moveExplicitRightsToPhotoshoot(image, upcomingEdits.photoshoot)
-              case _ =>
-                syndicationRightsOps.moveInferredRightsToPhotoshoot(image, upcomingEdits.photoshoot)
-            }
-
-            updateImageUserMetadata(message)
-          case _ =>
-            GridLogger.info(s"image not found", id)
-            None
-        }
+    withData[Edits](message) { upcomingEdits =>
+      withImageId(message) { id =>
+        for {
+          imageOpt <- es.getImage(id)
+          prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
+          _ <- updateImageUserMetadata(message)
+          _ <- syndicationRightsOps.upsertOrRefreshRights(
+            image = imageOpt.get,
+            currentPhotoshootOpt = upcomingEdits.photoshoot,
+            previousPhotoshootOpt = prevPhotoshootOpt
+          )
+        } yield GridLogger.info(s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}", id)
       }
-    )
+    }
   }
-
-  def deleteInferredRights(message: JsValue) = Future.sequence(
-    withImageId(message)(id => es.deleteSyndicationRights(id))
-  )
 }
-
-// TODO: improve and use this (for logging especially) else where.
-case class EsResponse(message: String)
-case class SNSBodyParseError(message: String) extends Exception

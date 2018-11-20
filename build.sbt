@@ -86,7 +86,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
     "org.codehaus.groovy" % "groovy-json" % "2.3.7",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
   )
-)
+).settings(testSettings)
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
@@ -136,12 +136,14 @@ def playProject(projectName: String, port: Int): Project =
 
 val testSettings = Seq(
   testOptions in Test += Tests.Setup(_ => {
-
     println(s"Launching docker container with ES")
-    s"docker-compose --file docker-compose-test.yml --project-name grid-test down".!
     s"docker-compose --file docker-compose-test.yml --project-name grid-test up -d".!
 
     // This is needed to ensure docker has had enough time to start up
     Thread.sleep(5000)
+  }),
+  testOptions in Test += Tests.Cleanup(_ => {
+    println(s"Removing container")
+    s"docker-compose --file docker-compose-test.yml --project-name grid-test down".!
   })
 )

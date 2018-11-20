@@ -7,12 +7,11 @@ import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
 import org.elasticsearch.action.delete.DeleteResponse
 import org.elasticsearch.action.update.{UpdateRequestBuilder, UpdateResponse}
-import org.elasticsearch.action.updatebyquery.UpdateByQueryResponse
 import org.elasticsearch.client.UpdateByQueryClientWrapper
 import org.elasticsearch.index.engine.{DocumentMissingException, VersionConflictEngineException}
 import org.elasticsearch.index.query.FilterBuilders._
-import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchAllQuery, matchQuery}
-import org.elasticsearch.index.query.{BaseFilterBuilder, FilteredQueryBuilder}
+import org.elasticsearch.index.query.FilteredQueryBuilder
+import org.elasticsearch.index.query.QueryBuilders.{boolQuery, filteredQuery, matchQuery}
 import org.elasticsearch.script.ScriptService
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
 import org.joda.time.DateTime
@@ -26,10 +25,10 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   import com.gu.mediaservice.lib.formatting._
 
-  val imagesAlias = config.writeAlias
-  val host = config.elasticsearchHost
-  val port = config.int("es.port")
-  val cluster = config("es.cluster")
+  lazy val imagesAlias = config.writeAlias
+  lazy val host = config.elasticsearchHost
+  lazy val port = config.int("es.port")
+  lazy val cluster = config("es.cluster")
 
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
 
@@ -130,7 +129,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
              |   $updateLastModifiedScript
         """.stripMargin,
           scriptType)
-        .executeAndLog(s"updating syndicationRights on image $id")
+        .executeAndLog(s"updating syndicationRights on image $id with rights $rightsJson")
         .recover { case e: DocumentMissingException => new UpdateResponse }
         .incrementOnFailure(metrics.failedSyndicationRightsUpdates) { case e: VersionConflictEngineException => true }
     }
@@ -265,7 +264,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       .incrementOnFailure(metrics.failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
     }
 
-  def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
+  private def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse]): List[Future[UpdateResponse]] = {
     prepareForMultipleIndexes( index => {
           val updateRequest = client.prepareUpdate(index, imageType, id)
             .setScriptLang("groovy")
@@ -274,30 +273,18 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     )
   }
 
-  def prepareForMultipleIndexes[A](op: String => Future[A]) : List[Future[A]] = {
+  private def prepareForMultipleIndexes[A](op: String => Future[A]) : List[Future[A]] = {
     getCurrentIndices.map( index => {
       op(index)
     })
   }
 
+  private def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
 
-  def updateByQuery(script: String)(implicit ex: ExecutionContext): Future[UpdateByQueryResponse] =
-    updateByQueryClient
-      .prepareUpdateByQuery()
-      .setScriptLang("groovy")
-      .setIndices(imagesAlias)
-      .setTypes(imageType)
-      .setQuery(matchAllQuery)
-      .setScript(script)
-      .executeAndLog("Running update by query script")
-      .incrementOnFailure(metrics.failedQueryUpdates) { case e: VersionConflictEngineException => true }
-
-  def asGroovy(collection: JsValue) = new JsonSlurper().parseText(collection.toString)
-
-  def missingOrEmptyFilter(field: String) =
+  private def missingOrEmptyFilter(field: String) =
     missingFilter(field).existence(true).nullValue(true)
 
-  def asImageUpdate(image: JsValue): JsValue = {
+  private def asImageUpdate(image: JsValue): JsValue = {
     def removeUploadInformation: Reads[JsObject] =
       (__ \ "uploadTime").json.prune andThen
       (__ \ "userMetadata").json.prune andThen
@@ -320,12 +307,12 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       }
   }
 
-  def getInferredSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[List[Image]] = {
+  def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String] = None)(implicit ex: ExecutionContext): Future[List[Image]] = {
     val inferredSyndicationRights = notFilter(termFilter("syndicationRights.isInferred", false)) // Using 'not' to include nulls
 
-    val filter = excludedImage match {
-      case Some(image) => andFilter(
-        notFilter(idsFilter().addIds(image.id)),
+    val filter = excludedImageId match {
+      case Some(imageId) => andFilter(
+        notFilter(idsFilter().addIds(imageId)),
         inferredSyndicationRights
       )
       case _ => inferredSyndicationRights
@@ -339,18 +326,18 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     client.prepareSearch(imagesAlias).setTypes(imageType)
       .setQuery(filteredQuery)
       .setSize(200)
-      .executeAndLog(s"get images in photoshoot ${photoshoot.title} with inferred syndication rights")
+      .executeAndLog(s"get images in photoshoot ${photoshoot.title} with inferred syndication rights (excluding $excludedImageId)")
       .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
       .map(_.map(_.as[Image]))
   }
 
-  def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImage: Option[Image])(implicit ex: ExecutionContext): Future[Option[Image]] = {
+  def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImageId: Option[String] = None)(implicit ex: ExecutionContext): Future[Option[Image]] = {
     val nonInferredSyndicationRights = termFilter("syndicationRights.isInferred", false)
 
-    val filter = excludedImage match {
-      case Some(image) => andFilter(
+    val filter = excludedImageId match {
+      case Some(imageId) => andFilter(
         nonInferredSyndicationRights,
-        notFilter(idsFilter().addIds(image.id))
+        notFilter(idsFilter().addIds(imageId))
       )
       case _ => nonInferredSyndicationRights
     }
@@ -367,7 +354,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
     client.prepareSearch(imagesAlias).setTypes(imageType)
       .setQuery(filteredQuery)
       .addSort(order)
-      .executeAndLog(s"get images in photoshoot ${photoshoot.title} with rcs syndication rights")
+      .executeAndLog(s"get image in photoshoot ${photoshoot.title} with latest rcs syndication rights (excluding $excludedImageId)")
       .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
       .map(_.map(_.as[Image]).headOption)
   }

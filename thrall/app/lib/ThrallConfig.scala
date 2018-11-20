@@ -10,15 +10,15 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   final override lazy val appName = "thrall"
 
-  def queueUrl: String = properties("sqs.queue.url")
+  lazy val queueUrl: String = properties("sqs.queue.url")
 
-  val imageBucket: String = properties("s3.image.bucket")
+  lazy val imageBucket: String = properties("s3.image.bucket")
 
-  val writeAlias = properties("es.index.aliases.write")
+  lazy val writeAlias = properties.getOrElse("es.index.aliases.write", configuration.get[String]("es.index.aliases.write"))
 
-  val thumbnailBucket: String = properties("s3.thumb.bucket")
+  lazy val thumbnailBucket: String = properties("s3.thumb.bucket")
 
-  val elasticsearchHost: String =
+  lazy val elasticsearchHost: String =
     if (isDev)
       properties.getOrElse("es.host", "localhost")
     else
@@ -29,11 +29,11 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
       ))
 
   // The presence of this identifier prevents deletion
-  val persistenceIdentifier = properties("persistence.identifier")
+  lazy val persistenceIdentifier = properties("persistence.identifier")
 
-  val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
+  lazy val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 
-  val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
+  lazy val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
 
-  val topicArn: String = properties("sns.topic.arn")
+  lazy val topicArn: String = properties("sns.topic.arn")
 }
