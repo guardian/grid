@@ -3,7 +3,7 @@ package lib
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
-class KahunaConfig(override val configuration: Configuration) extends CommonConfig {
+class KahunaConfig extends CommonConfig {
 
   final override lazy val appName = "kahuna"
 

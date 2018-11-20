@@ -1,3 +1,4 @@
+
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
@@ -7,7 +8,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 
 class MediaApiComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new MediaApiConfig(configuration)
+  final override lazy val config = new MediaApiConfig()
 
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 

@@ -10,14 +10,14 @@ import org.joda.time.DateTime
 import play.api.Configuration
 
 trait ElasticsearchHelpers {
-  private val thrallConfig = new ThrallConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
-    "es.index.aliases.write" -> "writeAlias"
-  )))
+  private val thrallConfig = new ThrallConfig()
   private val thrallMetrics = new ThrallMetrics(thrallConfig)
 
-  val ES: ElasticSearch = new ElasticSearch(thrallConfig, thrallMetrics)
+  val ES: ElasticSearch = new ElasticSearch(thrallConfig, thrallMetrics) {
+    override lazy val port = 9301
+    override lazy val cluster = "media-service-test"
+    override lazy val imagesAlias = "media-service-test"
+  }
 
   def createImage(
                    id: String,

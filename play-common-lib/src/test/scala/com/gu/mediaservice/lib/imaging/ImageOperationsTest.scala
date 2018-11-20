@@ -2,9 +2,9 @@ package com.gu.mediaservice.lib.imaging
 
 import java.io.File
 
-import org.scalatest.time.{Millis, Span}
-import org.scalatest.{Ignore, Matchers, FunSpec}
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.time.{Millis, Span}
+import org.scalatest.{FunSpec, Ignore, Matchers}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 

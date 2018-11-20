@@ -12,7 +12,7 @@ case class StoreConfig(
   storeKey: String
 )
 
-class MediaApiConfig(override val configuration: Configuration) extends CommonConfig {
+class MediaApiConfig extends CommonConfig {
 
   final override lazy val appName = "media-api"
 
@@ -50,7 +50,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val topicArn: String = properties("sns.topic.arn")
 
-  lazy val imagesAlias: String = properties.getOrElse("es.index.aliases.read", configuration.get[String]("es.index.aliases.read"))
+  lazy val imagesAlias: String = properties("es.index.aliases.read")
 
   // Note: had to make these lazy to avoid init order problems ;_;
 
@@ -68,7 +68,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val requiredMetadata = List("credit", "description", "usageRights")
 
-  lazy val persistenceIdentifier = properties.getOrElse("persistence.identifier", configuration.get[String]("persistence.identifier"))
+  lazy val persistenceIdentifier = properties("persistence.identifier")
   lazy val queriableIdentifiers = Seq(persistenceIdentifier)
 
   lazy val persistedRootCollections: List[String] = properties.get("persistence.collections") match {

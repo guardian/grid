@@ -15,7 +15,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
 import store.{CollectionsStore, CollectionsStoreError}
-import com.gu.mediaservice.lib.net.{ URI => UriOps }
+import com.gu.mediaservice.lib.net.{URI => UriOps}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future

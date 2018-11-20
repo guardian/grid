@@ -1,3 +1,4 @@
+
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.UsageApi
 import lib._
@@ -9,7 +10,7 @@ import scala.concurrent.Future
 
 class UsageComponents(context: Context) extends GridComponents(context) {
 
-  final override lazy val config = new UsageConfig(configuration)
+  final override lazy val config = new UsageConfig()
 
   val usageMetadataBuilder = new UsageMetadataBuilder(config)
   val mediaWrapper = new MediaWrapperOps(usageMetadataBuilder)

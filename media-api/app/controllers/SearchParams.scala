@@ -1,6 +1,7 @@
 package controllers
 
-import com.gu.mediaservice.lib.auth.{Authentication, Tier}
+import com.gu.mediaservice.lib.auth.Tier
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.SyndicationStatus
 import com.gu.mediaservice.model.usage.UsageStatus

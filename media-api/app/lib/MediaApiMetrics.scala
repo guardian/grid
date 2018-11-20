@@ -2,6 +2,7 @@ package lib
 
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.gu.mediaservice.lib.auth.{ApiKey, Syndication}
+import com.gu.mediaservice.lib.auth.Syndication
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 
 class MediaApiMetrics(config: MediaApiConfig) extends CloudWatchMetrics(s"${config.stage}/MediaApi", config) {

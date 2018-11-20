@@ -5,8 +5,8 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.UploadInfo
 import lib._

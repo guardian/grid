@@ -1,17 +1,15 @@
 package com.gu.mediaservice.lib.aws
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, TimeUnit}
 import java.util.concurrent.atomic.AtomicReference
 
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
-import akka.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
 import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
+import com.gu.mediaservice.lib.Logging
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.json.PlayJsonHelpers._
-import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
@@ -19,17 +17,27 @@ import scalaz.syntax.id._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) {
-  val actorSystem = ActorSystem("MessageConsumer")
+// TODO MRB: move this to metadata project once Thrall is running off Kinesis
+abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) extends Logging {
+  private val executor = Executors.newCachedThreadPool()
+  private implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
+  def startSchedule(): Unit = {
+    executor.submit(new Runnable {
+      override def run(): Unit = {
+        processMessages()
+      }
+    })
+  }
 
-  def startSchedule(): Unit =
-    actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
+  def terminate(): Future[Unit] = Future {
+    executor.shutdown()
+    executor.awaitTermination(1, TimeUnit.MINUTES)
+  }
+
+  def isTerminated: Boolean = executor.isTerminated
 
   lazy val client: AmazonSQS = config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
 
@@ -76,8 +84,18 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
         .withMaxNumberOfMessages(maxMessages)
     ).getMessages.asScala.toList
 
-  private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
-    Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
+  private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] = {
+    Json.parse(sqsMessage.getBody).validate[SNSMessage] match {
+      case JsSuccess(value, _) =>
+        Some(value)
+
+      case JsError(errors) =>
+        val errorStrings = errors.map { case(path, subErrors) => s"$path -> [${subErrors.mkString(",")}]"}
+
+        Logger.error(s"Validation errors in SQS message: ${errorStrings.mkString("\n")}")
+        None
+    }
+  }
 
   private def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
@@ -91,7 +109,7 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
     (message \ "data").validate[A].fold(
       err => {
         val msg = s"Unable to parse message as Edits ${JsError.toJson(err).toString}"
-        GridLogger.error(msg)
+        Logger.error(msg)
         Future.failed(SNSBodyParseError(msg))
       }, data => f(data)
     )

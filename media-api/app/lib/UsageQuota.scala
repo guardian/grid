@@ -1,6 +1,6 @@
 package lib
 
-import akka.actor.Scheduler
+import akka.actor.{ActorSystem, Scheduler}
 import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.model.{Image, UsageRights}
 import lib.elasticsearch.ElasticSearch
@@ -27,8 +27,8 @@ class UsageQuota(config: MediaApiConfig, elasticSearch: ElasticSearch, scheduler
   )
 
   def scheduleUpdates(): Unit = {
-    quotaStore.scheduleUpdates(scheduler)
-    usageStore.scheduleUpdates(scheduler)
+    scheduler.schedule(0.seconds, 10.minutes) { quotaStore.update() }
+    scheduler.schedule(0.seconds, 10.minutes) { usageStore.update() }
   }
 
   def isOverQuota(rights: UsageRights, waitMillis: Int = 100) = Try {

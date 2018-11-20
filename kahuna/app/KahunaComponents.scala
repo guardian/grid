@@ -1,3 +1,4 @@
+
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{AssetsComponents, KahunaController}
 import lib.KahunaConfig
@@ -7,7 +8,7 @@ import play.filters.headers.SecurityHeadersConfig
 import router.Routes
 
 class KahunaComponents(context: Context) extends GridComponents(context) with AssetsComponents {
-  final override lazy val config = new KahunaConfig(configuration)
+  final override lazy val config = new KahunaConfig()
   final override lazy val securityHeadersConfig: SecurityHeadersConfig = KahunaSecurityConfig(config, context.initialConfiguration)
 
   val controller = new KahunaController(auth, config, controllerComponents)

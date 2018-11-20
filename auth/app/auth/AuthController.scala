@@ -5,7 +5,9 @@ import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.PandaUser
-import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
+import com.gu.mediaservice.lib.auth.{Authentication, PermissionsHandler}
+import com.gu.mediaservice.lib.auth.Authentication.PandaUser
+import com.gu.mediaservice.lib.auth.Permissions
 import com.gu.pandomainauth.service.GoogleAuthException
 import play.api.Logger
 import play.api.libs.json.Json

@@ -3,12 +3,12 @@ package syntax
 
 import java.util.regex.Pattern
 
+import com.gu.mediaservice.lib.Logging
 import com.gu.mediaservice.lib.elasticsearch.FutureConversions
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.{ActionRequest, ActionRequestBuilder, ActionResponse, ListenableActionFuture}
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder
-import play.api.{Logger, MarkerContext}
 import play.api.libs.json.{JsValue, Json}
 
 import net.logstash.logback.marker.Markers.appendEntries
@@ -17,7 +17,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-trait ElasticSearchSyntax {
+trait ElasticSearchSyntax extends Logging {
 
   final implicit class ListenableActionFutureSyntax[A](self: ListenableActionFuture[A]) {
     def asScala: Future[A] = FutureConversions(self)
@@ -36,20 +36,20 @@ trait ElasticSearchSyntax {
 
       result.foreach { _ =>
         val elapsed = System.currentTimeMillis() - start
-        val markers = MarkerContext(appendEntries(Map(
+        val markers = appendEntries(Map(
           "duration" -> elapsed
-        ).asJava))
+        ).asJava)
 
-        Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
+        Logger.info(markers, s"$message - query returned successfully in $elapsed ms")
       }
 
       result.failed.foreach { e =>
         val elapsed = System.currentTimeMillis() - start
-        val markers = MarkerContext(appendEntries(Map(
+        val markers = appendEntries(Map(
           "duration" -> elapsed
-        ).asJava))
+        ).asJava)
 
-        Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
+        Logger.error(markers, s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")
       }
 
       result

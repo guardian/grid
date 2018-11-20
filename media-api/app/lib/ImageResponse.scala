@@ -5,6 +5,7 @@ import java.net.URI
 import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
+import com.gu.mediaservice.lib.auth.Internal
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage._

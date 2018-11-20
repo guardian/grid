@@ -1,8 +1,9 @@
 package com.gu.mediaservice.syntax
 
 import com.gu.mediaservice.lib.Processes
-import scalaz.stream.{Process, process1, Process1, Writer}
+import scalaz.stream.{Process, Process1, process1, Writer}
 
+// TODO MRB: check - can we move this into play-common-lib or particular apps
 trait ProcessSyntax {
 
   implicit class WriterOps[F[_], W, O](self: Writer[F, W, O]) {

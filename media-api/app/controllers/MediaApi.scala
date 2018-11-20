@@ -6,6 +6,7 @@ import akka.stream.scaladsl.StreamConverters
 import com.gu.editorial.permissions.client.Permission
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.auth.{Authentication, PermissionsHandler, Syndication}
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}

@@ -1,3 +1,4 @@
+
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.CropperController
@@ -6,7 +7,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 
 class CropperComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new CropperConfig(configuration)
+  final override lazy val config = new CropperConfig()
 
   val store = new CropStore(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)

@@ -46,8 +46,8 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
 
   lazy val imagesAlias = config.imagesAlias
   lazy val host = config.elasticsearchHost
-  lazy val port = config.int("es.port")
-  lazy val cluster = config("es.cluster")
+  lazy val port = config.properties("es.port").toInt
+  lazy val cluster = config.properties("es.cluster")
   lazy val clientTransportSniff = true
 
   def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =

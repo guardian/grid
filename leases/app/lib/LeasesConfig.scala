@@ -8,7 +8,7 @@ import play.api.Configuration
 
 import scala.util.Try
 
-class LeasesConfig(override val configuration: Configuration) extends CommonConfig {
+class LeasesConfig extends CommonConfig {
 
   final override lazy val appName = "leases"
 

@@ -8,7 +8,7 @@ import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.auth.{Authentication, PermissionDeniedError, Permissions, PermissionsHandler}
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.model._
 import lib._

@@ -1,18 +1,15 @@
+
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.play.{GridComponents, RequestLoggingFilter}
+import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
 import lib._
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, OptimisedPngOps}
 import play.api.ApplicationLoader.Context
-import play.api.mvc.EssentialFilter
-import play.filters.HttpFiltersComponents
-import play.filters.cors.CORSComponents
-import play.filters.gzip.GzipFilterComponents
 import router.Routes
 
 class ImageLoaderComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new ImageLoaderConfig(configuration)
+  final override lazy val config = new ImageLoaderConfig()
 
   val store = new ImageLoaderStore(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)

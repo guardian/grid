@@ -1,3 +1,4 @@
+
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{EditsApi, EditsController}
@@ -6,7 +7,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 
 class MetadataEditorComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new EditsConfig(configuration)
+  final override lazy val config = new EditsConfig()
 
   val store = new EditsStore(config)
   val notifications = new Notifications(config)
@@ -17,7 +18,7 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context)
 
   messageConsumer.startSchedule()
   context.lifecycle.addStopHook {
-    () => messageConsumer.actorSystem.terminate()
+    () => messageConsumer.terminate()
   }
 
   val editsController = new EditsController(auth, store, notifications, config, controllerComponents)

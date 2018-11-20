@@ -13,7 +13,7 @@ import scala.util.Try
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(override val configuration: Configuration) extends CommonConfig {
+class UsageConfig extends CommonConfig {
 
   final override lazy val appName = "usage"
 

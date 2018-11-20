@@ -20,7 +20,7 @@ class HealthCheck(elasticsearch: ElasticSearch, thrallMessageConsumer: ThrallMes
   private def elasticHealth = {
     elasticsearch.client.prepareSearch().setSize(0)
       .executeAndLog("Health check")
-      .filter(_ => !thrallMessageConsumer.actorSystem.whenTerminated.isCompleted)
+      .filter(_ => !thrallMessageConsumer.isTerminated)
       .map(_ => Ok("ES is healthy"))
   }
 

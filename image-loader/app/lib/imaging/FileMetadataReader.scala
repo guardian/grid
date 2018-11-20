@@ -13,9 +13,10 @@ import com.drew.metadata.jpeg.JpegDirectory
 import com.drew.metadata.png.PngDirectory
 import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
-import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}

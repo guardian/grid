@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
 
-class CropperConfig(override val configuration: Configuration) extends CommonConfig {
+class CropperConfig extends CommonConfig {
 
   final override lazy val appName = "cropper"
 

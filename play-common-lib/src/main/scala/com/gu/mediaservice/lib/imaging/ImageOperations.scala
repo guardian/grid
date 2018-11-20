@@ -5,8 +5,6 @@ import java.io._
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
-import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
-import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -16,8 +14,8 @@ import scala.sys.process._
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 
 class ImageOperations(playPath: String) {
-  import ExifTool._
-  import ImageMagick._
+  import im4jwrapper.ExifTool._
+  import im4jwrapper.ImageMagick._
 
   private def profilePath(fileName: String): String = s"$playPath/$fileName"
 
@@ -128,6 +126,8 @@ class ImageOperations(playPath: String) {
 }
 
 object ImageOperations {
+  import im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
+
   sealed trait MimeType {
     def name: String
     def extension: String

@@ -133,14 +133,13 @@ class UsageStore(
     }
   }
 
-  def getUsageStatus(): Future[StoreAccess] = Future.successful((for {
-      s <- store
-      l <- lastUpdated
-    } yield StoreAccess(s,l)).get())
+  def getUsageStatus(): Future[StoreAccess] = Future.successful {
+    StoreAccess(store.get(), lastUpdated.get())
+  }
 
   def update() {
-    lastUpdated.send(_ => DateTime.now())
-    fetchUsage.foreach { usage => store.send(usage) }
+    lastUpdated.set(DateTime.now())
+    fetchUsage.foreach { usage => store.set(usage) }
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
@@ -194,7 +193,7 @@ class QuotaStore(
 
   def update() {
     if (config.quotaUpdateEnabled) {
-      store.send(_ => fetchQuota)
+      store.set(fetchQuota)
     } else {
       GridLogger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
     }

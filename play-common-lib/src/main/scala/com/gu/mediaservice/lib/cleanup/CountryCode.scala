@@ -1,11 +1,11 @@
 package com.gu.mediaservice.lib.cleanup
 
 import java.util.Locale
-import play.api.Logger
 
+import com.gu.mediaservice.lib.Logging
 import com.gu.mediaservice.model.ImageMetadata
 
-object CountryCode extends MetadataCleaner {
+object CountryCode extends MetadataCleaner with Logging {
 
   val TwoLetterCode   = """([A-Z]{2})""".r
   val ThreeLetterCode = """([A-Z]{3})""".r

@@ -13,6 +13,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 class Authentication(config: CommonConfig, actorSystem: ActorSystem,
@@ -41,7 +42,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   private val keyStoreBucket: String = config.properties("auth.keystore.bucket")
   val keyStore = new KeyStore(keyStoreBucket, config)
 
-  keyStore.scheduleUpdates(actorSystem.scheduler)
+  actorSystem.scheduler.schedule(0.seconds, 10.minutes) { keyStore.update() }
 
   override lazy val panDomainSettings = buildPandaSettings()
 

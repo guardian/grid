@@ -1,12 +1,10 @@
 package com.gu.mediaservice.lib
 
 import java.io.InputStream
+import java.util.concurrent.atomic.AtomicReference
 
-import _root_.play.api.Logger
-import akka.actor.Scheduler
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.util.IOUtils
-import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
@@ -14,16 +12,13 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
 
 
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext) {
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext) extends Logging {
   val s3 = new S3(config)
 
-  private val log = LoggerFactory.getLogger(getClass)
-
-  protected val store: Box[Map[TStoreKey, TStoreVal]] = Box(Map.empty)
-  protected val lastUpdated: Box[DateTime] = Box(DateTime.now())
+  protected val store: AtomicReference[Map[TStoreKey, TStoreVal]] = new AtomicReference(Map.empty)
+  protected val lastUpdated: AtomicReference[DateTime] = new AtomicReference(DateTime.now())
 
   protected def getS3Object(key: String): Option[String] = {
     val content = s3.client.getObject(bucket, key)
@@ -32,7 +27,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
       Some(IOUtils.toString(stream).trim)
     catch {
       case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
-        log.warn(s"Cannot find key: $key in bucket: $bucket")
+        Logger.warn(s"Cannot find key: $key in bucket: $bucket")
         None
     }
     finally
@@ -55,11 +50,5 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
       None
     }
   }
-
-  def scheduleUpdates(scheduler: Scheduler) {
-    scheduler.schedule(0.seconds, 10.minutes)(update())
-  }
-
-  def update(): Unit
 }
 

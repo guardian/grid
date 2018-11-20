@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.management
 
-import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.argo.ArgoHelpers
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
 

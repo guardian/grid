@@ -1,15 +1,13 @@
 package com.gu.mediaservice.lib.metadata
 
+import com.gu.mediaservice.lib.Logging
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format._
 
 import scala.util.Try
-
 import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 
-import play.api.Logger
-
-object ImageMetadataConverter {
+object ImageMetadataConverter extends Logging {
 
   private def extractSubjects(fileMetadata: FileMetadata): List[String] = {
     val supplementalCategories = fileMetadata.iptc

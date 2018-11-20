@@ -6,14 +6,12 @@ import java.util.UUID
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
-import play.api.Configuration
 
 import scala.io.Source._
 
 
 trait CommonConfig {
   def appName: String
-  def configuration: Configuration
 
   lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
 
@@ -43,20 +41,6 @@ trait CommonConfig {
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
   lazy val services = new Services(domainRoot, isProd)
-
-  final def apply(key: String): String =
-    string(key)
-
-  final def string(key: String): String =
-    configuration.getOptional[String](key) getOrElse missing(key, "string")
-
-  final def stringOpt(key: String): Option[String] = configuration.getOptional[String](key)
-
-  final def int(key: String): Int =
-    configuration.getOptional[Int](key) getOrElse missing(key, "integer")
-
-  private def missing(key: String, type_ : String): Nothing =
-    sys.error(s"Required $type_ configuration property missing: $key")
 
   private def stageFromFile: Option[String] = {
     val file = new File("/etc/gu/stage")

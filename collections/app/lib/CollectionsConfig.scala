@@ -6,7 +6,7 @@ import play.api.Configuration
 import scala.concurrent.ExecutionContext
 
 
-class CollectionsConfig(override val configuration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig {
+class CollectionsConfig(implicit ec: ExecutionContext) extends CommonConfig {
 
   override lazy val appName = "collections"
 

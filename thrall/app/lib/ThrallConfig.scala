@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.elasticsearch.EC2
 import play.api.Configuration
 
-class ThrallConfig(override val configuration: Configuration) extends CommonConfig {
+class ThrallConfig extends CommonConfig {
   private lazy val ec2Client: AmazonEC2 = withAWSCredentials(AmazonEC2ClientBuilder.standard()).build()
 
   final override lazy val appName = "thrall"
@@ -14,7 +14,7 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val imageBucket: String = properties("s3.image.bucket")
 
-  lazy val writeAlias = properties.getOrElse("es.index.aliases.write", configuration.get[String]("es.index.aliases.write"))
+  lazy val writeAlias = properties("es.index.aliases.write")
 
   lazy val thumbnailBucket: String = properties("s3.thumb.bucket")
 
@@ -27,9 +27,6 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "Stack" -> Seq(elasticsearchStack),
         "App"   -> Seq(elasticsearchApp)
       ))
-
-  // The presence of this identifier prevents deletion
-  lazy val persistenceIdentifier = properties("persistence.identifier")
 
   lazy val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 

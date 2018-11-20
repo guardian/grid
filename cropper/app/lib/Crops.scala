@@ -2,14 +2,14 @@ package lib
 
 import java.io.File
 
-import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 
 import scala.concurrent.Future
-
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.Files
-import com.gu.mediaservice.lib.imaging.{ImageOperations, ExportResult}
+import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
+
 import scala.sys.process._
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")

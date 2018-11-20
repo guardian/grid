@@ -1,12 +1,11 @@
 package com.gu.mediaservice.lib.argo
 
 import java.net.URI
-import play.api.libs.json.{Json, Writes}
-import play.api.mvc.{Results, Result}
-import play.api.Logger
 
 import com.gu.mediaservice.lib.argo.model._
-
+import play.api.Logger
+import play.api.libs.json.{Json, Writes}
+import play.api.mvc.{Result, Results}
 
 trait ArgoHelpers extends Results {
 

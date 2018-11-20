@@ -5,7 +5,7 @@ import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
-class ImageLoaderConfig(override val configuration: Configuration) extends CommonConfig {
+class ImageLoaderConfig extends CommonConfig {
 
   final override lazy val appName = "image-loader"
 

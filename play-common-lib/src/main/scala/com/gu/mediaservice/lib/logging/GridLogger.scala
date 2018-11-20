@@ -1,17 +1,17 @@
 package com.gu.mediaservice.lib.logging
+
+import com.gu.mediaservice.lib.Logging
 import com.gu.mediaservice.lib.auth.ApiKey
 import net.logstash.logback.marker.Markers
 
 import scala.collection.JavaConverters._
 
-object GridLogger {
-  private val logger = LogConfig.rootLogger
+object GridLogger extends Logging {
+  def info(message: String, markers: Map[String, Any] = Map()): Unit = Logger.info(Markers.appendEntries(markers.asJava), message)
 
-  def info(message: String, markers: Map[String, Any] = Map()): Unit = logger.info(Markers.appendEntries(markers.asJava), message)
+  def warn(message: String, markers: Map[String, Any] = Map()): Unit = Logger.warn(Markers.appendEntries(markers.asJava), message)
 
-  def warn(message: String, markers: Map[String, Any] = Map()): Unit = logger.warn(Markers.appendEntries(markers.asJava), message)
-
-  def error(message: String, markers: Map[String, Any] = Map()): Unit = logger.error(Markers.appendEntries(markers.asJava), message)
+  def error(message: String, markers: Map[String, Any] = Map()): Unit = Logger.error(Markers.appendEntries(markers.asJava), message)
 
   def info(message: String, apiKey: ApiKey): Unit = info(message, apiKeyMarkers(apiKey))
 

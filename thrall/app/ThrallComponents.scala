@@ -1,11 +1,16 @@
+
+import java.util.concurrent.TimeUnit
+
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
 import play.api.ApplicationLoader.Context
 import router.Routes
 
+import scala.concurrent.Future
+
 class ThrallComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new ThrallConfig(configuration)
+  final override lazy val config = new ThrallConfig()
 
   val store = new ThrallStore(config)
   val dynamoNotifications = new DynamoNotifications(config)
@@ -19,9 +24,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, dynamoNotifications, syndicationOps)
   
   thrallMessageConsumer.startSchedule()
-  context.lifecycle.addStopHook {
-    () => thrallMessageConsumer.actorSystem.terminate()
-  }
+  context.lifecycle.addStopHook { () => thrallMessageConsumer.terminate() }
 
   val thrallController = new ThrallController(controllerComponents)
   val healthCheckController = new HealthCheck(es, thrallMessageConsumer, config, controllerComponents)

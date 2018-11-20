@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
+import com.gu.mediaservice.lib.auth.Syndication
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.lib.config.UsageRightsConfig
