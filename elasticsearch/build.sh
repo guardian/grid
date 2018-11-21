@@ -28,6 +28,7 @@ then
 
     cp ../elasticsearch.yml downloads/elasticsearch/config
     cp ../logging.yml downloads/elasticsearch/config
+    cp ../elasticsearch.in.sh downloads/elasticsearch/bin
     cp ../elasticsearch.conf downloads
     cp -r ../scripts downloads/scripts
 else

@@ -1,6 +1,10 @@
 #!/bin/sh
 # This is originally copied from the original in 1.7.1
 
+if [ "x$ES_GC_LOG_FILE" = "x" ]; then
+    ES_GC_LOG_FILE="/var/log/elasticsearch/gc.log"
+fi
+
 ES_CLASSPATH=$ES_CLASSPATH:$ES_HOME/lib/elasticsearch-1.7.1.jar:$ES_HOME/lib/*:$ES_HOME/lib/sigar/*
 
 if [ "x$ES_MIN_MEM" = "x" ]; then
@@ -50,10 +54,11 @@ if [ "x$ES_USE_GC_LOGGING" != "x" ]; then
   JAVA_OPTS="$JAVA_OPTS -XX:+PrintGCDetails"
   JAVA_OPTS="$JAVA_OPTS -XX:+PrintGCTimeStamps"
   JAVA_OPTS="$JAVA_OPTS -XX:+PrintGCDateStamps"
-  JAVA_OPTS="$JAVA_OPTS -XX:+PrintClassHistogram"
-  JAVA_OPTS="$JAVA_OPTS -XX:+PrintTenuringDistribution"
-  JAVA_OPTS="$JAVA_OPTS -XX:+PrintGCApplicationStoppedTime"
-  JAVA_OPTS="$JAVA_OPTS -Xloggc:/var/log/elasticsearch/gc.log"
+  JAVA_OPTS="$JAVA_OPTS -XX:+UseGCLogFileRotation"
+  JAVA_OPTS="$JAVA_OPTS -XX:NumberOfGCLogFiles=5"
+  JAVA_OPTS="$JAVA_OPTS -XX:GCLogFileSize=1M"
+  JAVA_OPTS="$JAVA_OPTS -Xloggc:$ES_GC_LOG_FILE"
+  mkdir -p "`dirname \"$ES_GC_LOG_FILE\"`"
 fi
 
 # Causes the JVM to dump its heap on OutOfMemory.
