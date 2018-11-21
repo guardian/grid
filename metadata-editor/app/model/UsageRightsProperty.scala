@@ -94,6 +94,7 @@ object UsageRightsProperty {
       requiredStringField("creator", "Illustrator", Some(sortList(staffIllustrators))))
 
     case CommissionedIllustrator => List(
+      publicationField(false),
       requiredStringField("creator", "Illustrator", examples = Some("Ellie Foreman Peck, Matt Bors")))
 
     case CreativeCommons => List(

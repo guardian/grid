@@ -427,8 +427,7 @@ object ContractIllustrator extends UsageRightsSpec {
     UsageRights.subtypeFormat(ContractIllustrator.category)(Json.format[ContractIllustrator])
 }
 
-
-final case class CommissionedIllustrator(creator: String, restrictions: Option[String] = None)
+final case class CommissionedIllustrator(creator: String, publication: Option[String] = None, restrictions: Option[String] = None)
   extends Illustrator {
   val defaultCost = CommissionedIllustrator.defaultCost
 }
