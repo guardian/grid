@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
+set -ex
 
 ELASTICSEARCH_VERSION=1.7.1
 ELASTICSEARCH_DIR=$(dirname $0)
 TARGET=$ELASTICSEARCH_DIR/target
 
-[ -d target ] && rm -rfv target
-mkdir $TARGET
-cd $TARGET
+[ -d "${TARGET}" ] && rm -rfv ${TARGET}
+mkdir ${TARGET}
+cd ${TARGET}
 
 mkdir downloads
-mkdir -p packages/elasticsearch
+mkdir -p riff-raff/elasticsearch
 
 SORT_PLUGIN_URI="https://github.com/guardian/grid-supplier-weight-sort/releases/download/v1.0/grid-supplier-weight-sort-0.1.0.zip"
 
@@ -36,6 +37,6 @@ else
     exit 1
 fi
 
-tar czfv packages/elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch scripts elasticsearch.conf
-cp ../deploy.json .
-zip -rv artifacts.zip packages/ deploy.json
+tar czfv riff-raff/elasticsearch/elasticsearch.tar.gz -C downloads elasticsearch scripts elasticsearch.conf
+cp ../riff-raff.yaml riff-raff/
+echo "##teamcity[publishArtifacts '$TARGET/riff-raff => .']"
