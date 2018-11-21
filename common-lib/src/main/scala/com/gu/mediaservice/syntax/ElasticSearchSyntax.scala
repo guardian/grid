@@ -3,16 +3,18 @@ package syntax
 
 import java.util.regex.Pattern
 
-import scala.concurrent.{ExecutionContext, Future}
-
-import org.elasticsearch.action.{ActionResponse, ActionRequest, ActionRequestBuilder, ListenableActionFuture}
-import org.elasticsearch.action.get.GetResponse
-import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder
-
-import play.api.libs.json.{JsValue, Json}
 import com.gu.mediaservice.lib.elasticsearch.FutureConversions
-import play.api.Logger
+import org.elasticsearch.action.get.GetResponse
+import org.elasticsearch.action.{ActionRequest, ActionRequestBuilder, ActionResponse, ListenableActionFuture}
 import org.elasticsearch.search.SearchHit
+import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder
+import play.api.{Logger, MarkerContext}
+import play.api.libs.json.{JsValue, Json}
+
+import net.logstash.logback.marker.Markers.appendEntries
+
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
 
 trait ElasticSearchSyntax {
@@ -29,14 +31,28 @@ trait ElasticSearchSyntax {
       (self: ActionRequestBuilder[_ <: ActionRequest[_], A, _, _]) {
 
     def executeAndLog(message: => String)(implicit ex: ExecutionContext): Future[A] = {
-      val elapsed = {
-        val start = System.currentTimeMillis
-        () => System.currentTimeMillis - start
+      val start = System.currentTimeMillis()
+      val result = self.execute().asScala
+
+      result.foreach { _ =>
+        val elapsed = System.currentTimeMillis() - start
+        val markers = MarkerContext(appendEntries(Map(
+          "elapsedQueryTime" -> elapsed
+        ).asJava))
+
+        Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
       }
-      val future = self.execute.asScala
-      future.foreach { case _ => Logger.info(s"$message - query returned successfully in ${elapsed()} ms") }
-      future.failed.foreach { case e => Logger.error(s"$message - query failed after ${elapsed()} ms: ${e.getMessage} cs: ${e.getCause}") }
-      future
+
+      result.failed.foreach { e =>
+        val elapsed = System.currentTimeMillis() - start
+        val markers = MarkerContext(appendEntries(Map(
+          "elapsedQueryTime" -> elapsed
+        ).asJava))
+
+        Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
+      }
+
+      result
     }
   }
 
