@@ -26,7 +26,7 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
 
         val elapsed = System.currentTimeMillis() - start
         val markers = MarkerContext(appendEntries(Map(
-          "elapsedRequestTime" -> elapsed
+          "elapsed_time" -> elapsed
         ).asJava))
 
         logger.info(s"""$originIp - "${rh.method} ${rh.uri} ${rh.version}" ${response.header.status} $length "$referer" ${elapsed}ms""")(markers)
@@ -34,7 +34,7 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
       case Failure(error) =>
         val elapsed = System.currentTimeMillis() - start
         val markers = MarkerContext(appendEntries(Map(
-          "elapsedRequestTime" -> elapsed
+          "elapsed_time" -> elapsed
         ).asJava))
 
         logger.info(s"""$originIp - "${rh.method} ${rh.uri} ${rh.version}" ERROR "$referer" ${elapsed}ms""")(markers)
