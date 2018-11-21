@@ -22,7 +22,8 @@ then
     mv downloads/elasticsearch-* downloads/elasticsearch
 
     ./downloads/elasticsearch/bin/plugin -install elasticsearch/elasticsearch-cloud-aws/2.7.1
-    ./downloads/elasticsearch/bin/plugin -install mobz/elasticsearch-head
+    # override the URL to get version 1 and workaround the face that this version of plugin can't deal with branches
+    ./downloads/elasticsearch/bin/plugin -install mobz/elasticsearch-head -u https://github.com/mobz/elasticsearch-head/archive/1.x.zip
     ./downloads/elasticsearch/bin/plugin -install com.gu/elasticsearch-cloudwatch/1.1
     ./downloads/elasticsearch/bin/plugin -install karmi/elasticsearch-paramedic
     ./downloads/elasticsearch/bin/plugin -url file:///var/tmp/grid-supplier-weight-sort-0.1.0.zip -install grid-supplier-weight-sort
