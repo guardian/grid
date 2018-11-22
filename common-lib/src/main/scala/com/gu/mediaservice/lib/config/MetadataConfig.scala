@@ -127,7 +127,7 @@ object MetadataConfig {
   val staffIllustrators = List(
     "Mona Chalabi",
     "Sam Morris",
-    "Guardian Design Team"
+    "Guardian Design"
   )
 
   val contractIllustrators = List(
