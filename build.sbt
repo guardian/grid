@@ -24,6 +24,8 @@ Global / concurrentRestrictions := Seq(
   Tags.limitAll(12)
 )
 
+val awsSdkVersion = "1.11.302"
+
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
@@ -33,7 +35,16 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "pan-domain-auth-core" % "0.7.0",
     "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.0",
     "com.gu" %% "editorial-permissions-client" % "0.8",
-    "com.amazonaws" % "aws-java-sdk" % "1.11.302",
+    "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-cloudwatch" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-cloudfront" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-sqs" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-sns" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
+    "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "org.elasticsearch" % "elasticsearch" % "1.7.6",
     "com.gu" %% "box" % "0.2.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
