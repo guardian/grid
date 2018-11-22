@@ -24,6 +24,7 @@ object MoveIndex extends EsScript {
       val port = esPort
       val host = esHost
       val cluster = esCluster
+      val clientTransportSniff = false
 
       def move {
         val srcIndex = getCurrentAlias.get // TODO: error handling if alias isn't attached
@@ -55,6 +56,7 @@ object Reindex extends EsScript {
       val port = esPort
       val host = esHost
       val cluster = esCluster
+      val clientTransportSniff = false
       val initTime = DateTime.now()
       val currentIndex = getCurrentIndices.reverse.head
       val nextIndex = nextIndexName(currentIndex)
@@ -184,6 +186,7 @@ object UpdateMapping extends EsScript {
       val port = esPort
       val host = esHost
       val cluster = esCluster
+      val clientTransportSniff = false
 
       def updateMappings(specifiedIndex: Option[String]) {
         val index = getCurrentAlias.getOrElse(imagesAlias)
@@ -215,6 +218,7 @@ object GetMapping extends EsScript {
       val port = esPort
       val host = esHost
       val cluster = esCluster
+      val clientTransportSniff = false
 
       def getMappings(specifiedIndex: Option[String]) {
         val index = getCurrentAlias.getOrElse(imagesAlias)
@@ -251,6 +255,7 @@ object UpdateSettings extends EsScript {
       val port = esPort
       val host = esHost
       val cluster = esCluster
+      val clientTransportSniff = false
 
       if (esHost != "localhost") {
         System.err.println(s"You can only run UpdateSettings on localhost, not '$esHost'")
