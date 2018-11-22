@@ -22,9 +22,9 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
         val duration = System.currentTimeMillis() - start
         logSuccess(rh, response, duration)
 
-      case Failure(_) =>
+      case Failure(err) =>
         val duration = System.currentTimeMillis() - start
-        logFailure(rh, duration)
+        logFailure(rh, err, duration)
     }
 
     result
@@ -46,7 +46,7 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ${response.header.status} $length "$referer" ${duration}ms""")(markers)
   }
 
-  private def logFailure(request: RequestHeader, duration: Long): Unit = {
+  private def logFailure(request: RequestHeader, throwable: Throwable, duration: Long): Unit = {
     val originIp = request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
     val referer = request.headers.get("Referer").getOrElse("")
 
@@ -58,5 +58,6 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     ).asJava))
 
     logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ERROR "$referer" ${duration}ms""")(markers)
+    logger.error(s"Error for ${request.method} ${request.uri}", throwable)
   }
 }
