@@ -37,7 +37,7 @@ trait ElasticSearchSyntax {
       result.foreach { _ =>
         val elapsed = System.currentTimeMillis() - start
         val markers = MarkerContext(appendEntries(Map(
-          "elapsed_time" -> elapsed
+          "duration" -> elapsed
         ).asJava))
 
         Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
@@ -46,7 +46,7 @@ trait ElasticSearchSyntax {
       result.failed.foreach { e =>
         val elapsed = System.currentTimeMillis() - start
         val markers = MarkerContext(appendEntries(Map(
-          "elapsed_time" -> elapsed
+          "duration" -> elapsed
         ).asJava))
 
         Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
