@@ -29,6 +29,7 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   lazy val host = config.elasticsearchHost
   lazy val port = config.int("es.port")
   lazy val cluster = config("es.cluster")
+  lazy val clientTransportSniff = true
 
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
 

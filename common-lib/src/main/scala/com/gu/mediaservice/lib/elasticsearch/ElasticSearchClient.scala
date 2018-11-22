@@ -15,6 +15,7 @@ trait ElasticSearchClient {
   def port: Int
   def cluster: String
   def imagesAlias: String
+  def clientTransportSniff: Boolean
 
   protected val imagesIndexPrefix = "images"
   protected val imageType = "image"
@@ -24,7 +25,7 @@ trait ElasticSearchClient {
   private lazy val settings: Settings =
     ImmutableSettings.settingsBuilder
       .put("cluster.name", cluster)
-      .put("client.transport.sniff", false)
+      .put("client.transport.sniff", clientTransportSniff)
       .build
 
   lazy val client: Client =
