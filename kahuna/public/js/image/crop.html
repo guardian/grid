@@ -1,4 +1,5 @@
 <img class="image-crop__image"
+     ng:class="{'image-crop__image--disabled': !ctrl.allowCropSelection(crop) }"
      alt="cropped image thumbnail"
      ng:src="{{:: extremeAssets.smallest | assetFile}}" />
 <div class="image-crop__info"

@@ -117,6 +117,9 @@ image.controller('ImageCtrl', [
         }
 
         ctrl.cropType = storage.getJs('cropType', true);
+        ctrl.capitalisedCropType = ctrl.cropType ?
+            ctrl.cropType[0].toUpperCase() + ctrl.cropType.slice(1) :
+            '';
 
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;

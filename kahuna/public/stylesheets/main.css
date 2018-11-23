@@ -1836,8 +1836,12 @@ FIXME: what to do with touch devices
 }
 
 .image-crop--disabled {
-  opacity: 0.5;
+  color: #999;
   cursor: not-allowed;
+}
+
+.image-crop__image--disabled {
+  opacity: 0.5;
 }
 
 .result--selected .preview {
