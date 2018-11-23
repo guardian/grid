@@ -53,7 +53,7 @@
         </div>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" ng-disabled="ctrl.cropType" name="aspect" />
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" ng-checked="ctrl.cropType === 'landscape'" ng-disabled="ctrl.cropType" name="aspect" />
             <gr-icon-label gr-icon="crop_landscape">Landscape</gr-icon-label> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
@@ -63,7 +63,7 @@
         </label>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="video [v]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" ng-disabled="ctrl.cropType" name="video ratio" />
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" ng-checked="ctrl.cropType === 'video'" ng-disabled="ctrl.cropType" name="video ratio" />
             <gr-icon-label gr-icon="crop_16_9">Video</gr-icon-label> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
         </label>
 
