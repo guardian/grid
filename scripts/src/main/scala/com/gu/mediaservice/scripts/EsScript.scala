@@ -19,13 +19,7 @@ import ExecutionContext.Implicits.global
 object MoveIndex extends EsScript {
   def run(esHost: String, extraArgs: List[String]) {
 
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "readAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
-
+    object EsClient extends BaseEsClient(esHost, "readAlias") {
       def move {
         val srcIndex = getCurrentAlias.get // TODO: error handling if alias isn't attached
         val srcIndexVersionCheck = """images_(\d+)""".r
@@ -51,12 +45,7 @@ object MoveIndex extends EsScript {
 object Reindex extends EsScript {
 
   def run(esHost: String, args: List[String]) = {
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
+    object EsClient extends BaseEsClient(esHost, "writeAlias") {
       val initTime = DateTime.now()
       val currentIndex = getCurrentIndices.reverse.head
       val nextIndex = nextIndexName(currentIndex)
@@ -181,13 +170,7 @@ object UpdateMapping extends EsScript {
 
   def run(esHost: String, extraArgs: List[String]) {
     // TODO: add the ability to update a section of the mapping
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
-
+    object EsClient extends BaseEsClient(esHost, "writeAlias") {
       def updateMappings(specifiedIndex: Option[String]) {
         val index = getCurrentAlias.getOrElse(imagesAlias)
         println(s"updating mapping on index: $index")
@@ -213,13 +196,7 @@ object UpdateMapping extends EsScript {
 object GetMapping extends EsScript {
 
   def run(esHost: String, extraArgs: List[String]) {
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
-
+    object EsClient extends BaseEsClient(esHost, "writeAlias") {
       def getMappings(specifiedIndex: Option[String]) {
         val index = getCurrentAlias.getOrElse(imagesAlias)
         println(s"getting mapping on index: $index")
@@ -250,13 +227,7 @@ object UpdateSettings extends EsScript {
 
   def run(esHost: String, extraArgs: List[String]) {
     // TODO: add the ability to update a section of the mapping
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
-
+    object EsClient extends BaseEsClient(esHost, "writeAlias") {
       if (esHost != "localhost") {
         System.err.println(s"You can only run UpdateSettings on localhost, not '$esHost'")
         System.exit(1)
@@ -290,7 +261,6 @@ abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
   final val esApp   = "elasticsearch"
   final val esPort = 9300
-  final val esCluster = "media-service"
 
   def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
 
@@ -306,4 +276,8 @@ abstract class EsScript {
 
   def run(esHost: String, args: List[String])
   def usageError: Nothing
+}
+
+abstract class BaseEsClient(override val host: String, override val imagesAlias: String) extends ElasticSearchClient {
+  override val clientTransportSniff = false
 }

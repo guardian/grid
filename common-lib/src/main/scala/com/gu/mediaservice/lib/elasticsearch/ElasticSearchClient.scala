@@ -12,8 +12,8 @@ import org.elasticsearch.common.unit.TimeValue
 trait ElasticSearchClient extends Logging {
 
   def host: String
-  def port: Int
-  def cluster: String
+  def port: Int = 9300
+  def cluster: String = "media-service"
   def imagesAlias: String
   def clientTransportSniff: Boolean
 
