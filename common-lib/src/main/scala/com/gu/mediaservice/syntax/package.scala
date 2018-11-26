@@ -6,4 +6,3 @@ package object syntax
   extends ElasticSearchSyntax
   with PlayJsonSyntax
   with FutureSyntax
-  with ProcessSyntax
