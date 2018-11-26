@@ -49,7 +49,7 @@ trait ElasticSearchSyntax extends Logging {
           "duration" -> elapsed
         ).asJava)
 
-        Logger.error(markers, s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")
+        Logger.error(markers, s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}", e)
       }
 
       result
