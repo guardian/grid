@@ -1137,6 +1137,13 @@ textarea.ng-invalid {
     box-sizing: border-box;
 }
 
+.photoshoot-label {
+    margin-right: 2px;
+    background: orange;
+    border-radius: 2px;
+    padding: 0 5px;
+}
+
 .preview__info {
     font-size: 1.3rem;
     padding-left: 10px;

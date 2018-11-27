@@ -39,6 +39,11 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
             staffCategories.includes(image.data.usageRights.category);
     }
 
+    function hasPhotoshoot(image) {
+        console.log(image.data.userMetadata.data.photoshoot.data);
+        return image.data.userMetadata.data.photoshoot.data;
+    }
+
     function getPersistenceExplanation(image) {
         const persistReasons = imageAccessor.readPersistedReasons(image);
         return persistReasons.map(reason => {
@@ -90,6 +95,7 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         getArchivedState,
         getPersistenceExplanation,
         isStaffPhotographer,
+        hasPhotoshoot,
         getSyndicationStatus,
         getSyndicationReason
     };
