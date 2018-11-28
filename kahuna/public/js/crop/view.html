@@ -53,7 +53,7 @@
         </div>
 
         <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" ng-checked="ctrl.cropType === 'landscape'" ng-disabled="ctrl.cropType" name="aspect" />
+            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" ng-checked="ctrl.landscapeChecked || ctrl.cropType === 'landscape'" ng-disabled="ctrl.cropType" name="aspect" />
             <gr-icon-label gr-icon="crop_landscape">Landscape</gr-icon-label> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
         </label>
 
