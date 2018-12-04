@@ -130,26 +130,25 @@ object MetadataConfig {
     "Guardian Design"
   )
 
-  val contractIllustrators: Map[String, String] = Map(
-    "Ben Lamb"              -> "The Guardian",
-    "Andrzej Krauze"        -> "The Guardian",
-    "Chris Ware"            -> "The Guardian",
-    "David Squires"         -> "The Guardian",
-    "First Dog on the Moon" -> "The Guardian",
-    "Harry Venning"         -> "The Guardian",
-    "Kipper Williams"       -> "The Guardian",
-    "Martin Rowson"         -> "The Guardian",
-    "Matt Kenyon"           -> "The Guardian",
-    "Matthew Blease"        -> "The Guardian",
-    "Nicola Jennings"       -> "The Guardian",
-    "Rosalind Asquith"      -> "The Guardian",
-    "Steve Bell"            -> "The Guardian",
-    "Steven Appleby"        -> "The Guardian",
-    "Ben Jennings"          -> "The Guardian",
-    "Chris Riddell"         -> "The Observer",
-    "David Foldvari"        -> "The Observer",
-    "David Simonds"         -> "The Observer",
-    "Ian Tovey"             -> "The Observer",
+  val contractIllustrators = List(
+    "Ben Lamb",
+    "Andrzej Krauze",
+    "Chris Riddell",
+    "Chris Ware",
+    "David Foldvari",
+    "David Simonds",
+    "David Squires",
+    "First Dog on the Moon",
+    "Harry Venning",
+    "Ian Tovey",
+    "Kipper Williams",
+    "Martin Rowson",
+    "Matt Kenyon",
+    "Matthew Blease",
+    "Nicola Jennings",
+    "Rosalind Asquith",
+    "Steve Bell",
+    "Steven Appleby"
   )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers
@@ -158,7 +157,6 @@ object MetadataConfig {
   val staffPhotographersMap = PhotographersList.creditBylineMap(staffPhotographers)
   val contractPhotographersMap = PhotographersList.creditBylineMap(contractedPhotographers)
   val allPhotographersMap = PhotographersList.creditBylineMap(allPhotographers)
-  val contractIllustratorsMap = PhotographersList.creditBylineMap(contractIllustrators)
 
   val creativeCommonsLicense = List(
     "CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0"

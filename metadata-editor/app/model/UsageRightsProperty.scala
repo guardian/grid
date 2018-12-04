@@ -24,7 +24,7 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
-  import MetadataConfig.{contractPhotographersMap, staffPhotographersMap, contractIllustratorsMap, staffIllustrators, creativeCommonsLicense}
+  import MetadataConfig.{contractPhotographersMap, staffPhotographersMap, contractIllustrators, staffIllustrators, creativeCommonsLicense}
   import UsageRightsConfig.freeSuppliers
 
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
@@ -57,10 +57,6 @@ object UsageRightsProperty {
     requiredStringField("photographer", "Photographer",
       optionsMap = Some(photographers), optionsMapKey = Some(key))
 
-  private def illustratorField(illustrators: OptionsMap, key: String) =
-    requiredStringField("illustrator", "Illustrator",
-      optionsMap = Some(illustrators), optionsMapKey = Some(key))
-
   private def restrictionProperties(u: UsageRightsSpec): List[UsageRightsProperty] = u match {
     case NoRights => List()
     case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
@@ -92,15 +88,12 @@ object UsageRightsProperty {
     )
 
     case ContractIllustrator => List(
-      publicationField(true),
-      illustratorField(contractIllustratorsMap, "publication")
-    )
+      requiredStringField("creator", "Illustrator", Some(sortList(contractIllustrators))))
 
     case StaffIllustrator => List(
       requiredStringField("creator", "Illustrator", Some(sortList(staffIllustrators))))
 
     case CommissionedIllustrator => List(
-      publicationField(false),
       requiredStringField("creator", "Illustrator", examples = Some("Ellie Foreman Peck, Matt Bors")))
 
     case CreativeCommons => List(
