@@ -28,9 +28,6 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "App"   -> Seq(elasticsearchApp)
       ))
 
-  // The presence of this identifier prevents deletion
-  lazy val persistenceIdentifier = properties("persistence.identifier")
-
   lazy val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 
   lazy val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
