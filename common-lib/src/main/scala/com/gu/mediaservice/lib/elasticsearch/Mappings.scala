@@ -290,7 +290,6 @@ object Mappings {
           "usagesLastModified" -> dateFormat,
           "leases" -> leasesMapping,
           "collections" -> collectionMapping,
-          "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(
