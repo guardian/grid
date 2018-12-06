@@ -58,7 +58,7 @@ object UsageRightsProperty {
       optionsMap = Some(photographers), optionsMapKey = Some(key))
 
   private def illustratorField(illustrators: OptionsMap, key: String) =
-    requiredStringField("illustrator", "Illustrator",
+    requiredStringField("creator", "Illustrator",
       optionsMap = Some(illustrators), optionsMapKey = Some(key))
 
   private def restrictionProperties(u: UsageRightsSpec): List[UsageRightsProperty] = u match {
