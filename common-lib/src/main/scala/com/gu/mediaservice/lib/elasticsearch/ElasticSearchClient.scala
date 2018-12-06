@@ -56,10 +56,10 @@ trait ElasticSearchClient {
     val indexExists = client.admin.indices.prepareExists(index)
                         .execute.actionGet.isExists
 
-    if (!indexExists) createIndex(index)
+    if (!indexExists) createImageIndex(index)
   }
 
-  def createIndex(index: String) {
+  def createImageIndex(index: String) {
     Logger.info(s"Creating index $index")
     client.admin.indices
       .prepareCreate(index)
