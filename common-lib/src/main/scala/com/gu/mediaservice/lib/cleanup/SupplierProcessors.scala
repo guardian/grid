@@ -172,29 +172,32 @@ trait GettyProcessor {
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  // including 'newspix internation' because they're sending us lots with that in the credit
-  val excludeFromCreditPatterns = List("newspix international", "newspix internation", "i-images", "photoshot", "Ian Jones", "Avalon", "INS News Agency Ltd")
-    .map(ex => s"(?i)$ex".r)
-  
-  val excludeFromSourcePatterns = List("Pinnacle Photo Agency Ltd")
-
-  // Some people send over Getty XMP data, but are not affiliated with Getty
-  def excludedCredit(credit: Option[String]) = {
-    excludeFromCreditPatterns.flatMap( _.findFirstMatchIn(credit.getOrElse("")) ).nonEmpty
-  }
-  
-  def excludedSource(source: Option[String]) = {
-    source.exists(excludeFromSourcePatterns.contains)
-  }
-
-  def apply(image: Image): Image = (excludedCredit(image.metadata.credit) || excludedSource(image.metadata.source), image.fileMetadata.getty.isEmpty) match {
-    // Only images supplied by Getty have getty fileMetadata
-    case (false, false) => image.copy(
-      usageRights = gettyAgencyWithCollection(image.metadata.source),
-      // Set a default "credit" for when Getty is too lazy to provide one
-      metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
+  def apply(image: Image): Image = {
+    val excludedCredit = List(
+      "newspix international", "i-images", "photoshot", "Ian Jones", "Avalon", "INS News Agency Ltd"
     )
-    case _ => image
+
+    val excludedSource = List(
+      "Pinnacle Photo Agency Ltd"
+    )
+
+    val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
+    val isExcludedBySource = image.metadata.source.exists(isExcluded(_, excludedSource))
+    val hasGettyMetadata = image.fileMetadata.getty.nonEmpty
+
+    if(!hasGettyMetadata || isExcludedByCredit || isExcludedBySource) {
+      image
+    } else {
+      image.copy(
+        usageRights = gettyAgencyWithCollection(image.metadata.source),
+        // Set a default "credit" for when Getty is too lazy to provide one
+        metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
+      )
+    }
+  }
+
+  private def isExcluded(value: String, matchers: List[String]): Boolean = {
+    matchers.map(_.toLowerCase).exists(value.toLowerCase.contains)
   }
 }
 
