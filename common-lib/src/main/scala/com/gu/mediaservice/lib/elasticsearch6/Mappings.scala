@@ -82,6 +82,7 @@ object Mappings {
     keywordField("supplier"),
     keywordField("suppliersCollection"),
     standardAnalysed("photographer"),
+    keywordField("publication"),
     keywordField("creator"),
     keywordField("licence"),
     keywordField("source"),

@@ -13,7 +13,7 @@ object IndexSettings {
 
     val sStemmer = StemmerTokenFilter(name = "s_stemmer", lang = "minimal_english")
 
-    val englishPossessiveStemmer = StemmerTokenFilter(name = "english_possessive_stemmer", lang = "progressive_english")
+    val englishPossessiveStemmer = StemmerTokenFilter(name = "english_possessive_stemmer", lang = "possessive_english")
 
     val englishSStemmerAnalyzer = CustomAnalyzerDefinition(name = englishSStemmerAnalyzerName,
       tokenizer = StandardTokenizer,
