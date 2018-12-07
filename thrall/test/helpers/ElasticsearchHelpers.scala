@@ -17,7 +17,7 @@ trait ElasticsearchHelpers {
   )))
   private val thrallMetrics = new ThrallMetrics(thrallConfig)
 
-  val ES: ElasticSearch = new ElasticSearch(thrallConfig, thrallMetrics)
+  val ES = new ElasticSearch(thrallConfig, thrallMetrics)
 
   def createImage(
                    id: String,
