@@ -11,6 +11,7 @@ import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
+import com.gu.thrift.serializer.ThriftDeserializer
 import org.apache.thrift.protocol.TCompactProtocol
 import org.apache.thrift.transport.TIOStreamTransport
 import org.joda.time.DateTime
@@ -20,22 +21,9 @@ import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
-// Instantiates a new deserializer for type event to deserialize bytes to Event
-object CrierDeserializer {
-  val codec = Event
-
-  def deserialize(buffer: Array[Byte]): Try[Event] = {
-    Try {
-      val byteBuffer: ByteBuffer = ByteBuffer.wrap(buffer)
-      val bbis = new ByteBufferBackedInputStream(byteBuffer)
-      val transport = new TIOStreamTransport(bbis)
-      val protocol = new TCompactProtocol(transport)
-      codec.decode(protocol)
-    }
-  }
-}
-
 abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor {
+
+  implicit val codec = Event
 
   val contentStream: ContentStream
 
@@ -109,7 +97,7 @@ private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcesso
     records.asScala.map { record =>
 
       val buffer: Array[Byte] = record.getData.array()
-      CrierDeserializer.deserialize(buffer).map(processEvent)
+      ThriftDeserializer.deserialize(buffer).map(processEvent)
 
     }
 
@@ -128,7 +116,7 @@ private class CrierPreviewEventProcessor(config: UsageConfig) extends EventProce
     records.asScala.map { record =>
 
       val buffer: Array[Byte] = record.getData.array()
-      CrierDeserializer.deserialize(buffer).map(processEvent)
+      ThriftDeserializer.deserialize(buffer).map(processEvent)
 
     }
 
