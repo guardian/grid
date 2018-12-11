@@ -7,7 +7,7 @@ import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
 
-  private val dummyType = "_doc" // see https://www.elastic.co/blog/removal-of-mapping-types-elasticsearch
+  val dummyType = "_doc" // see https://www.elastic.co/blog/removal-of-mapping-types-elasticsearch
 
   val imageMapping: MappingDefinition = {
     def storedJsonObjectTemplate: DynamicTemplateRequest = dynamicTemplate("stored_json_object_template").

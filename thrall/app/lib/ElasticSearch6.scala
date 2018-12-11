@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
+import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearchClient, Mappings}
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.script.Script
@@ -16,7 +16,7 @@ import play.api.libs.json._
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields {
+class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticSearch6Executions {
 
   lazy val imagesAlias = config.writeAlias
   lazy val host = config.elasticsearchHost
@@ -66,22 +66,18 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     val params = Map("update_doc" -> imageJson)
     val script = Script(script = painlessSource).lang("painless").params(params)
 
-    val indexRequest = updateById(imagesAlias, "_doc", id).
+    val indexRequest = updateById(imagesAlias, Mappings.dummyType, id).
       upsert(imageJson).
       script(script)
 
-    val indexResponse = client.execute {
-      indexRequest
-    }.await
+    val indexResponse = executeAndLog(indexRequest, s"Indexing image $id").await
 
     Logger.info("Index image result: " + indexResponse)
     List[Future[UpdateResponse]]() // TODO
   }
 
   def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
-    client.execute {
-      get(imagesAlias, "_doc", id)
-    }.map { r =>
+    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by $id").map { r =>
       r.isSuccess match {
         case true => Some(Json.parse(r.result.sourceAsString).as[Image])
         case false => None
@@ -117,7 +113,9 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     val updateRequest = updateById(imagesAlias, "_doc", id).script(script)
 
-    val result = Await.result(client.execute(updateRequest), TenSeconds)
+    val eventualResult = executeAndLog(updateRequest, s"updating syndicationRights on image $id with rights $params")
+
+    val result = Await.result(eventualResult, TenSeconds)
     Logger.info("Update image syndication response: " + result)
 
     List() // TODO
@@ -141,13 +139,12 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     val request = search(imagesAlias) bool filteredMatches limit 200 // TODO no order?
 
-    client.execute(request).map { r =>
+    executeAndLog(request, s"get images in photoshoot ${photoshoot.title} with inferred syndication rights (excluding $excludedImageId)").map { r =>
       r.isSuccess match {
-        case true => {
+        case true =>
           r.result.hits.hits.toList.map { h =>
             Json.parse(h.sourceAsString).as[Image]
           }
-        }
         case false =>
           List() // TODO
       }
@@ -174,7 +171,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     val request = search(imagesAlias) bool filteredMatches sortBy syndicationRightsPublishedDescending
 
-    client.execute(request).map { r =>
+    executeAndLog(request, s"get image in photoshoot ${photoshoot.title} with latest rcs syndication rights (excluding $excludedImageId)").map { r =>
       r.isSuccess match {
         case true => {
           r.result.hits.hits.toList.headOption.map { h =>
