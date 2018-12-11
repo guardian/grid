@@ -25,7 +25,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.11.302"
-val elastic4sVersion = "6.3.7"
+val elastic4sVersion = "6.4.0"
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
