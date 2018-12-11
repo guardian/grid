@@ -5,19 +5,9 @@ import java.util.UUID
 
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.Usage
-import lib.{ElasticSearch, ThrallConfig, ThrallMetrics}
 import org.joda.time.DateTime
-import play.api.Configuration
 
 trait ElasticsearchHelpers {
-  private val thrallConfig = new ThrallConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
-    "es.index.aliases.write" -> "writeAlias"
-  )))
-  private val thrallMetrics = new ThrallMetrics(thrallConfig)
-
-  val ES = new ElasticSearch(thrallConfig, thrallMetrics)
 
   def createImage(
                    id: String,

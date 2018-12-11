@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.gu.mediaservice.model._
 import helpers.ElasticsearchHelpers
-import lib.{ElasticSearchVersion, _}
+import lib._
 import org.joda.time.DateTime
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Seconds, Span}
@@ -14,17 +14,17 @@ import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class SyndicationRightsOpsTest extends FreeSpec with Matchers with ElasticsearchHelpers with BeforeAndAfterAll with ScalaFutures {
+class SyndicationRightsOpsElastic6Test extends FreeSpec with Matchers with ElasticsearchHelpers with BeforeAndAfterAll with ScalaFutures {
 
   val thrallConfig = new ThrallConfig(Configuration.from(Map(
     "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
+    "es.port" -> "9206",
     "es.index.aliases.write" -> "writeAlias"
   )))
 
   val thrallMetrics = new ThrallMetrics(thrallConfig)
 
-  val ES: ElasticSearchVersion = new ElasticSearch(thrallConfig, thrallMetrics)
+  val ES: ElasticSearchVersion = new ElasticSearch6(thrallConfig, thrallMetrics)
 
   override def beforeAll {
     ES.ensureAliasAssigned()

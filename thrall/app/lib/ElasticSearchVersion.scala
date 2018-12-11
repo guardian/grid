@@ -41,4 +41,6 @@ trait ElasticSearchVersion {
 
   def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImageId: Option[String] = None)(implicit ex: ExecutionContext): Future[Option[Image]]
 
+  def ensureAliasAssigned()
+
 }
