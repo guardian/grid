@@ -2,33 +2,22 @@ package syndication
 
 import java.util.UUID
 
-import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.{Image, Photoshoot}
 import helpers.Fixtures
-import lib.{ElasticSearchVersion, _}
+import lib.{ElasticSearchVersion, SyndicationRightsOps}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
-import play.api.Configuration
 import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class SyndicationRightsOpsTest extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with ScalaFutures {
+trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with ScalaFutures {
 
-  val thrallConfig = new ThrallConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
-    "es.index.aliases.write" -> "writeAlias"
-  )))
+  def ES: ElasticSearchVersion
 
-  val thrallMetrics = new ThrallMetrics(thrallConfig)
-
-  val ES: ElasticSearchVersion = new ElasticSearch(thrallConfig, thrallMetrics)
-
-  override def beforeAll {
-    ES.ensureAliasAssigned()
-  }
+  lazy val syndRightsOps = new SyndicationRightsOps(ES)
 
   def withImage(image: Image)(test: Image => Unit): Unit = {
     ES.indexImage(image.id, Json.toJson(image))
@@ -47,7 +36,9 @@ class SyndicationRightsOpsTest extends FreeSpec with Matchers with Fixtures with
     test(images)
   }
 
-  val syndRightsOps = new SyndicationRightsOps(ES)
+  override def beforeAll {
+    ES.ensureAliasAssigned()
+  }
 
   implicit val defaultPatience = PatienceConfig(timeout = Span(30, Seconds), interval = Span(250, Millis))
 
