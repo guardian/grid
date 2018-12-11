@@ -5,7 +5,6 @@ import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearchClient, Mappings}
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.script.Script
-import com.sksamuel.elastic4s.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.searches.sort.SortOrder
 import org.elasticsearch.action.delete.DeleteResponse
 import org.elasticsearch.action.update.UpdateResponse
@@ -78,10 +77,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
   def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
     executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by $id").map { r =>
-      r.isSuccess match {
-        case true => Some(Json.parse(r.result.sourceAsString).as[Image])
-        case false => None
-      }
+      Some(Json.parse(r.result.sourceAsString).as[Image])
     }
   }
 
@@ -140,13 +136,8 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     val request = search(imagesAlias) bool filteredMatches limit 200 // TODO no order?
 
     executeAndLog(request, s"get images in photoshoot ${photoshoot.title} with inferred syndication rights (excluding $excludedImageId)").map { r =>
-      r.isSuccess match {
-        case true =>
-          r.result.hits.hits.toList.map { h =>
-            Json.parse(h.sourceAsString).as[Image]
-          }
-        case false =>
-          List() // TODO
+      r.result.hits.hits.toList.map { h =>
+        Json.parse(h.sourceAsString).as[Image]
       }
     }
   }
@@ -162,7 +153,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
       case _ => nonInferredSyndicationRights
     }
 
-    val filteredMatches: BoolQuery = boolQuery must(
+    val filteredMatches = boolQuery must(
       matchQuery(photoshootField("title"), photoshoot.title),
       filter
     )
@@ -172,14 +163,8 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     val request = search(imagesAlias) bool filteredMatches sortBy syndicationRightsPublishedDescending
 
     executeAndLog(request, s"get image in photoshoot ${photoshoot.title} with latest rcs syndication rights (excluding $excludedImageId)").map { r =>
-      r.isSuccess match {
-        case true => {
-          r.result.hits.hits.toList.headOption.map { h =>
-            Json.parse(h.sourceAsString).as[Image]
-          }
-        }
-        case false =>
-          None
+      r.result.hits.hits.toList.headOption.map { h =>
+        Json.parse(h.sourceAsString).as[Image]
       }
     }
   }

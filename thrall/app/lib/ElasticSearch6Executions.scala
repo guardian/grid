@@ -1,12 +1,14 @@
 package lib
 
 import com.sksamuel.elastic4s.http._
+import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import play.api.{Logger, MarkerContext}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 trait ElasticSearch6Executions {
 
@@ -18,9 +20,17 @@ trait ElasticSearch6Executions {
                                                        handler: Handler[T, U],
                                                        manifest: Manifest[U]): Future[Response[U]] = {
     val start = System.currentTimeMillis()
-    val result = client.execute(request)
 
-    result.foreach { _ =>
+    val result = client.execute(request).transform {
+      case Success(r) =>
+        r.isSuccess match {
+          case true => Success(r)
+          case false => Failure(new RuntimeException("query response was not successful: " + r.error.reason))
+        }
+      case Failure(f) => Failure(f)
+    }
+
+    result.foreach { r =>
       val elapsed = System.currentTimeMillis() - start
       val markers = MarkerContext(durationMarker(elapsed))
       Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
@@ -35,8 +45,6 @@ trait ElasticSearch6Executions {
     result
   }
 
-  private def durationMarker(elapsed: Long) = {
-    appendEntries(Map("duration" -> elapsed).asJava)
-  }
+  private def durationMarker(elapsed: Long): LogstashMarker = appendEntries(Map("duration" -> elapsed).asJava)
 
 }
