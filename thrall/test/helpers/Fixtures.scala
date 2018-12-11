@@ -7,7 +7,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.Usage
 import org.joda.time.DateTime
 
-trait ElasticsearchHelpers {
+trait Fixtures {
 
   def createImage(
                    id: String,

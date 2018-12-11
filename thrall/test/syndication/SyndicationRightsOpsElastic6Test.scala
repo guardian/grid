@@ -3,7 +3,7 @@ package syndication
 import java.util.UUID
 
 import com.gu.mediaservice.model._
-import helpers.ElasticsearchHelpers
+import helpers.Fixtures
 import lib._
 import org.joda.time.DateTime
 import org.scalatest.concurrent.ScalaFutures
@@ -14,7 +14,7 @@ import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class SyndicationRightsOpsElastic6Test extends FreeSpec with Matchers with ElasticsearchHelpers with BeforeAndAfterAll with ScalaFutures {
+class SyndicationRightsOpsElastic6Test extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with ScalaFutures {
 
   val thrallConfig = new ThrallConfig(Configuration.from(Map(
     "es.cluster" -> "media-service-test",
