@@ -77,7 +77,11 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
   def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
     executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by $id").map { r =>
-      Some(Json.parse(r.result.sourceAsString).as[Image])
+      if (r.result.found) {
+        Some(Json.parse(r.result.sourceAsString).as[Image])
+      } else {
+        None
+      }
     }
   }
 
