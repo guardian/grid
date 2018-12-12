@@ -230,6 +230,7 @@ object PaParser extends ImageProcessor {
   val paCredits = List(
     "PA",
     "PA WIRE",
+    "PA Wire/PA Images",
     "PA Wire/PA Photos",
     "PA Wire/Press Association Images",
     "PA Archive/PA Photos",
