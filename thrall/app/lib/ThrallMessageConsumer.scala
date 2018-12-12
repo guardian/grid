@@ -9,7 +9,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ThrallMessageConsumer(
   config: ThrallConfig,
-  es: ElasticSearch,
+  es: ElasticSearchVersion,
   thrallMetrics: ThrallMetrics,
   store: ThrallStore,
   notifications: DynamoNotifications,

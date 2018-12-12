@@ -11,8 +11,13 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val dynamoNotifications = new DynamoNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es = new ElasticSearch(config, thrallMetrics)
-  es.ensureAliasAssigned()
+  val es1 = new ElasticSearch(config, thrallMetrics)
+  es1.ensureAliasAssigned()
+
+  val es6 = new ElasticSearch6(config, thrallMetrics)
+  es6.ensureAliasAssigned()
+
+  val es = new ElasticSearchRouter(es1, es6)
 
   val syndicationOps = new SyndicationRightsOps(es)
 
@@ -24,7 +29,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   }
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es, thrallMessageConsumer, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es1, thrallMessageConsumer, config, controllerComponents) // TODO extract es health check
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }

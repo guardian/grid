@@ -16,9 +16,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticSearch6Executions {
 
   lazy val imagesAlias = config.writeAlias
-  lazy val host = config.elasticsearchHost
-  lazy val port = config.int("es.port")
-  lazy val cluster = config("es.cluster")
+  lazy val host = "localhost"
+  lazy val port = 9206
+  lazy val cluster = "media-service"
 
   private val TenSeconds = Duration(10, SECONDS)
 
@@ -67,7 +67,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
       upsert(imageJson).
       script(script)
 
-    val indexResponse = executeAndLog(indexRequest, s"Indexing image $id")
+    val indexResponse = executeAndLog(indexRequest, s"ES6 Indexing image $id")
 
     List(indexResponse.map { _ =>
       ElasticSearchUpdateResponse()
