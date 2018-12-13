@@ -100,11 +100,17 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val mediaType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
     val colourType = apiImage.fileMetadata.colourModelInformation.getOrElse("colorType", "")
+    val hasAlpha = apiImage.fileMetadata.colourModelInformation.getOrElse("hasAlpha", "true")
 
-    val cropType = if (mediaType == "image/png" && colourType != "True Color")
-      ImageOperations.Png
-    else
+    val cropType = if (mediaType == "image/png") {
+      if (colourType.startsWith("True Color") && hasAlpha == "false") {
+        ImageOperations.Jpeg
+      } else {
+        ImageOperations.Png
+      }
+    } else {
       ImageOperations.Jpeg
+    }
 
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
