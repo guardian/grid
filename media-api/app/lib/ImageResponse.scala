@@ -328,8 +328,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
         .contramap(leasesEntity(id, _: LeasesByMedia)) ~
     (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
       .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
-    (__ \ "syndicationRights").write[Option[SyndicationRights]]
-  )(unlift(Image.unapply))
+    (__ \ "syndicationRights").write[Option[SyndicationRights]] ~
+    (__ \ "usermetaDataLastModified").writeNullable[DateTime]
+
+    )(unlift(Image.unapply))
 
   def fileMetaDataUri(id: String) = URI.create(s"${config.rootUri}/images/$id/fileMetadata")
 

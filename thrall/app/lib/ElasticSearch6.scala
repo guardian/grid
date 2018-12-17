@@ -11,14 +11,14 @@ import play.api.Logger
 import play.api.libs.json._
 
 import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticSearch6Executions {
 
   lazy val imagesAlias = config.writeAlias
-  lazy val host = "localhost"
+  lazy val host = config.elasticsearch6Host
   lazy val port = 9206
-  lazy val cluster = "media-service"
+  lazy val cluster = config("es6.cluster")
 
   private val TenSeconds = Duration(10, SECONDS)
 
@@ -26,6 +26,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   lazy val clientTransportSniff = false
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+    Logger.info("Indexing image: " + id + ": " + Json.stringify(image))
 
     // TODO doesn't match the legacy functionality
     val painlessSource = loadPainless(
@@ -41,8 +42,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
         |   ctx._source.suggestMetadataCredit = [ \"input\": [ ctx._source.metadata.credit ] ]
         | }
       """)
-
-    val imageJson = Json.stringify(image)
 
     /*
     val upsertScript = s"""
@@ -60,14 +59,14 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
         |""".stripMargin
     */
 
-    val params = Map("update_doc" -> imageJson)
+    val params = Map("update_doc" -> asNestedMap(image))
     val script = Script(script = painlessSource).lang("painless").params(params)
 
     val indexRequest = updateById(imagesAlias, Mappings.dummyType, id).
-      upsert(imageJson).
+      upsert(Json.stringify(image)).
       script(script)
 
-    val indexResponse = executeAndLog(indexRequest, s"ES6 Indexing image $id")
+    val indexResponse = executeAndLog(indexRequest, s"Indexing image $id")
 
     List(indexResponse.map { _ =>
       ElasticSearchUpdateResponse()
@@ -89,7 +88,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    Logger.info("Updating image syndication rights: " + id + " / " + rights)
     val rightsParameter = rights match {
       case Some(sr) => asNestedMap(sr)
       case None => null
@@ -106,18 +104,46 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
          | $updateLastModifiedScript
     """)
 
-    Logger.debug("Update syndication rights script is: " + scriptSource)
-    Logger.debug("Params are: " + params)
     val script = Script(script = scriptSource).lang("painless").params(params)
 
     val updateRequest = updateById(imagesAlias, "_doc", id).script(script)
 
-    val eventualResult = executeAndLog(updateRequest, s"updating syndicationRights on image $id with rights $params")
+    List(executeAndLog(updateRequest, s"updating syndicationRights on image $id with rights $params").map(_ => ElasticSearchUpdateResponse()))
+  }
 
-    val result = Await.result(eventualResult, TenSeconds)
-    Logger.info("Update image syndication response: " + result)
 
-    List() // TODO
+  def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+    Logger.info("Updating image metadata: " + id + ": " + metadata + ", " + lastModified)
+
+    val metadataParameter = metadata.toOption.map(asNestedMap)
+    val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+
+    val params = Map(
+      "userMetadata" -> metadataParameter.getOrElse(null),
+      "lastModified" -> lastModifiedParameter.getOrElse(null)
+    )
+
+    val scriptSource = loadPainless(
+      s"""
+          | if (ctx._source.userMetadataLastModified != null) {
+          |   if (params.lastModified.compareTo(ctx._source.userMetadataLastModified) == 1) {
+          |      ctx._source.userMetadata = params.userMetadata;
+          |      ctx._source.userMetadataLastModified = params.lastModified;
+          |      $updateLastModifiedScript
+          |   }
+          | } else {
+          |   ctx._source.userMetadata = params.userMetadata;
+          |   ctx._source.userMetadataLastModified = params.lastModified;
+          |   $updateLastModifiedScript
+          | }
+       """
+    )
+
+    val script = Script(script = scriptSource).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, "_doc", id).script(script)
+
+    List(executeAndLog(updateRequest, s"updating user metadata on image $id").map(_ => ElasticSearchUpdateResponse()))
   }
 
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])(implicit ex: ExecutionContext): Future[List[Image]] = { // TODO could be a Seq
@@ -239,7 +265,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
   def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = ???
 
-  def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = ???
+
 
   def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
     ???
@@ -254,6 +280,15 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     val mapper = new ObjectMapper() with ScalaObjectMapper
     mapper.registerModule(DefaultScalaModule)
     mapper.readValue[Map[String, Object]](Json.stringify(Json.toJson(sr)))
+  }
+
+  def asNestedMap(i: JsValue) = { // TODO not great; there must be a better way to flatten a case class into a Map
+    import com.fasterxml.jackson.databind.ObjectMapper
+    import com.fasterxml.jackson.module.scala.DefaultScalaModule
+    import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+    val mapper = new ObjectMapper() with ScalaObjectMapper
+    mapper.registerModule(DefaultScalaModule)
+    mapper.readValue[Map[String, Object]](Json.stringify(i))
   }
 
 }

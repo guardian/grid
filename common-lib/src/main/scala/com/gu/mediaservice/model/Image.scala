@@ -26,8 +26,8 @@ case class Image(
   usages:              List[Usage]      = Nil,
   leases:              LeasesByMedia     = LeasesByMedia.build(Nil),
   collections:         List[Collection] = Nil,
-  syndicationRights:   Option[SyndicationRights] = None
-) {
+  syndicationRights:   Option[SyndicationRights] = None,
+  userMetadataLastModified: Option[DateTime] = None) {
   def rcsPublishDate: Option[DateTime] = syndicationRights.flatMap(_.published)
 
   def hasInferredSyndicationRights: Boolean = syndicationRights.forall(_.isInferred == true)
@@ -82,7 +82,8 @@ object Image {
       (__ \ "usages").readNullable[List[Usage]].map(_ getOrElse List()) ~
       (__ \ "leases").readNullable[LeasesByMedia].map(_ getOrElse LeasesByMedia.build(Nil)) ~
       (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil) ~
-      (__ \ "syndicationRights").readNullable[SyndicationRights]
+      (__ \ "syndicationRights").readNullable[SyndicationRights] ~
+      (__ \ "userMetadataLastModified").readNullable[String].map(parseOptDateTime)
     )(Image.apply _)
 
   implicit val ImageWrites: Writes[Image] = (
@@ -105,7 +106,8 @@ object Image {
       (__ \ "usages").write[List[Usage]] ~
       (__ \ "leases").write[LeasesByMedia] ~
       (__ \ "collections").write[List[Collection]] ~
-      (__ \ "syndicationRights").writeNullable[SyndicationRights]
+      (__ \ "syndicationRights").writeNullable[SyndicationRights] ~
+      (__ \ "userMetadataLastModified").writeNullable[String].contramap(printOptDateTime)
     )(unlift(Image.unapply))
 
 }
