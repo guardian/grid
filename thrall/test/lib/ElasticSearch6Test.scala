@@ -44,6 +44,35 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
       }
     }
 
+    "syndication rights" - {
+      "updated syndication rights should be persisted" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        ES.indexImage(id, Json.toJson(image))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+        val newSyndicationRights = SyndicationRights(published = Some(DateTime.now()), suppliers = Seq.empty, rights = Seq.empty)
+
+        Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights))), fiveSeconds)
+
+        reloadedImage(id).flatMap(_.syndicationRights) shouldEqual Some(newSyndicationRights)
+      }
+
+      "updating syndication rights should update last modified date" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        ES.indexImage(id, Json.toJson(image))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+        val newSyndicationRights = SyndicationRights(published = Some(DateTime.now().minusWeeks(1)), suppliers = Seq.empty, rights = Seq.empty)
+        val beforeUpdate = DateTime.now()
+
+        Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights))), fiveSeconds)
+
+        reloadedImage(id).get.lastModified.get.isAfter(beforeUpdate) shouldEqual true
+      }
+    }
+
     "user metadata" - {
       "can update user metadata for an existing image" in {
         val id = UUID.randomUUID().toString

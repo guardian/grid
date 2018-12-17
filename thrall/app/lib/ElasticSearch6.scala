@@ -88,6 +88,12 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+
+    val replaceSyndicationRightsScript = """
+        | ctx._source.syndicationRights = params.syndicationRights;
+      """.stripMargin
+
+
     val rightsParameter = rights match {
       case Some(sr) => asNestedMap(sr)
       case None => null
@@ -98,11 +104,10 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
       "lastModified" -> DateTime.now().toString()
     )
 
-    val scriptSource = loadPainless(
-      s"""
+    val scriptSource = loadPainless(s"""
          | $replaceSyndicationRightsScript
          | $updateLastModifiedScript
-    """)
+        """)
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
@@ -210,11 +215,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
       }
     }
   }
-
-  private val replaceSyndicationRightsScript =
-    """
-      | ctx._source.syndicationRights = params.syndicationRights;
-    """.stripMargin
 
   // Script that updates the "lastModified" property using the "lastModified" parameter
   private val updateLastModifiedScript =
