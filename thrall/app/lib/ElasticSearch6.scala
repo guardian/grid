@@ -113,8 +113,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
 
   def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    Logger.info("Updating image metadata: " + id + ": " + metadata + ", " + lastModified)
-
     val metadataParameter = metadata.toOption.map(asNestedMap)
     val lastModifiedParameter = lastModified.toOption.map(_.as[String])
 
@@ -125,13 +123,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     val scriptSource = loadPainless(
       s"""
-          | if (ctx._source.userMetadataLastModified != null) {
-          |   if (params.lastModified.compareTo(ctx._source.userMetadataLastModified) == 1) {
-          |      ctx._source.userMetadata = params.userMetadata;
-          |      ctx._source.userMetadataLastModified = params.lastModified;
-          |      $updateLastModifiedScript
-          |   }
-          | } else {
+          | if (ctx._source.userMetadataLastModified == null || (params.lastModified.compareTo(ctx._source.userMetadataLastModified) == 1)) {
           |   ctx._source.userMetadata = params.userMetadata;
           |   ctx._source.userMetadataLastModified = params.lastModified;
           |   $updateLastModifiedScript
