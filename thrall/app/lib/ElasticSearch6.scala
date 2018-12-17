@@ -125,6 +125,12 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     val refreshEditsScript = refreshMetadataScript + refreshUsageRightsScript
 
+    val photoshootSuggestionScript = """
+      | if (ctx._source.userMetadata.photoshoot != null) {
+      |   ctx._source.userMetadata.photoshoot.suggest = [ "input": [ ctx._source.userMetadata.photoshoot.title ] ];
+      | }
+    """.stripMargin
+
     val metadataParameter = metadata.toOption.map(asNestedMap)
     val lastModifiedParameter = lastModified.toOption.map(_.as[String])
 
@@ -142,6 +148,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
           | }
           |
           | $refreshEditsScript
+          | $photoshootSuggestionScript
        """
     )
 

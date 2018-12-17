@@ -149,27 +149,31 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
             JsDefined(Json.toJson(DateTime.now.withZone(DateTimeZone.UTC).toString)))),
           fiveSeconds)
 
-        reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldEqual("Test Photographer")
+        reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldEqual "Test Photographer"
       }
 
-      "???" - {
+      "updating user metadata should update photoshoot suggestions" in {
+        val id = UUID.randomUUID().toString
+        val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
 
-        /*
-          // Script that refreshes the "metadata" object by recomputing it
-  // from the original metadata and the overrides
-  private val refreshMetadataScript =
-  """| ctx._source.metadata = ctx._source.originalMetadata;
-     | if (ctx._source.userMetadata && ctx._source.userMetadata.metadata) {
-     |   ctx._source.metadata += ctx._source.userMetadata.metadata;
-     |   // Get rid of "" values
-     |   def nonEmptyKeys = ctx._source.metadata.findAll { it.value != "" }.collect { it.key }
-     |   ctx._source.metadata = ctx._source.metadata.subMap(nonEmptyKeys);
-     | }
-  """.stripMargin
+        ES.indexImage(id, Json.toJson(imageWithBoringMetadata))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
 
-         */
+        val newPhotoshoot = Photoshoot("Test photoshoot")
 
+        val updatedMetadata = Some(Edits(photoshoot = Some(newPhotoshoot), metadata = imageWithBoringMetadata.metadata.copy()))
+        val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
+
+        Await.result(Future.sequence(
+          ES.applyImageMetadataOverride(id,
+            JsDefined(Json.toJson(updatedMetadata)),
+            JsDefined(Json.toJson(updatedLastModifiedDate.toString)))),
+          fiveSeconds)
+
+        reloadedImage(id).flatMap(_.userMetadata.get.photoshoot.map(_.title)) shouldEqual Some("Test photoshoot")
+        // TODO how to assert that the suggestion was added?
       }
+
     }
   }
 
