@@ -111,8 +111,20 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     List(executeAndLog(updateRequest, s"updating syndicationRights on image $id with rights $params").map(_ => ElasticSearchUpdateResponse()))
   }
 
-
   def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+
+    val refreshMetadataScript = ""  // TODO implement when failure example becomes apparent
+
+    val refreshUsageRightsScript = """
+        | if (ctx._source.userMetadata != null && ctx._source.userMetadata.usageRights != null) {
+        |   ctx._source.usageRights = ctx._source.userMetadata.usageRights.clone();
+        | } else {
+        |   ctx._source.usageRights = ctx._source.originalUsageRights;
+        | }
+      """.stripMargin
+
+    val refreshEditsScript = refreshMetadataScript + refreshUsageRightsScript
+
     val metadataParameter = metadata.toOption.map(asNestedMap)
     val lastModifiedParameter = lastModified.toOption.map(_.as[String])
 
@@ -128,6 +140,8 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
           |   ctx._source.userMetadataLastModified = params.lastModified;
           |   $updateLastModifiedScript
           | }
+          |
+          | $refreshEditsScript
        """
     )
 

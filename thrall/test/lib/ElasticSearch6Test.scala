@@ -2,7 +2,7 @@ package lib
 
 import java.util.UUID
 
-import com.gu.mediaservice.model.Edits
+import com.gu.mediaservice.model._
 import helpers.Fixtures
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
@@ -84,6 +84,25 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         reloadedImage(id).flatMap(_.lastModified) shouldEqual Some(updatedLastModifiedDate)
       }
 
+      "original metadata is unchanged by a user metadata edit" in {
+        val id = UUID.randomUUID().toString
+        val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+        ES.indexImage(id, Json.toJson(imageWithBoringMetadata))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+
+        val updatedMetadata = Some(Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("An interesting image"))))
+        val updatedLastModifiedDate = DateTime.now
+
+        Await.result(Future.sequence(
+          ES.applyImageMetadataOverride(id,
+            JsDefined(Json.toJson(updatedMetadata)),
+            JsDefined(Json.toJson(updatedLastModifiedDate.toString)))),
+          fiveSeconds)
+
+        reloadedImage(id).map(_.originalMetadata) shouldEqual Some(imageWithBoringMetadata.originalMetadata)
+      }
+
       "should ignore update if the proposed modification date is older than the current user metadata last modified date" in {
         val id = UUID.randomUUID().toString
         val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
@@ -111,6 +130,45 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldBe Some("Latest edit")
         reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(latestLastModifiedDate)
+      }
+
+      "updating user metadata with new usage rights should update usage rights" in {
+        val id = UUID.randomUUID().toString
+        val imageWithUsageRights = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+        ES.indexImage(id, Json.toJson(imageWithUsageRights))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsageRights.id))
+
+        val newPhotographer = StaffPhotographer(photographer = "Test Photographer", publication = "Testing")
+
+        val metadataWithUpdatedUsageRights = Some(Edits(usageRights = Some(newPhotographer), metadata = imageWithUsageRights.metadata))
+
+        Await.result(Future.sequence(
+          ES.applyImageMetadataOverride(id,
+            JsDefined(Json.toJson(metadataWithUpdatedUsageRights)),
+            JsDefined(Json.toJson(DateTime.now.withZone(DateTimeZone.UTC).toString)))),
+          fiveSeconds)
+
+        reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldEqual("Test Photographer")
+      }
+
+      "???" - {
+
+        /*
+          // Script that refreshes the "metadata" object by recomputing it
+  // from the original metadata and the overrides
+  private val refreshMetadataScript =
+  """| ctx._source.metadata = ctx._source.originalMetadata;
+     | if (ctx._source.userMetadata && ctx._source.userMetadata.metadata) {
+     |   ctx._source.metadata += ctx._source.userMetadata.metadata;
+     |   // Get rid of "" values
+     |   def nonEmptyKeys = ctx._source.metadata.findAll { it.value != "" }.collect { it.key }
+     |   ctx._source.metadata = ctx._source.metadata.subMap(nonEmptyKeys);
+     | }
+  """.stripMargin
+
+         */
+
       }
     }
   }
