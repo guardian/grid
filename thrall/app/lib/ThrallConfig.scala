@@ -28,6 +28,8 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "App"   -> Seq(elasticsearchApp)
       ))
 
+  lazy val elasticsearch6Host: String = properties.getOrElse("es6.host", "localhost")     // TODO how to discover the 6 cluster in AWS
+
   // The presence of this identifier prevents deletion
   lazy val persistenceIdentifier = properties("persistence.identifier")
 
