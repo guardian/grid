@@ -107,6 +107,22 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
       }
     }
 
+    "image usages" - {
+
+      "can delete all usages for an image" in {
+        val id = UUID.randomUUID().toString
+        val usage = Usage(UUID.randomUUID().toString, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
+        val usages = List(usage)
+        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = usages)
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
+
+        ES.deleteAllImageUsages(id)
+
+        reloadedImage(id).get.usages.isEmpty shouldBe true
+      }
+
+    }
+
     "syndication rights" - {
       "updated syndication rights should be persisted" in {
         val id = UUID.randomUUID().toString

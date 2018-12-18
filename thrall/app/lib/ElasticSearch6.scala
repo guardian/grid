@@ -242,7 +242,16 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    ???
+    val deleteUsagesScript = loadPainless("""| ctx._source.remove('usages')""")
+
+    val script = Script(script = deleteUsagesScript).lang("painless")
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"removing all usages on image $id")
+      .incrementOnFailure(metrics.failedUsagesUpdates){case _ => true}
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def deleteSyndicationRights(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
