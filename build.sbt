@@ -154,7 +154,7 @@ val testSettings = Seq(
     s"docker-compose --file docker-compose-test.yml --project-name grid-test up -d".!
 
     // This is needed to ensure docker has had enough time to start up
-    Thread.sleep(5000)
+    Thread.sleep(30000)
   }),
   testOptions in Test += Tests.Cleanup(_ => {
     println(s"Removing container")
