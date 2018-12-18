@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch6
 
+import com.sksamuel.elastic4s.HealthStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.index.CreateIndexResponse
 import com.sksamuel.elastic4s.http.index.admin.IndexExistsResponse
@@ -13,6 +14,7 @@ import scala.concurrent.{Await, Future}
 trait ElasticSearchClient {
 
   private val tenSeconds = Duration(10, SECONDS)
+  private val thirtySeconds = Duration(30, SECONDS)
 
   def host: String
 
@@ -42,7 +44,12 @@ trait ElasticSearchClient {
   }
 
   def waitUntilHealthy(): Unit = {
-    // TODO reinstate
+    Logger.info("waiting for cluster health to be green")
+    val clusterHealthResponse = Await.result(client.execute(clusterHealth().waitForStatus(HealthStatus.Green).timeout("25s")), thirtySeconds)
+    Logger.info("await cluster health response: " + clusterHealthResponse)
+    if (clusterHealthResponse.isError) {
+      throw new RuntimeException("cluster health could not be confirmed as green")  // TODO Exception isn't great but our callers aren't looking at our return value
+    }
   }
 
   def ensureIndexExists(index: String): Unit = {
@@ -57,7 +64,7 @@ trait ElasticSearchClient {
     Logger.info("Got index exists result: " + indexExistsResponse.result)
     Logger.info("Index exists: " + indexExistsResponse.result.exists)
     if (!indexExistsResponse.result.exists) {
-      createImageIndex(index) // TODO await
+      createImageIndex(index)
     }
   }
 
