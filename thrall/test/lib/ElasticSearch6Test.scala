@@ -64,15 +64,15 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe None)
         }
 
-        "uses a failed future to indiciated failed delete" in {
+        "failed deletes are indiciated with a failed future" in {
           val id = UUID.randomUUID().toString
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
-          val unknownId = UUID.randomUUID().toString
+          val unknownImage = UUID.randomUUID().toString
 
-          whenReady(ES.deleteImage(unknownId).head.failed) { ex =>
+          whenReady(ES.deleteImage(unknownImage).head.failed) { ex =>
             ex shouldBe ImageNotDeletable
           }
         }
@@ -84,7 +84,6 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
           val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = usages)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsages.id))
-          Thread.sleep(1000)
 
           whenReady(ES.deleteImage(id).head.failed) { ex =>
             ex shouldBe ImageNotDeletable
@@ -99,7 +98,6 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
           val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(exports = exports)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithExports))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithExports.id))
-          Thread.sleep(1000)
 
           whenReady(ES.deleteImage(id).head.failed) { ex =>
             ex shouldBe ImageNotDeletable
@@ -271,6 +269,6 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
     }
   }
 
-  private def reloadedImage(id: String) = Await.result(ES.getImage(id), fiveSeconds)  // TODO use a search to ensure indexed as well as persisted to remove thread.sleeps
+  private def reloadedImage(id: String) = Await.result(ES.getImage(id), fiveSeconds)
 
 }
