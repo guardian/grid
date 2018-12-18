@@ -3,7 +3,6 @@ package lib
 import java.util.UUID
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.usage._
 import helpers.Fixtures
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
@@ -79,9 +78,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
 
         "should not delete images with usages" in {
           val id = UUID.randomUUID().toString
-          val usage = Usage(UUID.randomUUID().toString, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
-          val usages = List(usage)
-          val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = usages)
+          val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = List(usage))
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsages.id))
 
@@ -92,10 +89,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
 
         "should not delete images with exports" in {
           val id = UUID.randomUUID().toString
-          val cropSpec: CropSpec = CropSpec("/test", Bounds(0,0,0,0), None)
-          val crop = Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
-          val exports = List[Crop](crop)
-          val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(exports = exports)
+          val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(exports = List(crop))
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithExports))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithExports.id))
 
@@ -111,14 +105,12 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
 
       "can delete all usages for an image" in {
         val id = UUID.randomUUID().toString
-        val usage = Usage(UUID.randomUUID().toString, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
-        val usages = List(usage)
-        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = usages)
+        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = List(usage))
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
 
         ES.deleteAllImageUsages(id)
 
-        reloadedImage(id).get.usages.isEmpty shouldBe true
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usages.isEmpty shouldBe true)
       }
 
     }

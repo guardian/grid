@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.model.usage.{DigitalUsage, PublishedUsageStatus, Usage}
 import org.joda.time.DateTime
 
 trait Fixtures {
@@ -80,4 +80,12 @@ trait Fixtures {
   def imageWithSyndRights: Image = createImage(id = UUID.randomUUID().toString, usageRights = StaffPhotographer("Tom Jenkins", "The Guardian"), syndicationRights = someSyndRights)
 
   def imageWithPhotoshoot(photoshoot: Photoshoot): Image = createImage(id = UUID.randomUUID().toString, StaffPhotographer("Tom Jenkins", "The Guardian"), optPhotoshoot = Some(photoshoot))
+
+  def crop = {
+    val cropSpec = CropSpec("/test", Bounds(0,0,0,0), None)
+    Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
+  }
+
+  def usage = Usage(UUID.randomUUID().toString, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
+
 }
