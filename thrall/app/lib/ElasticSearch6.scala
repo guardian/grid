@@ -3,11 +3,12 @@ package lib
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearchClient, Mappings}
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.script.Script
+import com.sksamuel.elastic4s.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.searches.sort.SortOrder
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -26,8 +27,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   lazy val clientTransportSniff = false
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    Logger.info("Indexing image: " + id + ": " + Json.stringify(image))
-
     // TODO doesn't match the legacy functionality
     val painlessSource = loadPainless(
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
@@ -111,7 +110,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, "_doc", id).script(script)
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     List(executeAndLog(updateRequest, s"updating syndicationRights on image $id with rights $params").map(_ => ElasticSearchUpdateResponse()))
   }
@@ -159,7 +158,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, "_doc", id).script(script)
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     List(executeAndLog(updateRequest, s"updating user metadata on image $id").map(_ => ElasticSearchUpdateResponse()))
   }
@@ -175,7 +174,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
       case _ => inferredSyndicationRights
     }
 
-    val filteredMatches = boolQuery must(
+    val filteredMatches: BoolQuery = boolQuery must(
       matchQuery(photoshootField("title"), photoshoot.title),
       filter
     )
@@ -217,34 +216,29 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchDeleteResponse]] = {
-    /*
-    val q = filteredQuery(
-      boolQuery.must(matchQuery("_id", id)),
-      andFilter(
-        missingOrEmptyFilter("exports"),
-        missingOrEmptyFilter("usages"))
+    // search for the image first, and then only delete and succeed
+    // this is because the delete query does not respond with anything useful
+    // TODO: is there a more efficient way to do this?
+
+    val deletableImage = boolQuery must(
+      idsQuery(id),
+      not(existsQuery("exports")),
+      not(existsQuery("usages"))
     )
 
-    prepareForMultipleIndexes { index =>
-      // search for the image first, and then only delete and succeed
-      // this is because the delete query does not respond with anything useful
-      // TODO: is there a more efficient way to do this?
-      client
-        .prepareCount(index)
-        .setQuery(q)
-        .executeAndLog(s"Searching for image to delete: $id")
-        .flatMap { countQuery =>
-          val deleteFuture = countQuery.getCount match {
-            case 1 => client.prepareDelete(index, imageType, id).executeAndLog(s"Deleting image $id")
-            case _ => Future.failed(ImageNotDeletable)
-          }
-          deleteFuture
-            .incrementOnSuccess(metrics.deletedImages)
-            .incrementOnFailure(metrics.failedDeletedImages) { case ImageNotDeletable => true }
-        }
+    val eventualDeleteResponse = executeAndLog(count(imagesAlias, Mappings.dummyType).query(deletableImage), s"Searching for image to delete: $id").flatMap { r =>
+      val deleteFuture = r.result.count match {
+        case 1 => executeAndLog(deleteById(imagesAlias, Mappings.dummyType, id), s"Deleting image $id")
+        case _ => Future.failed(ImageNotDeletable)
+      }
+      deleteFuture
+        .incrementOnSuccess(metrics.deletedImages)
+        .incrementOnFailure(metrics.failedDeletedImages) { case ImageNotDeletable => true }
     }
-     */
-    ???
+
+    List(eventualDeleteResponse.map { _ =>
+      ElasticSearchDeleteResponse()
+    })
   }
 
   def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {

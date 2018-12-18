@@ -3,6 +3,7 @@ package lib
 import java.util.UUID
 
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage._
 import helpers.Fixtures
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
@@ -36,15 +37,75 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
   "Elasticsearch" - {
 
     "images" - {
-      "can index and retrieve images by id" in {
-        val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
 
-        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds) // TODO why is index past in? Is it different to image.id and if so why?
+      "indexing" - {
+        "can index and retrieve images by id" in {
+          val id = UUID.randomUUID().toString
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
 
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds) // TODO why is index past in? Is it different to image.id and if so why?
 
-        reloadedImage(id).get.id shouldBe image.id
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+          reloadedImage(id).get.id shouldBe image.id
+        }
+      }
+
+      "deleting" - {
+        "can delete image" in {
+          val id = UUID.randomUUID().toString
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          Thread.sleep(1000)
+
+          ES.deleteImage(id)
+
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe None)
+        }
+
+        "uses a failed future to indiciated failed delete" in {
+          val id = UUID.randomUUID().toString
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+          val unknownId = UUID.randomUUID().toString
+
+          whenReady(ES.deleteImage(unknownId).head.failed) { ex =>
+            ex shouldBe ImageNotDeletable
+          }
+        }
+
+        "should not delete images with usages" in {
+          val id = UUID.randomUUID().toString
+          val usage = Usage(UUID.randomUUID().toString, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
+          val usages = List(usage)
+          val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = usages)
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsages.id))
+          Thread.sleep(1000)
+
+          whenReady(ES.deleteImage(id).head.failed) { ex =>
+            ex shouldBe ImageNotDeletable
+          }
+        }
+
+        "should not delete images with exports" in {
+          val id = UUID.randomUUID().toString
+          val cropSpec: CropSpec = CropSpec("/test", Bounds(0,0,0,0), None)
+          val crop = Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
+          val exports = List[Crop](crop)
+          val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(exports = exports)
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithExports))), fiveSeconds)
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithExports.id))
+          Thread.sleep(1000)
+
+          whenReady(ES.deleteImage(id).head.failed) { ex =>
+            ex shouldBe ImageNotDeletable
+          }
+        }
+
       }
     }
 
@@ -210,6 +271,6 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
     }
   }
 
-  private def reloadedImage(id: String) = Await.result(ES.getImage(id), fiveSeconds)
+  private def reloadedImage(id: String) = Await.result(ES.getImage(id), fiveSeconds)  // TODO use a search to ensure indexed as well as persisted to remove thread.sleeps
 
 }
