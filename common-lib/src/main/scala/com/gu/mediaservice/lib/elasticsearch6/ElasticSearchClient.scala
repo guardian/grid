@@ -29,6 +29,9 @@ trait ElasticSearchClient {
 
   val initialImagesIndex = "images"
 
+  def shards: Int
+  def replicas: Int
+
   lazy val client = {
     Logger.info("Connecting to Elastic 6: " + host + " / " + port)
     ElasticClient(ElasticProperties("http://" + host + ":" + port)) // TODO don't like this string config
@@ -74,7 +77,7 @@ trait ElasticSearchClient {
     val eventualCreateIndexResponse: Future[Response[CreateIndexResponse]] = client.execute {
       createIndex(index).
         mappings(Mappings.imageMapping).
-        shards(1).replicas(0).  // TODO push up to config
+        shards(shards).replicas(replicas).
         analysis(IndexSettings.analysis)
     }
 

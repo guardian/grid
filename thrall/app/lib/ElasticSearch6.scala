@@ -10,7 +10,6 @@ import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
 
-import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticSearch6Executions {
@@ -20,7 +19,8 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   lazy val port = 9206
   lazy val cluster = config("es6.cluster")
 
-  private val TenSeconds = Duration(10, SECONDS)
+  lazy val shards = config.elasticsearch6Shards
+  lazy val replicas = config.elasticsearch6Replicas
 
   @Deprecated
   lazy val clientTransportSniff = false
@@ -216,11 +216,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     }
   }
 
-  // Script that updates the "lastModified" property using the "lastModified" parameter
-  private val updateLastModifiedScript =
-    """|  ctx._source.lastModified = params.lastModified;
-    """.stripMargin
-
   def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchDeleteResponse]] = {
     /*
     val q = filteredQuery(
@@ -278,15 +273,17 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
   def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = ???
 
-
-
   def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
     ???
 
-
   private def loadPainless(str: String) = str.stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString // remove ctrl chars and leading, trailing whitespace
 
-  def asNestedMap(sr: SyndicationRights) = { // TODO not great; there must be a better way to flatten a case class into a Map
+  // Script that updates the "lastModified" property using the "lastModified" parameter
+  private val updateLastModifiedScript =
+    """|  ctx._source.lastModified = params.lastModified;
+    """.stripMargin
+
+  private def asNestedMap(sr: SyndicationRights) = { // TODO not great; there must be a better way to flatten a case class into a Map
     import com.fasterxml.jackson.databind.ObjectMapper
     import com.fasterxml.jackson.module.scala.DefaultScalaModule
     import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
@@ -295,7 +292,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     mapper.readValue[Map[String, Object]](Json.stringify(Json.toJson(sr)))
   }
 
-  def asNestedMap(i: JsValue) = { // TODO not great; there must be a better way to flatten a case class into a Map
+  private def asNestedMap(i: JsValue) = { // TODO not great; there must be a better way to flatten a case class into a Map
     import com.fasterxml.jackson.databind.ObjectMapper
     import com.fasterxml.jackson.module.scala.DefaultScalaModule
     import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
