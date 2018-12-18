@@ -226,7 +226,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
       not(existsQuery("usages"))
     )
 
-    val eventualDeleteResponse = executeAndLog(count(imagesAlias, Mappings.dummyType).query(deletableImage), s"Searching for image to delete: $id").flatMap { r =>
+    val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"Searching for image to delete: $id").flatMap { r =>
       val deleteFuture = r.result.count match {
         case 1 => executeAndLog(deleteById(imagesAlias, Mappings.dummyType, id), s"Deleting image $id")
         case _ => Future.failed(ImageNotDeletable)
