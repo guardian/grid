@@ -74,6 +74,7 @@ trait ElasticSearchClient {
     val eventualCreateIndexResponse: Future[Response[CreateIndexResponse]] = client.execute {
       createIndex(index).
         mappings(Mappings.imageMapping).
+        shards(1).replicas(0).  // TODO push up to config
         analysis(IndexSettings.analysis)
     }
 
