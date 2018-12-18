@@ -29,9 +29,13 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
 
+  override def beforeAll {
+    ES.ensureAliasAssigned()
+  }
+
   "Elasticsearch" - {
 
-    "indexing" - {
+    "images" - {
       "can index and retrieve images by id" in {
         val id = UUID.randomUUID().toString
         val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
