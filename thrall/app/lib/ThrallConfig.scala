@@ -33,9 +33,6 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val elasticsearch6Shards: Int = if (isDev) 1 else properties.getOrElse("es6.shards", "1").toInt
   lazy val elasticsearch6Replicas: Int = if (isDev) 0 else properties.getOrElse("es6.replicas", "0").toInt
 
-  // The presence of this identifier prevents deletion
-  lazy val persistenceIdentifier = properties("persistence.identifier")
-
   lazy val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 
   lazy val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")

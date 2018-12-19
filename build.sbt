@@ -50,6 +50,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-http" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
+    "com.gu" %% "thrift-serializer" % "3.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "com.drewnoakes" % "metadata-extractor" % "2.11.0",
     "org.im4java" % "im4java" % "1.4.0",
@@ -61,7 +62,8 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6"
-  )
+  ),
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 )
 
 lazy val auth = playProject("auth", 9011)
