@@ -1,7 +1,6 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Syndication
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
@@ -16,6 +15,7 @@ import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogram
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 import play.api.libs.json._
+import play.api.mvc.Result
 import scalaz.NonEmptyList
 import scalaz.syntax.id._
 import scalaz.syntax.std.list._
@@ -42,7 +42,7 @@ object BucketResult {
   implicit val jsonWrites = Json.writes[BucketResult]
 }
 
-class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchClient with ImageFields with ArgoHelpers {
+class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ArgoHelpers {
 
   lazy val imagesAlias = config.imagesAlias
   lazy val host = config.elasticsearchHost
@@ -210,7 +210,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       .map(searchResultToAggregateResponse(_, name))
   }
 
-  def aggregateResponse(agg: AggregateSearchResults) =
+  def aggregateResponse(agg: AggregateSearchResults): Result =
     respondCollection(agg.results, Some(0), Some(agg.total))
 
 
@@ -236,12 +236,9 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       }
   }
 
-  def matchAllQueryWithFilter(filter: FilterBuilder) =
-    new FilteredQueryBuilder(new MatchAllQueryBuilder(), filter)
+  private def completionSuggestionBuilder(name: String) = new CompletionSuggestionBuilder(name)
 
-  def completionSuggestionBuilder(name: String) = new CompletionSuggestionBuilder(name)
-
-  def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String) = {
+  private def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String) = {
     val buckets = response.getAggregations
       .getAsMap
       .get(aggregateName)
@@ -253,13 +250,10 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
     AggregateSearchResults(results, buckets.size)
   }
 
-  def imageExists(id: String)(implicit ex: ExecutionContext): Future[Boolean] =
-    prepareGet(id).setFields().executeAndLog(s"check if image $id exists") map (_.isExists)
-
-  def prepareGet(id: String): GetRequestBuilder =
+  private def prepareGet(id: String): GetRequestBuilder =
     client.prepareGet(imagesAlias, imageType, id)
 
-  def prepareImagesSearch: SearchRequestBuilder =
+  private def prepareImagesSearch: SearchRequestBuilder =
     client.prepareSearch(imagesAlias).setTypes(imageType)
 
 }

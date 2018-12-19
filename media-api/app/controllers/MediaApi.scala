@@ -14,11 +14,10 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
-import lib.elasticsearch._
 import lib._
+import lib.elasticsearch._
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
@@ -29,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class MediaApi(
   auth: Authentication,
   notifications: Notifications,
-  elasticSearch: ElasticSearch,
+  elasticSearch: ElasticSearchVersion,
   imageResponse: ImageResponse,
   override val config: MediaApiConfig,
   override val controllerComponents: ControllerComponents,

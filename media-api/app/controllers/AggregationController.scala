@@ -2,14 +2,14 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.ElasticSearchVersion
 import lib.querysyntax.{Condition, Parser}
 import play.api.mvc._
 
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-class AggregationController(auth: Authentication, elasticSearch: ElasticSearch,
+class AggregationController(auth: Authentication, elasticSearch: ElasticSearchVersion,
                             override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 

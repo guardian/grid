@@ -3,7 +3,7 @@ package lib
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.model.{Image, UsageRights}
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.ElasticSearchVersion
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -13,7 +13,7 @@ import scala.util.Try
 case class ImageNotFound() extends Exception("Image not found")
 case class NoUsageQuota() extends Exception("No usage found for this image")
 
-class UsageQuota(config: MediaApiConfig, elasticSearch: ElasticSearch, scheduler: Scheduler) {
+class UsageQuota(config: MediaApiConfig, elasticSearch: ElasticSearchVersion, scheduler: Scheduler) {
   val quotaStore = new QuotaStore(
     config.quotaStoreConfig.storeKey,
     config.quotaStoreConfig.storeBucket,

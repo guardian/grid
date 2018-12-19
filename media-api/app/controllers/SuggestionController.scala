@@ -3,12 +3,12 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.ElasticSearchVersion
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class SuggestionController(auth: Authentication, elasticSearch: ElasticSearch,
+class SuggestionController(auth: Authentication, elasticSearch: ElasticSearchVersion,
                            override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers with ImageFields {
 
