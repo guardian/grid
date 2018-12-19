@@ -86,6 +86,6 @@ trait Fixtures {
     Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
   }
 
-  def usage = Usage(UUID.randomUUID().toString, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
+  def usage(id: String = UUID.randomUUID().toString) = Usage(id, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
 
 }

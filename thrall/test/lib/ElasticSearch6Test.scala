@@ -8,7 +8,7 @@ import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 import play.api.Configuration
-import play.api.libs.json.{JsDefined, Json}
+import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -78,7 +78,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
 
         "should not delete images with usages" in {
           val id = UUID.randomUUID().toString
-          val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = List(usage))
+          val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = List(usage()))
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsages.id))
 
@@ -105,7 +105,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
 
       "can delete all usages for an image" in {
         val id = UUID.randomUUID().toString
-        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = List(usage))
+        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = List(usage()))
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
 
         ES.deleteAllImageUsages(id)
@@ -113,6 +113,30 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usages.isEmpty shouldBe true)
       }
 
+      "can update usages" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+
+        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(usage()))), asJsLookup(DateTime.now))), fiveSeconds)
+
+        reloadedImage(id).get.usages.size shouldBe 1
+      }
+
+      "should ignore usage update requests when the proposed last modified date is older than the current" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+
+        val mostRecentUsage = usage(id = "recent")
+        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(mostRecentUsage))), asJsLookup(DateTime.now))), fiveSeconds)
+
+        val staleUsage = usage(id = "stale")
+        val staleLastModified = DateTime.now.minusWeeks(1)
+        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(staleUsage))), asJsLookup(staleLastModified))), fiveSeconds)
+
+        reloadedImage(id).get.usages.head.id shouldEqual("recent")
+      }
     }
 
     "syndication rights" - {
@@ -158,7 +182,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
             JsDefined(Json.toJson(updatedMetadata)),
-            JsDefined(Json.toJson(updatedLastModifiedDate.toString)))),
+            asJsLookup(updatedLastModifiedDate))),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldBe Some("An interesting image")
@@ -177,7 +201,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
             JsDefined(Json.toJson(updatedMetadata)),
-            JsDefined(Json.toJson(updatedLastModifiedDate.toString)))),
+            asJsLookup(updatedLastModifiedDate))),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
@@ -197,7 +221,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
             JsDefined(Json.toJson(updatedMetadata)),
-            JsDefined(Json.toJson(updatedLastModifiedDate.toString)))),
+            asJsLookup(updatedLastModifiedDate))),
           fiveSeconds)
 
         reloadedImage(id).map(_.originalMetadata) shouldEqual Some(imageWithBoringMetadata.originalMetadata)
@@ -216,7 +240,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
             JsDefined(Json.toJson(latestMetadata)),
-            JsDefined(Json.toJson(latestLastModifiedDate.toString)))),
+            asJsLookup(latestLastModifiedDate))),
           fiveSeconds)
 
         val staleMetadata = Some(Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("A stale edit"))))
@@ -225,7 +249,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
             JsDefined(Json.toJson(staleMetadata)),
-            JsDefined(Json.toJson(staleLastModifiedDate.toString)))),
+            asJsLookup(staleLastModifiedDate))),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldBe Some("Latest edit")
@@ -246,7 +270,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
             JsDefined(Json.toJson(metadataWithUpdatedUsageRights)),
-            JsDefined(Json.toJson(DateTime.now.withZone(DateTimeZone.UTC).toString)))),
+            asJsLookup(DateTime.now.withZone(DateTimeZone.UTC)))),
           fiveSeconds)
 
         reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldEqual "Test Photographer"
@@ -267,7 +291,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
             JsDefined(Json.toJson(updatedMetadata)),
-            JsDefined(Json.toJson(updatedLastModifiedDate.toString)))),
+            asJsLookup(updatedLastModifiedDate))),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.photoshoot.map(_.title)) shouldEqual Some("Test photoshoot")
@@ -278,5 +302,8 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
   }
 
   private def reloadedImage(id: String) = Await.result(ES.getImage(id), fiveSeconds)
+
+  private def asJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))
+
 
 }

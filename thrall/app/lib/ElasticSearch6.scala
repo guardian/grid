@@ -2,6 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearchClient, Mappings}
+import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.http.ElasticDsl._
@@ -83,7 +84,35 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def updateImageUsages(id: String, usages: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    ???
+
+    val replaceUsagesScript = """
+      | if (ctx._source.usagesLastModified == null || (params.lastModified.compareTo(ctx._source.usagesLastModified) == 1)) {
+      |   ctx._source.usages = params.usages;
+      |   ctx._source.usagesLastModified = params.lastModified;
+      | }
+    """
+
+    val scriptSource = loadPainless(s"""
+       |   $replaceUsagesScript
+       |   $updateLastModifiedScript
+       | """)
+
+    val usagesParameter = usages.toOption.map(_.as[List[Usage]]).getOrElse(List.empty)
+    val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+
+    val params = Map(
+      "usages" -> usagesParameter.map(i => asNestedMap(Json.toJson(i))),
+      "lastModified" -> lastModifiedParameter.getOrElse(null)
+    )
+
+    val script = Script(script = scriptSource).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"updating syndicationRights on image $id with rights $params")
+      .incrementOnFailure(metrics.failedUsagesUpdates){case _ => true}
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
