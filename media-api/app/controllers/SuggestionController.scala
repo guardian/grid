@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import lib.elasticsearch.ElasticSearchVersion
+import lib.elasticsearch.{AggregateSearchParams, ElasticSearchVersion}
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext

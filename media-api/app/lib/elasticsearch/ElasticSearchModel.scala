@@ -1,4 +1,4 @@
-package controllers
+package lib.elasticsearch
 
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
@@ -6,6 +6,8 @@ import com.gu.mediaservice.model.SyndicationStatus
 import com.gu.mediaservice.model.usage.UsageStatus
 import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
+import play.api.libs.json.{JsValue, Json}
+import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.applicative._
 import scalaz.syntax.std.list._
 import scalaz.syntax.validation._
@@ -13,36 +15,76 @@ import scalaz.{Validation, ValidationNel}
 
 import scala.util.Try
 
+case class SearchResults(hits: Seq[(String, JsValue)], total: Long)
+
+case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
+
+case class CompletionSuggestionResult(key: String, score: Float)
+
+object CompletionSuggestionResult {
+  implicit val jsonWrites = Json.writes[CompletionSuggestionResult]
+}
+
+case class CompletionSuggestionResults(results: List[CompletionSuggestionResult])
+
+object CompletionSuggestionResults {
+  implicit val jsonWrites = Json.writes[CompletionSuggestionResults]
+}
+
+case class BucketResult(key: String, count: Long)
+
+object BucketResult {
+  implicit val jsonWrites = Json.writes[BucketResult]
+}
+
+case class AggregateSearchParams(field: String,
+                                 q: Option[String],
+                                 structuredQuery: List[Condition])
+
+object AggregateSearchParams {
+  def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
+
+  def apply(field: String, request: Request[AnyContent]): AggregateSearchParams = {
+    val query = request.getQueryString("q")
+    val structuredQuery = query.map(Parser.run) getOrElse List[Condition]()
+    new AggregateSearchParams(
+      field,
+      query,
+      structuredQuery
+    )
+  }
+}
+
 case class SearchParams(
-  query: Option[String] = None,
-  structuredQuery: List[Condition] = List.empty,
-  ids: Option[List[String]] = None,
-  offset: Int = 0,
-  length: Int = 10,
-  orderBy: Option[String] = None,
-  since: Option[DateTime] = None,
-  until: Option[DateTime] = None,
-  modifiedSince: Option[DateTime] = None,
-  modifiedUntil: Option[DateTime] = None,
-  takenSince: Option[DateTime] = None,
-  takenUntil: Option[DateTime] = None,
-  archived: Option[Boolean] = None,
-  hasExports: Option[Boolean] = None,
-  hasIdentifier: Option[String] = None,
-  missingIdentifier: Option[String] = None,
-  valid: Option[Boolean] = None,
-  free: Option[Boolean] = None,
-  payType: Option[PayType.Value] = None,
-  hasRightsCategory: Option[Boolean] = None,
-  uploadedBy: Option[String] = None,
-  labels: List[String] = List.empty,
-  hasMetadata: List[String] = List.empty,
-  persisted: Option[Boolean] = None,
-  usageStatus: List[UsageStatus] = List.empty,
-  usagePlatform: List[String] = List.empty,
-  tier: Tier,
-  syndicationStatus: Option[SyndicationStatus] = None
-)
+                         query: Option[String] = None,
+                         structuredQuery: List[Condition] = List.empty,
+                         ids: Option[List[String]] = None,
+                         offset: Int = 0,
+                         length: Int = 10,
+                         orderBy: Option[String] = None,
+                         since: Option[DateTime] = None,
+                         until: Option[DateTime] = None,
+                         modifiedSince: Option[DateTime] = None,
+                         modifiedUntil: Option[DateTime] = None,
+                         takenSince: Option[DateTime] = None,
+                         takenUntil: Option[DateTime] = None,
+                         archived: Option[Boolean] = None,
+                         hasExports: Option[Boolean] = None,
+                         hasIdentifier: Option[String] = None,
+                         missingIdentifier: Option[String] = None,
+                         valid: Option[Boolean] = None,
+                         free: Option[Boolean] = None,
+                         payType: Option[PayType.Value] = None,
+                         hasRightsCategory: Option[Boolean] = None,
+                         uploadedBy: Option[String] = None,
+                         labels: List[String] = List.empty,
+                         hasMetadata: List[String] = List.empty,
+                         persisted: Option[Boolean] = None,
+                         usageStatus: List[UsageStatus] = List.empty,
+                         usagePlatform: List[String] = List.empty,
+                         tier: Tier,
+                         syndicationStatus: Option[SyndicationStatus] = None
+                       )
 
 case class InvalidUriParams(message: String) extends Throwable
 object InvalidUriParams {

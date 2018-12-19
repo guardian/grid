@@ -4,7 +4,6 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.Agencies
 import com.gu.mediaservice.syntax._
-import controllers.{AggregateSearchParams, PayType, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
@@ -21,25 +20,6 @@ import scalaz.syntax.std.list._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-
-case class SearchResults(hits: Seq[(String, JsValue)], total: Long)
-
-case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
-
-case class CompletionSuggestionResult(key: String, score: Float)
-object CompletionSuggestionResult {
-  implicit val jsonWrites = Json.writes[CompletionSuggestionResult]
-}
-
-case class CompletionSuggestionResults(results: List[CompletionSuggestionResult])
-object CompletionSuggestionResults {
-  implicit val jsonWrites = Json.writes[CompletionSuggestionResults]
-}
-
-case class BucketResult(key: String, count: Long)
-object BucketResult {
-  implicit val jsonWrites = Json.writes[BucketResult]
-}
 
 class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ArgoHelpers {
 

@@ -1,6 +1,5 @@
 package lib.elasticsearch
 
-import controllers.{AggregateSearchParams, SearchParams}
 import lib.SupplierUsageSummary
 import play.api.libs.json.JsValue
 
