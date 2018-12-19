@@ -121,6 +121,34 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
       }
     }
 
+    "exports" - {
+
+      "can add exports" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+        reloadedImage(id).get.exports.isEmpty shouldBe true
+        val exports = List(crop)
+
+        Await.result(Future.sequence(ES.updateImageExports(id, JsDefined(Json.toJson(exports)))), fiveSeconds)  // TODO rename to add
+
+        reloadedImage(id).get.exports.nonEmpty shouldBe true
+        reloadedImage(id).get.exports.head.id shouldBe crop.id
+      }
+
+      "can delete exports" in {
+        val id = UUID.randomUUID().toString
+        val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(exports = List(crop))
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithExports))), fiveSeconds)
+        reloadedImage(id).get.exports.nonEmpty shouldBe true
+
+        Await.result(Future.sequence(ES.deleteImageExports(id)), fiveSeconds)
+
+        reloadedImage(id).get.exports.isEmpty shouldBe true
+      }
+
+    }
+
     "leases" - {
 
       "can add image lease" in {

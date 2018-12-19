@@ -393,26 +393,82 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def updateImageExports(id: String, exports: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    ???
+
+    val addExportsScript = loadPainless(
+    """| if (ctx._source.exports == null) {
+       |   ctx._source.exports = params.exports;
+       | } else {
+       |   ctx._source.exports.addAll(params.exports);
+       | }
+    """)
+
+    val scriptSource = loadPainless(
+      s"""
+         |   $addExportsScript
+         |   $updateLastModifiedScript
+         | """)
+
+    val exportsParameter = exports.toOption.map { cs: JsValue =>  // TODO deduplicate with set collections
+      cs.as[JsArray].value.map { c =>
+        asNestedMap(c)
+      }
+    }
+
+    val params = Map(
+      "exports" -> exportsParameter.getOrElse(null),
+      "lastModified" -> currentIsoDateString
+    )
+
+    val script = Script(script = scriptSource).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"updating exports on image $id")
+      .incrementOnFailure(metrics.failedExportsUpdates) { case _ => true }
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = ???
+  def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+    val deleteExportsScript = loadPainless("""
+     | ctx._source.remove('exports');
+    """)
 
-  def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+    val scriptSource = loadPainless(
+      s"""
+         |   $deleteExportsScript
+         |   $updateLastModifiedScript
+         | """)
+
+    val params = Map(
+      "lastModified" -> currentIsoDateString
+    )
+
+    val script = Script(script = scriptSource).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"removing exports from image $id")
+      .incrementOnFailure(metrics.failedExportsUpdates) { case _ => true }
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+  }
+
+  def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = { // TODO rename to setImageCollections
     val setCollectionsScript = loadPainless(
       """
         | ctx._source.collections = params.collections;
       """)
 
-    val collectionsParameter = collections.toOption.map { cs =>
-      cs.as[Seq[Collection]].map { c =>
-        asNestedMap(Json.toJson(c))
+    val collectionsParameter = collections.toOption.map { cs: JsValue =>
+      cs.as[JsArray].value.map { c =>
+        asNestedMap(c)
       }
     }
 
     val params = Map(
       "collections" -> collectionsParameter.getOrElse(null),
-      "lastModified" -> printDateTime(new DateTime())
+      "lastModified" -> currentIsoDateString
     )
 
     val script = Script(script = setCollectionsScript).lang("painless").params(params)
@@ -449,5 +505,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
     mapper.registerModule(DefaultScalaModule)
     mapper.readValue[Map[String, Object]](Json.stringify(i))
   }
+
+  private def currentIsoDateString = printDateTime(new DateTime())
 
 }
