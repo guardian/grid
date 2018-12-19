@@ -2,8 +2,9 @@ package lib
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model.{Image, MediaLease, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.script.Script
@@ -397,8 +398,32 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
   def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = ???
 
-  def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
-    ???
+  def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+    val setCollectionsScript = loadPainless(
+      """
+        | ctx._source.collections = params.collections;
+      """)
+
+    val collectionsParameter = collections.toOption.map { cs =>
+      cs.as[Seq[Collection]].map { c =>
+        asNestedMap(Json.toJson(c))
+      }
+    }
+
+    val params = Map(
+      "collections" -> collectionsParameter.getOrElse(null),
+      "lastModified" -> printDateTime(new DateTime())
+    )
+
+    val script = Script(script = setCollectionsScript).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"setting collections on image $id")
+      .incrementOnFailure(metrics.failedCollectionsUpdates) { case _ => true }
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+  }
 
   private def loadPainless(str: String) = str.stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString // remove ctrl chars and leading, trailing whitespace
 

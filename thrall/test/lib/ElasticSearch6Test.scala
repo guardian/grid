@@ -102,6 +102,25 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
       }
     }
 
+    "collections" - {
+
+      "can set image collections" in {
+        val id = UUID.randomUUID().toString
+        val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(exports = List(crop))
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithExports))), fiveSeconds)
+
+        val collection = Collection(path = List("/somewhere"), actionData = ActionData("Test author", DateTime.now), "A test collection")
+        val anotherCollection = Collection(path = List("/somewhere-else"), actionData = ActionData("Test author", DateTime.now), "Another test collection")
+
+        val collections = List(collection, anotherCollection)
+
+        Await.result(Future.sequence(ES.setImageCollection(id, JsDefined(Json.toJson(collections)))), fiveSeconds)
+
+        reloadedImage(id).get.collections.size shouldBe 2
+        reloadedImage(id).get.collections.head.description shouldEqual "A test collection"
+      }
+    }
+
     "leases" - {
 
       "can add image lease" in {
