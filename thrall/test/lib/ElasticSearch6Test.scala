@@ -57,10 +57,11 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          Thread.sleep(1000)
 
-          ES.deleteImage(id)
+          Await.result(Future.sequence(ES.deleteImage(id)), fiveSeconds)
 
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe None)
+          reloadedImage(id).map(_.id) shouldBe None
         }
 
         "failed deletes are indiciated with a failed future" in {
@@ -204,7 +205,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
         reloadedImage(id).get.syndicationRights.nonEmpty shouldBe true
 
-        ES.deleteSyndicationRights(id)
+        Await.result(Future.sequence(ES.deleteSyndicationRights(id)), fiveSeconds)
 
         reloadedImage(id).get.syndicationRights.isEmpty shouldBe true
       }
