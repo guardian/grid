@@ -299,7 +299,31 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    ???
+    val replaceLeasesScript = loadPainless(
+    """ | ctx._source.leases = params.leaseByMedia;"""
+    )
+
+    val scriptSource = loadPainless(s"""
+                                       |   $replaceLeasesScript
+                                       |   $updateLastModifiedScript
+                                       | """)
+
+    val lleaseByMediaParameter = leaseByMedia.toOption.map(asNestedMap)
+    val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+
+    val params = Map(
+      "leaseByMedia" -> lleaseByMediaParameter.getOrElse(null),
+      "lastModified" -> lastModifiedParameter.getOrElse(null)
+    )
+
+    val script = Script(script = replaceLeasesScript).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"updating all leases on image $id with: $lleaseByMediaParameter")
+      .incrementOnFailure(metrics.failedSyndicationRightsUpdates){case _ => true}
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {

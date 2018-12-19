@@ -128,7 +128,24 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         Await.result(Future.sequence(ES.removeImageLease(id, JsDefined(Json.toJson(lease.id)), asJsLookup(DateTime.now))), fiveSeconds)
 
         reloadedImage(id).get.leases.leases.isEmpty shouldBe true
+      }
 
+      "can replace leases" in {
+        val lease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+
+        val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
+        val anotherUpdatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("Another updated lease"), mediaId = UUID.randomUUID().toString)
+        val updatedLeases = LeasesByMedia.build(leases = List(updatedLease, anotherUpdatedLease))
+        updatedLeases.leases.size shouldBe 2
+
+        Await.result(Future.sequence(ES.updateImageLeases(id, JsDefined(Json.toJson(updatedLeases)), asJsLookup(DateTime.now))), fiveSeconds)
+        Thread.sleep(1000)
+
+        reloadedImage(id).get.leases.leases.size shouldBe 2
+        reloadedImage(id).get.leases.leases.head.notes shouldBe Some("An updated lease")
       }
     }
 
