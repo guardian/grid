@@ -284,7 +284,18 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def deleteSyndicationRights(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    ???
+    val deleteSyndicationRightsScript = loadPainless("""
+        | ctx._source.remove('syndicationRights');
+      """)
+
+    val script = Script(script = deleteSyndicationRightsScript).lang("painless")
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"removing syndication rights on image $id")
+      .incrementOnFailure(metrics.failedSyndicationRightsUpdates){case _ => true}
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {

@@ -166,6 +166,18 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
 
         reloadedImage(id).get.lastModified.get.isAfter(beforeUpdate) shouldEqual true
       }
+
+      "can delete syndication rights" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        ES.indexImage(id, Json.toJson(image))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+        reloadedImage(id).get.syndicationRights.nonEmpty shouldBe true
+
+        ES.deleteSyndicationRights(id)
+
+        reloadedImage(id).get.syndicationRights.isEmpty shouldBe true
+      }
     }
 
     "user metadata" - {
