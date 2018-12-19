@@ -2,6 +2,7 @@ package lib
 
 import java.util.UUID
 
+import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import helpers.Fixtures
 import org.joda.time.{DateTime, DateTimeZone}
@@ -56,7 +57,6 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
-          Thread.sleep(1000)
 
           ES.deleteImage(id)
 
@@ -101,6 +101,36 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
       }
     }
 
+    "leases" - {
+
+      "can add image lease" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+        reloadedImage(id).get.leases.leases.isEmpty shouldBe true
+
+        val lease = model.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+
+        Await.result(Future.sequence(ES.addImageLease(id, JsDefined(Json.toJson(lease)), asJsLookup(DateTime.now))), fiveSeconds)
+
+        reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
+        reloadedImage(id).get.leases.leases.head.id shouldBe lease.id
+      }
+
+      "can remove image lease" in {
+        val lease = model.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+        reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
+
+        Await.result(Future.sequence(ES.removeImageLease(id, JsDefined(Json.toJson(lease.id)), asJsLookup(DateTime.now))), fiveSeconds)
+
+        reloadedImage(id).get.leases.leases.isEmpty shouldBe true
+
+      }
+    }
+
     "image usages" - {
 
       "can delete all usages for an image" in {
@@ -108,7 +138,7 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(usages = List(usage()))
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithUsages))), fiveSeconds)
 
-        ES.deleteAllImageUsages(id)
+        Await.result(Future.sequence(ES.deleteAllImageUsages(id)), fiveSeconds)
 
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usages.isEmpty shouldBe true)
       }

@@ -3,7 +3,7 @@ package lib
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearchClient, Mappings}
 import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.model.{Image, MediaLease, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.script.Script
@@ -303,11 +303,68 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    ???
+
+    val addLeaseScript = loadPainless("""| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
+       |   ctx._source.leases = ["leases": [params.lease]];
+       | } else {
+       |   ctx._source.leases.leases.add(params.lease);
+       | }
+    """)
+
+    val scriptSource = loadPainless(s"""
+                                       |   $addLeaseScript
+                                       |   $updateLastModifiedScript
+                                       | """)
+
+    val leaseParameter = lease.toOption.map(_.as[MediaLease])
+    val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+
+    val params = Map(
+      "lease" -> leaseParameter.map(i => asNestedMap(Json.toJson(i))).getOrElse(null),
+      "lastModified" -> lastModifiedParameter.getOrElse(null)
+    )
+
+    val script = Script(script = scriptSource).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"adding lease on image $id with: $leaseParameter")
+      .incrementOnFailure(metrics.failedUsagesUpdates){case _ => true}
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def removeImageLease(id: String, leaseId: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    ???
+    val removeLeaseScript = loadPainless(
+      """| for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
+         |    if(ctx._source.leases.leases[i].id == params.leaseId) {
+         |      ctx._source.leases.leases.remove(i);
+         |    }
+         | }
+      """)
+
+    val scriptSource = loadPainless(
+      s"""
+         |   $removeLeaseScript
+         |   $updateLastModifiedScript
+         | """)
+
+    val leaseIdParameter = leaseId.toOption.map(_.as[String])
+    val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+
+    val params = Map(
+      "leaseId" -> leaseIdParameter.getOrElse(null),
+      "lastModified" -> lastModifiedParameter.getOrElse(null)
+    )
+
+    val script = Script(script = scriptSource).lang("painless").params(params)
+
+    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"removing lease with id $leaseIdParameter from image $id")
+      .incrementOnFailure(metrics.failedUsagesUpdates) { case _ => true }
+
+    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
   def updateImageExports(id: String, exports: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
