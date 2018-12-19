@@ -22,9 +22,6 @@ trait ElasticSearchVersion {
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults]
 
-  def aggregateSearch(name: String, params: AggregateSearchParams, aggregateBuilder: AbstractAggregationBuilder)
-                     (implicit ex: ExecutionContext): Future[AggregateSearchResults]
-
   def aggregateResponse(agg: AggregateSearchResults): Result
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults]

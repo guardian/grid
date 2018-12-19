@@ -196,7 +196,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
     aggregateSearch("edits", params, aggregate)
   }
 
-  def aggregateSearch(name: String, params: AggregateSearchParams, aggregateBuilder: AbstractAggregationBuilder)
+  private def aggregateSearch(name: String, params: AggregateSearchParams, aggregateBuilder: AbstractAggregationBuilder)
                      (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val query = queryBuilder.makeQuery(params.structuredQuery)
     val search = prepareImagesSearch
