@@ -57,7 +57,6 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
-          Thread.sleep(1000)
 
           Await.result(Future.sequence(ES.deleteImage(id)), fiveSeconds)
 
@@ -189,7 +188,6 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
         updatedLeases.leases.size shouldBe 2
 
         Await.result(Future.sequence(ES.updateImageLeases(id, JsDefined(Json.toJson(updatedLeases)), asJsLookup(DateTime.now))), fiveSeconds)
-        Thread.sleep(1000)
 
         reloadedImage(id).get.leases.leases.size shouldBe 2
         reloadedImage(id).get.leases.leases.head.notes shouldBe Some("An updated lease")
@@ -408,7 +406,10 @@ class ElasticSearch6Test extends FreeSpec with Matchers with Fixtures with Befor
     }
   }
 
-  private def reloadedImage(id: String) = Await.result(ES.getImage(id), fiveSeconds)
+  private def reloadedImage(id: String) = {
+    Thread.sleep(1000)
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
 
   private def asJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))
 
