@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext
 
 class SuggestionController(auth: Authentication, elasticSearch: ElasticSearchVersion,
                            override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers with ImageFields {
+  extends BaseController with ArgoHelpers with ImageFields with AggregateResponses {
 
   def suggestMetadataCredit(q: Option[String], size: Option[Int]) = suggestion("suggestMetadataCredit", q, size)
 
@@ -26,10 +26,11 @@ class SuggestionController(auth: Authentication, elasticSearch: ElasticSearchVer
   // TODO: recover with HTTP error if invalid field
   // TODO: Add validation, especially if you use length
   def metadataSearch(field: String, q: Option[String]) = auth.async { request =>
-    elasticSearch.metadataSearch(AggregateSearchParams(field, request)) map elasticSearch.aggregateResponse
+    elasticSearch.metadataSearch(AggregateSearchParams(field, request)) map aggregateResponse
   }
 
   def editsSearch(field: String, q: Option[String]) = auth.async { request =>
-    elasticSearch.editsSearch(AggregateSearchParams(field, request)) map elasticSearch.aggregateResponse
+    elasticSearch.editsSearch(AggregateSearchParams(field, request)) map aggregateResponse
   }
+
 }

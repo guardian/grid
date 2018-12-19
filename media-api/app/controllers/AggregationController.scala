@@ -1,6 +1,5 @@
 package controllers
 
-import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import lib.elasticsearch.ElasticSearchVersion
 import lib.querysyntax.{Condition, Parser}
@@ -11,11 +10,11 @@ import scala.util.Try
 
 class AggregationController(auth: Authentication, elasticSearch: ElasticSearchVersion,
                             override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with AggregateResponses {
 
   def dateHistogram(field: String, q: Option[String]) = auth.async { request =>
     elasticSearch.dateHistogramAggregate(AggregateSearchParams(field, request))
-      .map(elasticSearch.aggregateResponse)
+      .map(aggregateResponse)
   }
 
 }

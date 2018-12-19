@@ -15,7 +15,6 @@ import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogram
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
 import play.api.libs.json._
-import play.api.mvc.Result
 import scalaz.NonEmptyList
 import scalaz.syntax.id._
 import scalaz.syntax.std.list._
@@ -209,10 +208,6 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("aggregate")))(_.getTookInMillis)
       .map(searchResultToAggregateResponse(_, name))
   }
-
-  def aggregateResponse(agg: AggregateSearchResults): Result =
-    respondCollection(agg.results, Some(0), Some(agg.total))
-
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
     val builder = completionSuggestionBuilder(name).field(name).text(q).size(size)

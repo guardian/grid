@@ -2,9 +2,7 @@ package lib.elasticsearch
 
 import controllers.{AggregateSearchParams, SearchParams}
 import lib.SupplierUsageSummary
-import org.elasticsearch.search.aggregations.AbstractAggregationBuilder
 import play.api.libs.json.JsValue
-import play.api.mvc.Result
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,8 +19,6 @@ trait ElasticSearchVersion {
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults]
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults]
-
-  def aggregateResponse(agg: AggregateSearchResults): Result
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults]
 
