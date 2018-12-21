@@ -4,27 +4,10 @@ import java.net.URI
 import java.util.UUID
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.usage._
-import com.gu.mediaservice.model.usage.{UsageStatus => Status}
-import com.gu.mediaservice.syntax._
-import lib.elasticsearch.{ElasticSearch, SearchFilters}
+import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import org.joda.time.DateTime
-import org.scalatest.mockito.MockitoSugar
-import play.api.Configuration
-import play.api.libs.json._
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-
-trait ElasticSearchHelper extends MockitoSugar {
-  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
-    "persistence.identifier" -> "picdarUrn",
-    "es.index.aliases.read" -> "readAlias")))
-  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  private val searchFilters = new SearchFilters(mediaApiConfig)
-  val ES = new ElasticSearch(mediaApiConfig, searchFilters, mediaApiMetrics)
+trait ElasticSearchHelper { // TODO rename to fixtures
 
   val testUser = "yellow-giraffe@theguardian.com"
 
@@ -122,18 +105,4 @@ trait ElasticSearchHelper extends MockitoSugar {
     )
   }
 
-  def saveImages(images: List[Image]) = {
-    Future.sequence(
-      images.map(image => {
-        ES.client.prepareIndex("images", "image")
-          .setId(image.id)
-          .setSource(Json.toJson(image).toString())
-          .executeAndLog(s"Saving test image with id ${image.id}")
-      })
-    )
-  }
-
-  def deleteImages() = {
-    ES.client.prepareDelete().setIndex("images").executeAndLog(s"Deleting index")
-  }
 }

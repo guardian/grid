@@ -1,97 +1,29 @@
 package lib
 
-import java.util.UUID
-
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
-import lib.elasticsearch.SearchParams
+import com.gu.mediaservice.syntax._
+import lib.elasticsearch.{ElasticSearch, SearchFilters, SearchParams}
 import org.joda.time.{DateTime, DateTimeUtils}
-import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
-import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import play.api.Configuration
+import play.api.libs.json.Json
 
-import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
-class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers with ElasticSearchHelper with ScalaFutures {
-  val interval = Interval(Span(5, Seconds))
-  val timeout = Timeout(Span(30, Seconds))
+class ElasticSearch1Test extends ElasticSearchTestBase {
 
-  lazy val images: List[Image] = List(
-    createImage(UUID.randomUUID().toString, Handout()),
-    createImage(UUID.randomUUID().toString, StaffPhotographer("Yellow Giraffe", "The Guardian")),
-    createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
+  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
+    "es.cluster" -> "media-service-test",
+    "es.port" -> "9301",
+    "persistence.identifier" -> "picdarUrn",
+    "es.index.aliases.read" -> "readAlias")))
 
-    // available for syndication
-    createImageForSyndication(
-      id = "test-image-1",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "test-image-1"))
-    ),
+  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
+  private val searchFilters = new SearchFilters(mediaApiConfig)
 
-    // has a digital usage, still eligible for syndication
-    createImageForSyndication(
-      id = "test-image-2",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "test-image-2")),
-      List(createDigitalUsage())
-    ),
-
-    // has syndication usage, not available for syndication
-    createImageForSyndication(
-      id = "test-image-3",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "test-image-3")),
-      List(createDigitalUsage(), createSyndicationUsage())
-    ),
-
-    // rights acquired, explicit allow syndication lease and unknown publish date, available for syndication
-    createImageForSyndication(
-      id = "test-image-4",
-      rightsAcquired = true,
-      None,
-      Some(createSyndicationLease(allowed = true, "test-image-4"))
-    ),
-
-    // explicit deny syndication lease with no end date, not available for syndication
-    createImageForSyndication(
-      id = "test-image-5",
-      rightsAcquired = true,
-      None,
-      Some(createSyndicationLease(allowed = false, "test-image-5"))
-    ),
-
-    // explicit deny syndication lease with end date before now, available for syndication
-    createImageForSyndication(
-      id = "test-image-6",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = false, "test-image-6", endDate = Some(DateTime.parse("2018-01-01T00:00:00"))))
-    ),
-
-    // images published after "today", not available for syndication
-    createImageForSyndication(
-      id = "test-image-7",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-07-02T00:00:00")),
-      Some(createSyndicationLease(allowed = false, "test-image-7"))
-    ),
-
-    createImageForSyndication(
-      id = "test-image-8",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-07-03T00:00:00")),
-      None
-    ),
-
-    // no rights acquired, not available for syndication
-    createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = false, None, None)
-  )
+  val ES = new ElasticSearch(mediaApiConfig, searchFilters, mediaApiMetrics)
 
   override def beforeAll {
     ES.ensureAliasAssigned()
@@ -103,6 +35,11 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
     DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
+  }
+
+  override def afterAll  {
+    Await.ready(deleteImages(), 5.seconds)
+    DateTimeUtils.setCurrentMillisSystem()
   }
 
   describe("Tiered API access") {
@@ -211,8 +148,19 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
     }
   }
 
-  override def afterAll  {
-    Await.ready(deleteImages(), 5.seconds)
-    DateTimeUtils.setCurrentMillisSystem()
+  private def deleteImages() = {
+    ES.client.prepareDelete().setIndex("images").executeAndLog(s"Deleting index")
   }
+
+  private def saveImages(images: Seq[Image]) = {
+    Future.sequence(
+      images.map(image => {
+        ES.client.prepareIndex("images", "image")
+          .setId(image.id)
+          .setSource(Json.toJson(image).toString())
+          .executeAndLog(s"Saving test image with id ${image.id}")
+      })
+    )
+  }
+
 }
