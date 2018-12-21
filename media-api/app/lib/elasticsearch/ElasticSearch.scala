@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
-import com.gu.mediaservice.model.Agencies
+import com.gu.mediaservice.model.{Agencies, Image}
 import com.gu.mediaservice.syntax._
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import org.elasticsearch.action.get.GetRequestBuilder
@@ -13,7 +13,6 @@ import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogram
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
-import play.api.libs.json._
 import scalaz.NonEmptyList
 import scalaz.syntax.id._
 import scalaz.syntax.std.list._
@@ -29,8 +28,8 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
   lazy val cluster = config("es.cluster")
   lazy val clientTransportSniff = true
 
-  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]] =
-    prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt)
+  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] =
+    prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt.map(_.as[Image]))
 
   val matchFields: Seq[String] = Seq("id") ++
     Seq("description", "title", "byline", "source", "credit", "keywords",
@@ -117,7 +116,7 @@ class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaA
       .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.getTookInMillis)
       .map(_.getHits)
       .map { results =>
-        val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _))
+        val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _.as[Image]))
         SearchResults(hitsTuples, results.getTotalHits)
       }
   }

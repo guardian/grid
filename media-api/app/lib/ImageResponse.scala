@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage._
 import lib.usagerights.CostCalculator
-import org.joda.time.{DateTime, Duration}
+import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -121,16 +121,12 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
 
-  def create(id: String, esSource: JsValue, withWritePermission: Boolean,
+  def create(id: String, image: Image, withWritePermission: Boolean,
              withDeletePermission: Boolean, included: List[String] = List(), tier: Tier):
             (JsValue, List[Link], List[Action]) = {
-    val (image: Image, source: JsValue) = Try {
-      val image = esSource.as[Image]
-      val source = Json.toJson(image)(
-        imageResponseWrites(image.id, included.contains("fileMetadata"))
-      )
 
-      (image, source)
+    val source = Try {
+      Json.toJson(image)(imageResponseWrites(image.id, included.contains("fileMetadata")))
     }.recoverWith {
       case e =>
         Logger.error(s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")

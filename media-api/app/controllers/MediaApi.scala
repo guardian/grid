@@ -86,32 +86,33 @@ class MediaApi(
 
   private def isUploaderOrHasPermission(
     request: AuthenticatedRequest[AnyContent, Principal],
-    source: JsValue,
+    image: Image,
     permission: Permission
   ) = {
     request.user match {
       case user: PandaUser =>
-        (source \ "uploadedBy").asOpt[String] match {
-          case Some(uploader) if user.user.email.toLowerCase == uploader.toLowerCase => Future.successful(true)
-          case _ => hasPermission(user, permission)
+        if (user.user.email.toLowerCase == image.uploadedBy.toLowerCase) {
+          Future.successful(true)
+        } else {
+          hasPermission(user, permission)
         }
       case _: AuthenticatedService => Future.successful(true)
       case _ => Future.successful(false)
     }
   }
 
-  def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
-    isUploaderOrHasPermission(request, source, Permissions.EditMetadata)
+  def canUserWriteMetadata(request: AuthenticatedRequest[AnyContent, Principal], image: Image) = {
+    isUploaderOrHasPermission(request, image, Permissions.EditMetadata)
   }
 
-  def canUserDeleteImage(request: AuthenticatedRequest[AnyContent, Principal], source: JsValue) = {
-    isUploaderOrHasPermission(request, source, Permissions.DeleteImage)
+  def canUserDeleteImage(request: AuthenticatedRequest[AnyContent, Principal], image: Image) = {
+    isUploaderOrHasPermission(request, image, Permissions.DeleteImage)
   }
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
-  private def hasPermission(request: Authentication.Request[Any], json: JsValue): Boolean = request.user.apiKey.tier match {
-    case Syndication => isAvailableForSyndication(json.as[Image])
+  private def hasPermission(request: Authentication.Request[Any], image: Image): Boolean = request.user.apiKey.tier match {
+    case Syndication => isAvailableForSyndication(image)
     case _ => true
   }
 
@@ -135,22 +136,22 @@ class MediaApi(
 
   def getImageFileMetadata(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) map {
-      case Some(source) if hasPermission(request, source) =>
+      case Some(image) if hasPermission(request, image) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
-        respond((source \ "fileMetadata").getOrElse(JsNull), links)
+        respond(Json.toJson(image.fileMetadata), links)
       case _ => ImageNotFound(id)
     }
   }
 
   def getImageExports(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) map {
-      case Some(source) if hasPermission(request, source) =>
+      case Some(image) if hasPermission(request, image) =>
         val links = List(
           Link("image", s"${config.rootUri}/images/$id")
         )
-        respond((source \ "exports").getOrElse(JsNull), links)
+        respond(Json.toJson(image.exports), links)
       case _ => ImageNotFound(id)
     }
   }
@@ -158,7 +159,7 @@ class MediaApi(
   def getImageExport(imageId: String, exportId: String) = auth.async { request =>
     elasticSearch.getImageById(imageId) map {
       case Some(source) if hasPermission(request, source) =>
-        val exportOption = source.as[Image].exports.find(_.id.contains(exportId))
+        val exportOption = source.exports.find(_.id.contains(exportId))
         exportOption.foldLeft(ExportNotFound)((memo, export) => respond(export))
       case _ => ImageNotFound(imageId)
     }
@@ -167,12 +168,10 @@ class MediaApi(
 
   def deleteImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) if hasPermission(request, source) =>
-        val image = source.as[Image]
-
+      case Some(image) if hasPermission(request, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
         if (imageCanBeDeleted) {
-          canUserDeleteImage(request, source) map { canDelete =>
+          canUserDeleteImage(request, image) map { canDelete =>
             if (canDelete) {
               notifications.publish(Json.obj("id" -> id), "delete-image")
               Accepted
@@ -190,11 +189,10 @@ class MediaApi(
 
   def downloadOriginalImage(id: String) = auth.async { request =>
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) if hasPermission(request, source) => {
+      case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.apiKey
         GridLogger.info(s"Download original image $id", apiKey, id)
         mediaApiMetrics.incrementOriginalImageDownload(apiKey)
-        val image = source.as[Image]
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
@@ -210,13 +208,11 @@ class MediaApi(
   def reindexImage(id: String) = auth.async { request =>
     val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
     elasticSearch.getImageById(id) flatMap {
-      case Some(source) if hasPermission(request, source) =>
+      case Some(image) if hasPermission(request, image) =>
         // TODO: apply rights to edits API too
         // TODO: helper to abstract boilerplate
-        canUserWriteMetadata(request, source) map { canWrite =>
+        canUserWriteMetadata(request, image) map { canWrite =>
           if (canWrite) {
-            val image = source.as[Image]
-
             val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
             val cleanMetadata = metadataCleaners.clean(imageMetadata)
             val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
@@ -250,14 +246,14 @@ class MediaApi(
   def imageSearch() = auth.async { request =>
     val include = getIncludedFromParams(request)
 
-    def hitToImageEntity(elasticId: String, source: JsValue): Future[EmbeddedEntity[JsValue]] = {
-      val withWritePermission = canUserWriteMetadata(request, source)
-      val withDeletePermission = canUserDeleteImage(request, source)
+    def hitToImageEntity(elasticId: String, image: Image): Future[EmbeddedEntity[JsValue]] = {
+      val withWritePermission = canUserWriteMetadata(request, image)
+      val withDeletePermission = canUserDeleteImage(request, image)
 
       Future.sequence(List(withWritePermission, withDeletePermission)).map {
         case List(writePermission, deletePermission) =>
           val (imageData, imageLinks, imageActions) =
-            imageResponse.create(elasticId, source, writePermission, deletePermission, include, request.user.apiKey.tier)
+            imageResponse.create(elasticId, image, writePermission, deletePermission, include, request.user.apiKey.tier)
           val id = (imageData \ "id").as[String]
           val imageUri = URI.create(s"${config.rootUri}/images/$id")
           EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)

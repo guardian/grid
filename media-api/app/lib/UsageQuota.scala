@@ -2,7 +2,7 @@ package lib
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.FeatureToggle
-import com.gu.mediaservice.model.{Image, UsageRights}
+import com.gu.mediaservice.model.UsageRights
 import lib.elasticsearch.ElasticSearchVersion
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -38,10 +38,7 @@ class UsageQuota(config: MediaApiConfig, elasticSearch: ElasticSearchVersion, sc
   }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
 
   def usageStatusForImage(id: String): Future[UsageStatus] = for {
-    imageJsonOption <- elasticSearch.getImageById(id)
-
-    imageOption = imageJsonOption
-      .flatMap(imageJson => Try { imageJson.as[Image] }.toOption)
+    imageOption <- elasticSearch.getImageById(id)
 
     image <- Future { imageOption.get }
       .recover { case _ => throw new ImageNotFound }

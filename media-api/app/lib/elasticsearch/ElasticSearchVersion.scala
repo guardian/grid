@@ -1,13 +1,13 @@
 package lib.elasticsearch
 
+import com.gu.mediaservice.model.Image
 import lib.SupplierUsageSummary
-import play.api.libs.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait ElasticSearchVersion {
 
-  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[JsValue]]
+  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]]
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults]
 
