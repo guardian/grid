@@ -102,6 +102,7 @@ photoshoot.directive('grPhotoshoot', [function() {
         restrict: 'E',
         scope: {
             images: '=',
+            isLabel: '=',
             withBatch: '=?',
             editInline: '=?'
         },

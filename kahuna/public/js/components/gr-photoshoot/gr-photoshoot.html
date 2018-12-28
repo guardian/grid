@@ -1,4 +1,4 @@
-<section ng:if="! ctrl.editInline" class="photoshoot-label">
+<section ng:if="!ctrl.editInline" ng-class="{'photoshoot-label': this.isLabel}">
     <button class="image-info__edit"
             ng:click="photoshootEditForm.$show()"
             ng:hide="photoshootEditForm.$visible">
