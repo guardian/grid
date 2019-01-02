@@ -8,7 +8,7 @@ import helpers.Fixtures
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import play.api.libs.json.{JsDefined, JsLookupResult, Json}
+import play.api.libs.json.{JsDefined, JsLookupResult, Json, __}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.{Duration, MILLISECONDS, SECONDS}
@@ -122,6 +122,11 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         "reindexing should update suggesters" in {
           // TODO don't know how to assert this
         }
+
+        "reindexing does not over write certain existing uploadTime, userMetadata, exports, uploadedBy, collections, leases and usages fields" in {
+          // TODO implement
+        }
+
       }
 
       "deleting" - {
