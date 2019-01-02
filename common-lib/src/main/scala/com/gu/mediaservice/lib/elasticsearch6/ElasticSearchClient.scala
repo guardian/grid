@@ -89,10 +89,6 @@ trait ElasticSearchClient {
     }
   }
 
-  def deleteIndex(index: String) {
-    ???
-  }
-
   def getCurrentAlias: Option[String] = {
     ensureIndexExists(initialImagesIndex)
     None // TODO

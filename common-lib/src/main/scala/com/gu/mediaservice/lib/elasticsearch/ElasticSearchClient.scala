@@ -68,11 +68,6 @@ trait ElasticSearchClient {
       .execute.actionGet
   }
 
-  def deleteIndex(index: String) {
-    Logger.info(s"Deleting index $index")
-    client.admin.indices.delete(new DeleteIndexRequest(index)).actionGet
-  }
-
   def getCurrentAlias: Option[String] = {
     // getAliases returns null, so wrap it in an Option
     Option(client.admin.cluster
