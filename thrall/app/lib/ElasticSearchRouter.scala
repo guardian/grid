@@ -8,9 +8,7 @@ class ElasticSearchRouter(primary: ElasticSearchVersion, secondary: ElasticSearc
 
   val primaryThenSecondary = Seq(primary, secondary)
 
-  override def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = primaryThenSecondary.map{ i =>
-      i.indexImage(id, image)
-    }.head
+  override def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = primaryThenSecondary.map(_.indexImage(id, image)).head
 
   override def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchDeleteResponse]] = primaryThenSecondary.map(_.deleteImage(id)).head
 
