@@ -33,7 +33,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
     if (isDev)
       properties.getOrElse("es.host", "localhost")
     else
-      findElasticsearchHost(ec2Client, Map(
+      findElasticsearchHostByTags(ec2Client, Map(
         "Stage" -> Seq(stage),
         "Stack" -> Seq(elasticsearchStack),
         "App"   -> Seq(elasticsearchApp)
