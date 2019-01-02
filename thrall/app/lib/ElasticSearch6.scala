@@ -37,31 +37,27 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
         |   ctx._source.identifiers.putAll(params.update_doc.identifiers);
         |   params.update_doc.identifiers = ctx._source.identifiers
         | }
+        |
         | ctx._source = params.update_doc;
         |
         | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
-        |   ctx._source.suggestMetadataCredit = [ \"input\": [ ctx._source.metadata.credit ] ]
+        |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
         | }
       """)
 
-    /*
-    val upsertScript = s"""
-        |{
-        |  "scripted_upsert": true,
-        |  "script": {
-        |    "lang": "painless",
-        |    "source": "$painlessSource",
-        |    "params": {
-        |      "update_doc": $original
-        |    }
-        |  },
-        |  "upsert": $original
-        |}
-        |""".stripMargin
-    */
+    val scriptSource = loadPainless(s"""
+                                       |   $painlessSource
+                                       |   $refreshEditsScript
+                                       |   $updateLastModifiedScript
+                                       | """)
 
-    val params = Map("update_doc" -> asNestedMap(image))
-    val script = Script(script = painlessSource).lang("painless").params(params)
+
+    val params = Map(
+      "update_doc" -> asNestedMap(image), // TODO redact as per Elastic1
+      "lastModified" -> currentIsoDateString
+    )
+
+    val script = Script(script = scriptSource).lang("painless").params(params)
 
     val indexRequest = updateById(imagesAlias, Mappings.dummyType, id).
       upsert(Json.stringify(image)).
@@ -146,18 +142,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   }
 
   def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-
-    val refreshMetadataScript = ""  // TODO implement when failure example becomes apparent
-
-    val refreshUsageRightsScript = """
-        | if (ctx._source.userMetadata != null && ctx._source.userMetadata.usageRights != null) {
-        |   ctx._source.usageRights = ctx._source.userMetadata.usageRights.clone();
-        | } else {
-        |   ctx._source.usageRights = ctx._source.originalUsageRights;
-        | }
-      """.stripMargin
-
-    val refreshEditsScript = refreshMetadataScript + refreshUsageRightsScript
 
     val photoshootSuggestionScript = """
       | if (ctx._source.userMetadata.photoshoot != null) {
@@ -480,6 +464,24 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
+
+  private val refreshMetadataScript = """
+      | ctx._source.metadata = ctx._source.originalMetadata.clone();
+      | if (ctx._source.userMetadata != null && ctx._source.userMetadata.metadata != null) {
+      |   ctx._source.metadata.putAll(ctx._source.userMetadata.metadata);
+      |   ctx._source.metadata = ctx._source.metadata.entrySet().stream().filter(x -> x.value != "").collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      | }
+    """.stripMargin
+
+  private val refreshUsageRightsScript = """
+                                   | if (ctx._source.userMetadata != null && ctx._source.userMetadata.usageRights != null) {
+                                   |   ctx._source.usageRights = ctx._source.userMetadata.usageRights.clone();
+                                   | } else {
+                                   |   ctx._source.usageRights = ctx._source.originalUsageRights.clone();
+                                   | }
+                                 """.stripMargin
+
+  private val refreshEditsScript = refreshMetadataScript + refreshUsageRightsScript
 
   private def loadPainless(str: String) = str.stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString // remove ctrl chars and leading, trailing whitespace
 

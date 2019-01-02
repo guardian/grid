@@ -40,6 +40,88 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
           reloadedImage(id).get.id shouldBe image.id
         }
+
+        "initial indexing does not set the last modified date because scripts do not run on initial upserts" in { // TODO is this intentional?
+          val id = UUID.randomUUID().toString
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+          val lastModified = reloadedImage(id).get.lastModified
+
+          lastModified.nonEmpty shouldBe false
+        }
+
+        "updating an existing image should set the last modified date" in {
+          val id = UUID.randomUUID().toString
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+          val lastModified = reloadedImage(id).get.lastModified
+
+          lastModified.nonEmpty shouldBe true
+        }
+
+        "initial index calls do not refresh metadata from user metadata" in {
+          val id = UUID.randomUUID().toString
+          val originalUserMetadata = Some(Edits(metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
+          val imageWithBoringMetadata = createImageForSyndication(id = id, true, Some(DateTime.now()), None).copy(userMetadata = originalUserMetadata)
+
+          ES.indexImage(id, Json.toJson(imageWithBoringMetadata))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+
+          reloadedImage(id).get.metadata.title shouldBe Some("Test image " + id)
+          reloadedImage(id).get.metadata.description shouldBe None
+        }
+
+        "reindex calls refresh metadata from user metadata" in {
+          val id = UUID.randomUUID().toString
+          val originalUserMetadata = Some(Edits(metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
+          val imageWithBoringMetadata = createImageForSyndication(id = id, true, Some(DateTime.now()), None).copy(userMetadata = originalUserMetadata)
+          ES.indexImage(id, Json.toJson(imageWithBoringMetadata))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+
+          ES.indexImage(id, Json.toJson(imageWithBoringMetadata))
+
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.metadata.title shouldBe Some("User supplied title"))
+          reloadedImage(id).get.metadata.description shouldBe Some("My boring image")
+        }
+
+        "empty user metadata fields should be omitted from updated user metadata" in {
+          val id = UUID.randomUUID().toString
+          val originalUserMetadata = Some(Edits(metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"), credit = Some(""))))
+          val image = createImageForSyndication(id = id, true, Some(DateTime.now()), None).copy(userMetadata = originalUserMetadata)
+          ES.indexImage(id, Json.toJson(image))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.metadata.title shouldBe Some("User supplied title"))
+          reloadedImage(id).get.metadata.description shouldBe Some("My boring image")
+          reloadedImage(id).get.metadata.credit shouldBe None
+        }
+
+        "reindex calls refresh usage rights from user metadata" in {
+          val id = UUID.randomUUID().toString
+
+          val updatedUsageRights: UsageRights = StaffPhotographer("Test", "Testing")
+          val usageMetadata = Some(Edits(usageRights = Some(updatedUsageRights), metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
+          val image = createImageForSyndication(id = id, true, Some(DateTime.now()), None).copy(userMetadata = usageMetadata)
+          ES.indexImage(id, Json.toJson(image))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+          ES.indexImage(id, Json.toJson(image))
+
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldBe "Test")
+        }
+
+        "reindexing should preserve existing identifiers" in {
+          // TODO
+        }
+
+        "reindexing should update suggesters" in {
+          // TODO don't know how to assert this
+        }
       }
 
       "deleting" - {
@@ -393,12 +475,11 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         reloadedImage(id).flatMap(_.userMetadata.get.photoshoot.map(_.title)) shouldEqual Some("Test photoshoot")
         // TODO how to assert that the suggestion was added?
       }
-
     }
   }
 
   private def reloadedImage(id: String) = {
-    Thread.sleep(1000)
+    Thread.sleep(0)
     Await.result(ES.getImage(id), fiveSeconds)
   }
 
