@@ -94,7 +94,9 @@ trait ElasticSearchClient {
     None // TODO
   }
 
-  // TODO do not understand why this step is required; can't you just index to the alias and let elastic sort it out?
+  // Elastic only allows one index in an alias set to be the write index.
+  // To mirror index updates to all indexes in the alias group, the grid queries the alias set and explicitly executes
+  // each update on every aliased index.
   def getCurrentIndices: List[String] = {
     ???
   }
