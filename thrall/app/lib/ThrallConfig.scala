@@ -39,8 +39,8 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "App" -> Seq(elasticsearch6App)
       ))
 
-  lazy val elasticsearch6Shards: Int = if (isDev) 1 else properties.getOrElse("es6.shards", "1").toInt
-  lazy val elasticsearch6Replicas: Int = if (isDev) 0 else properties.getOrElse("es6.replicas", "0").toInt
+  lazy val elasticsearch6Shards: Int = if (isDev) 1 else properties("es6.shards").toInt
+  lazy val elasticsearch6Replicas: Int = if (isDev) 0 else properties("es6.replicas").toInt
 
   lazy val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 
