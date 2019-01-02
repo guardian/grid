@@ -1,13 +1,11 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.common.unit.TimeValue
 import play.api.Logger
-
 
 trait ElasticSearchClient {
 
