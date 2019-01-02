@@ -124,7 +124,24 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         }
 
         "reindexing does not over write certain existing uploadTime, userMetadata, exports, uploadedBy, collections, leases and usages fields" in {
-          // TODO implement
+          val id = UUID.randomUUID().toString
+
+          val updatedUsageRights: UsageRights = StaffPhotographer("Test", "Testing")
+          val usageMetadata = Some(Edits(usageRights = Some(updatedUsageRights), metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
+          val image = createImageForSyndication(id = id, true, Some(DateTime.now()), None).copy(userMetadata = usageMetadata)
+          ES.indexImage(id, Json.toJson(image))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+          val attemptedOverwrite = image.copy(
+            uploadTime = DateTime.now,
+            uploadedBy = "someone else"
+
+          )
+
+          ES.indexImage(id, Json.toJson(attemptedOverwrite))
+
+          reloadedImage(id).get.uploadTime.getMillis shouldBe image.uploadTime.getMillis
+          reloadedImage(id).get.uploadedBy shouldBe image.uploadedBy
         }
 
       }

@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields {
+class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticImageUpdate {
 
   import com.gu.mediaservice.lib.formatting._
 
@@ -284,19 +284,6 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
 
   private def missingOrEmptyFilter(field: String) =
     missingFilter(field).existence(true).nullValue(true)
-
-  private def asImageUpdate(image: JsValue): JsValue = {
-    def removeUploadInformation: Reads[JsObject] =
-      (__ \ "uploadTime").json.prune andThen
-        (__ \ "userMetadata").json.prune andThen
-        (__ \ "exports").json.prune andThen
-        (__ \ "uploadedBy").json.prune andThen
-        (__ \ "collections").json.prune andThen
-        (__ \ "leases").json.prune andThen
-        (__ \ "usages").json.prune
-
-    image.transform(removeUploadInformation).get
-  }
 
   def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
     client.prepareGet(imagesAlias, imageType, id)

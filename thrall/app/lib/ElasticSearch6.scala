@@ -15,7 +15,8 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticSearch6Executions {
+class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
+  with ElasticSearch6Executions with ElasticImageUpdate {
 
   lazy val imagesAlias = config.writeAlias
   lazy val host = config.elasticsearch6Host
@@ -29,7 +30,6 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
   lazy val clientTransportSniff = false
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    // TODO doesn't match the legacy functionality
     val painlessSource = loadPainless(
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
       """
@@ -38,7 +38,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
         |   params.update_doc.identifiers = ctx._source.identifiers
         | }
         |
-        | ctx._source = params.update_doc;
+        | ctx._source.putAll(params.update_doc);
         |
         | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
         |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
@@ -53,7 +53,7 @@ class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends Elast
 
 
     val params = Map(
-      "update_doc" -> asNestedMap(image), // TODO redact as per Elastic1
+      "update_doc" -> asNestedMap(asImageUpdate(image)),
       "lastModified" -> currentIsoDateString
     )
 
