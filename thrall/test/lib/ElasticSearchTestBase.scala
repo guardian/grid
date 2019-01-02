@@ -479,7 +479,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   }
 
   private def reloadedImage(id: String) = {
-    Thread.sleep(0)
+    Thread.sleep(1000)
     Await.result(ES.getImage(id), fiveSeconds)
   }
 
