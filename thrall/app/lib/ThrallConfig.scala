@@ -14,11 +14,11 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val imageBucket: String = properties("s3.image.bucket")
 
-  lazy val writeAlias = properties.getOrElse("es.index.aliases.write", configuration.get[String]("es.index.aliases.write"))
+  lazy val writeAlias: String = properties.getOrElse("es.index.aliases.write", configuration.get[String]("es.index.aliases.write"))
 
   lazy val thumbnailBucket: String = properties("s3.thumb.bucket")
 
-  lazy val elasticsearchHost: String =
+  lazy val elasticsearchHost: Option[String] = Some {
     if (isDev)
       properties.getOrElse("es.host", "localhost")
     else
@@ -27,11 +27,12 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "Stack" -> Seq(elasticsearchStack),
         "App" -> Seq(elasticsearchApp)
       ))
+  }
 
-  lazy val elasticsearchPort: Int = properties("es.port").toInt
-  lazy val elasticsearchCluster: String = properties("es.cluster")
+  lazy val elasticsearchPort: Option[Int] = properties.get("es.port").map(_.toInt)
+  lazy val elasticsearchCluster: Option[String] = properties.get("es.cluster")
 
-  lazy val elasticsearch6Host: String =
+  lazy val elasticsearch6Host: Option[String] = Some {
     if (isDev)
       properties.getOrElse("es6.host", "localhost")
     else
@@ -40,11 +41,12 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "Stack" -> Seq(elasticsearchStack),
         "App" -> Seq(elasticsearch6App)
       ))
+  }
 
-  lazy val elasticsearch6Port: Int = properties("es6.port").toInt
-  lazy val elasticsearch6Cluster: String = properties("es6.cluster")
-  lazy val elasticsearch6Shards: Int = if (isDev) 1 else properties("es6.shards").toInt
-  lazy val elasticsearch6Replicas: Int = if (isDev) 0 else properties("es6.replicas").toInt
+  lazy val elasticsearch6Port: Option[Int] = properties.get("es6.port").map(_.toInt)
+  lazy val elasticsearch6Cluster: Option[String] = properties.get("es6.cluster")
+  lazy val elasticsearch6Shards = Some(if (isDev) 1 else properties("es6.shards").toInt)
+  lazy val elasticsearch6Replicas = Some(if (isDev) 0 else properties("es6.replicas").toInt)
 
   lazy val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
 
