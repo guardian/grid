@@ -463,6 +463,11 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
+  def healthCheck()(implicit ex: ExecutionContext): Future[Boolean] = {
+    val request = search(imagesAlias) limit 0
+    executeAndLog(request, "Health check").map { _ => true}.recover { case _ => false}
+  }
+
   private val refreshMetadataScript = """
       | ctx._source.metadata = ctx._source.originalMetadata.clone();
       | if (ctx._source.userMetadata != null && ctx._source.userMetadata.metadata != null) {

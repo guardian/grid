@@ -1,13 +1,12 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.syntax._
 import lib._
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HealthCheck(elasticsearch: ElasticSearch, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class HealthCheck(elasticsearch: ElasticSearchVersion, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   def healthCheck = Action.async {
@@ -22,12 +21,7 @@ class HealthCheck(elasticsearch: ElasticSearch, thrallMessageConsumer: ThrallMes
   }
 
   private def elasticHealth: Future[Option[String]] = {
-
-    def healthCheck(): Future[Boolean] = {
-      elasticsearch.client.prepareSearch().setSize(0).executeAndLog("Health check").map { _ => true}.recover { case _ => false}
-    }
-
-    healthCheck().map { result =>
+    elasticsearch.healthCheck().map { result =>
       if (!result) {
         Some("Elastic search call failed")
       } else {

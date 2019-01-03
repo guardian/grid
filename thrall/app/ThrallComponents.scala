@@ -1,8 +1,8 @@
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
 import play.api.ApplicationLoader.Context
+import play.api.Logger
 import router.Routes
 
 class ThrallComponents(context: Context) extends GridComponents(context) {
@@ -15,20 +15,24 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val es1Config = ElasticSearchConfig(
     writeAlias = config.writeAlias,
     host = config.elasticsearchHost,
-    port = config.int("es.port"),
-    cluster = config("es.cluster")
+    port = config.elasticsearchPort,
+    cluster = config.elasticsearchCluster
   )
+
+  Logger.info("Configuring ES1: " + es1Config)
   val es1 = new ElasticSearch(es1Config, thrallMetrics)
   es1.ensureAliasAssigned()
 
   val es6Config = ElasticSearch6Config(
     writeAlias = config.writeAlias,
     host = config.elasticsearch6Host,
-    port = config.int("es6.port"),
-    cluster = config("es6.cluster"),
+    port = config.elasticsearch6Port,
+    cluster = config.elasticsearch6Cluster,
     shards = config.elasticsearch6Shards,
     replicas = config.elasticsearch6Replicas
   )
+
+  Logger.info("Configuring ES6: " + es6Config)
   val es6 = new ElasticSearch6(es6Config, thrallMetrics)
   es6.ensureAliasAssigned()
 
@@ -45,7 +49,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   }
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es1, thrallMessageConsumer, config, controllerComponents) // TODO extract es health check
+  val healthCheckController = new HealthCheck(es1, thrallMessageConsumer, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }

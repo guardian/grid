@@ -349,6 +349,10 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
       .map(_.map(_.as[Image]).headOption)
   }
 
+  def healthCheck()(implicit ex: ExecutionContext): Future[Boolean] = {
+    client.prepareSearch().setSize(0).executeAndLog("Health check").map { _ => true}.recover { case _ => false}
+  }
+
   private val addToSuggestersScript =
     """
       | credit = ctx._source.metadata.credit;

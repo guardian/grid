@@ -1,6 +1,6 @@
 package lib
 
-import com.amazonaws.services.ec2.{AmazonEC2, AmazonEC2ClientBuilder}
+import com.amazonaws.services.ec2.AmazonEC2ClientBuilder
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.elasticsearch.EC2
 import play.api.Configuration
@@ -28,6 +28,8 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "App" -> Seq(elasticsearchApp)
       ))
 
+  lazy val elasticsearchPort: Int = properties("es.port").toInt
+  lazy val elasticsearchCluster: String = properties("es.cluster")
 
   lazy val elasticsearch6Host: String =
     if (isDev)
@@ -39,6 +41,8 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
         "App" -> Seq(elasticsearch6App)
       ))
 
+  lazy val elasticsearch6Port: Int = properties("es6.port").toInt
+  lazy val elasticsearch6Cluster: String = properties("es6.cluster")
   lazy val elasticsearch6Shards: Int = if (isDev) 1 else properties("es6.shards").toInt
   lazy val elasticsearch6Replicas: Int = if (isDev) 0 else properties("es6.replicas").toInt
 

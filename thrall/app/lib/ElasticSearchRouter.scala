@@ -52,4 +52,6 @@ class ElasticSearchRouter(versions: Seq[ElasticSearchVersion]) extends ElasticSe
 
   override def ensureAliasAssigned(): Unit = versions.map(_.ensureAliasAssigned())
 
+  override def healthCheck()(implicit ex: ExecutionContext): Future[Boolean] = primary.healthCheck()
+
 }
