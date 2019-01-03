@@ -32,15 +32,11 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val elasticsearchPort: Option[Int] = properties.get("es.port").map(_.toInt)
   lazy val elasticsearchCluster: Option[String] = properties.get("es.cluster")
 
-  lazy val elasticsearch6Host: Option[String] = Some {
+  lazy val elasticsearch6Host: Option[String] =  {
     if (isDev)
-      properties.getOrElse("es6.host", "localhost")
+      Some(properties.getOrElse("es6.host", "localhost"))
     else
-      EC2.findElasticsearchHostByTags(ec2Client, Map(
-        "Stage" -> Seq(stage),
-        "Stack" -> Seq(elasticsearchStack),
-        "App" -> Seq(elasticsearch6App)
-      ))
+      properties.get("es6.host")
   }
 
   lazy val elasticsearch6Port: Option[Int] = properties.get("es6.port").map(_.toInt)
