@@ -20,14 +20,16 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticImageUpdate {
+case class ElasticSearchConfig(writeAlias: String, host: String, port: Int, cluster: String)
+
+class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticImageUpdate {
 
   import com.gu.mediaservice.lib.formatting._
 
   lazy val imagesAlias = config.writeAlias
-  lazy val host = config.elasticsearchHost
-  lazy val port = config.int("es.port")
-  lazy val cluster = config("es.cluster")
+  lazy val host = config.host
+  lazy val port = config.port
+  lazy val cluster = config.cluster
   lazy val clientTransportSniff = true
 
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")

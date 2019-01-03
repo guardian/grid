@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
@@ -11,13 +12,28 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val dynamoNotifications = new DynamoNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es1 = new ElasticSearch(config, thrallMetrics)
+  val es1Config = ElasticSearchConfig(
+    writeAlias = config.writeAlias,
+    host = config.elasticsearchHost,
+    port = config.int("es.port"),
+    cluster = config("es.cluster")
+  )
+  val es1 = new ElasticSearch(es1Config, thrallMetrics)
   es1.ensureAliasAssigned()
 
-  val es6 = new ElasticSearch6(config, thrallMetrics)
+  val es6Config = ElasticSearch6Config(
+    writeAlias = config.writeAlias,
+    host = config.elasticsearch6Host,
+    port = config.int("es6.port"),
+    cluster = config("es6.cluster"),
+    shards = config.elasticsearch6Shards,
+    replicas = config.elasticsearch6Replicas
+  )
+  val es6 = new ElasticSearch6(es6Config, thrallMetrics)
   es6.ensureAliasAssigned()
 
-  val es = new ElasticSearchRouter(es1, es6)
+  val elasticSearches = Seq(es1, es6)
+  val es = new ElasticSearchRouter(elasticSearches)
 
   val syndicationOps = new SyndicationRightsOps(es)
 

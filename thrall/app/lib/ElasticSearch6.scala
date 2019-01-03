@@ -15,19 +15,17 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch6(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
+case class ElasticSearch6Config(writeAlias: String, host: String, port: Int, cluster: String, shards: Int, replicas: Int)
+
+class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {
 
   lazy val imagesAlias = config.writeAlias
-  lazy val host = config.elasticsearch6Host
-  lazy val port = 9206
-  lazy val cluster = config("es6.cluster")
-
-  lazy val shards = config.elasticsearch6Shards
-  lazy val replicas = config.elasticsearch6Replicas
-
-  @Deprecated
-  lazy val clientTransportSniff = false
+  lazy val host = config.host
+  lazy val port = config.port
+  lazy val cluster = config.cluster
+  lazy val shards = config.shards
+  lazy val replicas = config.replicas
 
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val painlessSource = loadPainless(

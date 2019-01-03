@@ -4,14 +4,8 @@ import play.api.Configuration
 
 class ElasticSearch1Test extends ElasticSearchTestBase {
 
-  val thrallConfig = new ThrallConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
-    "es.index.aliases.write" -> "writeAlias"
-  )))
+  val elasticSearchConfig = ElasticSearchConfig("writeAlias", "localhost", 9301, "media-service-test")
 
-  val thrallMetrics = new ThrallMetrics(thrallConfig)
-
-  val ES = new ElasticSearch(thrallConfig, thrallMetrics)
+  val ES = new ElasticSearch(elasticSearchConfig, new ThrallMetrics(new ThrallConfig(Configuration.empty)))
 
 }
