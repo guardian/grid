@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.{Agencies, Image}
 import com.gu.mediaservice.syntax._
-import lib.elasticsearch.{_}
+import lib.elasticsearch._
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
@@ -21,13 +21,15 @@ import scalaz.syntax.std.list._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ArgoHelpers {
+class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ArgoHelpers {
 
   lazy val imagesAlias = config.imagesAlias
   lazy val host = config.elasticsearchHost
   lazy val port = config.int("es.port")
   lazy val cluster = config("es.cluster")
   lazy val clientTransportSniff = true
+
+  val searchFilters = new SearchFilters(config)
 
   def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] =
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt.map(_.as[Image]))

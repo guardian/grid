@@ -4,7 +4,8 @@ import com.gu.mediaservice.lib.auth.Syndication
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
-import lib.elasticsearch.{ElasticSearch6, SearchFilters, SearchParams}
+import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
+import lib.elasticsearch.SearchParams
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import org.joda.time.{DateTime, DateTimeUtils}
@@ -29,9 +30,8 @@ class ElasticSearch6Test extends ElasticSearchTestBase {
     "es.index.aliases.read" -> "readAlias")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  private val searchFilters = new SearchFilters(mediaApiConfig)
 
-  val ES = new ElasticSearch6(mediaApiConfig, searchFilters, mediaApiMetrics)
+  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
 
   override def beforeAll {
     ES.ensureAliasAssigned()

@@ -3,7 +3,8 @@ package lib
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax._
-import lib.elasticsearch.{ElasticSearch, SearchFilters, SearchParams}
+import lib.elasticsearch.SearchParams
+import lib.elasticsearch.impls.elasticsearch1.ElasticSearch
 import org.joda.time.{DateTime, DateTimeUtils}
 import play.api.Configuration
 import play.api.libs.json.Json
@@ -21,9 +22,8 @@ class ElasticSearch1Test extends ElasticSearchTestBase {
     "es.index.aliases.read" -> "readAlias")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  private val searchFilters = new SearchFilters(mediaApiConfig)
 
-  val ES = new ElasticSearch(mediaApiConfig, searchFilters, mediaApiMetrics)
+  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
 
   override def beforeAll {
     ES.ensureAliasAssigned()
