@@ -10,10 +10,10 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
   case class InvalidQuery(message: String) extends Exception(message)
 
   // For some sad reason, there was no helpful alias for this in the ES library
-  def multiMatchPhraseQuery(value: String, fields: Seq[String]) =
+  private def multiMatchPhraseQuery(value: String, fields: Seq[String]) =
     new MultiMatchQueryBuilder(value, fields: _*).`type`(MultiMatchQueryBuilder.Type.PHRASE)
 
-  def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
+  private def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
     // Force AND operator else it will only require *any* of the words, not *all*
     case Words(string) => multiMatchQuery(string, fields: _*)
                           .operator(MatchQueryBuilder.Operator.AND)
@@ -24,7 +24,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
     case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
   }
 
-  def makeQueryBit(condition: Match) = condition.field match {
+  private def makeQueryBit(condition: Match) = condition.field match {
     case AnyField              => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field)    => condition.value match {
