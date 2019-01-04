@@ -29,9 +29,9 @@ val awsSdkVersion = "1.11.302"
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.typesafe.play" %% "play" % "2.6.13", ws,
+    "com.typesafe.play" %% "play" % "2.6.20", ws,
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-    "com.typesafe.play" %% "filters-helpers" % "2.6.13",
+    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
     "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.1",
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
