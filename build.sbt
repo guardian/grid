@@ -85,7 +85,7 @@ lazy val leases = playProject("leases", 9012).settings(
 lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
     "org.apache.commons" % "commons-email" % "1.5",
-    "org.parboiled" %% "parboiled" % "2.1.4",
+    "org.parboiled" %% "parboiled" % "2.1.5",
     "org.http4s" %% "http4s-core" % "0.18.7",
     "org.mockito" % "mockito-core" % "2.18.0"
   )
