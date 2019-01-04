@@ -1,9 +1,10 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
 import com.gu.mediaservice.model.{Agencies, Image}
 import com.gu.mediaservice.syntax._
+import lib.elasticsearch.{_}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}

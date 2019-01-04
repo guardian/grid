@@ -1,8 +1,8 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import com.gu.mediaservice.model.usage.SyndicationUsage
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage.SyndicationUsage
 import lib.MediaApiConfig
 import org.elasticsearch.index.query.FilterBuilder
 import org.joda.time.DateTime

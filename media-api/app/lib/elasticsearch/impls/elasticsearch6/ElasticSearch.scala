@@ -1,16 +1,18 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
+import lib.elasticsearch._
+import lib.elasticsearch.impls.elasticsearch1.SearchFilters
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class ElasticSearch6(config: MediaApiConfig, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient {
+class ElasticSearch(config: MediaApiConfig, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient {
 
   lazy val imagesAlias = config.imagesAlias
   lazy val host = "localhost"

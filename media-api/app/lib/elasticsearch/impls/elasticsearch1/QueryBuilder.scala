@@ -1,12 +1,10 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
-import com.gu.mediaservice.lib.elasticsearch.IndexSettings
+import com.gu.mediaservice.lib.elasticsearch.{ImageFields, IndexSettings}
 import lib.querysyntax._
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder, NestedQueryBuilder}
-import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query.FilterBuilders._
-
+import org.elasticsearch.index.query.QueryBuilders._
+import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder, NestedQueryBuilder}
 
 class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
   case class InvalidQuery(message: String) extends Exception(message)

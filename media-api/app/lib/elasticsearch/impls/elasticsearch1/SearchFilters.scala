@@ -1,20 +1,18 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.lib.config.UsageRightsConfig
-import com.gu.mediaservice.model.usage.SyndicationUsage
-import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
-import scalaz.syntax.std.list._
-import scalaz.NonEmptyList
 import lib.MediaApiConfig
-import org.joda.time.DateTime
+import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
+import scalaz.NonEmptyList
+import scalaz.syntax.std.list._
 
 
 class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers }
+  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!

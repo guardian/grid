@@ -1,4 +1,4 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._

@@ -1,10 +1,9 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
-import lib.querysyntax._
+import lib.querysyntax.{Condition, HierarchyField, Match, Phrase}
 import org.elasticsearch.action.search.SearchRequestBuilder
-import org.elasticsearch.index.query.{FilterBuilders}
+import org.elasticsearch.index.query.FilterBuilders
 import org.elasticsearch.search.sort.{SortBuilders, SortOrder}
-
 
 object sorts {
 
