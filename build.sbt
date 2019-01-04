@@ -2,7 +2,7 @@ import PlayKeys._
 import scala.sys.process._
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.5",
+  scalaVersion := "2.12.8",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
