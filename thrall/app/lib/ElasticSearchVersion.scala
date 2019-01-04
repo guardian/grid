@@ -41,4 +41,6 @@ trait ElasticSearchVersion {
 
   def ensureAliasAssigned()
 
+  def healthCheck()(implicit ex: ExecutionContext): Future[Boolean]
+
 }

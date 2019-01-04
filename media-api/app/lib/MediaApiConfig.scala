@@ -2,7 +2,7 @@ package lib
 
 import com.amazonaws.services.ec2.{AmazonEC2, AmazonEC2ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.elasticsearch.EC2._
+import com.gu.mediaservice.lib.discovery.EC2._
 import play.api.Configuration
 
 import scala.util.Try
@@ -33,7 +33,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
     if (isDev)
       properties.getOrElse("es.host", "localhost")
     else
-      findElasticsearchHost(ec2Client, Map(
+      findElasticsearchHostByTags(ec2Client, Map(
         "Stage" -> Seq(stage),
         "Stack" -> Seq(elasticsearchStack),
         "App"   -> Seq(elasticsearchApp)

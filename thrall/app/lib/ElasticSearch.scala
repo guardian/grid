@@ -20,14 +20,16 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields {
+case class ElasticSearchConfig(writeAlias: String, host: String, port: Int, cluster: String)
+
+class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticImageUpdate {
 
   import com.gu.mediaservice.lib.formatting._
 
   lazy val imagesAlias = config.writeAlias
-  lazy val host = config.elasticsearchHost
-  lazy val port = config.int("es.port")
-  lazy val cluster = config("es.cluster")
+  lazy val host = config.host
+  lazy val port = config.port
+  lazy val cluster = config.cluster
   lazy val clientTransportSniff = true
 
   val scriptType = ScriptService.ScriptType.valueOf("INLINE")
@@ -285,19 +287,6 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
   private def missingOrEmptyFilter(field: String) =
     missingFilter(field).existence(true).nullValue(true)
 
-  private def asImageUpdate(image: JsValue): JsValue = {
-    def removeUploadInformation: Reads[JsObject] =
-      (__ \ "uploadTime").json.prune andThen
-        (__ \ "userMetadata").json.prune andThen
-        (__ \ "exports").json.prune andThen
-        (__ \ "uploadedBy").json.prune andThen
-        (__ \ "collections").json.prune andThen
-        (__ \ "leases").json.prune andThen
-        (__ \ "usages").json.prune
-
-    image.transform(removeUploadInformation).get
-  }
-
   def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
     client.prepareGet(imagesAlias, imageType, id)
       .executeAndLog(s"get image by $id")
@@ -358,6 +347,10 @@ class ElasticSearch(config: ThrallConfig, metrics: ThrallMetrics) extends Elasti
       .executeAndLog(s"get image in photoshoot ${photoshoot.title} with latest rcs syndication rights (excluding $excludedImageId)")
       .map(_.getHits.hits.toList.flatMap(_.sourceOpt))
       .map(_.map(_.as[Image]).headOption)
+  }
+
+  def healthCheck()(implicit ex: ExecutionContext): Future[Boolean] = {
+    client.prepareSearch().setSize(0).executeAndLog("Health check").map { _ => true}.recover { case _ => false}
   }
 
   private val addToSuggestersScript =
