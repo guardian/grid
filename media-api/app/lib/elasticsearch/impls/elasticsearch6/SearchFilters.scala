@@ -27,9 +27,9 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   } yield {
     filters.bool.must(
       filters.term(usageRightsField("supplier"), supplier)
-    )// TODO .mustNot(
-     // filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
-   // )
+    ).mustNot(
+      filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
+    )
   }
 
   val suppliersWithExclusionsFilter: Option[Query] = suppliersWithExclusionsFilters.toNel.map(filters.or)
