@@ -70,7 +70,7 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % "3.10.0"
+    "com.squareup.okhttp3" % "okhttp" % "3.12.1"
   )
 }
 
