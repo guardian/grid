@@ -2,7 +2,7 @@ package lib
 
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.elasticsearch.EC2
+import com.gu.mediaservice.lib.discovery.EC2
 import play.api.Configuration
 
 class ThrallConfig(override val configuration: Configuration) extends CommonConfig {

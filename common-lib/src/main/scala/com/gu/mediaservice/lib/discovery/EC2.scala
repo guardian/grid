@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.elasticsearch
+package com.gu.mediaservice.lib.discovery
 
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.{DescribeInstancesRequest, Filter, InstanceStateName}
