@@ -18,15 +18,33 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
   lazy val port = 9206
   lazy val cluster = "media-service"
 
+  // TODO These should not be required for a read only client
   lazy val shards = 1
   lazy val replicas = 0
+
+  val searchFilters = new SearchFilters(config)
+  val syndicationFilter = new SyndicationFilter(config)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = ???
 
   override def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
-    val searchRequest = ElasticDsl.search(imagesAlias)
 
-    client.execute(searchRequest).map { r =>
+    def matchAllQuery = ElasticDsl.search(imagesAlias)
+
+    def queryFor(params: SearchParams) = {
+      val filters = Seq(
+        params.syndicationStatus.map(status => syndicationFilter.statusFilter(status)),
+        searchFilters.tierFilter(params.tier))
+        .flatten
+
+      if (filters.nonEmpty) {
+        matchAllQuery bool must(filters)
+      } else {
+        matchAllQuery
+      }
+    }
+
+    client.execute(queryFor(params)).map { r =>
       val hits = r.result.hits.hits.map { h =>
         Try {
           val image = Json.toJson(h.sourceAsString).as[Image]

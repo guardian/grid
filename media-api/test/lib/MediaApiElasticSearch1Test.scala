@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class ElasticSearch1Test extends ElasticSearchTestBase {
+class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
     "es.cluster" -> "media-service-test",

@@ -1,7 +1,7 @@
 package lib
 
-import com.gu.mediaservice.lib.auth.Syndication
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
 import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
-class ElasticSearch6Test extends ElasticSearchTestBase {
+class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
 
   private val index = "images"
   private val client = ElasticClient(ElasticProperties("http://" + "localhost" + ":" + 9206)) // TODO obtain from ES6 instance
@@ -53,9 +53,7 @@ class ElasticSearch6Test extends ElasticSearchTestBase {
   describe("Tiered API access") {
     it("ES should return only rights acquired pictures with an allow syndication lease for a syndication tier search") {
       val searchParams = SearchParams(tier = Syndication)
-
       val searchResult = ES.search(searchParams)
-
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 3
 
@@ -64,6 +62,96 @@ class ElasticSearch6Test extends ElasticSearchTestBase {
         imageIds.contains("test-image-1") shouldBe true
         imageIds.contains("test-image-2") shouldBe true
         imageIds.contains("test-image-4") shouldBe true
+      }
+    }
+
+    it("ES should return all pictures for internal tier search") {
+      val searchParams = SearchParams(tier = Internal)
+      val searchResult = ES.search(searchParams)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe images.size
+      }
+    }
+
+    it("ES should return all pictures for readonly tier search") {
+      val searchParams = SearchParams(tier = ReadOnly)
+      val searchResult = ES.search(searchParams)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe images.size
+      }
+    }
+  }
+
+  describe("syndicationStatus query on the Syndication tier") {
+    it("should return 0 results if a Syndication tier queries for SentForSyndication images") {
+      val search = SearchParams(tier = Syndication, syndicationStatus = Some(SentForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 0
+      }
+    }
+
+    it("should return 3 results if a Syndication tier queries for QueuedForSyndication images") {
+      val search = SearchParams(tier = Syndication, syndicationStatus = Some(QueuedForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 3
+
+        val imageIds = result.hits.map(_._1)
+        imageIds.size shouldBe 3
+        imageIds.contains("test-image-1") shouldBe true
+        imageIds.contains("test-image-2") shouldBe true
+        imageIds.contains("test-image-4") shouldBe true
+      }
+    }
+
+    it("should return 0 results if a Syndication tier queries for BlockedForSyndication images") {
+      val search = SearchParams(tier = Syndication, syndicationStatus = Some(BlockedForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 0
+      }
+    }
+
+    it("should return 0 results if a Syndication tier queries for AwaitingReviewForSyndication images") {
+      val search = SearchParams(tier = Syndication, syndicationStatus = Some(AwaitingReviewForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 0
+      }
+    }
+  }
+
+  describe("syndicationStatus query on the internal tier") {
+    it("should return 1 image if an Internal tier queries for SentForSyndication images") {
+      val search = SearchParams(tier = Internal, syndicationStatus = Some(SentForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 1
+      }
+    }
+
+    it("should return 3 images if an Internal tier queries for QueuedForSyndication images") {
+      val search = SearchParams(tier = Internal, syndicationStatus = Some(QueuedForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 3
+      }
+    }
+
+    it("should return 3 images if an Internal tier queries for BlockedForSyndication images") {
+      val search = SearchParams(tier = Internal, syndicationStatus = Some(BlockedForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 3
+      }
+    }
+
+    it("should return 2 images if an Internal tier queries for AwaitingReviewForSyndication images") {
+      val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
+      val searchResult = ES.search(search)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 2
       }
     }
   }
