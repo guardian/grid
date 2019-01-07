@@ -9,6 +9,7 @@ import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import org.joda.time.{DateTime, DateTimeUtils}
+import org.scalatest.concurrent.Eventually
 import play.api.libs.json.Json
 import play.api.{Configuration, Logger, MarkerContext}
 
@@ -18,7 +19,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
-class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
+class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
 
   private val index = "images"
   private val client = ElasticClient(ElasticProperties("http://" + "localhost" + ":" + 9206)) // TODO obtain from ES6 instance
@@ -31,17 +32,20 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
 
-  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
+  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
+
+  private val expectedNumberOfImages = images.size
+
+  private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
+  private val fiveSeconds = Duration(10, SECONDS)
 
   override def beforeAll {
     ES.ensureAliasAssigned()
-    Await.result(deleteImages(), 5.seconds)
-    Thread.sleep(1000)
+    purgeTestImages
 
     Await.ready(saveImages(images), 1.minute)
-
     // allow the cluster to distribute documents... eventual consistency!
-    Thread.sleep(5000)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
 
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
@@ -49,24 +53,23 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
   }
 
   override def afterAll  {
-    Await.ready(deleteImages(), 5.seconds)
+    purgeTestImages
     DateTimeUtils.setCurrentMillisSystem()
   }
 
   describe("Native elastic search sanity checks") {
 
-    val expectedNumberOfImages = images.size
     def eventualMatchAllSearchResponse = client.execute (ElasticDsl.search(index) size expectedNumberOfImages * 2)
 
     it("images are actually persisted in Elastic search") {
-      val searchResponse = Await.result(eventualMatchAllSearchResponse, 5.seconds)
+      val searchResponse = Await.result(eventualMatchAllSearchResponse, fiveSeconds)
 
       searchResponse.result.totalHits shouldBe expectedNumberOfImages
       searchResponse.result.hits.size shouldBe expectedNumberOfImages
     }
 
     it("image hits read back from Elastic search can be parsed as images") {
-      val searchResponse = Await.result(eventualMatchAllSearchResponse, 5.seconds)
+      val searchResponse = Await.result(eventualMatchAllSearchResponse, fiveSeconds)
 
       val reloadedImages = searchResponse.result.hits.hits.flatMap(h => Json.parse(h.sourceAsString).validate[Image].asOpt)
 
@@ -224,5 +227,12 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
   }
 
   private def durationMarker(elapsed: Long): LogstashMarker = appendEntries(Map("duration" -> elapsed).asJava)
+
+  private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
+
+  private def purgeTestImages = {
+    Await.result(deleteImages(), fiveSeconds)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
+  }
 
 }
