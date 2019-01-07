@@ -35,11 +35,14 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
 
   override def beforeAll {
     ES.ensureAliasAssigned()
+    Await.result(deleteImages(), 5.seconds)
+    Thread.sleep(1000)
+
     Await.ready(saveImages(images), 1.minute)
 
     // allow the cluster to distribute documents... eventual consistency!
     Thread.sleep(5000)
-
+`
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
     DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
@@ -158,15 +161,13 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
 
   private def saveImages(images: Seq[Image]) = {
     Future.sequence(images.map { i =>
-      println(i)
       executeAndLog(indexInto(index, "_doc") id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
     })
   }
 
   private def deleteImages() = {
-    // client.prepareDelete().setIndex("images").executeAndLog(s"Deleting index")
-    val request = deleteIndex(index)
-    executeAndLog(request, s"Deleting index")
+    val deleteAllRequest = deleteByQuery(index, "_doc", matchAllQuery())
+    executeAndLog(deleteAllRequest, s"Deleting images")
   }
 
   def executeAndLog[T, U](request: T, message: String)(implicit
