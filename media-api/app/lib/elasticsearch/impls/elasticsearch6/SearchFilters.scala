@@ -25,9 +25,8 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
     supplier            <- suppliersWithExclusions
     excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
   } yield {
-    filters.bool.must(
-      filters.term(usageRightsField("supplier"), supplier)
-    ).mustNot(
+    filters.mustWithMustNot(
+      filters.term(usageRightsField("supplier"), supplier),
       filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
     )
   }

@@ -59,4 +59,12 @@ object filters {
     not(filter)
   }
 
+  def mustWithMustNot(mustClause: Query, mustNotClause: Query): Query = {
+    bool.must(
+      mustClause
+    ).withNot(
+      mustNotClause
+    )
+  }
+
 }
