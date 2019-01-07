@@ -6,13 +6,13 @@ import com.gu.mediaservice.model.{Handout, StaffPhotographer}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{Seconds, Span}
+import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
 class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with ElasticSearchHelper {
 
-  val interval = Interval(Span(5, Seconds))
-  val timeout = Timeout(Span(30, Seconds))
+  val interval = Interval(Span(100, Milliseconds))
+  val timeout = Timeout(Span(10, Seconds))
 
   lazy val images = Seq(
     createImage(UUID.randomUUID().toString, Handout()),
