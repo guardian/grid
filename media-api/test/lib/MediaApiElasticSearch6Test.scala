@@ -42,7 +42,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
 
     // allow the cluster to distribute documents... eventual consistency!
     Thread.sleep(5000)
-`
+
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
     DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
@@ -51,6 +51,29 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
   override def afterAll  {
     Await.ready(deleteImages(), 5.seconds)
     DateTimeUtils.setCurrentMillisSystem()
+  }
+
+  describe("Native elastic search sanity checks") {
+
+    def eventualSearchResponse = client.execute (ElasticDsl.search(index) size 20)
+
+    it("images are actually persisted in Elastic search") {
+      val searchResponse = Await.result(eventualSearchResponse, 5.seconds)
+
+      searchResponse.result.totalHits shouldBe 12
+      searchResponse.result.hits.size shouldBe 12
+    }
+
+    it("image hits read back from from Elastic search can be parsed as images") {
+      val searchResponse = Await.result(eventualSearchResponse, 5.seconds)
+
+      searchResponse.result.totalHits shouldBe 12
+      val images = searchResponse.result.hits.hits.map { h =>
+        Json.toJson(h.sourceAsString).as[Image]
+      }
+      images.size shouldBe 12
+    }
+
   }
 
   describe("Tiered API access") {
