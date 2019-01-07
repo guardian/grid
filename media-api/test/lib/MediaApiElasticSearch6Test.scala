@@ -4,8 +4,8 @@ import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
-import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
 import lib.elasticsearch.SearchParams
+import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import org.joda.time.{DateTime, DateTimeUtils}
@@ -55,23 +55,24 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
 
   describe("Native elastic search sanity checks") {
 
-    def eventualSearchResponse = client.execute (ElasticDsl.search(index) size 20)
+    val expectedNumberOfImages = images.size
+    def eventualMatchAllSearchResponse = client.execute (ElasticDsl.search(index) size expectedNumberOfImages * 2)
 
     it("images are actually persisted in Elastic search") {
-      val searchResponse = Await.result(eventualSearchResponse, 5.seconds)
+      val searchResponse = Await.result(eventualMatchAllSearchResponse, 5.seconds)
 
-      searchResponse.result.totalHits shouldBe 12
-      searchResponse.result.hits.size shouldBe 12
+      searchResponse.result.totalHits shouldBe expectedNumberOfImages
+      searchResponse.result.hits.size shouldBe expectedNumberOfImages
     }
 
-    it("image hits read back from from Elastic search can be parsed as images") {
-      val searchResponse = Await.result(eventualSearchResponse, 5.seconds)
+    it("image hits read back from Elastic search can be parsed as images") {
+      val searchResponse = Await.result(eventualMatchAllSearchResponse, 5.seconds)
 
-      searchResponse.result.totalHits shouldBe 12
-      val images = searchResponse.result.hits.hits.map { h =>
-        Json.toJson(h.sourceAsString).as[Image]
-      }
-      images.size shouldBe 12
+      val reloadedImages = searchResponse.result.hits.hits.map { h =>
+        Json.parse(h.sourceAsString).validate[Image].asOpt
+      }.flatten
+
+      reloadedImages.size shouldBe expectedNumberOfImages
     }
 
   }
