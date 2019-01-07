@@ -22,9 +22,8 @@ object filters {
   def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[Query] =
     if (from.isDefined || to.isDefined) {
       val builder = rangeQuery(field)
-      for (f <- from) builder.gt(printDateTime(f))
-      for (t <- to) builder.lt(printDateTime(t))
-      Some(builder)
+      val withFrom = from.fold(builder)(f => builder.gt(printDateTime(f)))
+      Some(to.fold(withFrom)(t => withFrom.lt(printDateTime(t))))
     } else {
       None
     }
