@@ -68,9 +68,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase {
     it("image hits read back from Elastic search can be parsed as images") {
       val searchResponse = Await.result(eventualMatchAllSearchResponse, 5.seconds)
 
-      val reloadedImages = searchResponse.result.hits.hits.map { h =>
-        Json.parse(h.sourceAsString).validate[Image].asOpt
-      }.flatten
+      val reloadedImages = searchResponse.result.hits.hits.flatMap(h => Json.parse(h.sourceAsString).validate[Image].asOpt)
 
       reloadedImages.size shouldBe expectedNumberOfImages
     }
