@@ -5,15 +5,16 @@ import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.http.search.SearchHit
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
-import play.api.libs.json.Json
-
-import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import play.api.Logger
+import play.api.libs.json.{JsError, JsSuccess, Json}
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
+
+import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields {
 
@@ -101,15 +102,18 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
 
     val query = queryFor(params)
 
-    client.execute(query).map { r =>
-      val hits = r.result.hits.hits.map { h =>
-        Try {
-          val image = Json.toJson(h.sourceAsString).as[Image]
-          (image.id, image)
-        }.toOption
-      }.toSeq.flatten
+    def resolveHit(h: SearchHit) = {
+      Json.parse(h.sourceAsString).validate[Image] match {
+        case i: JsSuccess[Image] => Some(i.value.id, i.value)
+        case e: JsError =>
+          Logger.error("Failed to parse image from elastic search hit " + h.id + ": " + e.toString)
+          None
+      }
+    }
 
-      SearchResults(hits = hits, total = r.result.totalHits)
+    client.execute(query).map { r =>
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten
+      SearchResults(hits = imageHits, total = r.result.totalHits)
     }
   }
 
