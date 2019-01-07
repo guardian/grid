@@ -74,4 +74,12 @@ object filters {
     case false => filters.missing(NonEmptyList(field))
   }
 
+  def mustWithMustNot(mustClause: FilterBuilder, mustNotClause: FilterBuilder): FilterBuilder = {
+    filters.bool.must(
+      mustClause
+    ).mustNot(
+      mustNotClause
+    )
+  }
+
 }

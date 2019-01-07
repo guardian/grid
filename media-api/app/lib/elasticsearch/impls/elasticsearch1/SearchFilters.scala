@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import lib.MediaApiConfig
-import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
+import org.elasticsearch.index.query.FilterBuilder
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
@@ -20,13 +20,12 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   val invalidFilter: Option[FilterBuilder] = config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
-  val suppliersWithExclusionsFilters: List[BoolFilterBuilder] = for {
+  val suppliersWithExclusionsFilters: List[FilterBuilder] = for {
     supplier            <- suppliersWithExclusions
     excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
   } yield {
-    filters.bool.must(
-      filters.term(usageRightsField("supplier"), supplier)
-    ).mustNot(
+    filters.mustWithMustNot(
+      filters.term(usageRightsField("supplier"), supplier),
       filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
     )
   }
