@@ -1,10 +1,11 @@
-package lib
+package lib.elasticsearch.impl.elasticsearch1
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax._
-import lib.elasticsearch.SearchParams
+import lib.elasticsearch.{ElasticSearchTestBase, SearchParams}
 import lib.elasticsearch.impls.elasticsearch1.ElasticSearch
+import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.{DateTime, DateTimeUtils}
 import play.api.Configuration
 import play.api.libs.json.Json

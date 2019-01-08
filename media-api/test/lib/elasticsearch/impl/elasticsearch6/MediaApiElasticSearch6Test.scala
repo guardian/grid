@@ -1,11 +1,12 @@
-package lib
+package lib.elasticsearch.impl.elasticsearch6
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
-import lib.elasticsearch.SearchParams
 import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
+import lib.elasticsearch.{ElasticSearchTestBase, SearchParams}
+import lib.{MediaApiConfig, MediaApiMetrics}
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import org.joda.time.{DateTime, DateTimeUtils}

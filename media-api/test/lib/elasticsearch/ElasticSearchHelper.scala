@@ -1,4 +1,4 @@
-package lib
+package lib.elasticsearch
 
 import java.net.URI
 import java.util.UUID
