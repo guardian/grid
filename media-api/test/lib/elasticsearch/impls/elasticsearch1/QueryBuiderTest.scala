@@ -45,7 +45,6 @@ class QueryBuiderTest extends FunSpec with Matchers {
       val query = queryBuilder.makeQuery(conditions)
 
       val asJson = Json.parse(query.toString)
-
       (asJson \ "bool" \\ "must").size shouldBe 1
       (asJson \ "bool" \ "must" \\ "match").size shouldBe 2
     }
