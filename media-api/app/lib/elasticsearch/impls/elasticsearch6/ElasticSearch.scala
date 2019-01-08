@@ -3,6 +3,7 @@ package lib.elasticsearch.impls.elasticsearch6
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
 import com.gu.mediaservice.model.Image
+import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.search.SearchHit
 import lib.elasticsearch._
@@ -126,5 +127,7 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
   override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = ???
 
   override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = ???
+
+  def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map { _.result.totalHits}
 
 }

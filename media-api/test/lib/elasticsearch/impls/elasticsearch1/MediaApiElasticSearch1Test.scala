@@ -1,52 +1,36 @@
-package lib.elasticsearch.impl.elasticsearch6
+package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http._
-import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
+import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{ElasticSearchTestBase, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics}
-import net.logstash.logback.marker.LogstashMarker
-import net.logstash.logback.marker.Markers.appendEntries
 import org.joda.time.{DateTime, DateTimeUtils}
-import org.scalatest.concurrent.Eventually
+import play.api.Configuration
 import play.api.libs.json.Json
-import play.api.{Configuration, Logger, MarkerContext}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
 
-class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
-
-  private val index = "images"
-  private val client = ElasticClient(ElasticProperties("http://" + "localhost" + ":" + 9206)) // TODO obtain from ES6 instance
+class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
     "es.cluster" -> "media-service-test",
-    "es.port" -> "9206",
+    "es.port" -> "9301",
     "persistence.identifier" -> "picdarUrn",
     "es.index.aliases.read" -> "readAlias")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
 
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
-
-  private val expectedNumberOfImages = images.size
-
-  private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
-  private val fiveSeconds = Duration(10, SECONDS)
+  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
 
   override def beforeAll {
     ES.ensureAliasAssigned()
-    purgeTestImages
-
     Await.ready(saveImages(images), 1.minute)
+
     // allow the cluster to distribute documents... eventual consistency!
-    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
+    Thread.sleep(5000)
 
     // mocks `DateTime.now`
     val startDate = DateTime.parse("2018-03-01")
@@ -54,29 +38,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
   }
 
   override def afterAll  {
-    purgeTestImages
+    Await.ready(deleteImages(), 5.seconds)
     DateTimeUtils.setCurrentMillisSystem()
-  }
-
-  describe("Native elastic search sanity checks") {
-
-    def eventualMatchAllSearchResponse = client.execute (ElasticDsl.search(index) size expectedNumberOfImages * 2)
-
-    it("images are actually persisted in Elastic search") {
-      val searchResponse = Await.result(eventualMatchAllSearchResponse, fiveSeconds)
-
-      searchResponse.result.totalHits shouldBe expectedNumberOfImages
-      searchResponse.result.hits.size shouldBe expectedNumberOfImages
-    }
-
-    it("image hits read back from Elastic search can be parsed as images") {
-      val searchResponse = Await.result(eventualMatchAllSearchResponse, fiveSeconds)
-
-      val reloadedImages = searchResponse.result.hits.hits.flatMap(h => Json.parse(h.sourceAsString).validate[Image].asOpt)
-
-      reloadedImages.size shouldBe expectedNumberOfImages
-    }
-
   }
 
   describe("Tiered API access") {
@@ -177,7 +140,6 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
     }
 
     it("should return 2 images if an Internal tier queries for AwaitingReviewForSyndication images") {
-      // Elastic1 implementation is returning the images with reviewed and blocked syndicationStatus
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
@@ -186,55 +148,19 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
     }
   }
 
-  private def saveImages(images: Seq[Image]) = {
-    Future.sequence(images.map { i =>
-      executeAndLog(indexInto(index, "_doc") id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
-    })
-  }
-
   private def deleteImages() = {
-    val deleteAllRequest = deleteByQuery(index, "_doc", matchAllQuery())
-    executeAndLog(deleteAllRequest, s"Deleting images")
+    ES.client.prepareDelete().setIndex("images").executeAndLog(s"Deleting index")
   }
 
-  def executeAndLog[T, U](request: T, message: String)(implicit
-                                                       functor: Functor[Future],
-                                                       executor: Executor[Future],
-                                                       handler: Handler[T, U],
-                                                       manifest: Manifest[U]): Future[Response[U]] = {
-    val start = System.currentTimeMillis()
-
-    val result = client.execute(request).transform {
-      case Success(r) =>
-        r.isSuccess match {
-          case true => Success(r)
-          case false => Failure(new RuntimeException("query response was not successful: " + r.error.reason))
-        }
-      case Failure(f) => Failure(f)
-    }
-
-    result.foreach { r =>
-      val elapsed = System.currentTimeMillis() - start
-      val markers = MarkerContext(durationMarker(elapsed))
-      Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
-    }
-
-    result.failed.foreach { e =>
-      val elapsed = System.currentTimeMillis() - start
-      val markers = MarkerContext(durationMarker(elapsed))
-      Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
-    }
-
-    result
-  }
-
-  private def durationMarker(elapsed: Long): LogstashMarker = appendEntries(Map("duration" -> elapsed).asJava)
-
-  private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
-
-  private def purgeTestImages = {
-    Await.result(deleteImages(), fiveSeconds)
-    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
+  private def saveImages(images: Seq[Image]) = {
+    Future.sequence(
+      images.map(image => {
+        ES.client.prepareIndex("images", "image")
+          .setId(image.id)
+          .setSource(Json.toJson(image).toString())
+          .executeAndLog(s"Saving test image with id ${image.id}")
+      })
+    )
   }
 
 }
