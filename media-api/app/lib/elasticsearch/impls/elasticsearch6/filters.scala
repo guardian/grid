@@ -1,6 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.searches.queries.{BoolQuery, Query}
 import org.joda.time.DateTime
@@ -38,7 +39,7 @@ object filters {
 
   def bool() = BoolQuery()
 
-  def mustNot(queries: Query*): Query = not(queries)
+  def mustNot(queries: Query*): Query = ElasticDsl.not(queries)
 
   def term(field: String, term: String): Query = termQuery(field, term)
 
@@ -54,8 +55,8 @@ object filters {
   def anyMissing(fields: NonEmptyList[String]): Query =
     fields.map(f => not(existsQuery(f)): Query).foldRight1(or(_, _))
 
-  def not2(filter: Query): Query = {
-    not(filter)
+  def not(filter: Query): Query = {
+    ElasticDsl.not(filter)
   }
 
   def mustWithMustNot(mustClause: Query, mustNotClause: Query): Query = {

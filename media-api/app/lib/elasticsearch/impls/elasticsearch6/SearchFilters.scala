@@ -43,9 +43,9 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   val hasRightsCategoryFilter: Query = filters.existsOrMissing(usageRightsField("category"), exists = true)
 
   val freeFilter: Option[Query] = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
-  val nonFreeFilter: Option[Query] = freeFilter.map(filters.not2)
+  val nonFreeFilter: Option[Query] = freeFilter.map(filters.not)
 
-  val maybeFreeFilter: Option[Query] = filterOrFilter(freeFilter, Some(filters.not2(hasRightsCategoryFilter)))
+  val maybeFreeFilter: Option[Query] = filterOrFilter(freeFilter, Some(filters.not(hasRightsCategoryFilter)))
 
   lazy val freeToUseCategories: List[String] =
     UsageRights.all.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
@@ -70,7 +70,7 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
     filters.exists(NonEmptyList(editsField("photoshoot")))
   )
 
-  val nonPersistedFilter: Query = filters.not2(persistedFilter)
+  val nonPersistedFilter: Query = filters.not(persistedFilter)
 
   def tierFilter(tier: Tier): Option[Query] = tier match {
     case Syndication => Some(syndicationFilter.statusFilter(QueuedForSyndication))
