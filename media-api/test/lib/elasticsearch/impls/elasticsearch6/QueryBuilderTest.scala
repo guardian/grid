@@ -1,14 +1,15 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
-import com.sksamuel.elastic4s.searches.queries.matches.MatchPhrase
+import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery}
 import com.sksamuel.elastic4s.searches.queries.{BoolQuery, Query}
 import lib.elasticsearch.ConditionFixtures
 import lib.querysyntax.Negation
 import org.scalatest.{FunSpec, Matchers}
 
-class QueryBuiderTest extends FunSpec with Matchers with ConditionFixtures {
+class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
   val queryBuilder = new QueryBuilder()
 
@@ -52,6 +53,17 @@ class QueryBuiderTest extends FunSpec with Matchers with ConditionFixtures {
       query.not.head.asInstanceOf[MatchPhrase].field shouldBe "afield"
       query.not.head.asInstanceOf[MatchPhrase].value shouldBe "avalue"
     }
+
+    it("word list matches should set the AND operator so that all words need to match") {
+      val query = queryBuilder.makeQuery(List(wordsMatchCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val wordsClause = query.must.head.asInstanceOf[MatchQuery]
+      wordsClause.field shouldBe "awordfield"
+      wordsClause.value shouldBe "foo bar"
+      wordsClause.operator shouldBe Some(Operator.And)
+    }
+
   }
 
   def asJsonString(query: Query) = {

@@ -6,7 +6,7 @@ import org.elasticsearch.index.query.QueryBuilders._
 import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json.Json
 
-class QueryBuiderTest extends FunSpec with Matchers with ConditionFixtures {
+class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
   val queryBuilder = new QueryBuilder(matchFields = Seq.empty)
 
@@ -24,9 +24,7 @@ class QueryBuiderTest extends FunSpec with Matchers with ConditionFixtures {
     }
 
     it("single condition should give a must query") {
-      val conditions = List(fieldPhraseMatchCondition)
-
-      val query = queryBuilder.makeQuery(conditions)
+      val query = queryBuilder.makeQuery(List(fieldPhraseMatchCondition))
 
       val asJson = Json.parse(query.toString)
       (asJson \ "bool" \\ "must").size shouldBe 1
@@ -55,6 +53,18 @@ class QueryBuiderTest extends FunSpec with Matchers with ConditionFixtures {
       (asJson \ "bool" \ "must_not" \ "match" \ "afield" \ "query").get.as[String] shouldBe "avalue"
       (asJson \ "bool" \ "must_not" \ "match" \ "afield" \ "type").get.as[String] shouldBe "phrase"
     }
+
+    it("word list matches should set the AND operator so that all words need to match") {
+      val query = queryBuilder.makeQuery(List(wordsMatchCondition))
+
+      val asJson = Json.parse(query.toString)
+
+      (asJson \ "bool" \ "must" \\ "match").size shouldBe 1
+      (asJson \ "bool" \ "must" \ "match" \ "awordfield" \ "type").get.as[String] shouldBe "boolean"
+      (asJson \ "bool" \ "must" \ "match" \ "awordfield" \ "query").get.as[String] shouldBe "foo bar"
+      (asJson \ "bool" \ "must" \ "match" \ "awordfield" \ "operator").get.as[String] shouldBe "AND"
+    }
+
   }
 
 }
