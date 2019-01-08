@@ -3,10 +3,8 @@ package lib.elasticsearch.impls.elasticsearch6
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
 import com.gu.mediaservice.model.Image
-import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.search.SearchHit
-import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.Logger
@@ -29,14 +27,16 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
 
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
+  val queryBuilder = new QueryBuilder(imagesAlias)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = ???
 
   override def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
 
-    def matchAllQuery = ElasticDsl.search(imagesAlias)
-
     def queryFor(params: SearchParams) = {
+
+      val query = queryBuilder.makeQuery(params.structuredQuery)
+
       val uploadTimeFilter  = filters.date("uploadTime", params.since, params.until)
       val lastModTimeFilter = filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
       val takenTimeFilter   = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
@@ -69,11 +69,11 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
         case false  => searchFilters.nonPersistedFilter
       }
 
-      val usageFilter: Iterable[Query] =
+      val usageFilter =
        params.usageStatus.toNel.map(status => filters.terms(usagesField("status"), status.map(_.toString))) ++
          params.usagePlatform.toNel.map(filters.terms(usagesField("platform"), _))
 
-      val syndicationStatusFilter: Option[Query] = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
+      val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
       val filterOpt = (
         metadataFilter.toList
@@ -96,8 +96,8 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
         ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
       filterOpt.map { f =>
-        matchAllQuery bool must(f)
-      }.getOrElse(matchAllQuery)
+        query bool must(f)
+      }.getOrElse(query)
     }
 
     val query = queryFor(params)
