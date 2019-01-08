@@ -79,7 +79,6 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       val query = queryBuilder.makeQuery(List(hasFieldCondition))
 
       val asJson = Json.parse(query.toString)
-      println(Json.prettyPrint(asJson))
       (asJson \ "bool" \ "must" \ "bool" \ "must" \ "filtered" \ "filter" \ "exists" \ "field").get.as[String] shouldBe  "foo"
     }
 
