@@ -7,7 +7,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import org.joda.time.DateTime
 
-trait ElasticSearchHelper { // TODO rename to fixtures
+trait Fixtures {
 
   val testUser = "yellow-giraffe@theguardian.com"
 
