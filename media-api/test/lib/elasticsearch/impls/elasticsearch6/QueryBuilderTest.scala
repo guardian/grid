@@ -4,7 +4,7 @@ import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery}
-import com.sksamuel.elastic4s.searches.queries.{BoolQuery, Query}
+import com.sksamuel.elastic4s.searches.queries.{BoolQuery, Query, RangeQuery}
 import lib.elasticsearch.ConditionFixtures
 import lib.querysyntax.Negation
 import org.scalatest.{FunSpec, Matchers}
@@ -64,6 +64,14 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       wordsClause.operator shouldBe Some(Operator.And)
     }
 
+    it("date ranges are expressed range queries which include the lower and upper bounds") {
+      val query = queryBuilder.makeQuery(List(dateMatchCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val dateRangeClause = query.must.head.asInstanceOf[RangeQuery]
+      dateRangeClause.gte shouldBe Some("2016-01-01T00:00:00.000Z")
+      dateRangeClause.lte shouldBe Some("2016-01-01T01:00:00.000Z")
+    }
   }
 
   def asJsonString(query: Query) = {

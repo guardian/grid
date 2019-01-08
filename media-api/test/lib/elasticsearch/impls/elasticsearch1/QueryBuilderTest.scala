@@ -58,13 +58,22 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       val query = queryBuilder.makeQuery(List(wordsMatchCondition))
 
       val asJson = Json.parse(query.toString)
-
       (asJson \ "bool" \ "must" \\ "match").size shouldBe 1
       (asJson \ "bool" \ "must" \ "match" \ "awordfield" \ "type").get.as[String] shouldBe "boolean"
       (asJson \ "bool" \ "must" \ "match" \ "awordfield" \ "query").get.as[String] shouldBe "foo bar"
       (asJson \ "bool" \ "must" \ "match" \ "awordfield" \ "operator").get.as[String] shouldBe "AND"
     }
 
+    it("date ranges are expressed range queries which include the lower and upper bounds") {
+      val query = queryBuilder.makeQuery(List(dateMatchCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \ "must" \\ "range").size shouldBe 1
+      (asJson \ "bool" \ "must" \ "range" \ "adatefield" \ "from").get.as[String] shouldBe "2016-01-01T00:00:00.000Z"
+      (asJson \ "bool" \ "must" \ "range" \ "adatefield" \ "to").get.as[String] shouldBe "2016-01-01T01:00:00.000Z"
+      (asJson \ "bool" \ "must" \ "range" \ "adatefield" \ "include_lower").get.as[Boolean] shouldBe true
+      (asJson \ "bool" \ "must" \ "range" \ "adatefield" \ "include_upper").get.as[Boolean] shouldBe true
+    }
   }
 
 }

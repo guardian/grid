@@ -1,5 +1,6 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.searches.queries.Query
@@ -13,14 +14,15 @@ class QueryBuilder() {
         // Force AND operator else it will only require *any* of the words, not *all*
         case Words(value)  => matchQuery(field, value).operator(Operator.AND)
         case Phrase(value) => matchPhraseQuery(field, value)
+        case DateRange(start, end) => rangeQuery(field).gte(printDateTime(start)).lte(printDateTime(end))
         case e => throw InvalidQuery(s"Cannot do single field query on $e")
       }
       case _ => throw new RuntimeException("Not implemented")
     }
   }
 
-  def makeQuery(conditions: List[Condition]): Query = conditions match {
-    case Nil => matchAllQuery()
+  def makeQuery(conditions: List[Condition]) = conditions match {
+    case Nil => matchAllQuery
     case condList => {
       val (_, normal: List[Condition]) = (
         condList collect { case n: Nested => n },
