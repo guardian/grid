@@ -74,6 +74,13 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       (asJson \ "bool" \ "must" \ "range" \ "adatefield" \ "include_lower").get.as[Boolean] shouldBe true
       (asJson \ "bool" \ "must" \ "range" \ "adatefield" \ "include_upper").get.as[Boolean] shouldBe true
     }
+
+    it("has field conditions are expressed as exists filters") {
+      val query = queryBuilder.makeQuery(List(hasFieldCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \ "must" \ "bool" \ "must" \ "filtered" \ "filter" \ "exists" \ "field").get.as[String] shouldBe  "foo"
+    }
   }
 
 }

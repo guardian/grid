@@ -1,12 +1,13 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.querysyntax._
 
-class QueryBuilder() {
+class QueryBuilder() extends ImageFields {
 
   private def makeQueryBit(condition: Match): Query = {
     condition.field match {
@@ -16,6 +17,10 @@ class QueryBuilder() {
         case Phrase(value) => matchPhraseQuery(field, value)
         case DateRange(start, end) => rangeQuery(field).gte(printDateTime(start)).lte(printDateTime(end))
         case e => throw InvalidQuery(s"Cannot do single field query on $e")
+      }
+      case HasField => condition.value match {
+        case HasValue(value) => boolQuery().filter(existsQuery(getFieldPath(value)))
+        case _ => throw InvalidQuery(s"Cannot perform booleanQuery on ${condition.value}")
       }
       case _ => throw new RuntimeException("Not implemented")
     }

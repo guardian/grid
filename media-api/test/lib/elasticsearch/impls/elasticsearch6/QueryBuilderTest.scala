@@ -4,7 +4,7 @@ import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery}
-import com.sksamuel.elastic4s.searches.queries.{BoolQuery, Query, RangeQuery}
+import com.sksamuel.elastic4s.searches.queries.{BoolQuery, ExistsQuery, Query, RangeQuery}
 import lib.elasticsearch.ConditionFixtures
 import lib.querysyntax.Negation
 import org.scalatest.{FunSpec, Matchers}
@@ -72,6 +72,16 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       dateRangeClause.gte shouldBe Some("2016-01-01T00:00:00.000Z")
       dateRangeClause.lte shouldBe Some("2016-01-01T01:00:00.000Z")
     }
+
+    it("has field conditions are expressed as exists filters") {
+      val query = queryBuilder.makeQuery(List(hasFieldCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val hasClause = query.must.head.asInstanceOf[BoolQuery]
+      hasClause.must.size shouldBe 0
+      hasClause.filters.size shouldBe 1
+      hasClause.filters.head.asInstanceOf[ExistsQuery].field shouldBe "foo"
+     }
   }
 
   def asJsonString(query: Query) = {
