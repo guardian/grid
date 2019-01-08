@@ -4,6 +4,7 @@ import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery}
+import com.sksamuel.elastic4s.searches.queries.term.TermQuery
 import com.sksamuel.elastic4s.searches.queries.{BoolQuery, ExistsQuery, Query, RangeQuery}
 import lib.elasticsearch.ConditionFixtures
 import lib.querysyntax.Negation
@@ -82,6 +83,13 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       hasClause.filters.size shouldBe 1
       hasClause.filters.head.asInstanceOf[ExistsQuery].field shouldBe "foo"
      }
+
+    it("hierarchy field phrase is expressed as a term query") {
+      val query = queryBuilder.makeQuery(List(hierarchyFieldPhraseCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      query.must.head.asInstanceOf[TermQuery].value shouldBe "foo"
+    }
   }
 
   def asJsonString(query: Query) = {

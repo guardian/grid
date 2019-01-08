@@ -13,5 +13,6 @@ trait ConditionFixtures {
   val dateRangeEnd: DateTime = dateRangeStart.plusHours(1)
   val dateMatchCondition = Match(SingleField("adatefield"), DateRange(dateRangeStart, dateRangeEnd))
   val hasFieldCondition = Match(HasField, HasValue("foo"))
+  val hierarchyFieldPhraseCondition = Match(HierarchyField, Phrase("foo"))
 
 }

@@ -18,9 +18,13 @@ class QueryBuilder() extends ImageFields {
         case DateRange(start, end) => rangeQuery(field).gte(printDateTime(start)).lte(printDateTime(end))
         case e => throw InvalidQuery(s"Cannot do single field query on $e")
       }
+      case HierarchyField => condition.value match {
+        case Phrase(value) => termQuery(getFieldPath("pathHierarchy"), value)
+        case _ => throw InvalidQuery("Cannot accept non-Phrase value for HierarchyField Match")
+      }
       case HasField => condition.value match {
         case HasValue(value) => boolQuery().filter(existsQuery(getFieldPath(value)))
-        case _ => throw InvalidQuery(s"Cannot perform booleanQuery on ${condition.value}")
+        case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
       }
       case _ => throw new RuntimeException("Not implemented")
     }

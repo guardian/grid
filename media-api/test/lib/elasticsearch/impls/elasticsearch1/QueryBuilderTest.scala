@@ -79,7 +79,16 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       val query = queryBuilder.makeQuery(List(hasFieldCondition))
 
       val asJson = Json.parse(query.toString)
+      println(Json.prettyPrint(asJson))
       (asJson \ "bool" \ "must" \ "bool" \ "must" \ "filtered" \ "filter" \ "exists" \ "field").get.as[String] shouldBe  "foo"
+    }
+
+    it("hierarchy field phrase is expressed as a term query") {
+      val query = queryBuilder.makeQuery(List(hierarchyFieldPhraseCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \\ "must").size shouldBe 1
+      (asJson \ "bool" \ "must" \ "term" \ "collections.pathHierarchy").get.as[String] shouldBe "foo"
     }
   }
 
