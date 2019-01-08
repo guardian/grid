@@ -25,6 +25,7 @@ class QueryBuilder() {
       )
 
       val query = normal.foldLeft(boolQuery) {
+        case (query, Negation(cond)    ) => query.withNot(makeQueryBit(cond))
         case (query, cond@Match(_, _)) => query.withMust(makeQueryBit(cond))
         case (query, _) => query
       }
