@@ -1,7 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Executions, ElasticSearchClient}
+import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.http.ElasticDsl
@@ -35,9 +35,15 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   val queryBuilder = new QueryBuilder(matchFields)
 
-  override def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = ???
+  override def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
+    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
+      mapImageFrom(r.result.sourceAsString, id)
+    }
+  }
 
   override def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
+
+    def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id)
 
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
@@ -130,7 +136,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     executeAndLog(searchRequest, "image search").
       toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
-      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.id, i))
       SearchResults(hits = imageHits, total = r.result.totalHits)
     }
   }
@@ -147,11 +153,11 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map { _.result.totalHits}
 
-  private def resolveHit(h: SearchHit) = {
-    Json.parse(h.sourceAsString).validate[Image] match {
-      case i: JsSuccess[Image] => Some(i.value.id, i.value)
+  private def mapImageFrom(sourceAsString: String, id: String) = {
+    Json.parse(sourceAsString).validate[Image] match {
+      case i: JsSuccess[Image] => Some(i.value)
       case e: JsError =>
-        Logger.error("Failed to parse image from elastic search hit " + h.id + ": " + e.toString)
+        Logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None
     }
   }

@@ -78,6 +78,15 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
 
   }
 
+  describe("get by id") {
+    it("can load a single image by id") {
+      val expectedImage = images.head
+      whenReady(ES.getImageById(expectedImage.id)) { r =>
+        r.get.id shouldEqual expectedImage.id
+      }
+    }
+  }
+
   describe("Tiered API access") {
     it("ES should return only rights acquired pictures with an allow syndication lease for a syndication tier search") {
       val searchParams = SearchParams(tier = Syndication)
