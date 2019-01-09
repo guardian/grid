@@ -12,15 +12,15 @@ import lib.querysyntax._
 class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
 
   // For some sad reason, there was no helpful alias for this in the ES library
-  private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery = ElasticDsl.multiMatchQuery(value).fields(fields).
-    copy(`type` = Some(MultiMatchQueryBuilderType.PHRASE)) // TODO push type set to elastic4s PR
+  private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
+    ElasticDsl.multiMatchQuery(value).fields(fields).matchType(MultiMatchQueryBuilderType.PHRASE)
 
   private def makeMultiQuery(value: Value, fields: Seq[String]): MultiMatchQuery = value match {
     case Words(value) => ElasticDsl.multiMatchQuery(value).
       fields(fields).
       operator(Operator.AND).
       analyzer(IndexSettings.enslishSStemmerAnalyzerName).
-      copy(`type` = Some(MultiMatchQueryBuilderType.CROSS_FIELDS)) // TODO push type set to elastic4s PR
+      matchType(MultiMatchQueryBuilderType.CROSS_FIELDS)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
