@@ -45,7 +45,6 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
         case HasValue(value) => boolQuery().filter(existsQuery(getFieldPath(value)))
         case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
       }
-      case _ => throw new RuntimeException("Not implemented")
     }
   }
 
