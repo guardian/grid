@@ -21,7 +21,8 @@ import scalaz.syntax.std.list._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ArgoHelpers {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient
+  with ImageFields with ArgoHelpers with MatchFields {
 
   lazy val imagesAlias = config.imagesAlias
   lazy val host = config.elasticsearchHost
@@ -33,13 +34,6 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
 
   def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] =
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt.map(_.as[Image]))
-
-  val matchFields: Seq[String] = Seq("id") ++
-    Seq("description", "title", "byline", "source", "credit", "keywords",
-      "subLocation", "city", "state", "country", "suppliersReference", "englishAnalysedCatchAll").map(metadataField) ++
-    Seq("labels").map(editsField) ++
-    config.queriableIdentifiers.map(identifierField) ++
-    Seq("restrictions").map(usageRightsField)
 
   val queryBuilder = new QueryBuilder(matchFields)
 
