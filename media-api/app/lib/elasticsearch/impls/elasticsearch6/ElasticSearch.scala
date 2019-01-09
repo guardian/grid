@@ -101,10 +101,10 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       boolQuery must(query) filter f
     }.getOrElse(query)
 
-    val searchRequest = ElasticDsl.search(imagesAlias) query withFilter
+    val searchRequest = ElasticDsl.search(imagesAlias) query withFilter from params.offset size params.length sortBy sorts.createSort(params.orderBy)
 
-    client.execute(searchRequest).map { r =>
-      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten
+    client.execute(searchRequest).map { r =>      // TODO execute and log / metrics
+    val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten
       SearchResults(hits = imageHits, total = r.result.totalHits)
     }
   }
