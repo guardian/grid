@@ -1,27 +1,25 @@
 package lib.elasticsearch.impls.elasticsearch6
 
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.searches.sort.{Sort, SortOrder}
+import com.sksamuel.elastic4s.searches.sort.{FieldSort, Sort, SortOrder}
 
 object sorts {
 
   private val UploadTimeDescending: Sort = fieldSort("uploadTime").order(SortOrder.DESC)
-  private val DateAddedToCollectionDescending: Sort = fieldSort("collections.actionData.date").order(SortOrder.DESC)
-
   private val HasDescFieldPrefix = "-(.+)".r
 
   def createSort(sortBy: Option[String]): Seq[Sort] = {
     sortBy.fold(Seq(UploadTimeDescending))(parseSortBy)
   }
 
+  // This is a special case in the elastic1 code which does not fit well as it also effects the query criteria
+  def dateAddedToCollectionDescending: Seq[Sort] = Seq(fieldSort("collections.actionData.date").order(SortOrder.DESC))
+
   private def parseSortBy(sortBy: String): Seq[Sort] = {
-    sortBy match {
-      case "dateAddedToCollection" => Seq(DateAddedToCollectionDescending)  // TODO Elastic1 code also mutates the query at this point =(
-      case _ => sortBy.split(',').toList.map {
+   sortBy.split(',').toList.map {
         case HasDescFieldPrefix(field) => fieldSort(field).order(SortOrder.DESC)
         case field => fieldSort(field).order(SortOrder.ASC)
       }
-    }
   }
 
 }

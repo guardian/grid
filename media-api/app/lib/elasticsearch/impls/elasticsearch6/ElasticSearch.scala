@@ -101,7 +101,12 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       boolQuery must(query) filter f
     }.getOrElse(query)
 
-    val searchRequest = ElasticDsl.search(imagesAlias) query withFilter from params.offset size params.length sortBy sorts.createSort(params.orderBy)
+    val sort = params.orderBy match {
+      case Some("dateAddedToCollection") => sorts.dateAddedToCollectionDescending
+      case _  => sorts.createSort(params.orderBy)
+    }
+
+    val searchRequest = ElasticDsl.search(imagesAlias) query withFilter from params.offset size params.length sortBy sort
 
     client.execute(searchRequest).map { r =>      // TODO execute and log / metrics
     val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten
