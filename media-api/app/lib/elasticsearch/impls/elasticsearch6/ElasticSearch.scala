@@ -2,6 +2,7 @@ package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Executions, ElasticSearchClient}
+import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
@@ -18,7 +19,7 @@ import scalaz.syntax.std.list._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion
-  with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields {
+  with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
 
   lazy val imagesAlias = config.imagesAlias
   lazy val host = "localhost"
@@ -127,7 +128,8 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     val searchRequest = ElasticDsl.search(imagesAlias) query withFilter from params.offset size params.length sortBy sort
 
-    executeAndLog(searchRequest, "image search").map { r => // TODO metrics
+    executeAndLog(searchRequest, "image search").
+      toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten
       SearchResults(hits = imageHits, total = r.result.totalHits)
     }
