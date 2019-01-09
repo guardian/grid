@@ -6,8 +6,7 @@ import net.logstash.logback.marker.Markers.appendEntries
 import play.api.{Logger, MarkerContext}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 trait ElasticSearch6Executions {
@@ -18,7 +17,8 @@ trait ElasticSearch6Executions {
                                                        functor: Functor[Future],
                                                        executor: Executor[Future],
                                                        handler: Handler[T, U],
-                                                       manifest: Manifest[U]): Future[Response[U]] = {
+                                                       manifest: Manifest[U],
+                                                       executionContext: ExecutionContext): Future[Response[U]] = {
     val start = System.currentTimeMillis()
 
     val result = client.execute(request).transform {
