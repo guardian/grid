@@ -6,7 +6,8 @@ import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http.search.{SearchHit, SearchResponse}
+import com.sksamuel.elastic4s.http.search.{Aggregations, SearchHit, SearchResponse}
+import com.sksamuel.elastic4s.searches.DateHistogramInterval
 import com.sksamuel.elastic4s.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
@@ -144,30 +145,42 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   override def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SupplierUsageSummary] = ???
 
-  override def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = ???
+  override def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+
+    def fromDateHistrogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.dateHistogram(name).
+      buckets.map(b => BucketResult(b.date, b.docCount))
+
+    aggregateSearch(params.field, params,
+      dateHistogramAggregation(params.field).
+        field(params.field).
+        interval(DateHistogramInterval.Month).
+        minDocCount(0), fromDateHistrogramAggregation)
+  }
 
   override def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)))
+    aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)).minDocCount(0), fromTermAggregation)
   }
 
   override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(params.field)))
+    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(params.field)).minDocCount(0), fromTermAggregation)
   }
 
-  private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.terms(name).
+    buckets.map(b => BucketResult(b.key, b.docCount))
+
+  private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     val query = queryBuilder.makeQuery(params.structuredQuery)
 
     val search = prepareSearch(query) aggregations aggregation size 0
 
     executeAndLog(search, s"$name aggregate search")
       .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("aggregate")))(_.result.took).map { r =>
-      searchResultToAggregateResponse(r.result, name)
+      searchResultToAggregateResponse(r.result, name, extract)
     }
   }
 
-  private def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String): AggregateSearchResults = {
-    val termsAggregationResult = response.aggregations.terms(aggregateName)
-    val results = termsAggregationResult.buckets.map(b => BucketResult(b.key, b.docCount))
+  private def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String, extract: (String, Aggregations) => Seq[BucketResult]): AggregateSearchResults = {
+    val results = extract(aggregateName, response.aggregations)
     AggregateSearchResults(results, results.size)
   }
 

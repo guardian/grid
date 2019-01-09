@@ -88,14 +88,23 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
   }
 
   describe("aggregations") {
+    it("can load date aggregations") {
+      val aggregateSearchParams = AggregateSearchParams(field = "uploadTime", q = None, structuredQuery = List.empty)
+
+      val results = Await.result(ES.dateHistogramAggregate(aggregateSearchParams), fiveSeconds)
+
+      results.total shouldBe 1
+      results.results.head.count shouldBe images.size
+    }
+
     it("can load metadata aggregations") {
       val aggregateSearchParams = AggregateSearchParams(field = "keywords", q = None, structuredQuery = List.empty)
 
       val results = Await.result(ES.metadataSearch(aggregateSearchParams), fiveSeconds)
 
       results.total shouldBe 2
-      results.results.find(b => b.key == "es").get.count shouldBe 12
-      results.results.find(b => b.key == "test").get.count shouldBe 12
+      results.results.find(b => b.key == "es").get.count shouldBe images.size
+      results.results.find(b => b.key == "test").get.count shouldBe images.size
     }
   }
 
