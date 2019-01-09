@@ -74,6 +74,10 @@ imageAccessor.factory('imageAccessor', function() {
         return userMetadata.data.photoshoot;
     }
 
+    function getSyndicationRights(image) {
+        return image.data.syndicationRights;
+    }
+
     return {
         readCost,
         readLabels,
@@ -87,7 +91,8 @@ imageAccessor.factory('imageAccessor', function() {
         readCollections,
         getCollectionsIds,
         getPhotoshoot,
-        readSyndicationStatus
+        readSyndicationStatus,
+        getSyndicationRights
     };
 });
 

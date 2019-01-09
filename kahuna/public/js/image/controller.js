@@ -6,6 +6,7 @@ import '../image/service';
 
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-photoshoot/gr-photoshoot';
+import '../components/gr-syndication-rights/gr-syndication-rights';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-collection-overlay/gr-collection-overlay';
 import '../components/gr-crop-image/gr-crop-image';
@@ -30,6 +31,7 @@ var image = angular.module('kahuna.image.controller', [
 
     'gr.addLabel',
     'gr.photoshoot',
+    'gr.syndicationRights',
     'gr.archiver',
     'gr.collectionOverlay',
     'gr.cropImage',

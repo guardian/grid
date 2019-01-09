@@ -32,7 +32,9 @@ imageService.factory('imageService', ['imageLogic', function(imageLogic) {
             persistedReasons: imageLogic.getPersistenceExplanation(image).join('; '),
             isStaffPhotographer: imageLogic.isStaffPhotographer(image),
             syndicationStatus: imageLogic.getSyndicationStatus(image),
-            syndicationReason: imageLogic.getSyndicationReason(image)
+            syndicationReason: imageLogic.getSyndicationReason(image),
+            hasSyndicationRights: imageLogic.hasSyndicationRights(image),
+            hasRightsAcquiredForSyndication: imageLogic.hasRightsAcquiredForSyndication(image)
         };
     }
 
