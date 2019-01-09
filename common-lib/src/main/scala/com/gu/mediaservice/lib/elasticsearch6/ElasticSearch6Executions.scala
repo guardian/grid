@@ -1,4 +1,4 @@
-package lib
+package com.gu.mediaservice.lib.elasticsearch6
 
 import com.sksamuel.elastic4s.http._
 import net.logstash.logback.marker.LogstashMarker
