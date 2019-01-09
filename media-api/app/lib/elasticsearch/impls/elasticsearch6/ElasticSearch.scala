@@ -8,6 +8,7 @@ import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.search.SearchHit
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
+import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
@@ -77,6 +78,23 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
+    // Port of special case code in elastic1 sorts. Using the dateAddedToCollection sort implies an additional filter for reasons unknown
+    val dateAddedToCollectionFilter = {
+      params.orderBy match {
+        case Some("dateAddedToCollection") => {
+          val pathHierarchyOpt = params.structuredQuery.flatMap {
+            case Match(HierarchyField, Phrase(value)) => Some(value)
+            case _ => None
+          }.headOption
+
+          pathHierarchyOpt.map { pathHierarchy =>
+            termQuery("collections.pathHierarchy", pathHierarchy)
+          }
+        }
+        case _ => None
+      }
+    }
+
     val filterOpt = (
       metadataFilter.toList
         ++ persistFilter
@@ -95,6 +113,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
         ++ hasRightsCategory
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
+        ++ dateAddedToCollectionFilter
       ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val withFilter = filterOpt.map { f =>
