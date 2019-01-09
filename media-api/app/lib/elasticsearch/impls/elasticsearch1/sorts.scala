@@ -15,13 +15,13 @@ object sorts {
     }
   }
 
-  def uploadTimeSort(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
+  private def uploadTimeSort(sortBy: Option[String])(builder: SearchRequestBuilder): SearchRequestBuilder = {
     val sorts = sortBy.fold(Seq("uploadTime" -> SortOrder.DESC))(parseSorts)
     for ((field, order) <- sorts) builder.addSort(field, order)
     builder
   }
 
-  def addedToCollectionTimeSort(query: List[Condition])(builder: SearchRequestBuilder): SearchRequestBuilder = {
+  private def addedToCollectionTimeSort(query: List[Condition])(builder: SearchRequestBuilder): SearchRequestBuilder = {
     val pathHierarchyOpt = query.map {
       case Match(HierarchyField, Phrase(value)) => Some(value)
       case _ => None
@@ -37,11 +37,11 @@ object sorts {
     builder
   }
 
-  type Field = String
+  private type Field = String
 
-  val DescField = "-(.+)".r
+  private val DescField = "-(.+)".r
 
-  def parseSorts(sortBy: String): Seq[(Field, SortOrder)] =
+  private def parseSorts(sortBy: String): Seq[(Field, SortOrder)] =
     sortBy.split(',').toList.map {
       case DescField(field) => (field, SortOrder.DESC)
       case field            => (field, SortOrder.ASC)
