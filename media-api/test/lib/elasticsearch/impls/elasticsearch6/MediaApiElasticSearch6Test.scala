@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
-import lib.elasticsearch.{ElasticSearchTestBase, SearchParams}
+import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics}
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
@@ -37,7 +37,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
   private val expectedNumberOfImages = images.size
 
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
-  private val fiveSeconds = Duration(10, SECONDS)
+  private val fiveSeconds = Duration(5, SECONDS)
 
   override def beforeAll {
     ES.ensureAliasAssigned()
@@ -84,6 +84,18 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
       whenReady(ES.getImageById(expectedImage.id)) { r =>
         r.get.id shouldEqual expectedImage.id
       }
+    }
+  }
+
+  describe("aggregations") {
+    it("can load metadata aggregations") {
+      val aggregateSearchParams = AggregateSearchParams(field = "keywords", q = None, structuredQuery = List.empty)
+
+      val results = Await.result(ES.metadataSearch(aggregateSearchParams), fiveSeconds)
+
+      results.total shouldBe 2
+      results.results.find(b => b.key == "es").get.count shouldBe 12
+      results.results.find(b => b.key == "test").get.count shouldBe 12
     }
   }
 

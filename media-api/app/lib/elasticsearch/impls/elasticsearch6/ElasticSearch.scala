@@ -6,7 +6,8 @@ import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http.search.SearchHit
+import com.sksamuel.elastic4s.http.search.{SearchHit, SearchResponse}
+import com.sksamuel.elastic4s.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
@@ -132,7 +133,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       case _  => sorts.createSort(params.orderBy)
     }
 
-    val searchRequest = ElasticDsl.search(imagesAlias) query withFilter from params.offset size params.length sortBy sort
+    val searchRequest = prepareSearch(withFilter) from params.offset size params.length sortBy sort
 
     executeAndLog(searchRequest, "image search").
       toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
@@ -145,13 +146,36 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   override def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = ???
 
-  override def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = ???
+  override def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)))
+  }
 
-  override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = ???
+  override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(params.field)))
+  }
+
+  private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    val query = queryBuilder.makeQuery(params.structuredQuery)
+
+    val search = prepareSearch(query) aggregations aggregation size 0
+
+    executeAndLog(search, s"$name aggregate search")
+      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("aggregate")))(_.result.took).map { r =>
+      searchResultToAggregateResponse(r.result, name)
+    }
+  }
+
+  private def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String): AggregateSearchResults = {
+    val termsAggregationResult = response.aggregations.terms(aggregateName)
+    val results = termsAggregationResult.buckets.map(b => BucketResult(b.key, b.docCount))
+    AggregateSearchResults(results, results.size)
+  }
 
   override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = ???
 
   def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map { _.result.totalHits}
+
+  private def prepareSearch(query: Query) = ElasticDsl.search(imagesAlias) query query
 
   private def mapImageFrom(sourceAsString: String, id: String) = {
     Json.parse(sourceAsString).validate[Image] match {

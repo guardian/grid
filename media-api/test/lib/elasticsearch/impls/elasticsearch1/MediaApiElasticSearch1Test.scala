@@ -3,7 +3,7 @@ package lib.elasticsearch.impls.elasticsearch1
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax._
-import lib.elasticsearch.{ElasticSearchTestBase, SearchParams}
+import lib.elasticsearch.{AggregateSearchParams, AggregateSearchResults, ElasticSearchTestBase, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.{DateTime, DateTimeUtils}
 import play.api.Configuration
@@ -14,6 +14,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
+
+  private val fiveSeconds = Duration(5, SECONDS)
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
     "es.cluster" -> "media-service-test",
@@ -48,6 +50,18 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
       whenReady(ES.getImageById(expectedImage.id)) { r =>
         r.get.id shouldEqual expectedImage.id
       }
+    }
+  }
+
+  describe("aggregations") {
+    it("can load metadata aggregations") {
+      val aggregateSearchParams = AggregateSearchParams(field = "keywords", q = None, structuredQuery = List.empty)
+
+      val results = Await.result(ES.metadataSearch(aggregateSearchParams), fiveSeconds)
+
+      results.total shouldBe 2
+      results.results.find(b => b.key == "es").get.count shouldBe 12
+      results.results.find(b => b.key == "test").get.count shouldBe 12
     }
   }
 
