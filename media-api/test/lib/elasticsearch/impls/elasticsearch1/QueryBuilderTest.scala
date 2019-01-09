@@ -113,6 +113,15 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       (asJson \ "bool" \ "must" \ "multi_match" \ "operator").get.as[String] shouldBe "AND"
       (asJson \ "bool" \ "must" \ "multi_match" \ "analyzer").get.as[String] shouldBe "english_s_stemmer"
     }
+
+    it("multiple field queries should query against the requested fields only") {
+      val query = queryBuilder.makeQuery(List(multipleFieldWordsCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \\ "must").size shouldBe 1
+      (asJson \ "bool" \ "must" \ "multi_match" \ "query").get.as[String] shouldBe "cats and dogs"
+      (asJson \ "bool" \ "must" \ "multi_match" \ "fields").as[JsArray].value.map(_.as[String]) shouldBe Seq("foo", "bar")
+    }
   }
 
 }

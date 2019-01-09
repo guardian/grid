@@ -114,6 +114,15 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       multiMatchClause.analyzer shouldBe Some("english_s_stemmer")
       multiMatchClause.`type` shouldBe Some(MultiMatchQueryBuilderType.CROSS_FIELDS)
     }
+
+    it("multiple field queries should query against the requested fields only") {
+      val query = queryBuilder.makeQuery(List(multipleFieldWordsCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val multiMatchClause = query.must.head.asInstanceOf[MultiMatchQuery]
+      multiMatchClause.text shouldBe "cats and dogs"
+      multiMatchClause.fields.map(_.field) shouldBe Seq("foo", "bar")
+    }
   }
 
   def asJsonString(query: Query) = {

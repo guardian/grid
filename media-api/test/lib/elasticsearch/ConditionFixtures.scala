@@ -16,4 +16,5 @@ trait ConditionFixtures {
   val hierarchyFieldPhraseCondition = Match(HierarchyField, Phrase("foo"))
   val anyFieldPhraseCondition = Match(AnyField, Phrase("cats and dogs"))
   val anyFieldWordsCondition = Match(AnyField, Words("cats dogs"))
+  val multipleFieldWordsCondition = Match(MultipleField(List("foo", "bar")), Phrase("cats and dogs"))
 }

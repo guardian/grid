@@ -12,15 +12,15 @@ import lib.querysyntax._
 class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
 
   // For some sad reason, there was no helpful alias for this in the ES library
-  private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery = ElasticDsl.multiMatchQuery(value).fields(matchFields).
-    copy(`type` = Some(MultiMatchQueryBuilderType.PHRASE))  // TODO push type set to elastic4s PR
+  private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery = ElasticDsl.multiMatchQuery(value).fields(fields).
+    copy(`type` = Some(MultiMatchQueryBuilderType.PHRASE)) // TODO push type set to elastic4s PR
 
   private def makeMultiQuery(value: Value, fields: Seq[String]): MultiMatchQuery = value match {
-    case Words(value) =>  ElasticDsl.multiMatchQuery(value).
-      fields(matchFields).
+    case Words(value) => ElasticDsl.multiMatchQuery(value).
+      fields(fields).
       operator(Operator.AND).
       analyzer(IndexSettings.enslishSStemmerAnalyzerName).
-      copy(`type` = Some(MultiMatchQueryBuilderType.CROSS_FIELDS))  // TODO push type set to elastic4s PR
+      copy(`type` = Some(MultiMatchQueryBuilderType.CROSS_FIELDS)) // TODO push type set to elastic4s PR
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
@@ -28,10 +28,11 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
 
   private def makeQueryBit(condition: Match): Query = {
     condition.field match {
-      case AnyField           => makeMultiQuery(condition.value, matchFields)
+      case AnyField => makeMultiQuery(condition.value, matchFields)
+      case MultipleField(fields) => makeMultiQuery(condition.value, fields)
       case SingleField(field) => condition.value match {
         // Force AND operator else it will only require *any* of the words, not *all*
-        case Words(value)  => matchQuery(field, value).operator(Operator.AND)
+        case Words(value) => matchQuery(field, value).operator(Operator.AND)
         case Phrase(value) => matchPhraseQuery(field, value)
         case DateRange(start, end) => rangeQuery(field).gte(printDateTime(start)).lte(printDateTime(end))
         case e => throw InvalidQuery(s"Cannot do single field query on $e")
@@ -57,7 +58,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       )
 
       val query = normal.foldLeft(boolQuery) {
-        case (query, Negation(cond)    ) => query.withNot(makeQueryBit(cond))
+        case (query, Negation(cond)) => query.withNot(makeQueryBit(cond))
         case (query, cond@Match(_, _)) => query.withMust(makeQueryBit(cond))
         case (query, _) => query
       }
