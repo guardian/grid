@@ -7,7 +7,6 @@ import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder, NestedQueryBuilder}
 
 class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
-  case class InvalidQuery(message: String) extends Exception(message)
 
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]) =
@@ -16,20 +15,20 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
   private def makeMultiQuery(value: Value, fields: Seq[String]) = value match {
     // Force AND operator else it will only require *any* of the words, not *all*
     case Words(string) => multiMatchQuery(string, fields: _*)
-                          .operator(MatchQueryBuilder.Operator.AND)
-                          .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
-                          .analyzer(IndexSettings.enslishSStemmerAnalyzerName)
+      .operator(MatchQueryBuilder.Operator.AND)
+      .`type`(MultiMatchQueryBuilder.Type.CROSS_FIELDS)
+      .analyzer(IndexSettings.enslishSStemmerAnalyzerName)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
   }
 
   private def makeQueryBit(condition: Match) = condition.field match {
-    case AnyField              => makeMultiQuery(condition.value, matchFields)
+    case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
-    case SingleField(field)    => condition.value match {
+    case SingleField(field) => condition.value match {
       // Force AND operator else it will only require *any* of the words, not *all*
-      case Words(value)  => matchQuery(field, value).operator(MatchQueryBuilder.Operator.AND)
+      case Words(value) => matchQuery(field, value).operator(MatchQueryBuilder.Operator.AND)
       case Phrase(value) => matchPhraseQuery(field, value)
       case DateRange(start, end) => rangeQuery(field).from(start.toString).to(end.toString)
       case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
@@ -45,7 +44,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
   }
 
   def makeQuery(conditions: List[Condition]) = conditions match {
-    case Nil      => matchAllQuery
+    case Nil => matchAllQuery
     case condList => {
 
       val (nested: List[Nested], normal: List[Condition]) = (
@@ -54,8 +53,8 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       )
 
       val query = normal.foldLeft(boolQuery) {
-        case (query, Negation(cond)    ) => query.mustNot(makeQueryBit(cond))
-        case (query, cond @ Match(_, _)) => query.must(makeQueryBit(cond))
+        case (query, Negation(cond)) => query.mustNot(makeQueryBit(cond))
+        case (query, cond@Match(_, _)) => query.must(makeQueryBit(cond))
         case (query, _) => query
       }
 
@@ -65,7 +64,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
           case (parent: SingleField, n: List[Nested]) => {
 
             val nested = n.foldLeft(boolQuery) {
-              case (query, Nested(_,f,v)) => query.must(makeQueryBit(Match(f,v)))
+              case (query, Nested(_, f, v)) => query.must(makeQueryBit(Match(f, v)))
               case (query, _) => query
             }
 
