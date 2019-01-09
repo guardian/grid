@@ -29,7 +29,15 @@ class ElasticSearch(config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) ex
 
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
-  val queryBuilder = new QueryBuilder()
+
+  val matchFields: Seq[String] = Seq("id") ++
+    Seq("description", "title", "byline", "source", "credit", "keywords",
+      "subLocation", "city", "state", "country", "suppliersReference", "englishAnalysedCatchAll").map(metadataField) ++
+    Seq("labels").map(editsField) ++
+    config.queriableIdentifiers.map(identifierField) ++
+    Seq("restrictions").map(usageRightsField)
+
+  val queryBuilder = new QueryBuilder(matchFields)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = ???
 

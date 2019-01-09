@@ -4,11 +4,13 @@ import lib.elasticsearch.ConditionFixtures
 import lib.querysyntax.Negation
 import org.elasticsearch.index.query.QueryBuilders._
 import org.scalatest.{FunSpec, Matchers}
-import play.api.libs.json.Json
+import play.api.libs.json.{JsArray, Json}
 
 class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
-  val queryBuilder = new QueryBuilder(matchFields = Seq.empty)
+  val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
+
+  val queryBuilder = new QueryBuilder(matchFields = matchFields)
 
   describe("Query builder") {
     it("Nil conditions parameter should give the match all query") {
@@ -88,6 +90,28 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       val asJson = Json.parse(query.toString)
       (asJson \ "bool" \\ "must").size shouldBe 1
       (asJson \ "bool" \ "must" \ "term" \ "collections.pathHierarchy").get.as[String] shouldBe "foo"
+    }
+
+    it("any field phrase queries should be applied to all of the match fields") {
+      val query = queryBuilder.makeQuery(List(anyFieldPhraseCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \\ "must").size shouldBe 1
+      (asJson \ "bool" \ "must" \ "multi_match" \ "query").get.as[String] shouldBe "cats and dogs"
+      (asJson \ "bool" \ "must" \ "multi_match" \ "fields").as[JsArray].value.map(_.as[String]) shouldBe matchFields
+      (asJson \ "bool" \ "must" \ "multi_match" \ "type").get.as[String] shouldBe "phrase"
+    }
+
+    it("any field words queries should be applied to all of the match fields with cross fields type, operator and analyzers set") {
+      val query = queryBuilder.makeQuery(List(anyFieldWordsCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \\ "must").size shouldBe 1
+      (asJson \ "bool" \ "must" \ "multi_match" \ "query").get.as[String] shouldBe "cats dogs"
+      (asJson \ "bool" \ "must" \ "multi_match" \ "fields").as[JsArray].value.map(_.as[String]) shouldBe matchFields
+      (asJson \ "bool" \ "must" \ "multi_match" \ "type").get.as[String] shouldBe "cross_fields"
+      (asJson \ "bool" \ "must" \ "multi_match" \ "operator").get.as[String] shouldBe "AND"
+      (asJson \ "bool" \ "must" \ "multi_match" \ "analyzer").get.as[String] shouldBe "english_s_stemmer"
     }
   }
 

@@ -1,16 +1,34 @@
 package lib.elasticsearch.impls.elasticsearch6
 
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.{ImageFields, IndexSettings}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.Operator
+import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.searches.queries.Query
+import com.sksamuel.elastic4s.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
 
-class QueryBuilder() extends ImageFields {
+class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
+
+  // For some sad reason, there was no helpful alias for this in the ES library
+  private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery = ElasticDsl.multiMatchQuery(value).fields(matchFields).
+    copy(`type` = Some(MultiMatchQueryBuilderType.PHRASE))  // TODO push type set to elastic4s PR
+
+  private def makeMultiQuery(value: Value, fields: Seq[String]): MultiMatchQuery = value match {
+    case Words(value) =>  ElasticDsl.multiMatchQuery(value).
+      fields(matchFields).
+      operator(Operator.AND).
+      analyzer(IndexSettings.enslishSStemmerAnalyzerName).
+      copy(`type` = Some(MultiMatchQueryBuilderType.CROSS_FIELDS))  // TODO push type set to elastic4s PR
+    case Phrase(string) => multiMatchPhraseQuery(string, fields)
+    // That's OK, we only do date queries on a single field at a time
+    case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
+  }
 
   private def makeQueryBit(condition: Match): Query = {
     condition.field match {
+      case AnyField           => makeMultiQuery(condition.value, matchFields)
       case SingleField(field) => condition.value match {
         // Force AND operator else it will only require *any* of the words, not *all*
         case Words(value)  => matchQuery(field, value).operator(Operator.AND)

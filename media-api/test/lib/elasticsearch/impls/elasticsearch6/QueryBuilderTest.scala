@@ -3,7 +3,7 @@ package lib.elasticsearch.impls.elasticsearch6
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
-import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery}
+import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
 import com.sksamuel.elastic4s.searches.queries.term.TermQuery
 import com.sksamuel.elastic4s.searches.queries.{BoolQuery, ExistsQuery, Query, RangeQuery}
 import lib.elasticsearch.ConditionFixtures
@@ -12,7 +12,9 @@ import org.scalatest.{FunSpec, Matchers}
 
 class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
-  val queryBuilder = new QueryBuilder()
+  val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
+
+  val queryBuilder = new QueryBuilder(matchFields)
 
   describe("Query builder") {
     it("Nil conditions parameter should give the match all query") {
@@ -89,6 +91,28 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
       query.must.size shouldBe 1
       query.must.head.asInstanceOf[TermQuery].value shouldBe "foo"
+    }
+
+    it("any field phrase queries should be applied to all of the match fields") {
+      val query = queryBuilder.makeQuery(List(anyFieldPhraseCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val multiMatchClause = query.must.head.asInstanceOf[MultiMatchQuery]
+      multiMatchClause.text shouldBe "cats and dogs"
+      multiMatchClause.fields.map(_.field) shouldBe matchFields
+      multiMatchClause.`type` shouldBe Some(MultiMatchQueryBuilderType.PHRASE)
+    }
+
+    it("any field words queries should be applied to all of the match fields with cross fields type, operator and analyzers set") {
+      val query = queryBuilder.makeQuery(List(anyFieldWordsCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val multiMatchClause = query.must.head.asInstanceOf[MultiMatchQuery]
+      multiMatchClause.text shouldBe "cats dogs"
+      multiMatchClause.fields.map(_.field) shouldBe matchFields
+      multiMatchClause.operator shouldBe Some(Operator.AND)
+      multiMatchClause.analyzer shouldBe Some("english_s_stemmer")
+      multiMatchClause.`type` shouldBe Some(MultiMatchQueryBuilderType.CROSS_FIELDS)
     }
   }
 

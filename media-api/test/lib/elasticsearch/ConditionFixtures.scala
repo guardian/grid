@@ -14,5 +14,6 @@ trait ConditionFixtures {
   val dateMatchCondition = Match(SingleField("adatefield"), DateRange(dateRangeStart, dateRangeEnd))
   val hasFieldCondition = Match(HasField, HasValue("foo"))
   val hierarchyFieldPhraseCondition = Match(HierarchyField, Phrase("foo"))
-
+  val anyFieldPhraseCondition = Match(AnyField, Phrase("cats and dogs"))
+  val anyFieldWordsCondition = Match(AnyField, Words("cats dogs"))
 }
