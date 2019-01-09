@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import lib.querysyntax._
+import lib.querysyntax.{Nested, _}
 import org.joda.time.{DateTime, DateTimeZone}
 
 trait ConditionFixtures {
@@ -12,9 +12,14 @@ trait ConditionFixtures {
   val dateRangeStart: DateTime = new DateTime(2016, 1, 1, 0, 0).withZone(DateTimeZone.UTC)
   val dateRangeEnd: DateTime = dateRangeStart.plusHours(1)
   val dateMatchCondition = Match(SingleField("adatefield"), DateRange(dateRangeStart, dateRangeEnd))
+
   val hasFieldCondition = Match(HasField, HasValue("foo"))
   val hierarchyFieldPhraseCondition = Match(HierarchyField, Phrase("foo"))
   val anyFieldPhraseCondition = Match(AnyField, Phrase("cats and dogs"))
   val anyFieldWordsCondition = Match(AnyField, Words("cats dogs"))
   val multipleFieldWordsCondition = Match(MultipleField(List("foo", "bar")), Phrase("cats and dogs"))
+
+  val nestedCondition: Condition = Nested(SingleField("usages"), SingleField("usages.status"), Words("pending"))
+  val anotherNestedCondition: Condition = Nested(SingleField("something"), SingleField("something.field"), Phrase("dogs"))
+
 }

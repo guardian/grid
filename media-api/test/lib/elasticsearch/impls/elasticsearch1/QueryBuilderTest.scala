@@ -122,6 +122,25 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       (asJson \ "bool" \ "must" \ "multi_match" \ "query").get.as[String] shouldBe "cats and dogs"
       (asJson \ "bool" \ "must" \ "multi_match" \ "fields").as[JsArray].value.map(_.as[String]) shouldBe Seq("foo", "bar")
     }
+
+    it("nested queries should be expressed using nested queries") {
+      val query = queryBuilder.makeQuery(List(nestedCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \ "must" \ "nested" \ "query").isDefined shouldBe true
+      (asJson \ "bool" \ "must" \ "nested" \ "query" \ "bool" \ "must" \ "match" \ "usages.status").isDefined shouldBe true
+      (asJson \ "bool" \ "must" \ "nested" \ "query" \ "bool" \ "must" \ "match" \ "usages.status" \ "query").get.as[String]  shouldBe "pending"
+      (asJson \ "bool" \ "must" \ "nested" \ "query" \ "bool" \ "must" \ "match" \ "usages.status" \ "type").get.as[String]  shouldBe "boolean"
+      (asJson \ "bool" \ "must" \ "nested" \ "query" \ "bool" \ "must" \ "match" \ "usages.status" \ "operator").get.as[String]  shouldBe "AND"
+    }
+
+    it("multiple nested queries result in multiple must clauses") {
+      val query = queryBuilder.makeQuery(List(nestedCondition, anotherNestedCondition))
+
+      val asJson = Json.parse(query.toString)
+      (asJson \ "bool" \ "must").get.as[JsArray].value.size shouldBe 2
+      (asJson \ "bool" \ "must" \\ "nested").size shouldBe 2
+    }
   }
 
 }

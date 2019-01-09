@@ -51,7 +51,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery
     case condList => {
-      val (_, normal: List[Condition]) = (
+      val (nested, normal: List[Condition]) = (
         condList collect { case n: Nested => n },
         condList collect { case c: Condition => c }
       )
@@ -62,7 +62,24 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
         case (query, _) => query
       }
 
-      query
+      val nestedQueries: List[Query] = nested
+        .groupBy(_.parentField)
+        .map {
+          case (parent: SingleField, n: List[Nested]) => {
+
+            val nested = n.foldLeft(boolQuery) {
+              case (query, Nested(_, f, v)) => query.withMust(makeQueryBit(Match(f, v)))
+              case (query, _) => query
+            }
+
+            nestedQuery(parent.name, nested)
+          }
+
+          case _ => throw InvalidQuery("Can only accept SingleField for Nested Query parent")
+
+        }.toList
+
+      nestedQueries.foldLeft(query) { case (q, nestedQ) => q.withMust(nestedQ) }
     }
   }
 
