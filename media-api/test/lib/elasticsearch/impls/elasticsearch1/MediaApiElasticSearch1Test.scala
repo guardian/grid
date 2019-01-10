@@ -6,6 +6,9 @@ import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics}
+import org.elasticsearch.action.delete.DeleteRequest
+import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.index.query.QueryBuilders
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import play.api.Configuration
@@ -20,11 +23,13 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   private val fiveSeconds = Duration(5, SECONDS)
 
+  private val imageAlias = "readAlias"
+
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
     "es.cluster" -> "media-service-test",
     "es.port" -> "9301",
     "persistence.identifier" -> "picdarUrn",
-    "es.index.aliases.read" -> "readAlias")))
+    "es.index.aliases.read" -> imageAlias)))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
 
@@ -194,14 +199,10 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
     }
   }
 
-  private def deleteImages() = {
-    ES.client.prepareDelete().setIndex("images").executeAndLog(s"Deleting index")
-  }
-
   private def saveImages(images: Seq[Image]) = {
     Future.sequence(
       images.map(image => {
-        ES.client.prepareIndex("images", "image")
+        ES.client.prepareIndex(imageAlias, "image")
           .setId(image.id)
           .setSource(Json.toJson(image).toString())
           .executeAndLog(s"Saving test image with id ${image.id}")
@@ -212,7 +213,20 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
   private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
 
   private def purgeTestImages = {
-    Await.ready(deleteImages(), 5.seconds)
+    def deleteImages() = {
+      def scroll = ES.client.prepareSearch(imageAlias)
+        .setScroll(new TimeValue(60000))
+        .setQuery(QueryBuilders.matchAllQuery())
+        .setSize(20).execute().actionGet()
+
+      var scrollResp = scroll
+      while (scrollResp.getHits.getHits.length > 0) {
+        scrollResp.getHits.getHits.map(h => ES.client.delete(new DeleteRequest(imageAlias, "image", h.getId)))
+        scrollResp = scroll
+      }
+    }
+
+    deleteImages()
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
   }
 
