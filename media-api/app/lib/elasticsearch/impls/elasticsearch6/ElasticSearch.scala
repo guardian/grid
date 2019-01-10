@@ -205,7 +205,20 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     AggregateSearchResults(results, results.size)
   }
 
-  override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = ???
+  override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
+    val completionSuggestion = ElasticDsl.completionSuggestion(name).on(name).text(q)
+    executeAndLog(ElasticDsl.search(imagesAlias) suggestions completionSuggestion, "completion suggestion query").
+      toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>
+      val x = r.result.suggestions.get(name).map { suggestions =>
+        suggestions.flatMap { s =>
+          s.toCompletion.options.map { o =>
+            CompletionSuggestionResult(o.text, o.score.toFloat)
+          }
+        }
+      }.getOrElse(Seq.empty)
+      CompletionSuggestionResults(x.toList)
+    }
+  }
 
   def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map { _.result.totalHits}
 
