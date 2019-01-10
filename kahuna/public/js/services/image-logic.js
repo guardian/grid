@@ -84,6 +84,20 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         }
     }
 
+    function hasSyndicationRights(image) {
+        const syndicationRights = imageAccessor.getSyndicationRights(image);
+        return typeof syndicationRights === 'object' && syndicationRights !== null;
+    }
+
+    function hasRightsAcquiredForSyndication(image) {
+        const syndicationRights = imageAccessor.getSyndicationRights(image);
+        return (
+            syndicationRights &&
+            syndicationRights.rights &&
+            syndicationRights.rights.filter(r => r.acquired).length > 0
+        );
+    }
+
     return {
         canBeDeleted,
         canBeArchived,
@@ -91,7 +105,9 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
         getPersistenceExplanation,
         isStaffPhotographer,
         getSyndicationStatus,
-        getSyndicationReason
+        getSyndicationReason,
+        hasSyndicationRights,
+        hasRightsAcquiredForSyndication
     };
 }]);
 
