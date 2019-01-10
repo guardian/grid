@@ -10,7 +10,8 @@ object PermissionDeniedError extends Throwable("Permission denied")
 trait PermissionsHandler {
   def config: CommonConfig
 
-  private val permissions = PermissionsProvider(PermissionsConfig(config.stage, config.awsRegion, config.awsCredentials))
+  private val permissionsStage = if(config.stage == "PROD") { "PROD" } else { "CODE" }
+  private val permissions = PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion, config.awsCredentials))
 
   def storeIsEmpty: Boolean = {
     permissions.storeIsEmpty
