@@ -30,16 +30,16 @@ object SupplierUsageQuota {
   )(SupplierUsageQuota.apply _)
 }
 
-case class SupplierUsageSummary(agency: Agency, count: Int)
+case class SupplierUsageSummary(agency: Agency, count: Long)
 object SupplierUsageSummary {
   implicit val customReads: Reads[SupplierUsageSummary] = (
     (__ \ "Supplier").read[String].map(Agency(_)) ~
-    (__ \ "Usage").read[Int]
+    (__ \ "Usage").read[Long]
   )(SupplierUsageSummary.apply _)
 
   implicit val writes: Writes[SupplierUsageSummary] = (
     (__ \ "agency").write[String].contramap((a: Agency) => a.supplier) ~
-    (__ \ "count").write[Int]
+    (__ \ "count").write[Long]
   )(unlift(SupplierUsageSummary.unapply))
 }
 

@@ -3,7 +3,7 @@ package lib.elasticsearch.impls.elasticsearch6
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.model.{Agencies, Image}
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.search.{Aggregations, SearchHit, SearchResponse}
@@ -143,7 +143,28 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
   }
 
-  override def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SupplierUsageSummary] = ???
+  override def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SupplierUsageSummary] = {
+    val supplier = Agencies.get(id)
+    val supplierName = supplier.supplier
+
+    val bePublished = termQuery("usages.status","published")
+    val beInLastPeriod = rangeQuery("usages.dateAdded")
+      .gte(s"now-${numDays}d/d")
+      .lt("now/d")
+
+    val haveUsageInLastPeriod = boolQuery.must(bePublished, beInLastPeriod)
+
+    val beSupplier = termQuery("usageRights.supplier", supplierName)
+    val haveNestedUsage = nestedQuery("usages", haveUsageInLastPeriod)
+
+    val query = boolQuery.must(matchAllQuery()).filter(boolQuery().must(beSupplier, haveNestedUsage))
+
+    val search = prepareSearch(query) size 0
+
+    executeAndLog(search, s"$id usage search").map { r =>
+      SupplierUsageSummary(supplier, r.result.hits.total)
+    }
+  }
 
   override def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
 

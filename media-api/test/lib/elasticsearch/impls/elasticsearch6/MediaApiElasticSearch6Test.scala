@@ -3,12 +3,14 @@ package lib.elasticsearch.impls.elasticsearch6
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Executions
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics}
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
+import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import play.api.Configuration
 import play.api.libs.json.Json
@@ -49,7 +51,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
   }
 
   override def afterAll  {
-    purgeTestImages
+    //purgeTestImages
   }
 
   describe("Native elastic search sanity checks") {
@@ -79,6 +81,22 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       whenReady(ES.getImageById(expectedImage.id)) { r =>
         r.get.id shouldEqual expectedImage.id
       }
+    }
+  }
+
+  describe("usages for supplier") {
+    it("can count published agency images within the last number of days") {
+      val publishedAgencyImages = images.filter(i => i.usageRights.isInstanceOf[Agency] && i.usages.exists(_.status == PublishedUsageStatus))
+      publishedAgencyImages.size shouldBe 2
+
+      // Reporting date range is implemented as round down to last full day
+      val withinReportedDateRange = publishedAgencyImages.filter(i => i.usages.
+        exists(u => u.dateAdded.exists(_.isBefore(DateTime.now.withTimeAtStartOfDay()))))
+      withinReportedDateRange.size shouldBe 1
+
+      val results = Await.result(ES.usageForSupplier("ACME", 5), fiveSeconds)
+
+      results.count shouldBe 1
     }
   }
 
