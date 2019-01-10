@@ -186,6 +186,8 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(BlockedForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
+        result.hits.forall(h => h._2.leases.leases.nonEmpty) shouldBe true
+        result.hits.forall(h => h._2.leases.leases.forall(l => l.access == DenySyndicationLease)) shouldBe true
         result.total shouldBe 3
       }
     }
