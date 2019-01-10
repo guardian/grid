@@ -2,10 +2,11 @@ package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics}
-import org.joda.time.{DateTime, DateTimeUtils}
+import org.joda.time.DateTime
 import play.api.Configuration
 import play.api.libs.json.Json
 
@@ -33,15 +34,10 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
 
     // allow the cluster to distribute documents... eventual consistency!
     Thread.sleep(5000)
-
-    // mocks `DateTime.now`
-    val startDate = DateTime.parse("2018-03-01")
-    DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
   }
 
   override def afterAll  {
     Await.ready(deleteImages(), 5.seconds)
-    DateTimeUtils.setCurrentMillisSystem()
   }
 
   describe("get by id") {
@@ -50,6 +46,22 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
       whenReady(ES.getImageById(expectedImage.id)) { r =>
         r.get.id shouldEqual expectedImage.id
       }
+    }
+  }
+
+  describe("usages for supplier") {
+    it("can count published agency images within the last number of days") {
+      val publishedAgencyImages = images.filter(i => i.usageRights.isInstanceOf[Agency] && i.usages.exists(_.status == PublishedUsageStatus))
+      publishedAgencyImages.size shouldBe 2
+
+      // Reporting date range is implemented as round down to last full day
+      val withinReportedDateRange = publishedAgencyImages.filter(i => i.usages.
+        exists(u => u.dateAdded.exists(_.isBefore(DateTime.now.withTimeAtStartOfDay()))))
+      withinReportedDateRange.size shouldBe 1
+
+      val results = Await.result(ES.usageForSupplier("ACME", 5), fiveSeconds)
+
+      results.count shouldBe 1
     }
   }
 

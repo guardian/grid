@@ -3,13 +3,15 @@ package lib.elasticsearch
 import java.net.URI
 import java.util.UUID
 
-import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
+import com.gu.mediaservice.model.{StaffPhotographer, _}
 import org.joda.time.DateTime
 
 trait Fixtures {
 
   val testUser = "yellow-giraffe@theguardian.com"
+  val staffPhotographer = StaffPhotographer("Tom Jenkins", "The Guardian")
+  val agency = Agency("ACME")
 
   def createImage(
                    id: String,
@@ -56,7 +58,8 @@ trait Fixtures {
     rightsAcquired: Boolean,
     rcsPublishDate: Option[DateTime],
     lease: Option[MediaLease],
-    usages: List[Usage] = Nil
+    usages: List[Usage] = Nil,
+    usageRights: UsageRights = staffPhotographer
   ): Image = {
     val rights = List(
       Right("test", Some(rightsAcquired), Nil)
@@ -69,7 +72,7 @@ trait Fixtures {
       leases = List(l)
     ))
 
-    createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), leaseByMedia, usages)
+    createImage(id, usageRights, Some(syndicationRights), leaseByMedia, usages)
   }
 
   def createSyndicationLease(allowed: Boolean, imageId: String, startDate: Option[DateTime] = None, endDate: Option[DateTime] = None): MediaLease = {
@@ -84,24 +87,24 @@ trait Fixtures {
     )
   }
 
-  def createSyndicationUsage(): Usage = {
-    createUsage(SyndicationUsageReference, SyndicationUsage, SyndicatedUsageStatus)
+  def createSyndicationUsage(date: DateTime = DateTime.now): Usage = {
+    createUsage(SyndicationUsageReference, SyndicationUsage, SyndicatedUsageStatus, date)
   }
 
-  def createDigitalUsage(): Usage = {
-    createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus)
+  def createDigitalUsage(date: DateTime = DateTime.now): Usage = {
+    createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, date)
   }
 
-  private def createUsage(t: UsageReferenceType, usageType: UsageType, status: Status): Usage = {
+  private def createUsage(t: UsageReferenceType, usageType: UsageType, status: Status, date: DateTime): Usage = {
     Usage(
       UUID.randomUUID().toString,
       List(UsageReference(t)),
       usageType,
       "image",
       status,
-      Some(DateTime.now()),
+      dateAdded = Some(date),
       None,
-      DateTime.now()
+      lastModified = date
     )
   }
 

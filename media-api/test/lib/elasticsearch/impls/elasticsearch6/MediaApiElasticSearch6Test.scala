@@ -8,7 +8,6 @@ import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchPa
 import lib.{MediaApiConfig, MediaApiMetrics}
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
-import org.joda.time.{DateTime, DateTimeUtils}
 import org.scalatest.concurrent.Eventually
 import play.api.libs.json.Json
 import play.api.{Configuration, Logger, MarkerContext}
@@ -46,15 +45,10 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
     Await.ready(saveImages(images), 1.minute)
     // allow the cluster to distribute documents... eventual consistency!
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
-
-    // mocks `DateTime.now`
-    val startDate = DateTime.parse("2018-03-01")
-    DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
   }
 
   override def afterAll  {
     purgeTestImages
-    DateTimeUtils.setCurrentMillisSystem()
   }
 
   describe("Native elastic search sanity checks") {

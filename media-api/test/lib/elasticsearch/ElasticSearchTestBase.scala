@@ -85,7 +85,27 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     ),
 
     // no rights acquired, not available for syndication
-    createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = false, None, None)
+    createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = false, None, None),
+
+    // Agency image with published usage yesterday
+    createImageForSyndication(
+      id = "test-image-9",
+      rightsAcquired = true,
+      None,
+      Some(createSyndicationLease(allowed = false, "test-image-9")),
+      usageRights = agency,
+      usages = List(createDigitalUsage(date = DateTime.now.minusDays(1)))
+    ),
+
+    // Agency image with published usage yesterday
+    createImageForSyndication(
+      id = "test-image-10",
+      rightsAcquired = true,
+      None,
+      Some(createSyndicationLease(allowed = false, "test-image-10")),
+      usageRights = agency,
+      usages = List(createDigitalUsage(date = DateTime.now))
+    )
   )
 
 }
