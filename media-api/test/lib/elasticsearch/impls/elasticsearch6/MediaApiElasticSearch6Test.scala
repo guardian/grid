@@ -1,6 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Executions
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
@@ -9,19 +10,18 @@ import lib.{MediaApiConfig, MediaApiMetrics}
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import org.scalatest.concurrent.Eventually
+import play.api.Configuration
 import play.api.libs.json.Json
-import play.api.{Configuration, Logger, MarkerContext}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
 
-class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
+class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearch6Executions {
+
 
   private val index = "images"
-  private val client = ElasticClient(ElasticProperties("http://" + "localhost" + ":" + 9206)) // TODO obtain from ES6 instance
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
     "es.cluster" -> "media-service-test",
@@ -32,6 +32,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
+  val client = ElasticClient(ElasticProperties("http://" + "localhost" + ":" + 9206)) // TODO obtain from ES6 instance
 
   private val expectedNumberOfImages = images.size
 
@@ -215,48 +216,13 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually {
     })
   }
 
-  private def deleteImages() = {
-    val deleteAllRequest = deleteByQuery(index, "_doc", matchAllQuery())
-    executeAndLog(deleteAllRequest, s"Deleting images")
-  }
-
-  def executeAndLog[T, U](request: T, message: String)(implicit
-                                                       functor: Functor[Future],
-                                                       executor: Executor[Future],
-                                                       handler: Handler[T, U],
-                                                       manifest: Manifest[U]): Future[Response[U]] = {
-    val start = System.currentTimeMillis()
-
-    val result = client.execute(request).transform {
-      case Success(r) =>
-        r.isSuccess match {
-          case true => Success(r)
-          case false => Failure(new RuntimeException("query response was not successful: " + r.error.reason))
-        }
-      case Failure(f) => Failure(f)
-    }
-
-    result.foreach { r =>
-      val elapsed = System.currentTimeMillis() - start
-      val markers = MarkerContext(durationMarker(elapsed))
-      Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
-    }
-
-    result.failed.foreach { e =>
-      val elapsed = System.currentTimeMillis() - start
-      val markers = MarkerContext(durationMarker(elapsed))
-      Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
-    }
-
-    result
-  }
-
   private def durationMarker(elapsed: Long): LogstashMarker = appendEntries(Map("duration" -> elapsed).asJava)
 
   private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
 
   private def purgeTestImages = {
-    Await.result(deleteImages(), fiveSeconds)
+    def deleteImages = executeAndLog(deleteByQuery(index, "_doc", matchAllQuery()), s"Deleting images")
+    Await.result(deleteImages, fiveSeconds)
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
   }
 
