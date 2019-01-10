@@ -207,6 +207,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       }
   }
 
+  def totalImages()(implicit ex: ExecutionContext): Future[Long] = prepareImagesSearch.setSize(0).
+    executeAndLog("total images").map(_.getHits.totalHits())
+
   private def completionSuggestionBuilder(name: String) = new CompletionSuggestionBuilder(name)
 
   private def searchResultToAggregateResponse(response: SearchResponse, aggregateName: String) = {

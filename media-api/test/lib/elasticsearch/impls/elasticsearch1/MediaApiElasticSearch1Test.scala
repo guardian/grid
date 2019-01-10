@@ -7,6 +7,7 @@ import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
+import org.scalatest.concurrent.Eventually
 import play.api.Configuration
 import play.api.libs.json.Json
 
@@ -14,8 +15,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
+class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
 
+  private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   private val fiveSeconds = Duration(5, SECONDS)
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
@@ -37,7 +39,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
   }
 
   override def afterAll  {
-    Await.ready(deleteImages(), 5.seconds)
+    purgeTestImages
   }
 
   describe("get by id") {
@@ -205,6 +207,13 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase {
           .executeAndLog(s"Saving test image with id ${image.id}")
       })
     )
+  }
+
+  private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
+
+  private def purgeTestImages = {
+    Await.ready(deleteImages(), 5.seconds)
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
   }
 
 }
