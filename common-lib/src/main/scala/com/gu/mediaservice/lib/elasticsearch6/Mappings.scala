@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch6
 
+import com.gu.mediaservice.lib.elasticsearch.Mappings.nonAnalysedList
 import com.sksamuel.elastic4s.http.ElasticDsl.{mapping, _}
 import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
 import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField}
@@ -69,6 +70,8 @@ object Mappings {
     standardAnalysed("suppliersReference").copyTo("metadata.englishAnalysedCatchAll"),
     keywordField("source").copyTo("metadata.englishAnalysedCatchAll"),
     nonAnalysedList("keywords").copyTo("metadata.englishAnalysedCatchAll"),
+    nonAnalysedList("subject"),
+    keywordField("specialInstructions"),
     standardAnalysed("subLocation").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("city").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("state").copyTo("metadata.englishAnalysedCatchAll"),
