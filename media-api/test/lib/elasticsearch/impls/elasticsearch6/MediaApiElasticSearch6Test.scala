@@ -51,7 +51,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
   }
 
   override def afterAll  {
-    //purgeTestImages
+    purgeTestImages
   }
 
   describe("Native elastic search sanity checks") {
