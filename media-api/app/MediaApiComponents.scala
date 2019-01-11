@@ -2,6 +2,7 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
+import lib.elasticsearch.ElasticSearchVersion
 import lib.elasticsearch.impls.elasticsearch1.ElasticSearch
 import play.api.ApplicationLoader.Context
 import router.Routes
@@ -14,7 +15,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val notifications = new Notifications(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
-  val elasticSearch = new ElasticSearch(config, mediaApiMetrics)
+  val elasticSearch: ElasticSearchVersion = new ElasticSearch(config, mediaApiMetrics)
   elasticSearch.ensureAliasAssigned()
 
   val s3Client = new S3Client(config)

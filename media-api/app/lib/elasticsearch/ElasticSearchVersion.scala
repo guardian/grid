@@ -7,6 +7,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait ElasticSearchVersion {
 
+  def ensureAliasAssigned()
+
   def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]]
 
   def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults]
