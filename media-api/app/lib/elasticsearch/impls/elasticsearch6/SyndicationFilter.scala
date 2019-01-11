@@ -34,7 +34,7 @@ class SyndicationFilter(config: MediaApiConfig) {
   )
 
   private val hasSyndicationUsage: Query = filters.term(
-    "usages.platform",
+    "usagesPlatform",
     SyndicationUsage.toString
   )
 

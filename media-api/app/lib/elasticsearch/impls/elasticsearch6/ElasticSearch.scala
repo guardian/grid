@@ -82,8 +82,8 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
 
     val usageFilter =
-     params.usageStatus.toNel.map(status => filters.terms(usagesField("status"), status.map(_.toString))) ++
-       params.usagePlatform.toNel.map(filters.terms(usagesField("platform"), _))
+     params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))) ++
+       params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _))
 
     val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
@@ -190,8 +190,8 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     buckets.map(b => BucketResult(b.key, b.docCount))
 
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+    Logger.info("aggregate search: " + name + " / " + params + " / " + aggregation)
     val query = queryBuilder.makeQuery(params.structuredQuery)
-
     val search = prepareSearch(query) aggregations aggregation size 0
 
     executeAndLog(search, s"$name aggregate search")

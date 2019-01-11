@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.elasticsearch6
 
 import com.sksamuel.elastic4s.http.ElasticDsl.{mapping, _}
 import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
-import com.sksamuel.elastic4s.mappings.{MappingDefinition, ObjectField}
+import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField}
 import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
@@ -37,7 +37,9 @@ object Mappings {
         uploadInfoMapping("uploadInfo"),
         simpleSuggester("suggestMetadataCredit"),
         usagesMapping("usages"),
-        dateField("usagesLastModified"),
+        keywordField("usagesPlatform"),
+        keywordField("usagesStatus"),  // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
+        dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections")
       ).dynamicTemplates(Seq(storedJsonObjectTemplate))
@@ -219,15 +221,14 @@ object Mappings {
     keywordField("front")
   )
 
-  def usagesMapping(name: String): ObjectField = nonDynamicObjectField(name).
-    includeInAll(true). // TODO not properly understood
+  def usagesMapping(name: String): NestedField = nestedField(name).
     fields(
     keywordField("id"),
     sStemmerAnalysed("title"),
     usageReference("references"),
-    keywordField("platform"),
+    keywordField("platform").copyTo("usagesPlatform"),
     keywordField("media"),
-    keywordField("status"),
+    keywordField("status").copyTo("usagesStatus"),
     dateField("dateAdded"),
     dateField("dateRemoved"),
     dateField("lastModified"),
@@ -256,6 +257,8 @@ object Mappings {
   )
 
   private def nonDynamicObjectField(name: String) = ObjectField(name).dynamic("strict")
+
+  private def nestedField(name: String) = NestedField(name).dynamic("strict") // ES1 include_in_parent needs to be emulated with field bby field copy_tos
 
   private def dynamicObj(name: String) = objectField(name).dynamic(true)
 
