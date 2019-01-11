@@ -25,13 +25,10 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
   private val index = "images"
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9206",
-    "persistence.identifier" -> "picdarUrn",
-    "es.index.aliases.read" -> "readAlias")))
+    "persistence.identifier" -> "picdarUrn")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearch6Config(writeAlias = "readAlias", host = "localhost", port = 9301,
+  val elasticConfig = ElasticSearch6Config(writeAlias = "readAlias", host = "localhost", port = 9206,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
