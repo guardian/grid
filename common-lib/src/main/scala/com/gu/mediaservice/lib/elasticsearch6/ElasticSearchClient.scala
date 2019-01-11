@@ -72,7 +72,7 @@ trait ElasticSearchClient {
   }
 
   def createImageIndex(index: String): Unit = {
-    Logger.info(s"Creating image index $index")
+    Logger.info(s"Creating image index '$index' with $shards shards and $replicas replicas")
 
     val eventualCreateIndexResponse: Future[Response[CreateIndexResponse]] = client.execute {
       createIndex(index).
