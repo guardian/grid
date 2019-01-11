@@ -1,6 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.gu.mediaservice.syntax._
@@ -26,14 +27,13 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
   private val imageAlias = "readAlias"
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
     "persistence.identifier" -> "picdarUrn",
-    "es.index.aliases.read" -> imageAlias)))
+  )))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
+  val elasticConfig = ElasticSearchConfig(writeAlias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
 
-  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
+  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
 
   override def beforeAll {
     ES.ensureAliasAssigned()

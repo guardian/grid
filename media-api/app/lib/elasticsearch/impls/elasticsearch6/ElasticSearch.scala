@@ -1,7 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Executions, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Image}
 import com.sksamuel.elastic4s.http.ElasticDsl
@@ -20,17 +20,15 @@ import scalaz.syntax.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion
   with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
 
-  lazy val imagesAlias = config.imagesAlias
-  lazy val host = "localhost"
-  lazy val port = 9206
-  lazy val cluster = "media-service"
-
-  // TODO These should not be required for a read only client
-  lazy val shards = 1
-  lazy val replicas = 0
+  lazy val imagesAlias = elasticConfig.writeAlias
+  lazy val host = elasticConfig.host
+  lazy val port = elasticConfig.port
+  lazy val cluster = elasticConfig.cluster
+  lazy val shards = elasticConfig.shards
+  lazy val replicas = elasticConfig.replicas
 
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)

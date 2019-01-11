@@ -1,7 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ImageFields}
 import com.gu.mediaservice.model.{Agencies, Image}
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch._
@@ -21,13 +21,13 @@ import scalaz.syntax.std.list._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics) extends ElasticSearchVersion with ElasticSearchClient
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig) extends ElasticSearchVersion with ElasticSearchClient
   with ImageFields with ArgoHelpers with MatchFields {
 
-  lazy val imagesAlias = config.imagesAlias
-  lazy val host = config.elasticsearchHost
-  lazy val port = config.int("es.port")
-  lazy val cluster = config("es.cluster")
+  lazy val imagesAlias = elasticConfig.writeAlias
+  lazy val host = elasticConfig.host
+  lazy val port = elasticConfig.port
+  lazy val cluster = elasticConfig.cluster
   lazy val clientTransportSniff = true
 
   val searchFilters = new SearchFilters(config)

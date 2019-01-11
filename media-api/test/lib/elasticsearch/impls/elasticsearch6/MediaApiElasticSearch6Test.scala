@@ -1,7 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Executions
+import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
@@ -22,7 +22,6 @@ import scala.concurrent.{Await, Future}
 
 class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearch6Executions {
 
-
   private val index = "images"
 
   private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
@@ -32,8 +31,10 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     "es.index.aliases.read" -> "readAlias")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
+  val elasticConfig = ElasticSearch6Config(writeAlias = "readAlias", host = "localhost", port = 9301,
+    cluster = "media-service-test", shards = 1, replicas = 0)
 
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics)
+  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
   val client = ElasticClient(ElasticProperties("http://" + "localhost" + ":" + 9206)) // TODO obtain from ES6 instance
 
   private val expectedNumberOfImages = images.size
