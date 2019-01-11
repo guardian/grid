@@ -1,7 +1,7 @@
 package lib
 
 import _root_.play.api.libs.json._
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ImageFields}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ImageFields}
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax._
 import groovy.json.JsonSlurper
@@ -19,8 +19,6 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
-
-case class ElasticSearchConfig(writeAlias: String, host: String, port: Int, cluster: String)
 
 class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticImageUpdate {
 

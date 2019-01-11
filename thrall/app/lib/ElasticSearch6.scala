@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Executions, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.Usage
@@ -14,8 +14,6 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
-
-case class ElasticSearch6Config(writeAlias: String, host: String, port: Int, cluster: String, shards: Int, replicas: Int)
 
 class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {

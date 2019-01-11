@@ -1,5 +1,6 @@
 package syndication
 
+import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import lib._
 import play.api.Configuration
 

@@ -1,5 +1,6 @@
 package lib
 
+import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import play.api.Configuration
 
 class ElasticSearch6Test extends ElasticSearchTestBase {
