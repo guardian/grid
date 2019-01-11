@@ -230,10 +230,10 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     // this is because the delete query does not respond with anything useful
     // TODO: is there a more efficient way to do this?
 
-    val deletableImage = boolQuery must(
-      idsQuery(id),
-      not(existsQuery("exports")),
-      not(existsQuery("usages"))
+    val deletableImage = boolQuery.withMust(
+      idsQuery(id)).withNot(
+      existsQuery("exports"),
+      nestedQuery("usages").query(existsQuery("usages"))
     )
 
     val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id").flatMap { r =>
