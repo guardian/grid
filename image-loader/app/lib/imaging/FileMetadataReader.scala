@@ -159,15 +159,17 @@ object FileMetadataReader {
 
     val source = addImage(image)
 
-    val formatter = format(source)("%A")
+    val formatter = format(source)("%r")
 
-    runIdentifyCmd(formatter).map{ hasAlpha => getColourInformation(metadata, hasAlpha.headOption) }
+    runIdentifyCmd(formatter).map{ imageType => getColourInformation(metadata, imageType.headOption) }
       .recover { case _ => getColourInformation(metadata, None) }
   }
 
-  private def getColourInformation(metadata: Metadata, hasAlpha: Option[String]): Map[String, String] = {
+  private def getColourInformation(metadata: Metadata, maybeImageType: Option[String]): Map[String, String] = {
     val pngDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
-
+    
+    val hasAlpha = maybeImageType.map(imageType => if (imageType.contains("Matte")) "true" else "false")
+                       
     Map(
       "hasAlpha" -> hasAlpha,
       "colorType" -> Option(pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
