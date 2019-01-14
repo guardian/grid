@@ -32,7 +32,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.typesafe.play" %% "play" % "2.6.20", ws,
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
-    "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.1",
+    "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.2",
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -54,6 +54,10 @@ lazy val commonLib = project("common-lib").settings(
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     "com.typesafe.play" %% "play-logback" % "2.6.15", // needed when running the scripts
     "org.scalacheck" %% "scalacheck" % "1.14.0",
+    // pin httpclient version to appease Snyk warning
+    "org.apache.httpcomponents" % "httpclient" % "4.5.5",
+    // and the same for Guava
+    "com.google.guava" % "guava" % "27.0.1-jre",
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
