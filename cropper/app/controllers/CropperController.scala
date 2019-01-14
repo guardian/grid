@@ -78,7 +78,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   def getCrops(id: String) = auth.async { httpRequest =>
 
-    store.listCrops(id) map (_.toList) flatMap { crops =>
+    store.listCrops(id) map (_.toList) map { crops =>
       val deleteCropsAction =
         ArgoAction("delete-crops", URI.create(s"${config.rootUri}/crops/$id"), "DELETE")
 
@@ -87,24 +87,28 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      hasPermission(httpRequest.user, Permissions.DeleteCrops) map {
-        case true if crops.nonEmpty => respond(crops, links, List(deleteCropsAction))
-        case _ => respond(crops, links)
+      val canDeleteCrops = hasPermission(httpRequest.user, Permissions.DeleteCrops)
+
+      if(canDeleteCrops && crops.nonEmpty) {
+        respond(crops, links, List(deleteCropsAction))
+      } else {
+        respond(crops, links)
       }
     }
   }
 
   def deleteCrops(id: String) = auth.async { httpRequest =>
+    val canDeleteCrops = hasPermission(httpRequest.user, Permissions.DeleteCrops)
 
-    hasPermission(httpRequest.user, Permissions.DeleteCrops) flatMap { _ =>
+    if(canDeleteCrops) {
       store.deleteCrops(id).map { _ =>
         notifications.publish(Json.obj("id" -> id), "delete-image-exports")
         Accepted
       } recover {
         case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
       }
-    } recover {
-      case PermissionDeniedError => respondError(Unauthorized, "permission-denied", "You cannot delete crops")
+    } else {
+      Future.successful(respondError(Unauthorized, "permission-denied", "You cannot delete crops"))
     }
   }
 

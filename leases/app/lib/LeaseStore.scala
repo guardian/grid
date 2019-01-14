@@ -1,15 +1,12 @@
 package lib
 
-import java.util.UUID
-
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.{MediaLease, MediaLeaseType}
 import com.gu.scanamo._
 import com.gu.scanamo.syntax._
 import org.joda.time.DateTime
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 
 class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTable) {
   implicit val dateTimeFormat =
@@ -17,18 +14,26 @@ class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTab
   implicit val enumFormat =
     DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_))(_.toString)
 
-  private val tableName = config.leasesTable
+  private val leasesTable = Table[MediaLease](config.leasesTable)
 
-  def get(id: String): Option[MediaLease] = Scanamo.get[MediaLease](client)(tableName)('id -> id).flatMap(_.toOption)
-  def getForMedia(id: String): List[MediaLease] = Scanamo.queryIndex[MediaLease](client)(tableName, "mediaId")('mediaId -> id).flatMap(_.toOption)
+  def get(id: String): Option[MediaLease] = {
+    Scanamo.exec(client)(leasesTable.get('id -> id)).flatMap(_.toOption)
+  }
 
-  def put(lease: MediaLease) =
-    ScanamoAsync.put[MediaLease](client)(tableName)(lease)
+  def getForMedia(id: String): List[MediaLease] = {
+    Scanamo.exec(client)(leasesTable.index("mediaId").query('mediaId -> id)).flatMap(_.toOption)
+  }
 
-  def delete(id: String) = ScanamoAsync.delete(client)(tableName)('id -> id)
+  def put(lease: MediaLease)(implicit ec: ExecutionContext) = {
+    ScanamoAsync.exec(client)(leasesTable.put(lease))
+  }
 
-  def forEach(run: List[MediaLease] => Unit) = ScanamoAsync.exec(client)(
-    Table[MediaLease](tableName).scan
+  def delete(id: String)(implicit ec: ExecutionContext) = {
+    ScanamoAsync.exec(client)(leasesTable.delete('id -> id))
+  }
+
+  def forEach(run: List[MediaLease] => Unit)(implicit ec: ExecutionContext) = ScanamoAsync.exec(client)(
+    leasesTable.scan
       .map(ops => ops.flatMap(_.toOption))
       .map(run)
   )

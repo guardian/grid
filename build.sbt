@@ -2,7 +2,7 @@ import PlayKeys._
 import scala.sys.process._
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.5",
+  scalaVersion := "2.12.8",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
@@ -29,12 +29,11 @@ val awsSdkVersion = "1.11.302"
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.typesafe.play" %% "play" % "2.6.13", ws,
+    "com.typesafe.play" %% "play" % "2.6.20", ws,
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-    "com.typesafe.play" %% "filters-helpers" % "2.6.13",
-    "com.gu" %% "pan-domain-auth-core" % "0.7.0",
-    "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.0",
-    "com.gu" %% "editorial-permissions-client" % "0.8",
+    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+    "com.gu" %% "pan-domain-auth-play_2-6" % "0.7.1",
+    "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -71,7 +70,7 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % "3.10.0"
+    "com.squareup.okhttp3" % "okhttp" % "3.12.1"
   )
 }
 
@@ -79,14 +78,14 @@ lazy val kahuna = playProject("kahuna", 9005)
 
 lazy val leases = playProject("leases", 9012).settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "scanamo" % "1.0.0-M5"
+    "com.gu" %% "scanamo" % "1.0.0-M8"
   )
 )
 
 lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
-    "org.apache.commons" % "commons-email" % "1.4",
-    "org.parboiled" %% "parboiled" % "2.1.4",
+    "org.apache.commons" % "commons-email" % "1.5",
+    "org.parboiled" %% "parboiled" % "2.1.5",
     "org.http4s" %% "http4s-core" % "0.18.7",
     "org.mockito" % "mockito-core" % "2.18.0"
   )
@@ -96,7 +95,7 @@ lazy val metadataEditor = playProject("metadata-editor", 9007)
 
 lazy val thrall = playProject("thrall", 9002).settings(
   libraryDependencies ++= Seq(
-    "org.codehaus.groovy" % "groovy-json" % "2.3.7",
+    "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
   )
 ).settings(testSettings)

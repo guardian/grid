@@ -1,14 +1,13 @@
 package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.auth.PermissionsHandler
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.io.Source
 
-
-class Management(override val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers {
-
+trait ManagementController extends BaseController with ArgoHelpers {
   def healthCheck = Action {
     Ok("OK")
   }
@@ -19,7 +18,7 @@ class Management(override val controllerComponents: ControllerComponents) extend
 
   lazy val stringManifest: Option[String] =
     for (stream <- Option(getClass.getResourceAsStream("/version.txt")))
-    yield Source.fromInputStream(stream, "UTF-8").getLines.mkString("\n")
+      yield Source.fromInputStream(stream, "UTF-8").getLines.mkString("\n")
 
   lazy val jsonManifest: Option[JsValue] = stringManifest.map(manifestString => {
     Json.toJson(
@@ -41,6 +40,18 @@ class Management(override val controllerComponents: ControllerComponents) extend
       case Accepts.Html() => stringManifestResponse
       case Accepts.Json() => jsonManifestResponse
       case _ => stringManifestResponse
+    }
+  }
+}
+
+class Management(override val controllerComponents: ControllerComponents) extends ManagementController
+
+class ManagementWithPermissions(override val controllerComponents: ControllerComponents, permissionedController: PermissionsHandler) extends ManagementController {
+  override def healthCheck = Action {
+    if(permissionedController.storeIsEmpty) {
+      ServiceUnavailable("Permissions store is empty")
+    } else {
+      Ok("ok")
     }
   }
 }
