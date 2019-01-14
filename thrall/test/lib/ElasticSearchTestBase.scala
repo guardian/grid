@@ -159,7 +159,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
           val id = UUID.randomUUID().toString
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(indexedImage(id).map(_.id) shouldBe Some(image.id))
 
           Await.result(Future.sequence(ES.deleteImage(id)), fiveSeconds)
 
@@ -509,7 +509,11 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   }
 
   private def reloadedImage(id: String) = {
-    Thread.sleep(1000)
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  private def indexedImage(id: String) = {
+    Thread.sleep(1000)  // TODO use eventually clause
     Await.result(ES.getImage(id), fiveSeconds)
   }
 
