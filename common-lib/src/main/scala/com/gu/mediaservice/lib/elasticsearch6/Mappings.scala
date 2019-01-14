@@ -71,7 +71,7 @@ object Mappings {
     standardAnalysed("suppliersReference").copyTo("metadata.englishAnalysedCatchAll"),
     keywordField("source").copyTo("metadata.englishAnalysedCatchAll"),
     nonAnalysedList("keywords").copyTo("metadata.englishAnalysedCatchAll"),
-    nonAnalysedList("subject"),
+    nonAnalysedList("subjects"),
     keywordField("specialInstructions"),
     standardAnalysed("subLocation").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("city").copyTo("metadata.englishAnalysedCatchAll"),

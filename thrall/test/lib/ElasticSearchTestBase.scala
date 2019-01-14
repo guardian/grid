@@ -32,7 +32,15 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       "indexing" - {
         "can index and retrieve images by id" in {
           val id = UUID.randomUUID().toString
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+          val userMetadata = Some(Edits(metadata = ImageMetadata(
+            description = Some("My boring image"),
+            title = Some("User supplied title"),
+            subjects = List("foo", "bar"),
+            specialInstructions = Some("Testing")
+          )))
+
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(userMetadata = userMetadata)
 
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds) // TODO why is index past in? Is it different to image.id and if so why?
 
