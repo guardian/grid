@@ -77,8 +77,12 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
   }
 
   def updateImageUsages(id: String, usages: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-
+    // TODO Hardcoded UTC timezone is a potential time bomb
     val replaceUsagesScript = """
+      | def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+      | def updateDate = df.parse(params.lastModified);
+      | def lastUpdatedDate = ctx._source.usagesLastModified != null ? df.parse(ctx._source.usagesLastModified) : null;
+      |
       | if (ctx._source.usagesLastModified == null || (params.lastModified.compareTo(ctx._source.usagesLastModified) == 1)) {
       |   ctx._source.usages = params.usages;
       |   ctx._source.usagesLastModified = params.lastModified;
@@ -156,7 +160,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val scriptSource = loadPainless(
       // TODO Hardcoded UTC timezone is a potential time bomb
       s"""
-          | def df = new SimpleDateFormat(\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\");
+          | def df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
           | def updateDate = df.parse(params.lastModified);
           | def lastUpdatedDate = ctx._source.userMetadataLastModified != null ? df.parse(ctx._source.userMetadataLastModified) : null;
           |
