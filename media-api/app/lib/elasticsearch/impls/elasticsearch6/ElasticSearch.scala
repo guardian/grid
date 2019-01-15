@@ -204,7 +204,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
-    val completionSuggestion = ElasticDsl.completionSuggestion(name).on(name).text(q)
+    val completionSuggestion = ElasticDsl.completionSuggestion(name).on(name).text(q).skipDuplicates(true)
     executeAndLog(ElasticDsl.search(imagesAlias) suggestions completionSuggestion, "completion suggestion query").
       toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>
       val x = r.result.suggestions.get(name).map { suggestions =>
