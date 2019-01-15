@@ -447,23 +447,25 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
-            JsDefined(Json.toJson(Some(Edits(metadata = userMetadata)))),
+            JsDefined(Json.toJson(Some(Edits(labels = List("foo"), metadata = userMetadata)))),
             asJsLookup(updatedLastModifiedDate))),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
         reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages")
+        reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo")
 
         val furtherUpdatedMetadata = userMetadata.copy(description = Some("A further updated image"), subjects = List("sausages", "chips"))
 
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
-            JsDefined(Json.toJson(Some(Edits(metadata = furtherUpdatedMetadata)))),
+            JsDefined(Json.toJson(Some(Edits(labels = List("foo", "bar"), metadata = furtherUpdatedMetadata)))),
             asJsLookup(updatedLastModifiedDate.plusSeconds(1)))),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldEqual Some("A further updated image")
         reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages", "chips")
+        reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo", "bar")
       }
 
       "should ignore update if the proposed modification date is older than the current user metadata last modified date" in {
