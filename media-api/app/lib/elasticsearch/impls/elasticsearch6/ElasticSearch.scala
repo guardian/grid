@@ -177,11 +177,11 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   override def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)).minDocCount(0), fromTermAggregation)
+    aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)), fromTermAggregation)
   }
 
   override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(params.field)).minDocCount(0), fromTermAggregation)
+    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(params.field)), fromTermAggregation)
   }
 
   private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.terms(name).
