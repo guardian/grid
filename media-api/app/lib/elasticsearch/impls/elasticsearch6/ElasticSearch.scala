@@ -181,7 +181,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
-    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(params.field)), fromTermAggregation)
+    Logger.info("Edit aggregation requested with params.field: " + params.field)
+    val field = "labels"   // TODO was - params.field
+    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(field)), fromTermAggregation)
   }
 
   private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.terms(name).
