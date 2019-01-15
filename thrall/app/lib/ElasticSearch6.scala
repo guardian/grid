@@ -142,7 +142,6 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
   }
 
   def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    // TODO Needs to append not replace
     val photoshootSuggestionScript = """
       | if (ctx._source.userMetadata.photoshoot != null) {
       |   ctx._source.userMetadata.photoshoot.suggest = [ "input": [ ctx._source.userMetadata.photoshoot.title ] ];
