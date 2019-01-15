@@ -154,8 +154,13 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     )
 
     val scriptSource = loadPainless(
+      // TODO Hardcoded UTC timezone is a potential time bomb
       s"""
-          | if (ctx._source.userMetadataLastModified == null || (params.lastModified.compareTo(ctx._source.userMetadataLastModified) == 1)) {
+          | def df = new SimpleDateFormat(\"yyyy-MM-dd'T'HH:mm:ss.SSS'Z'\");
+          | def updateDate = df.parse(params.lastModified);
+          | def lastUpdatedDate = ctx._source.userMetadataLastModified != null ? df.parse(ctx._source.userMetadataLastModified) : null;
+          |
+          | if (lastUpdatedDate == null || updateDate.after(lastUpdatedDate)) {
           |   ctx._source.userMetadata = params.userMetadata;
           |   ctx._source.userMetadataLastModified = params.lastModified;
           |   $updateLastModifiedScript
