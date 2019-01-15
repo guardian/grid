@@ -435,6 +435,37 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         reloadedImage(id).map(_.originalMetadata) shouldEqual Some(imageWithBoringMetadata.originalMetadata)
       }
 
+      "should apply metadata update if user metadata is set but before new modified date" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+        ES.indexImage(id, Json.toJson(image))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+        val userMetadata = ImageMetadata(description = Some("An updated image"), subjects = List("sausages"))
+        val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
+
+        Await.result(Future.sequence(
+          ES.applyImageMetadataOverride(id,
+            JsDefined(Json.toJson(Some(Edits(metadata = userMetadata)))),
+            asJsLookup(updatedLastModifiedDate))),
+          fiveSeconds)
+
+        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
+        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages")
+
+        val furtherUpdatedMetadata = userMetadata.copy(description = Some("A further updated image"), subjects = List("sausages", "chips"))
+
+        Await.result(Future.sequence(
+          ES.applyImageMetadataOverride(id,
+            JsDefined(Json.toJson(Some(Edits(metadata = furtherUpdatedMetadata)))),
+            asJsLookup(updatedLastModifiedDate.plusSeconds(1)))),
+          fiveSeconds)
+
+        reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldEqual Some("A further updated image")
+        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages", "chips")
+      }
+
       "should ignore update if the proposed modification date is older than the current user metadata last modified date" in {
         val id = UUID.randomUUID().toString
         val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
