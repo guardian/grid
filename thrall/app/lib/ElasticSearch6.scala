@@ -170,7 +170,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
 
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
-    List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id").map(_ => ElasticSearchUpdateResponse()))
+    List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id with lastModified $lastModified").map(_ => ElasticSearchUpdateResponse()))
   }
 
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])(implicit ex: ExecutionContext): Future[List[Image]] = { // TODO could be a Seq
