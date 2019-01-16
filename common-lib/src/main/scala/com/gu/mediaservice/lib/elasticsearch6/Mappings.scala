@@ -96,7 +96,7 @@ object Mappings {
 
   def syndicationRightsPropertiesMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
     keywordField("propertyCode"),
-    dateField("expiredOn"),
+    dateField("expiresOn"),
     keywordField("value")
   )
 
@@ -192,6 +192,7 @@ object Mappings {
     nonDynamicObjectField(name).fields(
       keywordField("sectionName"),
       dateField("issueDate"),
+      intField("pageNumber"),
       keywordField("storyName"),
       keywordField("publicationCode"),
       keywordField("publicationName"),
