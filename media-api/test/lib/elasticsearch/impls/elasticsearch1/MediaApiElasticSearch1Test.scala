@@ -216,15 +216,16 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
 
   private def purgeTestImages = {
     def deleteImages() = {
+      val sixtySeconds = new TimeValue(60000)
       def scroll = ES.client.prepareSearch(imageAlias)
-        .setScroll(new TimeValue(60000))
+        .setScroll(sixtySeconds)
         .setQuery(QueryBuilders.matchAllQuery())
         .setSize(20).execute().actionGet()
 
       var scrollResp = scroll
       while (scrollResp.getHits.getHits.length > 0) {
         scrollResp.getHits.getHits.map(h => ES.client.delete(new DeleteRequest(imageAlias, "image", h.getId)))
-        scrollResp = scroll
+        scrollResp =  ES.client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(sixtySeconds).execute().actionGet()
       }
     }
 
