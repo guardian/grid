@@ -1,6 +1,6 @@
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, Mappings}
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.model.{FileMetadata, Image}
 import com.sksamuel.elastic4s.bulk.BulkRequest
 import com.sksamuel.elastic4s.http.ElasticClient
 import com.sksamuel.elastic4s.http.ElasticDsl._
@@ -82,8 +82,11 @@ object Main extends App {
       hits.flatMap { h =>
         // Round tripping through the domain object validates it and cleans some of the unstandard JSON coming out of ES1.
         Json.parse(h.getSourceAsString).validate[Image] match {
-          case image: JsSuccess[Image] => {
-            val imageJson = Json.stringify(Json.toJson(image.value))
+          case s: JsSuccess[Image] => {
+            val image = s.value
+            val withOutXmp = image.copy(fileMetadata = FileMetadata())  // TODO sidek stepping 1000 field limit for now
+
+            val imageJson = Json.stringify(Json.toJson(withOutXmp))
             Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(imageJson))
           }
           case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
