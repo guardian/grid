@@ -18,7 +18,7 @@ import scala.concurrent.{Await, Future}
 object Main extends App {
 
   val TenSeconds = Duration(10, SECONDS)
-  val ScrollSize = 1000
+  val ScrollSize = 2000
 
   val es1Host = args(0)
   val es1Port = args(1).toInt
@@ -31,7 +31,7 @@ object Main extends App {
   val es6Index = args(7)
 
   val es1Config = ElasticSearchConfig(writeAlias = es1Index, host = es1Host, port = es1Port, cluster = es1Cluster)
-  val es6Config = ElasticSearch6Config(writeAlias = es6Index, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 1, replicas = 0)
+  val es6Config = ElasticSearch6Config(writeAlias = es6Index, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 3, replicas = 1)
 
   Logger.info("Configuring ES1: " + es1Config)
   val es1 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
@@ -144,7 +144,7 @@ object Main extends App {
       val hits: Array[SearchHit] = scrollResp.getHits.getHits
       migrate(hits)
       println("Scrolling")
-      Thread.sleep(1000)
+      Thread.sleep(10)
       scrollResp = es1.client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(ScrollTime).execute().actionGet()
     }
   }
