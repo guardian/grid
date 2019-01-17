@@ -16,6 +16,7 @@ object Mappings {
 
     mapping(dummyType).
       dynamic(DynamicMapping.Strict).
+      dateDetection(false).
       fields(
         keywordField("id"),
         metadataMapping("metadata"),
