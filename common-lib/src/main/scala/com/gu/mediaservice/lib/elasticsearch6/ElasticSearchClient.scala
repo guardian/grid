@@ -75,10 +75,18 @@ trait ElasticSearchClient {
     Logger.info(s"Creating image index '$index' with $shards shards and $replicas replicas")
 
     val eventualCreateIndexResponse: Future[Response[CreateIndexResponse]] = client.execute {
+      // File metadata creates a potentially unbounded number of dynamic files; Elastic 1 had no limit. Elastic 6 limits it over index disk usage concerns.
+      // When this limit is hit, no new images with previously unseen fields can be indexed.
+      // https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping.html
+      // Do we really need to store all raw metadata in the index; only taking a bounded subset would greatly reduce the size of the index and
+      // remove the risk of field exhaustion bug striking in productions
+      val maximumFieldsOverride = Map("mapping.total_fields.limit" -> Integer.MAX_VALUE)
+
       createIndex(index).
         mappings(Mappings.imageMapping).
-        shards(shards).replicas(replicas).
-        analysis(IndexSettings.analysis)
+        analysis(IndexSettings.analysis).
+        settings(maximumFieldsOverride).
+        shards(shards).replicas(replicas)
     }
 
     val createIndexResponse = Await.result(eventualCreateIndexResponse, tenSeconds)
