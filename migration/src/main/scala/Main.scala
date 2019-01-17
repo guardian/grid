@@ -72,7 +72,7 @@ object Main extends App {
   // Migrate images by scolling the ES1 index and bulk indexing the docs into the ES6 index
   var scrolled = 0
   var successes = 0
-  var failures = 0
+  var failures = Seq[String]()
 
   def migrate(hits: Seq[SearchHit]) = {
     def preview(h: SearchHit) = println(h.id)
@@ -81,15 +81,17 @@ object Main extends App {
     val bulkIndexRequest = bulk {
       hits.flatMap { h =>
         // Round tripping through the domain object validates it and cleans some of the unstandard JSON coming out of ES1.
-        Json.parse(h.getSourceAsString).validate[Image] match {
+        val sourceString = h.getSourceAsString
+        Json.parse(sourceString).validate[Image] match {
           case s: JsSuccess[Image] => {
             val image = s.value
-            val withOutXmp = image.copy(fileMetadata = FileMetadata())  // TODO sidek stepping 1000 field limit for now
-
-            val imageJson = Json.stringify(Json.toJson(withOutXmp))
+            // val withOutXmp = image.copy(fileMetadata = FileMetadata())  // TODO sidek stepping 1000 field limit for now
+            val imageJson = Json.stringify(Json.toJson(image))
             Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(imageJson))
           }
           case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
+            println(sourceString)
+            failures = failures :+ h.id()
             None
         }
       }
@@ -105,6 +107,7 @@ object Main extends App {
             println("Bulk index had failures:")
             r.result.failures.foreach { f =>
               println("Failure: " + f.id + " / " + f.result + " / " + f.error)
+              failures = failures :+ f.id
               val source = hits.find( h => h.id == f.id)
               source.map { h =>
                 println(h.sourceAsString())
@@ -113,7 +116,6 @@ object Main extends App {
           }
           scrolled = scrolled + hits.size
           successes = successes + r.result.successes.size
-          failures = failures + r.result.failures.size
           true
         } else {
           Logger.error("Indexing failed: " + r.error)
@@ -150,7 +152,9 @@ object Main extends App {
 
   println("Scrolled: " + scrolled)
   println("Successes: " + successes)
-  println("Failures: " + failures)
+  println("Failures: " + failures.size)
+
+  println("Failure ids: " + failures.mkString(", "))
   println("Done")
   es1.client.close()
   es6.client.close()
