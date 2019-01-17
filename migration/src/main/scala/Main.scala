@@ -144,6 +144,7 @@ object Main extends App {
       val hits: Array[SearchHit] = scrollResp.getHits.getHits
       migrate(hits)
       println("Scrolling")
+      Thread.sleep(1000)
       scrollResp = es1.client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(ScrollTime).execute().actionGet()
     }
   }
