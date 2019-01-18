@@ -88,7 +88,8 @@ object Main extends App with JsonCleaners {
             // which are not captured in the Image domain object (like suggesters).
 
             // Fix broken null values deposited in the suggestion field by the Elastic scripts.
-            val cleaned = json.transform(stripNullsFromSuggestMetadataCredit).asOpt.getOrElse(json)
+            val withCleanedSuggest = json.transform(stripNullsFromSuggestMetadataCredit).asOpt.getOrElse(json)
+            val cleaned = withCleanedSuggest.transform(pruneUnusedLeasesCurrentField).asOpt.getOrElse(withCleanedSuggest)
 
             val toMigrate = Json.stringify(cleaned)
             Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(toMigrate))
@@ -134,7 +135,7 @@ object Main extends App with JsonCleaners {
   println("Scrolling through ES1 images")
   def scrollImages() = {
     val ScrollTime = new TimeValue(60000)
-    val ScrollResultsPerShard = 500
+    val ScrollResultsPerShard = 10
 
     println("Creating scroll with size (times number of shards): " + ScrollResultsPerShard)
     val scroll = es1.client.prepareSearch(es1Index)
