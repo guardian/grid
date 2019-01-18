@@ -11,6 +11,6 @@ trait JsonCleaners {
     })
   }
 
-  val pruneUnusedLeasesCurrentField = (__ \ "leases" \ "current").json.prune
-  
+  val pruneUnusedLeasesCurrentField: Reads[JsObject] = (__ \ "leases" \ "current").json.prune
+
 }
