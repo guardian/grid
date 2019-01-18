@@ -4,7 +4,7 @@ import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.bulk.BulkRequest
 import com.sksamuel.elastic4s.http.ElasticClient
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
+import org.elasticsearch.action.search.{SearchResponse, SearchType}
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
@@ -130,22 +130,23 @@ object Main extends App {
   println("Scrolling through ES1 images")
   def scrollImages() = {
     val ScrollTime = new TimeValue(60000)
-    val ScrollSize = 1000
+    val ScrollResultsPerShard = 500
 
-    println("Creating scroll with size: " + ScrollSize)
-    val builder: SearchRequestBuilder = es1.client.prepareSearch(es1Index)
+    println("Creating scroll with size (times number of shards): " + ScrollResultsPerShard)
+    val scroll = es1.client.prepareSearch(es1Index)
+      .setSearchType(SearchType.SCAN)
       .setScroll(ScrollTime)
       .setQuery(QueryBuilders.matchAllQuery())
-      .setSize(ScrollSize)
+      .setSize(ScrollResultsPerShard).execute().actionGet()
 
-    var scrollResp = builder.execute().actionGet()
+    var scrollResp = es1.client.prepareSearchScroll(scroll.getScrollId).setScroll(ScrollTime).execute().actionGet()
+
     while (scrollResp.getHits.getHits.length > 0) {
       println(scrolled + " / " + totalToMigrate)
       val hits: Array[SearchHit] = scrollResp.getHits.getHits
       migrate(hits)
-      val scrollId = scrollResp.getScrollId
-      println("Scrolling: " + scrollId)
-      scrollResp = es1.client.prepareSearchScroll(scrollId).setScroll(ScrollTime).execute().actionGet()
+      println("Scrolling")
+      scrollResp = es1.client.prepareSearchScroll(scrollResp.getScrollId).setScroll(ScrollTime).execute().actionGet()
       println(scrollResp.getScrollId + " / " + scrollResp.getHits.getTotalHits)
     }
   }
