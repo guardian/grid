@@ -72,13 +72,33 @@ trait ElasticSearchClient {
   }
 
   def createImageIndex(index: String): Unit = {
-    Logger.info(s"Creating image index $index")
+    Logger.info(s"Creating image index '$index' with $shards shards and $replicas replicas")
 
     val eventualCreateIndexResponse: Future[Response[CreateIndexResponse]] = client.execute {
+      // File metadata indexing creates a potentially unbounded number of dynamic files; Elastic 1 had no limit.
+      // Elastic 6 limits it over index disk usage concerns.
+      // When this limit is hit, no new images with previously unseen fields can be indexed.
+      // https://www.elastic.co/guide/en/elasticsearch/reference/current/mapping.html
+      // Do we really need to store all raw metadata in the index; only taking a bounded subset would greatly reduce the size of the index and
+      // remove the risk of field exhaustion bug striking in productions
+      val maximumFieldsOverride = Map("mapping.total_fields.limit" -> Integer.MAX_VALUE)
+
+      // Deep pagination. It's faily easy to scroll the grid past the default Elastic 6 pagination limit.
+      // Elastic start talking about why this is problematic in the 2.x docs and by 6 it's been defaulted to 10k.
+      // https://www.elastic.co/guide/en/elasticsearch/guide/current/pagination.html
+      // Override to 100,000 to preserve the existing behaviour without comprising the Elastic cluster.
+      // The grid UI should consider scrolling by datetime offsets if possible.
+      val maximumPaginationOverride = Map("max_result_window" -> 100000)
+
+      val nonRecommendenedIndexSettingOverrides = maximumFieldsOverride ++ maximumPaginationOverride
+      Logger.warn("Applying non recommended index setting overrides; please consider altering the application " +
+        "to remove the need for these: " + nonRecommendenedIndexSettingOverrides)
+
       createIndex(index).
         mappings(Mappings.imageMapping).
-        shards(shards).replicas(replicas).
-        analysis(IndexSettings.analysis)
+        analysis(IndexSettings.analysis).
+        settings(nonRecommendenedIndexSettingOverrides).
+        shards(shards).replicas(replicas)
     }
 
     val createIndexResponse = Await.result(eventualCreateIndexResponse, tenSeconds)

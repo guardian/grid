@@ -4,13 +4,13 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model.Agencies
 import lib._
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.ElasticSearchVersion
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class UsageController(auth: Authentication, config: MediaApiConfig, notifications: Notifications, elasticSearch: ElasticSearch, usageQuota: UsageQuota,
+class UsageController(auth: Authentication, config: MediaApiConfig, notifications: Notifications, elasticSearch: ElasticSearchVersion, usageQuota: UsageQuota,
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 

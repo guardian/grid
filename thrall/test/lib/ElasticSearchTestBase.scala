@@ -32,7 +32,15 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       "indexing" - {
         "can index and retrieve images by id" in {
           val id = UUID.randomUUID().toString
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+          val userMetadata = Some(Edits(metadata = ImageMetadata(
+            description = Some("My boring image"),
+            title = Some("User supplied title"),
+            subjects = List("foo", "bar"),
+            specialInstructions = Some("Testing")
+          )))
+
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(userMetadata = userMetadata)
 
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds) // TODO why is index past in? Is it different to image.id and if so why?
 
@@ -151,7 +159,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
           val id = UUID.randomUUID().toString
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(indexedImage(id).map(_.id) shouldBe Some(image.id))
 
           Await.result(Future.sequence(ES.deleteImage(id)), fiveSeconds)
 
@@ -427,6 +435,39 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         reloadedImage(id).map(_.originalMetadata) shouldEqual Some(imageWithBoringMetadata.originalMetadata)
       }
 
+      "should apply metadata update if user metadata is set but before new modified date" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+        ES.indexImage(id, Json.toJson(image))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+
+        val userMetadata = ImageMetadata(description = Some("An updated image"), subjects = List("sausages"))
+        val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
+
+        Await.result(Future.sequence(
+          ES.applyImageMetadataOverride(id,
+            JsDefined(Json.toJson(Some(Edits(labels = List("foo"), metadata = userMetadata)))),
+            asJsLookup(updatedLastModifiedDate))),
+          fiveSeconds)
+
+        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
+        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages")
+        reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo")
+
+        val furtherUpdatedMetadata = userMetadata.copy(description = Some("A further updated image"), subjects = List("sausages", "chips"))
+
+        Await.result(Future.sequence(
+          ES.applyImageMetadataOverride(id,
+            JsDefined(Json.toJson(Some(Edits(labels = List("foo", "bar"), metadata = furtherUpdatedMetadata)))),
+            asJsLookup(updatedLastModifiedDate.plusSeconds(1)))),
+          fiveSeconds)
+
+        reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldEqual Some("A further updated image")
+        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages", "chips")
+        reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo", "bar")
+      }
+
       "should ignore update if the proposed modification date is older than the current user metadata last modified date" in {
         val id = UUID.randomUUID().toString
         val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
@@ -501,7 +542,11 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   }
 
   private def reloadedImage(id: String) = {
-    Thread.sleep(1000)
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  private def indexedImage(id: String) = {
+    Thread.sleep(1000)  // TODO use eventually clause
     Await.result(ES.getImage(id), fiveSeconds)
   }
 

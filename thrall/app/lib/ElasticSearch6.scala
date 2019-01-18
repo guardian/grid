@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.Usage
@@ -14,8 +14,6 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
-
-case class ElasticSearch6Config(writeAlias: String, host: String, port: Int, cluster: String, shards: Int, replicas: Int)
 
 class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {
@@ -79,8 +77,11 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
   }
 
   def updateImageUsages(id: String, usages: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-
     val replaceUsagesScript = """
+      | def dtf = DateTimeFormatter.ISO_DATE_TIME;
+      | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
+      | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(dtf.parse(ctx._source.usagesLastModified))) : null;
+      |
       | if (ctx._source.usagesLastModified == null || (params.lastModified.compareTo(ctx._source.usagesLastModified) == 1)) {
       |   ctx._source.usages = params.usages;
       |   ctx._source.usagesLastModified = params.lastModified;
@@ -140,7 +141,6 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
   }
 
   def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-
     val photoshootSuggestionScript = """
       | if (ctx._source.userMetadata.photoshoot != null) {
       |   ctx._source.userMetadata.photoshoot.suggest = [ "input": [ ctx._source.userMetadata.photoshoot.title ] ];
@@ -157,7 +157,11 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
 
     val scriptSource = loadPainless(
       s"""
-          | if (ctx._source.userMetadataLastModified == null || (params.lastModified.compareTo(ctx._source.userMetadataLastModified) == 1)) {
+          | def dtf = DateTimeFormatter.ISO_DATE_TIME;
+          | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
+          | def lastUpdatedDate = ctx._source.userMetadataLastModified != null ? Date.from(Instant.from(dtf.parse(ctx._source.userMetadataLastModified))) : null;
+          |
+          | if (lastUpdatedDate == null || updateDate.after(lastUpdatedDate)) {
           |   ctx._source.userMetadata = params.userMetadata;
           |   ctx._source.userMetadataLastModified = params.lastModified;
           |   $updateLastModifiedScript
@@ -172,7 +176,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
 
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
-    List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id").map(_ => ElasticSearchUpdateResponse()))
+    List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id with lastModified $lastModified").map(_ => ElasticSearchUpdateResponse()))
   }
 
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])(implicit ex: ExecutionContext): Future[List[Image]] = { // TODO could be a Seq
@@ -232,10 +236,10 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     // this is because the delete query does not respond with anything useful
     // TODO: is there a more efficient way to do this?
 
-    val deletableImage = boolQuery must(
-      idsQuery(id),
-      not(existsQuery("exports")),
-      not(existsQuery("usages"))
+    val deletableImage = boolQuery.withMust(
+      idsQuery(id)).withNot(
+      existsQuery("exports"),
+      nestedQuery("usages").query(existsQuery("usages"))
     )
 
     val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id").flatMap { r =>
