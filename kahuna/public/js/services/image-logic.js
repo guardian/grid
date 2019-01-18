@@ -59,6 +59,8 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
                 return 'added to a persisted collection';
             case 'photoshoot':
                 return 'added to a photoshoot';
+            case 'leases':
+                return 'leased';
             default:
                 return reason;
             }
