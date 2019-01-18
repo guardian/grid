@@ -254,7 +254,6 @@ object Mappings {
 
   def leasesMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
     leaseMapping("leases"),
-    leaseMapping("current"),
     dateField("lastModified")
   )
 
