@@ -32,8 +32,8 @@ GET     /usage/quotas                                 controllers.UsageControlle
 GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
 
 # Management
-GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
-GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.ManagementWithPermissions.healthCheck
+GET     /management/manifest                          com.gu.mediaservice.lib.management.ManagementWithPermissions.manifest
 
 # Shoo robots away
-GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                   com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots

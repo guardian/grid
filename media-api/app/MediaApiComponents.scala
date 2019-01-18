@@ -1,6 +1,7 @@
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.management.ManagementWithPermissions
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
@@ -75,7 +76,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, notifications, elasticSearch, usageQuota, controllerComponents)
-  val healthcheckController = new HealthCheck(controllerComponents)
+  val healthcheckController = new ManagementWithPermissions(controllerComponents, mediaApi)
 
-  override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, healthcheckController, management)
+  override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, healthcheckController)
 }
