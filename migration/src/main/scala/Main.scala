@@ -8,6 +8,7 @@ import org.elasticsearch.action.search.{SearchResponse, SearchType}
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
+import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
 
@@ -72,6 +73,7 @@ object Main extends App with JsonCleaners {
   var scrolled = 0
   var successes = 0
   var failures = Seq[String]()
+  val startTime = DateTime.now()
 
   def migrate(hits: Seq[SearchHit]) = {
     def preview(h: SearchHit) = println(h.id)
@@ -147,9 +149,12 @@ object Main extends App with JsonCleaners {
     var scrollResp = es1.client.prepareSearchScroll(scroll.getScrollId).setScroll(ScrollTime).execute().actionGet()
 
     while (scrollResp.getHits.getHits.length > 0) {
-      println(scrolled + " / " + totalToMigrate)
-      val hits: Array[SearchHit] = scrollResp.getHits.getHits
-      migrate(hits)
+      migrate(scrollResp.getHits.getHits)
+
+      val duration = new org.joda.time.Duration(startTime, DateTime.now)
+      val rate = (successes + failures.size) / duration.getStandardSeconds
+      println(successes + " (" + failures.size + ") / " + scrollResp.getHits.getTotalHits + " in " + duration.getStandardMinutes + " minutes @ " + rate + " per second")
+
       println("Scrolling")
       scrollResp = es1.client.prepareSearchScroll(scrollResp.getScrollId).setScroll(ScrollTime).execute().actionGet()
       println(scrollResp.getScrollId + " / " + scrollResp.getHits.getTotalHits)
