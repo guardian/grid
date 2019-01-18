@@ -4,7 +4,7 @@ import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.bulk.BulkRequest
 import com.sksamuel.elastic4s.http.ElasticClient
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import org.elasticsearch.action.search.{SearchResponse, SearchType}
+import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
@@ -18,7 +18,6 @@ import scala.concurrent.{Await, Future}
 object Main extends App {
 
   val ThirtySeconds = Duration(30, SECONDS)
-  val ScrollSize = 1000
 
   val es1Host = args(0)
   val es1Port = args(1).toInt
@@ -130,20 +129,20 @@ object Main extends App {
   println("Scrolling through ES1 images")
   def scrollImages() = {
     val ScrollTime = new TimeValue(60000)
+    val ScrollSize = 1000
 
-    val scroll = es1.client.prepareSearch(es1Index)
-        .setSearchType(SearchType.SCAN)
-        .setScroll(ScrollTime)
-        .setQuery(QueryBuilders.matchAllQuery())
-        .setSize(ScrollSize).execute().actionGet()
+    println("Creating scroll with size: " + ScrollSize)
+    val builder: SearchRequestBuilder = es1.client.prepareSearch(es1Index)
+      .setScroll(ScrollTime)
+      .setQuery(QueryBuilders.matchAllQuery())
+      .setSize(ScrollSize)
 
-    var scrollResp = es1.client.prepareSearchScroll(scroll.getScrollId()).setScroll(ScrollTime).execute().actionGet()
-
+    var scrollResp = builder.execute().actionGet()
     while (scrollResp.getHits.getHits.length > 0) {
       println(scrolled + " / " + totalToMigrate)
       val hits: Array[SearchHit] = scrollResp.getHits.getHits
       migrate(hits)
-      val scrollId = scrollResp.getScrollId()
+      val scrollId = scrollResp.getScrollId
       println("Scrolling: " + scrollId)
       scrollResp = es1.client.prepareSearchScroll(scrollId).setScroll(ScrollTime).execute().actionGet()
       println(scrollResp.getScrollId + " / " + scrollResp.getHits.getTotalHits)
