@@ -81,12 +81,13 @@ object Main extends App {
       hits.flatMap { h =>
         // Round tripping through the domain object validates it and cleans some of the unstandard JSON coming out of ES1.
         val sourceString = h.getSourceAsString
-        Json.parse(sourceString).validate[Image] match {
+        val json = Json.parse(sourceString)
+        json.validate[Image] match {
           case s: JsSuccess[Image] => {
-            val image = s.value
-            // val withOutXmp = image.copy(fileMetadata = FileMetadata())  // TODO sidek stepping 1000 field limit for now
-            val imageJson = Json.stringify(Json.toJson(image))
-            Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(imageJson))
+            // Fix broken null values deposited in the suggestion field by the Elastic scripts.
+            // TODO should be a Json transformer
+            val toMigrate = Json.stringify(json).replaceAll("\\[null\\]", "\\[\\]")
+            Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(toMigrate))
           }
           case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
             println(sourceString)
