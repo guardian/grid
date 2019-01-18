@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, Future}
 
-object Main extends App {
+object Main extends App with JsonCleaners {
 
   val ThirtySeconds = Duration(30, SECONDS)
 
@@ -79,14 +79,18 @@ object Main extends App {
     println("Got " + hits.size + " hits")
     val bulkIndexRequest = bulk {
       hits.flatMap { h =>
-        // Round tripping through the domain object validates it and cleans some of the unstandard JSON coming out of ES1.
         val sourceString = h.getSourceAsString
         val json = Json.parse(sourceString)
-        json.validate[Image] match {
+        json.validate[Image] match {          // Validate that this JSON actually represents an Image object to avoid runtime errors further down the line
           case s: JsSuccess[Image] => {
+            // For documents which pass validation, clean them and migrate the raw document source.
+            // We send the raw source rather than the serialized image because Elastic scripts have been writing fields directly into the document source
+            // which are not captured in the Image domain object (like suggesters).
+
             // Fix broken null values deposited in the suggestion field by the Elastic scripts.
-            // TODO should be a Json transformer
-            val toMigrate = Json.stringify(json).replaceAll("\\[null\\]", "\\[\\]")
+            val cleaned = json.transform(stripNullsFromSuggestMetadataCredit).asOpt.getOrElse(json)
+
+            val toMigrate = Json.stringify(cleaned)
             Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(toMigrate))
           }
           case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
