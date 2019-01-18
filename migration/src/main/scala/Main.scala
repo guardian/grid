@@ -18,7 +18,7 @@ import scala.concurrent.{Await, Future}
 
 object Main extends App with JsonCleaners {
 
-  val ThirtySeconds = Duration(30, SECONDS)
+  val OneMinute = Duration(60, SECONDS)
 
   val es1Host = args(0)
   val es1Port = args(1).toInt
@@ -31,7 +31,7 @@ object Main extends App with JsonCleaners {
   val es6Index = args(7)
 
   val es1Config = ElasticSearchConfig(writeAlias = es1Index, host = es1Host, port = es1Port, cluster = es1Cluster)
-  val es6Config = ElasticSearch6Config(writeAlias = es6Index, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 5, replicas = 1)
+  val es6Config = ElasticSearch6Config(writeAlias = es6Index, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 5, replicas = 0)
 
   Logger.info("Configuring ES1: " + es1Config)
   val es1 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
@@ -75,16 +75,40 @@ object Main extends App with JsonCleaners {
   var failures = Seq[String]()
   val startTime = DateTime.now()
 
-  def migrate(hits: Seq[SearchHit]) = {
-    def preview(h: SearchHit) = println(h.id)
+  def executeIndexWithErrorHandling(client: ElasticClient, definition: BulkRequest, hits: Seq[SearchHit]): Future[Boolean] = {
+    (client execute {
+      definition
+    }).map { r =>
+      if (r.isSuccess) {
+        Logger.debug("Index succeeded")
+        if (r.result.hasFailures) {
+          println("Bulk index had failures:")
+          r.result.failures.foreach { f =>
+            println("Failure: " + f.id + " / " + f.result + " / " + f.error)
+            failures = failures :+ f.id
+            val source = hits.find( h => h.id == f.id)
+            source.map { h =>
+              println(h.sourceAsString())
+            }
+          }
+        }
+        scrolled = scrolled + hits.size
+        successes = successes + r.result.successes.size
+        true
+      } else {
+        Logger.error("Indexing failed: " + r.error)
+        throw new RuntimeException("Indexing failed: " + r.error)
+      }
+    }
+  }
 
-    println("Got " + hits.size + " hits")
+  def migrate(hits: Seq[SearchHit]) = {
+    println("Map " + hits.size + " hits to Bulk index request")
     val bulkIndexRequest = bulk {
-      hits.flatMap { h =>
-        val sourceString = h.getSourceAsString
-        val json = Json.parse(sourceString)
-        json.validate[Image] match {          // Validate that this JSON actually represents an Image object to avoid runtime errors further down the line
-          case s: JsSuccess[Image] => {
+      hits.par.flatMap { h =>
+        val json = Json.parse(h.getSourceAsString)
+        json.validate[Image] match { // Validate that this JSON actually represents an Image object to avoid runtime errors further down the line
+          case _: JsSuccess[Image] => {
             // For documents which pass validation, clean them and migrate the raw document source.
             // We send the raw source rather than the serialized image because Elastic scripts have been writing fields directly into the document source
             // which are not captured in the Image domain object (like suggesters).
@@ -97,47 +121,21 @@ object Main extends App with JsonCleaners {
             Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(toMigrate))
           }
           case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
-            println(sourceString)
+            println(h.getSourceAsString)
             failures = failures :+ h.id()
             None
         }
-      }
+      }.toIndexedSeq
     }
 
-    def executeIndexWithErrorHandling(client: ElasticClient, definition: BulkRequest): Future[Boolean] = {
-      (client execute {
-        definition
-      }).map { r =>
-        if (r.isSuccess) {
-          Logger.debug("Index succeeded")
-          if (r.result.hasFailures) {
-            println("Bulk index had failures:")
-            r.result.failures.foreach { f =>
-              println("Failure: " + f.id + " / " + f.result + " / " + f.error)
-              failures = failures :+ f.id
-              val source = hits.find( h => h.id == f.id)
-              source.map { h =>
-                println(h.sourceAsString())
-              }
-            }
-          }
-          scrolled = scrolled + hits.size
-          successes = successes + r.result.successes.size
-          true
-        } else {
-          Logger.error("Indexing failed: " + r.error)
-          throw new RuntimeException("Indexing failed: " + r.error)
-        }
-      }
-    }
-
-    Await.result(executeIndexWithErrorHandling(es6.client, bulkIndexRequest), ThirtySeconds)
+    println("Submitting bulk index request")
+    Await.result(executeIndexWithErrorHandling(es6.client, bulkIndexRequest, hits), OneMinute)
   }
 
   println("Scrolling through ES1 images")
   def scrollImages() = {
     val ScrollTime = new TimeValue(60000)
-    val ScrollResultsPerShard = 10
+    val ScrollResultsPerShard = 300
 
     println("Creating scroll with size (times number of shards): " + ScrollResultsPerShard)
     val scroll = es1.client.prepareSearch(es1Index)
@@ -149,6 +147,7 @@ object Main extends App with JsonCleaners {
     var scrollResp = es1.client.prepareSearchScroll(scroll.getScrollId).setScroll(ScrollTime).execute().actionGet()
 
     while (scrollResp.getHits.getHits.length > 0) {
+      println("Migrating")
       migrate(scrollResp.getHits.getHits)
 
       val duration = new org.joda.time.Duration(startTime, DateTime.now)
