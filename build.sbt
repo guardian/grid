@@ -115,6 +115,15 @@ lazy val usage = playProject("usage", 9009).settings(
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
 
+lazy val migration = project("migration")
+  .dependsOn(commonLib).
+  settings(commonSettings,
+    mainClass in Compile := Some("Main"),
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case _ => MergeStrategy.first
+    })
+
 def project(projectName: String, path: Option[String] = None): Project =
   Project(projectName, file(path.getOrElse(projectName)))
     .settings(commonSettings)
@@ -163,3 +172,4 @@ val testSettings = Seq(
     s"docker-compose --file docker-compose-test.yml --project-name grid-test down".!
   })
 )
+
