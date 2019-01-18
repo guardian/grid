@@ -1,10 +1,10 @@
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, Mappings}
-import com.gu.mediaservice.model.{FileMetadata, Image}
+import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.bulk.BulkRequest
 import com.sksamuel.elastic4s.http.ElasticClient
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.search.{SearchResponse, SearchType}
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
@@ -17,8 +17,8 @@ import scala.concurrent.{Await, Future}
 
 object Main extends App {
 
-  val TenSeconds = Duration(10, SECONDS)
-  val ScrollSize = 2000
+  val ThirtySeconds = Duration(30, SECONDS)
+  val ScrollSize = 1000
 
   val es1Host = args(0)
   val es1Port = args(1).toInt
@@ -31,7 +31,7 @@ object Main extends App {
   val es6Index = args(7)
 
   val es1Config = ElasticSearchConfig(writeAlias = es1Index, host = es1Host, port = es1Port, cluster = es1Cluster)
-  val es6Config = ElasticSearch6Config(writeAlias = es6Index, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 3, replicas = 1)
+  val es6Config = ElasticSearch6Config(writeAlias = es6Index, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 5, replicas = 1)
 
   Logger.info("Configuring ES1: " + es1Config)
   val es1 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
@@ -124,28 +124,29 @@ object Main extends App {
       }
     }
 
-    Await.result(executeIndexWithErrorHandling(es6.client, bulkIndexRequest), TenSeconds)
+    Await.result(executeIndexWithErrorHandling(es6.client, bulkIndexRequest), ThirtySeconds)
   }
 
   println("Scrolling through ES1 images")
   def scrollImages() = {
     val ScrollTime = new TimeValue(60000)
 
-    def scroll = {
-      es1.client.prepareSearch(es1Index)
+    val scroll = es1.client.prepareSearch(es1Index)
+        .setSearchType(SearchType.SCAN)
         .setScroll(ScrollTime)
         .setQuery(QueryBuilders.matchAllQuery())
         .setSize(ScrollSize).execute().actionGet()
-    }
 
-    var scrollResp = scroll
+    var scrollResp = es1.client.prepareSearchScroll(scroll.getScrollId()).setScroll(ScrollTime).execute().actionGet()
+
     while (scrollResp.getHits.getHits.length > 0) {
       println(scrolled + " / " + totalToMigrate)
       val hits: Array[SearchHit] = scrollResp.getHits.getHits
       migrate(hits)
-      println("Scrolling")
-      Thread.sleep(10)
-      scrollResp = es1.client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(ScrollTime).execute().actionGet()
+      val scrollId = scrollResp.getScrollId()
+      println("Scrolling: " + scrollId)
+      scrollResp = es1.client.prepareSearchScroll(scrollId).setScroll(ScrollTime).execute().actionGet()
+      println(scrollResp.getScrollId + " / " + scrollResp.getHits.getTotalHits)
     }
   }
 
