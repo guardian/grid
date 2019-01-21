@@ -117,6 +117,8 @@ class MediaApi(
   }
 
   def getImage(id: String) = auth.async { request =>
+    implicit val r = request
+
     val include = getIncludedFromParams(request)
 
     elasticSearch.getImageById(id) map {
@@ -134,6 +136,8 @@ class MediaApi(
   }
 
   def getImageFileMetadata(id: String) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         val links = List(
@@ -145,6 +149,8 @@ class MediaApi(
   }
 
   def getImageExports(id: String) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         val links = List(
@@ -156,6 +162,8 @@ class MediaApi(
   }
 
   def getImageExport(imageId: String, exportId: String) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.getImageById(imageId) map {
       case Some(source) if hasPermission(request, source) =>
         val exportOption = source.exports.find(_.id.contains(exportId))
@@ -166,6 +174,8 @@ class MediaApi(
   }
 
   def deleteImage(id: String) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
@@ -188,6 +198,8 @@ class MediaApi(
   }
 
   def downloadOriginalImage(id: String) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.apiKey
@@ -206,6 +218,8 @@ class MediaApi(
   }
 
   def reindexImage(id: String) = auth.async { request =>
+    implicit val r = request
+
     val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
@@ -243,6 +257,8 @@ class MediaApi(
   }
 
   def imageSearch() = auth.async { request =>
+    implicit val r = request
+
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, image: Image): EmbeddedEntity[JsValue] = {

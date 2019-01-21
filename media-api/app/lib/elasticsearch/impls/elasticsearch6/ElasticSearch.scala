@@ -1,5 +1,6 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
@@ -15,13 +16,14 @@ import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
+import play.api.mvc.AnyContent
+import play.api.mvc.Security.AuthenticatedRequest
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion
-  with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
 
   lazy val imagesAlias = elasticConfig.writeAlias
   lazy val host = elasticConfig.host
@@ -35,13 +37,13 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   val queryBuilder = new QueryBuilder(matchFields)
 
-  override def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
+  override def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
     executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
       mapImageFrom(r.result.sourceAsString, id)
     }
   }
 
-  override def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
+  override def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
 
     def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id)
 
@@ -141,7 +143,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
   }
 
-  override def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SupplierUsageSummary] = {
+  override def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SupplierUsageSummary] = {
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
@@ -164,7 +166,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
   }
 
-  override def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  override def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
 
     def fromDateHistrogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.dateHistogram(name).
       buckets.map(b => BucketResult(b.date, b.docCount))
@@ -176,11 +178,11 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
         minDocCount(0), fromDateHistrogramAggregation)
   }
 
-  override def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  override def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)), fromTermAggregation)
   }
 
-  override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     Logger.info("Edit aggregation requested with params.field: " + params.field)
     val field = "labels"   // TODO was - params.field
     aggregateSearch("edits", params, termsAggregation("edits").field(editsField(field)), fromTermAggregation)
@@ -205,7 +207,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     AggregateSearchResults(results, results.size)
   }
 
-  override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
+  override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[CompletionSuggestionResults] = {
     val completionSuggestion = ElasticDsl.completionSuggestion(name).on(name).text(q).skipDuplicates(true)
     executeAndLog(ElasticDsl.search(imagesAlias) suggestions completionSuggestion, "completion suggestion query").
       toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>

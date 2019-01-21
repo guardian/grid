@@ -20,14 +20,20 @@ class SuggestionController(auth: Authentication, elasticSearch: ElasticSearchVer
   // TODO: recover with HTTP error if invalid field
   // TODO: Add validation, especially if you use length
   def metadataSearch(field: String, q: Option[String]) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.metadataSearch(AggregateSearchParams(field, request)) map aggregateResponse
   }
 
   def editsSearch(field: String, q: Option[String]) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.editsSearch(AggregateSearchParams(field, request)) map aggregateResponse
   }
 
-  private def suggestion(field: String, query: Option[String], size: Option[Int]) = auth.async { _ =>
+  private def suggestion(field: String, query: Option[String], size: Option[Int]) = auth.async { request =>
+    implicit val r = request
+
     query.flatMap(q => if (q.nonEmpty) Some(q) else None).map { q =>
       elasticSearch.completionSuggestion(field, q, size.getOrElse(10))
     }.getOrElse(
