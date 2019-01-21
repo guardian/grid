@@ -13,7 +13,7 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
-import org.scalatest.mock.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.libs.json.Json
 import play.api.mvc.AnyContent
