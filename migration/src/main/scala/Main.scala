@@ -134,8 +134,8 @@ object Main extends App with JsonCleaners {
 
   println("Scrolling through ES1 images")
   def scrollImages() = {
-    val ScrollTime = new TimeValue(60000)
-    val ScrollResultsPerShard = 300
+    val ScrollTime = new TimeValue(120000)
+    val ScrollResultsPerShard = 200
 
     println("Creating scroll with size (times number of shards): " + ScrollResultsPerShard)
     val scroll = es1.client.prepareSearch(es1Index)
