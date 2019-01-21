@@ -3,6 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model.Image
 import lib.SupplierUsageSummary
+import play.api.Logger
 import play.api.mvc.{AnyContent, Security}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,7 +14,11 @@ class TogglingElasticSearch(either: ElasticSearchVersion,
   val TOGGLE_COOKIE_NAME = "GRID_INDEX_TOGGLE"
 
   def active()(implicit request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]) = {
-    if (request.cookies.exists(c => c.name == TOGGLE_COOKIE_NAME)) or else either
+    val version = if (request.cookies.exists(c => c.name == TOGGLE_COOKIE_NAME)) {
+      or
+    } else either
+    Logger.info("Using toggled ES: " + version)
+    version
   }
 
   override def ensureAliasAssigned(): Unit = {
