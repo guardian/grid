@@ -29,11 +29,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
     Link("login", config.services.loginUriTemplate)
   )
 
-  // Panda errors
-  val notAuthenticatedResult = respondError(Unauthorized, "unauthorized", "Not authenticated", loginLinks)
-  val invalidCookieResult    = notAuthenticatedResult
-  val expiredResult          = respondError(new Status(419), "session-expired", "Session expired, required to log in again", loginLinks)
-
   // API key errors
   val invalidApiKeyResult    = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
