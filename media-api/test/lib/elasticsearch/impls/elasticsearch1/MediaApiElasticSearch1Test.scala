@@ -1,5 +1,6 @@
 package lib.elasticsearch.impls.elasticsearch1
 
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.model._
@@ -12,14 +13,19 @@ import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
+import org.scalatest.mock.MockitoSugar
 import play.api.Configuration
 import play.api.libs.json.Json
+import play.api.mvc.AnyContent
+import play.api.mvc.Security.AuthenticatedRequest
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually {
+class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually with MockitoSugar {
+
+  implicit val request  = mock[AuthenticatedRequest[AnyContent, Principal]]
 
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   private val fiveSeconds = Duration(5, SECONDS)
