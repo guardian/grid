@@ -40,9 +40,9 @@ class TogglingElasticSearch(either: ElasticSearchVersion,
     Future[AggregateSearchResults] = active.metadataSearch(params)
 
   override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]):
-    Future[AggregateSearchResults] = editsSearch(params)
+    Future[AggregateSearchResults] = active.editsSearch(params)
 
   override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]):
-    Future[CompletionSuggestionResults] = completionSuggestion(name, q, size)
+    Future[CompletionSuggestionResults] = active.completionSuggestion(name, q, size)
 
 }
