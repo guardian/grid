@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.auth
 
 import akka.actor.ActorSystem
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
@@ -69,8 +70,9 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
     new PanDomainAuthSettingsRefresher(
       domain = config.services.domainRoot,
       system = "media-service",
-      actorSystem = actorSystem,
-      awsCredentialsProvider = config.awsCredentials
+      bucketName = "pan-domain-auth-settings",
+      settingsFileKey = s"${config.services.domainRoot}.settings",
+      s3Client = AmazonS3ClientBuilder.standard().withRegion(config.awsRegion).withCredentials(config.awsCredentials).build()
     )
   }
 }
