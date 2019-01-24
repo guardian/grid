@@ -43,17 +43,17 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
 
   private def refreshCurrentPhotoshoot(image: Image, currentPhotoshootOpt: Option[Photoshoot], newRightsOpt: Option[SyndicationRights] = None): Future[Unit] =
     currentPhotoshootOpt match {
-      case Some(photoshoot) => refreshPhotoshoot(image, photoshoot)
+      case Some(photoshoot) => refreshPhotoshoot(image, photoshoot, newRightsOpt = newRightsOpt)
       case None =>
         if (image.syndicationRights.forall(_.isInferred == true) && newRightsOpt.isEmpty) Future.sequence(es.deleteSyndicationRights(image.id)).map(_ => ())
         else Future.successful(())
     }
 
-  private def refreshPhotoshoot(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[Unit] = for {
+  private def refreshPhotoshoot(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None, newRightsOpt: Option[SyndicationRights] = None): Future[Unit] = for {
     latestRights <- getLatestSyndicationRights(image, photoshoot, excludedImageId)
     inferredImages <- getInferredSyndicationRightsImages(image, photoshoot, excludedImageId)
   } yield {
-    GridLogger.info(s"Using rights $latestRights to infer rights for images: ${inferredImages.map(_.id)}")
+    GridLogger.info(s"Using rights $latestRights to infer rights for images (photoshoot: $photoshoot): ${inferredImages.map(_.id)}")
     inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, latestRights.map(_.copy(isInferred = true))))
   }
 
@@ -64,11 +64,14 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
    * risk missing important rights information.
    * Therefore, we have to make sure we are taking it into consideration.
    */
-  private def getLatestSyndicationRights(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[Option[SyndicationRights]] = excludedImageId match {
+  private def getLatestSyndicationRights(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None, newRightsOpt: Option[SyndicationRights] = None): Future[Option[SyndicationRights]] = excludedImageId match {
     case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
-    case None => es.getLatestSyndicationRights(photoshoot).map {
-        case Some(dbImage) => if(!image.hasInferredSyndicationRights) mostRecentSyndicationRights(dbImage, image) else dbImage.syndicationRights
-        case None => if(!image.hasInferredSyndicationRights) image.syndicationRights else None
+    case None =>
+      val imageRights = if (newRightsOpt.isDefined) newRightsOpt else image.syndicationRights
+      val hasInferredRights = imageRights.forall(_.isInferred)
+      es.getLatestSyndicationRights(photoshoot).map {
+        case Some(dbImage) => if(!hasInferredRights) mostRecentSyndicationRights(dbImage, image) else dbImage.syndicationRights
+        case None => if(!hasInferredRights) image.syndicationRights else None
       }
   }
 

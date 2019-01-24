@@ -30,7 +30,7 @@ case class Image(
   userMetadataLastModified: Option[DateTime] = None) {
   def rcsPublishDate: Option[DateTime] = syndicationRights.flatMap(_.published)
 
-  def hasInferredSyndicationRights: Boolean = syndicationRights.forall(_.isInferred == true)
+  def hasInferredSyndicationRights: Boolean = syndicationRights.forall(_.isInferred)
 
   def syndicationStatus: SyndicationStatus = {
     val isRightsAcquired: Boolean = syndicationRights.exists(_.isRightsAcquired)
