@@ -22,7 +22,8 @@ export var query = angular.module('kahuna.search.query', [
 
 query.controller('SearchQueryCtrl',
                  ['$rootScope', '$scope', '$state', '$stateParams', 'onValChange', 'mediaApi',
-                 '$cookies', 'mediaApiUri', function($rootScope, $scope, $state, $stateParams, onValChange ,
+                 '$cookies', 'mediaApiUri', function($rootScope, $scope, $state,
+                 $stateParams, onValChange,
                  mediaApi, cookies, mediaApiUri) {
 
     const ctrl = this;
@@ -178,11 +179,11 @@ query.controller('SearchQueryCtrl',
     function toggleElasticIndex() {
         var apiDomainUrl = new URL(mediaApiUri);
         var apiHost = apiDomainUrl.host;
-        var firstDot = apiHost.indexOf('.')
+        var firstDot = apiHost.indexOf('.');
         var domain = apiHost.substring(firstDot + 1);
         if (ctrl.elastic6) {
             var now = new Date();
-            var expires = new Date(now.getFullYear()+1, now.getMonth(), now.getDate())
+            var expires = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
             cookies.put(toggleCookieName, "1", {"domain": domain, "expires": expires});
         } else {
             cookies.remove(toggleCookieName, {"domain": domain});
