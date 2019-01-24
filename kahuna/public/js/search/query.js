@@ -21,8 +21,8 @@ export var query = angular.module('kahuna.search.query', [
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$rootScope', '$scope', '$state', '$stateParams', 'onValChange', 'mediaApi',
-                 function($rootScope, $scope, $state, $stateParams, onValChange , mediaApi) {
+                 ['$rootScope', '$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', '$cookies',
+                 function($rootScope, $scope, $state, $stateParams, onValChange , mediaApi, cookies) {
 
     const ctrl = this;
 
@@ -39,6 +39,7 @@ query.controller('SearchQueryCtrl',
     };
 
     ctrl.resetQuery = resetQuery;
+    ctrl.toggleElasticIndex = toggleElasticIndex;
 
     // Note that this correctly uses local datetime and returns
     // midnight for the local user
@@ -167,6 +168,19 @@ query.controller('SearchQueryCtrl',
             session.user.permissions.showPaid : undefined;
         }
     });
+
+    var toggleCookieName = "GRID_INDEX_TOGGLE";
+    var toggleCookie = cookies.get(toggleCookieName);
+    var toggled = toggleCookie !== undefined
+    ctrl.elastic6 = toggled;
+
+    function toggleElasticIndex() {
+        if (ctrl.elastic6) {
+            cookies.put(toggleCookieName, "1");
+        } else {
+            cookies.remove(toggleCookieName);
+        }
+    }
 
     function resetQuery() {
         ctrl.filter.query = undefined;

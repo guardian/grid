@@ -1,4 +1,7 @@
 <form class="search">
+    <input type="checkbox"
+            ng:model="searchQuery.elastic6"
+            ng:change="searchQuery.toggleElasticIndex()" />
     <span class="search-query">
         <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
         <gr-structured-query class="search-query__query"
