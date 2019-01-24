@@ -21,8 +21,9 @@ export var query = angular.module('kahuna.search.query', [
 ]);
 
 query.controller('SearchQueryCtrl',
-                 ['$rootScope', '$scope', '$state', '$stateParams', 'onValChange', 'mediaApi', '$cookies',
-                 function($rootScope, $scope, $state, $stateParams, onValChange , mediaApi, cookies) {
+                 ['$rootScope', '$scope', '$state', '$stateParams', 'onValChange', 'mediaApi',
+                 '$cookies', function($rootScope, $scope, $state, $stateParams, onValChange ,
+                 mediaApi, cookies) {
 
     const ctrl = this;
 
@@ -171,7 +172,7 @@ query.controller('SearchQueryCtrl',
 
     var toggleCookieName = "GRID_INDEX_TOGGLE";
     var toggleCookie = cookies.get(toggleCookieName);
-    var toggled = toggleCookie !== undefined
+    var toggled = toggleCookie !== undefined;
     ctrl.elastic6 = toggled;
 
     function toggleElasticIndex() {
