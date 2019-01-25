@@ -174,11 +174,11 @@ trait GettyProcessor {
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
   def apply(image: Image): Image = {
     val excludedCredit = List(
-      "newspix international", "i-images", "photoshot", "Ian Jones", "Avalon", "INS News Agency Ltd", "EPA"
+      "newspix international", "i-images", "photoshot", "Ian Jones", "Panoramic/Avalon", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA"
     )
 
     val excludedSource = List(
-      "Pinnacle Photo Agency Ltd"
+      "UKTV", "Pinnacle Photo Agency Ltd"
     )
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
