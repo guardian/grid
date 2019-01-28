@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
+import com.gu.pandomainauth.service.Google2FAGroupChecker
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
@@ -65,10 +66,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   }
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
-    val passesMultifactor = if(multifactorChecker.isEmpty) { authedUser.multiFactor } else { true }
-
-    isValidDomain && passesMultifactor
+    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
   }
 
   private def buildPandaSettings() = {
@@ -92,5 +90,12 @@ object Authentication {
   def getEmail(principal: Principal): String = principal match {
     case PandaUser(user) => user.email
     case _ => principal.apiKey.name
+  }
+
+  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
+    val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
+    val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
+
+    isValidDomain && passesMultifactor
   }
 }
