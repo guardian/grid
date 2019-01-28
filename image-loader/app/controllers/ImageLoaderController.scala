@@ -140,6 +140,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest)
       image = imageUpload.image
     } yield {
+      Logger.info(s"Image to store: ${Json.toJson(image)}")
+
       notifications.publish(Json.toJson(image), "image")
       // TODO: centralise where all these URLs are constructed
       Accepted(Json.obj("uri" -> s"${config.apiUri}/images/${uploadRequest.id}")).as(ArgoMediaType)
