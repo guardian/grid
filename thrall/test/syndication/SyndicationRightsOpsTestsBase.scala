@@ -67,7 +67,7 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
     }
 
     "Images in a photoshoot" - {
-      "correctly infer rights in the photoshoot when an image with syndication rights is added" in {
+      "correctly infer rights in a photoshoot containing images with no syndication rights, when an image with syndication rights is added" in {
         val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
 
         withPhotoshoot(photoshootTitle) { images =>
@@ -83,21 +83,57 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
         }
       }
 
-      "correctly infer rights in the photoshoot when an image with syndication rights is added, but not propagated yet" in {
+      "correctly infer rights in a photoshoot containing images with syndication rights, when an image with more recent syndication rights is added" in {
+        val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
+
+        withPhotoshoot(photoshootTitle) { images =>
+          withImage(imageWithSyndRights) { imageWithRights1 =>
+            withImage(imageWithSyndRights) { imageWithRights2 =>
+              whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights1, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+                whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights2, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+                  images.foreach { img =>
+                    whenReady(ES.getImage(img.id)) { optImg =>
+                      optImg.get.syndicationRights shouldBe imageWithRights2.syndicationRights.map(_.copy(isInferred = true))
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      "correctly infer rights in the photoshoot when an image with no syndication rights is added" in {
+        val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
+
+        withPhotoshoot(photoshootTitle) { images =>
+          withImage(imageWithNoSyndRights) { imageWithRights =>
+            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+              images.foreach { img =>
+                whenReady(ES.getImage(img.id)) { optImg =>
+                  optImg.get.syndicationRights shouldBe None
+                }
+              }
+            }
+          }
+        }
+      }
+
+      "correctly infer rights in the photoshoot when an image in that photoshoot receives rights" in {
         val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
         val syndRights = someSyndRights
 
         withPhotoshoot(photoshootTitle) { images =>
           val imageWithNoRights = images.head
           whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithNoRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), newRightsOpt = syndRights)) { _ =>
+
+            Thread.sleep(5000)
             images.tail.foreach { img =>
               whenReady(ES.getImage(img.id)) { optImg =>
-                println(s"Checking image with id ${img.id}")
                 optImg.get.syndicationRights shouldBe syndRights.map(_.copy(isInferred = true))
               }
             }
-            Thread.sleep(5000)
-            whenReady(ES.getImage(images.head.id)) { img =>
+            whenReady(ES.getImage(imageWithNoRights.id)) { img =>
               img.get.syndicationRights shouldBe syndRights
             }
           }
@@ -116,27 +152,14 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
                     optImg.get.syndicationRights shouldBe None
                   }
                 }
+                whenReady(ES.getImage(imageWithRights.id)) { optImg =>
+                  optImg.get.syndicationRights shouldBe imageWithRights.syndicationRights
+                }
               }
             }
           }
         }
       }
-
-      "correctly infer rights in the photoshoot when an image receives syndication rights" in {
-        val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
-
-        withPhotoshoot(photoshootTitle) { images =>
-          val imageWithRights = images.head
-          whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-            images.foreach { img =>
-              whenReady(ES.getImage(img.id)) { optImg =>
-                optImg.get.syndicationRights shouldBe imageWithRights.syndicationRights.map(_.copy(isInferred = true))
-              }
-            }
-          }
-        }
-      }
-
     }
   }
 }

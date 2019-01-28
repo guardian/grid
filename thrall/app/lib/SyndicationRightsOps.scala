@@ -48,11 +48,12 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
   }
 
   private def refreshPhotoshoot(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None, newRightsOpt: Option[SyndicationRights] = None): Future[Unit] = for {
-    latestRights <- getLatestSyndicationRights(image, photoshoot, excludedImageId)
-    inferredImages <- getInferredSyndicationRightsImages(image, photoshoot, excludedImageId)
+    latestRights <- getLatestSyndicationRights(image, photoshoot, excludedImageId, newRightsOpt)
+    inferredImages <- getInferredSyndicationRightsImages(image, photoshoot, excludedImageId, newRightsOpt)
   } yield {
-    GridLogger.info(s"Using rights $latestRights to infer rights for images (photoshoot: $photoshoot): ${inferredImages.map(_.id)}")
-    inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, latestRights.map(_.copy(isInferred = true))))
+    val updatedRights = latestRights.map(_.copy(isInferred = true))
+    GridLogger.info(s"Using rights $updatedRights to infer rights for images (photoshoot: $photoshoot): ${inferredImages.map(_.id)}")
+    inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights))
   }
 
   /* The following methods are needed because ES is eventually consistent.
@@ -65,15 +66,18 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
   private def getLatestSyndicationRights(image: Image,
                                          photoshoot: Photoshoot,
                                          excludedImageId: Option[String] = None,
-                                         newRightsOpt: Option[SyndicationRights] = None): Future[Option[SyndicationRights]] =
+                                         newRightsOpt: Option[SyndicationRights]): Future[Option[SyndicationRights]] =
     excludedImageId match {
-      case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
+      case Some(_) =>
+        es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
       case None =>
         val currentImageWithRights: Image = if (newRightsOpt.isDefined) image.copy(syndicationRights = newRightsOpt) else image
         val hasInferredRights: Boolean = currentImageWithRights.hasInferredSyndicationRights
         es.getLatestSyndicationRights(photoshoot).map {
-          case Some(dbImage) => if (!hasInferredRights) mostRecentSyndicationRights(dbImage, image) else dbImage.syndicationRights
-          case None => if (!hasInferredRights) currentImageWithRights.syndicationRights else None
+          case Some(dbImage) =>
+            if (!hasInferredRights) mostRecentSyndicationRights(dbImage, currentImageWithRights) else dbImage.syndicationRights
+          case None =>
+            if (!hasInferredRights) currentImageWithRights.syndicationRights else None
         }
     }
 
@@ -86,11 +90,15 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
 
   private def getInferredSyndicationRightsImages(image: Image,
                                                  photoshoot: Photoshoot,
-                                                 excludedImageId: Option[String] = None): Future[List[Image]] =
+                                                 excludedImageId: Option[String] = None, newRightsOpt: Option[SyndicationRights] = None): Future[List[Image]] =
     excludedImageId match {
       case Some(_) => es.getInferredSyndicationRightsImages(photoshoot, excludedImageId)
-      case None => es.getInferredSyndicationRightsImages(photoshoot).map { images =>
-        if(image.hasInferredSyndicationRights) images :+ image else images
-      }
+      case None =>
+        val currentImageWithRights: Image = if (newRightsOpt.isDefined) image.copy(syndicationRights = newRightsOpt) else image
+
+        val imageId = if (!currentImageWithRights.hasInferredSyndicationRights) Some(currentImageWithRights.id) else None
+        es.getInferredSyndicationRightsImages(photoshoot, imageId).map { images =>
+          if (image.hasInferredSyndicationRights) images :+ image else images
+        }
     }
 }
