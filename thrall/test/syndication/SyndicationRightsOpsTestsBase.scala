@@ -83,6 +83,27 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
         }
       }
 
+      "correctly infer rights in the photoshoot when an image with syndication rights is added, but not propagated yet" in {
+        val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
+        val syndRights = someSyndRights
+
+        withPhotoshoot(photoshootTitle) { images =>
+          val imageWithNoRights = images.head
+          whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithNoRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), newRightsOpt = syndRights)) { _ =>
+            images.tail.foreach { img =>
+              whenReady(ES.getImage(img.id)) { optImg =>
+                println(s"Checking image with id ${img.id}")
+                optImg.get.syndicationRights shouldBe syndRights.map(_.copy(isInferred = true))
+              }
+            }
+            Thread.sleep(5000)
+            whenReady(ES.getImage(images.head.id)) { img =>
+              img.get.syndicationRights shouldBe syndRights
+            }
+          }
+        }
+      }
+
       "recalculate rights in the photoshoot when an image is removed" in {
         val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
 
