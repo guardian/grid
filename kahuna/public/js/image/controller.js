@@ -99,8 +99,14 @@ image.controller('ImageCtrl', [
                 combo: 'f',
                 description: 'Enter fullscreen',
                 callback: () => {
-                    const imageEl = $element[0].querySelector('.image-holder');
-                    imageEl && imageEl.requestFullscreen && imageEl.requestFullscreen();
+                    if (!document.fullscreenElement) {
+                        const imageEl = $element[0].querySelector('.image-holder');
+                        imageEl && imageEl.requestFullscreen && imageEl.requestFullscreen();
+                    } else {
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                        }
+                    }
                 }
             });
 
