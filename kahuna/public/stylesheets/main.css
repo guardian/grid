@@ -1513,6 +1513,12 @@ FIXME: what to do with touch devices
     max-height: calc(100vh - 68px);
 }
 
+.easel__image:fullscreen,
+.easel__image--checkered__background:fullscreen{
+    background-color: #333;
+    background-image: none;
+}
+
 .easel__image--cropper {
     visibility: hidden;
 }

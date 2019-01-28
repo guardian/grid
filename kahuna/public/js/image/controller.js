@@ -100,7 +100,7 @@ image.controller('ImageCtrl', [
                 description: 'Enter fullscreen',
                 callback: () => {
                     if (!document.fullscreenElement) {
-                        const imageEl = $element[0].querySelector('.image-holder');
+                        const imageEl = $element[0].querySelector('.easel__image');
                         imageEl && imageEl.requestFullscreen && imageEl.requestFullscreen();
                     } else {
                         if (document.exitFullscreen) {
