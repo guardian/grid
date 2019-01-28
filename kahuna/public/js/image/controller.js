@@ -51,6 +51,7 @@ var image = angular.module('kahuna.image.controller', [
 image.controller('ImageCtrl', [
     '$rootScope',
     '$scope',
+    '$element',
     '$state',
     '$stateParams',
     '$window',
@@ -69,6 +70,7 @@ image.controller('ImageCtrl', [
 
     function ($rootScope,
               $scope,
+              $element,
               $state,
               $stateParams,
               $window,
@@ -87,11 +89,20 @@ image.controller('ImageCtrl', [
 
         let ctrl = this;
 
-        keyboardShortcut.bindTo($scope).add({
-            combo: 'c',
-            description: 'Crop image',
-            callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
-        });
+        keyboardShortcut.bindTo($scope)
+            .add({
+                combo: 'c',
+                description: 'Crop image',
+                callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
+            })
+            .add({
+                combo: 'f',
+                description: 'Enter fullscreen',
+                callback: () => {
+                    const imageEl = $element[0].querySelector('.image-holder');
+                    imageEl && imageEl.requestFullscreen && imageEl.requestFullscreen();
+                }
+            });
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
