@@ -1514,7 +1514,9 @@ FIXME: what to do with touch devices
 }
 
 .easel__image:fullscreen,
-.easel__image--checkered__background:fullscreen{
+.easel__image--checkered__background:fullscreen,
+.easel__image::backdrop,
+.easel__image--checkered__background::backdrop {
     background-color: #333;
     background-image: none;
 }
