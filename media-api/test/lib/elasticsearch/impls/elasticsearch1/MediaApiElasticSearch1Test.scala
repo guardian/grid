@@ -1,97 +1,45 @@
-package lib
+package lib.elasticsearch.impls.elasticsearch1
 
-import java.util.UUID
-
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.model._
-import controllers.SearchParams
-import org.joda.time.{DateTime, DateTimeUtils}
-import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
-import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import com.gu.mediaservice.model.usage.PublishedUsageStatus
+import com.gu.mediaservice.syntax._
+import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
+import lib.{MediaApiConfig, MediaApiMetrics}
+import org.elasticsearch.action.delete.DeleteRequest
+import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.index.query.QueryBuilders
+import org.joda.time.DateTime
+import org.scalatest.concurrent.Eventually
+import org.scalatest.mockito.MockitoSugar
+import play.api.Configuration
+import play.api.libs.json.Json
+import play.api.mvc.AnyContent
+import play.api.mvc.Security.AuthenticatedRequest
 
-import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
-class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers with ElasticSearchHelper with ScalaFutures {
-  val interval = Interval(Span(5, Seconds))
-  val timeout = Timeout(Span(30, Seconds))
+class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually with MockitoSugar {
 
-  lazy val images: List[Image] = List(
-    createImage(UUID.randomUUID().toString, Handout()),
-    createImage(UUID.randomUUID().toString, StaffPhotographer("Yellow Giraffe", "The Guardian")),
-    createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
+  implicit val request  = mock[AuthenticatedRequest[AnyContent, Principal]]
 
-    // available for syndication
-    createImageForSyndication(
-      id = "test-image-1",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "test-image-1"))
-    ),
+  private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
+  private val fiveSeconds = Duration(5, SECONDS)
 
-    // has a digital usage, still eligible for syndication
-    createImageForSyndication(
-      id = "test-image-2",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "test-image-2")),
-      List(createDigitalUsage())
-    ),
+  private val imageAlias = "readAlias"
 
-    // has syndication usage, not available for syndication
-    createImageForSyndication(
-      id = "test-image-3",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "test-image-3")),
-      List(createDigitalUsage(), createSyndicationUsage())
-    ),
+  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
+    "persistence.identifier" -> "picdarUrn",
+  )))
 
-    // rights acquired, explicit allow syndication lease and unknown publish date, available for syndication
-    createImageForSyndication(
-      id = "test-image-4",
-      rightsAcquired = true,
-      None,
-      Some(createSyndicationLease(allowed = true, "test-image-4"))
-    ),
+  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
+  val elasticConfig = ElasticSearchConfig(writeAlias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
 
-    // explicit deny syndication lease with no end date, not available for syndication
-    createImageForSyndication(
-      id = "test-image-5",
-      rightsAcquired = true,
-      None,
-      Some(createSyndicationLease(allowed = false, "test-image-5"))
-    ),
-
-    // explicit deny syndication lease with end date before now, available for syndication
-    createImageForSyndication(
-      id = "test-image-6",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = false, "test-image-6", endDate = Some(DateTime.parse("2018-01-01T00:00:00"))))
-    ),
-
-    // images published after "today", not available for syndication
-    createImageForSyndication(
-      id = "test-image-7",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-07-02T00:00:00")),
-      Some(createSyndicationLease(allowed = false, "test-image-7"))
-    ),
-
-    createImageForSyndication(
-      id = "test-image-8",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-07-03T00:00:00")),
-      None
-    ),
-
-    // no rights acquired, not available for syndication
-    createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = false, None, None)
-  )
+  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
 
   override def beforeAll {
     ES.ensureAliasAssigned()
@@ -99,10 +47,56 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
 
     // allow the cluster to distribute documents... eventual consistency!
     Thread.sleep(5000)
+  }
 
-    // mocks `DateTime.now`
-    val startDate = DateTime.parse("2018-03-01")
-    DateTimeUtils.setCurrentMillisFixed(startDate.getMillis)
+  override def afterAll  {
+    purgeTestImages
+  }
+
+  describe("get by id") {
+    it("can load a single image by id") {
+      val expectedImage = images.head
+      whenReady(ES.getImageById(expectedImage.id)) { r =>
+        r.get.id shouldEqual expectedImage.id
+      }
+    }
+  }
+
+  describe("usages for supplier") {
+    it("can count published agency images within the last number of days") {
+      val publishedAgencyImages = images.filter(i => i.usageRights.isInstanceOf[Agency] && i.usages.exists(_.status == PublishedUsageStatus))
+      publishedAgencyImages.size shouldBe 2
+
+      // Reporting date range is implemented as round down to last full day
+      val withinReportedDateRange = publishedAgencyImages.filter(i => i.usages.
+        exists(u => u.dateAdded.exists(_.isBefore(DateTime.now.withTimeAtStartOfDay()))))
+      withinReportedDateRange.size shouldBe 1
+
+      val results = Await.result(ES.usageForSupplier("ACME", 5), fiveSeconds)
+
+      results.count shouldBe 1
+    }
+  }
+
+  describe("aggregations") {
+    it("can load date aggregations") {
+      val aggregateSearchParams = AggregateSearchParams(field = "uploadTime", q = None, structuredQuery = List.empty)
+
+      val results = Await.result(ES.dateHistogramAggregate(aggregateSearchParams), fiveSeconds)
+
+      results.total shouldBe 1
+      results.results.head.count shouldBe images.size
+    }
+
+    it("can load metadata aggregations") {
+      val aggregateSearchParams = AggregateSearchParams(field = "keywords", q = None, structuredQuery = List.empty)
+
+      val results = Await.result(ES.metadataSearch(aggregateSearchParams), fiveSeconds)
+
+      results.total shouldBe 2
+      results.results.find(b => b.key == "es").get.count shouldBe images.size
+      results.results.find(b => b.key == "test").get.count shouldBe images.size
+    }
   }
 
   describe("Tiered API access") {
@@ -198,6 +192,8 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
       val search = SearchParams(tier = Internal, syndicationStatus = Some(BlockedForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
+        result.hits.forall(h => h._2.leases.leases.nonEmpty) shouldBe true
+        result.hits.forall(h => h._2.leases.leases.forall(l => l.access == DenySyndicationLease)) shouldBe true
         result.total shouldBe 3
       }
     }
@@ -211,8 +207,36 @@ class ElasticSearchTest extends FunSpec with BeforeAndAfterAll with Matchers wit
     }
   }
 
-  override def afterAll  {
-    Await.ready(deleteImages(), 5.seconds)
-    DateTimeUtils.setCurrentMillisSystem()
+  private def saveImages(images: Seq[Image]) = {
+    Future.sequence(
+      images.map(image => {
+        ES.client.prepareIndex(imageAlias, "image")
+          .setId(image.id)
+          .setSource(Json.toJson(image).toString())
+          .executeAndLog(s"Saving test image with id ${image.id}")
+      })
+    )
   }
+
+  private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
+
+  private def purgeTestImages = {
+    def deleteImages() = {
+      val sixtySeconds = new TimeValue(60000)
+      def scroll = ES.client.prepareSearch(imageAlias)
+        .setScroll(sixtySeconds)
+        .setQuery(QueryBuilders.matchAllQuery())
+        .setSize(20).execute().actionGet()
+
+      var scrollResp = scroll
+      while (scrollResp.getHits.getHits.length > 0) {
+        scrollResp.getHits.getHits.map(h => ES.client.delete(new DeleteRequest(imageAlias, "image", h.getId)))
+        scrollResp =  ES.client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(sixtySeconds).execute().actionGet()
+      }
+    }
+
+    deleteImages()
+    eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
+  }
+
 }

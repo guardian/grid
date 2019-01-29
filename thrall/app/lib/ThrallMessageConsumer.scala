@@ -3,14 +3,13 @@ package lib
 import com.gu.mediaservice.lib.aws.{EsResponse, MessageConsumer}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Edits, SyndicationRights}
-import org.elasticsearch.action.delete.DeleteResponse
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class ThrallMessageConsumer(
   config: ThrallConfig,
-  es: ElasticSearch,
+  es: ElasticSearchVersion,
   thrallMetrics: ThrallMetrics,
   store: ThrallStore,
   notifications: DynamoNotifications,
@@ -83,7 +82,7 @@ class ThrallMessageConsumer(
         // the message anyway.
         es.deleteImage(id).map { requests =>
           requests.map {
-            case r: DeleteResponse =>
+            case _: ElasticSearchDeleteResponse =>
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)

@@ -1,20 +1,18 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.lib.config.UsageRightsConfig
-import com.gu.mediaservice.model.usage.SyndicationUsage
-import org.elasticsearch.index.query.{BoolFilterBuilder, FilterBuilder}
-import scalaz.syntax.std.list._
-import scalaz.NonEmptyList
 import lib.MediaApiConfig
-import org.joda.time.DateTime
+import org.elasticsearch.index.query.FilterBuilder
+import scalaz.NonEmptyList
+import scalaz.syntax.std.list._
 
 
 class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
-  import UsageRightsConfig.{ suppliersCollectionExcl, freeSuppliers }
+  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!
@@ -22,13 +20,12 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   val invalidFilter: Option[FilterBuilder] = config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
-  val suppliersWithExclusionsFilters: List[BoolFilterBuilder] = for {
+  val suppliersWithExclusionsFilters: List[FilterBuilder] = for {
     supplier            <- suppliersWithExclusions
     excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
   } yield {
-    filters.bool.must(
-      filters.term(usageRightsField("supplier"), supplier)
-    ).mustNot(
+    filters.mustWithMustNot(
+      filters.term(usageRightsField("supplier"), supplier),
       filters.terms(usageRightsField("suppliersCollection"), excludedCollections)
     )
   }

@@ -25,6 +25,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.11.302"
+val elastic4sVersion = "6.4.0"
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -45,6 +46,8 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "org.elasticsearch" % "elasticsearch" % "1.7.6",
+    "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
+    "com.sksamuel.elastic4s" %% "elastic4s-http" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "3.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
@@ -111,6 +114,15 @@ lazy val usage = playProject("usage", 9009).settings(
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
 
+lazy val migration = project("migration")
+  .dependsOn(commonLib).
+  settings(commonSettings,
+    mainClass in Compile := Some("Main"),
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case _ => MergeStrategy.first
+    })
+
 def project(projectName: String, path: Option[String] = None): Project =
   Project(projectName, file(path.getOrElse(projectName)))
     .settings(commonSettings)
@@ -152,10 +164,11 @@ val testSettings = Seq(
     s"docker-compose --file docker-compose-test.yml --project-name grid-test up -d".!
 
     // This is needed to ensure docker has had enough time to start up
-    Thread.sleep(5000)
+    Thread.sleep(30000)
   }),
   testOptions in Test += Tests.Cleanup(_ => {
     println(s"Removing container")
     s"docker-compose --file docker-compose-test.yml --project-name grid-test down".!
   })
 )
+

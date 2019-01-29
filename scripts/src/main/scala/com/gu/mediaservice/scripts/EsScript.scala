@@ -145,7 +145,7 @@ object Reindex extends EsScript {
 
       // if no 'from' time parameter is passed, create a new index
       if(from.isEmpty) {
-        EsClient.createIndex(newIndex)
+        EsClient.createImageIndex(newIndex)
       } else {
         println(s"Reindexing documents modified since: ${from.toString}")
       }

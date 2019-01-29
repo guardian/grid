@@ -50,12 +50,6 @@ object Mappings {
   // analyser to be searched in different ways.
   def copyTo(fieldName: String) = Json.obj("copy_to" -> fieldName)
 
-  val identifiersMapping =
-    nonDynamicObj(
-      // TODO: extract these to a configuration setting
-      "picdarUrn" -> standardAnalysedString
-    )
-
   val dimensionsMapping =
     nonDynamicObj(
       "width" -> integer,
@@ -290,7 +284,6 @@ object Mappings {
           "usagesLastModified" -> dateFormat,
           "leases" -> leasesMapping,
           "collections" -> collectionMapping,
-          "suggestMetadataCredit" -> simpleSuggester
         ),
         "dynamic_templates" -> Json.arr(Json.obj(
           "stored_json_object_template" -> Json.obj(
