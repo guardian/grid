@@ -1,6 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch1
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ImageFields}
 import com.gu.mediaservice.model.{Agencies, Image}
 import com.gu.mediaservice.syntax._
@@ -14,6 +15,8 @@ import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogram
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
+import play.api.mvc.AnyContent
+import play.api.mvc.Security.AuthenticatedRequest
 import scalaz.NonEmptyList
 import scalaz.syntax.id._
 import scalaz.syntax.std.list._
@@ -32,12 +35,12 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   val searchFilters = new SearchFilters(config)
 
-  def getImageById(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] =
+  def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt.map(_.as[Image]))
 
   val queryBuilder = new QueryBuilder(matchFields)
 
-  def search(params: SearchParams)(implicit ex: ExecutionContext): Future[SearchResults] = {
+  def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
 
     val query = queryBuilder.makeQuery(params.structuredQuery)
 
@@ -118,7 +121,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       }
   }
 
-  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext): Future[SupplierUsageSummary] = {
+  def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SupplierUsageSummary] = {
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
     val bePublished = termQuery("usages.status","published")
@@ -148,7 +151,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       .map(count => SupplierUsageSummary(supplier,  count.toInt))
   }
 
-  def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
       .dateHistogram(params.field)
       .field(params.field)
@@ -157,14 +160,14 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     aggregateSearch(params.field, params, aggregate)
   }
 
-  def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
       .terms("metadata")
       .field(metadataField(params.field))
     aggregateSearch("metadata", params, aggregate)
   }
 
-  def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+  def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     val aggregate = AggregationBuilders
       .terms("edits")
       .field(editsField(params.field))
@@ -172,7 +175,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregateBuilder: AbstractAggregationBuilder)
-                     (implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
+                     (implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     val query = queryBuilder.makeQuery(params.structuredQuery)
     val search = prepareImagesSearch
       .setQuery(query)
@@ -185,7 +188,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       .map(searchResultToAggregateResponse(_, name))
   }
 
-  def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext): Future[CompletionSuggestionResults] = {
+  def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[CompletionSuggestionResults] = {
     val builder = completionSuggestionBuilder(name).field(name).text(q).size(size)
     val search = prepareImagesSearch.addSuggestion(builder).setFrom(0).setSize(0)
 

@@ -61,8 +61,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
     }
   ).flatten
 
-  val elasticSearch: ElasticSearchVersion = elasticSearches.head
-  Logger.info("Using first configured ElasticSearch: " + elasticSearch)
+  val elasticSearch: ElasticSearchVersion = new lib.elasticsearch.TogglingElasticSearch(elasticSearches.head, elasticSearches.last)
   elasticSearch.ensureAliasAssigned()
 
   val s3Client = new S3Client(config)

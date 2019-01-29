@@ -1,5 +1,6 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions}
 import com.gu.mediaservice.model._
@@ -12,15 +13,20 @@ import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
+import org.scalatest.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.libs.json.Json
+import play.api.mvc.AnyContent
+import play.api.mvc.Security.AuthenticatedRequest
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearch6Executions {
+class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearch6Executions with MockitoSugar {
+
+  implicit val request  = mock[AuthenticatedRequest[AnyContent, Principal]]
 
   private val index = "images"
 
