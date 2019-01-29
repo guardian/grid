@@ -1,13 +1,11 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.client.Client
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.common.unit.TimeValue
 import play.api.Logger
-
 
 trait ElasticSearchClient {
 
@@ -56,21 +54,16 @@ trait ElasticSearchClient {
     val indexExists = client.admin.indices.prepareExists(index)
                         .execute.actionGet.isExists
 
-    if (!indexExists) createIndex(index)
+    if (!indexExists) createImageIndex(index)
   }
 
-  def createIndex(index: String) {
+  def createImageIndex(index: String) {
     Logger.info(s"Creating index $index")
     client.admin.indices
       .prepareCreate(index)
       .addMapping(imageType, Mappings.imageMapping)
       .setSettings(IndexSettings.imageSettings)
       .execute.actionGet
-  }
-
-  def deleteIndex(index: String) {
-    Logger.info(s"Deleting index $index")
-    client.admin.indices.delete(new DeleteIndexRequest(index)).actionGet
   }
 
   def getCurrentAlias: Option[String] = {

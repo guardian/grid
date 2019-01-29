@@ -4,20 +4,10 @@ import java.net.URI
 import java.util.UUID
 
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.usage.Usage
-import lib.{ElasticSearch, ThrallConfig, ThrallMetrics}
+import com.gu.mediaservice.model.usage.{DigitalUsage, PublishedUsageStatus, Usage}
 import org.joda.time.DateTime
-import play.api.Configuration
 
-trait ElasticsearchHelpers {
-  private val thrallConfig = new ThrallConfig(Configuration.from(Map(
-    "es.cluster" -> "media-service-test",
-    "es.port" -> "9301",
-    "es.index.aliases.write" -> "writeAlias"
-  )))
-  private val thrallMetrics = new ThrallMetrics(thrallConfig)
-
-  val ES: ElasticSearch = new ElasticSearch(thrallConfig, thrallMetrics)
+trait Fixtures {
 
   def createImage(
                    id: String,
@@ -90,4 +80,12 @@ trait ElasticsearchHelpers {
   def imageWithSyndRights: Image = createImage(id = UUID.randomUUID().toString, usageRights = StaffPhotographer("Tom Jenkins", "The Guardian"), syndicationRights = someSyndRights)
 
   def imageWithPhotoshoot(photoshoot: Photoshoot): Image = createImage(id = UUID.randomUUID().toString, StaffPhotographer("Tom Jenkins", "The Guardian"), optPhotoshoot = Some(photoshoot))
+
+  def crop = {
+    val cropSpec = CropSpec("/test", Bounds(0,0,0,0), None)
+    Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
+  }
+
+  def usage(id: String = UUID.randomUUID().toString) = Usage(id, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
+
 }

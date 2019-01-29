@@ -1,10 +1,13 @@
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.ManagementWithPermissions
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
-import lib.elasticsearch.{ElasticSearch, SearchFilters}
+import lib.elasticsearch.ElasticSearchVersion
 import play.api.ApplicationLoader.Context
+import play.api.Logger
 import router.Routes
 
 class MediaApiComponents(context: Context) extends GridComponents(context) {
@@ -13,10 +16,53 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val notifications = new Notifications(config)
-  val searchFilters = new SearchFilters(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
-  val elasticSearch = new ElasticSearch(config, searchFilters, mediaApiMetrics)
+  val es1Config: Option[ElasticSearchConfig] = for {
+    p <- config.elasticsearchPort
+    c <- config.elasticsearchCluster
+  } yield {
+    ElasticSearchConfig(writeAlias = config.imagesAlias,
+      host = config.elasticsearchHost,
+      port = p,
+      cluster = c
+    )
+  }
+
+  val es6Config: Option[ElasticSearch6Config] = for {
+    h <- config.elasticsearch6Host
+    p <- config.elasticsearch6Port
+    c <- config.elasticsearch6Cluster
+    s <- config.elasticsearch6Shards
+    r <- config.elasticsearch6Replicas
+  } yield {
+    ElasticSearch6Config(
+      writeAlias = config.imagesAlias,
+      host = h,
+      port = p,
+      cluster = c,
+      shards = s,
+      replicas = r
+    )
+  }
+
+  val elasticSearches = Seq(
+    es1Config.map { c =>
+      Logger.info("Configuring ES1: " + c)
+      val es1 = new lib.elasticsearch.impls.elasticsearch1.ElasticSearch(config, mediaApiMetrics, c)
+      es1.ensureAliasAssigned()
+      es1
+    },
+    es6Config.map { c =>
+      Logger.info("Configuring ES6: " + c)
+      val es6 = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(config, mediaApiMetrics, c)
+      es6.ensureAliasAssigned()
+      es6
+    }
+  ).flatten
+
+  val elasticSearch: ElasticSearchVersion = elasticSearches.head
+  Logger.info("Using first configured ElasticSearch: " + elasticSearch)
   elasticSearch.ensureAliasAssigned()
 
   val s3Client = new S3Client(config)

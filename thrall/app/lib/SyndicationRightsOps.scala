@@ -5,7 +5,7 @@ import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
+class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionContext) {
 
   /**
     * Upserting syndication rights and updating photoshoots accordingly.

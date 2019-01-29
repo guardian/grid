@@ -18,8 +18,12 @@ trait CommonConfig {
   lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
 
   final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
+
   final val elasticsearchStack = "media-service"
+
   final val elasticsearchApp = "elasticsearch"
+  final val elasticsearch6App = "elasticsearch6"
+
   final val stackName = "media-service"
 
   final val sessionId = UUID.randomUUID().toString

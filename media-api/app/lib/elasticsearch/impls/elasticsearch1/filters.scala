@@ -1,4 +1,4 @@
-package lib.elasticsearch
+package lib.elasticsearch.impls.elasticsearch1
 
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._
@@ -72,6 +72,14 @@ object filters {
   def existsOrMissing(field: String, exists: Boolean): FilterBuilder = exists match {
     case true  => filters.exists(NonEmptyList(field))
     case false => filters.missing(NonEmptyList(field))
+  }
+
+  def mustWithMustNot(mustClause: FilterBuilder, mustNotClause: FilterBuilder): FilterBuilder = {
+    filters.bool.must(
+      mustClause
+    ).mustNot(
+      mustNotClause
+    )
   }
 
 }

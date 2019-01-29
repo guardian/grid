@@ -1,0 +1,6 @@
+cluster.name: media-service
+
+xpack.security.enabled: false
+discovery.type: single-node
+
+network.host: 0.0.0.0

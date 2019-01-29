@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.elasticsearch
+package com.gu.mediaservice.lib.discovery
 
 import com.amazonaws.services.ec2.AmazonEC2
 import com.amazonaws.services.ec2.model.{DescribeInstancesRequest, Filter, InstanceStateName}
@@ -10,7 +10,7 @@ import scala.util.Random
 object EC2 {
 
   @annotation.tailrec
-  def findElasticsearchHost(client: AmazonEC2, tags: Map[String, Seq[String]]): String = {
+  def findElasticsearchHostByTags(client: AmazonEC2, tags: Map[String, Seq[String]]): String = {
     val instances = client.describeInstances(new DescribeInstancesRequest().withFilters(
       new Filter("instance-state-name", List(InstanceStateName.Running.toString).asJava) +:
       tagFilters(tags): _*
@@ -25,7 +25,7 @@ object EC2 {
       case None =>
         Logger.warn("Could not find an Elasticsearch host. Trying again...")
         Thread.sleep(1000)
-        findElasticsearchHost(client, tags)
+        findElasticsearchHostByTags(client, tags)
       case Some(host) =>
         Logger.info(s"Using Elasticsearch host $host")
         host
