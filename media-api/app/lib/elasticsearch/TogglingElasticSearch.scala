@@ -8,22 +8,22 @@ import play.api.mvc.{AnyContent, Security}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class TogglingElasticSearch(either: ElasticSearchVersion,
-                            or: ElasticSearchVersion) extends ElasticSearchVersion {
+class TogglingElasticSearch(a: ElasticSearchVersion,
+                            b: ElasticSearchVersion) extends ElasticSearchVersion {
 
   val TOGGLE_COOKIE_NAME = "GRID_INDEX_TOGGLE"
 
   def active()(implicit request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]) = {
     val version = if (request.cookies.exists(c => c.name == TOGGLE_COOKIE_NAME)) {
-      or
-    } else either
+      b
+    } else a
     Logger.info("Using toggled ES: " + version)
     version
   }
 
   override def ensureAliasAssigned(): Unit = {
-    either.ensureAliasAssigned
-    or.ensureAliasAssigned
+    a.ensureAliasAssigned
+    b.ensureAliasAssigned
   }
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]): Future[Option[Image]] = active.getImageById(id)
