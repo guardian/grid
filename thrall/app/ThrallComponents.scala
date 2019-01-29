@@ -1,5 +1,6 @@
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
@@ -60,6 +61,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     }
   ).flatten
 
+  GridLogger.info("Creating elasticsearch router with elastics: " + elasticSearches)
   val es = new ElasticSearchRouter(elasticSearches)
 
   val syndicationOps = new SyndicationRightsOps(es)

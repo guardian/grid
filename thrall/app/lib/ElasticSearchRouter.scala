@@ -1,7 +1,6 @@
 package lib
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
-import play.api.Logger
 import play.api.libs.json.{JsLookupResult, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
