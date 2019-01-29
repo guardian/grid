@@ -1,5 +1,4 @@
 package lib
-import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import play.api.libs.json.{JsLookupResult, JsValue}
 
