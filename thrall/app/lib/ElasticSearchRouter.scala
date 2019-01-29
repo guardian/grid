@@ -1,5 +1,7 @@
 package lib
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
+import play.api.Logger
 import play.api.libs.json.{JsLookupResult, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,8 +17,10 @@ class ElasticSearchRouter(versions: Seq[ElasticSearchVersion]) extends ElasticSe
   override def updateImageUsages(id: String, usages: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
     versions.map(_.updateImageUsages(id, usages, lastModified)).head
 
-  override def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
+  override def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+    GridLogger.info("Dispatching updateImageSyndicationRights to Elastics: " + versions)
     versions.map(_.updateImageSyndicationRights(id, rights)).head
+  }
 
   override def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = versions.map(_.deleteAllImageUsages(id)).head
 
