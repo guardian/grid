@@ -17,7 +17,6 @@ class ElasticSearchRouter(versions: Seq[ElasticSearchVersion]) extends ElasticSe
     versions.map(_.updateImageUsages(id, usages, lastModified)).head
 
   override def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    GridLogger.info("Dispatching updateImageSyndicationRights to Elastics: " + versions)
     versions.map(_.updateImageSyndicationRights(id, rights)).head
   }
 
