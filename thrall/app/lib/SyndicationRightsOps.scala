@@ -43,7 +43,7 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
   private def refreshCurrentPhotoshoot(image: Image, currentPhotoshootOpt: Option[Photoshoot], newRightsOpt: Option[SyndicationRights] = None): Future[Unit] = currentPhotoshootOpt match {
     case Some(photoshoot) => refreshPhotoshoot(image, photoshoot, newRightsOpt = newRightsOpt)
     case None =>
-      if (image.hasInferredSyndicationRights && newRightsOpt.isEmpty) Future.sequence(es.deleteSyndicationRights(image.id)).map(_ => ())
+      if (image.hasInferredSyndicationRightsOrNoRights && newRightsOpt.isEmpty) Future.sequence(es.deleteSyndicationRights(image.id)).map(_ => ())
       else Future.successful(())
   }
 
@@ -72,7 +72,7 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
         es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
       case None =>
         val currentImageWithRights: Image = if (newRightsOpt.isDefined) image.copy(syndicationRights = newRightsOpt) else image
-        val hasInferredRights: Boolean = currentImageWithRights.hasInferredSyndicationRights
+        val hasInferredRights: Boolean = currentImageWithRights.hasInferredSyndicationRightsOrNoRights
         es.getLatestSyndicationRights(photoshoot).map {
           case Some(dbImage) =>
             if (!hasInferredRights) mostRecentSyndicationRights(dbImage, currentImageWithRights) else dbImage.syndicationRights
@@ -96,9 +96,12 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
       case None =>
         val currentImageWithRights: Image = if (newRightsOpt.isDefined) image.copy(syndicationRights = newRightsOpt) else image
 
-        val imageId = if (!currentImageWithRights.hasInferredSyndicationRights) Some(currentImageWithRights.id) else None
+        val imageId = if (!currentImageWithRights.hasInferredSyndicationRightsOrNoRights) Some(currentImageWithRights.id) else None
         es.getInferredSyndicationRightsImages(photoshoot, imageId).map { images =>
-          if (image.hasInferredSyndicationRights) images :+ image else images
+          if (currentImageWithRights.hasInferredSyndicationRightsOrNoRights)
+            images :+ currentImageWithRights
+          else
+            images
         }
     }
 }
