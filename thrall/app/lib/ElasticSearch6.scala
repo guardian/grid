@@ -105,7 +105,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
 
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
-    val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating syndicationRights on image $id with rights $params")
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating usages on image $id")
       .incrementOnFailure(metrics.failedUsagesUpdates){case _ => true}
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
