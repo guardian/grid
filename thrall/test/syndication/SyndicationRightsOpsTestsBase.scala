@@ -26,7 +26,6 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
   }
 
   def withPhotoshoot(photoshoot: Photoshoot)(test: List[Image] => Unit): Unit = {
-    println(s"Creating photoshoot ${photoshoot.title}")
     val images = (1 until 5).map { _ =>
       val image = imageWithPhotoshoot(photoshoot)
       ES.indexImage(image.id, Json.toJson(image))
@@ -39,6 +38,11 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
   override def beforeAll {
     ES.ensureAliasAssigned()
   }
+  def addSyndicationRights(image: Image, someRights: Option[SyndicationRights]) = {
+    image.copy(syndicationRights = someRights)
+  }
+
+  val syndRightsOps = new SyndicationRightsOps(ES)
 
   implicit val defaultPatience = PatienceConfig(timeout = Span(30, Seconds), interval = Span(250, Millis))
 
@@ -56,7 +60,7 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
       val syndRights = someSyndRights
       "correctly apply syndication rights" in {
         withImage(imageWithNoSyndRights) { image =>
-          whenReady(syndRightsOps.upsertOrRefreshRights(image = image, newRightsOpt = syndRights)) { _ =>
+          whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(image, syndRights))) { _ =>
             whenReady(ES.getImage(image.id)) { optImg =>
               optImg.get.syndicationRights shouldBe defined
               optImg.get.syndicationRights shouldBe syndRights
@@ -125,7 +129,7 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
 
         withPhotoshoot(photoshootTitle) { images =>
           val imageWithNoRights = images.head
-          whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithNoRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), newRightsOpt = syndRights)) { _ =>
+          whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(imageWithNoRights, syndRights), previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
 
             Thread.sleep(5000)
             images.tail.foreach { img =>

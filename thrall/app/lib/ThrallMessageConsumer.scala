@@ -109,9 +109,8 @@ class ThrallMessageConsumer(
             GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights $syndicationRights", id)
 
             syndicationRightsOps.upsertOrRefreshRights(
-              image = image,
-              currentPhotoshootOpt = photoshoot,
-              newRightsOpt =  Some(syndicationRights)
+              image = image.copy(syndicationRights = Some(syndicationRights)),
+              currentPhotoshootOpt = photoshoot
             )
           case _ => GridLogger.info(s"Image $id not found")
         }
