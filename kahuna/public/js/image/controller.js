@@ -99,14 +99,31 @@ image.controller('ImageCtrl', [
                 combo: 'f',
                 description: 'Enter fullscreen',
                 callback: () => {
-                    if (!document.fullscreenElement) {
-                        const imageEl = $element[0].querySelector('.easel__image');
-                        imageEl && imageEl.requestFullscreen && imageEl.requestFullscreen();
-                    } else {
-                        if (document.exitFullscreen) {
-                            document.exitFullscreen();
-                        }
-                    }
+                    const imageEl = $element[0].querySelector('.easel__image');
+
+                    // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
+                    const fullscreenElement = (
+                        document.fullscreenElement ||
+                        document.webkitFullscreenElement ||
+                        document.mozFullScreenElement
+                    );
+
+                    const exitFullscreen = (
+                        document.exitFullscreen ||
+                        document.webkitExitFullscreen ||
+                        document.mozCancelFullScreen
+                    );
+
+                    const requestFullscreen = (
+                        imageEl.requestFullscreen ||
+                        imageEl.webkitRequestFullscreen ||
+                        imageEl.mozRequestFullScreen
+                    );
+
+                    // `.call` to ensure `this` is bound correctly.
+                    return fullscreenElement
+                        ? exitFullscreen.call(document)
+                        : requestFullscreen.call(imageEl);
                 }
             });
 
