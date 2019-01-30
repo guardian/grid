@@ -2,6 +2,7 @@ package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.elasticsearch.{ImageFields, IndexSettings}
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
@@ -40,7 +41,11 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       case _ => throw InvalidQuery("Cannot accept non-Phrase value for HierarchyField Match")
     }
     case HasField => condition.value match {
-      case HasValue(value) => boolQuery().filter(existsQuery(getFieldPath(value)))
+      case HasValue(value) => {
+        val fieldName = getFieldPath(value)
+        GridLogger.info("Applying exists filter: " + fieldName)
+        boolQuery().filter(existsQuery(fieldName))
+      }
       case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
     }
   }
