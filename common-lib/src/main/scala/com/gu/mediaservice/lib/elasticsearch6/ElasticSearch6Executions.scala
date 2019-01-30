@@ -25,7 +25,9 @@ trait ElasticSearch6Executions {
       case Success(r) =>
         r.isSuccess match {
           case true => Success(r)
-          case false => Failure(new RuntimeException("query response was not successful: " + r.error.reason))
+          case false => {
+            Failure(new RuntimeException("query response was not successful: " + r.error.reason + " / " + r.body))
+          }
         }
       case Failure(f) => Failure(f)
     }
