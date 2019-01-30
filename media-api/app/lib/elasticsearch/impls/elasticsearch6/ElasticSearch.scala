@@ -136,7 +136,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     val searchRequest = prepareSearch(withFilter) from params.offset size params.length sortBy sort
 
-    executeAndLog(searchRequest, "ES6 image search").
+    executeAndLog(searchRequest, "image search").
       toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.id, i))
       SearchResults(hits = imageHits, total = r.result.totalHits)
