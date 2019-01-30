@@ -28,7 +28,10 @@ class TogglingElasticSearch(a: ElasticSearchVersion,
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]): Future[Option[Image]] = active.getImageById(id)
 
-  override def search(params: SearchParams)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]): Future[SearchResults] = active.search(params)
+  override def search(params: SearchParams)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]): Future[SearchResults] = {
+    if (active == a) b.search(params) // TODO throw away dual query for timing comparision
+    active.search(params)
+  }
 
   override def usageForSupplier(id: String, numDays: Int)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]):
   Future[SupplierUsageSummary] = active.usageForSupplier(id, numDays)
