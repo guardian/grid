@@ -2,7 +2,7 @@ package syndication
 
 import java.util.UUID
 
-import com.gu.mediaservice.model.{Image, Photoshoot}
+import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import helpers.Fixtures
 import lib.{ElasticSearchVersion, SyndicationRightsOps}
 import org.joda.time.DateTime
@@ -41,8 +41,6 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
   def addSyndicationRights(image: Image, someRights: Option[SyndicationRights]) = {
     image.copy(syndicationRights = someRights)
   }
-
-  val syndRightsOps = new SyndicationRightsOps(ES)
 
   implicit val defaultPatience = PatienceConfig(timeout = Span(30, Seconds), interval = Span(250, Millis))
 
@@ -130,8 +128,6 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
         withPhotoshoot(photoshootTitle) { images =>
           val imageWithNoRights = images.head
           whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(imageWithNoRights, syndRights), previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-
-            Thread.sleep(5000)
             images.tail.foreach { img =>
               whenReady(ES.getImage(img.id)) { optImg =>
                 optImg.get.syndicationRights shouldBe syndRights.map(_.copy(isInferred = true))
