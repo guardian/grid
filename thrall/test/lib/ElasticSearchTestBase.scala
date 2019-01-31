@@ -40,7 +40,16 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
             specialInstructions = Some("Testing")
           )))
 
-          val fileMetadata = FileMetadata(xmp = Map("foo" -> "bar"))
+          def atLeastAsLongAs(i: Int): String = {
+            var out = ""
+            while (out.trim.length < i) {
+              out = out + UUID.randomUUID().toString + " "
+            }
+            out
+          }
+
+          val trc = atLeastAsLongAs(200000)
+          val fileMetadata = FileMetadata(xmp = Map("foo" -> "bar"), exif = Map("Long TRC to document max value size" -> trc))
 
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).
             copy(userMetadata = userMetadata).
@@ -51,6 +60,9 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
           reloadedImage(id).get.id shouldBe image.id
+
+          // TODO push to seperate test
+          reloadedImage(id).get.fileMetadata.exif.get("Long TRC to document max value size").get.length shouldBe trc.length
         }
 
         "initial indexing does not set the last modified date because scripts do not run on initial upserts" in { // TODO is this intentional?

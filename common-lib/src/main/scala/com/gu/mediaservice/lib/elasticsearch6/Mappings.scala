@@ -14,7 +14,7 @@ object Mappings {
     // Non indexed fields stored as keywords can still participate in exists / has queries
     def filemetaDataStringsAsKeyword: DynamicTemplateRequest = {
       dynamicTemplate("file_metadata_fields_as_keywords").
-        mapping(dynamicKeywordField().index(false).store(true)).
+        mapping(dynamicKeywordField().index(false).store(true).ignoreAbove(32000)).
         pathMatch("fileMetadata.*").matchMappingType("string")
     }
 
