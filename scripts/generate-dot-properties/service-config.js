@@ -56,6 +56,7 @@ function getKahunaConfig(config) {
         |origin.full=${config.stackProps.ImageBucket}.s3.${config.aws.region}.amazonaws.com
         |origin.thumb=${config.stackProps.ThumbBucket}.s3.${config.aws.region}.amazonaws.com
         |origin.images=${config.stackProps.ImageBucket}.s3.${config.aws.region}.amazonaws.com
+        |origin.crops=${config.stackProps.ImageOriginBucket}
         |google.tracking.id=${config.google.tracking.id}
         |`;
 }
@@ -82,6 +83,8 @@ function getMediaApiConfig(config) {
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
         |es.index.aliases.read=readAlias
+        |es.port=9300
+        |es.cluster=media-service
         |quota.store.key=rcs-quota.json
         |`;
 }
@@ -121,6 +124,8 @@ function getThrallConfig(config) {
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias
         |indexed.image.sns.topic.arn=${config.stackProps.IndexedImageTopicArn}
+        |es.port=9300
+        |es.cluster=media-service
         |`;
 }
 
@@ -138,6 +143,7 @@ function getUsageConfig(config) {
         |crier.preview.arn=${config.crier.preview.roleArn}
         |crier.preview.name=${config.crier.preview.streamName}
         |crier.live.name=${config.crier.live.streamName}
+        |app.name=usage
         |`;
 }
 
