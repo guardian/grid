@@ -10,9 +10,19 @@ object Mappings {
   val dummyType = "_doc" // see https://www.elastic.co/blog/removal-of-mapping-types-elasticsearch
 
   val imageMapping: MappingDefinition = {
-    def storedJsonObjectTemplate: DynamicTemplateRequest = dynamicTemplate("stored_json_object_template").
-      mapping(dynamicType().index(false).store(true)).
-      pathMatch("fileMetadata.*")
+
+    // Non indexed fields stored as keywords can still participate in exists / has queries
+    def filemetaDataStringsAsKeyword: DynamicTemplateRequest = {
+      dynamicTemplate("file_metadata_fields_as_keywords").
+        mapping(dynamicKeywordField().index(false).store(true)).
+        pathMatch("fileMetadata.*").matchMappingType("string")
+    }
+
+    def storedJsonObjectTemplate: DynamicTemplateRequest = {
+      dynamicTemplate("stored_json_object_template").
+        mapping(dynamicType().index(false).store(true)).
+        pathMatch("fileMetadata.*")
+    }
 
     mapping(dummyType).
       dynamic(DynamicMapping.Strict).
@@ -43,7 +53,7 @@ object Mappings {
         dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections")
-      ).dynamicTemplates(Seq(storedJsonObjectTemplate))
+      ).dynamicTemplates(Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate))
   }
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(

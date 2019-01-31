@@ -40,7 +40,11 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
             specialInstructions = Some("Testing")
           )))
 
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(userMetadata = userMetadata)
+          val fileMetadata = FileMetadata(xmp = Map("foo" -> "bar"))
+
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).
+            copy(userMetadata = userMetadata).
+            copy(fileMetadata = fileMetadata)
 
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds) // TODO why is index past in? Is it different to image.id and if so why?
 
