@@ -7,10 +7,18 @@ imgops.factory('imgops', ['$window', function($window) {
 
     const lowResMaxWidth  = 800;
     const lowResMaxHeight = 800;
-
+    const isFF = !!$window.navigator.userAgent.match(/firefox/i);
 
     function getFullScreenUri(image) {
-        const { width: w, height: h } = $window.screen;
+        let { width: w, height: h } = $window.screen;
+        if (isFF) {
+            const zoom = $window.devicePixelRatio;
+            if (zoom !== 1) {
+                h = Math.round(h * zoom);
+                w = Math.round(w * zoom);
+            }
+        }
+
         return getOptimisedUri(image, { w, h, q: quality });
     }
 
