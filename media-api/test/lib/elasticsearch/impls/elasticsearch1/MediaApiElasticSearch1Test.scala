@@ -225,6 +225,24 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
         result.total shouldBe 0
       }
     }
+
+    it("should be able to filter images with fileMetadata even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.nonEmpty shouldBe true
+      }
+    }
+
+    it("should be able to filter images which have specific fileMetadata fields even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.foo"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some("bar")
+      }
+    }
   }
 
   private def saveImages(images: Seq[Image]) = {

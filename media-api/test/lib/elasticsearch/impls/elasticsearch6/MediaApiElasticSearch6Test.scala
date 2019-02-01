@@ -52,9 +52,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
   }
 
-  override def afterAll  {
-    purgeTestImages
-  }
+  override def afterAll = purgeTestImages
 
   describe("Native elastic search sanity checks") {
 
@@ -245,6 +243,24 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       val hasUnknownFieldTitleSearch = SearchParams(tier = Internal, structuredQuery = List(unknownFieldCondition))
       whenReady(ES.search(hasUnknownFieldTitleSearch), timeout, interval) { result =>
         result.total shouldBe 0
+      }
+    }
+
+    it("should be able to filter images with fileMetadata even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.nonEmpty shouldBe true
+      }
+    }
+
+    it("should be able to filter images which have specific fileMetadata fields even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.foo"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some("bar")
       }
     }
   }
