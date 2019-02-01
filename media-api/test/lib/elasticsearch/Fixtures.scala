@@ -97,6 +97,14 @@ trait Fixtures {
     createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, date)
   }
 
+  def stringLongerThan(i: Int): String = {
+    var out = ""
+    while (out.trim.length < i) {
+      out = out + UUID.randomUUID().toString + " "
+    }
+    out
+  }
+
   private def createUsage(t: UsageReferenceType, usageType: UsageType, status: Status, date: DateTime): Usage = {
     Usage(
       UUID.randomUUID().toString,

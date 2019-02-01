@@ -263,6 +263,14 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
         result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some("bar")
       }
     }
+
+    it("file metadata files which are too long cannot by persisted as keywords and will not contribute to has field search results") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.toolong"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 0
+      }
+    }
   }
 
   private def saveImages(images: Seq[Image]) = {

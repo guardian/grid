@@ -15,7 +15,8 @@ trait Fixtures {
                    syndicationRights: Option[SyndicationRights] = None,
                    leases: Option[LeasesByMedia] = None,
                    usages: List[Usage] = Nil,
-                   optPhotoshoot: Option[Photoshoot] = None
+                   optPhotoshoot: Option[Photoshoot] = None,
+                   fileMetadata: Option[FileMetadata] = None
                  ): Image =
     Image(
      id = id,
@@ -37,7 +38,7 @@ trait Fixtures {
        dimensions = Some(Dimensions(width = 800, height = 100)),
        secureUrl = None)),
      optimisedPng = None,
-     fileMetadata = FileMetadata(),
+     fileMetadata = fileMetadata.getOrElse(FileMetadata()),
      userMetadata = optPhotoshoot.map(_ => Edits(metadata = ImageMetadata(), photoshoot = optPhotoshoot)),
      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = List("test", "es")),
      originalMetadata = ImageMetadata(),
@@ -54,7 +55,8 @@ trait Fixtures {
                                  rightsAcquired: Boolean,
                                  rcsPublishDate: Option[DateTime],
                                  lease: Option[MediaLease],
-                                 usages: List[Usage] = Nil
+                                 usages: List[Usage] = Nil,
+                                 fileMetadata: Option[FileMetadata] = None
                                ): Image = {
     val rights = List(
       Right("test", Some(rightsAcquired), Nil)
@@ -67,7 +69,7 @@ trait Fixtures {
       leases = List(l)
     ))
 
-    createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), leaseByMedia, usages)
+    createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), leaseByMedia, usages, fileMetadata = fileMetadata)
   }
 
   def someSyndRights = Some(SyndicationRights(
@@ -87,5 +89,13 @@ trait Fixtures {
   }
 
   def usage(id: String = UUID.randomUUID().toString) = Usage(id, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
+
+  def stringLongerThan(i: Int): String = {
+    var out = ""
+    while (out.trim.length < i) {
+      out = out + UUID.randomUUID().toString + " "
+    }
+    out
+  }
 
 }

@@ -83,7 +83,10 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       rightsAcquired = true,
       Some(DateTime.parse("2018-07-03T00:00:00")),
       None,
-      fileMetadata = Some(FileMetadata(xmp = Map("foo" -> "bar")))
+      fileMetadata = Some(FileMetadata(xmp = Map(
+        "foo" -> "bar",
+        "toolong" -> stringLongerThan(100000)
+      )))
     ),
 
     // no rights acquired, not available for syndication
