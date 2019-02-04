@@ -1,11 +1,14 @@
 package lib.elasticsearch.impls.elasticsearch1
 
+import java.nio.file.{Path, Paths}
+
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.gu.mediaservice.syntax._
+import com.whisk.docker.{DockerContainer, DockerReadyChecker, VolumeMapping}
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.querysyntax.{HasField, HasValue, Match}
 import lib.{MediaApiConfig, MediaApiMetrics}
@@ -20,7 +23,6 @@ import play.api.libs.json.Json
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -44,7 +46,30 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
 
   private val expectedNumberOfImages = images.size
 
+  def findElasticsearchConfig(): Path = {
+    // SBT does some monkey stuff and runs the test from the "thrall" folder compared to IntelliJ that runs it from the root
+    val sbtsIdeaOfCwd = Paths.get("").toAbsolutePath
+
+    val cwd = if (sbtsIdeaOfCwd.endsWith("media-api")) {
+      sbtsIdeaOfCwd.getParent
+    } else {
+      sbtsIdeaOfCwd
+    }
+
+    cwd.resolve("elasticsearch/test/elasticsearch.yml")
+  }
+
+  def esContainer = Some(DockerContainer("elasticsearch:1.7.1")
+    .withPorts(9200 -> Some(9201), 9300 -> Some(9301))
+    .withVolumes(Seq(VolumeMapping(findElasticsearchConfig().toString, "/usr/share/elasticsearch/config/elasticsearch.yml")))
+    .withReadyChecker(
+      DockerReadyChecker.HttpResponseCode(9200, "/", Some("0.0.0.0")).within(10.minutes).looped(40, 1250.millis)
+    )
+  )
+
   override def beforeAll {
+    super.beforeAll()
+
     ES.ensureAliasAssigned()
     Await.ready(saveImages(images), 1.minute)
 
