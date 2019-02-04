@@ -11,10 +11,6 @@
     <logger name="play" level="INFO" />
     <logger name="application" level="DEBUG" />
 
-    <root level="DEBUG">
-        <appender-ref ref="CONSOLE"/>
-    </root>
-
     <logger name="com.amazonaws">
         <level value="ERROR" />
     </logger>

@@ -105,11 +105,12 @@ class ThrallMessageConsumer(
       withImageId(rights) { id =>
         es.getImage(id) map {
           case Some(image) =>
-            GridLogger.info(s"Upserting syndication rights for image $id", id)
+            val photoshoot = image.userMetadata.flatMap(_.photoshoot)
+            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights $syndicationRights", id)
+
             syndicationRightsOps.upsertOrRefreshRights(
-              image = image,
-              currentPhotoshootOpt = image.userMetadata.flatMap(_.photoshoot),
-              newRightsOpt =  Some(syndicationRights)
+              image = image.copy(syndicationRights = Some(syndicationRights)),
+              currentPhotoshootOpt = photoshoot
             )
           case _ => GridLogger.info(s"Image $id not found")
         }
@@ -124,11 +125,14 @@ class ThrallMessageConsumer(
           imageOpt <- es.getImage(id)
           prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
           _ <- updateImageUserMetadata(message)
-          _ <- syndicationRightsOps.upsertOrRefreshRights(
-            image = imageOpt.get,
-            currentPhotoshootOpt = upcomingEdits.photoshoot,
-            previousPhotoshootOpt = prevPhotoshootOpt
-          )
+          _ <- {
+            GridLogger.info(s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
+            syndicationRightsOps.upsertOrRefreshRights(
+              image = imageOpt.get,
+              currentPhotoshootOpt = upcomingEdits.photoshoot,
+              previousPhotoshootOpt = prevPhotoshootOpt
+            )
+          }
         } yield GridLogger.info(s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}", id)
       }
     }
