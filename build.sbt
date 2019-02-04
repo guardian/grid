@@ -95,7 +95,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
-).settings(testSettings)
+)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
@@ -107,7 +107,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
-).settings(testSettings)
+)
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
@@ -163,18 +163,4 @@ def playProject(projectName: String, port: Int): Project =
         file(s"$projectName/conf/riff-raff.yaml") -> "riff-raff.yaml"
       )
     ))
-
-val testSettings = Seq(
-  testOptions in Test += Tests.Setup(_ => {
-    println(s"Launching docker container with ES")
-    s"docker-compose --file docker-compose-test.yml --project-name grid-test up -d".!
-
-    // This is needed to ensure docker has had enough time to start up
-    Thread.sleep(30000)
-  }),
-  testOptions in Test += Tests.Cleanup(_ => {
-    println(s"Removing container")
-    s"docker-compose --file docker-compose-test.yml --project-name grid-test down".!
-  })
-)
 
