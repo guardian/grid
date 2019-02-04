@@ -11,10 +11,3 @@ services:
       memlock:
         soft: -1
         hard: -1
-  elasticsearch6:
-    image: docker.elastic.co/elasticsearch/elasticsearch:6.5.4
-    volumes:
-     - "./elasticsearch6/test/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
-    ports:  
-      - "9206:9200"
-      - "9306:9300"
