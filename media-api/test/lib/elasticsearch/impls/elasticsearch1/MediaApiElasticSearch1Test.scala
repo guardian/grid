@@ -104,13 +104,14 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       val searchParams = SearchParams(tier = Syndication)
       val searchResult = ES.search(searchParams)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 3
+        result.total shouldBe 4
 
         val imageIds = result.hits.map(_._1)
-        imageIds.size shouldBe 3
+        imageIds.size shouldBe 4
         imageIds.contains("test-image-1") shouldBe true
         imageIds.contains("test-image-2") shouldBe true
         imageIds.contains("test-image-4") shouldBe true
+        imageIds.contains("test-image-11") shouldBe true
       }
     }
 
@@ -144,13 +145,14 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       val search = SearchParams(tier = Syndication, syndicationStatus = Some(QueuedForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 3
+        result.total shouldBe 4
 
         val imageIds = result.hits.map(_._1)
-        imageIds.size shouldBe 3
+        imageIds.size shouldBe 4
         imageIds.contains("test-image-1") shouldBe true
         imageIds.contains("test-image-2") shouldBe true
         imageIds.contains("test-image-4") shouldBe true
+        imageIds.contains("test-image-11") shouldBe true
       }
     }
 
@@ -184,7 +186,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       val search = SearchParams(tier = Internal, syndicationStatus = Some(QueuedForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 3
+        result.total shouldBe 4
       }
     }
 
@@ -202,6 +204,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
+        result.hits.foreach(println)
         result.total shouldBe 2
       }
     }

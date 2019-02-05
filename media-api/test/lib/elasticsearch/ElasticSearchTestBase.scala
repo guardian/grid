@@ -112,7 +112,7 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       id = "test-image-11",
       rightsAcquired = true,
       None,
-      Some(createSyndicationLease(allowed = true, "test-image-11")),
+      None,
       usageRights = screengrab,
       usages = List(createDigitalUsage(date = DateTime.now))
     )
