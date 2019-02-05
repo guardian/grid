@@ -12,6 +12,7 @@ trait Fixtures {
   val testUser = "yellow-giraffe@theguardian.com"
   val staffPhotographer = StaffPhotographer("Tom Jenkins", "The Guardian")
   val agency = Agency("ACME")
+  val screengrab = Screengrab(None, None)
 
   def createImage(
                    id: String,

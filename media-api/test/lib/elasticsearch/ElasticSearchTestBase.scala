@@ -105,6 +105,16 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(createSyndicationLease(allowed = true, "test-image-10")),
       usageRights = agency,
       usages = List(createDigitalUsage(date = DateTime.now))
+    ),
+
+    // Screen grab with published just now with rights acquired
+    createImageForSyndication(
+      id = "test-image-11",
+      rightsAcquired = true,
+      None,
+      Some(createSyndicationLease(allowed = true, "test-image-11")),
+      usageRights = screengrab,
+      usages = List(createDigitalUsage(date = DateTime.now))
     )
   )
 
