@@ -6,6 +6,7 @@ import java.util.UUID
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import lib._
+import org.joda.time.DateTime
 import play.api.Logger
 
 class ThrallMessageConsumer(config: ThrallConfig,
@@ -14,7 +15,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             store: ThrallStore,
                             metadataNotifications: DynamoNotifications,
                             syndicationRightsOps: SyndicationRightsOps
-                           ) {
+                           ) extends MessageConsumerVersion {
 
   val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
@@ -23,13 +24,12 @@ class ThrallMessageConsumer(config: ThrallConfig,
   }
 
   private lazy val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
-  private lazy val thrallKenesisWorker = builder(kinesisClientLibConfig(config.appName, config.thrallKinesisStream))
-
-  private lazy val thrallKenesisWorkerThread = makeThread(thrallKenesisWorker)
+  private lazy val thrallKinesisWorker = builder(kinesisClientLibConfig(config.appName, config.thrallKinesisStream))
+  private lazy val thrallKenisisWorkerThread = makeThread(thrallKinesisWorker)
 
   def start() = {
     Logger.info("Trying to start Thrall kinesis reader")
-    thrallKenesisWorkerThread.start()
+    thrallKenisisWorkerThread.start()
   }
 
   private def kinesisClientLibConfig(appName: String, streamName: String): KinesisClientLibConfiguration = {
@@ -46,5 +46,9 @@ class ThrallMessageConsumer(config: ThrallConfig,
   }
 
   private def makeThread(worker: Runnable) = new Thread(worker, s"${getClass.getSimpleName}-$workerId")
+
+  override def lastProcessed: DateTime = DateTime.now() // TODO implement
+
+  override def isStopped: Boolean = false // TODO implement
 
 }

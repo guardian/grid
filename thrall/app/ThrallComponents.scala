@@ -77,8 +77,11 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es, thrallMetrics, store, dynamoNotifications, syndicationOps)
   thrallKinesisMessageConsumer.start()
 
+  val messageConsumer = thrallKinesisMessageConsumer
+
+
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(elasticSearches.head, thrallMessageConsumer, config, controllerComponents)
+  val healthCheckController = new HealthCheck(elasticSearches.head, messageConsumer, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }
