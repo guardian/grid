@@ -7,6 +7,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
+import lib.querysyntax.{HasField, HasValue, Match}
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.common.unit.TimeValue
@@ -37,9 +38,11 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
   )))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearchConfig(writeAlias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
+  val elasticConfig = ElasticSearchConfig(alias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
 
   val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
+
+  private val expectedNumberOfImages = images.size
 
   override def beforeAll {
     ES.ensureAliasAssigned()
@@ -203,6 +206,41 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
         result.total shouldBe 2
+      }
+    }
+  }
+
+  describe("has field filter") {
+    it("can filter images which have a specific field") {
+      val hasTitleCondition = Match(HasField, HasValue("title"))
+      val unknownFieldCondition = Match(HasField, HasValue("unknownfield"))
+
+      val hasTitleSearch = SearchParams(tier = Internal, structuredQuery = List(hasTitleCondition))
+      whenReady(ES.search(hasTitleSearch), timeout, interval) { result =>
+        result.total shouldBe expectedNumberOfImages
+      }
+
+      val hasUnknownFieldTitleSearch = SearchParams(tier = Internal, structuredQuery = List(unknownFieldCondition))
+      whenReady(ES.search(hasUnknownFieldTitleSearch), timeout, interval) { result =>
+        result.total shouldBe 0
+      }
+    }
+
+    it("should be able to filter images with fileMetadata even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.nonEmpty shouldBe true
+      }
+    }
+
+    it("should be able to filter images which have specific fileMetadata fields even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.foo"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some("bar")
       }
     }
   }

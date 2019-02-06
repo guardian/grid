@@ -8,9 +8,8 @@ import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
+import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
-import net.logstash.logback.marker.LogstashMarker
-import net.logstash.logback.marker.Markers.appendEntries
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
@@ -19,7 +18,6 @@ import play.api.libs.json.Json
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 
-import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -34,11 +32,11 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     "persistence.identifier" -> "picdarUrn")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearch6Config(writeAlias = "readAlias", host = "localhost", port = 9206,
+  val elasticConfig = ElasticSearch6Config(alias = "readAlias", host = "localhost", port = 9206,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
-  val client = ElasticClient(ElasticProperties("http://" + "localhost" + ":" + 9206)) // TODO obtain from ES6 instance
+  val client = ES.client
 
   private val expectedNumberOfImages = images.size
 
@@ -54,9 +52,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
   }
 
-  override def afterAll  {
-    purgeTestImages
-  }
+  override def afterAll = purgeTestImages
 
   describe("Native elastic search sanity checks") {
 
@@ -234,13 +230,54 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     }
   }
 
+  describe("has field filter") {
+    it("can filter images which have a specific field") {
+      val hasTitleCondition = Match(HasField, HasValue("title"))
+      val unknownFieldCondition = Match(HasField, HasValue("unknownfield"))
+
+      val hasTitleSearch = SearchParams(tier = Internal, structuredQuery = List(hasTitleCondition))
+      whenReady(ES.search(hasTitleSearch), timeout, interval) { result =>
+        result.total shouldBe expectedNumberOfImages
+      }
+
+      val hasUnknownFieldTitleSearch = SearchParams(tier = Internal, structuredQuery = List(unknownFieldCondition))
+      whenReady(ES.search(hasUnknownFieldTitleSearch), timeout, interval) { result =>
+        result.total shouldBe 0
+      }
+    }
+
+    it("should be able to filter images with fileMetadata even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.nonEmpty shouldBe true
+      }
+    }
+
+    it("should be able to filter images which have specific fileMetadata fields even though fileMetadata fields are not indexed") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.foo"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 1
+        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some("bar")
+      }
+    }
+
+    it("file metadata files which are too long cannot by persisted as keywords and will not contribute to has field search results") {
+      val hasFileMetadataCondition = Match(HasField, HasValue("fileMetadata.xmp.toolong"))
+      val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
+      whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
+        result.total shouldBe 0
+      }
+    }
+  }
+
   private def saveImages(images: Seq[Image]) = {
     Future.sequence(images.map { i =>
       executeAndLog(indexInto(index, "_doc") id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
     })
   }
-
-  private def durationMarker(elapsed: Long): LogstashMarker = appendEntries(Map("duration" -> elapsed).asJava)
 
   private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
 

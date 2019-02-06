@@ -18,7 +18,8 @@ trait Fixtures {
                    usageRights: UsageRights,
                    syndicationRights: Option[SyndicationRights] = None,
                    leases: Option[LeasesByMedia] = None,
-                   usages: List[Usage] = Nil
+                   usages: List[Usage] = Nil,
+                   fileMetadata: Option[FileMetadata] = None
   ): Image = {
     Image(
       id = id,
@@ -40,7 +41,7 @@ trait Fixtures {
         dimensions = Some(Dimensions(width = 800, height = 100)),
         secureUrl = None)),
       optimisedPng = None,
-      fileMetadata = FileMetadata(),
+      fileMetadata = fileMetadata.getOrElse(FileMetadata()),
       userMetadata = None,
       metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = List("test", "es")),
       originalMetadata = ImageMetadata(),
@@ -59,7 +60,8 @@ trait Fixtures {
     rcsPublishDate: Option[DateTime],
     lease: Option[MediaLease],
     usages: List[Usage] = Nil,
-    usageRights: UsageRights = staffPhotographer
+    usageRights: UsageRights = staffPhotographer,
+    fileMetadata: Option[FileMetadata] = None
   ): Image = {
     val rights = List(
       Right("test", Some(rightsAcquired), Nil)
@@ -72,7 +74,7 @@ trait Fixtures {
       leases = List(l)
     ))
 
-    createImage(id, usageRights, Some(syndicationRights), leaseByMedia, usages)
+    createImage(id, usageRights, Some(syndicationRights), leaseByMedia, usages, fileMetadata)
   }
 
   def createSyndicationLease(allowed: Boolean, imageId: String, startDate: Option[DateTime] = None, endDate: Option[DateTime] = None): MediaLease = {
@@ -93,6 +95,14 @@ trait Fixtures {
 
   def createDigitalUsage(date: DateTime = DateTime.now): Usage = {
     createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, date)
+  }
+
+  def stringLongerThan(i: Int): String = {
+    var out = ""
+    while (out.trim.length < i) {
+      out = out + UUID.randomUUID().toString + " "
+    }
+    out
   }
 
   private def createUsage(t: UsageReferenceType, usageType: UsageType, status: Status, date: DateTime): Usage = {

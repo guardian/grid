@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
-import com.gu.mediaservice.model.{Handout, StaffPhotographer}
+import com.gu.mediaservice.model.{FileMetadata, Handout, StaffPhotographer}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
@@ -77,11 +77,16 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(createSyndicationLease(allowed = false, "test-image-7"))
     ),
 
+    // with fileMetadata
     createImageForSyndication(
       id = "test-image-8",
       rightsAcquired = true,
       Some(DateTime.parse("2018-07-03T00:00:00")),
-      None
+      None,
+      fileMetadata = Some(FileMetadata(xmp = Map(
+        "foo" -> "bar",
+        "toolong" -> stringLongerThan(100000)
+      )))
     ),
 
     // no rights acquired, not available for syndication

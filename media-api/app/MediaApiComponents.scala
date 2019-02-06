@@ -22,7 +22,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
     p <- config.elasticsearchPort
     c <- config.elasticsearchCluster
   } yield {
-    ElasticSearchConfig(writeAlias = config.imagesAlias,
+    ElasticSearchConfig(alias = config.imagesAlias,
       host = config.elasticsearchHost,
       port = p,
       cluster = c
@@ -37,7 +37,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
     r <- config.elasticsearch6Replicas
   } yield {
     ElasticSearch6Config(
-      writeAlias = config.imagesAlias,
+      alias = config.imagesAlias,
       host = h,
       port = p,
       cluster = c,

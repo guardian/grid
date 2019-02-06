@@ -10,9 +10,28 @@ object Mappings {
   val dummyType = "_doc" // see https://www.elastic.co/blog/removal-of-mapping-types-elasticsearch
 
   val imageMapping: MappingDefinition = {
-    def storedJsonObjectTemplate: DynamicTemplateRequest = dynamicTemplate("stored_json_object_template").
-      mapping(dynamicType().index(false).store(true)).
-      pathMatch("fileMetadata.*")
+
+    // Non indexed fields stored as keywords can still participate in exists / has queries
+    def filemetaDataStringsAsKeyword: DynamicTemplateRequest = {
+      // Extremely long user generated file metadata files may prevent an image from been ingested due to an keyword size limit in the underlying Lucene index.
+      // As a trade off between reliable ingestion, the has field feature and the complexity budget, use the ignore_above field parameter to ignore long fields.
+      // These ignored fields will still be visible in the persisted document source (and therefore API output) but will omitted from
+      // has field search results.
+
+      val maximumBytesOfKeywordInUnderlyingLuceneIndex = 32766
+      // Unicode characters require more than 1 byte so allow some head room
+      val maximumStringLengthToStore = (maximumBytesOfKeywordInUnderlyingLuceneIndex * .9).toInt
+
+      dynamicTemplate("file_metadata_fields_as_keywords").
+        mapping(dynamicKeywordField().index(false).store(true).ignoreAbove(maximumStringLengthToStore)).
+        pathMatch("fileMetadata.*").matchMappingType("string")
+    }
+
+    def storedJsonObjectTemplate: DynamicTemplateRequest = {
+      dynamicTemplate("stored_json_object_template").
+        mapping(dynamicType().index(false).store(true)).
+        pathMatch("fileMetadata.*")
+    }
 
     mapping(dummyType).
       dynamic(DynamicMapping.Strict).
@@ -43,7 +62,7 @@ object Mappings {
         dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections")
-      ).dynamicTemplates(Seq(storedJsonObjectTemplate))
+      ).dynamicTemplates(Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate))
   }
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(

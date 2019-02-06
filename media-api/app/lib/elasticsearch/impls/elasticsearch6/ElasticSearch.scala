@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
 
-  lazy val imagesAlias = elasticConfig.writeAlias
+  lazy val imagesAlias = elasticConfig.alias
   lazy val host = elasticConfig.host
   lazy val port = elasticConfig.port
   lazy val cluster = elasticConfig.cluster

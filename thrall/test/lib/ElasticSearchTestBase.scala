@@ -40,13 +40,33 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
             specialInstructions = Some("Testing")
           )))
 
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).copy(userMetadata = userMetadata)
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).
+            copy(userMetadata = userMetadata)
 
           Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds) // TODO why is index past in? Is it different to image.id and if so why?
 
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
           reloadedImage(id).get.id shouldBe image.id
+        }
+
+        "file metadata fields longer than the index keyword limit are still persisted" in {
+          val id = UUID.randomUUID().toString
+          val reallyLongTRC = stringLongerThan(250000)
+          val fileMetadata = FileMetadata(xmp = Map("foo" -> "bar"), exif = Map("Green TRC" -> reallyLongTRC))
+
+          val imageWithReallyLongMetadataField = createImageForSyndication(id = UUID.randomUUID().toString,
+            rightsAcquired = true,
+            rcsPublishDate = Some(DateTime.now()),
+            lease = None, fileMetadata = Some(fileMetadata))
+
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithReallyLongMetadataField))), fiveSeconds)
+
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithReallyLongMetadataField.id))
+
+          reloadedImage(id).get.id shouldBe imageWithReallyLongMetadataField.id
+
+          reloadedImage(id).get.fileMetadata.exif("Green TRC").length shouldBe reallyLongTRC.length
         }
 
         "initial indexing does not set the last modified date because scripts do not run on initial upserts" in { // TODO is this intentional?
