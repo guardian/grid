@@ -172,23 +172,32 @@ trait GettyProcessor {
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  // including 'newspix internation' because they're sending us lots with that in the credit
-  val excludeFromPatterns = List("newspix international", "newspix internation", "i-images", "photoshot", "Ian Jones", "Avalon", "INS News Agency Ltd")
-    .map(ex => s"(?i)$ex".r)
+  def apply(image: Image): Image = {
+    val excludedCredit = List(
+      "newspix international", "i-images", "photoshot", "Ian Jones", "Panoramic/Avalon", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA"
+    )
 
-  // Some people send over Getty XMP data, but are not affiliated with Getty
-  def excludedCredit(credit: Option[String]) = {
-    excludeFromPatterns.flatMap( _.findFirstMatchIn(credit.getOrElse("")) ).nonEmpty
+    val excludedSource = List(
+      "UKTV", "Pinnacle Photo Agency Ltd"
+    )
+
+    val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
+    val isExcludedBySource = image.metadata.source.exists(isExcluded(_, excludedSource))
+    val hasGettyMetadata = image.fileMetadata.getty.nonEmpty
+
+    if(!hasGettyMetadata || isExcludedByCredit || isExcludedBySource) {
+      image
+    } else {
+      image.copy(
+        usageRights = gettyAgencyWithCollection(image.metadata.source),
+        // Set a default "credit" for when Getty is too lazy to provide one
+        metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
+      )
+    }
   }
 
-  def apply(image: Image): Image = (excludedCredit(image.metadata.credit), image.fileMetadata.getty.isEmpty) match {
-    // Only images supplied by Getty have getty fileMetadata
-    case (false, false) => image.copy(
-      usageRights = gettyAgencyWithCollection(image.metadata.source),
-      // Set a default "credit" for when Getty is too lazy to provide one
-      metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
-    )
-    case _ => image
+  private def isExcluded(value: String, matchers: List[String]): Boolean = {
+    matchers.map(_.toLowerCase).exists(value.toLowerCase.contains)
   }
 }
 
@@ -221,6 +230,7 @@ object PaParser extends ImageProcessor {
   val paCredits = List(
     "PA",
     "PA WIRE",
+    "PA Wire/PA Images",
     "PA Wire/PA Photos",
     "PA Wire/Press Association Images",
     "PA Archive/PA Photos",

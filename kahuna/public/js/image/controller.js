@@ -6,6 +6,7 @@ import '../image/service';
 
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-photoshoot/gr-photoshoot';
+import '../components/gr-syndication-rights/gr-syndication-rights';
 import '../components/gr-archiver/gr-archiver';
 import '../components/gr-collection-overlay/gr-collection-overlay';
 import '../components/gr-crop-image/gr-crop-image';
@@ -30,6 +31,7 @@ var image = angular.module('kahuna.image.controller', [
 
     'gr.addLabel',
     'gr.photoshoot',
+    'gr.syndicationRights',
     'gr.archiver',
     'gr.collectionOverlay',
     'gr.cropImage',
@@ -49,6 +51,7 @@ var image = angular.module('kahuna.image.controller', [
 image.controller('ImageCtrl', [
     '$rootScope',
     '$scope',
+    '$element',
     '$state',
     '$stateParams',
     '$window',
@@ -67,6 +70,7 @@ image.controller('ImageCtrl', [
 
     function ($rootScope,
               $scope,
+              $element,
               $state,
               $stateParams,
               $window,
@@ -85,11 +89,43 @@ image.controller('ImageCtrl', [
 
         let ctrl = this;
 
-        keyboardShortcut.bindTo($scope).add({
-            combo: 'c',
-            description: 'Crop image',
-            callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
-        });
+        keyboardShortcut.bindTo($scope)
+            .add({
+                combo: 'c',
+                description: 'Crop image',
+                callback: () => $state.go('crop', {imageId: ctrl.image.data.id})
+            })
+            .add({
+                combo: 'f',
+                description: 'Enter fullscreen',
+                callback: () => {
+                    const imageEl = $element[0].querySelector('.easel__image');
+
+                    // Fullscreen API has vendor prefixing https://developer.mozilla.org/en-US/docs/Web/API/Fullscreen_API/Guide#Prefixing
+                    const fullscreenElement = (
+                        document.fullscreenElement ||
+                        document.webkitFullscreenElement ||
+                        document.mozFullScreenElement
+                    );
+
+                    const exitFullscreen = (
+                        document.exitFullscreen ||
+                        document.webkitExitFullscreen ||
+                        document.mozCancelFullScreen
+                    );
+
+                    const requestFullscreen = (
+                        imageEl.requestFullscreen ||
+                        imageEl.webkitRequestFullscreen ||
+                        imageEl.mozRequestFullScreen
+                    );
+
+                    // `.call` to ensure `this` is bound correctly.
+                    return fullscreenElement
+                        ? exitFullscreen.call(document)
+                        : requestFullscreen.call(imageEl);
+                }
+            });
 
         ctrl.image = image;
         ctrl.optimisedImageUri = optimisedImageUri;
@@ -117,6 +153,9 @@ image.controller('ImageCtrl', [
         }
 
         ctrl.cropType = storage.getJs('cropType', true);
+        ctrl.capitalisedCropType = ctrl.cropType ?
+            ctrl.cropType[0].toUpperCase() + ctrl.cropType.slice(1) :
+            '';
 
         imageService(ctrl.image).states.canDelete.then(deletable => {
             ctrl.canBeDeleted = deletable;

@@ -98,8 +98,8 @@
                                 draggable="false"
                                 ng:init="extremeAssets = (crop | getExtremeAssets)"
                                 ng-switch-when="false"
-                                gr-tooltip="You can only choose {{:: ctrl.cropType}} crops"
-                                gr-tooltip-position="right"
+                                gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
+                                gr-tooltip-position="top"
                             >
                               <ng-include src="'/assets/js/image/crop.html'"></ng-include>
                             </div>

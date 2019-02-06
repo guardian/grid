@@ -33,28 +33,28 @@ class AuthController(auth: Authentication, val config: AuthConfig,
 
   def index = auth.AuthAction { indexResponse }
 
-  def session = auth.AuthAction.async { request =>
+  def session = auth.AuthAction { request =>
     val user = request.user
     val firstName = user.firstName
     val lastName = user.lastName
 
-    hasPermission(PandaUser(request.user), Permissions.ShowPaid) map { showPaid =>
-      respond(
-        Json.obj("user" ->
-          Json.obj(
-            "name" -> s"$firstName $lastName",
-            "firstName" -> firstName,
-            "lastName" -> lastName,
-            "email" -> user.email,
-            "avatarUrl" -> user.avatarUrl,
-            "permissions" ->
-              Json.obj(
-                "showPaid" -> showPaid
-              )
-          )
+    val showPaid = hasPermission(PandaUser(request.user), Permissions.ShowPaid)
+
+    respond(
+      Json.obj("user" ->
+        Json.obj(
+          "name" -> s"$firstName $lastName",
+          "firstName" -> firstName,
+          "lastName" -> lastName,
+          "email" -> user.email,
+          "avatarUrl" -> user.avatarUrl,
+          "permissions" ->
+            Json.obj(
+              "showPaid" -> showPaid
+            )
         )
       )
-    }
+    )
   }
 
 

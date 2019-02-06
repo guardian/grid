@@ -95,6 +95,7 @@ crop.controller('ImageCropCtrl',
         ctrl.aspect = ctrl.landscapeRatio;
     } else {
         ctrl.aspect = ctrl.landscapeRatio;
+        ctrl.landscapeChecked = true;
     }
 
     ctrl.coords = {

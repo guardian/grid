@@ -1513,6 +1513,14 @@ FIXME: what to do with touch devices
     max-height: calc(100vh - 68px);
 }
 
+.easel__image:fullscreen,
+.easel__image--checkered__background:fullscreen,
+.easel__image::backdrop,
+.easel__image--checkered__background::backdrop {
+    background-color: #333;
+    background-image: none;
+}
+
 .easel__image--cropper {
     visibility: hidden;
 }
@@ -1836,8 +1844,12 @@ FIXME: what to do with touch devices
 }
 
 .image-crop--disabled {
-  opacity: 0.5;
+  color: #999;
   cursor: not-allowed;
+}
+
+.image-crop__image--disabled {
+  opacity: 0.5;
 }
 
 .result--selected .preview {

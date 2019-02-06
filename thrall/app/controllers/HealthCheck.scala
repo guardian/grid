@@ -1,35 +1,49 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import play.api.mvc._
 import lib._
-import com.gu.mediaservice.syntax._
+import play.api.mvc._
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
-class HealthCheck(elasticsearch: ElasticSearch, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class HealthCheck(elasticsearch: ElasticSearchVersion, thrallMessageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   def healthCheck = Action.async {
-    elasticHealth map {
-      case r: Result => sqsHealth
-      case _ => ServiceUnavailable("ES is not healthy")
+    elasticHealth.map { esHealth =>
+      val problems = Seq(esHealth, actorSystemHealth, sqsHealth).flatten
+      if (problems.nonEmpty) {
+        ServiceUnavailable(problems.mkString(","))
+      } else {
+        Ok("Ok")
+      }
     }
   }
 
-  private def elasticHealth = {
-    elasticsearch.client.prepareSearch().setSize(0)
-      .executeAndLog("Health check")
-      .filter(_ => !thrallMessageConsumer.actorSystem.whenTerminated.isCompleted)
-      .map(_ => Ok("ES is healthy"))
+  private def elasticHealth: Future[Option[String]] = {
+    elasticsearch.healthCheck().map { result =>
+      if (!result) {
+        Some("Elastic search call failed")
+      } else {
+        None
+      }
+    }
   }
 
-  private def sqsHealth = {
+  private def sqsHealth: Option[String] = {
     val timeLastMessage = thrallMessageConsumer.timeMessageLastProcessed.get
-
     if (timeLastMessage.plusMinutes(config.healthyMessageRate).isBeforeNow)
-      ServiceUnavailable(s"Not received a message since $timeLastMessage")
+      Some(s"Not received a message since $timeLastMessage")
     else
-      Ok("SQS is healthy")
+      None
   }
+
+  private def actorSystemHealth: Option[String] = {
+    // A completed actor system whenTerminated Future is a sign that the actor system has terminated and is no longer running
+    if (thrallMessageConsumer.actorSystem.whenTerminated.isCompleted)
+      Some("Thrall consumer actor system appears to have stopped")
+    else
+      None
+  }
+
 }

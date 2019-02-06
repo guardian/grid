@@ -4,19 +4,21 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model.Agencies
 import lib._
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.ElasticSearchVersion
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class UsageController(auth: Authentication, config: MediaApiConfig, notifications: Notifications, elasticSearch: ElasticSearch, usageQuota: UsageQuota,
+class UsageController(auth: Authentication, config: MediaApiConfig, notifications: Notifications, elasticSearch: ElasticSearchVersion, usageQuota: UsageQuota,
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   val numberOfDayInPeriod = 30
 
   def bySupplier = auth.async { request =>
+    implicit val r = request
+
     Future.sequence(
       Agencies.all.keys.map(elasticSearch.usageForSupplier(_, numberOfDayInPeriod)))
         .map(_.toList)
@@ -27,6 +29,8 @@ class UsageController(auth: Authentication, config: MediaApiConfig, notification
   }
 
   def forSupplier(id: String) = auth.async { request =>
+    implicit val r = request
+
     elasticSearch.usageForSupplier(id, numberOfDayInPeriod)
       .map((s: SupplierUsageSummary) => respond(s))
       .recover {
@@ -36,6 +40,8 @@ class UsageController(auth: Authentication, config: MediaApiConfig, notification
   }
 
   def quotaForImage(id: String) = auth.async { request =>
+    implicit val r = request
+
     usageQuota.usageStatusForImage(id)
       .map((u: UsageStatus) => respond(u))
       .recover {

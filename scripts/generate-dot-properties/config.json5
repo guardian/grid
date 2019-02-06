@@ -44,5 +44,11 @@
 
   composer: {
     url: ''
+  },
+
+  google: {
+    tracking: {
+      id: ''
+    }
   }
 }
