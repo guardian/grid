@@ -107,15 +107,24 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       usages = List(createDigitalUsage(date = DateTime.now))
     ),
 
-    // Screen grab with published just now with rights acquired
+    // Screen grab with rights acquired, not eligible for syndication review
     createImageForSyndication(
       id = "test-image-11",
       rightsAcquired = true,
-      None,
-      None,
+      rcsPublishDate = None,
+      lease = None,
       usageRights = screengrab,
+      usages = List(createDigitalUsage(date = DateTime.now))
+    ),
+
+    // Staff photographer with rights acquired, eligible for syndication review
+    createImageForSyndication(
+      id = "test-image-12",
+      rightsAcquired = true,
+      rcsPublishDate = None,
+      lease = None,
+      usageRights = staffPhotographer,
       usages = List(createDigitalUsage(date = DateTime.now))
     )
   )
-
 }
