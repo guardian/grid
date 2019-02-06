@@ -15,7 +15,7 @@ case object TruncatedDownload extends Exception
 //TODO Revisit this logic
 class Downloader(implicit ec: ExecutionContext) {
   private val client = new OkHttpClient()
-  private val digester = Hashing.sha1()
+  private val digester = Hashing.sha256()
 
   def download(uri: URI, file: File): Future[DigestedFile] = Future {
     val request = new Request.Builder().url(uri.toString).build()
