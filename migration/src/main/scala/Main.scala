@@ -45,7 +45,7 @@ object Main extends App with JsonCleaners {
 
   println("Waiting for ES1 health check")
   es1.waitUntilHealthy()
-  println("ES1 connection is healthly")
+  println("ES1 connection is healthy")
 
   Logger.info("Configuring ES6: " + es6Config)
   val es6 = new com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient {
