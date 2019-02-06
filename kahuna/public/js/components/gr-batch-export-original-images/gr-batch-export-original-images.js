@@ -21,7 +21,6 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
 
         ctrl.callBatchCrop = function() {
 
-
             //Slightly backwards, if needsConfirmation is true, then this is second click
             if (ctrl.needsConfirmation) {
               ctrl.confirmed = true;
@@ -53,6 +52,7 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
 
             Promise.all(cropImages).finally(() => {
               ctrl.cropping = false;
+              ctrl.allHaveFullCrops = true;
             });
         }
     }
