@@ -38,7 +38,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
   )))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearchConfig(writeAlias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
+  val elasticConfig = ElasticSearchConfig(alias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
 
   val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
 

@@ -24,7 +24,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
 
   import com.gu.mediaservice.lib.formatting._
 
-  lazy val imagesAlias = config.writeAlias
+  lazy val imagesAlias = config.alias
   lazy val host = config.host
   lazy val port = config.port
   lazy val cluster = config.cluster

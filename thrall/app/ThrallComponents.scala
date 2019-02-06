@@ -21,7 +21,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     c <- config.elasticsearchCluster
   } yield {
     ElasticSearchConfig(
-      writeAlias = config.writeAlias,
+      alias = config.writeAlias,
       host = h,
       port = p,
       cluster = c
@@ -37,7 +37,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
       r <- config.elasticsearch6Replicas
     } yield {
       ElasticSearch6Config(
-        writeAlias = config.writeAlias,
+        alias = config.writeAlias,
         host = h,
         port = p,
         cluster = c,

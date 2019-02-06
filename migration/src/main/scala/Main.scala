@@ -23,22 +23,23 @@ object Main extends App with JsonCleaners {
   val es1Host = args(0)
   val es1Port = args(1).toInt
   val es1Cluster = args(2)
-  val es1Index = args(3)
+  val es1Alias = args(3)
 
   val es6Host = args(4)
   val es6Port = args(5).toInt
   val es6Cluster = args(6)
   val es6Index = args(7)
+  val es6Alias= args(8)
 
-  val es1Config = ElasticSearchConfig(writeAlias = es1Index, host = es1Host, port = es1Port, cluster = es1Cluster)
-  val es6Config = ElasticSearch6Config(writeAlias = es6Index, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 5, replicas = 0)
+  val es1Config = ElasticSearchConfig(alias = es1Alias, host = es1Host, port = es1Port, cluster = es1Cluster)
+  val es6Config = ElasticSearch6Config(alias = es6Alias, host = es6Host, port = es6Port, cluster = es6Cluster, shards = 5, replicas = 0)
 
   Logger.info("Configuring ES1: " + es1Config)
   val es1 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
     override def host = es1Config.host
     override def port = es1Config.port
     override def cluster = es1Config.cluster
-    override def imagesAlias = es1Config.cluster
+    override def imagesAlias = es1Config.alias
     override def clientTransportSniff = false
   }
 
@@ -51,7 +52,7 @@ object Main extends App with JsonCleaners {
     override def host = es6Config.host
     override def port = es6Config.port
     override def cluster = es6Config.cluster
-    override def imagesAlias = es6Config.writeAlias
+    override def imagesAlias = es6Config.alias
     override def shards = es6Config.shards
     override def replicas = es6Config.replicas
   }
@@ -64,7 +65,7 @@ object Main extends App with JsonCleaners {
   es6.ensureIndexExists(es6Index)
 
   println("Counting ES1 images")
-  val countES1ImagesQuery = es1.client.prepareSearch(es1Index).setTypes("image").setSize(0)
+  val countES1ImagesQuery = es1.client.prepareSearch(es1Alias).setTypes("image").setSize(0)
   private val response: SearchResponse = es1.client.search(countES1ImagesQuery.request()).actionGet()
   private val totalToMigrate: Long = response.getHits.totalHits()
   println("Found " + totalToMigrate + " images to migrate")
@@ -138,7 +139,7 @@ object Main extends App with JsonCleaners {
     val ScrollResultsPerShard = 200
 
     println("Creating scroll with size (times number of shards): " + ScrollResultsPerShard)
-    val scroll = es1.client.prepareSearch(es1Index)
+    val scroll = es1.client.prepareSearch(es1Alias)
       .setSearchType(SearchType.SCAN)
       .setScroll(ScrollTime)
       .setQuery(QueryBuilders.matchAllQuery())

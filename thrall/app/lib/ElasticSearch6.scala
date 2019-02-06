@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {
 
-  lazy val imagesAlias = config.writeAlias
+  lazy val imagesAlias = config.alias
   lazy val host = config.host
   lazy val port = config.port
   lazy val cluster = config.cluster
