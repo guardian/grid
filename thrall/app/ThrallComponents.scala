@@ -66,15 +66,16 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
 
   val syndicationOps = new SyndicationRightsOps(es)
 
+  /*
   val thrallMessageConsumer = new ThrallMessageConsumer(config, es, thrallMetrics, store, dynamoNotifications, syndicationOps)
-
-  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config)
-  thrallKinesisMessageConsumer.start()
-
   thrallMessageConsumer.startSchedule()
   context.lifecycle.addStopHook {
     () => thrallMessageConsumer.actorSystem.terminate()
   }
+  */
+
+  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es, thrallMetrics, store, dynamoNotifications, syndicationOps)
+  thrallKinesisMessageConsumer.start()
 
   val thrallController = new ThrallController(controllerComponents)
   val healthCheckController = new HealthCheck(elasticSearches.head, thrallMessageConsumer, config, controllerComponents)

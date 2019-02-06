@@ -5,15 +5,21 @@ import java.util.UUID
 
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
-import lib.ThrallConfig
+import lib._
 import play.api.Logger
 
-class ThrallMessageConsumer(config: ThrallConfig) {
+class ThrallMessageConsumer(config: ThrallConfig,
+                            es: ElasticSearchVersion,
+                            thrallMetrics: ThrallMetrics,
+                            store: ThrallStore,
+                            metadataNotifications: DynamoNotifications,
+                            syndicationRightsOps: SyndicationRightsOps
+                           ) {
 
   val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   private val thrallEventProcessorFactory = new IRecordProcessorFactory {
-    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer()
+    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataNotifications, syndicationRightsOps)
   }
 
   private lazy val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
