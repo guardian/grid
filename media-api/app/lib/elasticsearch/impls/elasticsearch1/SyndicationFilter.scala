@@ -66,10 +66,10 @@ object SyndicationFilter extends ImageFields {
     filters.date("uploadTime", Some(startDate), None).get
   }
 
-  private val isPhotographer: FilterBuilder = filters.or(
+  private val syndicatableCategory: FilterBuilder = filters.or(
     filters.term(usageRightsField("category"), StaffPhotographer.category),
-    filters.term(usageRightsField("category"), CommissionedPhotographer.category),
-    filters.term(usageRightsField("category"), ContractPhotographer.category)
+    filters.term(usageRightsField("category"), StaffIllustrator.category),
+    filters.term(usageRightsField("category"), CommissionedPhotographer.category)
   )
 
   def statusFilter(status: SyndicationStatus, config: MediaApiConfig): FilterBuilder = status match {
@@ -94,7 +94,7 @@ object SyndicationFilter extends ImageFields {
     case AwaitingReviewForSyndication => {
       val rightsAcquiredNoLeaseFilter = filters.and(
         hasRightsAcquired,
-        isPhotographer,
+        syndicatableCategory,
         filters.bool.mustNot(
           hasAllowLease,
           filters.and(
