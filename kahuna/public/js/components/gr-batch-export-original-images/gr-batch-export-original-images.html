@@ -8,6 +8,8 @@
         <gr-icon-label gr-icon="check_circle" ng:show="ctrl.needsConfirmation">Confirm full frame</gr-icon-label>
 </div>
 <div
+     gr:tooltip="Selected images have full frames"
+     gr:tooltip-position="bottom"
      ng-if="ctrl.allHaveFullCrops"
      class="inner-clickable inner-clickable--disabled">
         <gr-icon-label gr-icon="crop">Crop full frame</gr-icon-label>
