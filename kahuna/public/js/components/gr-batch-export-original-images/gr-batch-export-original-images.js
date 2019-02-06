@@ -9,7 +9,18 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
     function($scope, $rootScope, $state, mediaCropper) {
         let ctrl = this;
 
+        const checkForFullCrops = () => ctrl.images.every(
+            image => image.data.exports.some(
+              crop => crop.specification.type === 'full'
+            )
+        );
+
+        $scope.$watch('ctrl.images', () => {
+          ctrl.allHaveFullCrops = checkForFullCrops();
+        }, true);
+
         ctrl.callBatchCrop = function() {
+
 
             //Slightly backwards, if needsConfirmation is true, then this is second click
             if (ctrl.needsConfirmation) {

@@ -360,6 +360,10 @@ button[disabled],
     display: inline-block;
 }
 
+.inner-clickable--disabled {
+  opacity: 0.7;
+}
+
 .button-right-side {
     padding-left: 5px;
     margin-left: -4px
