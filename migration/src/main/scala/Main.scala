@@ -63,6 +63,7 @@ object Main extends App with JsonCleaners {
 
   println("Ensuring ES6 index exists")
   es6.ensureIndexExists(es6Index)
+  es6.ensureAliasAssigned()
 
   println("Counting ES1 images")
   val countES1ImagesQuery = es1.client.prepareSearch(es1Alias).setTypes("image").setSize(0)
