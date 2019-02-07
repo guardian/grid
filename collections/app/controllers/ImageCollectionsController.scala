@@ -3,10 +3,10 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.getEmail
-import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
+import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
+import com.gu.mediaservice.lib.net.{URI => UriOps}
 import com.gu.mediaservice.model.{ActionData, Collection}
-import com.gu.mediaservice.lib.net.{ URI => UriOps }
 import lib.{CollectionsConfig, Notifications}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
@@ -68,7 +68,8 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
       "data" -> Json.toJson(onlyLatestCollections)
     )
 
-    notifications.publish(message, "set-image-collections")
+    val updateMessage = UpdateMessage(subject = "set-image-collections", collections = Some(collections))
+    notifications.publish(message, "set-image-collections", updateMessage)
     onlyLatestCollections
   }
 }

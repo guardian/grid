@@ -8,7 +8,7 @@ import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.aws.NoItemFound
+import com.gu.mediaservice.lib.aws.{NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model._
 import lib._
@@ -223,8 +223,8 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
       "lastModified" -> printDateTime(new DateTime())
     )
 
-    notifications.publish(message, subject)
-
+    val updateMessage = UpdateMessage(subject = subject, edits = Some(edits), lastModified = Some(new DateTime()))
+    notifications.publish(message, subject, updateMessage)
     edits
   }
 

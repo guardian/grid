@@ -1,7 +1,7 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.{MessageSender, SNS}
-import com.gu.mediaservice.lib.formatting._
+import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
+import com.gu.mediaservice.model.usage.UsageNotice
 import model.{MediaUsage, UsageTable}
 import org.joda.time.DateTime
 import play.api.Logger
@@ -9,29 +9,6 @@ import play.api.libs.json._
 import rx.lang.scala.Observable
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
-case class UsageNotice(mediaId: String, usageJson: JsArray) {
-  def toJson = Json.obj(
-    "id" -> mediaId,
-    "data" -> usageJson,
-    "lastModified" -> printDateTime(DateTime.now())
-  )
-
-  override def equals(o: Any) = o match {
-    case that: UsageNotice => that.hashCode == this.hashCode
-    case _ => false
-  }
-
-  override def hashCode =  {
-    val result = Json.toJson(
-      usageJson.as[List[JsObject]]
-        .map(_ - "lastModified")
-        .map(_ - "dateAdded")
-      ).as[JsArray].toString
-
-    result.hashCode
-  }
-}
 
 class UsageNotifier(config: UsageConfig, usageTable: UsageTable) extends MessageSender(config, config.topicArn) {
   def build(mediaId: String) = Observable.from(
@@ -42,6 +19,7 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable) extends Message
 
   def send(usageNotice: UsageNotice) = {
     Logger.info(s"Sending usage notice for ${usageNotice.mediaId}")
-    publish(usageNotice.toJson, "update-image-usages")
+    val updateMessage = UpdateMessage(subject = "update-image-usages", usageNotice = Some(usageNotice), lastModified = Some(DateTime.now()))
+    publish(usageNotice.toJson, "update-image-usages", updateMessage)
   }
 }
