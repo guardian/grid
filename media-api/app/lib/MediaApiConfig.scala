@@ -87,7 +87,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val persistedRootCollections: List[String] = properties.get("persistence.collections") match {
     case Some(collections) => collections.split(',').toList
-    case None => List("GNM Archive")
+    case None => List("GNM Archive", "Daily Edit")
   }
 
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
