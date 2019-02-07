@@ -23,13 +23,14 @@ class ThrallMessageConsumer(config: ThrallConfig,
     override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataNotifications, syndicationRightsOps)
   }
 
-  private lazy val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
-  private lazy val thrallKinesisWorker = builder(kinesisClientLibConfig(config.appName, config.thrallKinesisStream))
-  private lazy val thrallKenisisWorkerThread = makeThread(thrallKinesisWorker)
+  private val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
+  private val thrallKinesisWorker = builder(kinesisClientLibConfig(config.appName, config.thrallKinesisStream))
+  private val thrallKenisisWorkerThread = makeThread(thrallKinesisWorker)
 
   def start() = {
     Logger.info("Trying to start Thrall kinesis reader")
     thrallKenisisWorkerThread.start()
+    Logger.info("Thrall kinesis reader started")
   }
 
   private def kinesisClientLibConfig(appName: String, streamName: String): KinesisClientLibConfiguration = {
@@ -49,6 +50,6 @@ class ThrallMessageConsumer(config: ThrallConfig,
 
   override def lastProcessed: DateTime = DateTime.now() // TODO implement
 
-  override def isStopped: Boolean = false // TODO implement
+  override def isStopped: Boolean = !thrallKenisisWorkerThread.isAlive
 
 }

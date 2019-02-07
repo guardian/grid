@@ -6,11 +6,13 @@ import java.util
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.PlayJsonHelpers
 import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import play.api.Logger
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{JodaReads, Json}
 
 import scala.concurrent.ExecutionContext.Implicits.global  // TODO MessageConsumer has something more complicated.
 
@@ -23,7 +25,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
   private val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps)
 
   override def initialize(shardId: String): Unit = {
-    Logger.debug(s"Initialized an event processor for shard $shardId")
+    Logger.info(s"Initialized an event processor for shard $shardId")
   }
 
   override def processRecords(records: util.List[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
@@ -33,11 +35,15 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
       val message = new String(r.getData.array(), StandardCharsets.UTF_8)
       GridLogger.info("Got thrall event: " + subject + " / " + message)
 
-      val body: JsValue = Json.parse(message) // TODO validation
+      implicit val yourJodaDateReads = JodaReads.jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZ'") // TODO
+      implicit val unr = Json.reads[UsageNotice]
+      implicit val umr = Json.reads[UpdateMessage]
 
-      val maybeProcessor = messageProcessor.chooseProcessor(subject)
-      maybeProcessor.map { p =>
-        p.apply(body)
+      val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
+      Logger.info("Got update message: " + updateMessage)
+
+      messageProcessor.chooseProcessor(updateMessage).map { p =>
+        p.apply(updateMessage)
       }
     }
 

@@ -223,7 +223,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
       "lastModified" -> printDateTime(new DateTime())
     )
 
-    val updateMessage = UpdateMessage(subject = subject, edits = Some(edits), lastModified = Some(new DateTime()))
+    val updateMessage = UpdateMessage(subject = subject, id = Some(id), edits = Some(edits), lastModified = Some(new DateTime()))
     notifications.publish(message, subject, updateMessage)
     edits
   }
