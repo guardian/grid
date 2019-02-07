@@ -69,7 +69,6 @@ class SyndicationFilter(config: MediaApiConfig) {
 
   private val syndicatableCategory: Query = filters.or(
     filters.term(usageRightsField("category"), StaffPhotographer.category),
-    filters.term(usageRightsField("category"), StaffIllustrator.category),
     filters.term(usageRightsField("category"), CommissionedPhotographer.category)
   )
 

@@ -68,7 +68,6 @@ object SyndicationFilter extends ImageFields {
 
   private val syndicatableCategory: FilterBuilder = filters.or(
     filters.term(usageRightsField("category"), StaffPhotographer.category),
-    filters.term(usageRightsField("category"), StaffIllustrator.category),
     filters.term(usageRightsField("category"), CommissionedPhotographer.category)
   )
 
