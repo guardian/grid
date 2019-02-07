@@ -201,11 +201,11 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       }
     }
 
-    it("should return 2 images if an Internal tier queries for AwaitingReviewForSyndication images") {
+    it("should return 3 images if an Internal tier queries for AwaitingReviewForSyndication images") {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 2
+        result.total shouldBe 3
       }
     }
   }
