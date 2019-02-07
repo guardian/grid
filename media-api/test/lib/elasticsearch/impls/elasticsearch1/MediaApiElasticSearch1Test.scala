@@ -75,7 +75,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
 
         val imageId = result.hits.map(_._1)
         imageId.size shouldBe 1
-        imageId.contains("test-image-12-unedited") shouldBe true
+        imageId.contains("test-image-14-unedited") shouldBe true
       }
     }
   }
