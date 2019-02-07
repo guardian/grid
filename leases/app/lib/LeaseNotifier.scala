@@ -38,7 +38,7 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends SNS(config,
   }
 
   def sendReindexLeases(mediaId: String) = {
-    publish(build(mediaId).toJson, "update-image-leases")
+    publish(build(mediaId).toJson, "replace-image-leases")
   }
 
   def sendAddLease(mediaLease: MediaLease) = {
