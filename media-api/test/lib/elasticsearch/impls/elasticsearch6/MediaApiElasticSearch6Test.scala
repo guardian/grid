@@ -122,7 +122,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       val results = Await.result(ES.dateHistogramAggregate(aggregateSearchParams), fiveSeconds)
 
       results.total shouldBe 2
-      results.results.tail.head.count + results.results.head.count shouldBe images.size
+      results.results.foldLeft(0: Long)((a, b) => a + b.count) shouldBe images.size
     }
 
     it("can load metadata aggregations") {
