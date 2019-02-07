@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.model._
 import lib._
@@ -55,8 +56,12 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
           "data" -> Json.arr(cropJson)
         )
 
-        notifications.publish(exports, "update-image-exports")
+        val updateImageExports = "update-image-exports"
+        val updateMessage = UpdateMessage(subject = updateImageExports, id = Some(imageId), crops = Some(Seq(export)))
+        notifications.publish(exports, updateImageExports, updateMessage)
+
         Ok(cropJson).as(ArgoMediaType)
+
       } recover {
         case InvalidSource => respondError(BadRequest, "invalid-source", InvalidSource.getMessage)
         case ImageNotFound => respondError(BadRequest, "image-not-found", ImageNotFound.getMessage)
@@ -102,7 +107,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     if(canDeleteCrops) {
       store.deleteCrops(id).map { _ =>
-        notifications.publish(Json.obj("id" -> id), "delete-image-exports")
+        val updateMessage = UpdateMessage(subject = "delete-image-exports", id = Some(id))
+        notifications.publish(Json.obj("id" -> id), "delete-image-exports", updateMessage)
         Accepted
       } recover {
         case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")

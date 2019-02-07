@@ -4,8 +4,10 @@ import java.net.URI
 
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link}
+import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoAction}
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.usage.Usage
 import lib._
 import model._
@@ -13,8 +15,6 @@ import play.api.Logger
 import play.api.libs.json.{JsError, JsValue, Json}
 import play.api.mvc._
 import play.utils.UriEncoding
-import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
-import com.gu.mediaservice.lib.logging.GridLogger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -191,7 +191,9 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         Logger.error("UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
     }
-    notifications.publish(Json.obj("id" -> mediaId), "delete-usages")
+
+    val updateMessage = UpdateMessage(subject = " delete-usages", id = Some(mediaId))
+    notifications.publish(Json.obj("id" -> mediaId), "delete-usages", updateMessage)
     Future.successful(Ok)
   }
 }
