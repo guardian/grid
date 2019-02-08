@@ -3,6 +3,7 @@ import Rx from 'rx';
 
 import {editsApi} from '../services/api/edits-api';
 import {mediaApi} from '../services/api/media-api';
+import { descriptionEditOptions } from '../util/constants/descriptionEditOptions';
 
 export var service = angular.module('kahuna.edits.service', [
     editsApi.name,
@@ -287,18 +288,22 @@ service.factory('editsService',
     }
 
     function batchUpdateMetadataField (images, field, value, descriptionOption) {
+
         return $q.all(images.map(image => {
           let newFieldValue;
-          if (field === 'description' && descriptionOption === 'append') {
+          if (field === 'description' && descriptionOption === descriptionEditOptions.append) {
             newFieldValue = imageAccessor.readMetadata(image).description + ' ' + value;
           }
-          else if (field === 'description' && descriptionOption === 'prepend') {
+          else if (
+            field === 'description' &&
+            descriptionOption === descriptionEditOptions.prepend
+          ) {
             newFieldValue = value + ' ' + imageAccessor.readMetadata(image).description;
           }
           else {
             newFieldValue = value;
           }
-          updateMetadataField(image, field, newFieldValue)
+          updateMetadataField(image, field, newFieldValue);
         }));
     }
 

@@ -150,12 +150,12 @@
                     Overwrite
                   </label>
                   <label>
-                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="append"/>
-                    Append
+                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="{{ ctrl.descriptionOptions.append }}"/>
+                    {{ ctrl.descriptionOptions.append }}
                   </label>
                   <label>
-                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="prepend"/>
-                    Prepend
+                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="{{ ctrl.descriptionOptions.prepend }}"/>
+                    {{ ctrl.descriptionOptions.prepend }}
                   </label>
                  </div>
             </dl>

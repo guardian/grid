@@ -11,6 +11,7 @@ import '../../services/panel';
 import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
+import { descriptionEditOptions } from '../../util/constants/descriptionEditOptions';
 export const grInfoPanel = angular.module('grInfoPanel', [
     'kahuna.services.image-accessor',
     'kahuna.services.image-list',
@@ -172,6 +173,8 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
         ctrl.selectDescriptionOption = function (event) {
           event.stopPropagation();
         };
+
+        ctrl.descriptionOptions = descriptionEditOptions;
 
         ctrl.addLabel = function (label) {
             var imageArray = Array.from(ctrl.selectedImages);
