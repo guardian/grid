@@ -43,7 +43,8 @@ class ThrallMessageConsumer(config: ThrallConfig,
       credentialsProvider,
       workerId
     ).withRegionName(config.awsRegion).
-      withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON)
+      withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON).
+      withIdleTimeBetweenReadsInMillis(250)
   }
 
   private def makeThread(worker: Runnable) = new Thread(worker, s"${getClass.getSimpleName}-$workerId")
