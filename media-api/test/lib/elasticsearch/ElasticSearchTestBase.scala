@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
-import com.gu.mediaservice.model.{FileMetadata, Handout, StaffPhotographer}
+import com.gu.mediaservice.model.{Edits, FileMetadata, ImageMetadata, Handout, StaffPhotographer}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
@@ -18,6 +18,10 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     createImage(UUID.randomUUID().toString, Handout()),
     createImage(UUID.randomUUID().toString, StaffPhotographer("Yellow Giraffe", "The Guardian")),
     createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
+
+    // with user metadata
+    createImage(id = "test-image-13-edited", Handout()).copy(userMetadata = Some(Edits(metadata = ImageMetadata(credit = Some("author")))), uploadTime = DateTime.now.minusDays(25)),
+    createImage(id = "test-image-14-unedited", Handout()).copy(uploadTime = DateTime.now.minusDays(25)),
 
     // available for syndication
     createImageForSyndication(
@@ -110,7 +114,26 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(createSyndicationLease(allowed = true, "test-image-10")),
       usageRights = agency,
       usages = List(createDigitalUsage(date = DateTime.now))
+    ),
+
+    // Screen grab with rights acquired, not eligible for syndication review
+    createImageForSyndication(
+      id = "test-image-11",
+      rightsAcquired = true,
+      rcsPublishDate = None,
+      lease = None,
+      usageRights = screengrab,
+      usages = List(createDigitalUsage(date = DateTime.now))
+    ),
+
+    // Staff photographer with rights acquired, eligible for syndication review
+    createImageForSyndication(
+      id = "test-image-12",
+      rightsAcquired = true,
+      rcsPublishDate = None,
+      lease = None,
+      usageRights = staffPhotographer,
+      usages = List(createDigitalUsage(date = DateTime.now))
     )
   )
-
 }

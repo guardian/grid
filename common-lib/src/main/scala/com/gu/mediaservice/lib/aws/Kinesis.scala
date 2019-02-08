@@ -16,12 +16,12 @@ class Kinesis(config: CommonConfig, streamName: String) {
   def publish(message: UpdateMessage) {
     val partitionKey = UUID.randomUUID().toString
 
-    implicit val yourJodaDateWrites = JodaWrites.jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZ'") // TODO use a predefined one
-    implicit val usnw = Json.writes[UsageNotice]
+    implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
+    implicit val unw = Json.writes[UsageNotice]
     implicit val umw = Json.writes[UpdateMessage]
 
     val asJson = Json.toJson(message)
-    Logger.info("Publishing message: " + Json.stringify(asJson))
+    Logger.debug("Publishing message: " + Json.stringify(asJson))
     val payload = Json.toBytes(asJson)
 
     val request = new PutRecordRequest()

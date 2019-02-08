@@ -25,7 +25,7 @@ class MessageProcessor(es: ElasticSearchVersion,
       case "update-image-exports" => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
       case "update-image-usages" => updateImageUsages
-      case "update-image-leases" => updateImageLeases
+      case "replace-image-leases" => replaceImageLeases
       case "add-image-lease" => addImageLease
       case "remove-image-lease" => removeImageLease
       case "set-image-collections" => setImageCollections
@@ -76,12 +76,12 @@ class MessageProcessor(es: ElasticSearchVersion,
     }
   }
 
-  def updateImageLeases(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def replaceImageLeases(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     def asJsLookup(ls: Seq[MediaLease]): JsLookupResult = JsDefined(Json.toJson(ls))
     withId(message) { id =>
       withLastModified(message) { lastModified =>
         withLeases(message) { leases =>
-          Future.sequence(es.updateImageLeases(id, asJsLookup(leases), dateTimeAsJsLookup(lastModified)))
+          Future.sequence(es.replaceImageLeases(id, asJsLookup(leases), dateTimeAsJsLookup(lastModified)))
         }
       }
     }

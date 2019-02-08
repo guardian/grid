@@ -23,7 +23,7 @@ class MessageProcessor(es: ElasticSearchVersion,
       case "update-image-exports" => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
       case "update-image-usages" => updateImageUsages
-      case "update-image-leases" => updateImageLeases
+      case "replace-image-leases" => replaceImageLeases
       case "add-image-lease" => addImageLease
       case "remove-image-lease" => removeImageLease
       case "set-image-collections" => setImageCollections
@@ -56,8 +56,8 @@ class MessageProcessor(es: ElasticSearchVersion,
     Future.sequence(withImageId(metadata)(id => es.applyImageMetadataOverride(id, data, lastModified)))
   }
 
-  def updateImageLeases(leaseByMedia: JsValue)(implicit ec: ExecutionContext) =
-    Future.sequence(withImageId(leaseByMedia)(id => es.updateImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")))
+  def replaceImageLeases(leaseByMedia: JsValue)(implicit ec: ExecutionContext) =
+    Future.sequence(withImageId(leaseByMedia)(id => es.replaceImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")))
 
   def addImageLease(lease: JsValue)(implicit ec: ExecutionContext) =
     Future.sequence(withImageId(lease)(id => es.addImageLease(id, lease \ "data", lease \ "lastModified")))

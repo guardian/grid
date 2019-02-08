@@ -84,6 +84,21 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     }
   }
 
+  describe("persistence") {
+    it("can persist any images older than 20 days that have edited user metadata") {
+      val searchParams = SearchParams(tier = Internal, length = 100, until = Some(DateTime.now.minusDays(20)), persisted = Some(false))
+
+      val searchResult = ES.search(searchParams)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 1
+
+        val imageId = result.hits.map(_._1)
+        imageId.size shouldBe 1
+        imageId.contains("test-image-14-unedited") shouldBe true
+      }
+    }
+  }
+
   describe("usages for supplier") {
     it("can count published agency images within the last number of days") {
       val publishedAgencyImages = images.filter(i => i.usageRights.isInstanceOf[Agency] && i.usages.exists(_.status == PublishedUsageStatus))
@@ -106,8 +121,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
 
       val results = Await.result(ES.dateHistogramAggregate(aggregateSearchParams), fiveSeconds)
 
-      results.total shouldBe 1
-      results.results.head.count shouldBe images.size
+      results.total shouldBe 2
+      results.results.foldLeft(0: Long)((a, b) => a + b.count) shouldBe images.size
     }
 
     it("can load metadata aggregations") {
@@ -220,12 +235,12 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       }
     }
 
-    it("should return 2 images if an Internal tier queries for AwaitingReviewForSyndication images") {
+    it("should return 3 images if an Internal tier queries for AwaitingReviewForSyndication images") {
       // Elastic1 implementation is returning the images with reviewed and blocked syndicationStatus
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 2
+        result.total shouldBe 3
       }
     }
   }
