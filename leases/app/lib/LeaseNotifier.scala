@@ -45,7 +45,7 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
 
   def sendAddLease(mediaLease: MediaLease) = {
     val addImageLease = "add-image-lease"
-    val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease))
+    val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId), lastModified = Some(DateTime.now()))
     publish(MediaLease.toJson(mediaLease), addImageLease, updateMessage)
   }
 
