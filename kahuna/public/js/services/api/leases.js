@@ -34,17 +34,6 @@ leaseService.factory('leaseService', [
           .then( (images) => imageList.getLeases(images) );
       }
 
-    function add(image, lease) {
-      const newLease = angular.copy(lease);
-      newLease.mediaId = image.data.id;
-
-      if (angular.isDefined(newLease.notes) && newLease.notes.trim().length === 0) {
-        newLease.notes = null;
-      }
-
-      return image.perform('add-lease', {body: newLease});
-    }
-
     function clear(image) {
         const images = [image];
         const currentLeases = getLeases(images);
@@ -94,8 +83,8 @@ leaseService.factory('leaseService', [
     }
 
     function batchAdd(lease, originalLeases, images) {
-      const originalLeaseCount = originalLeases.leases.length;
-      return $q.all(images.map(image => add(image, lease)))
+      const originalLeaseCount = originalLeases.length;
+      return $q.all(images.map(image => replace(image, originalLeases.concat(lease))))
         .then(pollLeases(images, originalLeaseCount));
     }
 
@@ -139,7 +128,6 @@ leaseService.factory('leaseService', [
     }
 
     return {
-        add,
         batchAdd,
         getLeases,
         canUserEdit,
