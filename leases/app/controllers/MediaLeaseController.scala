@@ -37,17 +37,30 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     store.delete(id).map { _ => notifications.sendRemoveLease(lease.mediaId, id)}
   }
 
-  private def clearLeases(id: String) = store.getForMedia(id)
+  private def clearLeases(id: String) = Future.sequence(store.getForMedia(id)
     .flatMap(_.id)
-    .map(clearLease)
+    .flatten(clearLease))
 
   private def badRequest(e:  Seq[(JsPath, Seq[JsonValidationError])]) =
     respondError(BadRequest, "media-leases-parse-failed", JsError.toJson(e).toString)
 
+  private def prepareLeaseForSave(mediaLease: MediaLease, userId: Option[String]): MediaLease =
+    mediaLease.prepareForSave.copy(id = Some(UUID.randomUUID().toString), leasedBy = userId)
+
   private def addLease(mediaLease: MediaLease, userId: Option[String]) = {
-    val lease = mediaLease.prepareForSave.copy(id = Some(UUID.randomUUID().toString), leasedBy = userId)
+    val lease = prepareLeaseForSave(mediaLease, userId)
     store.put(lease).map { _ =>
       notifications.sendAddLease(lease)
+    }
+  }
+
+  private def replaceLeases(mediaLeases: List[MediaLease], imageId: String, userId: Option[String]) = {
+    val preparedMediaLeases = mediaLeases.map(prepareLeaseForSave(_, userId))
+    for {
+      _ <- clearLeases(imageId)
+      _ <- store.putAll(preparedMediaLeases)
+    } yield {
+      notifications.sendAddLeases(preparedMediaLeases, imageId)
     }
   }
 
@@ -98,13 +111,18 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     }
   }
 
+  def validateLeases(leases: List[MediaLease]) = leases.count { _.isSyndication } <= 1
+
   def replaceLeasesForMedia(id: String) = auth.async(parse.json) { implicit request => Future {
     request.body.validate[List[MediaLease]].fold(
       badRequest,
       mediaLeases => {
-        clearLeases(id)
-        mediaLeases.map(addLease(_, Some(Authentication.getEmail(request.user))))
-        Accepted
+        if (validateLeases(mediaLeases)) {
+          replaceLeases(mediaLeases, id, Some(Authentication.getEmail(request.user)))
+          Accepted
+        } else {
+          respondError(BadRequest, "validation-error", "No more than one syndication lease per image")
+        }
       }
     )
   }}
