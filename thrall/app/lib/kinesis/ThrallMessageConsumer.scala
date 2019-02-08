@@ -24,19 +24,19 @@ class ThrallMessageConsumer(config: ThrallConfig,
   }
 
   private val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
-  private val thrallKinesisWorker = builder(kinesisClientLibConfig(config.appName, config.thrallKinesisStream))
-  private val thrallKenisisWorkerThread = makeThread(thrallKinesisWorker)
+  private val thrallKinesisWorker = builder(kinesisClientLibConfig(kinesisAppName = config.thrallKinesisStream, streamName = config.thrallKinesisStream))
+  private val thrallKinesisWorkerThread = makeThread(thrallKinesisWorker)
 
   def start() = {
     Logger.info("Trying to start Thrall kinesis reader")
-    thrallKenisisWorkerThread.start()
+    thrallKinesisWorkerThread.start()
     Logger.info("Thrall kinesis reader started")
   }
 
-  private def kinesisClientLibConfig(appName: String, streamName: String): KinesisClientLibConfiguration = {
+  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String): KinesisClientLibConfiguration = {
     val credentialsProvider = config.awsCredentials
     new KinesisClientLibConfiguration(
-      appName,
+      kinesisAppName,
       streamName,
       credentialsProvider,
       credentialsProvider,
@@ -50,6 +50,6 @@ class ThrallMessageConsumer(config: ThrallConfig,
 
   override def lastProcessed: DateTime = DateTime.now() // TODO implement
 
-  override def isStopped: Boolean = !thrallKenisisWorkerThread.isAlive
+  override def isStopped: Boolean = !thrallKinesisWorkerThread.isAlive
 
 }
