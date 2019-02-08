@@ -13,8 +13,8 @@ export var service = angular.module('kahuna.edits.service', [
 // see when it's synced. We should have a link on the resource to be able to do
 // this.
 service.factory('editsService',
-                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'apiPoll',
-                 function($rootScope, $q, editsApi, mediaApi, apiPoll) {
+                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'apiPoll', 'imageAccessor',
+                 function($rootScope, $q, editsApi, mediaApi, apiPoll, imageAccessor) {
 
     /**
      * @param edit {Resource} the edit you'd like to match
@@ -290,10 +290,10 @@ service.factory('editsService',
         return $q.all(images.map(image => {
           let newFieldValue;
           if (field === 'description' && descriptionOption === 'append') {
-            newFieldValue = image.data.metadata.description + ' ' + value;
+            newFieldValue = imageAccessor.readMetadata(image).description + ' ' + value;
           }
           else if (field === 'description' && descriptionOption === 'prepend') {
-            newFieldValue = value + ' ' + image.data.metadata.description;
+            newFieldValue = value + ' ' + imageAccessor.readMetadata(image).description;
           }
           else {
             newFieldValue = value;
