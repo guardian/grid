@@ -14,7 +14,7 @@ class MessageSender(config: CommonConfig, snsTopicArn: String) {
   // TODO deprecate the message JsValue input in favour of the more structured update message
   def publish(message: JsValue, subject: String, updateMessage: UpdateMessage): Unit = {
     legacySns.publish(message, subject)
-    kinesis.publish(message, subject)
+    kinesis.publish(updateMessage)
   }
 }
 
