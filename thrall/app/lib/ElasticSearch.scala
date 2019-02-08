@@ -156,7 +156,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     }
   }
 
-  def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def replaceImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
         "leaseByMedia" -> asGroovy(leaseByMedia.getOrElse(JsNull)),
