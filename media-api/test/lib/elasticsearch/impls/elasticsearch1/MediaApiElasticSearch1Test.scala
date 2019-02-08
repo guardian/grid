@@ -26,7 +26,7 @@ import scala.concurrent.{Await, Future}
 
 class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually with MockitoSugar {
 
-  implicit val request  = mock[AuthenticatedRequest[AnyContent, Principal]]
+  implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
 
   private val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   private val fiveSeconds = Duration(5, SECONDS)
@@ -52,7 +52,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
     Thread.sleep(5000)
   }
 
-  override def afterAll  {
+  override def afterAll {
     purgeTestImages
   }
 
@@ -61,6 +61,21 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       val expectedImage = images.head
       whenReady(ES.getImageById(expectedImage.id)) { r =>
         r.get.id shouldEqual expectedImage.id
+      }
+    }
+  }
+
+  describe("persistence") {
+    it("can persist any images older than 20 days that have edited user metadata") {
+      val searchParams = SearchParams(tier = Internal, length = 100, until = Some(DateTime.now.minusDays(20)), persisted = Some(false))
+
+      val searchResult = ES.search(searchParams)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 1
+
+        val imageId = result.hits.map(_._1)
+        imageId.size shouldBe 1
+        imageId.contains("test-image-14-unedited") shouldBe true
       }
     }
   }
@@ -86,9 +101,8 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       val aggregateSearchParams = AggregateSearchParams(field = "uploadTime", q = None, structuredQuery = List.empty)
 
       val results = Await.result(ES.dateHistogramAggregate(aggregateSearchParams), fiveSeconds)
-
-      results.total shouldBe 1
-      results.results.head.count shouldBe images.size
+      results.total shouldBe 2
+      results.results.foldLeft(0: Long)((a, b) => a + b.count) shouldBe images.size
     }
 
     it("can load metadata aggregations") {
@@ -201,11 +215,11 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       }
     }
 
-    it("should return 2 images if an Internal tier queries for AwaitingReviewForSyndication images") {
+    it("should return 3 images if an Internal tier queries for AwaitingReviewForSyndication images") {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 2
+        result.total shouldBe 3
       }
     }
   }
@@ -261,6 +275,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
   private def purgeTestImages = {
     def deleteImages() = {
       val sixtySeconds = new TimeValue(60000)
+
       def scroll = ES.client.prepareSearch(imageAlias)
         .setScroll(sixtySeconds)
         .setQuery(QueryBuilders.matchAllQuery())
@@ -269,7 +284,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       var scrollResp = scroll
       while (scrollResp.getHits.getHits.length > 0) {
         scrollResp.getHits.getHits.map(h => ES.client.delete(new DeleteRequest(imageAlias, "image", h.getId)))
-        scrollResp =  ES.client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(sixtySeconds).execute().actionGet()
+        scrollResp = ES.client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(sixtySeconds).execute().actionGet()
       }
     }
 

@@ -23,8 +23,8 @@ class ElasticSearchRouter(versions: Seq[ElasticSearchVersion]) extends ElasticSe
 
   override def deleteSyndicationRights(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = versions.map(_.deleteSyndicationRights(id)).head
 
-  override def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
-    versions.map(_.updateImageLeases(id, leaseByMedia, lastModified)).head
+  override def replaceImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
+    versions.map(_.replaceImageLeases(id, leaseByMedia, lastModified)).head
 
   override def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] =
     versions.map(_.addImageLease(id, lease, lastModified)).head

@@ -285,7 +285,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def updateImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def replaceImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceLeasesScript = loadPainless(
     """ | ctx._source.leases = params.leaseByMedia;"""
     )
