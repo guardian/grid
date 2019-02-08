@@ -144,7 +144,7 @@
                     </div>
                 </div>
 
-                <div ng-if="descriptionEditForm.$visible">
+                <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible">
                   <label>
                     <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value=""/>
                     Overwrite
