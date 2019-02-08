@@ -112,13 +112,12 @@
                     <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                          editable-textarea="ctrl.metadata.description"
                          ng:hide="descriptionEditForm.$visible"
-                         onbeforesave="ctrl.updateMetadataField('description', $data)"
+                         onbeforesave="ctrl.updateMetadataField('description', $data, ctrl.descriptionOption)"
                          e:msd-elastic
                          e:form="descriptionEditForm"
                          e:ng-class="{'image-info__editor--error': $error,
                                       'image-info__editor--saving': descriptionEditForm.$waiting,
                                       'text-input': true}">
-
                         <div ng:if="ctrl.userCanEdit">
                             <dd class="image-info__description"
                                 ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
@@ -145,6 +144,20 @@
                     </div>
                 </div>
 
+                <div ng-if="descriptionEditForm.$visible">
+                  <label>
+                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value=""/>
+                    Overwrite
+                  </label>
+                  <label>
+                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="append"/>
+                    Append
+                  </label>
+                  <label>
+                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="prepend"/>
+                    Prepend
+                  </label>
+                 </div>
             </dl>
         </div>
 

@@ -286,8 +286,20 @@ service.factory('editsService',
             .then(() => image.get());
     }
 
-    function batchUpdateMetadataField (images, field, value) {
-        return $q.all(images.map(image => updateMetadataField(image, field, value)));
+    function batchUpdateMetadataField (images, field, value, descriptionOption) {
+        return $q.all(images.map(image => {
+          let newFieldValue;
+          if (field === 'description' && descriptionOption === 'append') {
+            newFieldValue = image.data.metadata.description + ' ' + value;
+          }
+          else if (field === 'description' && descriptionOption === 'prepend') {
+            newFieldValue = value + ' ' + image.data.metadata.description;
+          }
+          else {
+            newFieldValue = value;
+          }
+          updateMetadataField(image, field, newFieldValue)
+        }));
     }
 
     return {
