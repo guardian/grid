@@ -35,7 +35,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
       val message = new String(r.getData.array(), StandardCharsets.UTF_8)
       GridLogger.info("Got thrall event: " + subject + " / " + message)
 
-      implicit val yourJodaDateReads = JodaReads.jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZ'") // TODO
+      implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads
       implicit val unr = Json.reads[UsageNotice]
       implicit val umr = Json.reads[UpdateMessage]
 
