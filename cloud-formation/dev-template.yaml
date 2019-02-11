@@ -113,7 +113,7 @@ Resources:
   ThrallMessageQueue:
     Type: AWS::Kinesis::Stream
     Properties:
-      Name: !Sub media-service-thrall-DEV
+      Name: media-service-thrall-DEV
       ShardCount: 1
       RetentionPeriodHours: 168
       Tags:
