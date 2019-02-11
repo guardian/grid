@@ -30,7 +30,7 @@ function getCropperConfig(config) {
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
-        |publishing.image.host=${config.stackProps.ImageOriginWebsite}
+        |publishing.image.host=${config.stackProps.ImageOriginBucket}.s3.amazonaws.com
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |`;
