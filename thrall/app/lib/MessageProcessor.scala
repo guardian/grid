@@ -48,7 +48,10 @@ class MessageProcessor(es: ElasticSearchVersion,
     Future.sequence(withImageId(exports)(id => es.updateImageExports(id, exports \ "data")))
 
   def deleteImageExports(exports: JsValue)(implicit ec: ExecutionContext) =
-    Future.sequence(withImageId(exports)(id => es.deleteImageExports(id)))
+    Future.sequence(withImageId(exports){id =>
+      GridLogger.info("ES1 Deleting image: " + id)
+      es.deleteImageExports(id))
+    }
 
   def updateImageUserMetadata(metadata: JsValue)(implicit ec: ExecutionContext) = {
     val data = metadata \ "data"
