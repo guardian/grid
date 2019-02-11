@@ -28,6 +28,20 @@ Resources:
         IndexDocument: index.html
         ErrorDocument: error.html
 
+  ImageOriginBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref 'ImageOriginBucket'
+      PolicyDocument:
+        Id: PublicImageRead
+        Statement:
+          - Action:
+              - s3:GetObject
+            Effect: Allow
+            Resource: !Sub 'arn:aws:s3:::${ImageOriginBucket}/*'
+            Principal:
+              AWS: '*'
+
   ConfigBucket:
     Type: AWS::S3::Bucket
 
