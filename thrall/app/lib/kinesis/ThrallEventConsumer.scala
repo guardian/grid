@@ -2,6 +2,7 @@ package lib.kinesis
 
 import java.nio.charset.StandardCharsets
 import java.util
+import java.util.concurrent.Executors
 
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
@@ -14,7 +15,7 @@ import lib._
 import play.api.Logger
 import play.api.libs.json.{JodaReads, Json}
 
-import scala.concurrent.ExecutionContext.Implicits.global  // TODO MessageConsumer has something more complicated.
+import scala.concurrent.ExecutionContext
 
 class ThrallEventConsumer(es: ElasticSearchVersion,
                           thrallMetrics: ThrallMetrics,
@@ -23,6 +24,9 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
                           syndicationRightsOps: SyndicationRightsOps) extends IRecordProcessor with PlayJsonHelpers {
 
   private val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps)
+
+  private implicit val ctx: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   override def initialize(shardId: String): Unit = {
     Logger.info(s"Initialized an event processor for shard $shardId")
