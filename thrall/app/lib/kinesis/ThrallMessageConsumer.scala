@@ -42,7 +42,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
     val credentialsProvider = config.awsCredentials
 
     val kinesisConfig = new KinesisClientLibConfiguration(
-      kinesisAppName,
+      kinesisAppName + from.map(_ => "-rewind").getOrElse(""),
       streamName,
       credentialsProvider,
       credentialsProvider,
