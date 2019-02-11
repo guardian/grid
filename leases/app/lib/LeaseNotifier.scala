@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.SNS
+import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
 import org.joda.time.DateTime
@@ -31,26 +31,35 @@ object LeaseNotice {
   )
 }
 
-class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends SNS(config, config.topicArn) {
-  private def build(mediaId: String): LeaseNotice = {
-    val leases = store.getForMedia(mediaId)
+class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSender(config, config.topicArn) {
+  private def build(mediaId: String, leases: List[MediaLease] ): LeaseNotice = {
     LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(leases)))
   }
 
   def sendReindexLeases(mediaId: String) = {
-    publish(build(mediaId).toJson, "replace-image-leases")
+    val replaceImageLeases = "replace-image-leases"
+    val leases = store.getForMedia(mediaId)
+    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases) )
+    publish(build(mediaId, leases).toJson, replaceImageLeases, updateMessage)
   }
 
   def sendAddLease(mediaLease: MediaLease) = {
-    publish(MediaLease.toJson(mediaLease), "add-image-lease")
+    val addImageLease = "add-image-lease"
+    val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId), lastModified = Some(DateTime.now()))
+    publish(MediaLease.toJson(mediaLease), addImageLease, updateMessage)
   }
 
   def sendRemoveLease(mediaId: String, leaseId: String) = {
+    val removeImageLease = "remove-image-lease"
+
     val leaseInfo = Json.obj(
       "leaseId" -> leaseId,
       "id" -> mediaId,
       "lastModified" -> printDateTime(DateTime.now())
     )
-    publish(leaseInfo, "remove-image-lease")
+    val updateMessage = UpdateMessage(subject = removeImageLease, id = Some(mediaId),
+      leaseId = Some(leaseId), lastModified = Some(DateTime.now())
+    )
+    publish(leaseInfo, removeImageLease, updateMessage)
   }
 }

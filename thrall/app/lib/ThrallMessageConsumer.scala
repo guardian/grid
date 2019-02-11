@@ -12,7 +12,7 @@ class ThrallMessageConsumer(
   es: ElasticSearchVersion,
   thrallMetrics: ThrallMetrics,
   store: ThrallStore,
-  notifications: DynamoNotifications,
+  metadataNotifications: DynamoNotifications,
   syndicationRightsOps: SyndicationRightsOps
 )(implicit ec: ExecutionContext) extends MessageConsumer(
   config.queueUrl,
@@ -86,7 +86,7 @@ class ThrallMessageConsumer(
               store.deleteOriginal(id)
               store.deleteThumbnail(id)
               store.deletePng(id)
-              notifications.publish(Json.obj("id" -> id), "image-deleted")
+              metadataNotifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>

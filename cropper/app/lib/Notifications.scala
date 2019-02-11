@@ -1,5 +1,5 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.SNS
+import com.gu.mediaservice.lib.aws.MessageSender
 
-class Notifications(config: CropperConfig) extends SNS(config, config.topicArn)
+class Notifications(config: CropperConfig) extends MessageSender(config, config.topicArn)

@@ -110,6 +110,17 @@ Resources:
           ReadCapacityUnits: '1'
           WriteCapacityUnits: '1'
 
+  ThrallMessageQueue:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: media-service-thrall-DEV
+      ShardCount: 1
+      RetentionPeriodHours: 168
+      Tags:
+      - { Key: Stack, Value: media-service }
+      - { Key: Stage, Value: DEV }
+
+  # TODO MRB: remove this when we migrate to Kinesis
   Topic:
     Type: AWS::SNS::Topic
     Properties:
