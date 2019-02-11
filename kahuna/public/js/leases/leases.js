@@ -79,10 +79,13 @@ leases.controller('LeasesCtrl', [
                 );
 
                 if (incomingLeaseIsSyndication && syndLeases.length > 0) {
-                    const shouldApplyLeases = $window.confirm("One or more of the selected images have syndication leases. These will be overwritten. Do you wish to proceed?");
-                    if (!shouldApplyLeases) {
-                      return;
-                    }
+                  const confirmText = ctrl.images.size > 1
+                    ? "One or more of the selected images have syndication leases. These will be overwritten. Do you wish to proceed?"
+                    : "This image already has syndication rights. They will be overwritten. Do you wish to proceed?";
+                  const shouldApplyLeases = $window.confirm(confirmText);
+                  if (!shouldApplyLeases) {
+                    return;
+                  }
                 }
                 const leasesToAdd = incomingLeaseIsSyndication
                   ? ctrl.leases.leases.filter(_ => !_.access.endsWith('-syndication'))
