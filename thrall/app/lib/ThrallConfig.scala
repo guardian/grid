@@ -3,6 +3,8 @@ package lib
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.discovery.EC2
+import org.joda.time.DateTime
+import org.joda.time.format.ISODateTimeFormat
 import play.api.Configuration
 
 class ThrallConfig(override val configuration: Configuration) extends CommonConfig {
@@ -49,4 +51,7 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
 
   lazy val topicArn: String = properties("sns.topic.arn")
+
+  lazy val from: Option[DateTime] = properties.get("rewind.from").map(ISODateTimeFormat.dateTime.parseDateTime)
+
 }

@@ -74,11 +74,11 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   }
   */
 
-  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es, thrallMetrics, store, dynamoNotifications, syndicationOps)
+  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es, thrallMetrics,
+    store, dynamoNotifications, syndicationOps, config.from)
   thrallKinesisMessageConsumer.start()
 
   val messageConsumer = thrallKinesisMessageConsumer
-
 
   val thrallController = new ThrallController(controllerComponents)
   val healthCheckController = new HealthCheck(elasticSearches.head, messageConsumer, config, controllerComponents)

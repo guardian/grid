@@ -14,7 +14,8 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             thrallMetrics: ThrallMetrics,
                             store: ThrallStore,
                             metadataNotifications: DynamoNotifications,
-                            syndicationRightsOps: SyndicationRightsOps
+                            syndicationRightsOps: SyndicationRightsOps,
+                            from: Option[DateTime]
                            ) extends MessageConsumerVersion {
 
   val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
@@ -24,18 +25,23 @@ class ThrallMessageConsumer(config: ThrallConfig,
   }
 
   private val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
-  private val thrallKinesisWorker = builder(kinesisClientLibConfig(kinesisAppName = config.thrallKinesisStream, streamName = config.thrallKinesisStream))
+  private val thrallKinesisWorker = builder(
+    kinesisClientLibConfig(kinesisAppName = config.thrallKinesisStream,
+    streamName = config.thrallKinesisStream,
+    from = from
+  ))
   private val thrallKinesisWorkerThread = makeThread(thrallKinesisWorker)
 
-  def start() = {
+  def start(from: Option[DateTime] = None) = {
     Logger.info("Trying to start Thrall kinesis reader")
     thrallKinesisWorkerThread.start()
     Logger.info("Thrall kinesis reader started")
   }
 
-  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String): KinesisClientLibConfiguration = {
+  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, from: Option[DateTime]): KinesisClientLibConfiguration = {
     val credentialsProvider = config.awsCredentials
-    new KinesisClientLibConfiguration(
+
+    val kinesisConfig = new KinesisClientLibConfiguration(
       kinesisAppName,
       streamName,
       credentialsProvider,
@@ -43,8 +49,13 @@ class ThrallMessageConsumer(config: ThrallConfig,
       credentialsProvider,
       workerId
     ).withRegionName(config.awsRegion).
-      withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON).
       withIdleTimeBetweenReadsInMillis(250)
+
+    from.fold(
+      kinesisConfig.withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON)
+    ){ f =>
+      kinesisConfig.withTimestampAtInitialPositionInStream(f.toDate)
+    }
   }
 
   private def makeThread(worker: Runnable) = new Thread(worker, s"${getClass.getSimpleName}-$workerId")
