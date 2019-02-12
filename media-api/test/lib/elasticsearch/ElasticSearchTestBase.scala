@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
-import com.gu.mediaservice.model.{Edits, FileMetadata, ImageMetadata, Handout, StaffPhotographer}
+import com.gu.mediaservice.model._
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
@@ -14,16 +14,20 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
 
-  lazy val images = Seq(
-    createImage(UUID.randomUUID().toString, Handout()),
-    createImage(UUID.randomUUID().toString, StaffPhotographer("Yellow Giraffe", "The Guardian")),
-    createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
+  val imagesSentForSyndication: Seq[Image] = Seq(
+    createImageForSyndication(
+      id = "test-image-3",
+      rightsAcquired = true,
+      Some(DateTime.parse("2018-01-01T00:00:00")),
+      Some(createSyndicationLease(allowed = true, "test-image-3")),
+      List(
+        createDigitalUsage(),
+        createSyndicationUsage()
+      )
+    ),
+  )
 
-    // with user metadata
-    createImage(id = "test-image-13-edited", Handout()).copy(userMetadata = Some(Edits(metadata = ImageMetadata(credit = Some("author")))), uploadTime = DateTime.now.minusDays(25)),
-    createImage(id = "test-image-14-unedited", Handout()).copy(uploadTime = DateTime.now.minusDays(25)),
-
-    // available for syndication
+  val imagesQueuedForSyndication: Seq[Image] = Seq(
     createImageForSyndication(
       id = "test-image-1",
       rightsAcquired = true,
@@ -31,7 +35,7 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(createSyndicationLease(allowed = true, "test-image-1"))
     ),
 
-    // has a digital usage, still eligible for syndication
+    // has a digital usage
     createImageForSyndication(
       id = "test-image-2",
       rightsAcquired = true,
@@ -40,37 +44,12 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       List(createDigitalUsage())
     ),
 
-    // has syndication usage, not available for syndication
-    createImageForSyndication(
-      id = "test-image-3",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "test-image-3")),
-      List(createDigitalUsage(), createSyndicationUsage())
-    ),
-
-    // rights acquired, explicit allow syndication lease and unknown publish date, available for syndication
+    // explicit allow syndication lease and unknown publish date
     createImageForSyndication(
       id = "test-image-4",
       rightsAcquired = true,
       None,
       Some(createSyndicationLease(allowed = true, "test-image-4"))
-    ),
-
-    // explicit deny syndication lease with no end date, not available for syndication
-    createImageForSyndication(
-      id = "test-image-5",
-      rightsAcquired = true,
-      None,
-      Some(createSyndicationLease(allowed = false, "test-image-5"))
-    ),
-
-    // explicit deny syndication lease with end date before now, available for syndication
-    createImageForSyndication(
-      id = "test-image-6",
-      rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = false, "test-image-6", endDate = Some(DateTime.parse("2018-01-01T00:00:00"))))
     ),
 
     // images published after "today", not available for syndication
@@ -80,21 +59,49 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(DateTime.parse("2018-07-02T00:00:00")),
       Some(createSyndicationLease(allowed = false, "test-image-7"))
     ),
+  )
 
-    // with fileMetadata
+  val imagesForSyndicationReview: Seq[Image] = Seq(
+    // explicit deny syndication lease with end date before now, available for syndication
     createImageForSyndication(
-      id = "test-image-8",
+      id = "test-image-6",
       rightsAcquired = true,
-      Some(DateTime.parse("2018-07-03T00:00:00")),
-      None,
-      fileMetadata = Some(FileMetadata(xmp = Map(
-        "foo" -> "bar",
-        "toolong" -> stringLongerThan(100000)
-      )))
+      Some(DateTime.parse("2018-01-01T00:00:00")),
+      Some(createSyndicationLease(
+        allowed = false,
+        "test-image-6",
+        endDate = Some(DateTime.parse("2018-01-01T00:00:00")))
+      )
     ),
 
-    // no rights acquired, not available for syndication
-    createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = false, None, None),
+    // Staff photographer with rights acquired, eligible for syndication review
+    createImageForSyndication(
+      id = "test-image-12",
+      rightsAcquired = true,
+      rcsPublishDate = None,
+      lease = None,
+      usageRights = staffPhotographer,
+      usages = List(createDigitalUsage(date = DateTime.now))
+    )
+  )
+
+  val imagesBlockedForSyndication: Seq[Image] = Seq(
+    // explicit deny syndication lease with no end date, not available for syndication
+    createImageForSyndication(
+      id = "test-image-5",
+      rightsAcquired = true,
+      None,
+      Some(createSyndicationLease(allowed = false, "test-image-5"))
+    ),
+  )
+
+  val imagesUnavailableForSyndication: Seq[Image] = Seq(
+    createImageForSyndication(
+      UUID.randomUUID().toString,
+      rightsAcquired = false,
+      None,
+      None
+    ),
 
     // Agency image with published usage yesterday
     createImageForSyndication(
@@ -125,15 +132,39 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       usageRights = screengrab,
       usages = List(createDigitalUsage(date = DateTime.now))
     ),
+  )
 
-    // Staff photographer with rights acquired, eligible for syndication review
-    createImageForSyndication(
-      id = "test-image-12",
-      rightsAcquired = true,
-      rcsPublishDate = None,
-      lease = None,
-      usageRights = staffPhotographer,
-      usages = List(createDigitalUsage(date = DateTime.now))
+  val standardImages: Seq[Image] = Seq(
+    createImage(UUID.randomUUID().toString, Handout()),
+    createImage(UUID.randomUUID().toString, StaffPhotographer("Yellow Giraffe", "The Guardian")),
+    createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
+
+    // with user metadata
+    createImage(id = "test-image-13-edited", Handout()).copy(
+      userMetadata = Some(Edits(metadata = ImageMetadata(credit = Some("author")))),
+      uploadTime = DateTime.now.minusDays(25)
+    ),
+
+    createImage(id = "test-image-14-unedited", Handout()).copy(
+      uploadTime = DateTime.now.minusDays(25)
+    ),
+
+    // with fileMetadata
+    createImage(
+      id = "test-image-8",
+      staffPhotographer,
+      fileMetadata = Some(FileMetadata(xmp = Map(
+        "foo" -> "bar",
+        "toolong" -> stringLongerThan(100000)
+      )))
     )
   )
+
+  val images: Seq[Image] =
+    standardImages ++
+    imagesSentForSyndication ++
+    imagesQueuedForSyndication ++
+    imagesForSyndicationReview ++
+    imagesBlockedForSyndication ++
+    imagesUnavailableForSyndication
 }

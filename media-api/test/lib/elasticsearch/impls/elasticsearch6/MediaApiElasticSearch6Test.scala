@@ -240,7 +240,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 3
+        result.total shouldBe 2
       }
     }
   }
