@@ -52,5 +52,5 @@ es6.replicas=2
 
 ### Migration of data from Elasticsearch 1.7
 
-If you have an existing Elasticsearch 1.7 install of the Grid, you will need to migration the contents of
+If you have an existing Elasticsearch 1.7 install of the Grid, you will need to migrate the contents of
 your 1.7 indexes into 6.5. A [command line tool](../migration) has been developed to perform this one off migration.
