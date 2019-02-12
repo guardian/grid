@@ -31,7 +31,7 @@ class MessageProcessor(es: ElasticSearchVersion,
       case "set-image-collections" => setImageCollections
       case "heartbeat" => heartbeat
       case "delete-usages" => deleteAllUsages
-      // case "upsert-rcs-rights" => upsertSyndicationRights TODO Find out where these messages originate and what the format is
+      case "upsert-rcs-rights" => upsertSyndicationRights
       case "update-image-photoshoot" => updateImagePhotoshoot
     }
   }
@@ -143,15 +143,13 @@ class MessageProcessor(es: ElasticSearchVersion,
   def deleteAllUsages(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) =
     Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))
 
-  /*
-  def upsertSyndicationRights(rights: JsValue)(implicit ec: ExecutionContext) = {
-    withData[SyndicationRights](rights) { syndicationRights =>
-      withId(rights) { id =>
+  def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) = {
+    withId(updateMessage) { id =>
+      withSyndicationRights(updateMessage) { syndicationRights =>
         es.getImage(id) map {
           case Some(image) =>
             val photoshoot = image.userMetadata.flatMap(_.photoshoot)
             GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights $syndicationRights", id)
-
             syndicationRightsOps.upsertOrRefreshRights(
               image = image.copy(syndicationRights = Some(syndicationRights)),
               currentPhotoshootOpt = photoshoot
@@ -161,7 +159,6 @@ class MessageProcessor(es: ElasticSearchVersion,
       }
     }
   }
-  */
 
   def updateImagePhotoshoot(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     withEdits(message) { upcomingEdits =>
@@ -234,6 +231,12 @@ class MessageProcessor(es: ElasticSearchVersion,
   private def withLastModified[A](message: UpdateMessage)(f: DateTime => A): A = {
     message.lastModified.map(f).getOrElse {
       sys.error(s"No lastModified present in message: $message")
+    }
+  }
+
+  private def withSyndicationRights[A](message: UpdateMessage)(f: SyndicationRights => A): A = {
+    message.data.map(f).getOrElse {
+      sys.error(s"No syndication rights present on data field message: $message")
     }
   }
 
