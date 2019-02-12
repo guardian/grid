@@ -159,22 +159,27 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
             });
         };
 
-        ctrl.updateMetadataField = function (field, value, descriptionOption) {
+        ctrl.descriptionOption = descriptionEditOptions.overwrite.value;
+
+        ctrl.descriptionOptions = [
+          descriptionEditOptions.overwrite,
+          descriptionEditOptions.append,
+          descriptionEditOptions.prepend
+        ];
+
+        ctrl.updateDescriptionField = function() {
+          ctrl.updateMetadataField('description', ctrl.metadata.description);
+        };
+
+        ctrl.updateMetadataField = function (field, value) {
             var imageArray = Array.from(ctrl.selectedImages);
             return editsService.batchUpdateMetadataField(
               imageArray,
               field,
               value,
-              descriptionOption
+              ctrl.descriptionOption
             );
         };
-
-        ctrl.descriptionOption = '';
-        ctrl.selectDescriptionOption = function (event) {
-          event.stopPropagation();
-        };
-
-        ctrl.descriptionOptions = descriptionEditOptions;
 
         ctrl.addLabel = function (label) {
             var imageArray = Array.from(ctrl.selectedImages);

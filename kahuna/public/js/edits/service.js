@@ -288,15 +288,17 @@ service.factory('editsService',
     }
 
     function batchUpdateMetadataField (images, field, value, descriptionOption) {
-
         return $q.all(images.map(image => {
           let newFieldValue;
-          if (field === 'description' && descriptionOption === descriptionEditOptions.append) {
+          if (
+              field === 'description' &&
+              descriptionOption === descriptionEditOptions.append.value
+          ) {
             newFieldValue = imageAccessor.readMetadata(image).description + ' ' + value;
           }
           else if (
             field === 'description' &&
-            descriptionOption === descriptionEditOptions.prepend
+            descriptionOption === descriptionEditOptions.prepend.value
           ) {
             newFieldValue = value + ' ' + imageAccessor.readMetadata(image).description;
           }

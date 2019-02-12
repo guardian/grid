@@ -102,29 +102,23 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="image-info__wrap">
                     <button class="image-info__edit"
                             ng:if="ctrl.userCanEdit"
                             ng:click="descriptionEditForm.$show()"
                             ng:hide="descriptionEditForm.$visible">✎</button>
                     <dt class="metadata-line metadata-line__key">Description</dt>
-                    <div class="metadata-line__info" ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
-                         editable-textarea="ctrl.metadata.description"
-                         ng:hide="descriptionEditForm.$visible"
-                         onbeforesave="ctrl.updateMetadataField('description', $data, ctrl.descriptionOption)"
-                         e:msd-elastic
-                         e:form="descriptionEditForm"
-                         e:ng-class="{'image-info__editor--error': $error,
-                                      'image-info__editor--saving': descriptionEditForm.$waiting,
-                                      'text-input': true}">
+                    <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
+                      <div ng-hide="descriptionEditForm.$visible">
                         <div ng:if="ctrl.userCanEdit">
                             <dd class="image-info__description"
                                 ng:if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                ng:click="descriptionEditForm.$show()"
                                 >Multiple descriptions (click ✎ to edit <strong>all</strong>)
                             </dd>
 
                             <dd class="image-info__description"
+                                ng:click="descriptionEditForm.$show()"
                                 ng:if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                                 >{{ctrl.metadata.description || "Unknown (click ✎ to add the description)"}}
                             </dd>
@@ -142,25 +136,38 @@
                             </dd>
                         </div>
                     </div>
+                    <div
+                        class="metadata-line__info"
+                        ng:class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
+                         editable-textarea="ctrl.metadata.description"
+                         ng:hide="descriptionEditForm.$visible"
+                         e:msd-elastic
+                         e:ng-class="{'image-info__editor--error': $error,
+                                      'image-info__editor--saving': descriptionEditForm.$waiting,
+                                      'text-input': true}"
+                      >
+                      </div>
+                      <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible">
+                        <div
+                         editable-radiolist="ctrl.descriptionOption"
+                         e-ng-options="option.value as option.text for option in ctrl.descriptionOptions"
+                         e-name="descriptionOption"
+                    >
+                        </div>
+                    </div>
+                    <span ng-if="ctrl.userCanEdit && descriptionEditForm.$visible">
+                        <button class="button-cancel" type="button" ng-click="$descriptionEditForm.$cancel()">
+                            <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+                        </button>
+
+                        <button class="button-save" type="submit">
+                            <gr-icon-label gr-icon="check">Save</gr-icon-label>
+                        </button>
+                    </span>
                 </div>
-
-                <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible">
-                  <label>
-                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value=""/>
-                    Overwrite
-                  </label>
-                  <label>
-                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="{{ ctrl.descriptionOptions.append }}"/>
-                    {{ ctrl.descriptionOptions.append }}
-                  </label>
-                  <label>
-                    <input type="radio" ng-click="ctrl.selectDescriptionOption($event)" ng:model="ctrl.descriptionOption" value="{{ ctrl.descriptionOptions.prepend }}"/>
-                    {{ ctrl.descriptionOptions.prepend }}
-                  </label>
-                 </div>
-            </dl>
+            </form>
+        </dl>
         </div>
-
         <div class="image-info__group" ng:if="ctrl.rawMetadata.specialInstructions">
             <dl class="image-info__wrap">
                 <button class="image-info__edit"
