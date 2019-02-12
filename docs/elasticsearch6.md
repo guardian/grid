@@ -50,7 +50,14 @@ es6.replicas=2
 ```
 
 
-### Migration of data from Elasticsearch 1.7
+## Migration of data from Elasticsearch 1.7
 
 If you have an existing Elasticsearch 1.7 install of the Grid, you will need to migrate the contents of
 your 1.7 indexes into 6.5. A [command line tool](../migration) has been developed to perform this one off migration.
+
+
+## Work in progress warning
+
+The Elastic 6 indexes are currently a work in progress. Ongoing testing may reveal the need for a breaking change to the version 6 index mappings.
+In this situation the contents of the Elastic 6 index will need to be dropped. Elastic 6 should not be considered for a master copy of your
+image data at this point; stick with Elastic 1.7 and migrate at a latter date if this concerns you.
