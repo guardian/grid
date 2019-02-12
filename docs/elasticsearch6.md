@@ -19,16 +19,33 @@ The media-api and thrall components have dependencies on Elasticsearch.
 
 The master branch now contains Elasticsearch 1.7 and 6.5 compatible code.
 Version 6 indexes are currently behind a feature toggle.
-To enable Elasticsearch 6 the following config elements should be included:
+
+To enable Elasticsearch 6 the following es6.* config elements should be included.
+To turn off Elastic 1.7 the es.* config elements should be removed, with the exception of the aliases.
+
 
 ### Thrall
 
 ```
+es.index.aliases.write=writeAlias
+
+es6.host=elastic6.local
+es6.port=9200
+es6.cluster=media-service
+es6.shards=5
+es6.replicas=2
 ```
 
 ### Media API
 
 ```
+es.index.aliases.read=readAlias
+
+es6.host=elastic6.local
+es6.port=9200
+es6.cluster=media-service
+es6.shards=5
+es6.replicas=2
 ```
 
 
