@@ -125,9 +125,9 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
 
         val imageIds = result.hits.map(_._1)
         imageIds.size shouldBe 3
-        imageIds.contains("test-image-1") shouldBe true
-        imageIds.contains("test-image-2") shouldBe true
-        imageIds.contains("test-image-4") shouldBe true
+        imageIds.contains("syndication-queued-1") shouldBe true
+        imageIds.contains("syndication-queued-2") shouldBe true
+        imageIds.contains("syndication-queued-3") shouldBe true
       }
     }
 
@@ -165,9 +165,9 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
 
         val imageIds = result.hits.map(_._1)
         imageIds.size shouldBe 3
-        imageIds.contains("test-image-1") shouldBe true
-        imageIds.contains("test-image-2") shouldBe true
-        imageIds.contains("test-image-4") shouldBe true
+        imageIds.contains("syndication-queued-1") shouldBe true
+        imageIds.contains("syndication-queued-2") shouldBe true
+        imageIds.contains("syndication-queued-3") shouldBe true
       }
     }
 
