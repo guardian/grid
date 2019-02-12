@@ -60,15 +60,24 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
     CommissionedAgency.category
   )
 
+  val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
+  val usedInContent = filters.bool.must(filters.existsOrMissing("usages", exists = true))
+  val existedPreGrid = filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier)))
+  val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
+  val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
+  val hasPersistedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
+  val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get))
+  val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))
+
   val persistedFilter: Query = filters.or(
-    filters.bool.must(filters.existsOrMissing("exports", exists = true)), // has been cropped
-    filters.bool.must(filters.existsOrMissing("usages", exists = true)), // used in content
-    filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier))), // pre-Grid content
-    filters.bool.must(filters.boolTerm(editsField("archived"), value = true)), // added to Library
-    filters.exists(NonEmptyList(editsField("metadata"))), // user changes to image metadata
-    filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories)), // has specific Usage Rights
-    filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get)), // added to GNM Archive or persisted Collections
-    filters.exists(NonEmptyList(editsField("photoshoot"))) // added to any Photoshoot
+    hasCrops,
+    usedInContent,
+    existedPreGrid,
+    addedToLibrary,
+    hasUserEditsToImageMetadata,
+    hasPersistedUsageRights,
+    addedGNMArchiveOrPersistedCollections,
+    addedToPhotoshoot
   )
 
   val nonPersistedFilter: Query = filters.not(persistedFilter)
