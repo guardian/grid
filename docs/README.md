@@ -17,3 +17,5 @@
 [4.4 Starting Thrall](./04.04-start-thrall.md)
 
 [4.5 Media API](./04.05-media-api.md)
+
+[Migration to Elasticsearch 6](elasticsearch6.md)

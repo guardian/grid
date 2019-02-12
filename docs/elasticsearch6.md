@@ -1,0 +1,38 @@
+# Migration to Elasticsearch 6
+
+The Grid uses Elasticsearch to persist and search image metadata.
+
+The original release of the Grid used Elasticsearch 1.7 over the TCP interface.
+This version is no longer supported by Elastic, so there is a need migrate to a more recent version.
+
+We've choosen to migrate to Elasticsearch 6.5 (specify we're testing against 6.5.4).
+The move to version 6 also involves a move from the TCP to HTTP interface.
+This should allow the Grid to be used with managed instances of Elasticsearch.
+
+
+## Effected components
+
+The media-api and thrall components have dependencies on Elasticsearch.
+
+
+## Opting in
+
+The master branch now contains Elasticsearch 1.7 and 6.5 compatible code.
+Version 6 indexes are currently behind a feature toggle.
+To enable Elasticsearch 6 the following config elements should be included:
+
+### Thrall
+
+```
+```
+
+### Media API
+
+```
+```
+
+
+### Migration from Elasticsearch 1.7
+
+If you have an existing Elasticsearch 1.7 install of the Grid, you will need to migration the contents of
+your 1.7 indexes into 6.5. A command line tool has been developed to perform this one off migration.
