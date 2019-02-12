@@ -1,5 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Media Service Dev
+Parameters:
+  IPRange:
+    Type: String
+    Description: IP range to limit crops in S3 to
+    Default: 0.0.0.0/0
+  DomainName:
+    Type: String
+    Description: Domain name to limit crops in S3 to via referer header
 Resources:
   ImageBucket:
     Type: AWS::S3::Bucket
@@ -41,6 +49,13 @@ Resources:
             Resource: !Sub 'arn:aws:s3:::${ImageOriginBucket}/*'
             Principal:
               AWS: '*'
+            Condition:
+              IpAddress:
+                aws:SourceIp:
+                  Ref: IPRange
+              StringLike:
+                aws:Referer:
+                  - Ref: DomainName
 
   ConfigBucket:
     Type: AWS::S3::Bucket
