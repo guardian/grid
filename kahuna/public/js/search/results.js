@@ -245,14 +245,8 @@ results.controller('SearchResultsCtrl', [
         }
 
         function revealNewImages() {
-            // FIXME: should ideally be able to just call $state.reload(),
-            // but there seems to be a bug (alluded to in the docs) when
-            // notify is false, so forcing to true explicitly instead:
-            $state.transitionTo($state.current, $stateParams, {
-                reload: true, inherit: false, notify: true
-            });
+           $state.reload();
         }
-
 
         var seenSince;
         const lastSeenKey = 'search.seenFrom';
