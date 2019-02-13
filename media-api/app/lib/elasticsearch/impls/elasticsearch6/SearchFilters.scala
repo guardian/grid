@@ -60,15 +60,24 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
     CommissionedAgency.category
   )
 
+  val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
+  val usedInContent = filters.bool.must(filters.existsOrMissing("usages", exists = true))
+  val existedPreGrid = filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier)))
+  val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
+  val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
+  val hasPersistedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
+  val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get))
+  val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))
+
   val persistedFilter: Query = filters.or(
-    filters.bool.must(filters.existsOrMissing("exports", exists = true)),
-    filters.bool.must(filters.existsOrMissing("usages", exists = true)),
-    filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier))),
-    filters.bool.must(filters.boolTerm(editsField("archived"), value = true)),
-    filters.exists(NonEmptyList(editsField("metadata"))),
-    filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories)),
-    filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get)),
-    filters.exists(NonEmptyList(editsField("photoshoot")))
+    hasCrops,
+    usedInContent,
+    existedPreGrid,
+    addedToLibrary,
+    hasUserEditsToImageMetadata,
+    hasPersistedUsageRights,
+    addedGNMArchiveOrPersistedCollections,
+    addedToPhotoshoot
   )
 
   val nonPersistedFilter: Query = filters.not(persistedFilter)
