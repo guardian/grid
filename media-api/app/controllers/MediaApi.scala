@@ -7,7 +7,6 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -27,14 +26,14 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(
-                auth: Authentication,
-                messageSender: MessageSender,
-                elasticSearch: ElasticSearchVersion,
-                imageResponse: ImageResponse,
-                override val config: MediaApiConfig,
-                override val controllerComponents: ControllerComponents,
-                s3Client: S3Client,
-                mediaApiMetrics: MediaApiMetrics
+  auth: Authentication,
+  notifications: Notifications,
+  elasticSearch: ElasticSearchVersion,
+  imageResponse: ImageResponse,
+  override val config: MediaApiConfig,
+  override val controllerComponents: ControllerComponents,
+  s3Client: S3Client,
+  mediaApiMetrics: MediaApiMetrics
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -185,9 +184,7 @@ class MediaApi(
           val canDelete = canUserDeleteImage(request, image)
 
           if (canDelete) {
-            val deleteImage = "delete-image"
-            val updateMessage = UpdateMessage(subject = deleteImage, id = Some(id))
-            messageSender.publish(Json.obj("id" -> id), deleteImage, updateMessage)
+            notifications.publish(Json.obj("id" -> id), "delete-image")
             Accepted
           } else {
             ImageDeleteForbidden
@@ -242,10 +239,7 @@ class MediaApi(
           )
 
           val notification = Json.toJson(finalImage)
-
-          val updateImage = "update-image"
-          val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
-          messageSender.publish(notification, updateImage, updateMessage)
+          notifications.publish(notification, "update-image")
 
           Ok(Json.obj(
             "id" -> id,
