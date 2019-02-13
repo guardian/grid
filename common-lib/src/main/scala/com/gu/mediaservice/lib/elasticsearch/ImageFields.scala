@@ -34,7 +34,7 @@ trait ImageFields {
 
   val editsFields = List("archived", "labels")
   val collectionsFields = List("path", "pathId", "pathHierarchy")
-  val usagesFields = List("status", "platform", "dateAdded")
+  val usagesFields = List("status", "platform")
 
   def identifierField(field: String)  = s"identifiers.$field"
   def metadataField(field: String)    = s"metadata.$field"

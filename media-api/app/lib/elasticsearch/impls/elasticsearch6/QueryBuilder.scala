@@ -30,9 +30,9 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
     case SingleField(field) => condition.value match {
       // Force AND operator else it will only require *any* of the words, not *all*
-      case Words(value) => matchQuery(getFieldPath(field), value).operator(Operator.AND)
-      case Phrase(value) => matchPhraseQuery(getFieldPath(field), value)
-      case DateRange(start, end) => rangeQuery(getFieldPath(field)).gte(printDateTime(start)).lte(printDateTime(end))
+      case Words(value) => matchQuery(field, value).operator(Operator.AND)
+      case Phrase(value) => matchPhraseQuery(field, value)
+      case DateRange(start, end) => rangeQuery(field).gte(printDateTime(start)).lte(printDateTime(end))
       case e => throw InvalidQuery(s"Cannot do single field query on $e")
     }
     case HierarchyField => condition.value match {
