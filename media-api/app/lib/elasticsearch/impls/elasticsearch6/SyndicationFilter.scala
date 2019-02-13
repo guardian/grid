@@ -6,10 +6,11 @@ import com.sksamuel.elastic4s.searches.queries.Query
 import lib.MediaApiConfig
 import lib.elasticsearch.impls.elasticsearch1.SyndicationFilter._
 import org.joda.time.DateTime
+import scalaz.NonEmptyList
 
 class SyndicationFilter(config: MediaApiConfig) {
 
-  val isSyndicationDateFilterActive = config.isProd
+  val isSyndicationDateFilterActive: Boolean = config.isProd
 
   private def syndicationRightsAcquired(acquired: Boolean): Query = filters.boolTerm(
     field = "syndicationRights.rights.acquired",
@@ -17,7 +18,7 @@ class SyndicationFilter(config: MediaApiConfig) {
   )
 
   private val noRightsAcquired: Query = filters.or(
-    filters.existsOrMissing("syndicationRights.rights.acquired", exists = false),
+    filters.missing(NonEmptyList("syndicationRights.rights.acquired")),
     syndicationRightsAcquired(false)
   )
 
@@ -38,19 +39,23 @@ class SyndicationFilter(config: MediaApiConfig) {
     SyndicationUsage.toString
   )
 
-  private val leaseHasStarted: Query = filters.or(
-    filters.existsOrMissing("leases.leases.startDate", exists = false),
-    filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
-  )
+  private val isActive: Query = {
+    val started = filters.or(
+      filters.missing(NonEmptyList("leases.leases.startDate")),
+      filters.dateAfter("leases.leases.startDate", DateTime.now)
+    )
 
-  private val leaseHasEnded: Query = filters.or(
-    filters.existsOrMissing("leases.leases.endDate", exists = false),
-    filters.date("leases.leases.endDate", Some(DateTime.now), None).get
-  )
+    val notEnded = filters.or(
+      filters.missing(NonEmptyList("leases.leases.endDate")),
+      filters.dateAfter("leases.leases.endDate", DateTime.now)
+    )
+
+    filters.and(started, notEnded)
+  }
 
   private val syndicationRightsPublished: Query = filters.or(
-    filters.existsOrMissing("syndicationRights.published", exists = false),
-    filters.date("syndicationRights.published", None, Some(DateTime.now)).get
+    filters.missing(NonEmptyList("syndicationRights.published")),
+    filters.dateBefore("syndicationRights.published", DateTime.now)
   )
 
   private val syndicationStartDateFilter: Query = {
@@ -64,7 +69,7 @@ class SyndicationFilter(config: MediaApiConfig) {
       .withDayOfMonth(23)
       .withTimeAtStartOfDay()
 
-    filters.date("uploadTime", Some(startDate), None).get
+    filters.dateAfter("uploadTime", startDate)
   }
 
   private val syndicatableCategory: Query = filters.or(
@@ -80,16 +85,15 @@ class SyndicationFilter(config: MediaApiConfig) {
     )
     case QueuedForSyndication => filters.and(
       hasRightsAcquired,
+      syndicationRightsPublished,
       filters.mustNot(hasSyndicationUsage),
-      filters.and(
-        hasAllowLease,
-        leaseHasStarted,
-        syndicationRightsPublished
-      )
+      hasAllowLease,
+      isActive
     )
     case BlockedForSyndication => filters.and(
       hasRightsAcquired,
-      hasDenyLease
+      hasDenyLease,
+      isActive
     )
     case AwaitingReviewForSyndication => {
       val rightsAcquiredNoLeaseFilter = filters.and(
@@ -99,7 +103,7 @@ class SyndicationFilter(config: MediaApiConfig) {
           hasAllowLease,
           filters.and(
             hasDenyLease,
-            leaseHasEnded
+            isActive
           )
         )
       )

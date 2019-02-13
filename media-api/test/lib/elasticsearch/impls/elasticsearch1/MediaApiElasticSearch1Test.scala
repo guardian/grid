@@ -205,21 +205,28 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
       }
     }
 
-    it("should return 3 images if an Internal tier queries for BlockedForSyndication images") {
+    it("should be able to show BlockedForSyndication images on the Internal tier") {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(BlockedForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.hits.forall(h => h._2.leases.leases.nonEmpty) shouldBe true
-        result.hits.forall(h => h._2.leases.leases.forall(l => l.access == DenySyndicationLease)) shouldBe true
-        result.total shouldBe 3
+        val imageIds = result.hits.map(_._1)
+        result.total shouldBe 2
+        imageIds.contains("syndication-blocked-forever") shouldBe true
+        imageIds.contains("syndication-blocked-for-10-days") shouldBe true
       }
     }
 
-    it("should return 3 images if an Internal tier queries for AwaitingReviewForSyndication images") {
+    it("should be able to show AwaitingReviewForSyndication images on the Internal tier") {
       val search = SearchParams(tier = Internal, syndicationStatus = Some(AwaitingReviewForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.total shouldBe 2
+        val imageIds = result.hits.map(_._1)
+        result.total shouldBe 5
+        imageIds.contains("syndication-review-1") shouldBe true
+        imageIds.contains("syndication-review-2") shouldBe true
+        imageIds.contains("syndication-review-3") shouldBe true
+        imageIds.contains("syndication-review-4") shouldBe true
+        imageIds.contains("syndication-review-5") shouldBe true
       }
     }
   }

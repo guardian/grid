@@ -22,6 +22,10 @@ object filters {
     termFilter
   }
 
+  def dateBefore(field: String, date: DateTime): FilterBuilder = rangeFilter(field).to(printDateTime(date))
+
+  def dateAfter(field: String, date: DateTime): FilterBuilder = rangeFilter(field).from(printDateTime(date))
+
   def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[FilterBuilder] =
     if (from.isDefined || to.isDefined) {
       val builder = rangeFilter(field)

@@ -5,7 +5,7 @@ import java.util.UUID
 
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import com.gu.mediaservice.model.{StaffPhotographer, _}
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeUtils}
 
 trait Fixtures {
 
@@ -78,13 +78,18 @@ trait Fixtures {
     createImage(id, usageRights, Some(syndicationRights), leaseByMedia, usages, fileMetadata)
   }
 
-  def createSyndicationLease(allowed: Boolean, imageId: String, startDate: Option[DateTime] = None, endDate: Option[DateTime] = None): MediaLease = {
+  def createLease(
+    leaseType: MediaLeaseType,
+    imageId: String,
+    startDate: Option[DateTime] = None,
+    endDate: Option[DateTime] = None
+  ): MediaLease = {
     MediaLease(
       id = None,
       leasedBy = None,
       startDate = startDate,
       endDate = endDate,
-      access = if (allowed) AllowSyndicationLease else DenySyndicationLease,
+      access = leaseType,
       notes = None,
       mediaId = imageId
     )

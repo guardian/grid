@@ -6,6 +6,7 @@ import com.gu.mediaservice.model.usage.SyndicationUsage
 import lib.MediaApiConfig
 import org.elasticsearch.index.query.FilterBuilder
 import org.joda.time.DateTime
+import scalaz.NonEmptyList
 
 object SyndicationFilter extends ImageFields {
   private def syndicationRightsAcquired(acquired: Boolean): FilterBuilder = filters.boolTerm(
@@ -14,7 +15,7 @@ object SyndicationFilter extends ImageFields {
   )
 
   private val noRightsAcquired: FilterBuilder = filters.or(
-    filters.existsOrMissing("syndicationRights.rights.acquired", exists = false),
+    filters.missing(NonEmptyList("syndicationRights.rights.acquired")),
     syndicationRightsAcquired(false)
   )
 
@@ -37,19 +38,23 @@ object SyndicationFilter extends ImageFields {
     SyndicationUsage.toString
   )
 
-  private val leaseHasStarted: FilterBuilder = filters.or(
-    filters.existsOrMissing("leases.leases.startDate", exists = false),
-    filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
-  )
+  private val isActive: FilterBuilder = {
+    val started = filters.or(
+      filters.missing(NonEmptyList("leases.leases.startDate")),
+      filters.dateAfter("leases.leases.startDate", DateTime.now)
+    )
 
-  private val leaseHasEnded: FilterBuilder = filters.or(
-    filters.existsOrMissing("leases.leases.endDate", exists = false),
-    filters.date("leases.leases.endDate", Some(DateTime.now), None).get
-  )
+    val notEnded = filters.or(
+      filters.missing(NonEmptyList("leases.leases.endDate")),
+      filters.dateAfter("leases.leases.endDate", DateTime.now)
+    )
+
+    filters.and(started, notEnded)
+  }
 
   private val syndicationRightsPublished: FilterBuilder = filters.or(
-    filters.existsOrMissing("syndicationRights.published", exists = false),
-    filters.date("syndicationRights.published", None, Some(DateTime.now)).get
+    filters.missing(NonEmptyList("syndicationRights.published")),
+    filters.dateBefore("syndicationRights.published", DateTime.now)
   )
 
   private val syndicationStartDateFilter: FilterBuilder = {
@@ -63,7 +68,7 @@ object SyndicationFilter extends ImageFields {
       .withDayOfMonth(23)
       .withTimeAtStartOfDay()
 
-    filters.date("uploadTime", Some(startDate), None).get
+    filters.dateAfter("uploadTime", startDate)
   }
 
   private val syndicatableCategory: FilterBuilder = filters.or(
@@ -79,16 +84,15 @@ object SyndicationFilter extends ImageFields {
     )
     case QueuedForSyndication => filters.and(
       hasRightsAcquired,
+      syndicationRightsPublished,
       filters.bool.mustNot(hasSyndicationUsage),
-      filters.and(
-        hasAllowLease,
-        leaseHasStarted,
-        syndicationRightsPublished
-      )
+      hasAllowLease,
+      isActive
     )
     case BlockedForSyndication => filters.and(
       hasRightsAcquired,
-      hasDenyLease
+      hasDenyLease,
+      isActive
     )
     case AwaitingReviewForSyndication => {
       val rightsAcquiredNoLeaseFilter = filters.and(
@@ -98,7 +102,7 @@ object SyndicationFilter extends ImageFields {
           hasAllowLease,
           filters.and(
             hasDenyLease,
-            leaseHasEnded
+            isActive
           )
         )
       )

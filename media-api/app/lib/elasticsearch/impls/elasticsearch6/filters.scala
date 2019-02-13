@@ -20,6 +20,10 @@ object filters {
 
   def boolTerm(field: String, value: Boolean): Query = termQuery(field, value)
 
+  def dateBefore(field: String, date: DateTime): Query = rangeQuery(field).lt(printDateTime(date))
+
+  def dateAfter(field: String, date: DateTime): Query = rangeQuery(field).gt(printDateTime(date))
+
   def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[Query] =
     if (from.isDefined || to.isDefined) {
       val builder = rangeQuery(field)

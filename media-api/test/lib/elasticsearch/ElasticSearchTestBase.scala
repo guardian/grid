@@ -10,16 +10,18 @@ import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
 class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures {
-
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
+
+  val pastDate: DateTime = DateTime.now().minusDays(5)
+  val futureDate: DateTime = DateTime.now().plusDays(5)
 
   val imagesSentForSyndication: Seq[Image] = Seq(
     createImageForSyndication(
       id = "syndication-sent-1",
       rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "syndication-sent-1")),
+      Some(pastDate),
+      Some(createLease(AllowSyndicationLease, "syndication-sent-1")),
       List(
         createDigitalUsage(),
         createSyndicationUsage()
@@ -31,16 +33,16 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     createImageForSyndication(
       id = "syndication-queued-1",
       rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "syndication-queued-1"))
+      Some(pastDate),
+      Some(createLease(AllowSyndicationLease, "syndication-queued-1"))
     ),
 
     // has a digital usage
     createImageForSyndication(
       id = "syndication-queued-2",
       rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = true, "syndication-queued-2")),
+      Some(pastDate),
+      Some(createLease(AllowSyndicationLease, "syndication-queued-2")),
       List(createDigitalUsage())
     ),
 
@@ -49,15 +51,15 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       id = "syndication-queued-3",
       rightsAcquired = true,
       None,
-      Some(createSyndicationLease(allowed = true, "syndication-queued-3"))
+      Some(createLease(AllowSyndicationLease, "syndication-queued-3"))
     ),
 
-    // published after "today", not available on Syndication Tier
+    // not yet published, not available on Syndication Tier
     createImageForSyndication(
       id = "syndication-queued-4",
       rightsAcquired = true,
-      Some(DateTime.parse("2018-07-02T00:00:00")),
-      Some(createSyndicationLease(allowed = false, "syndication-queued-4"))
+      Some(futureDate),
+      Some(createLease(AllowSyndicationLease, "syndication-queued-4"))
     )
   )
 
@@ -75,22 +77,62 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     createImageForSyndication(
       id = "syndication-review-2",
       rightsAcquired = true,
-      Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(
-        allowed = false,
-        "syndication-review-1",
-        endDate = Some(DateTime.parse("2018-01-01T00:00:00")))
+      Some(pastDate),
+      Some(createLease(
+        DenySyndicationLease,
+        "syndication-review-2",
+        endDate = Some(pastDate))
       )
+    ),
+
+    createImageForSyndication(
+      id = "syndication-review-3",
+      rightsAcquired = true,
+      Some(pastDate),
+      Some(createLease(AllowUseLease, "syndication-review-3"))
+    ),
+
+    createImageForSyndication(
+      id = "syndication-review-4",
+      rightsAcquired = true,
+      Some(pastDate),
+      Some(createLease(
+        AllowUseLease,
+        "syndication-review-4",
+        endDate = Some(pastDate))
+      )
+    ),
+
+    createImageForSyndication(
+      id = "syndication-review-5",
+      rightsAcquired = true,
+      Some(pastDate),
+      Some(createLease(
+        AllowUseLease,
+        "syndication-review-5",
+        endDate = Some(pastDate))
+      ),
+      List(createDigitalUsage())
     )
   )
 
   val imagesBlockedForSyndication: Seq[Image] = Seq(
-    // explicit deny syndication lease with no end date, not available for syndication
     createImageForSyndication(
-      id = "syndication-blocked-1",
+      id = "syndication-blocked-forever",
       rightsAcquired = true,
       None,
-      Some(createSyndicationLease(allowed = false, "syndication-blocked-1"))
+      Some(createLease(DenySyndicationLease, "syndication-blocked-forever"))
+    ),
+
+    createImageForSyndication(
+      id = "syndication-blocked-for-10-days",
+      rightsAcquired = true,
+      None,
+      Some(createLease(
+        DenySyndicationLease,
+        "syndication-blocked-for-10-days",
+        endDate = Some(futureDate)
+      ))
     ),
   )
 
@@ -117,7 +159,7 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       id = "syndication-unavailable-3",
       rightsAcquired = false,
       None,
-      Some(createSyndicationLease(allowed = true, "syndication-unavailable-3")),
+      Some(createLease(AllowSyndicationLease, "syndication-unavailable-3")),
       usageRights = agency,
       usages = List(createDigitalUsage(date = DateTime.now))
     ),
