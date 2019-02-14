@@ -2,6 +2,7 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import lib._
+import play.api.Logger
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,7 +14,9 @@ class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageC
     elasticHealth.map { esHealth =>
       val problems = Seq(esHealth, actorSystemHealth, messageQueueHealth).flatten
       if (problems.nonEmpty) {
-        ServiceUnavailable(problems.mkString(","))
+        val problemsMessage = problems.mkString(",")
+        Logger.warn("Health check failed with problems: " + problemsMessage)
+        ServiceUnavailable(problemsMessage)
       } else {
         Ok("Ok")
       }
