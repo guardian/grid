@@ -198,7 +198,31 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
         "foo" -> "bar",
         "toolong" -> stringLongerThan(100000)
       )))
-    )
+    ),
+
+// TODO this test image *should* be in `AwaitingReviewForSyndication` but instead its in `BlockedForSyndication`
+// see https://www.elastic.co/guide/en/elasticsearch/reference/current/nested.html to understand why
+//    createImageForSyndication(
+//      id = "active-deny-syndication-with-expired-crop",
+//      rightsAcquired = true,
+//      Some(DateTime.parse("2018-01-01T00:00:00")),
+//      None
+//    ).copy(
+//      leases =  LeasesByMedia(
+//        lastModified = None,
+//        leases = List(
+//          createLease(
+//            DenySyndicationLease,
+//            imageId = "syndication-review-foo"
+//          ),
+//          createLease(
+//            AllowUseLease,
+//            imageId = "syndication-review-foo",
+//            endDate = Some(DateTime.now().minusDays(100))
+//          )
+//        )
+//      )
+//    )
   )
 
   val images: Seq[Image] =
