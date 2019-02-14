@@ -30,6 +30,6 @@ class ThrallMessageConsumer(
     actorSystem.whenTerminated.isCompleted
   }
 
-  override val lastProcessed: DateTime = timeMessageLastProcessed.get
+  override def lastProcessed: DateTime = timeMessageLastProcessed.get
 
 }
