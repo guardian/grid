@@ -21,7 +21,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters: List[FilterBuilder] = for {
-    supplier            <- suppliersWithExclusions
+    supplier <- suppliersWithExclusions
     excludedCollections <- suppliersCollectionExcl.get(supplier).flatMap(_.toNel)
   } yield {
     filters.mustWithMustNot(
@@ -59,15 +59,24 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
     CommissionedAgency.category
   )
 
+  val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
+  val usedInContent = filters.bool.must(filters.existsOrMissing("usages", exists = true))
+  val existedPreGrid = filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier)))
+  val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
+  val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
+  val hasPersistedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
+  val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get))
+  val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))
+
   val persistedFilter: FilterBuilder = filters.or(
-    filters.bool.must(filters.existsOrMissing("exports", exists = true)),
-    filters.bool.must(filters.existsOrMissing("usages", exists = true)),
-    filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier))),
-    filters.bool.must(filters.boolTerm(editsField("archived"), value = true)),
-    filters.exists(NonEmptyList(editsField("metadata"))),
-    filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories)),
-    filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get)),
-    filters.exists(NonEmptyList(editsField("photoshoot")))
+    hasCrops,
+    usedInContent,
+    existedPreGrid,
+    addedToLibrary,
+    hasUserEditsToImageMetadata,
+    hasPersistedUsageRights,
+    addedGNMArchiveOrPersistedCollections,
+    addedToPhotoshoot
   )
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
@@ -79,12 +88,12 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
 
   def filterOrFilter(filter: Option[FilterBuilder], orFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, orFilter) match {
     case (Some(someFilter), Some(orSomeFilter)) => Some(filters.or(someFilter, orSomeFilter))
-    case (filterOpt,    orFilterOpt)    => filterOpt orElse orFilterOpt
+    case (filterOpt, orFilterOpt) => filterOpt orElse orFilterOpt
   }
 
   def filterAndFilter(filter: Option[FilterBuilder], andFilter: Option[FilterBuilder]): Option[FilterBuilder] = (filter, andFilter) match {
     case (Some(someFilter), Some(andSomeFilter)) => Some(filters.and(someFilter, andSomeFilter))
-    case (filterOpt,    andFilterOpt)    => filterOpt orElse andFilterOpt
+    case (filterOpt, andFilterOpt) => filterOpt orElse andFilterOpt
   }
 
 }

@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Logger
 import play.api.libs.json.{JsValue, Json}
 
+
 class SNS(config: CommonConfig, topicArn: String) {
   lazy val client: AmazonSNS = config.withAWSCredentials(AmazonSNSClientBuilder.standard()).build()
 
