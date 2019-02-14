@@ -99,7 +99,8 @@ lazy val metadataEditor = playProject("metadata-editor", 9007)
 lazy val thrall = playProject("thrall", 9002).settings(
   libraryDependencies ++= Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
-    "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0"
+    "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
+    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10"
   )
 ).settings(testSettings)
 

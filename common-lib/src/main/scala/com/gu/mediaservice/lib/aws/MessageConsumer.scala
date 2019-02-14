@@ -9,9 +9,9 @@ import akka.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
 import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
+import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
-import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) {
+abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) extends ImageId {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
@@ -81,20 +81,6 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
 
   private def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
-
-  def withImageId[A](image: JsValue)(f: String => A): A =
-    (image \ "id").validate[String].asOpt.map(f).getOrElse {
-      sys.error(s"No id field present in message body: $image")
-    }
-
-  def withData[A : Reads](message: JsValue)(f: A => Future[Unit]): Future[Unit] =
-    (message \ "data").validate[A].fold(
-      err => {
-        val msg = s"Unable to parse message as Edits ${JsError.toJson(err).toString}"
-        GridLogger.error(msg)
-        Future.failed(SNSBodyParseError(msg))
-      }, data => f(data)
-    )
 }
 
 // TODO: improve and use this (for logging especially) else where.

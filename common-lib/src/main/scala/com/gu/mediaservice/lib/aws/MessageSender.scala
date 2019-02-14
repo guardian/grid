@@ -28,5 +28,6 @@ case class UpdateMessage(subject: String,
                          leaseId: Option[String] = None,
                          crops: Option[Seq[Crop]] = None,
                          mediaLease: Option[MediaLease] = None,
-                         leases: Option[Seq[MediaLease]] = None
+                         leases: Option[Seq[MediaLease]] = None,
+                         syndicationRights: Option[SyndicationRights] = None
                         )
