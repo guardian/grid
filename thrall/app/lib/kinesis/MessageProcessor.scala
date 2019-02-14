@@ -235,7 +235,7 @@ class MessageProcessor(es: ElasticSearchVersion,
   }
 
   private def withSyndicationRights[A](message: UpdateMessage)(f: SyndicationRights => A): A = {
-    message.data.map(f).getOrElse {
+    message.syndicationRights.map(f).getOrElse {
       sys.error(s"No syndication rights present on data field message: $message")
     }
   }

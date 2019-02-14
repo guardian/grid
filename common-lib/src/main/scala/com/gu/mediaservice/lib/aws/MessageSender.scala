@@ -29,7 +29,5 @@ case class UpdateMessage(subject: String,
                          crops: Option[Seq[Crop]] = None,
                          mediaLease: Option[MediaLease] = None,
                          leases: Option[Seq[MediaLease]] = None,
-                         // TODO Syndication rights gets to have the data field because the sender renders the JSON shared with SNS
-                         // at the top level and we can't separate them easily
-                         data: Option[SyndicationRights] = None
+                         syndicationRights: Option[SyndicationRights] = None
                         )
