@@ -225,8 +225,8 @@ leases.controller('LeasesCtrl', [
             ctrl.updateLeases();
         });
 
-        $scope.$watch(() => ctrl.access, onValChange(newLease => {
-            const isCroppingLease = ['allow-use', 'deny-use'].includes(newLease);
+        $scope.$watch(() => ctrl.access, onValChange(selectedLeaseType => {
+            const isCroppingLease = ['allow-use', 'deny-use'].includes(selectedLeaseType);
 
             if (isCroppingLease) {
                 // cropping leases should expire in 2 days, by default
