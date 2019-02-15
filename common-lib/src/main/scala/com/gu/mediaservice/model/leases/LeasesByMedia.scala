@@ -10,27 +10,25 @@ case class LeasesByMedia(
 )
 
 object LeasesByMedia {
-  implicit val reader: Reads[LeasesByMedia] = (__ \ "leases").read[List[MediaLease]].map(LeasesByMedia.build)
+  import JodaReads._
+  implicit val reader: Reads[LeasesByMedia] = Json.reads[LeasesByMedia]
 
   implicit val writer = new Writes[LeasesByMedia] {
     def writes(leaseByMedia: LeasesByMedia) = {
       LeasesByMedia.toJson(
         Json.toJson(leaseByMedia.leases),
-        Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
+        Json.toJson(leaseByMedia.lastModified)
       )
     }
   }
 
   implicit def dateTimeOrdering: Ordering[DateTime] = Ordering.fromLessThan(_ isBefore _)
 
-  def build(leases: List[MediaLease]): LeasesByMedia = {
-    val sortedLeases = leases.sortBy(_.createdAt).reverse
+  def empty = LeasesByMedia(Nil, Some(DateTime.now))
 
-    val lastModified: Option[DateTime] = sortedLeases
-      .headOption
-      .map(_.createdAt)
-
-    LeasesByMedia(sortedLeases, lastModified)
+  def build (leases: List[MediaLease]) = {
+    val lastModified = leases.sortBy(_.createdAt).reverse.headOption.map(_.createdAt).getOrElse(DateTime.now)
+    LeasesByMedia(leases, Some(lastModified))
   }
 
   def toJson(leases: JsValue, lastModified: JsValue) : JsObject = {

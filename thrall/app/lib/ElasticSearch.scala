@@ -394,6 +394,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     """| for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
        |    if(ctx._source.leases.leases[i].id == leaseId) {
        |      ctx._source.leases.leases.remove(i);
+       |      ctx._source.leases.lastModified = lastModified;
        |    }
        | }
     """.stripMargin
