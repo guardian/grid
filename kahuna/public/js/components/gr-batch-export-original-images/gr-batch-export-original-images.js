@@ -38,22 +38,21 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
         };
 
         function cropImages() {
-            ctrl.cropping = true;
-            ctrl.needsConfirmation = false;
-            const cropImages = ctrl.images.map(image => {
-              mediaCropper.createFullCrop(image).then(crop => {
-                  //Global notification of action
-                  $rootScope.$emit('events:crop-created', {
-                      image: image,
-                      crop: crop
-                  });
-              });
-            });
+          ctrl.cropping = true;
+          ctrl.needsConfirmation = false;
+          const cropImages = ctrl.images.map(image =>
+            mediaCropper.createFullCrop(image).then(crop => ({
+              image,
+              crop
+            }))
+          );
 
-            Promise.all(cropImages).finally(() => {
-              ctrl.cropping = false;
-              ctrl.allHaveFullCrops = true;
-            });
+          Promise.all(cropImages).then(specs => {
+            $rootScope.$emit('events:crops-created', specs);
+          }).finally(() => {
+            ctrl.cropping = false;
+            ctrl.allHaveFullCrops = true;
+          });
         }
     }
 ]);

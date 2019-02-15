@@ -287,6 +287,21 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
             postMessage(message);
         });
     });
+
+    // used for batched crops
+    $rootScope.$on('events:crops-created', (_, params) => {
+      const specsPromise = params.map(({ image, crop }) => $q.all([
+        getEntity(image),
+        getEntity(crop)
+      ]).then(([image, crop]) => ({
+        image,
+        crop
+      })));
+
+      $q.all(specsPromise).then(images => postMessage({
+        images
+      }));
+    });
 }]);
 
 
