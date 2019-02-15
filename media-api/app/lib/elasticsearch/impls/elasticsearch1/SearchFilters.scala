@@ -67,6 +67,7 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
   val hasPersistedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
   val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get))
   val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))
+  val hasLabels = filters.exists(NonEmptyList(editsField("labels")))
 
   val persistedFilter: FilterBuilder = filters.or(
     hasCrops,
@@ -76,7 +77,8 @@ class SearchFilters(config: MediaApiConfig) extends ImageFields {
     hasUserEditsToImageMetadata,
     hasPersistedUsageRights,
     addedGNMArchiveOrPersistedCollections,
-    addedToPhotoshoot
+    addedToPhotoshoot,
+    hasLabels
   )
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
