@@ -3,7 +3,7 @@ package lib.kinesis
 import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.usage.UsageNotice
+import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import org.joda.time.DateTime
 import play.api.libs.json._
@@ -42,11 +42,12 @@ class MessageProcessor(es: ElasticSearchVersion,
 
   def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     implicit val unw = Json.writes[UsageNotice]
-    def asJsLookup(un: UsageNotice): JsLookupResult = JsDefined(Json.toJson(un))
+    def asJsLookup(us: Seq[Usage]): JsLookupResult = JsDefined(Json.toJson(us))
     withId(message) { id =>
       withUsageNotice(message) { usageNotice =>
         withLastModified(message) { lastModifed =>
-          Future.sequence(es.updateImageUsages(id, asJsLookup(usageNotice), dateTimeAsJsLookup(lastModifed)))
+          val usages = usageNotice.usageJson.as[Seq[Usage]]
+          Future.sequence(es.updateImageUsages(id, asJsLookup(usages), dateTimeAsJsLookup(lastModifed)))
         }
       }
     }
