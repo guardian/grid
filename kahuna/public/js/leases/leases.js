@@ -25,6 +25,7 @@ leases.controller('LeasesCtrl', [
     'inject$',
     'leaseService',
     'imageAccessor',
+    'imageList',
     '$rootScope',
     'onValChange',
     function(
@@ -35,6 +36,7 @@ leases.controller('LeasesCtrl', [
         inject$,
         leaseService,
         imageAccessor,
+        imageList,
         $rootScope,
         onValChange) {
 
@@ -87,10 +89,8 @@ leases.controller('LeasesCtrl', [
                     return;
                   }
                 }
-                const leasesToAdd = incomingLeaseIsSyndication
-                  ? ctrl.leases.leases.filter(_ => !_.access.endsWith('-syndication'))
-                  : ctrl.leases.leases;
-                leaseService.batchAdd(ctrl.newLease, leasesToAdd, ctrl.images)
+
+                leaseService.batchAdd(ctrl.newLease, ctrl.images)
                     .catch(() =>
                         alertFailed('Something went wrong when saving, please try again.')
                 )
@@ -144,7 +144,7 @@ leases.controller('LeasesCtrl', [
 
         ctrl.delete = (lease) => {
             ctrl.adding = true;
-            leaseService.deleteLease(lease, ctrl.leases, ctrl.images)
+            leaseService.deleteLease(lease, ctrl.images)
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 );
