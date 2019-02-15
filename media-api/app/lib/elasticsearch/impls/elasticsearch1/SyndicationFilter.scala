@@ -68,7 +68,8 @@ object SyndicationFilter extends ImageFields {
 
   private val syndicatableCategory: FilterBuilder = filters.or(
     filters.term(usageRightsField("category"), StaffPhotographer.category),
-    filters.term(usageRightsField("category"), CommissionedPhotographer.category)
+    filters.term(usageRightsField("category"), CommissionedPhotographer.category),
+    filters.term(usageRightsField("category"), ContractPhotographer.category)
   )
 
   def statusFilter(status: SyndicationStatus, config: MediaApiConfig): FilterBuilder = status match {
