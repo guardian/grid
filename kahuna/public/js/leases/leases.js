@@ -25,6 +25,7 @@ leases.controller('LeasesCtrl', [
     'inject$',
     'leaseService',
     '$rootScope',
+    'onValChange',
     function(
         $window,
         $q,
@@ -32,7 +33,8 @@ leases.controller('LeasesCtrl', [
         $timeout,
         inject$,
         leaseService,
-        $rootScope) {
+        $rootScope,
+        onValChange) {
 
         let ctrl = this;
 
@@ -222,6 +224,17 @@ leases.controller('LeasesCtrl', [
             ctrl.totalImages = images.length;
             ctrl.updateLeases();
         });
+
+        $scope.$watch(() => ctrl.access, onValChange(newLease => {
+            const isCroppingLease = ['allow-use', 'deny-use'].includes(newLease);
+
+            if (isCroppingLease) {
+                // cropping leases should expire in 2 days, by default
+                ctrl.newLease.endDate = moment().add(2, 'days').startOf('day').toDate();
+            } else {
+                ctrl.newLease.endDate = null;
+            }
+        }));
 
         ctrl.resetLeaseForm();
 }]);
