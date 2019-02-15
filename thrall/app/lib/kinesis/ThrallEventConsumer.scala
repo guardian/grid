@@ -45,7 +45,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
 
       val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
       val timestamp = r.getApproximateArrivalTimestamp
-      Logger.info("Got update message (" + timestamp + "): " + updateMessage)
+      Logger.info("Got update message (" + timestamp + "): " + updateMessage.subject + "/" + updateMessage.id)
       
       messageProcessor.chooseProcessor(updateMessage).map { p =>
         p.apply(updateMessage)
