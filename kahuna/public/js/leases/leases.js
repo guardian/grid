@@ -225,15 +225,14 @@ leases.controller('LeasesCtrl', [
             ctrl.updateLeases();
         });
 
-        $scope.$watch(() => ctrl.access, onValChange(selectedLeaseType => {
-            const isCroppingLease = ['allow-use', 'deny-use'].includes(selectedLeaseType);
+        function getDefaultExpiryDate(leaseType) {
+            const inTwoDays = moment().add(2, 'days').startOf('day').toDate();
 
-            if (isCroppingLease) {
-                // cropping leases should expire in 2 days, by default
-                ctrl.newLease.endDate = moment().add(2, 'days').startOf('day').toDate();
-            } else {
-                ctrl.newLease.endDate = null;
-            }
+            return ['allow-use', 'deny-use'].includes(leaseType) ? inTwoDays : null;
+        }
+
+        $scope.$watch(() => ctrl.access, onValChange(selectedLeaseType => {
+            ctrl.newLease.endDate = getDefaultExpiryDate(selectedLeaseType);
         }));
 
         ctrl.resetLeaseForm();
