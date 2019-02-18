@@ -25,6 +25,7 @@ leases.controller('LeasesCtrl', [
     'inject$',
     'leaseService',
     '$rootScope',
+    'onValChange',
     function(
         $window,
         $q,
@@ -32,7 +33,8 @@ leases.controller('LeasesCtrl', [
         $timeout,
         inject$,
         leaseService,
-        $rootScope) {
+        $rootScope,
+        onValChange) {
 
         let ctrl = this;
 
@@ -222,6 +224,16 @@ leases.controller('LeasesCtrl', [
             ctrl.totalImages = images.length;
             ctrl.updateLeases();
         });
+
+        function getDefaultExpiryDate(leaseType) {
+            const inTwoDays = moment().add(2, 'days').startOf('day').toDate();
+
+            return ['allow-use', 'deny-use'].includes(leaseType) ? inTwoDays : null;
+        }
+
+        $scope.$watch(() => ctrl.access, onValChange(selectedLeaseType => {
+            ctrl.newLease.endDate = getDefaultExpiryDate(selectedLeaseType);
+        }));
 
         ctrl.resetLeaseForm();
 }]);
