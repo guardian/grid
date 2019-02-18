@@ -4,6 +4,7 @@ import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.bulk.BulkRequest
 import com.sksamuel.elastic4s.http.ElasticClient
 import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.indexes.IndexRequest
 import org.elasticsearch.action.search.{SearchResponse, SearchType}
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
@@ -12,13 +13,14 @@ import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
 
+import scala.collection.immutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, Future}
 
 object Main extends App with JsonCleaners {
 
-  val OneMinute = Duration(60, SECONDS)
+  val TwoMinutes = Duration(120, SECONDS)
 
   val es1Host = args(0)
   val es1Port = args(1).toInt
@@ -77,67 +79,97 @@ object Main extends App with JsonCleaners {
   var failures = Seq[String]()
   val startTime = DateTime.now()
 
-  def executeIndexWithErrorHandling(client: ElasticClient, definition: BulkRequest, hits: Seq[SearchHit]): Future[Boolean] = {
-    (client execute {
-      definition
-    }).map { r =>
-      if (r.isSuccess) {
-        Logger.debug("Index succeeded")
-        if (r.result.hasFailures) {
-          println("Bulk index had failures:")
-          r.result.failures.foreach { f =>
-            println("Failure: " + f.id + " / " + f.result + " / " + f.error)
-            failures = failures :+ f.id
-            val source = hits.find( h => h.id == f.id)
-            source.map { h =>
-              println(h.sourceAsString())
+  def executeIndexWithErrorHandling(client: ElasticClient, definition: BulkRequest, hits: Seq[SearchHit]): Future[(Int, Int, Seq[String])] = {
+      (client execute {
+        definition
+      }).flatMap { r =>
+        if (r.isSuccess) {
+          if (r.result.hasFailures) {
+            println("Bulk index had failures:")
+            r.result.failures.foreach { f =>
+              println("Failure: " + f.id + " / " + f.result + " / " + f.error)
+              val source = hits.find(h => h.id == f.id)
+              source.map { h =>
+                println(h.sourceAsString())
+              }
+            }
+          }
+
+          val failureIds = r.result.failures.map(_.id)
+          Future.successful(hits.size, r.result.successes.size, failureIds)
+
+        } else {
+          Logger.error("Index request failed: " + r.error)
+          Future.failed(new RuntimeException(r.error.reason))
+        }
+      }
+    }
+
+
+  private val DefaultRetryWait = 5000L
+
+  def migrate(hits: Seq[SearchHit]) = {
+    println("Mapping " + hits.size + " hits to Bulk index request")
+    val indexRequests = hits.par.flatMap { h =>
+      val json = Json.parse(h.getSourceAsString)
+      json.validate[Image] match { // Validate that this JSON actually represents an Image object to avoid runtime errors further down the line
+        case _: JsSuccess[Image] => {
+          // For documents which pass validation, clean them and migrate the raw document source.
+          // We send the raw source rather than the serialized image because Elastic scripts have been writing fields directly into the document source
+          // which are not captured in the Image domain object (like suggesters).
+
+          // Fix broken null values deposited in the suggestion field by the Elastic scripts.
+          val withCleanedSuggest = json.transform(stripNullsFromSuggestMetadataCredit).asOpt.getOrElse(json)
+          val cleaned = withCleanedSuggest.transform(pruneUnusedLeasesCurrentField).asOpt.getOrElse(withCleanedSuggest)
+
+          val toMigrate = Json.stringify(cleaned)
+          Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(toMigrate))
+        }
+        case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
+          println(h.getSourceAsString)
+          failures = failures :+ h.id() // TODO in the wrong place
+          None
+      }
+    }.toIndexedSeq
+
+
+    def submit(indexRequests: immutable.Seq[IndexRequest], batchSize: Int): Future[Any] = {
+      println("Submitting " + indexRequests.size + " index requests in batches of " + batchSize)
+
+      val futures = indexRequests.grouped(batchSize).map { b =>
+        val bulkIndexRequest = bulk(indexRequests)
+        val eventualBoolean: Future[Any] = executeIndexWithErrorHandling(es6.client, bulkIndexRequest, hits).map { r =>
+          println("Success: " + r)
+          scrolled = scrolled + r._1
+          successes = successes + r._2
+          failures = failures ++ r._3
+        }
+
+        eventualBoolean.recover {
+          case t: Throwable => {
+            if (batchSize > 2) {
+              val i = batchSize / 2
+              println("Batch index failed with batch size " + batchSize + "; retrying with smaller batch size " + i + ": " + t.getMessage)
+              submit(b, i)
+            } else {
+              Future.failed(t)
             }
           }
         }
-        scrolled = scrolled + hits.size
-        successes = successes + r.result.successes.size
-        true
-      } else {
-        Logger.error("Indexing failed: " + r.error)
-        throw new RuntimeException("Indexing failed: " + r.error)
+      }
+
+      Future.sequence(futures).map { r =>
+        println("Completed")
       }
     }
-  }
 
-  def migrate(hits: Seq[SearchHit]) = {
-    println("Map " + hits.size + " hits to Bulk index request")
-    val bulkIndexRequest = bulk {
-      hits.par.flatMap { h =>
-        val json = Json.parse(h.getSourceAsString)
-        json.validate[Image] match { // Validate that this JSON actually represents an Image object to avoid runtime errors further down the line
-          case _: JsSuccess[Image] => {
-            // For documents which pass validation, clean them and migrate the raw document source.
-            // We send the raw source rather than the serialized image because Elastic scripts have been writing fields directly into the document source
-            // which are not captured in the Image domain object (like suggesters).
-
-            // Fix broken null values deposited in the suggestion field by the Elastic scripts.
-            val withCleanedSuggest = json.transform(stripNullsFromSuggestMetadataCredit).asOpt.getOrElse(json)
-            val cleaned = withCleanedSuggest.transform(pruneUnusedLeasesCurrentField).asOpt.getOrElse(withCleanedSuggest)
-
-            val toMigrate = Json.stringify(cleaned)
-            Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(toMigrate))
-          }
-          case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
-            println(h.getSourceAsString)
-            failures = failures :+ h.id()
-            None
-        }
-      }.toIndexedSeq
-    }
-
-    println("Submitting bulk index request")
-    Await.result(executeIndexWithErrorHandling(es6.client, bulkIndexRequest, hits), OneMinute)
+    Await.result(submit(indexRequests, indexRequests.size), TwoMinutes)
   }
 
   println("Scrolling through ES1 images")
   def scrollImages() = {
-    val ScrollTime = new TimeValue(120000)
-    val ScrollResultsPerShard = 200
+    val ScrollTime = new TimeValue(180000)
+    val ScrollResultsPerShard = 700
 
     println("Creating scroll with size (times number of shards): " + ScrollResultsPerShard)
     val scroll = es1.client.prepareSearch(es1Alias)
@@ -156,9 +188,7 @@ object Main extends App with JsonCleaners {
       val rate = (successes + failures.size) / duration.getStandardSeconds
       println(successes + " (" + failures.size + ") / " + scrollResp.getHits.getTotalHits + " in " + duration.getStandardMinutes + " minutes @ " + rate + " per second")
 
-      println("Scrolling")
       scrollResp = es1.client.prepareSearchScroll(scrollResp.getScrollId).setScroll(ScrollTime).execute().actionGet()
-      println(scrollResp.getScrollId + " / " + scrollResp.getHits.getTotalHits)
     }
   }
 
