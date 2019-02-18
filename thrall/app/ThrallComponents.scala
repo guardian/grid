@@ -46,42 +46,37 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
       )
   }
 
-  val elasticSearches = Seq(
-    es1Config.map { c =>
-      Logger.info("Configuring ES1: " + c)
-      val es1 = new ElasticSearch(c, thrallMetrics)
-      es1.ensureAliasAssigned()
-      es1
-    },
-    es6Config.map { c =>
-      Logger.info("Configuring ES6: " + c)
-      val es6 = new ElasticSearch6(c, thrallMetrics)
-      es6.ensureAliasAssigned()
-      es6
-    }
-  ).flatten
-
-  GridLogger.info("Creating elasticsearch router with elastics: " + elasticSearches)
-  val es = new ElasticSearchRouter(elasticSearches)
-
-  val syndicationOps = new SyndicationRightsOps(es)
-
-  val thrallMessageConsumer = new ThrallMessageConsumer(config, elasticSearches.head, thrallMetrics, store, dynamoNotifications, syndicationOps)
-  thrallMessageConsumer.startSchedule()
-  context.lifecycle.addStopHook {
-    () => thrallMessageConsumer.actorSystem.terminate()
+  val es1Opt = es1Config.map { c =>
+    Logger.info("Configuring ES1: " + c)
+    val es1 = new ElasticSearch(c, thrallMetrics)
+    es1.ensureAliasAssigned()
+    es1
   }
 
-  elasticSearches.lift(1).map { es =>
-    val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es, thrallMetrics,
-      store, dynamoNotifications, syndicationOps, config.from)
+  val es6pot = es6Config.map { c =>
+    Logger.info("Configuring ES6: " + c)
+    val es6 = new ElasticSearch6(c, thrallMetrics)
+    es6.ensureAliasAssigned()
+    es6
+  }
+
+  val messageConsumerForHealthCheck = es1Opt.map { es1 =>
+    val thrallMessageConsumer = new ThrallMessageConsumer(config, es1, thrallMetrics, store, dynamoNotifications, new SyndicationRightsOps(es1))
+    thrallMessageConsumer.startSchedule()
+    context.lifecycle.addStopHook {
+      () => thrallMessageConsumer.actorSystem.terminate()
+    }
+    thrallMessageConsumer
+  }.get
+
+  es6pot.map { es6 =>
+    val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
+      store, dynamoNotifications, new SyndicationRightsOps(es6), config.from)
     thrallKinesisMessageConsumer.start()
   }
 
-  val messageConsumerForHealthCheck = thrallMessageConsumer
-
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(elasticSearches.head, messageConsumerForHealthCheck, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }
