@@ -35,6 +35,8 @@ trait CommonConfig {
 
   lazy val awsRegion = properties.getOrElse("aws.region", "eu-west-1")
 
+  lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
+
   def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
     .withRegion(awsRegion)
     .withCredentials(awsCredentials)
