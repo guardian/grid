@@ -9,13 +9,13 @@ import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.PlayJsonHelpers
-import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import play.api.Logger
 import play.api.libs.json.{JodaReads, Json}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.{Duration, SECONDS}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class ThrallEventConsumer(es: ElasticSearchVersion,
                           thrallMetrics: ThrallMetrics,
@@ -34,10 +34,10 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
 
   override def processRecords(records: util.List[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
     import scala.collection.JavaConverters._
-    records.asScala.map { r =>
+    records.asScala.foreach { r =>
       val subject = r.getPartitionKey
       val message = new String(r.getData.array(), StandardCharsets.UTF_8)
-      GridLogger.info("Got thrall event: " + subject + " / " + message)
+      Logger.debug("Got kinesis event: " + subject + " / " + message)
 
       implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads
       implicit val unr = Json.reads[UsageNotice]
@@ -48,7 +48,9 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
       Logger.info("Got update message (" + timestamp + "): " + updateMessage.subject + "/" + updateMessage.id)
       
       messageProcessor.chooseProcessor(updateMessage).map { p =>
-        p.apply(updateMessage)
+        val ThirtySeconds = Duration(30, SECONDS)
+        val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
+        Await.result(eventuallyAppliedUpdate, ThirtySeconds)
       }
     }
 
