@@ -62,9 +62,9 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
         }
 
         Await.result(eventuallyAppliedUpdate, ThirtySeconds)
-
-        checkpointer.checkpoint(r)
       }
+
+      checkpointer.checkpoint(records.asScala.last)
     }
 
   }
