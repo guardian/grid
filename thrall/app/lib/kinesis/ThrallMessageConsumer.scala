@@ -49,7 +49,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
       credentialsProvider,
       workerId
     ).withRegionName(config.awsRegion).
-      withMaxRecords(20).
+      withMaxRecords(100).
       withIdleMillisBetweenCalls(1000).
       withIdleTimeBetweenReadsInMillis(250)
 
