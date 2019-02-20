@@ -37,35 +37,41 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
     Logger.info("Processing kinesis record batch of size: " + records.size)
     records.asScala.foreach { r =>
 
-      val subject = r.getPartitionKey
-      val message = new String(r.getData.array(), StandardCharsets.UTF_8)
-      Logger.debug("Got kinesis event: " + subject + " / " + message)
+      try {
+        val subject = r.getPartitionKey
+        val message = new String(r.getData.array(), StandardCharsets.UTF_8)
+        Logger.debug("Got kinesis event: " + subject + " / " + message)
 
-      implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads
-      implicit val unr = Json.reads[UsageNotice]
-      implicit val umr = Json.reads[UpdateMessage]
+        implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads
+        implicit val unr = Json.reads[UsageNotice]
+        implicit val umr = Json.reads[UpdateMessage]
 
-      val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
-    val timestamp = r.getApproximateArrivalTimestamp
+        val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
+        val timestamp = r.getApproximateArrivalTimestamp
 
-      val idForLogging = Seq(updateMessage.id, updateMessage.image.map(_.id)).flatten
-      val messageLogMessage = "(" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" ")
-      Logger.info("Got update message: " + messageLogMessage)
+        val idForLogging = Seq(updateMessage.id, updateMessage.image.map(_.id)).flatten
+        val messageLogMessage = "(" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" ")
+        Logger.info("Got update message: " + messageLogMessage)
 
-      messageProcessor.chooseProcessor(updateMessage).map { p =>
-        val ThirtySeconds = Duration(30, SECONDS)
-        val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
-        eventuallyAppliedUpdate.map { _ =>
-          Logger.info("Completed processing of update message: " + ("Got update message: " + messageLogMessage))
-        }.recover {
-          case e: Throwable =>
-            Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
+        messageProcessor.chooseProcessor(updateMessage).map { p =>
+          val ThirtySeconds = Duration(30, SECONDS)
+          val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
+          eventuallyAppliedUpdate.map { _ =>
+            Logger.info("Completed processing of update message: " + ("Got update message: " + messageLogMessage))
+          }.recover {
+            case e: Throwable =>
+              Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
+          }
+
+          Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
         }
 
-        Await.result(eventuallyAppliedUpdate, ThirtySeconds)
-      }
+        checkpointer.checkpoint(records.asScala.last)
 
-      checkpointer.checkpoint(records.asScala.last)
+      } catch {
+        case e: Throwable =>
+          Logger.error("Exception during process record block", e)
+      }
     }
 
   }
