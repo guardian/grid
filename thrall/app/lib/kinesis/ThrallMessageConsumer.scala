@@ -49,8 +49,9 @@ class ThrallMessageConsumer(config: ThrallConfig,
       credentialsProvider,
       workerId
     ).withRegionName(config.awsRegion).
-      withMaxRecords(10)
-      //.withIdleTimeBetweenReadsInMillis(250)
+      withMaxRecords(20).
+      withIdleMillisBetweenCalls(1000).
+      withIdleTimeBetweenReadsInMillis(250)
 
     from.fold(
       kinesisConfig.withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON)
