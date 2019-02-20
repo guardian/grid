@@ -48,17 +48,17 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
     val timestamp = r.getApproximateArrivalTimestamp
 
       val idForLogging = Seq(updateMessage.id, updateMessage.image.map(_.id)).flatten
-      val messageLogMessage = "Got update message: " + "(" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" ")
-      Logger.info(messageLogMessage)
+      val messageLogMessage = "(" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" ")
+      Logger.info("Got update message: " + messageLogMessage)
 
       messageProcessor.chooseProcessor(updateMessage).map { p =>
         val ThirtySeconds = Duration(30, SECONDS)
         val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
         eventuallyAppliedUpdate.map { _ =>
-          Logger.info("Completed processing of update message: " + messageLogMessage)
+          Logger.info("Completed processing of update message: " + ("Got update message: " + messageLogMessage))
         }.recover {
           case e: Throwable =>
-            Logger.error("Failed to process update message; message will be ignored: " + messageLogMessage, e)
+            Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
         }
 
         Await.result(eventuallyAppliedUpdate, ThirtySeconds)
