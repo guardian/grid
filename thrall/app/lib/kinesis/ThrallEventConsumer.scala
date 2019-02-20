@@ -35,6 +35,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
   override def processRecords(records: util.List[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
     import scala.collection.JavaConverters._
     records.asScala.foreach { r =>
+
       val subject = r.getPartitionKey
       val message = new String(r.getData.array(), StandardCharsets.UTF_8)
       Logger.debug("Got kinesis event: " + subject + " / " + message)
@@ -44,18 +45,28 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
       implicit val umr = Json.reads[UpdateMessage]
 
       val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
-      val timestamp = r.getApproximateArrivalTimestamp
+    val timestamp = r.getApproximateArrivalTimestamp
+
       val idForLogging = Seq(updateMessage.id, updateMessage.image.map(_.id)).flatten
-      Logger.info("Got update message (" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" "))
-      
+      val messageLogMessage = "(" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" ")
+      Logger.info("Got update message: " + messageLogMessage)
+
       messageProcessor.chooseProcessor(updateMessage).map { p =>
         val ThirtySeconds = Duration(30, SECONDS)
         val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
+        eventuallyAppliedUpdate.map { _ =>
+          Logger.info("Completed processing of update message: " + ("Got update message: " + messageLogMessage))
+        }.recover {
+          case e: Throwable =>
+            Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
+        }
+
         Await.result(eventuallyAppliedUpdate, ThirtySeconds)
+
+        checkpointer.checkpoint(r)
       }
     }
 
-    checkpointer.checkpoint(records.asScala.last)
   }
 
   override def shutdown(checkpointer: IRecordProcessorCheckpointer, reason: ShutdownReason): Unit = {
