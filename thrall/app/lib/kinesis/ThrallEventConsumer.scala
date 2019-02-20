@@ -34,6 +34,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
 
   override def processRecords(records: util.List[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
     import scala.collection.JavaConverters._
+    Logger.info("Processing kinesis record batch of size: " + records.size)
     records.asScala.foreach { r =>
 
       val subject = r.getPartitionKey
