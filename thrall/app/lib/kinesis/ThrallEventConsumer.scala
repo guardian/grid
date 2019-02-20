@@ -62,7 +62,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
             Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
         }
 
-        Await.result(eventuallyAppliedUpdate, ThirtySeconds)
+        Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
       }
 
       checkpointer.checkpoint(records.asScala.last)
