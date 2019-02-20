@@ -3,6 +3,7 @@ package lib
 import com.amazonaws.services.ec2.{AmazonEC2, AmazonEC2ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.discovery.EC2._
+import org.joda.time.DateTime
 import play.api.Configuration
 
 import scala.util.Try
@@ -91,4 +92,8 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   }
 
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
+
+  lazy val syndicationStartDate: Option[DateTime] = Try {
+    properties.get("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
+  }.toOption.flatten
 }
