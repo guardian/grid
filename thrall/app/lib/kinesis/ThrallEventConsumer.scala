@@ -45,7 +45,8 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
 
       val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
       val timestamp = r.getApproximateArrivalTimestamp
-      Logger.info("Got update message (" + timestamp + "): " + updateMessage.subject + "/" + updateMessage.id)
+      val idForLogging = Seq(updateMessage.id, updateMessage.image.map(_.id)).flatten
+      Logger.info("Got update message (" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" "))
       
       messageProcessor.chooseProcessor(updateMessage).map { p =>
         val ThirtySeconds = Duration(30, SECONDS)
