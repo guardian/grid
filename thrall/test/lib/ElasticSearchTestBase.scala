@@ -339,6 +339,22 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         reloadedImage(id).get.usages.size shouldBe 1
       }
 
+      "can update usages if the modification date of the update is new than the existing one" in {
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+
+        val existingUsage = usage(id = "existing")
+        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(existingUsage))), asJsLookup(DateTime.now))), fiveSeconds)
+        reloadedImage(id).get.usages.head.id shouldEqual("existing")
+
+        val moreRecentUsage = usage(id = "most-recent")
+        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(moreRecentUsage))), asJsLookup(DateTime.now))), fiveSeconds)
+
+        reloadedImage(id).get.usages.size shouldBe 1
+        reloadedImage(id).get.usages.head.id shouldEqual("most-recent")
+      }
+
       "should ignore usage update requests when the proposed last modified date is older than the current" in {
         val id = UUID.randomUUID().toString
         val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)

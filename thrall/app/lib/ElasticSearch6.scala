@@ -82,7 +82,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
       | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
       | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(dtf.parse(ctx._source.usagesLastModified))) : null;
       |
-      | if (ctx._source.usagesLastModified == null || (params.lastModified.compareTo(ctx._source.usagesLastModified) == 1)) {
+      | if (lastUpdatedDate == null || updateDate.after(lastUpdatedDate)) {
       |   ctx._source.usages = params.usages;
       |   ctx._source.usagesLastModified = params.lastModified;
       | }
