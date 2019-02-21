@@ -50,8 +50,6 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val dynamoTopicArn: String = properties("indexed.image.sns.topic.arn")
 
-  lazy val topicArn: String = properties("sns.topic.arn")
-
   lazy val from: Option[DateTime] = properties.get("rewind.from").map(ISODateTimeFormat.dateTime.parseDateTime)
 
 }
