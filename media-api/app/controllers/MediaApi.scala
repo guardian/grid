@@ -19,6 +19,7 @@ import lib._
 import lib.elasticsearch._
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
+import play.api.Logger
 import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
@@ -296,6 +297,25 @@ class MediaApi(
       ),
       params => respondSuccess(params)
     )
+  }
+
+  def syndicationRights(id: String) = auth.async(parse.json) { request =>
+    val upsertRcsRights = "upsert-rcs-rights"
+
+    request.body.validate[SyndicationRights] match {
+      case JsSuccess(syndicationRights, _) => {
+        val message = Json.obj {
+          "id" -> Json.toJson(id)
+          "data" -> Json.toJson(syndicationRights)
+        }
+        val updateMessage = UpdateMessage(subject = upsertRcsRights, id = Some(id), syndicationRights = Some(syndicationRights))
+        messageSender.publish(message, upsertRcsRights, updateMessage)
+      }
+      case JsError(errors) =>
+        Logger.warn("Rejecting invalid RCS update request: " + errors)
+    }
+
+    Future.successful(Accepted)
   }
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {

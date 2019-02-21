@@ -18,6 +18,7 @@ GET     /images/:id/export/:exportId                  controllers.MediaApi.getIm
 GET     /images/:id/export                            controllers.MediaApi.getImageExports(id: String)
 GET     /images/:id/download                          controllers.MediaApi.downloadOriginalImage(id: String)
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
+POST    /images/:id/syndicationRights                 controllers.MediaApi.syndicationRights(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
 GET     /images                                       controllers.MediaApi.imageSearch
 
