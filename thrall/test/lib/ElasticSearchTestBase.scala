@@ -317,7 +317,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       }
     }
 
-    "image usages" - {
+    "usages" - {
 
       "can delete all usages for an image" in {
         val id = UUID.randomUUID().toString
