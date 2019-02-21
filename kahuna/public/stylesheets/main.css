@@ -26,10 +26,26 @@ z-index
 }
 @font-face {
     font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-RegularItalic.woff2") format("woff2"),
+         url("fonts/GuardianAgateSans1Web-RegularItalic.woff") format("woff");
+    font-weight: normal;
+    font-style: italic;
+    font-stretch: normal;
+}
+@font-face {
+    font-family: "Guardian Agate Sans Web";
     src: url("fonts/GuardianAgateSans1Web-Bold.woff2") format("woff2"),
          url("fonts/GuardianAgateSans1Web-Bold.woff") format("woff");
     font-weight: bold;
     font-style: normal;
+    font-stretch: normal;
+}
+@font-face {
+    font-family: "Guardian Agate Sans Web";
+    src: url("fonts/GuardianAgateSans1Web-BoldItalic.woff2") format("woff2"),
+         url("fonts/GuardianAgateSans1Web-BoldItalic.woff") format("woff");
+    font-weight: bold;
+    font-style: italic;
     font-stretch: normal;
 }
 
