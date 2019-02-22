@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.ImageId
-import com.gu.mediaservice.lib.aws.EsResponse
+import com.gu.mediaservice.lib.aws.{EsResponse, Kinesis, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Edits, SyndicationRights}
 import play.api.libs.json.{JsError, JsValue, Json, Reads}
@@ -11,7 +11,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class MessageProcessor(es: ElasticSearchVersion,
                        store: ThrallStore,
                        metadataNotifications: DynamoNotifications,
-                       syndicationRightsOps: SyndicationRightsOps
+                       syndicationRightsOps: SyndicationRightsOps,
+                       kinesis: Kinesis
                       ) extends ImageId {
 
   def chooseProcessor(subject: String)(implicit ec: ExecutionContext): Option[JsValue => Future[Any]] = {
@@ -93,9 +94,10 @@ class MessageProcessor(es: ElasticSearchVersion,
   def deleteAllUsages(usage: JsValue)(implicit ec: ExecutionContext) =
     Future.sequence(withImageId(usage)(id => es.deleteAllImageUsages(id)))
 
-  def upsertSyndicationRights(rights: JsValue)(implicit ec: ExecutionContext) = {
-    withData[SyndicationRights](rights) { syndicationRights =>
-      withImageId(rights) { id =>
+  def upsertSyndicationRights(message: JsValue)(implicit ec: ExecutionContext) = {
+    withData[SyndicationRights](message) { syndicationRights =>
+      withImageId(message) { id =>
+
         es.getImage(id) map {
           case Some(image) =>
             val photoshoot = image.userMetadata.flatMap(_.photoshoot)
@@ -106,6 +108,12 @@ class MessageProcessor(es: ElasticSearchVersion,
               currentPhotoshootOpt = photoshoot
             )
           case _ => GridLogger.info(s"Image $id not found")
+        }
+
+        Future.successful {
+          // Mirror RCS messages onto Kinesis for migration. It was not possible to write to Kinesis from the RCS lambda
+          val updateMessage = UpdateMessage(subject = "upsert-rcs-rights", id = Some(id), syndicationRights = Some(syndicationRights))
+          kinesis.publish(updateMessage)
         }
       }
     }
