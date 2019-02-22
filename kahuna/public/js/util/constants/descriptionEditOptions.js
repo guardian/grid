@@ -4,11 +4,11 @@ export const descriptionEditOptions = {
     value: 0
   },
   append: {
-    text: 'Add before',
+    text: 'Add after',
     value: 1
   },
   prepend: {
-    text: 'Add after',
+    text: 'Add before',
     value: 2
   }
 };

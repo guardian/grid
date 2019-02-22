@@ -163,8 +163,8 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
 
         ctrl.descriptionOptions = [
           descriptionEditOptions.overwrite,
-          descriptionEditOptions.append,
-          descriptionEditOptions.prepend
+          descriptionEditOptions.prepend,
+          descriptionEditOptions.append
         ];
 
         ctrl.updateDescriptionField = function() {
