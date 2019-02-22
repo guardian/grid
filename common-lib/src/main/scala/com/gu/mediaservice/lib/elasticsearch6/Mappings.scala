@@ -259,7 +259,7 @@ object Mappings {
     frontUsageMetadata("frontUsageMetadata")
   )
 
-  def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def leaseMapping(name: String): NestedField = nestedField(name).fields(
     keywordField("id"),
     keywordField("leasedBy"),
     dateField("startDate"),
