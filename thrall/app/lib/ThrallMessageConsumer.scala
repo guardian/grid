@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.MessageConsumer
+import com.gu.mediaservice.lib.aws.{Kinesis, MessageConsumer}
 import org.joda.time.DateTime
 import play.api.libs.json.JsValue
 
@@ -20,7 +20,9 @@ class ThrallMessageConsumer(
   thrallMetrics.snsMessage
 ) with MessageConsumerVersion {
 
-  val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps)
+  val kinesis: Kinesis = new Kinesis(config, config.thrallKinesisStream)
+
+  val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps, kinesis)
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     messageProcessor.chooseProcessor(subject)
