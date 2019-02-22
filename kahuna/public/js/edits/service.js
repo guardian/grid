@@ -287,24 +287,30 @@ service.factory('editsService',
             .then(() => image.get());
     }
 
+    function getNewFieldValue(image, field, value, descriptionOption) {
+
+        if (field !== 'description' ||
+           (
+             descriptionOption !== descriptionEditOptions.append.value &&
+             descriptionOption !== descriptionEditOptions.prepend.value
+            )
+        ) {
+          return value;
+        }
+
+        if (descriptionOption === descriptionEditOptions.append.value) {
+          return imageAccessor.readMetadata(image).description + ' ' + value;
+        }
+
+        if (descriptionOption === descriptionEditOptions.prepend.value) {
+          return value + ' ' + imageAccessor.readMetadata(image).description;
+        }
+    }
+
+
     function batchUpdateMetadataField (images, field, value, descriptionOption) {
         return $q.all(images.map(image => {
-          let newFieldValue;
-          if (
-              field === 'description' &&
-              descriptionOption === descriptionEditOptions.append.value
-          ) {
-            newFieldValue = imageAccessor.readMetadata(image).description + ' ' + value;
-          }
-          else if (
-            field === 'description' &&
-            descriptionOption === descriptionEditOptions.prepend.value
-          ) {
-            newFieldValue = value + ' ' + imageAccessor.readMetadata(image).description;
-          }
-          else {
-            newFieldValue = value;
-          }
+          const newFieldValue = getNewFieldValue(image, field, value, descriptionOption);
           updateMetadataField(image, field, newFieldValue);
         }));
     }
