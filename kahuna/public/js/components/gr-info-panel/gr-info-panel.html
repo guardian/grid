@@ -147,7 +147,10 @@
                                       'text-input': true}"
                       >
                       </div>
-                      <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible">
+                      <div
+                        ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible"
+                        class="image-info__description--options"
+                      >
                         <div
                          editable-radiolist="ctrl.descriptionOption"
                          e-ng-options="option.value as option.text for option in ctrl.descriptionOptions"
@@ -155,7 +158,7 @@
                     >
                         </div>
                     </div>
-                    <span ng-if="ctrl.userCanEdit && descriptionEditForm.$visible">
+                    <div ng-if="ctrl.userCanEdit && descriptionEditForm.$visible">
                         <button class="button-cancel" type="button" ng-click="descriptionEditForm.$cancel()">
                             <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
                         </button>
@@ -163,7 +166,7 @@
                         <button class="button-save" type="submit">
                             <gr-icon-label gr-icon="check">Save</gr-icon-label>
                         </button>
-                    </span>
+                    </div>
                 </div>
             </form>
         </dl>
