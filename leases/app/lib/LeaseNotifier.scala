@@ -21,13 +21,13 @@ object LeaseNotice {
     def writes(leaseByMedia: LeasesByMedia) = {
       LeasesByMedia.toJson(
         Json.toJson(leaseByMedia.leases),
-        Json.toJson(leaseByMedia.lastModified.map(lm => Json.toJson(lm)))
+        Json.toJson(leaseByMedia.lastModified)
       )
     }
   }
   def apply(mediaLease: MediaLease): LeaseNotice = LeaseNotice(
     mediaLease.mediaId,
-    Json.toJson(LeasesByMedia.build(List(mediaLease)))
+    Json.toJson(LeasesByMedia(List(mediaLease), Some(mediaLease.createdAt)))
   )
 }
 

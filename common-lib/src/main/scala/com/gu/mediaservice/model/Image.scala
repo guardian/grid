@@ -24,7 +24,7 @@ case class Image(
   originalUsageRights: UsageRights,
   exports:             List[Crop]       = Nil,
   usages:              List[Usage]      = Nil,
-  leases:              LeasesByMedia     = LeasesByMedia.build(Nil),
+  leases:              LeasesByMedia    = LeasesByMedia.empty,
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None,
   userMetadataLastModified: Option[DateTime] = None) {
@@ -80,7 +80,7 @@ object Image {
       (__ \ "originalUsageRights").readNullable[UsageRights].map(_ getOrElse NoRights) ~
       (__ \ "exports").readNullable[List[Crop]].map(_ getOrElse List()) ~
       (__ \ "usages").readNullable[List[Usage]].map(_ getOrElse List()) ~
-      (__ \ "leases").readNullable[LeasesByMedia].map(_ getOrElse LeasesByMedia.build(Nil)) ~
+      (__ \ "leases").readNullable[LeasesByMedia].map(_ getOrElse LeasesByMedia.empty) ~
       (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil) ~
       (__ \ "syndicationRights").readNullable[SyndicationRights] ~
       (__ \ "userMetadataLastModified").readNullable[String].map(parseOptDateTime)

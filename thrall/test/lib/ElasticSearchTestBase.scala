@@ -299,6 +299,20 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         reloadedImage(id).get.leases.leases.isEmpty shouldBe true
       }
 
+      "removing a lease should update the leases last modified time" in {
+        val lease = model.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val id = UUID.randomUUID().toString
+        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+        reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
+
+        val removalLastModified = DateTime.now.plusMinutes(1)
+        Await.result(Future.sequence(ES.removeImageLease(id, JsDefined(Json.toJson(lease.id)), asJsLookup(removalLastModified))), fiveSeconds)
+
+        reloadedImage(id).get.leases.leases.isEmpty shouldBe true
+        reloadedImage(id).get.lastModified.get.isEqual(removalLastModified) shouldBe true
+      }
+
       "can replace leases" in {
         val lease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
         val id = UUID.randomUUID().toString
