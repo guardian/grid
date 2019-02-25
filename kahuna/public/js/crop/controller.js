@@ -15,7 +15,9 @@ crop.controller('ImageCropCtrl',
     const ctrl = this;
     const imageId = $stateParams.imageId;
     if ($stateParams.cropType) {
-        storage.setJs('cropType', $stateParams.cropType, true);
+        $stateParams.cropType === 'all'
+            ? storage.clearJs('cropType')
+            : storage.setJs('cropType', $stateParams.cropType, true);
     }
     ctrl.cropType = storage.getJs('cropType', true);
 

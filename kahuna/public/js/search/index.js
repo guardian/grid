@@ -82,7 +82,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             const ctrl = this;
 
             if ($stateParams.cropType) {
-                storage.setJs('cropType', $stateParams.cropType, true);
+                $stateParams.cropType === 'all'
+                    ? storage.clearJs('cropType')
+                    : storage.setJs('cropType', $stateParams.cropType, true);
             }
 
             ctrl.collectionsPanel = panels.collectionsPanel;

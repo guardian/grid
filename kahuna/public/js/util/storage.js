@@ -23,8 +23,14 @@ storage.factory('storage', ['$window', function($window) {
         }
     }
 
+    function clearJs(key) {
+        $window.sessionStorage.removeItem(key);
+        $window.localStorage.removeItem(key);
+    }
+
     return {
         setJs,
-        getJs
+        getJs,
+        clearJs
     };
 }]);
