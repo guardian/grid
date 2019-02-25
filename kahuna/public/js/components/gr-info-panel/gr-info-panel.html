@@ -158,6 +158,11 @@
                     >
                         </div>
                     </div>
+                    <!--
+                      These buttons are a copy of the buttons we use in the inline
+                      input elements but with a different form name which is why they
+                      are duplicated here
+                    -->
                     <div ng-if="ctrl.userCanEdit && descriptionEditForm.$visible" class="editable-buttons">
                         <button class="button-cancel" type="button" ng-click="descriptionEditForm.$cancel()">
                             <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
