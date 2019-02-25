@@ -1683,6 +1683,11 @@ FIXME: what to do with touch devices
     color: #CCC;
 }
 
+.image-info__description--options {
+    padding-bottom: 10px;
+}
+
+
 .image-info__heading--lease {
     width: 90%;
     float: left;

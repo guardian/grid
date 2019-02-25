@@ -11,7 +11,7 @@ import '../../services/panel';
 import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
-
+import { descriptionEditOptions } from '../../util/constants/descriptionEditOptions';
 export const grInfoPanel = angular.module('grInfoPanel', [
     'kahuna.services.image-accessor',
     'kahuna.services.image-list',
@@ -159,10 +159,26 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
             });
         };
 
+        ctrl.descriptionOption = descriptionEditOptions.overwrite.value;
+
+        ctrl.descriptionOptions = [
+          descriptionEditOptions.overwrite,
+          descriptionEditOptions.prepend,
+          descriptionEditOptions.append
+        ];
+
+        ctrl.updateDescriptionField = function() {
+          ctrl.updateMetadataField('description', ctrl.metadata.description);
+        };
 
         ctrl.updateMetadataField = function (field, value) {
             var imageArray = Array.from(ctrl.selectedImages);
-            return editsService.batchUpdateMetadataField(imageArray, field, value);
+            return editsService.batchUpdateMetadataField(
+              imageArray,
+              field,
+              value,
+              ctrl.descriptionOption
+            );
         };
 
         ctrl.addLabel = function (label) {

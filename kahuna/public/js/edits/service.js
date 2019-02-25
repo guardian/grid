@@ -3,6 +3,7 @@ import Rx from 'rx';
 
 import {editsApi} from '../services/api/edits-api';
 import {mediaApi} from '../services/api/media-api';
+import { descriptionEditOptions } from '../util/constants/descriptionEditOptions';
 
 export var service = angular.module('kahuna.edits.service', [
     editsApi.name,
@@ -13,8 +14,8 @@ export var service = angular.module('kahuna.edits.service', [
 // see when it's synced. We should have a link on the resource to be able to do
 // this.
 service.factory('editsService',
-                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'apiPoll',
-                 function($rootScope, $q, editsApi, mediaApi, apiPoll) {
+                ['$rootScope', '$q', 'editsApi', 'mediaApi', 'apiPoll', 'imageAccessor',
+                 function($rootScope, $q, editsApi, mediaApi, apiPoll, imageAccessor) {
 
     /**
      * @param edit {Resource} the edit you'd like to match
@@ -286,8 +287,32 @@ service.factory('editsService',
             .then(() => image.get());
     }
 
-    function batchUpdateMetadataField (images, field, value) {
-        return $q.all(images.map(image => updateMetadataField(image, field, value)));
+    function getNewFieldValue(image, field, value, descriptionOption) {
+
+        if (field !== 'description' ||
+           (
+             descriptionOption !== descriptionEditOptions.append.value &&
+             descriptionOption !== descriptionEditOptions.prepend.value
+            )
+        ) {
+          return value;
+        }
+
+        if (descriptionOption === descriptionEditOptions.append.value) {
+          return imageAccessor.readMetadata(image).description + ' ' + value;
+        }
+
+        if (descriptionOption === descriptionEditOptions.prepend.value) {
+          return value + ' ' + imageAccessor.readMetadata(image).description;
+        }
+    }
+
+
+    function batchUpdateMetadataField (images, field, value, descriptionOption) {
+        return $q.all(images.map(image => {
+          const newFieldValue = getNewFieldValue(image, field, value, descriptionOption);
+          updateMetadataField(image, field, newFieldValue);
+        }));
     }
 
     return {
