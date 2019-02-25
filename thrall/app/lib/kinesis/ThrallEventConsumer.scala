@@ -73,8 +73,6 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
             Logger.error("Exception during process record block", e)
         }
 
-        // Eventual consistency is an issue during migration
-        Thread.sleep(200)
       }
 
       checkpointer.checkpoint(records.asScala.last)
