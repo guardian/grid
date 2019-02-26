@@ -69,7 +69,7 @@ mediaApi.factory('mediaApi',
     function getSession() {
         // TODO: workout how we might be able to memoize this function but still
         // play nice with changes that might occur in the API (cache-header?).
-        return session || (session = root.follow('session').getData());
+        return session
     }
 
     function metadataSearch(field, { q }) {
