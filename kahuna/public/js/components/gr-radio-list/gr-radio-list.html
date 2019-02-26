@@ -1,0 +1,11 @@
+<span ng-repeat="option in options track by option.key">
+  <input type="radio"
+         id="{{listFor}}-{{option.key}}"
+         name="selected"
+         ng-disabled="option.disabled || false"
+         ng-value="option.key"
+         ng-model="$parent.selection"/>
+  <label for="{{listFor}}-{{option.key}}" gr-tooltip="{{option.tooltip}}">
+    <span ng-if="!option.icon">{{option.value || option.key}}</span>
+  </label>
+</span>
