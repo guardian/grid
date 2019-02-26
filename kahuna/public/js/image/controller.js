@@ -1,6 +1,7 @@
 import angular from 'angular';
 
 import '../util/rx';
+import {cropUtil} from '../util/crop';
 import '../services/image/usages';
 import '../image/service';
 
@@ -25,6 +26,7 @@ import '../components/gu-date/gu-date';
 
 var image = angular.module('kahuna.image.controller', [
     'util.rx',
+    cropUtil.name,
     'kahuna.edits.service',
     'gr.image.service',
     'gr.image-usages.service',
@@ -66,7 +68,7 @@ image.controller('ImageCtrl', [
     'imageService',
     'imageUsagesService',
     'keyboardShortcut',
-    'storage',
+    'cropType',
 
     function ($rootScope,
               $scope,
@@ -85,7 +87,7 @@ image.controller('ImageCtrl', [
               imageService,
               imageUsagesService,
               keyboardShortcut,
-              storage) {
+              cropType) {
 
         let ctrl = this;
 
@@ -149,10 +151,10 @@ image.controller('ImageCtrl', [
         ctrl.image.allCrops = [];
 
         if ($stateParams.cropType) {
-            storage.setJs('cropType', $stateParams.cropType, true);
+            cropType.set($stateParams.cropType);
         }
 
-        ctrl.cropType = storage.getJs('cropType', true);
+        ctrl.cropType = cropType.get();
         ctrl.capitalisedCropType = ctrl.cropType ?
             ctrl.cropType[0].toUpperCase() + ctrl.cropType.slice(1) :
             '';
