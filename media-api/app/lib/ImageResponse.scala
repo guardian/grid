@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage._
+import com.softwaremill.quicklens._
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
 import play.api.Logger
@@ -312,7 +313,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (__ \ "fileMetadata").write[FileMetadataEntity]
       .contramap(fileMetadataEntity(id, expandFileMetaData, _: FileMetadata)) ~
     (__ \ "userMetadata").writeNullable[Edits] ~
-    (__ \ "metadata").write[ImageMetadata] ~
+    (__ \ "metadata").write[ImageMetadata](ImageResponse.newlineNormalisingImageMetadataWriter) ~
     (__ \ "originalMetadata").write[ImageMetadata] ~
     (__ \ "usageRights").write[UsageRights] ~
     (__ \ "originalUsageRights").write[UsageRights] ~
@@ -361,6 +362,23 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
   }
+}
+
+object ImageResponse {
+  val newlineNormalisingImageMetadataWriter: Writes[ImageMetadata] = (input: ImageMetadata) => {
+    Json.toJson(normaliseNewLines(input))
+  }
+
+  def normaliseNewLines(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.modifyAll(
+    _.description,
+    _.copyrightNotice,
+    _.copyright,
+    _.specialInstructions,
+    _.suppliersReference
+  ).using(_.map(ImageResponse.normaliseNewLines))
+
+  private val pattern = """(\r|\n|\r\n)+""".r
+  def normaliseNewLines(string: String): String = pattern.replaceAllIn(string, "\n")
 }
 
 // We're using this to slightly hydrate the json response
