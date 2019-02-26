@@ -121,9 +121,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
 
-  def create(id: String, image: Image, withWritePermission: Boolean,
-             withDeletePermission: Boolean, included: List[String] = List(), tier: Tier):
-            (JsValue, List[Link], List[Action]) = {
+  def create(
+    id: String,
+    image: Image,
+    withWritePermission: Boolean,
+    withDeleteImagePermission: Boolean,
+    withDeleteCropsOrUsagePermission: Boolean,
+    included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
 
     val source = Try {
       Json.toJson(image)(imageResponseWrites(image.id, included.contains("fileMetadata")))
@@ -174,9 +178,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       case _ => List(downloadLink(id))
     }
 
-    val isDeletable = canBeDeleted(image) && withDeletePermission
+    val isDeletable = canBeDeleted(image) && withDeleteImagePermission
 
-    val actions: List[Action] = if(tier == Internal) imageActions(id, isDeletable, withWritePermission) else Nil
+    val actions: List[Action] = if(tier == Internal) imageActions(id, isDeletable, withWritePermission, withDeleteCropsOrUsagePermission) else Nil
 
     (data, links, actions)
   }
@@ -210,7 +214,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     if (valid) cropLink :: baseLinksWithOptimised else baseLinksWithOptimised
   }
 
-  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean): List[Action] = {
+  def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean, withDeleteCropsOrUsagePermission: Boolean): List[Action] = {
 
     val imageUri = URI.create(s"${config.rootUri}/images/$id")
     val reindexUri = URI.create(s"${config.rootUri}/images/$id/reindex")
@@ -236,7 +240,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       addLeasesAction     -> withWritePermission,
       replaceLeasesAction -> withWritePermission,
       deleteLeasesAction  -> withWritePermission,
-      deleteUsagesAction  -> withWritePermission,
+      deleteUsagesAction  -> withDeleteCropsOrUsagePermission,
       addCollectionAction -> true
     )
     .filter{ case (action, active) => active }

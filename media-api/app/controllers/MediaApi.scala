@@ -110,6 +110,8 @@ class MediaApi(
     isUploaderOrHasPermission(request, image, Permissions.DeleteImage)
   }
 
+  def canUserDeleteCropsOrUsages(user: Principal): Boolean = hasPermission(user, Permissions.DeleteCrops)
+
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
   private def hasPermission(request: Authentication.Request[Any], image: Image): Boolean = request.user.apiKey.tier match {
@@ -125,10 +127,18 @@ class MediaApi(
     elasticSearch.getImageById(id) map {
       case Some(source) if hasPermission(request, source) =>
         val writePermission = canUserWriteMetadata(request, source)
-        val deletePermission = canUserDeleteImage(request, source)
+        val deleteImagePermission = canUserDeleteImage(request, source)
+        val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
-        val (imageData, imageLinks, imageActions) =
-          imageResponse.create(id, source, writePermission, deletePermission, include, request.user.apiKey.tier)
+        val (imageData, imageLinks, imageActions) = imageResponse.create(
+          id,
+          source,
+          writePermission,
+          deleteImagePermission,
+          deleteCropsOrUsagePermission,
+          include,
+          request.user.apiKey.tier
+        )
 
         respond(imageData, imageLinks, imageActions)
 
@@ -270,9 +280,10 @@ class MediaApi(
     def hitToImageEntity(elasticId: String, image: Image): EmbeddedEntity[JsValue] = {
       val writePermission = canUserWriteMetadata(request, image)
       val deletePermission = canUserDeleteImage(request, image)
+      val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
-        imageResponse.create(elasticId, image, writePermission, deletePermission, include, request.user.apiKey.tier)
+        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.apiKey.tier)
       val id = (imageData \ "id").as[String]
       val imageUri = URI.create(s"${config.rootUri}/images/$id")
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
