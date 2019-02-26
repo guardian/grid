@@ -4,7 +4,7 @@ import Rx from 'rx';
 import 'rx-dom';
 import Immutable from 'immutable';
 import {getCollectionsFromQuery} from '../search-query/query-syntax';
-import {cropUtil} from '../util/crop';
+
 import './query';
 import './results';
 import '../preview/image';
@@ -36,8 +36,7 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grInfoPanel',
     'grCollectionsPanel',
-    'ui.router',
-    cropUtil.name
+    'ui.router'
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -76,14 +75,14 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         controllerAs: 'ctrl',
         controller: [
             '$scope', '$window', '$stateParams', 'panels', 'shortcutKeys', 'keyboardShortcut',
-            'panelService', 'cropType',
+            'panelService', 'storage',
             function($scope, $window, $stateParams, panels, shortcutKeys, keyboardShortcut,
-                     panelService, cropType) {
+                     panelService, storage) {
 
             const ctrl = this;
 
             if ($stateParams.cropType) {
-                cropType.set($stateParams.cropType);
+                storage.setJs('cropType', $stateParams.cropType, true);
             }
 
             ctrl.collectionsPanel = panels.collectionsPanel;
