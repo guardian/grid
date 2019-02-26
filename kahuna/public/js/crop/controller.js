@@ -1,26 +1,23 @@
 import angular from 'angular';
 
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
-import {cropUtil} from '../util/crop';
 
-var crop = angular.module('kahuna.crop.controller', ['gr.keyboardShortcut', cropUtil.name]);
+var crop = angular.module('kahuna.crop.controller', ['gr.keyboardShortcut']);
 
 crop.controller('ImageCropCtrl',
                 ['$scope', '$rootScope', '$stateParams', '$state',
                  '$filter', '$document', 'mediaApi', 'mediaCropper',
-                 'image', 'optimisedImageUri', 'keyboardShortcut', 'cropType',
+                 'image', 'optimisedImageUri', 'keyboardShortcut', 'storage',
                  function($scope, $rootScope, $stateParams, $state,
                           $filter, $document, mediaApi, mediaCropper,
-                          image, optimisedImageUri, keyboardShortcut, cropType) {
+                          image, optimisedImageUri, keyboardShortcut, storage) {
 
     const ctrl = this;
     const imageId = $stateParams.imageId;
-
     if ($stateParams.cropType) {
-        cropType.set($stateParams.cropType);
+        storage.setJs('cropType', $stateParams.cropType, true);
     }
-
-    ctrl.cropType = cropType.get();
+    ctrl.cropType = storage.getJs('cropType', true);
 
     keyboardShortcut.bindTo($scope)
         .add({
