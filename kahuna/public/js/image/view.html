@@ -117,53 +117,14 @@
 </div>
 
 <div class="image-details image-details--full-image">
-    <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
-    <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
+  <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
+  <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
+  <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
 
-    <div ng:init="showMetadata = true">
-        <div class="radio-list">
-            <input type="radio"
-                   id="show-metadata"
-                   class="radio-list__circle"
-                   name="show-metadata"/>
-            <label for="show-metadata"
-                   class="radio-list__label"
-                   ng:class="{'radio-list--selected': showMetadata}"
-                   ng:click="showMetadata = true"
-                   gr:track-click="Image panel tab"
-                   gr:track-click-data="{ tab: 'Metadata' }">
-                <div class="radio-list__selection-state"></div>
-                <div class="radio-list__label-value">Metadata</div>
-            </label>
-
-            <input type="radio"
-                   id="show-usage"
-                   class="radio-list__circle"
-                   name="show-usage"/>
-
-            <label for="show-usage"
-                   class="radio-list__label"
-                   ng:class="
-                   {
-                    'radio-list--disabled': ctrl.usagesCount < 1,
-                    'radio-list--selected': ! showMetadata
-                   }"
-                   ng:click="(ctrl.usagesCount < 1) || (showMetadata = false)"
-                   gr:track-click="Image panel tab"
-                   gr:track-click-data="{ tab: 'Usage' }">
-                <div class="radio-list__selection-state"></div>
-                <div class="radio-list__label-value">
-                    <gr-icon ng-if="ctrl.recentUsages.count()>0" class="icon-warning invert">info_outline</gr-icon>
-                    <span class="gr-icon" style="vertical-align: middle">Usages ({{ctrl.usagesCount == 0 ? "None" : ctrl.usagesCount}})</span>
-                </div>
-            </label>
-        </div>
-
-        <div class="image-details image-details--scroll">
-            <gr-image-metadata gr-image="ctrl.image" ng:if="showMetadata"></gr-image-metadata>
-            <gr-image-usage gr-image="ctrl.image" ng:if="! showMetadata"></gr-image-usage>
-        </div>
-    </div>
+  <div class="image-details image-details--scroll">
+    <gr-image-metadata gr-image="ctrl.image" ng:if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
+    <gr-image-usage gr-image="ctrl.image" ng:if="ctrl.selectedTab === 'usages'"></gr-image-usage>
+  </div>
 </div>
 
 <div class="image-holder">
