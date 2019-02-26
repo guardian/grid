@@ -5,6 +5,8 @@ import scala.util.Try
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.format.DateTimeFormatterBuilder
+import scalaz.Functor
+import scalaz.std.option._
 
 package object formatting {
 
@@ -39,4 +41,7 @@ package object formatting {
 
   def parseDuration(string: String): Option[Duration] =
     Try(Duration(string)).toOption
+
+  def normaliseNewLines(string: String): String = string.replaceAll("(\\r|\\n|\\r\\n)+", "\n")
+  def optNormaliseNewLines = Functor[Option].lift(normaliseNewLines)
 }

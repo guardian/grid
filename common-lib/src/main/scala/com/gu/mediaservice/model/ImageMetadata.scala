@@ -31,17 +31,17 @@ object ImageMetadata {
 
   implicit val ImageMetadataReads: Reads[ImageMetadata] = (
     (__ \ "dateTaken").readNullable[String].map(_.flatMap(parseDateTime)) ~
-      (__ \ "description").readNullable[String] ~
+      (__ \ "description").readNullable[String].map(optNormaliseNewLines) ~
       (__ \ "credit").readNullable[String] ~
       (__ \ "creditUri").readNullable[String] ~
       (__ \ "byline").readNullable[String] ~
       (__ \ "bylineTitle").readNullable[String] ~
       (__ \ "title").readNullable[String] ~
-      (__ \ "copyrightNotice").readNullable[String] ~
-      (__ \ "copyright").readNullable[String] ~
-      (__ \ "suppliersReference").readNullable[String] ~
+      (__ \ "copyrightNotice").readNullable[String].map(optNormaliseNewLines) ~
+      (__ \ "copyright").readNullable[String].map(optNormaliseNewLines) ~
+      (__ \ "suppliersReference").readNullable[String].map(optNormaliseNewLines) ~
       (__ \ "source").readNullable[String] ~
-      (__ \ "specialInstructions").readNullable[String] ~
+      (__ \ "specialInstructions").readNullable[String].map(optNormaliseNewLines) ~
       (__ \ "keywords").readNullable[List[String]].map(_ getOrElse Nil) ~
       (__ \ "subLocation").readNullable[String] ~
       (__ \ "city").readNullable[String] ~
