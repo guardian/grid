@@ -6,15 +6,19 @@ import './gr-delete-usages.css';
 import {confirmDelete} from '../gr-confirm-delete/gr-confirm-delete';
 import {imageUsagesService} from '../../services/image/usages';
 
+import {string} from '../../util/string';
+
 export const deleteUsages = angular.module('gr.deleteUsages', [
   confirmDelete.name,
-  imageUsagesService.name
+  imageUsagesService.name,
+  string.name
 ]);
 
 deleteUsages.controller('grDeleteUsagesCtrl', [
   '$window',
   'imageUsagesService',
-  function($window, imageUsagesService) {
+  'stripMargin',
+  function($window, imageUsagesService, stripMargin) {
     const ctrl = this;
 
     ctrl.active = false;
@@ -31,10 +35,13 @@ deleteUsages.controller('grDeleteUsagesCtrl', [
         const deleteConfirmText = 'DELETE';
 
         const superSure = $window.prompt(
-          `You're about to delete the ALL USAGES for this image. 
-          This will NOT remove the image from content, 
-          however it will remove it from Grid's database.
-          Type ${deleteConfirmText} below to confirm.`
+          stripMargin`
+            |You're about to delete the ALL USAGES for this image.
+            |This will NOT remove the image from content,
+            |however it will remove it from Grid's database.
+            |
+            |Enter ${deleteConfirmText} below to confirm.
+            |`
         );
 
         if (superSure === deleteConfirmText) {
