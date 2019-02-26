@@ -11,9 +11,6 @@ class EditsConfig(override val configuration: Configuration) extends CommonConfi
 
   val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
 
-  val keyStoreBucket = properties("auth.keystore.bucket")
-  val collectionsBucket: String = properties("s3.collections.bucket")
-
   val editsTable = properties("dynamo.table.edits")
 
   val topicArn = properties("sns.topic.arn")
