@@ -21,15 +21,15 @@ deleteUsages.controller('grDeleteUsagesCtrl', [
   function($window, imageUsagesService, stripMargin) {
     const ctrl = this;
 
-    ctrl.active = false;
+    ctrl.userHasPermission = false;
 
     imageUsagesService.canDeleteUsages(ctrl.image).then(deleteUsages => {
       if (!deleteUsages) {
-        ctrl.active = false;
+        ctrl.userHasPermission = false;
         return;
       }
 
-      ctrl.active = true;
+      ctrl.userHasPermission = true;
 
       ctrl.delete = () => {
         const deleteConfirmText = 'DELETE';
