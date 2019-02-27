@@ -10,6 +10,7 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
+import {radioList} from '../components/gr-radio-list/gr-radio-list';
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -17,7 +18,8 @@ export var query = angular.module('kahuna.search.query', [
     eq.name,
     guDateRange.name,
     syntax.name,
-    grStructuredQuery.name
+    grStructuredQuery.name,
+  radioList.name
 ]);
 
 query.controller('SearchQueryCtrl',
@@ -27,6 +29,15 @@ query.controller('SearchQueryCtrl',
                  mediaApi, cookies, mediaApiUri) {
 
     const ctrl = this;
+
+    ctrl.defaultOrderingOptions = [
+      {key: undefined, value: 'Newest first'},
+      {key: 'oldest', value: 'Oldest first'},
+    ];
+
+    ctrl.collectionOrderingOptions = ctrl.defaultOrderingOptions.concat(
+      {key: 'dateAddedToCollection', value: 'Recently Added First'}
+    );
 
     ctrl.ordering = {
         orderBy: $stateParams.orderBy

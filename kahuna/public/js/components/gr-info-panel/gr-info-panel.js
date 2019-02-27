@@ -11,6 +11,7 @@ import '../../services/panel';
 import '../../edits/service';
 import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
+import {radioList} from '../gr-radio-list/gr-radio-list';
 import { descriptionEditOptions } from '../../util/constants/descriptionEditOptions';
 export const grInfoPanel = angular.module('grInfoPanel', [
     'kahuna.services.image-accessor',
@@ -20,7 +21,8 @@ export const grInfoPanel = angular.module('grInfoPanel', [
     'kahuna.edits.service',
     'grXeditable',
     'ui.bootstrap',
-    'util.rx'
+    'util.rx',
+  radioList.name
 ]);
 
 grInfoPanel.controller('GrInfoPanelCtrl', [
@@ -161,6 +163,14 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
 
         ctrl.descriptionOption = descriptionEditOptions.overwrite.value;
 
+        ctrl.descs = [
+          {key: 0, value: 'Overwrite'},
+          {key: 2, value: 'Prepend'},
+          {key: 1, value: 'Append'}
+        ];
+
+        ctrl.selectedDesc = 0;
+
         ctrl.descriptionOptions = [
           descriptionEditOptions.overwrite,
           descriptionEditOptions.prepend,
@@ -177,7 +187,7 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
               imageArray,
               field,
               value,
-              ctrl.descriptionOption
+              ctrl.selectedDesc
             );
         };
 

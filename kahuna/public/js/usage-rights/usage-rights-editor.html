@@ -100,38 +100,22 @@
                         <div ng:if="property.options"
                              ng:switch="property.options.length > 3"
                              ng:init="options = ctrl.getOptionsFor(property)">
-                                <div class="radio-list" ng:switch-when="false">
-                                    <div class="radio-list__item"
-                                         ng:repeat="o in options">
 
-                                        <input type="radio"
-                                            id="id-{{::$id}}-{{o.key}}-{{property.name}}-radio-list__item"
-                                            class="radio-list__circle"
-                                            name="{{property.name}}-radio-list"
-                                            placeholder="e.g. {{ property.examples }}"
-                                            ng:value="o.value"
-                                            ng:required="property.required"
-                                            ng:model="ctrl.model[property.name]" />
-                                        <label
-                                            for="id-{{::$id}}-{{o.key}}-{{property.name}}-radio-list__item"
-                                            class="radio-list__label"
-                                            ng:class="{'radio-list--selected': ctrl.model[property.name] === o.value || (!ctrl.model[property.name] && o.value === null)}">
-                                            <div class="radio-list__selection-state"></div>
-                                            <div class="radio-list__label-value">{{ o.key }}</div>
-                                        </label>
+                          <gr-radio-list ng:switch-when="false"
+                                         gr-for="property"
+                                         gr-options="options"
+                                         gr-selected-option="ctrl.model[property.name]">
+                          </gr-radio-list>
 
-                                    </div>
-                                </div>
-
-                                <select
-                                    class="full-width"
-                                    id="ure-field-{{::fieldUniqueId}}"
-                                    name="{{ property.name }}"
-                                    ng:switch-when="true"
-                                    ng:model="ctrl.model[property.name]"
-                                    ng:required="property.required"
-                                    ng:options="o.value as o.key for o in options">
-                                </select>
+                          <select
+                              class="full-width"
+                              id="ure-field-{{::fieldUniqueId}}"
+                              name="{{ property.name }}"
+                              ng:switch-when="true"
+                              ng:model="ctrl.model[property.name]"
+                              ng:required="property.required"
+                              ng:options="o.value as o.key for o in options">
+                          </select>
                         </div>
 
                         <div class="flex-container"

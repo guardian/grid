@@ -147,33 +147,26 @@
                                       'text-input': true}"
                       >
                       </div>
-                      <div
-                        ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible"
-                        class="image-info__description--options"
-                      >
-                        <div
-                         editable-radiolist="ctrl.descriptionOption"
-                         e-ng-options="option.value as option.text for option in ctrl.descriptionOptions"
-                         e-name="descriptionOption"
-                    >
-                        </div>
-                    </div>
+                      <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible"
+                           class="image-info__description--options">
+                        <gr-radio-list gr-for"description-edit" gr-options="ctrl.descs" gr-selected-option="ctrl.selectedDesc"></gr-radio-list>
+                      </div>
                     <!--
                       These buttons are a copy of the buttons we use in the inline
                       input elements but with a different form name which is why they
                       are duplicated here
                     -->
-                    <div ng-if="ctrl.userCanEdit && descriptionEditForm.$visible" class="editable-buttons">
-                        <button class="button-cancel" type="button" ng-click="descriptionEditForm.$cancel()">
-                            <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
-                        </button>
+                      <div ng-if="ctrl.userCanEdit && descriptionEditForm.$visible" class="editable-buttons">
+                          <button class="button-cancel" type="button" ng-click="descriptionEditForm.$cancel()">
+                              <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+                          </button>
 
-                        <button class="button-save" type="submit">
-                            <gr-icon-label gr-icon="check">Save</gr-icon-label>
-                        </button>
-                    </div>
+                          <button class="button-save" type="submit">
+                              <gr-icon-label gr-icon="check">Save</gr-icon-label>
+                          </button>
+                      </div>
+                    </form>
                 </div>
-            </form>
         </dl>
         </div>
         <div class="image-info__group" ng:if="ctrl.rawMetadata.specialInstructions">

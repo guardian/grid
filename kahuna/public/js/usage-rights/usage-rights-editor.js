@@ -12,12 +12,14 @@ import template from './usage-rights-editor.html';
 import './usage-rights-editor.css';
 
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
+import {radioList} from '../components/gr-radio-list/gr-radio-list';
 
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
     'monospaced.elastic',
     'gr.confirmDelete',
     'util.rx',
-    'kahuna.services.image-list'
+    'kahuna.services.image-list',
+    radioList.name
 ]);
 
 usageRightsEditor.controller(
