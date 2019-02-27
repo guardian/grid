@@ -40,27 +40,13 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     for {
       strip <- imageOperations.cropImage(sourceFile, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
       file: File <- imageOperations.appendMetadata(strip, metadata)
-
-
-      //Before apps and frontend can handle PNG24s we need to pngquant PNG24 master crops
-      optimisedFile =  if (colourType == "True Color with Alpha") {
-
-        val fileName = file.getAbsolutePath()
-
-
-        val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-        Seq("pngquant", "--quality", "1-85", fileName, "--output", optimisedImageName).!
-        new File(optimisedImageName)
-      } else file
-
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType.extension, true)
       sizing      = store.storeCropSizing(file, filename, mediaType.name, crop, dimensions)
       dirtyAspect = source.bounds.width.toFloat / source.bounds.height
       aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
-
     }
-    yield MasterCrop(sizing, optimisedFile, dimensions, aspect)
+    yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop,
