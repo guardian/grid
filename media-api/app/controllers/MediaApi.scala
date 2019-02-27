@@ -17,6 +17,7 @@ import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
 import lib.elasticsearch._
+import lib.querysyntax.{Match, Negation, SingleField, Words}
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.http.HttpEntity
@@ -31,6 +32,7 @@ class MediaApi(
                 messageSender: MessageSender,
                 elasticSearch: ElasticSearchVersion,
                 imageResponse: ImageResponse,
+                usageStore: UsageStore,
                 override val config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
@@ -286,16 +288,32 @@ class MediaApi(
       links = List(prevLink, nextLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
 
-    val searchParams = SearchParams(request)
+    val includeOverQuota = request.getQueryString("includeOverQuota").flatMap(SearchParams.parseBooleanFromQuery).getOrElse(true)
+    val alteredSearchParams = if(includeOverQuota) {
+      Future.successful(SearchParams(request))
+    } else {
+      addOverQuotaFilters(SearchParams(request))
+    }
 
-    SearchParams.validate(searchParams).fold(
-      // TODO: respondErrorCollection?
-      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-        // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
-        errors.map(_.message).list.reduce(_+ ", " +_), List(searchLink))
-      ),
-      params => respondSuccess(params)
-    )
+    alteredSearchParams.flatMap { searchParams =>
+      SearchParams.validate(searchParams).fold(
+        // TODO: respondErrorCollection?
+        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+          // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
+          errors.map(_.message).list.reduce(_ + ", " + _), List(searchLink))
+        ),
+        params => respondSuccess(params)
+      )
+    }
+  }
+
+  private def addOverQuotaFilters(searchParams: SearchParams): Future[SearchParams] = {
+    usageStore.getUsageStatus().map(_.store).map { usageStatus =>
+      val overQuotaSuppliers = usageStatus.collect { case (supplier, status) if status.exceeded => supplier }
+      val conditions = overQuotaSuppliers.map { supplier => Negation(Match(SingleField("supplier"), Words(supplier))) }
+
+      searchParams.copy(structuredQuery = searchParams.structuredQuery ++ conditions)
+    }
   }
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
