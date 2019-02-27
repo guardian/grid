@@ -1,3 +1,9 @@
 <div ng-repeat="(type, usages) in ctrl.usages">
-    <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
+  <gr-image-usage-list type="ctrl.usageTypeToName(type)" usages="usages"></gr-image-usage-list>
 </div>
+
+<gr-delete-usages
+  ng:if="ctrl.usagesCount > 0"
+  gr:image="ctrl.image"
+  gr:on-delete="ctrl.onUsagesDeleted()">
+</gr-delete-usages>
