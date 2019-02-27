@@ -14,10 +14,11 @@ class TogglingElasticSearch(a: ElasticSearchVersion,
   val TOGGLE_COOKIE_NAME = "GRID_INDEX_TOGGLE"
 
   def active()(implicit request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]) = {
+    val userIdentifier = request.user.apiKey.name
     val version = if (request.cookies.exists(c => c.name == TOGGLE_COOKIE_NAME)) {
       b
     } else a
-    Logger.info("Using toggled ES: " + version)
+    Logger.info("User " + userIdentifier + " selecting ES: " + version)
     version
   }
 
