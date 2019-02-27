@@ -4,13 +4,12 @@ import java.io.File
 
 import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
+import com.gu.mediaservice.lib.Files
+import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.model._
 
 import scala.concurrent.Future
-
-import com.gu.mediaservice.model._
-import com.gu.mediaservice.lib.Files
-import com.gu.mediaservice.lib.imaging.{ImageOperations, ExportResult}
-import scala.sys.process._
+import scala.util.Try
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingMimeType extends Exception("Missing mimeType from source API")
@@ -20,8 +19,9 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
 class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations) {
-  import scala.concurrent.ExecutionContext.Implicits.global
   import Files._
+
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   private val cropQuality = 75d
   private val masterCropQuality = 95d
@@ -86,17 +86,8 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val mediaType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
     val colourType = apiImage.fileMetadata.colourModelInformation.getOrElse("colorType", "")
-    val hasAlpha = apiImage.fileMetadata.colourModelInformation.getOrElse("hasAlpha", "true")
-
-    val cropType = if (mediaType == "image/png") {
-      if (colourType.startsWith("True Color") && hasAlpha == "false") {
-        ImageOperations.Jpeg
-      } else {
-        ImageOperations.Png
-      }
-    } else {
-      ImageOperations.Jpeg
-    }
+    val hasAlpha = apiImage.fileMetadata.colourModelInformation.get("hasAlpha").flatMap(a => Try(a.toBoolean).toOption).getOrElse(true)
+    val cropType = Crops.cropType(mediaType, colourType, hasAlpha)
 
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
@@ -111,5 +102,24 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete))
     }
     yield ExportResult(apiImage.id, masterSize, sizes)
+  }
+}
+
+object Crops {
+  /**
+    * The aim here is to decide whether the crops should be JPEG or PNGs depending on a predicted quality/size trade-off.
+    *  - If the PNG has transparency then it should always be a PNG as the transparency is not available in JPEG
+    *  - If the PNG is not true colour then we assume it is a graphic that should be retained as a PNG
+    */
+  def cropType(mediaType: String, colourType: String, hasAlpha: Boolean): MimeType = {
+    val isPng = mediaType == "image/png"
+    val isGraphic = !colourType.startsWith("True Color")
+    val retainAsPng = hasAlpha || isGraphic
+
+    if ( isPng && retainAsPng ) {
+      ImageOperations.Png
+    } else {
+      ImageOperations.Jpeg
+    }
   }
 }
