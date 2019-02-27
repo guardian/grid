@@ -9,6 +9,10 @@ tooltip.directive('grTooltip', [
         return {
             restrict: 'A',
             link: function ($scope, element, attrs) {
+              if (!attrs.grTooltip) {
+                return;
+              }
+
                 const position = attrs.grTooltipPosition || 'bottom';
                 element.attr('data-title', attrs.grTooltip)
                     .addClass(`titip-default`)
