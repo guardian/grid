@@ -7,9 +7,9 @@ storage.factory('storage', ['$window', function($window) {
 
         if (toSessionStorage) {
             $window.sessionStorage.setItem(key, JSON.stringify(val));
+        } else {
+            $window.localStorage.setItem(key, JSON.stringify(val));
         }
-
-        $window.localStorage.setItem(key, JSON.stringify(val));
     }
 
     function getJs(key, fromSessionStorage) {
