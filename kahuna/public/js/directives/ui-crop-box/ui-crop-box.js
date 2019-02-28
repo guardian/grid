@@ -4,16 +4,24 @@ import 'cropperjs/dist/cropper.css';
 
 import './cropper-override.css';
 
-export var cropBox = angular.module('ui.cropBox', []);
+import {cropUtil} from '../../util/crop';
 
-cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', 'delay',
-                                function($timeout, $parse, safeApply, nextTick, delay) {
+export var cropBox = angular.module('ui.cropBox', [cropUtil.name]);
+
+cropBox.directive('uiCropBox', [
+  '$timeout',
+  '$parse',
+  'safeApply',
+  'nextTick',
+  'delay',
+  'cropOptions',
+  function($timeout, $parse, safeApply, nextTick, delay, cropOptions) {
 
     return {
         restrict: 'A',
         scope: {
             coords:         '=uiCropBox',
-            aspectRatio:    '=uiCropBoxAspect',
+            cropType:       '=uiCropBoxCropType',
             originalWidth:  '=uiCropBoxOriginalWidth',
             originalHeight: '=uiCropBoxOriginalHeight'
         },
@@ -84,11 +92,11 @@ cropBox.directive('uiCropBox', ['$timeout', '$parse', 'safeApply', 'nextTick', '
                 });
             }
 
-
             // Once initialised, sync all options to cropperjs
             function postInit(cropper) {
-                scope.$watch('aspectRatio', function(aspectRatio) {
-                    cropper.setAspectRatio(aspectRatio);
+                scope.$watch('cropType', function(cropType) {
+                    const cropSpec = cropOptions.find(_ => _.key === cropType);
+                    cropper.setAspectRatio(cropSpec.ratio);
                 });
 
                 scope.$on('user-width-change', function(event, width){
