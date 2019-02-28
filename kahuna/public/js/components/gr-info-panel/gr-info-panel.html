@@ -151,12 +151,7 @@
                         ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible"
                         class="image-info__description--options"
                       >
-                        <div
-                         editable-radiolist="ctrl.descriptionOption"
-                         e-ng-options="option.value as option.text for option in ctrl.descriptionOptions"
-                         e-name="descriptionOption"
-                    >
-                        </div>
+                        <gr-radio-list gr-for="description" gr-options="ctrl.descriptionOptions" gr-selected-option="ctrl.descriptionOption"></gr-radio-list>
                     </div>
                     <!--
                       These buttons are a copy of the buttons we use in the inline
