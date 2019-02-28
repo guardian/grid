@@ -171,12 +171,12 @@ query.controller('SearchQueryCtrl',
         }
     });
 
-   var elastic6OptOutCookieName = "GRID_ELASTIC6_OPT_OUT";
-     var toggleCookie = cookies.get(elastic6OptOutCookieName);
-     var toggled = toggleCookie !== undefined;
-     ctrl.elastic6 = toggled;
+    var elastic6OptOutCookieName = "GRID_ELASTIC6_OPT_OUT";
+    var toggleCookie = cookies.get(elastic6OptOutCookieName);
+    var toggled = toggleCookie !== undefined;
+    ctrl.elastic6 = toggled;
 
-     function toggleElasticIndex() {
+    function toggleElasticIndex() {
         var apiDomainUrl = new URL(mediaApiUri);
         var apiHost = apiDomainUrl.host;
         var firstDot = apiHost.indexOf('.');
