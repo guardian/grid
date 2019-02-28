@@ -71,6 +71,7 @@ image.controller('ImageCtrl', [
   'imageUsagesService',
   'keyboardShortcut',
   'cropTypeUtil',
+  'cropOptions',
 
   function ($rootScope,
             $scope,
@@ -89,7 +90,8 @@ image.controller('ImageCtrl', [
             imageService,
             imageUsagesService,
             keyboardShortcut,
-            cropTypeUtil) {
+            cropTypeUtil,
+            cropOptions) {
 
     let ctrl = this;
 
@@ -179,8 +181,12 @@ image.controller('ImageCtrl', [
     });
 
     ctrl.allowCropSelection = (crop) => {
-      return !ctrl.cropType ||
-        $filter('asAspectRatioWord')(crop.specification.aspectRatio) === ctrl.cropType;
+      if (ctrl.cropType) {
+        const cropSpec = cropOptions.find(_ => _.key === ctrl.cropType);
+        return crop.specification.aspectRatio === cropSpec.ratioString;
+      }
+
+      return true;
     };
 
     ctrl.onCropsDeleted = () => {

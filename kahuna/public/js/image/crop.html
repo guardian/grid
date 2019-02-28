@@ -5,7 +5,7 @@
 <div class="image-crop__info"
      ng:class="{'image-crop__info--selected': crop == ctrl.crop}">
   <div class="flex-container">
-    {{:: crop.specification.aspectRatio | asAspectRatioWord}}
+    {{:: crop.specification.aspectRatio | asCropType}}
     <span class="flex-spacer"></span>
     <span ng:if="crop.specification.aspectRatio">({{:: crop.specification.aspectRatio}})</span>
   </div>

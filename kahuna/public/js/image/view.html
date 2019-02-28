@@ -53,8 +53,10 @@
             <dd>
                 <div class="image-crop"
                      ng:init="crop = ctrl.fullCrop"
-                     ng:class="{'image-crop--selected': crop == ctrl.crop}">
-                    <a draggable="true"
+                     ng:class="{'image-crop--selected': crop == ctrl.crop}"
+                     ng-switch="ctrl.allowCropSelection(crop)">
+                    <a ng:switch-when="true"
+                       draggable="true"
                        ng:init="extremeAssets = (crop | getExtremeAssets)"
                        ng:click="ctrl.cropSelected(crop)"
                        ui:sref="{ crop: crop.id }"
@@ -62,7 +64,8 @@
                        ui:drag-image="extremeAssets.smallest | assetFile">
                         <img class="image-crop__image"
                              alt="full frame image thumbnail"
-                             ng:src="{{:: extremeAssets.smallest | assetFile }}" />
+                             ng:src="{{:: extremeAssets.smallest | assetFile }}"
+                             ng:class="{'image-crop__image--disabled': !ctrl.allowCropSelection(crop) }"/>
 
                         <div class="flex-container image-crop__info image-crop__more-info"
                              ng:class="{'image-crop__info--selected': crop == ctrl.crop}">
@@ -71,6 +74,14 @@
                             <span class="image-crop__creator" title="Cropped by {{:: crop.author}} at {{:: crop.date | date:'medium'}}">{{:: crop.author | getInitials}}</span>
                         </div>
                     </a>
+                    <div ng-switch-when="false"
+                         draggable="false"
+                         class="image-crop--disabled"
+                         ng:init="extremeAssets = (crop | getExtremeAssets)"
+                         gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
+                         gr-tooltip-position="top">
+                      <ng-include src="'/assets/js/image/crop.html'"></ng-include>
+                    </div>
                 </div>
             </dd>
         </div>

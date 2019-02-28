@@ -2,7 +2,9 @@ import angular from 'angular';
 import template from './gr-display-crops.html';
 import './gr-display-crops.css';
 
-export var displayCrops = angular.module('gr.displayCrops', []);
+import {cropUtil} from '../../util/crop';
+
+export const displayCrops = angular.module('gr.displayCrops', [cropUtil.name]);
 
 displayCrops.controller('GrDisplayCrops', [function() {
 

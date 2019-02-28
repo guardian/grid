@@ -46,3 +46,10 @@ cropUtil.factory('cropTypeUtil', ['storage', function(storage) {
 
   return { set, get };
 }]);
+
+cropUtil.filter('asCropType', function() {
+  return ratioString => {
+    const cropSpec = cropOptions.find(_ => _.ratioString === ratioString) || freeform;
+    return cropSpec.key;
+  };
+});
