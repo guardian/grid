@@ -166,12 +166,12 @@
     </div>
 
     <div class="advanced-search-help__section">
-        <h2 class="advanced-search-help__section__title">Index testing</h2>
-        <p>Do not tick this box unless you are testing the new search index.</p>
-        Use Elastic6 index
-        <input type="checkbox"
-               ng:model="searchQuery.elastic6"
-               ng:change="searchQuery.toggleElasticIndex()" />
-        </label>
+      <h2 class="advanced-search-help__section__title">New Grid opt out</h2>
+      <p>Tick this box to opt out of the new Grid index.</p>
+      Opt out
+      <input type="checkbox"
+             ng:model="searchQuery.elastic6"
+             ng:change="searchQuery.toggleElasticIndex()" />
+      </label>
     </div>
 </div>

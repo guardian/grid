@@ -171,27 +171,27 @@ query.controller('SearchQueryCtrl',
         }
     });
 
-    var toggleCookieName = "GRID_INDEX_TOGGLE";
-    var toggleCookie = cookies.get(toggleCookieName);
-    var toggled = toggleCookie !== undefined;
-    ctrl.elastic6 = toggled;
+   var elastic6OptOutCookieName = "GRID_ELASTIC6_OPT_OUT";
+     var toggleCookie = cookies.get(elastic6OptOutCookieName);
+     var toggled = toggleCookie !== undefined;
+     ctrl.elastic6 = toggled;
 
-    function toggleElasticIndex() {
-        var apiDomainUrl = new URL(mediaApiUri);
-        var apiHost = apiDomainUrl.host;
-        var firstDot = apiHost.indexOf('.');
-        var domain = apiHost.substring(firstDot + 1);
-        if (ctrl.elastic6) {
-            var now = new Date();
-            var expires = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-            cookies.put(toggleCookieName, "1", {"domain": domain, "expires": expires});
-        } else {
-            cookies.remove(toggleCookieName, {"domain": domain});
-        }
+     function toggleElasticIndex() {
+         var apiDomainUrl = new URL(mediaApiUri);
+         var apiHost = apiDomainUrl.host;
+         var firstDot = apiHost.indexOf('.');
+         var domain = apiHost.substring(firstDot + 1);
+         if (ctrl.elastic6) {
+             var now = new Date();
+             var expires = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+             cookies.put(elastic6OptOutCookieName, "1", {"domain": domain, "expires": expires});
+         } else {
+             cookies.remove(elastic6OptOutCookieName, {"domain": domain});
+         }
 
-        function revealNewImages() {
-            $state.reload();    // TODO back port to results
-        }
+         function revealNewImages() {
+             $state.reload();
+         }
 
         revealNewImages();
     }
