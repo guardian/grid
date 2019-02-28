@@ -177,21 +177,21 @@ query.controller('SearchQueryCtrl',
      ctrl.elastic6 = toggled;
 
      function toggleElasticIndex() {
-         var apiDomainUrl = new URL(mediaApiUri);
-         var apiHost = apiDomainUrl.host;
-         var firstDot = apiHost.indexOf('.');
-         var domain = apiHost.substring(firstDot + 1);
-         if (ctrl.elastic6) {
-             var now = new Date();
-             var expires = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-             cookies.put(elastic6OptOutCookieName, "1", {"domain": domain, "expires": expires});
-         } else {
-             cookies.remove(elastic6OptOutCookieName, {"domain": domain});
-         }
+        var apiDomainUrl = new URL(mediaApiUri);
+        var apiHost = apiDomainUrl.host;
+        var firstDot = apiHost.indexOf('.');
+        var domain = apiHost.substring(firstDot + 1);
+        if (ctrl.elastic6) {
+            var now = new Date();
+            var expires = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+            cookies.put(elastic6OptOutCookieName, "1", {"domain": domain, "expires": expires});
+        } else {
+            cookies.remove(elastic6OptOutCookieName, {"domain": domain});
+        }
 
-         function revealNewImages() {
-             $state.reload();
-         }
+        function revealNewImages() {
+            $state.reload();
+        }
 
         revealNewImages();
     }
