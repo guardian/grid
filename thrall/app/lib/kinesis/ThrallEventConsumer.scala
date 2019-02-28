@@ -59,7 +59,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
             val ThirtySeconds = Duration(30, SECONDS)
             val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
             eventuallyAppliedUpdate.map { _ =>
-              Logger.info("Completed processing of update message: " + ("Got update message: " + messageLogMessage))
+              Logger.info("Completed processing of update message: " + messageLogMessage)
             }.recover {
               case e: Throwable =>
                 Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
