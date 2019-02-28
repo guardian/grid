@@ -11,13 +11,13 @@ import scala.concurrent.{ExecutionContext, Future}
 class TogglingElasticSearch(a: ElasticSearchVersion,
                             b: ElasticSearchVersion) extends ElasticSearchVersion {
 
-  val TOGGLE_COOKIE_NAME = "GRID_INDEX_TOGGLE"
+  val OPT_OUT_COOKIE_NAME = "GRID_ELASTIC6_OPT_OUT"
 
   def active()(implicit request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]) = {
     val userIdentifier = request.user.apiKey.name
-    val version = if (request.cookies.exists(c => c.name == TOGGLE_COOKIE_NAME)) {
-      b
-    } else a
+    val userHasRequestedOptOut = request.cookies.exists(c => c.name == OPT_OUT_COOKIE_NAME)
+    val version = if (userHasRequestedOptOut) a else b
+
     Logger.info("User " + userIdentifier + " selecting ES: " + version)
     version
   }
