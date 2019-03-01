@@ -32,7 +32,6 @@ import {globalErrors} from './errors/global';
 import {icon}    from './components/gr-icon/gr-icon';
 import {tooltip} from './components/gr-tooltip/gr-tooltip';
 
-
 // TODO: move to an async config to remove deps on play
 var apiLink = document.querySelector('link[rel="media-api-uri"]');
 var reauthLink = document.querySelector('link[rel="reauth-uri"]');
@@ -381,19 +380,6 @@ kahuna.filter('asImageAndCropsDragData', ['$filter',
             $filter('asCropsDragData')(crops));
     };
 }]);
-
-kahuna.filter('asAspectRatioWord', function() {
-    // FIXME: Try to find one place to store these mappings
-    var aspectToName = {
-        '5:3': 'landscape',
-        '2:3': 'portrait',
-        '16:9': 'video',
-        '1:1': 'square'
-    };
-    var defaultName = 'freeform';
-
-    return aspectRatio => aspectToName[aspectRatio] || defaultName;
-});
 
 kahuna.filter('asFileSize', function() {
     return bytes => {

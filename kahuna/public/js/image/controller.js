@@ -22,6 +22,7 @@ import '../components/gr-metadata-validity/gr-metadata-validity';
 import '../components/gr-display-crops/gr-display-crops';
 import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
+import {cropUtil} from '../util/crop';
 
 
 const image = angular.module('kahuna.image.controller', [
@@ -47,7 +48,8 @@ const image = angular.module('kahuna.image.controller', [
   'gr.metadataValidity',
   'gr.displayCrops',
   'gu.date',
-  radioList.name
+  radioList.name,
+  cropUtil.name
 ]);
 
 image.controller('ImageCtrl', [
@@ -68,7 +70,8 @@ image.controller('ImageCtrl', [
   'imageService',
   'imageUsagesService',
   'keyboardShortcut',
-  'storage',
+  'cropTypeUtil',
+  'cropOptions',
 
   function ($rootScope,
             $scope,
@@ -87,7 +90,8 @@ image.controller('ImageCtrl', [
             imageService,
             imageUsagesService,
             keyboardShortcut,
-            storage) {
+            cropTypeUtil,
+            cropOptions) {
 
     let ctrl = this;
 
@@ -166,11 +170,8 @@ image.controller('ImageCtrl', [
 
     ctrl.image.allCrops = [];
 
-    if ($stateParams.cropType) {
-      storage.setJs('cropType', $stateParams.cropType, true);
-    }
-
-    ctrl.cropType = storage.getJs('cropType', true);
+    cropTypeUtil.set($stateParams);
+    ctrl.cropType = cropTypeUtil.get();
     ctrl.capitalisedCropType = ctrl.cropType ?
       ctrl.cropType[0].toUpperCase() + ctrl.cropType.slice(1) :
       '';
@@ -180,8 +181,12 @@ image.controller('ImageCtrl', [
     });
 
     ctrl.allowCropSelection = (crop) => {
-      return !ctrl.cropType ||
-        $filter('asAspectRatioWord')(crop.specification.aspectRatio) === ctrl.cropType;
+      if (ctrl.cropType) {
+        const cropSpec = cropOptions.find(_ => _.key === ctrl.cropType);
+        return crop.specification.aspectRatio === cropSpec.ratioString;
+      }
+
+      return true;
     };
 
     ctrl.onCropsDeleted = () => {

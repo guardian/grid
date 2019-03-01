@@ -22,6 +22,7 @@ import searchResultsTemplate from './results.html';
 import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html';
 import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
+import {cropUtil} from '../util/crop';
 
 
 export var search = angular.module('kahuna.search', [
@@ -36,7 +37,8 @@ export var search = angular.module('kahuna.search', [
     'gr.keyboardShortcut',
     'grInfoPanel',
     'grCollectionsPanel',
-    'ui.router'
+    'ui.router',
+  cropUtil.name
 ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
@@ -75,15 +77,13 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         controllerAs: 'ctrl',
         controller: [
             '$scope', '$window', '$stateParams', 'panels', 'shortcutKeys', 'keyboardShortcut',
-            'panelService', 'storage',
+            'panelService', 'cropTypeUtil',
             function($scope, $window, $stateParams, panels, shortcutKeys, keyboardShortcut,
-                     panelService, storage) {
+                     panelService, cropTypeUtil) {
 
             const ctrl = this;
 
-            if ($stateParams.cropType) {
-                storage.setJs('cropType', $stateParams.cropType, true);
-            }
+            cropTypeUtil.set($stateParams);
 
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;

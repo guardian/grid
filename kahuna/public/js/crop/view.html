@@ -52,30 +52,9 @@
             </form>
         </div>
 
-        <label class="top-bar-item clickable side-padded" gr-tooltip="landscape [l]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.landscapeRatio}}" ng-checked="ctrl.landscapeChecked || ctrl.cropType === 'landscape'" ng-disabled="ctrl.cropType" name="aspect" />
-            <gr-icon-label gr-icon="crop_landscape">Landscape</gr-icon-label> ({{::ctrl.getRatioString(ctrl.landscapeRatio)}})
-        </label>
-
-        <label class="top-bar-item clickable side-padded" gr-tooltip="portrait [p]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.portraitRatio}}" ng-disabled="ctrl.cropType" name="portrait ratio" />
-            <gr-icon-label gr-icon="crop_portrait">Portrait</gr-icon-label> ({{::ctrl.getRatioString(ctrl.portraitRatio)}})
-        </label>
-
-        <label class="top-bar-item clickable side-padded" gr-tooltip="video [v]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.videoRatio}}" ng-checked="ctrl.cropType === 'video'" ng-disabled="ctrl.cropType" name="video ratio" />
-            <gr-icon-label gr-icon="crop_16_9">Video</gr-icon-label> ({{::ctrl.getRatioString(ctrl.videoRatio)}})
-        </label>
-
-        <label class="top-bar-item clickable side-padded" gr-tooltip="square [s]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.squareRatio}}" ng-disabled="ctrl.cropType" name="square ratio" />
-            <gr-icon-label gr-icon="crop_square">Square</gr-icon-label> ({{::ctrl.getRatioString(ctrl.squareRatio)}})
-        </label>
-
-        <label class="top-bar-item clickable side-padded" gr-tooltip="free-form [F]">
-            <input type="radio" ng:model="ctrl.aspect" value="{{ctrl.freeRatio}}" ng-disabled="ctrl.cropType" name="free ratio" />
-            <gr-icon-label gr-icon="crop_free">Free-form</gr-icon-label>
-        </label>
+        <div class="inline-block side-padded">
+          <gr-radio-list gr-for="crop" gr-options="ctrl.cropOptions" gr-selected-option="ctrl.cropType"></gr-radio-list>
+        </div>
 
         <div class="top-bar-item" ng:switch="ctrl.image.data.cost">
             <div ng:switch-when="pay"
@@ -120,7 +99,7 @@
                  ui:crop-box="ctrl.coords"
                  ui:crop-box-original-width="ctrl.originalWidth"
                  ui:crop-box-original-height="ctrl.originalHeight"
-                 ui:crop-box-aspect="ctrl.aspect"
+                 ui:crop-box-crop-type="ctrl.cropType"
 
                  grid:track-image="ctrl.image"
                  grid:track-image-location="original-cropping"
