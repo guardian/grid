@@ -4,6 +4,13 @@ gr-radio-list {
 
 gr-radio-list > * {
   flex-grow: 1;
+  border: 1px solid #777;
+}
+
+/* remove a horrible double border */
+gr-radio-list > *:nth-child(2) {
+  border-left: none;
+  border-right: none;
 }
 
 gr-radio-list input[type="radio"] {
@@ -34,6 +41,7 @@ gr-radio-list label {
   cursor: pointer;
   text-align: center;
   user-select: none;
+  text-transform: capitalize;
 }
 
 gr-radio-list label:hover {
