@@ -3,7 +3,7 @@ import Rx from 'rx';
 
 import {editsApi} from '../services/api/edits-api';
 import {mediaApi} from '../services/api/media-api';
-import { descriptionEditOptions } from '../util/constants/descriptionEditOptions';
+import { overwrite, prepend, append } from '../util/constants/editOptions';
 
 export var service = angular.module('kahuna.edits.service', [
     editsApi.name,
@@ -287,30 +287,21 @@ service.factory('editsService',
             .then(() => image.get());
     }
 
-    function getNewFieldValue(image, field, value, descriptionOption) {
-
-        if (field !== 'description' ||
-           (
-             descriptionOption !== descriptionEditOptions.append.value &&
-             descriptionOption !== descriptionEditOptions.prepend.value
-            )
-        ) {
+    function getNewFieldValue(image, field, value, editOption) {
+      switch (editOption) {
+        case prepend.key:
+          return value + ' ' + imageAccessor.readMetadata(image)[field];
+        case append.key:
+          return imageAccessor.readMetadata(image)[field] + ' ' + value;
+        default:
           return value;
-        }
-
-        if (descriptionOption === descriptionEditOptions.append.value) {
-          return imageAccessor.readMetadata(image).description + ' ' + value;
-        }
-
-        if (descriptionOption === descriptionEditOptions.prepend.value) {
-          return value + ' ' + imageAccessor.readMetadata(image).description;
-        }
+      }
     }
 
 
-    function batchUpdateMetadataField (images, field, value, descriptionOption) {
+    function batchUpdateMetadataField (images, field, value, editOption = overwrite.key) {
         return $q.all(images.map(image => {
-          const newFieldValue = getNewFieldValue(image, field, value, descriptionOption);
+          const newFieldValue = getNewFieldValue(image, field, value, editOption);
           updateMetadataField(image, field, newFieldValue);
         }));
     }
