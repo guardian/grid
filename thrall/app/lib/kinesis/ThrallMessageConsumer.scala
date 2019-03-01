@@ -2,6 +2,7 @@ package lib.kinesis
 
 import java.net.InetAddress
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
@@ -18,10 +19,13 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             from: Option[DateTime]
                            ) extends MessageConsumerVersion {
 
-  val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
+  private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
+
+  private val timeMessageLastProcessed = new AtomicReference[DateTime](DateTime.now)
 
   private val thrallEventProcessorFactory = new IRecordProcessorFactory {
-    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataNotifications, syndicationRightsOps)
+    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store,
+      metadataNotifications, syndicationRightsOps, timeMessageLastProcessed)
   }
 
   private val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
@@ -62,7 +66,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
 
   private def makeThread(worker: Runnable) = new Thread(worker, s"${getClass.getSimpleName}-$workerId")
 
-  override def lastProcessed: DateTime = DateTime.now() // TODO implement
+  override def lastProcessed: DateTime = timeMessageLastProcessed.get
 
   override def isStopped: Boolean = !thrallKinesisWorkerThread.isAlive
 

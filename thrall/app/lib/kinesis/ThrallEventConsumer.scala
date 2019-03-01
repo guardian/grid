@@ -3,6 +3,7 @@ package lib.kinesis
 import java.nio.charset.StandardCharsets
 import java.util
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
@@ -12,6 +13,7 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.PlayJsonHelpers
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
+import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.{JodaReads, Json}
 
@@ -22,8 +24,10 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
                           thrallMetrics: ThrallMetrics,
                           store: ThrallStore,
                           metadataNotifications: MetadataNotifications,
-                          syndicationRightsOps: SyndicationRightsOps) extends IRecordProcessor with PlayJsonHelpers {
-  
+                          syndicationRightsOps: SyndicationRightsOps,
+                          timeMessageLastProcessed: AtomicReference[DateTime]
+                         ) extends IRecordProcessor with PlayJsonHelpers {
+
   private val ThirtySeconds = Duration(30, SECONDS)
 
   private val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps)
@@ -66,6 +70,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
             val eventuallyAppliedUpdate = processor.apply(updateMessage).map { _ =>
               Logger.info("Completed processing of update message: " + messageLogMessage)
               recordMessageCount(updateMessage)
+              timeMessageLastProcessed.lazySet(DateTime.now)
 
             }.recover {
               case e: Throwable =>
