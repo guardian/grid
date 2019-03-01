@@ -16,10 +16,10 @@ class TogglingElasticSearch(a: ElasticSearchVersion,
   def active()(implicit request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]) = {
     val userIdentifier = request.user.apiKey.name
     val userHasRequestedOptOut = request.cookies.exists(c => c.name == OPT_OUT_COOKIE_NAME)
-    val version = if (userHasRequestedOptOut) a else b
-
-    Logger.info("User " + userIdentifier + " selecting ES: " + version)
-    version
+    if (userHasRequestedOptOut) {
+      Logger.info("User " + userIdentifier + " is still opted out of Elastic 6 indexes")
+      a
+    } else b
   }
 
   override def ensureAliasAssigned(): Unit = {
