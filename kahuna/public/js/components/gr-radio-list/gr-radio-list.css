@@ -41,6 +41,7 @@ gr-radio-list label {
   cursor: pointer;
   text-align: center;
   user-select: none;
+  -moz-user-select: none;
   text-transform: capitalize;
 }
 
