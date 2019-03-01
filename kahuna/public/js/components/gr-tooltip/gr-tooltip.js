@@ -1,5 +1,6 @@
 import angular from 'angular';
 import 'titip/dist/css/titip.css';
+import './gr-titip.css';
 
 export const tooltip = angular.module('grTooltip', []);
 
