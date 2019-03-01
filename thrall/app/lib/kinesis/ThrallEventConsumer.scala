@@ -23,11 +23,12 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
                           store: ThrallStore,
                           metadataNotifications: MetadataNotifications,
                           syndicationRightsOps: SyndicationRightsOps) extends IRecordProcessor with PlayJsonHelpers {
+  
+  private val ThirtySeconds = Duration(30, SECONDS)
 
   private val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps)
 
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
+  private implicit val ctx: ExecutionContext = ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
   override def initialize(shardId: String): Unit = {
     Logger.info(s"Initialized an event processor for shard $shardId")
@@ -62,8 +63,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
           Logger.info("Got update message: " + messageLogMessage)
 
           messageProcessor.chooseProcessor(updateMessage).map { processor =>
-            val ThirtySeconds = Duration(30, SECONDS)
-            processor.apply(updateMessage).map { _ =>
+            val eventuallyAppliedUpdate = processor.apply(updateMessage).map { _ =>
               Logger.info("Completed processing of update message: " + messageLogMessage)
               recordMessageCount(updateMessage)
 
@@ -72,7 +72,7 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
                 Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
             }
 
-            Await.ready(processor.apply(updateMessage), ThirtySeconds)
+            Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
           }
 
         } catch {
