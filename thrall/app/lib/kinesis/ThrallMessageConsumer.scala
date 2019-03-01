@@ -13,7 +13,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             es: ElasticSearchVersion,
                             thrallMetrics: ThrallMetrics,
                             store: ThrallStore,
-                            metadataNotifications: DynamoNotifications,
+                            metadataNotifications: MetadataNotifications,
                             syndicationRightsOps: SyndicationRightsOps,
                             from: Option[DateTime]
                            ) extends MessageConsumerVersion {

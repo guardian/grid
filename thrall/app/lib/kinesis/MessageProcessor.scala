@@ -12,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class MessageProcessor(es: ElasticSearchVersion,
                        store: ThrallStore,
-                       metadataNotifications: DynamoNotifications,
+                       metadataNotifications: MetadataNotifications,
                        syndicationRightsOps: SyndicationRightsOps
                       ) {
 

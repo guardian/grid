@@ -20,7 +20,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class ThrallEventConsumer(es: ElasticSearchVersion,
                           thrallMetrics: ThrallMetrics,
                           store: ThrallStore,
-                          metadataNotifications: DynamoNotifications,
+                          metadataNotifications: MetadataNotifications,
                           syndicationRightsOps: SyndicationRightsOps) extends IRecordProcessor with PlayJsonHelpers {
 
   private val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps)

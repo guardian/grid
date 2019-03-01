@@ -1,6 +1,5 @@
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
-import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
@@ -12,7 +11,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ThrallConfig(configuration)
 
   val store = new ThrallStore(config)
-  val dynamoNotifications = new DynamoNotifications(config)
+  val dynamoNotifications = new MetadataNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
   val es1Config = for {
