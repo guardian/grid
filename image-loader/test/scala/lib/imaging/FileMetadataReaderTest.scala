@@ -292,6 +292,46 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     }
   }
 
+  it("should read the correct metadata for a grayscale png") {
+    val image = fileAt("schaik.com_pngsuite/basn0g08.png")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    whenReady(metadataFuture) { metadata =>
+      metadata.colourModelInformation should contain (
+        "colorType" -> "Greyscale"
+      )
+    }
+  }
+
+  it("should read the correct metadata for a colour 8bit paletted png") {
+    val image = fileAt("schaik.com_pngsuite/basn3p08.png")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    whenReady(metadataFuture) { metadata =>
+      metadata.colourModelInformation should contain (
+        "colorType" -> "Indexed Color"
+      )
+    }
+  }
+
+  it("should read the correct metadata for a truecolour png without alpha channel") {
+    val image = fileAt("schaik.com_pngsuite/basn2c08.png")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    whenReady(metadataFuture) { metadata =>
+      metadata.colourModelInformation should contain (
+        "colorType" -> "True Color"
+      )
+    }
+  }
+
+  it("should read the correct metadata for a truecolour pnd with alpha channel") {
+    val image = fileAt("schaik.com_pngsuite/basn6a08.png")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    whenReady(metadataFuture) { metadata =>
+      metadata.colourModelInformation should contain (
+        "colorType" -> "True Color with Alpha"
+      )
+    }
+  }
+
   def sameMaps(actual: Map[String, String], expected: Map[String, String]) = {
     // Detect mismatching keys
     actual.keys should be (expected.keys)
