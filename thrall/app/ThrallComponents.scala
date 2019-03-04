@@ -45,18 +45,20 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
       )
   }
 
-  val es1Opt = es1Config.map { c =>
+  val es1Opt: Option[ElasticSearch] = es1Config.map { c =>
     Logger.info("Configuring ES1: " + c)
     val es1 = new ElasticSearch(c, thrallMetrics)
     es1.ensureAliasAssigned()
     es1
   }
 
-  val es6pot = es6Config.map { c =>
+  val es6: ElasticSearch6 = es6Config.map { c =>
     Logger.info("Configuring ES6: " + c)
     val es6 = new ElasticSearch6(c, thrallMetrics)
     es6.ensureAliasAssigned()
     es6
+  }.getOrElse {
+    throw new RuntimeException("Elastic 6 is required; please configure it")
   }
 
   val messageConsumerForHealthCheck = es1Opt.map { es1 =>
@@ -68,11 +70,10 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     thrallMessageConsumer
   }.get
 
-  es6pot.map { es6 =>
-    val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
-      store, dynamoNotifications, new SyndicationRightsOps(es6), config.from)
+
+  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
+    store, dynamoNotifications, new SyndicationRightsOps(es6), config.from)
     thrallKinesisMessageConsumer.start()
-  }
 
   val thrallController = new ThrallController(controllerComponents)
   val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, config, controllerComponents)
