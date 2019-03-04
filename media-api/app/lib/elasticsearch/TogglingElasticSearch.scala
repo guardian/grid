@@ -8,8 +8,8 @@ import play.api.mvc.{AnyContent, Security}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class TogglingElasticSearch(a: ElasticSearchVersion,
-                            b: ElasticSearchVersion) extends ElasticSearchVersion {
+class TogglingElasticSearch(stableIndex: ElasticSearchVersion,
+                            fallbackIndex: Option[ElasticSearchVersion]) extends ElasticSearchVersion {
 
   val OPT_OUT_COOKIE_NAME = "GRID_ELASTIC6_OPT_OUT"
 
@@ -17,14 +17,14 @@ class TogglingElasticSearch(a: ElasticSearchVersion,
     val userIdentifier = request.user.apiKey.name
     val userHasRequestedOptOut = request.cookies.exists(c => c.name == OPT_OUT_COOKIE_NAME)
     if (userHasRequestedOptOut) {
-      Logger.info("User " + userIdentifier + " is still opted out of Elastic 6 indexes")
-      a
-    } else b
+      Logger.info("User " + userIdentifier + " is still opted out of Elastic 6 indexes; using fallback index if still configured")
+      fallbackIndex.getOrElse(stableIndex)
+    } else stableIndex
   }
 
   override def ensureAliasAssigned(): Unit = {
-    a.ensureAliasAssigned
-    b.ensureAliasAssigned
+    val availableIndexes = Seq(Some(stableIndex), fallbackIndex).flatten
+    availableIndexes.map(_.ensureAliasAssigned())
   }
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]): Future[Option[Image]] = active.getImageById(id)

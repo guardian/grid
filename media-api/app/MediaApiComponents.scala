@@ -7,6 +7,8 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
 import lib.elasticsearch.ElasticSearchVersion
+import lib.elasticsearch.impls.elasticsearch1.ElasticSearch
+import lib.elasticsearch.impls.elasticsearch6
 import play.api.ApplicationLoader.Context
 import play.api.Logger
 import router.Routes
@@ -47,22 +49,26 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
     )
   }
 
-  val elasticSearches = Seq(
-    es1Config.map { c =>
+  val elasticSearch1: Option[ElasticSearch] = es1Config.map { c =>
       Logger.info("Configuring ES1: " + c)
       val es1 = new lib.elasticsearch.impls.elasticsearch1.ElasticSearch(config, mediaApiMetrics, c)
       es1.ensureAliasAssigned()
       es1
-    },
+    }
+
+  val elasticSearch6: elasticsearch6.ElasticSearch = {
     es6Config.map { c =>
       Logger.info("Configuring ES6: " + c)
       val es6 = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(config, mediaApiMetrics, c)
       es6.ensureAliasAssigned()
       es6
+    }.getOrElse {
+      throw new RuntimeException("Elastic 6 is required; please configure it")
     }
-  ).flatten
+  }
 
-  val elasticSearch: ElasticSearchVersion = new lib.elasticsearch.TogglingElasticSearch(elasticSearches.head, elasticSearches.last)
+
+  val elasticSearch: ElasticSearchVersion = new lib.elasticsearch.TogglingElasticSearch(elasticSearch6, elasticSearch1)
   elasticSearch.ensureAliasAssigned()
 
   val s3Client = new S3Client(config)
