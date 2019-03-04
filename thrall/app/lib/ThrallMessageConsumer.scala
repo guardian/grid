@@ -8,11 +8,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ThrallMessageConsumer(
                              config: ThrallConfig,
-                             es: ElasticSearchVersion,
                              thrallMetrics: ThrallMetrics,
                              store: ThrallStore,
-                             metadataNotifications: MetadataNotifications,
-                             syndicationRightsOps: SyndicationRightsOps
+                             metadataNotifications: MetadataNotifications
 )(implicit ec: ExecutionContext) extends MessageConsumer (
   config.queueUrl,
   config.awsEndpoint,
@@ -22,7 +20,7 @@ class ThrallMessageConsumer(
 
   val kinesis: Kinesis = new Kinesis(config, config.thrallKinesisStream)
 
-  val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps, kinesis)
+  val messageProcessor = new MessageProcessor(kinesis)
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     messageProcessor.chooseProcessor(subject)

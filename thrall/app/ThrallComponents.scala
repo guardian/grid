@@ -43,16 +43,16 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
         shards = s,
         replicas = r
       )
-  }
+    }
 
-  val es1Opt: Option[ElasticSearch] = es1Config.map { c =>
+  val es1Opt: Option[ElasticSearchVersion] = es1Config.map { c =>
     Logger.info("Configuring ES1: " + c)
     val es1 = new ElasticSearch(c, thrallMetrics)
     es1.ensureAliasAssigned()
     es1
   }
 
-  val es6: ElasticSearch6 = es6Config.map { c =>
+  val es6: ElasticSearchVersion = es6Config.map { c =>
     Logger.info("Configuring ES6: " + c)
     val es6 = new ElasticSearch6(c, thrallMetrics)
     es6.ensureAliasAssigned()
@@ -61,21 +61,24 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     throw new RuntimeException("Elastic 6 is required; please configure it")
   }
 
-  val messageConsumerForHealthCheck = es1Opt.map { es1 =>
-    val thrallMessageConsumer = new ThrallMessageConsumer(config, es1, thrallMetrics, store, dynamoNotifications, new SyndicationRightsOps(es1))
+  {
+    val thrallMessageConsumer = new ThrallMessageConsumer(config, thrallMetrics, store, dynamoNotifications)
     thrallMessageConsumer.startSchedule()
     context.lifecycle.addStopHook {
       () => thrallMessageConsumer.actorSystem.terminate()
     }
     thrallMessageConsumer
-  }.get
+  }
 
+  val elasticsToUpdate = new ElasticSearchRouter(Seq(Some(es6), es1Opt).flatten)
 
-  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
-    store, dynamoNotifications, new SyndicationRightsOps(es6), config.from)
+  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, elasticsToUpdate, thrallMetrics,
+    store, dynamoNotifications, new SyndicationRightsOps(elasticsToUpdate), config.from)
     thrallKinesisMessageConsumer.start()
 
   val thrallController = new ThrallController(controllerComponents)
+
+  val messageConsumerForHealthCheck = thrallKinesisMessageConsumer
   val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
