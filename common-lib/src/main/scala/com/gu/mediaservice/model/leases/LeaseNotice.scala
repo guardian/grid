@@ -2,7 +2,7 @@ package com.gu.mediaservice.model
 
 import com.gu.mediaservice.lib.formatting.printDateTime
 import org.joda.time.DateTime
-import play.api.libs.json._
+import play.api.libs.json.{JodaWrites, JsValue, Json, Writes}
 
 case class LeaseNotice(mediaId: String, leaseByMedia: JsValue) {
   def toJson = Json.obj(
