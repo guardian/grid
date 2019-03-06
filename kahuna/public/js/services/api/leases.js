@@ -65,24 +65,21 @@ leaseService.factory('leaseService', [
         });
     }
 
-    /**
-     * Add a lease to the image. Overwrites any syndication leases
-     * if the incoming lease is itself a syndication lease.
-     *
-     * @param {Resource} image
-     * @param {Resource} newLease
-     */
-    function add(image, newLease) {
-      const originalLeases = imageAccessor.readLeases(image).leases;
-      const filteredLeases = isLeaseSyndication(newLease)
-        ? originalLeases.filter(_ => !_.access.endsWith('-syndication'))
-        : originalLeases;
-      const updatedLeases = filteredLeases.concat(newLease);
-      return replace(image, updatedLeases);
+    function add(image, lease) {
+      const newLease = angular.copy(lease);
+      newLease.mediaId = image.data.id;
+
+      if (angular.isDefined(newLease.notes) && newLease.notes.trim().length === 0) {
+        newLease.notes = null;
+      }
+
+      return image.perform('add-lease', {body: newLease});
     }
 
     function batchAdd(lease, images) {
-      return $q.all(images.map(image => add(image, lease)));
+      return $q.all(images.map(image => add(image, lease))).then(() => {
+        pollLeases(images);
+      });
     }
 
     function canUserEdit(image){

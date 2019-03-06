@@ -287,8 +287,10 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
 
   def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceLeasesScript = loadPainless(
-      """ | ctx._source.leases.lastModified = params.lastModified;
-          | ctx._source.leases.leases = params.leases;""".stripMargin
+      """
+        | ctx._source.leases.lastModified = params.lastModified;
+        | ctx._source.leases.leases = params.leases;
+        | """.stripMargin
     )
 
     val scriptSource = loadPainless(s"""
@@ -313,12 +315,14 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
 
   def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
 
-    val addLeaseScript = loadPainless("""| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
-       |   ctx._source.leases = ["leases": [params.lease]];
-       | } else {
-       |   ctx._source.leases.leases.add(params.lease);
-       | }
-    """)
+    val addLeaseScript = loadPainless(
+      """| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
+         |   ctx._source.leases = ["leases": [params.lease], "lastModified": params.lastModified];
+         | } else {
+         |   ctx._source.leases.leases.add(params.lease);
+         |   ctx._source.leases.lastModified = params.lastModified;
+         | }
+    """.stripMargin)
 
     val scriptSource = loadPainless(s"""
                                        |   $addLeaseScript
@@ -326,11 +330,11 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
                                        | """)
 
     val leaseParameter = lease.toOption.map(_.as[MediaLease])
-    val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+    val lastModifiedParameter = currentIsoDateString
 
     val params = Map(
       "lease" -> leaseParameter.map(i => asNestedMap(Json.toJson(i))).getOrElse(null),
-      "lastModified" -> lastModifiedParameter.getOrElse(null)
+      "lastModified" -> lastModifiedParameter
     )
 
     val script = Script(script = scriptSource).lang("painless").params(params)
@@ -345,9 +349,11 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
 
   def removeImageLease(id: String, leaseId: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val removeLeaseScript = loadPainless(
-      """| for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
-         |    if(ctx._source.leases.leases[i].id == params.leaseId) {
+      """|
+         | for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
+         |    if (ctx._source.leases.leases[i].id == params.leaseId) {
          |      ctx._source.leases.leases.remove(i);
+         |      ctx._source.leases.lastModified = params.lastModified;
          |    }
          | }
       """)
@@ -359,11 +365,11 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
          | """)
 
     val leaseIdParameter = leaseId.toOption.map(_.as[String])
-    val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+    val lastModifiedParameter = currentIsoDateString
 
     val params = Map(
       "leaseId" -> leaseIdParameter.getOrElse(null),
-      "lastModified" -> lastModifiedParameter.getOrElse(null)
+      "lastModified" -> lastModifiedParameter
     )
 
     val script = Script(script = scriptSource).lang("painless").params(params)
