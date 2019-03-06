@@ -321,10 +321,10 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
         val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
         val anotherUpdatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("Another updated lease"), mediaId = UUID.randomUUID().toString)
-        val updatedLeases = LeasesByMedia.build(leases = List(updatedLease, anotherUpdatedLease))
-        updatedLeases.leases.size shouldBe 2
+        val updatedLeases = Seq(updatedLease, anotherUpdatedLease)
+        updatedLeases.size shouldBe 2
 
-        Await.result(Future.sequence(ES.replaceImageLeases(id, JsDefined(Json.toJson(updatedLeases)), asJsLookup(DateTime.now))), fiveSeconds)
+        Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases)), fiveSeconds)
 
         reloadedImage(id).get.leases.leases.size shouldBe 2
         reloadedImage(id).get.leases.leases.head.notes shouldBe Some("An updated lease")
