@@ -14,7 +14,7 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
   def sendReindexLeases(mediaId: String) = {
     val replaceImageLeases = "replace-image-leases"
     val leases = store.getForMedia(mediaId)
-    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases) )
+    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases), id = Some(mediaId) )
     publish(build(mediaId, leases).toJson, replaceImageLeases, updateMessage)
   }
 

@@ -288,7 +288,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
   def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceLeasesScript = loadPainless(
       """ | ctx._source.leases.lastModified = params.lastModified;
-        | ctx._source.leases.leases = params.leases;""".stripMargin
+          | ctx._source.leases.leases = params.leases;""".stripMargin
     )
 
     val scriptSource = loadPainless(s"""
@@ -297,11 +297,11 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
                                        | """)
 
     val params = Map(
-      "leases" -> Json.toJson(leases),
-      "lastModified" -> Json.toJson(DateTime.now.toString)
+      "leases" -> leases.map(l => asNestedMap(Json.toJson(l))),
+      "lastModified" -> currentIsoDateString
     )
 
-    val script = Script(script = replaceLeasesScript).lang("painless").params(params)
+    val script = Script(script = scriptSource).lang("painless").params(params)
 
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
