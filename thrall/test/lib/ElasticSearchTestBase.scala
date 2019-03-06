@@ -5,7 +5,7 @@ import java.util.UUID
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import helpers.Fixtures
-import org.joda.time.{DateTime, DateTimeZone}
+import org.joda.time.{DateTime, Duration => JodaDuration, DateTimeZone}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import play.api.libs.json.{JsDefined, JsLookupResult, Json, __}
@@ -316,7 +316,14 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       "can replace leases" in {
         val lease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        val timeBeforeEdit = DateTime.now
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(DateTime.now()),
+          lease = Some(lease),
+          lastModified = Some(timeBeforeEdit)
+        )
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
 
         val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
@@ -326,8 +333,10 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
         Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases)), fiveSeconds)
 
-        reloadedImage(id).get.leases.leases.size shouldBe 2
-        reloadedImage(id).get.leases.leases.head.notes shouldBe Some("An updated lease")
+        val newLeases = reloadedImage(id).get.leases
+        newLeases.leases.size shouldBe 2
+        newLeases.leases.head.notes shouldBe Some("An updated lease")
+        newLeases.lastModified.get.isAfter(timeBeforeEdit) shouldBe true
       }
     }
 
