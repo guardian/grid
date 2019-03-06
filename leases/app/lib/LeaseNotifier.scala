@@ -2,7 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.{LeaseNotice, LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
 
 import org.joda.time.DateTime
 import play.api.libs.json._

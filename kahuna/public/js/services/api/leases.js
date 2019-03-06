@@ -124,6 +124,7 @@ leaseService.factory('leaseService', [
       })).then(results => {
         return results.map(result => {
           $rootScope.$emit('image-updated', result.image);
+          $rootScope.$emit('leases-updated');
           return result.leases;
         });
       });
