@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.model.{Image, MediaLease, Photoshoot, SyndicationRights}
 import play.api.libs.json.{JsLookupResult, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,7 +19,7 @@ trait ElasticSearchVersion {
 
   def deleteSyndicationRights(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]]
 
-  def replaceImageLeases(id: String, leaseByMedia: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]]
+  def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]]
 
   def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]]
 

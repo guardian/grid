@@ -82,7 +82,7 @@ class MessageProcessor(es: ElasticSearchVersion,
     withId(message) { id =>
       withLastModified(message) { lastModified =>
         withLeases(message) { leases =>
-          Future.sequence(es.replaceImageLeases(id, asJsLookup(leases), dateTimeAsJsLookup(lastModified)))
+          Future.sequence(es.replaceImageLeases(id, leases))
         }
       }
     }
