@@ -141,7 +141,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest)
       image = imageUpload.image
     } yield {
-      val updateMessage = UpdateMessage(subject = "image", image = Some(image))
+      val updateMessage = UpdateMessage(subject = "image", image = Some(image), id = image.id)
       notifications.publish(Json.toJson(image), "image", updateMessage)
 
       // TODO: centralise where all these URLs are constructed

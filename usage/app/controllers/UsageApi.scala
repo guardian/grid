@@ -192,7 +192,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
     }
 
-    val updateMessage = UpdateMessage(subject = " delete-usages", id = Some(mediaId))
+    val updateMessage = UpdateMessage(subject = " delete-usages", id = mediaId)
     notifications.publish(Json.obj("id" -> mediaId), "delete-usages", updateMessage)
     Future.successful(Ok)
   }

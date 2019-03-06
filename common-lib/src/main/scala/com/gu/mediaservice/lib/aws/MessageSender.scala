@@ -19,8 +19,8 @@ class MessageSender(config: CommonConfig, snsTopicArn: String) {
 }
 
 case class UpdateMessage(subject: String,
+                         id: String,
                          image: Option[Image] = None,
-                         id: Option[String] = None,
                          usageNotice: Option[UsageNotice] = None,
                          edits: Option[Edits] = None,
                          lastModified: Option[DateTime] = None,

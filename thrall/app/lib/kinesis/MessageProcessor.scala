@@ -43,12 +43,10 @@ class MessageProcessor(es: ElasticSearchVersion,
   def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     implicit val unw = Json.writes[UsageNotice]
     def asJsLookup(us: Seq[Usage]): JsLookupResult = JsDefined(Json.toJson(us))
-    withId(message) { id =>
-      withUsageNotice(message) { usageNotice =>
-        withLastModified(message) { lastModifed =>
-          val usages = usageNotice.usageJson.as[Seq[Usage]]
-          Future.sequence(es.updateImageUsages(id, asJsLookup(usages), dateTimeAsJsLookup(lastModifed)))
-        }
+    withUsageNotice(message) { usageNotice =>
+      withLastModified(message) { lastModifed =>
+        val usages = usageNotice.usageJson.as[Seq[Usage]]
+        Future.sequence(es.updateImageUsages(message.id, asJsLookup(usages), dateTimeAsJsLookup(lastModifed)))
       }
     }
   }
@@ -58,43 +56,37 @@ class MessageProcessor(es: ElasticSearchVersion,
 
   def updateImageExports(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     def asJsLookup(cs: Seq[Crop]): JsLookupResult = JsDefined(Json.toJson(cs))
-    withId(message) { id =>
-      withCrops(message) { crops =>
-        Future.sequence(es.updateImageExports(id, asJsLookup(crops)))
-      }
+    withCrops(message) { crops =>
+      Future.sequence(es.updateImageExports(message.id, asJsLookup(crops)))
     }
   }
 
   def deleteImageExports(message: UpdateMessage)(implicit ec: ExecutionContext) =
-    Future.sequence(withId(message)(id => es.deleteImageExports(id)))
+    Future.sequence(es.deleteImageExports(message.id))
 
   def updateImageUserMetadata(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     def asJsLookup(e: Edits): JsLookupResult = JsDefined(Json.toJson(e))
     withEdits(message) { edits =>
       withLastModified(message) { lastModified =>
-        Future.sequence(withId(message)(id => es.applyImageMetadataOverride(id, asJsLookup(edits), dateTimeAsJsLookup(lastModified))))
+        Future.sequence(es.applyImageMetadataOverride(message.id, asJsLookup(edits), dateTimeAsJsLookup(lastModified)))
       }
     }
   }
 
   def replaceImageLeases(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     def asJsLookup(ls: Seq[MediaLease]): JsLookupResult = JsDefined(Json.toJson(ls))
-    withId(message) { id =>
-      withLastModified(message) { lastModified =>
-        withLeases(message) { leases =>
-          Future.sequence(es.replaceImageLeases(id, asJsLookup(leases), dateTimeAsJsLookup(lastModified)))
-        }
+    withLastModified(message) { lastModified =>
+      withLeases(message) { leases =>
+        Future.sequence(es.replaceImageLeases(message.id, asJsLookup(leases), dateTimeAsJsLookup(lastModified)))
       }
     }
   }
 
   def addImageLease(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     def asJsLookup(m: MediaLease): JsLookupResult = JsDefined(Json.toJson(m))
-    withId(message) { id =>
-      withLease(message) { mediaLease =>
-        withLastModified(message) { lastModified =>
-          Future.sequence(es.addImageLease(id, asJsLookup(mediaLease), dateTimeAsJsLookup(lastModified)))
-        }
+    withLease(message) { mediaLease =>
+      withLastModified(message) { lastModified =>
+        Future.sequence(es.addImageLease(message.id, asJsLookup(mediaLease), dateTimeAsJsLookup(lastModified)))
       }
     }
   }
@@ -103,7 +95,7 @@ class MessageProcessor(es: ElasticSearchVersion,
     def asJsLookup(i: String): JsLookupResult = JsDefined(Json.toJson(i))
     withLeaseId(message) { leaseId =>
       withLastModified(message) { lastModified =>
-        Future.sequence(withId(message)(id => es.removeImageLease(id, asJsLookup(leaseId), dateTimeAsJsLookup(lastModified))))
+        Future.sequence(es.removeImageLease(message.id, asJsLookup(leaseId), dateTimeAsJsLookup(lastModified)))
       }
     }
   }
@@ -111,79 +103,65 @@ class MessageProcessor(es: ElasticSearchVersion,
   def setImageCollections(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     def asJsLookup(c: Seq[Collection]): JsLookupResult = JsDefined(Json.toJson(c))
     withCollections(message) { collections =>
-      withId(message) { id =>
-        Future.sequence(es.setImageCollection(id, asJsLookup(collections)))
-      }
+      Future.sequence(es.setImageCollection(message.id, asJsLookup(collections)))
     }
   }
 
   def deleteImage(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) = {
     Future.sequence(
-      withId(updateMessage) { id =>
-        // if we cannot delete the image as it's "protected", succeed and delete
-        // the message anyway.
-        GridLogger.info("ES6 Deleting image: " + id)
-        es.deleteImage(id).map { requests =>
-          requests.map {
-            case _: ElasticSearchDeleteResponse =>
-              store.deleteOriginal(id)
-              store.deleteThumbnail(id)
-              store.deletePng(id)
-              metadataNotifications.publish(Json.obj("id" -> id), "image-deleted")
-              EsResponse(s"Image deleted: $id")
-          } recoverWith {
-            case ImageNotDeletable =>
-              GridLogger.info("Could not delete image", id)
-              Future.successful(EsResponse(s"Image cannot be deleted: $id"))
-          }
+      // if we cannot delete the image as it's "protected", succeed and delete
+      // the message anyway.
+      es.deleteImage(updateMessage.id).map { requests =>
+        requests.map {
+          case _: ElasticSearchDeleteResponse =>
+            GridLogger.info("ES6 Deleting image: " + updateMessage.id)
+            store.deleteOriginal(updateMessage.id)
+            store.deleteThumbnail(updateMessage.id)
+            store.deletePng(updateMessage.id)
+            metadataNotifications.publish(Json.obj("id" -> updateMessage.id), "image-deleted")
+            EsResponse(s"Image deleted: ${updateMessage.id}")
+        } recoverWith {
+          case ImageNotDeletable =>
+            GridLogger.info("Could not delete image", updateMessage.id)
+            Future.successful(EsResponse(s"Image cannot be deleted: ${updateMessage.id}"))
         }
       }
     )
   }
 
   def deleteAllUsages(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) =
-    Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))
+    Future.sequence(es.deleteAllImageUsages(updateMessage.id))
 
   def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) = {
-    withId(updateMessage) { id =>
-      withSyndicationRights(updateMessage) { syndicationRights =>
-        es.getImage(id) map {
-          case Some(image) =>
-            val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights $syndicationRights", id)
-            syndicationRightsOps.upsertOrRefreshRights(
-              image = image.copy(syndicationRights = Some(syndicationRights)),
-              currentPhotoshootOpt = photoshoot
-            )
-          case _ => GridLogger.info(s"Image $id not found")
-        }
+    withSyndicationRights(updateMessage) { syndicationRights =>
+      es.getImage(updateMessage.id) map {
+        case Some(image) =>
+          val photoshoot = image.userMetadata.flatMap(_.photoshoot)
+          GridLogger.info(s"Upserting syndication rights for image ${updateMessage.id} in photoshoot $photoshoot with rights $syndicationRights", updateMessage.id)
+          syndicationRightsOps.upsertOrRefreshRights(
+            image = image.copy(syndicationRights = Some(syndicationRights)),
+            currentPhotoshootOpt = photoshoot
+          )
+        case _ => GridLogger.info(s"Image ${updateMessage.id} not found")
       }
     }
   }
 
   def updateImagePhotoshoot(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     withEdits(message) { upcomingEdits =>
-      withId(message) { id =>
-        for {
-          imageOpt <- es.getImage(id)
-          prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
-          _ <- updateImageUserMetadata(message)
-          _ <- {
-            GridLogger.info(s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
-            syndicationRightsOps.upsertOrRefreshRights(
-              image = imageOpt.get,
-              currentPhotoshootOpt = upcomingEdits.photoshoot,
-              previousPhotoshootOpt = prevPhotoshootOpt
-            )
-          }
-        } yield GridLogger.info(s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}", id)
-      }
-    }
-  }
-
-  private def withId[A](message: UpdateMessage)(f: String => A): A = {
-    message.id.map(f).getOrElse {
-      sys.error(s"No id present in message: $message")
+      for {
+        imageOpt <- es.getImage(message.id)
+        prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
+        _ <- updateImageUserMetadata(message)
+        _ <- {
+          GridLogger.info(s"Upserting syndication rights for image ${message.id}. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
+          syndicationRightsOps.upsertOrRefreshRights(
+            image = imageOpt.get,
+            currentPhotoshootOpt = upcomingEdits.photoshoot,
+            previousPhotoshootOpt = prevPhotoshootOpt
+          )
+        }
+      } yield GridLogger.info(s"Moved image ${message.id} from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}", message.id)
     }
   }
 

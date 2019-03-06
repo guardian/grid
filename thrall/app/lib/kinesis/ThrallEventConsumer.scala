@@ -13,6 +13,7 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import play.api.Logger
 import play.api.libs.json.{JodaReads, Json}
+import scalaz.syntax.id._
 
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -48,26 +49,30 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
           implicit val unr = Json.reads[UsageNotice]
           implicit val umr = Json.reads[UpdateMessage]
 
-          val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
-          val timestamp = r.getApproximateArrivalTimestamp
+          val maybeUpdateMessage = Json.parse(message).validate[UpdateMessage] <| logParseErrors |> (_.asOpt)
 
-          val idForLogging = Seq(updateMessage.id, updateMessage.image.map(_.id)).flatten
-          val messageLogMessage = "(" + timestamp + "): " + updateMessage.subject + "/" + idForLogging.mkString(" ")
-          Logger.info("Got update message: " + messageLogMessage)
+          maybeUpdateMessage match {
+            case Some(updateMessage) => {
+              val timestamp = r.getApproximateArrivalTimestamp
 
-          messageProcessor.chooseProcessor(updateMessage).map { p =>
-            val ThirtySeconds = Duration(30, SECONDS)
-            val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
-            eventuallyAppliedUpdate.map { _ =>
-              Logger.info("Completed processing of update message: " + messageLogMessage)
-            }.recover {
-              case e: Throwable =>
-                Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
+              val messageLogMessage = s"($timestamp): ${updateMessage.subject}/${updateMessage.id}"
+              Logger.info("Got update message: " + messageLogMessage)
+
+              messageProcessor.chooseProcessor(updateMessage).map { p =>
+                val ThirtySeconds = Duration(30, SECONDS)
+                val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
+                eventuallyAppliedUpdate.map { _ =>
+                  Logger.info("Completed processing of update message: " + messageLogMessage)
+                }.recover {
+                  case e: Throwable =>
+                    Logger.error("Failed to process update message; message will be ignored: " + ("Got update message: " + messageLogMessage), e)
+                }
+
+                Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
+              }
             }
-
-            Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
+            case _ => Logger.error(s"Failed to parse message into UpdateMessage subject:$subject message:$message")
           }
-
         } catch {
           case e: Throwable =>
             Logger.error("Exception during process record block", e)

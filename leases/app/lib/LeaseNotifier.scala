@@ -39,13 +39,13 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
   def sendReindexLeases(mediaId: String) = {
     val replaceImageLeases = "replace-image-leases"
     val leases = store.getForMedia(mediaId)
-    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases) )
+    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases), id = mediaId)
     publish(build(mediaId, leases).toJson, replaceImageLeases, updateMessage)
   }
 
   def sendAddLease(mediaLease: MediaLease) = {
     val addImageLease = "add-image-lease"
-    val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId), lastModified = Some(DateTime.now()))
+    val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = mediaLease.mediaId, lastModified = Some(DateTime.now()))
     publish(MediaLease.toJson(mediaLease), addImageLease, updateMessage)
   }
 
@@ -57,7 +57,7 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
       "id" -> mediaId,
       "lastModified" -> printDateTime(DateTime.now())
     )
-    val updateMessage = UpdateMessage(subject = removeImageLease, id = Some(mediaId),
+    val updateMessage = UpdateMessage(subject = removeImageLease, id = mediaId,
       leaseId = Some(leaseId), lastModified = Some(DateTime.now())
     )
     publish(leaseInfo, removeImageLease, updateMessage)

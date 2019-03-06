@@ -196,7 +196,7 @@ class MediaApi(
 
           if (canDelete) {
             val deleteImage = "delete-image"
-            val updateMessage = UpdateMessage(subject = deleteImage, id = Some(id))
+            val updateMessage = UpdateMessage(subject = deleteImage, id = id)
             messageSender.publish(Json.obj("id" -> id), deleteImage, updateMessage)
             Accepted
           } else {
@@ -254,7 +254,7 @@ class MediaApi(
           val notification = Json.toJson(finalImage)
 
           val updateImage = "update-image"
-          val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
+          val updateMessage = UpdateMessage(subject = updateImage, id = finalImage.id, image = Some(finalImage))
           messageSender.publish(notification, updateImage, updateMessage)
 
           Ok(Json.obj(

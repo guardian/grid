@@ -112,7 +112,7 @@ class MessageProcessor(es: ElasticSearchVersion,
 
         Future.successful {
           // Mirror RCS messages onto Kinesis for migration. It was not possible to write to Kinesis from the RCS lambda
-          val updateMessage = UpdateMessage(subject = "upsert-rcs-rights", id = Some(id), syndicationRights = Some(syndicationRights))
+          val updateMessage = UpdateMessage(subject = "upsert-rcs-rights", id = id, syndicationRights = Some(syndicationRights))
           kinesis.publish(updateMessage)
         }
       }
