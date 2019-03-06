@@ -159,7 +159,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
   def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
-        "leaseByMedia" -> asGroovy(Json.toJson(leases)),
+        "leases" -> asGroovy(Json.toJson(leases)),
         "lastModified" -> asGroovy(Json.toJson(DateTime.now.toString))
       ).asJava)
         .setScript(
@@ -388,7 +388,9 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     """.stripMargin
 
   private val replaceLeasesScript =
-    """ctx._source.leases = leaseByMedia;"""
+    """| ctx._source.leases.lastModified = lastModified;
+       | ctx._source.leases.leases = leases;
+    """.stripMargin
 
   private val removeLeaseScript =
     """| for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
