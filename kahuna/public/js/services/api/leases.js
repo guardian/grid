@@ -1,4 +1,5 @@
 import angular from 'angular';
+import moment from 'moment';
 import './media-api';
 import '../../services/image-list';
 
@@ -112,7 +113,9 @@ leaseService.factory('leaseService', [
         return image.get().then(apiImage => {
           const apiLeases = imageAccessor.readLeases(apiImage);
           const leases = imageAccessor.readLeases(image);
-          if (apiLeases.lastModified !== leases.lastModified) {
+          const currentLastModified = moment(apiLeases.lastModified);
+          const previousLastModified = moment(leases.lastModified);
+          if (currentLastModified.isAfter(previousLastModified)) {
             return { image: apiImage, leases: apiLeases };
           } else {
             return $q.reject();

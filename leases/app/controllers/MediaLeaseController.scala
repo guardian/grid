@@ -49,16 +49,14 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
 
   private def addLease(mediaLease: MediaLease, userId: Option[String]) = {
     val lease = prepareLeaseForSave(mediaLease, userId)
-    lease.isSyndication match {
-      case true =>
-        val mediaId = mediaLease.mediaId
-        val leasesForMedia = store.getForMedia(mediaId)
-        val leasesWithoutSyndication = leasesForMedia.filter(!_.isSyndication)
-        replaceLeases(leasesWithoutSyndication :+ lease, mediaId, userId)
-      case false =>
-        store.put(lease).map { _ =>
-          notifications.sendAddLease(lease)
-        }
+    if (lease.isSyndication) {
+      val leasesForMedia = store.getForMedia(mediaLease.mediaId)
+      val leasesWithoutSyndication = leasesForMedia.filter(!_.isSyndication)
+      replaceLeases(leasesWithoutSyndication :+ lease, mediaLease.mediaId, userId)
+    } else {
+      store.put(lease).map { _ =>
+        notifications.sendAddLease(lease)
+      }
     }
   }
 

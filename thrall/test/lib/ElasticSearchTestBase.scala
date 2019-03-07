@@ -277,7 +277,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         val id = UUID.randomUUID().toString
         val timeBeforeEdit = DateTime.now.minusMinutes(1)
         val image = createImageForSyndication(
-          id = UUID.randomUUID().toString,
+          id,
           true,
           Some(DateTime.now()),
           None,
@@ -303,7 +303,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       "can remove image lease" in {
         val lease = model.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), lease = Some(lease))
+        val image = createImageForSyndication(id, true, Some(DateTime.now()), lease = Some(lease))
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
         reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
 
