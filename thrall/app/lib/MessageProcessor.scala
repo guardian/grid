@@ -3,8 +3,8 @@ package lib
 import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.aws.{EsResponse, Kinesis, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.model.{Edits, SyndicationRights}
-import play.api.libs.json.{JsError, JsValue, Json, Reads}
+import com.gu.mediaservice.model.{Edits, MediaLease, SyndicationRights}
+import play.api.libs.json.{JsError, JsValue, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -57,8 +57,14 @@ class MessageProcessor(es: ElasticSearchVersion,
     Future.sequence(withImageId(metadata)(id => es.applyImageMetadataOverride(id, data, lastModified)))
   }
 
-  def replaceImageLeases(leaseByMedia: JsValue)(implicit ec: ExecutionContext) =
-    Future.sequence(withImageId(leaseByMedia)(id => es.replaceImageLeases(id, leaseByMedia \ "data", leaseByMedia \ "lastModified")))
+  def replaceImageLeases(leaseNotice: JsValue)(implicit ec: ExecutionContext) = {
+    withImageId(leaseNotice) { id =>
+      getLeasesFromLeaseNotice(leaseNotice) match {
+        case Some(leases) => Future.sequence(es.replaceImageLeases(id, leases))
+        case None => Future.successful(List.empty)
+      }
+    }
+  }
 
   def addImageLease(lease: JsValue)(implicit ec: ExecutionContext) =
     Future.sequence(withImageId(lease)(id => es.addImageLease(id, lease \ "data", lease \ "lastModified")))
@@ -148,4 +154,7 @@ class MessageProcessor(es: ElasticSearchVersion,
       }, data => f(data)
     )
 
+  private def getLeasesFromLeaseNotice[A](message: JsValue): Option[Seq[MediaLease]] = {
+    (message \ "data" \ "leases").validate[Seq[MediaLease]].asOpt
+  }
 }

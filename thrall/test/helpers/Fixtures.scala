@@ -56,7 +56,8 @@ trait Fixtures {
                                  rcsPublishDate: Option[DateTime],
                                  lease: Option[MediaLease],
                                  usages: List[Usage] = Nil,
-                                 fileMetadata: Option[FileMetadata] = None
+                                 fileMetadata: Option[FileMetadata] = None,
+                                 lastModified: Option[DateTime] = None
                                ): Image = {
     val rights = List(
       Right("test", Some(rightsAcquired), Nil)
@@ -65,7 +66,7 @@ trait Fixtures {
     val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
 
     val leaseByMedia = lease.map(l => LeasesByMedia(
-      lastModified = None,
+      lastModified = lastModified,
       leases = List(l)
     ))
 

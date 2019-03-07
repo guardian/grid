@@ -80,10 +80,8 @@ class MessageProcessor(es: ElasticSearchVersion,
   def replaceImageLeases(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     def asJsLookup(ls: Seq[MediaLease]): JsLookupResult = JsDefined(Json.toJson(ls))
     withId(message) { id =>
-      withLastModified(message) { lastModified =>
-        withLeases(message) { leases =>
-          Future.sequence(es.replaceImageLeases(id, asJsLookup(leases), dateTimeAsJsLookup(lastModified)))
-        }
+      withLeases(message) { leases =>
+        Future.sequence(es.replaceImageLeases(id, leases))
       }
     }
   }
