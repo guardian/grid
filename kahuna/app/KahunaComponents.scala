@@ -34,7 +34,7 @@ object KahunaSecurityConfig {
     val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"
     val frameAncestors = s"frame-ancestors ${config.services.toolsDomains.map(domain => s"*.$domain").mkString(" ")}"
     val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self' www.google-analytics.com"
-    val imageSources = s"img-src data: blob: ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} ${config.cropOrigin} www.google-analytics.com 'self'"
+    val imageSources = s"img-src data: blob: ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} https://${config.cropOrigin} www.google-analytics.com 'self'"
     val fontSources = s"font-src data: 'self'"
 
     base.copy(
