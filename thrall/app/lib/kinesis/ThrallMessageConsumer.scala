@@ -54,7 +54,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
       withIdleTimeBetweenReadsInMillis(250)
 
     from.fold(
-      kinesisConfig.withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON)
+      kinesisConfig.withInitialPositionInStream(InitialPositionInStream.LATEST)
     ){ f =>
       kinesisConfig.withTimestampAtInitialPositionInStream(f.toDate)
     }
