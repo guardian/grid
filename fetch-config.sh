@@ -25,7 +25,7 @@ if [[ -w ${DOWNLOAD_DIR} ]]; then
 else
   echo "Cannot write to ${DOWNLOAD_DIR}. It either doesn't exist or is not owned by $(whoami)."
 
-  echo "Creating ${DOWNLOAD_DIR} and making user $(whoami) the owner"
+  echo "Creating ${DOWNLOAD_DIR} and making user $(whoami) the owner. Requires sudo access. Please enter password when prompted."
   sudo mkdir -p ${DOWNLOAD_DIR}
   sudo chown -R $(whoami):admin ${DOWNLOAD_DIR}
 
