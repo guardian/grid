@@ -176,7 +176,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
         "lease" -> asGroovy(lease.getOrElse(JsNull)),
-        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
+        "lastModified" -> asGroovy(Json.toJson(currentIsoDateString))
       ).asJava)
         .setScript(
           addLeaseScript + updateLastModifiedScript,
@@ -191,7 +191,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
     prepareImageUpdate(id) { request =>
       request.setScriptParams(Map(
         "leaseId" -> asGroovy(leaseId.getOrElse(JsNull)),
-        "lastModified" -> asGroovy(lastModified.getOrElse(JsNull))
+        "lastModified" -> asGroovy(Json.toJson(currentIsoDateString))
       ).asJava)
         .setScript(
           removeLeaseScript + updateLastModifiedScript,

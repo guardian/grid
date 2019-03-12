@@ -28,6 +28,10 @@ class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTab
     ScanamoAsync.exec(client)(leasesTable.put(lease))
   }
 
+  def putAll(leases: List[MediaLease])(implicit ec: ExecutionContext) = {
+    ScanamoAsync.exec(client)(leasesTable.putAll(leases.toSet))
+  }
+
   def delete(id: String)(implicit ec: ExecutionContext) = {
     ScanamoAsync.exec(client)(leasesTable.delete('id -> id))
   }

@@ -24,6 +24,8 @@ leases.controller('LeasesCtrl', [
     '$timeout',
     'inject$',
     'leaseService',
+    'imageAccessor',
+    'imageList',
     '$rootScope',
     'onValChange',
     function(
@@ -33,6 +35,8 @@ leases.controller('LeasesCtrl', [
         $timeout,
         inject$,
         leaseService,
+        imageAccessor,
+        imageList,
         $rootScope,
         onValChange) {
 
@@ -71,21 +75,30 @@ leases.controller('LeasesCtrl', [
                     ctrl.newLease.notes = noteWithClause.join(', ');
                 }
 
-                let syndLeases = ctrl.leases.leases.filter((l) =>
+                const incomingLeaseIsSyndication = leaseService.isLeaseSyndication(ctrl);
+                const syndLeases = ctrl.leases.leases.filter((l) =>
                     l.access.endsWith('-syndication')
                 );
 
-                if (ctrl.access.endsWith('-syndication') && syndLeases.length > 0) {
-                        alertFailed('You can only set one syndication lease.');
-                } else {
-                    leaseService.batchAdd(ctrl.newLease, ctrl.leases, ctrl.images)
-                        .catch(() =>
-                            alertFailed('Something went wrong when saving, please try again.')
-                    )
-                    .finally(() => {
-                        ctrl.resetLeaseForm();
-                    });
+                if (incomingLeaseIsSyndication && syndLeases.length > 0) {
+                  const confirmText = ctrl.images.size > 1
+                    ? "One or more of the selected images have syndication leases. " +
+                      "These will be overwritten. Do you wish to proceed?"
+                    : "This image already has a syndication lease. It will be overwritten. " +
+                      "Do you wish to proceed?";
+                  const shouldApplyLeases = $window.confirm(confirmText);
+                  if (!shouldApplyLeases) {
+                    return;
+                  }
                 }
+
+                leaseService.batchAdd(ctrl.newLease, ctrl.images)
+                    .catch(() =>
+                        alertFailed('Something went wrong when saving, please try again.')
+                )
+                .finally(() => {
+                    ctrl.resetLeaseForm();
+                });
             }
         };
 
@@ -100,15 +113,15 @@ leases.controller('LeasesCtrl', [
                     () => leaseService.clear(ctrl.images[0]));
 
             ctrl.batchApplyLeases = () => {
-                if (ctrl.leases.leases.length > 0) {
-                    $rootScope.$broadcast(batchAddLeasesEvent, ctrl.leases.leases);
-                } else {
-                    ctrl.confirmDelete = true;
+              if (ctrl.leases.leases.length > 0) {
+                  $rootScope.$broadcast(batchAddLeasesEvent, ctrl.leases.leases);
+              } else {
+                  ctrl.confirmDelete = true;
 
-                    $timeout(() => {
-                        ctrl.confirmDelete = false;
-                    }, 5000);
-                }
+                  $timeout(() => {
+                      ctrl.confirmDelete = false;
+                  }, 5000);
+              }
             };
 
             ctrl.batchRemoveLeases = () => {
@@ -133,7 +146,7 @@ leases.controller('LeasesCtrl', [
 
         ctrl.delete = (lease) => {
             ctrl.adding = true;
-            leaseService.deleteLease(lease, ctrl.leases, ctrl.images)
+            leaseService.deleteLease(lease, ctrl.images)
                 .catch(
                     () => alertFailed('Something when wrong when deleting, please try again!')
                 );
