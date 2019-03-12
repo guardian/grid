@@ -64,6 +64,13 @@ startDockerContainers() {
     docker-compose up -d
 }
 
+buildJs() {
+  pushd kahuna
+  npm install
+  npm run build-dev
+  popd
+}
+
 startPlayApps() {
     if [ "$IS_DEBUG" = true ] ; then
         sbt -jvm-debug 5005 runAll
@@ -84,6 +91,7 @@ main() {
     setupImgops
     downloadApplicationConfig
     startDockerContainers
+    buildJs
     startPlayApps
 }
 
