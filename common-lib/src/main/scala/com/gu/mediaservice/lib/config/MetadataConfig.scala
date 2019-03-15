@@ -121,8 +121,7 @@ object MetadataConfig {
     "Katherine Anne Rose" -> "The Observer",
     "Richard Saker"       -> "The Observer",
     "Sophia Evans"        -> "The Observer",
-    "Suki Dhanda"         -> "The Observer",
-    "Tom Jenkins"         -> "The Observer"
+    "Suki Dhanda"         -> "The Observer"
   )
 
   val staffIllustrators = List(
