@@ -178,7 +178,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
     )
 
     val excludedSource = List(
-      "UKTV", "Pinnacle Photo Agency Ltd"
+      "Replay Images", "UKTV", "Pinnacle Photo Agency Ltd"
     )
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
