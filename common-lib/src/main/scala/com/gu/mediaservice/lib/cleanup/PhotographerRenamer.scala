@@ -68,6 +68,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Carlos Alvarez" -> "Carlos Álvarez",
     "Carlos Barria" -> "Carlos Barría",
     "Carlos Garcia Rawlins" -> "Carlos García Rawlins",
+    "Carole Bellaiche" -> "Carole Bellaïche",
     "Cathal Mcnaughton" -> "Cathal McNaughton",
     "Cem Oksuz" -> "Cem Öksüz",
     "Cesar Manso" -> "César Manso",
