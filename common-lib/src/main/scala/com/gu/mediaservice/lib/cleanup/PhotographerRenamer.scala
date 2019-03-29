@@ -303,6 +303,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Tamas Kovacs" -> "Tamás Kovács",
     "Tayfun Coskun" -> "Tayfun Coşkun",
     "Thilo Schmuelgen" -> "Thilo Schmülgen",
+    "Thomas Niedermueller" -> "Thomas Niedermüller",
     "Tolga Bozoglu" -> "Tolga Bozoğlu",
     "Toms Kalnins" -> "Toms Kalniņš",
     "Tytus Zmijewski" -> "Tytus Żmijewski",
