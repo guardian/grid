@@ -21,7 +21,7 @@ trait PermissionsHandler {
     user match {
       case PandaUser(u) => permissions.hasPermission(permission, u.email)
       // think about only allowing certain services i.e. on `service.name`?
-      case AuthenticatedService(_) => true
+      case service: AuthenticatedService if service.apiKey.tier == Internal => true
       case _ => false
     }
   }
