@@ -6,6 +6,7 @@ import java.util.UUID
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
+import com.gu.mediaservice.lib.logging.LogConfig.{KinesisAppenderConfig, rootLogger}
 import play.api.Configuration
 
 import scala.io.Source._
@@ -45,6 +46,18 @@ trait CommonConfig {
 
   val isProd: Boolean = stage == "PROD"
   val isDev: Boolean = stage == "DEV"
+
+  def kinesisAppenderConfig: Option[KinesisAppenderConfig] = if (isDev) {
+    rootLogger.info("Kinesis logging disabled in DEV")
+    None
+
+  } else {
+    Some(KinesisAppenderConfig(
+      properties("logger.kinesis.stream"),
+      properties("logger.kinesis.region"),
+      properties("logger.kinesis.roleArn")
+    ))
+  }
 
   final val thrallKinesisStream = s"$stackName-thrall-$stage"
 

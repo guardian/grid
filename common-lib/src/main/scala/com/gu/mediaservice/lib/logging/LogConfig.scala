@@ -10,6 +10,7 @@ import play.api.ApplicationLoader.Context
 import play.api.LoggerConfigurator
 import play.api.libs.json._
 import scalaz.syntax.id._
+
 import scala.util.Try
 
 
@@ -17,7 +18,7 @@ object LogConfig {
 
   val rootLogger: LogbackLogger = LoggerFactory.getLogger(SLFLogger.ROOT_LOGGER_NAME).asInstanceOf[LogbackLogger]
 
-  case class KinesisAppenderConfig(stream: String, region: String, roleArn: String, bufferSize: Int)
+  case class KinesisAppenderConfig(stream: String, region: String, roleArn: String, bufferSize: Int = 1000)
 
   def makeCustomFields(config: CommonConfig): String = {
     Json.toJson(Map(
@@ -45,29 +46,20 @@ object LogConfig {
   }
 
   def initKinesisLogging(config: CommonConfig): Unit = {
-    if (config.isDev) {
-      rootLogger.info("Kinesis logging disabled in DEV")
-    } else {
+    config.kinesisAppenderConfig.map { kinesisAppenderConfig =>
       Try {
         rootLogger.info("LogConfig initializing")
         rootLogger.info("Configuring Logback")
 
         val customFields = makeCustomFields(config)
-        val context      = rootLogger.getLoggerContext
-        val layout       = makeLayout(customFields)
-        val bufferSize   = 1000
+        val context = rootLogger.getLoggerContext
+        val layout = makeLayout(customFields)
 
-        val appender     = makeKinesisAppender(layout, context,
-          KinesisAppenderConfig(
-            config.properties("logger.kinesis.stream"),
-            config.properties("logger.kinesis.region"),
-            config.properties("logger.kinesis.roleArn"),
-            bufferSize
-          )
-        )
+        val appender = makeKinesisAppender(layout, context, kinesisAppenderConfig)
 
         rootLogger.addAppender(appender)
         rootLogger.info("Configured Logback")
+
       } recover {
         case e => rootLogger.error("LogConfig Failed!", e)
       }
