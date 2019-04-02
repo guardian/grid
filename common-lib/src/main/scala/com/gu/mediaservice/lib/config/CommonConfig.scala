@@ -15,7 +15,7 @@ trait CommonConfig {
   def appName: String
   def configuration: Configuration
 
-  lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
+  protected lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
 
   final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
 
