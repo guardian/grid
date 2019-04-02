@@ -97,7 +97,7 @@ class MediaApi(
         } else {
           hasPermission(user, permission)
         }
-      case _: AuthenticatedService => true
+      case service: AuthenticatedService if service.apiKey.tier == Internal => true
       case _ => false
     }
   }
