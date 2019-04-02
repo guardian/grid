@@ -142,7 +142,6 @@ def playProject(projectName: String, port: Int): Project =
       packageDescription := description.value,
 
       mappings in Universal ++= Seq(
-        file("common-lib/src/main/resources/application.conf") -> "conf/application.conf",
         file("common-lib/src/main/resources/logback.xml") -> "conf/logback.xml"
       ),
       javaOptions in Universal ++= Seq(
