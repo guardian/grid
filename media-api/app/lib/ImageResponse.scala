@@ -39,23 +39,24 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   type MediaLeaseEntity = EmbeddedEntity[MediaLease]
   type MediaLeasesEntity = EmbeddedEntity[LeasesByMedia]
 
-  private def hasPersistenceIdentifier(image: Image) = image.identifiers.contains(config.persistenceIdentifier)
+  def hasPersistenceIdentifier(image: Image) =
+    image.identifiers.contains(config.persistenceIdentifier)
 
-  private def hasExports(image: Image) = image.exports.nonEmpty
+  def hasExports(image: Image) =
+    image.exports.nonEmpty
 
-  private def isArchived(image: Image) = image.userMetadata.exists(_.archived)
+  def isArchived(image: Image) =
+    image.userMetadata.exists(_.archived)
 
-  private def hasUsages(image: Image) = image.usages.nonEmpty
+  def hasUsages(image: Image) =
+    image.usages.nonEmpty
 
-  private def hasLeases(image: Image) = image.leases.leases.nonEmpty
+  def hasLeases(image: Image) =
+    image.leases.leases.nonEmpty
 
-  private def hasPhotoshoot(image: Image): Boolean = image.userMetadata.exists(_.photoshoot.isDefined)
+  def hasPhotoshoot(image: Image): Boolean = image.userMetadata.exists(_.photoshoot.isDefined)
 
-  private def hasLabels(image: Image): Boolean = image.userMetadata.exists(_.labels.nonEmpty)
-
-  private def hasUserEdits(image: Image): Boolean = image.userMetadata.isDefined
-
-  private def isInPersistedCollection(image: Image): Boolean = {
+  def isInPersistedCollection(image: Image): Boolean = {
     // list of the first element of each collection's `path`, i.e all the root collections
     val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
 
@@ -63,25 +64,25 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (collectionPaths diff config.persistedRootCollections).length < collectionPaths.length
   }
 
-  private def isPhotographerCategory[T <: UsageRights](usageRights: T) =
+  def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _:Photographer => true
       case _ => false
     }
 
-  private def isIllustratorCategory[T <: UsageRights](usageRights: T) =
+  def isIllustratorCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _:Illustrator => true
       case _ => false
     }
 
-  private def isAgencyCommissionedCategory[T <: UsageRights](usageRights: T) =
+  def isAgencyCommissionedCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _: CommissionedAgency => true
       case _ => false
     }
 
-  private def imagePersistenceReasons(image: Image): List[String] = {
+  def imagePersistenceReasons(image: Image): List[String] = {
     val reasons = ListBuffer[String]()
 
     if (hasPersistenceIdentifier(image))
@@ -116,18 +117,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       reasons += "photoshoot"
     }
 
-    if (hasLabels(image)) {
-      reasons += "labels"
-    }
-
-    if (hasUserEdits(image)) {
-      reasons += "edits"
-    }
-
     reasons.toList
   }
 
-  def canBeDeleted(image: Image): Boolean = imagePersistenceReasons(image).isEmpty
+  def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
 
   def create(
     id: String,
