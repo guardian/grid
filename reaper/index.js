@@ -27,11 +27,15 @@ exports.handler = (event, context, callback) => {
                         fetch(image.uri, { headers, method: 'DELETE' })
                         .then(res => {
                             if(res.status >= 200 && res.status < 300) {
-                                logger.log( `${res.status}: successfully deleted picture ${imageId}`);
+                                logger.log( `${res.status}: successfully deleted picture ${imageId}`, {
+                                  status: res.status
+                                });
                             } else {
-                                logger.log(`Delete attempt for picture ${imageId} failed with status: ${res.status}`);
+                                logger.log(`Delete attempt for picture ${imageId} failed with status: ${res.status}`, {
+                                  status: res.status
+                                });
                             }
-                        })
+                        });
                         return logger.close();
                     })
                 ).catch(e => {
