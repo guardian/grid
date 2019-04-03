@@ -9,9 +9,7 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
 
-class Kinesis(config: CommonConfig, streamName: String) {
-  lazy val client: AmazonKinesis = config.withAWSCredentials(AmazonKinesisClientBuilder.standard()).build()
-
+class Kinesis(client: AmazonKinesis, streamName: String) {
   def publish(message: UpdateMessage) {
     val partitionKey = UUID.randomUUID().toString
 

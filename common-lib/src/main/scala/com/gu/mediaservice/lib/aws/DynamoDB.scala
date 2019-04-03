@@ -13,9 +13,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object NoItemFound extends Throwable("item not found")
 
-class DynamoDB(config: CommonConfig, tableName: String) {
-
-  lazy val client: AmazonDynamoDBAsync = config.withAWSCredentials(AmazonDynamoDBAsyncClientBuilder.standard()).build()
+class DynamoDB(client: AmazonDynamoDBAsync, tableName: String) {
   lazy val dynamo = new AwsDynamoDB(client)
   lazy val table: Table = dynamo.getTable(tableName)
 

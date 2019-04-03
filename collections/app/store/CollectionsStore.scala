@@ -8,9 +8,7 @@ import play.api.libs.json.JsValue
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class CollectionsStore(config: CollectionsConfig) {
-  val dynamo = new DynamoDB(config, config.collectionsTable)
-
+class CollectionsStore(dynamo: DynamoDB) {
   def getAll: Future[List[Collection]] = dynamo.scan map { jsonList =>
     jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
   } recover {

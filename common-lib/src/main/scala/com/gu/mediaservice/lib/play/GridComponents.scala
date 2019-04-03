@@ -19,7 +19,7 @@ import play.filters.gzip.GzipFilterComponents
 import scala.concurrent.ExecutionContext
 import scala.collection.JavaConverters._
 
-abstract class GridComponents(context: Context) extends BuiltInComponentsFromContext(context)
+abstract class GridComponents(protected val context: Context) extends BuiltInComponentsFromContext(context)
   with AhcWSComponents with HttpFiltersComponents with CORSComponents with GzipFilterComponents {
 
   implicit val ec: ExecutionContext = executionContext
@@ -28,7 +28,6 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
 
   val region = config.get[String]("aws.region")
   val domainRoot = config.get[String]("domain.root")
-  val corsAllowedTools = config.underlying.getStringList("domain.cors").asScala
 
   val awsCredentials = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
@@ -41,14 +40,10 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
     Seq(corsFilter, csrfFilter, securityHeadersFilter, gzipFilter, new RequestLoggingFilter(materializer))
   }
 
-  final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
-    allowedOrigins = Origins.Matching(Set(services.kahunaBaseUri) ++ corsAllowedTools)
-  )
-
   val management = new Management(controllerComponents)
 }
 
-abstract class AuthGridComponents(context: Context) extends GridComponents(context) {
+trait GridAuthentication { this: GridComponents =>
   val userValidationEmailDomain = config.get[String]("panda.userDomain")
   val authKeyStoreBucket = config.get[String]("auth.keystore.bucket")
 
@@ -65,4 +60,12 @@ abstract class AuthGridComponents(context: Context) extends GridComponents(conte
   val keyStore = new KeyStore(authKeyStoreBucket, s3Client)
   keyStore.scheduleUpdates(actorSystem.scheduler)
   val auth = new Authentication(services, userValidationEmailDomain, keyStore, pandaSettings, defaultBodyParser, wsClient, controllerComponents, executionContext)
+}
+
+trait GridCORSAuthentication extends GridAuthentication { this: GridComponents =>
+  val corsAllowedTools = config.underlying.getStringList("domain.cors").asScala
+
+  final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
+    allowedOrigins = Origins.Matching(Set(services.kahunaBaseUri) ++ corsAllowedTools)
+  )
 }
