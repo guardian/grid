@@ -1,5 +1,6 @@
 package lib
 
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsync
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.{MediaLease, MediaLeaseType}
 import com.gu.scanamo._
@@ -8,13 +9,13 @@ import org.joda.time.DateTime
 
 import scala.concurrent.ExecutionContext
 
-class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTable) {
+class LeaseStore(client: AmazonDynamoDBAsync, tableName: String) extends DynamoDB(client, tableName) {
   implicit val dateTimeFormat =
     DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse)(_.toString)
   implicit val enumFormat =
     DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_))(_.toString)
 
-  private val leasesTable = Table[MediaLease](config.leasesTable)
+  private val leasesTable = Table[MediaLease](tableName)
 
   def get(id: String): Option[MediaLease] = {
     Scanamo.exec(client)(leasesTable.get('id -> id)).flatMap(_.toOption)

@@ -1,16 +1,19 @@
 package controllers
 
+import java.net.URI
 import java.util.UUID
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
 import lib.{LeaseNotifier, LeaseStore}
 import play.api.libs.json._
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 case class AppIndex(name: String,
                     description: String,
@@ -19,8 +22,8 @@ object AppIndex {
   implicit def jsonWrites: Writes[AppIndex] = Json.writes[AppIndex]
 }
 
-class MediaLeaseController(auth: Authentication, store: LeaseStore, config: LeasesConfig, notifications: LeaseNotifier,
-                          override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class MediaLeaseController(auth: Authentication, store: LeaseStore, services: Services, notifications: LeaseNotifier,
+                           override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   private val notFound = respondNotFound("MediaLease not found")
@@ -28,8 +31,8 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   private val indexResponse = {
     val appIndex = AppIndex("media-leases", "Media leases service", Map())
     val indexLinks =  List(
-      Link("leases", s"${config.rootUri}/leases/{id}"),
-      Link("by-media-id", s"${config.rootUri}/leases/media/{id}"))
+      Link("leases", s"${services.leasesBaseUri}/leases/{id}"),
+      Link("by-media-id", s"${services.leasesBaseUri}/leases/media/{id}"))
     respond(appIndex, indexLinks)
   }
 
@@ -101,10 +104,10 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
       val leases = store.get(id)
 
       leases.foldLeft(notFound)((_, lease) => respond[MediaLease](
-          uri = config.leaseUri(id),
+          uri = leaseUri(id),
           data = lease,
           links = lease.id
-            .map(config.mediaApiLink)
+            .map(mediaApiLink)
             .toList
         ))
     }
@@ -137,10 +140,14 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
       val leases = store.getForMedia(id)
 
       respond[LeasesByMedia](
-        uri = config.leasesMediaUri(id),
-        links = List(config.mediaApiLink(id)),
+        uri = leasesMediaUri(id),
+        links = List(mediaApiLink(id)),
         data = LeasesByMedia.build(leases)
       )
     }
   }
+
+  def leaseUri(leaseId: String): Option[URI] = Try { URI.create(s"${services.leasesBaseUri}/$leaseId") }.toOption
+  def leasesMediaUri(mediaId: String) = Try { URI.create(s"${services.leasesBaseUri}/media/$mediaId") }.toOption
+  def mediaApiLink(id: String) = Link("media", s"${services.apiBaseUri}/images/$id")
 }

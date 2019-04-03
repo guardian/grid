@@ -6,7 +6,7 @@ import com.gu.mediaservice.model.{LeaseNotice, LeasesByMedia, MediaLease}
 import org.joda.time.DateTime
 import play.api.libs.json._
 
-class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSender(config, config.topicArn) {
+class LeaseNotifier(store: LeaseStore, messageSender: MessageSender) {
   private def build(mediaId: String, leases: List[MediaLease] ): LeaseNotice = {
     LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(leases)))
   }
@@ -15,19 +15,19 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
     val replaceImageLeases = "replace-image-leases"
     val leases = store.getForMedia(mediaId)
     val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(leases), id = Some(mediaId) )
-    publish(build(mediaId, leases).toJson, replaceImageLeases, updateMessage)
+    messageSender.publish(build(mediaId, leases).toJson, replaceImageLeases, updateMessage)
   }
 
   def sendAddLease(mediaLease: MediaLease) = {
     val addImageLease = "add-image-lease"
     val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId), lastModified = Some(DateTime.now()))
-    publish(MediaLease.toJson(mediaLease), addImageLease, updateMessage)
+    messageSender.publish(MediaLease.toJson(mediaLease), addImageLease, updateMessage)
   }
 
   def sendAddLeases(mediaLeases: List[MediaLease], mediaId: String) = {
     val replaceImageLeases = "replace-image-leases"
     val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(mediaLeases), id = Some(mediaId), lastModified = Some(DateTime.now()))
-    publish(LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(mediaLeases))).toJson, replaceImageLeases, updateMessage)
+    messageSender.publish(LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(mediaLeases))).toJson, replaceImageLeases, updateMessage)
   }
 
   def sendRemoveLease(mediaId: String, leaseId: String) = {
@@ -41,6 +41,6 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSend
     val updateMessage = UpdateMessage(subject = removeImageLease, id = Some(mediaId),
       leaseId = Some(leaseId), lastModified = Some(DateTime.now())
     )
-    publish(leaseInfo, removeImageLease, updateMessage)
+    messageSender.publish(leaseInfo, removeImageLease, updateMessage)
   }
 }
