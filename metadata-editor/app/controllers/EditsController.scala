@@ -8,14 +8,12 @@ import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.aws.{NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{MessageSender, NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model._
 import lib._
 import org.joda.time.DateTime
-import play.api.Logger
-import play.api.data.Forms._
-import play.api.data._
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}
 
@@ -40,13 +38,13 @@ import scala.concurrent.{ExecutionContext, Future}
 //   }
 // }
 
-class EditsController(auth: Authentication, store: EditsStore, notifications: Notifications, config: EditsConfig,
+class EditsController(auth: Authentication, services: Services, store: EditsStore, notifications: MessageSender,
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers with EditsResponse {
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
 
-  val metadataBaseUri = config.services.metadataBaseUri
+  val metadataBaseUri = services.metadataBaseUri
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 
