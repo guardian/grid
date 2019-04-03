@@ -1,18 +1,19 @@
 package lib
 
 import java.io.File
-import java.net.{URI,URL}
+import java.net.{URI, URL}
+
+import com.amazonaws.services.s3.AmazonS3
 
 import scala.concurrent.Future
-
 import com.gu.mediaservice.lib.S3ImageStorage
 import com.gu.mediaservice.model._
 
-class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
+class CropStore(bucket: String, customPublishingHost: Option[String], client: AmazonS3) extends S3ImageStorage(client) {
   import com.gu.mediaservice.lib.formatting._
 
   def getSecureCropUri(uri: URI): Option[URL] =
-    config.imgPublishingSecureHost.map(new URI("https", _, uri.getPath, uri.getFragment).toURL)
+    customPublishingHost.map(new URI("https", _, uri.getPath, uri.getFragment).toURL)
 
   def storeCropSizing(file: File, filename: String, mimeType: String, crop: Crop, dimensions: Dimensions): Future[Asset] = {
     val CropSpec(sourceUri, Bounds(x, y, w, h), r, t) = crop.specification
@@ -33,7 +34,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
       case (key, value)       => key -> value
     }.mapValues(_.toString)
 
-    storeImage(config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object =>
+    storeImage(bucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object =>
       Asset(
         translateImgHost(s3Object.uri),
         Some(s3Object.size),
@@ -45,7 +46,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   }
 
   def listCrops(id: String): Future[List[Crop]] = {
-    list(config.imgPublishingBucket, id).map { crops =>
+    list(bucket, id).map { crops =>
       crops.foldLeft(Map[String, Crop]()) {
         case (map, (s3Object)) => {
           val filename::containingFolder::_ = s3Object.uri.getPath.split("/").reverse.toList
@@ -93,10 +94,12 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   }
 
   def deleteCrops(id: String) = {
-    deleteFolder(config.imgPublishingBucket, id)
+    deleteFolder(bucket, id)
   }
 
-  // FIXME: this doesn't really belong here
-  def translateImgHost(uri: URI): URI =
-    new URI("https", config.imgPublishingHost, uri.getPath, uri.getFragment)
+  // FIXME: this (still!) doesn't really belong here
+  def translateImgHost(uri: URI): URI = {
+    val host = customPublishingHost.getOrElse(bucket + "s3.amazonaws.com")
+    new URI("https", host, uri.getPath, uri.getFragment)
+  }
 }

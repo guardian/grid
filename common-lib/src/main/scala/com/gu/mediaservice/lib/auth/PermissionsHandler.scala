@@ -1,16 +1,14 @@
 package com.gu.mediaservice.lib.auth
 
+import com.amazonaws.auth.AWSCredentialsProvider
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.permissions.{PermissionDefinition, PermissionsConfig, PermissionsProvider}
 
 
 object PermissionDeniedError extends Throwable("Permission denied")
 
-trait PermissionsHandler {
-  def config: CommonConfig
-
-  private val permissionsStage = if(config.stage == "PROD") { "PROD" } else { "CODE" }
-  private val permissions = PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion, config.awsCredentials))
+class PermissionsHandler(permissionsStage: String, region: String, awsCredentials: AWSCredentialsProvider) {
+  private val permissions = PermissionsProvider(PermissionsConfig(permissionsStage, region, awsCredentials))
 
   def storeIsEmpty: Boolean = {
     permissions.storeIsEmpty

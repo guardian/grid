@@ -9,7 +9,8 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfService, OnBehalfOfUser, Principal}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.model._
 import lib._
@@ -25,11 +26,10 @@ case object InvalidSource extends Exception("Invalid source URI, not a media API
 case object ImageNotFound extends Exception("No such image found")
 case object ApiRequestFailed extends Exception("Failed to fetch the source")
 
-class CropperController(auth: Authentication, crops: Crops, store: CropStore, notifications: Notifications,
-                        override val config: CropperConfig,
-                        override val controllerComponents: ControllerComponents,
+class CropperController(auth: Authentication, services: Services, mediaApiKey: String, permissionsHandler: PermissionsHandler,
+                        crops: Crops, store: CropStore, notifications: MessageSender, override val controllerComponents: ControllerComponents,
                         ws: WSClient)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers with PermissionsHandler {
+  extends BaseController with ArgoHelpers {
 
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
@@ -37,7 +37,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   val indexResponse = {
     val indexData = Map("description" -> "This is the Cropper Service")
     val indexLinks = List(
-      Link("crop", s"${config.rootUri}/crops")
+      Link("crop", s"${services.cropperBaseUri}/crops")
     )
     respond(indexData, indexLinks)
   }
@@ -85,14 +85,14 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     store.listCrops(id) map (_.toList) map { crops =>
       val deleteCropsAction =
-        ArgoAction("delete-crops", URI.create(s"${config.rootUri}/crops/$id"), "DELETE")
+        ArgoAction("delete-crops", URI.create(s"${services.cropperBaseUri}/crops/$id"), "DELETE")
 
       val links = (for {
         crop <- crops.headOption
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      val canDeleteCrops = hasPermission(httpRequest.user, Permissions.DeleteCrops)
+      val canDeleteCrops = permissionsHandler.hasPermission(httpRequest.user, Permissions.DeleteCrops)
 
       if(canDeleteCrops && crops.nonEmpty) {
         respond(crops, links, List(deleteCropsAction))
@@ -103,7 +103,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def deleteCrops(id: String) = auth.async { httpRequest =>
-    val canDeleteCrops = hasPermission(httpRequest.user, Permissions.DeleteCrops)
+    val canDeleteCrops = permissionsHandler.hasPermission(httpRequest.user, Permissions.DeleteCrops)
 
     if(canDeleteCrops) {
       store.deleteCrops(id).map { _ =>
@@ -137,7 +137,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     } yield (id, finalCrop)
 
   // TODO: lame, parse into URI object and compare host instead
-  def isMediaApiUri(uri: String): Boolean = uri.startsWith(config.apiUri)
+  def isMediaApiUri(uri: String): Boolean = uri.startsWith(services.apiBaseUri)
 
   def fetchSourceFromApi(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[SourceImage] = {
 

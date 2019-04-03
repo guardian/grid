@@ -2,14 +2,16 @@ package lib
 
 import java.io.File
 
-import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
-import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
+import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
 import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.model._
+import model.CropSizes
 
 import scala.concurrent.Future
 import scala.util.Try
+import scala.sys.process._
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
 case object MissingMimeType extends Exception("Missing mimeType from source API")
@@ -18,9 +20,8 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
-class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations) {
+class Crops(cropSizes: CropSizes, store: CropStore, tempDir: File, imageOperations: ImageOperations) {
   import Files._
-
   import scala.concurrent.ExecutionContext.Implicits.global
 
   private val cropQuality = 75d
@@ -38,7 +39,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
-      strip <- imageOperations.cropImage(sourceFile, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
+      strip <- imageOperations.cropImage(sourceFile, source.bounds, masterCropQuality, tempDir, iccColourSpace, colourModel, mediaType.extension)
       file: File <- imageOperations.appendMetadata(strip, metadata)
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType.extension, true)
@@ -54,7 +55,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
-        file          <- imageOperations.resizeImage(sourceFile, dimensions, cropQuality, config.tempDir, mediaType.extension)
+        file          <- imageOperations.resizeImage(sourceFile, dimensions, cropQuality, tempDir, mediaType.extension)
         optimisedFile = imageOperations.optimiseImage(file, mediaType)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, mediaType.extension)
         sizing        <- store.storeCropSizing(optimisedFile, filename, mediaType.extension, crop, dimensions)
@@ -68,9 +69,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   def deleteCrops(id: String) = store.deleteCrops(id)
 
   def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
-      config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
+    cropSizes.portraitHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
     else
-    config.landscapeCropSizingWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
+    cropSizes.landscapeWidths.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspectRatio)))
 
   def isWithinImage(bounds: Bounds, dimensions: Dimensions): Boolean = {
     val positiveCoords       = List(bounds.x,     bounds.y     ).forall(_ >= 0)
@@ -90,7 +91,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val cropType = Crops.cropType(mediaType, colourType, hasAlpha)
 
     for {
-      sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
+      sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", tempDir)
       colourModel <- ImageOperations.identifyColourModel(sourceFile, mediaType)
       masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, colourType)
 
