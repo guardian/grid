@@ -2,8 +2,10 @@ package com.gu.mediaservice.lib
 
 import java.io.File
 
-class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig)
-  extends S3ImageStorage(config) {
+import com.amazonaws.services.s3.AmazonS3
+
+class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, client: AmazonS3)
+  extends S3ImageStorage(client) {
 
   def storeOriginal(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
     storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)

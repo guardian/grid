@@ -33,7 +33,7 @@ case object OptimisedPng {
     }
 }
 
-class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implicit val ec: ExecutionContext) {
+class OptimisedPngOps(store: ImageLoaderStore, tempDir: File)(implicit val ec: ExecutionContext) {
   private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = store.storeOptimisedPng(
     uploadRequest.id,
     optimisedPngFile
@@ -43,7 +43,7 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
     if (OptimisedPng.isPng24(uploadRequest.mimeType, fileMetadata)) {
 
       val optimisedFile = {
-        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.id + ".png"
+        val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.id + ".png"
         Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
         new File(optimisedFilePath)
       }
@@ -89,7 +89,8 @@ case object ImageUpload {
   }
 }
 
-class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
+class ImageUploadOps(store: ImageLoaderStore, imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps,
+                     tempDir: File, thumbWidth: Int, thumbQuality: Double)(implicit val ec: ExecutionContext) {
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
 
     val uploadedFile = uploadRequest.tempFile
@@ -112,7 +113,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
         fileMetadata <- fileMetadataFuture
         colourModel <- colourModelFuture
         iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
-        thumb <- imageOps.createThumbnail(uploadedFile, config.thumbWidth, config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
+        thumb <- imageOps.createThumbnail(uploadedFile, thumbWidth, thumbQuality, tempDir, iccColourSpace, colourModel)
       } yield thumb
 
 
