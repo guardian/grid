@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.PandaUser
 import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
+import com.gu.mediaservice.lib.config.Services
 import com.gu.pandomainauth.service.OAuthException
 import play.api.Logger
 import play.api.libs.json.Json
@@ -14,19 +15,18 @@ import play.api.mvc.{BaseController, ControllerComponents}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class AuthController(auth: Authentication, val config: AuthConfig,
+class AuthController(auth: Authentication, services: Services, permissionsHandler: PermissionsHandler,
                      override val controllerComponents: ControllerComponents)(implicit ec: ExecutionContext)
   extends BaseController
-  with ArgoHelpers
-  with PermissionsHandler {
+  with ArgoHelpers {
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
     val indexLinks = List(
-      Link("root",          config.mediaApiUri),
-      Link("login",         config.services.loginUriTemplate),
-      Link("ui:logout",     s"${config.rootUri}/logout"),
-      Link("session",       s"${config.rootUri}/session")
+      Link("root",          services.authBaseUri),
+      Link("login",         services.loginUriTemplate),
+      Link("ui:logout",     s"${services.authBaseUri}/logout"),
+      Link("session",       s"${services.authBaseUri}/session")
     )
     respond(indexData, indexLinks)
   }
@@ -38,7 +38,7 @@ class AuthController(auth: Authentication, val config: AuthConfig,
     val firstName = user.firstName
     val lastName = user.lastName
 
-    val showPaid = hasPermission(PandaUser(request.user), Permissions.ShowPaid)
+    val showPaid = permissionsHandler.hasPermission(PandaUser(request.user), Permissions.ShowPaid)
 
     respond(
       Json.obj("user" ->
@@ -48,6 +48,7 @@ class AuthController(auth: Authentication, val config: AuthConfig,
           "lastName" -> lastName,
           "email" -> user.email,
           "avatarUrl" -> user.avatarUrl,
+          // TODO MRB: these permissions should be passed to the client in the initial page load
           "permissions" ->
             Json.obj(
               "showPaid" -> showPaid
@@ -59,7 +60,7 @@ class AuthController(auth: Authentication, val config: AuthConfig,
 
 
   def isOwnDomainAndSecure(uri: URI): Boolean = {
-    uri.getHost.endsWith(config.domainRoot) && uri.getScheme == "https"
+    uri.getHost.endsWith(services.domainRoot) && uri.getScheme == "https"
   }
   def isValidDomain(inputUri: String): Boolean = {
     Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess

@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.getEmail
-import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{DynamoDB, MessageSender, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.net.{URI => UriOps}
 import com.gu.mediaservice.model.{ActionData, Collection}
@@ -15,13 +15,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
-class ImageCollectionsController(authenticated: Authentication, config: CollectionsConfig, notifications: Notifications,
+class ImageCollectionsController(authenticated: Authentication, dynamo: DynamoDB, notifications: MessageSender,
                                  override val controllerComponents: ControllerComponents)
   extends BaseController with ArgoHelpers {
 
   import CollectionsManager.onlyLatest
-
-  val dynamo = new DynamoDB(config, config.imageCollectionsTable)
 
   def getCollections(id: String) = authenticated.async { req =>
     dynamo.listGet[Collection](id, "collections").map { collections =>
