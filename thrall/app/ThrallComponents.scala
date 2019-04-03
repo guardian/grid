@@ -59,20 +59,20 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     es6
   }
 
-  val messageConsumerForHealthCheck = es1Opt.map { es1 =>
+  es1Opt.map { es1 =>
     val thrallMessageConsumer = new ThrallMessageConsumer(config, es1, thrallMetrics, store, dynamoNotifications, new SyndicationRightsOps(es1))
     thrallMessageConsumer.startSchedule()
     context.lifecycle.addStopHook {
       () => thrallMessageConsumer.actorSystem.terminate()
     }
-    thrallMessageConsumer
-  }.get
+  }
 
-  es6pot.map { es6 =>
+  var messageConsumerForHealthCheck = es6pot.map { es6 =>
     val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
       store, dynamoNotifications, new SyndicationRightsOps(es6), config.from)
     thrallKinesisMessageConsumer.start()
-  }
+    thrallKinesisMessageConsumer
+  }.get
 
   val thrallController = new ThrallController(controllerComponents)
   val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, config, controllerComponents)
