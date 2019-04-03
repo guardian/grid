@@ -5,15 +5,13 @@ import java.util.Date
 
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner
 import com.amazonaws.services.cloudfront.util.SignerUtils.Protocol
+import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.lib.aws.S3
 import org.joda.time.DateTime
 
 import scala.util.Try
 
-trait CloudFrontDistributable {
-  val privateKeyLocation: String
-  val keyPairId: Option[String]
-
+class S3Client(privateKeyLocation: String, keyPairId: Option[String], client: AmazonS3) extends S3(client) {
   val protocol: Protocol = Protocol.https
   val validForMinutes: Int = 30
 
@@ -26,10 +24,5 @@ trait CloudFrontDistributable {
     CloudFrontUrlSigner.getSignedURLWithCannedPolicy(
       protocol, cloudFrontDomain, privateKeyFile, s3ObjectPath, keyPairId.get, expiresAt)
   }.toOption
-}
-
-class S3Client(config: MediaApiConfig) extends S3(config) with CloudFrontDistributable {
-  lazy val privateKeyLocation: String = config.cloudFrontPrivateKeyLocation
-  lazy val keyPairId: Option[String] = config.cloudFrontKeyPairId
 }
 

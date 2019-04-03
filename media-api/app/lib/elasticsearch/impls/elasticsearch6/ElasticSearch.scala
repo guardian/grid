@@ -13,7 +13,7 @@ import com.sksamuel.elastic4s.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
-import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
+import lib.{MediaApiConfig, SupplierUsageSummary}
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent

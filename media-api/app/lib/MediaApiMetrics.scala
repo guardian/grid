@@ -1,10 +1,11 @@
 package lib
 
+import com.amazonaws.services.cloudwatch.AmazonCloudWatch
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.gu.mediaservice.lib.auth.{ApiKey, Syndication}
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 
-class MediaApiMetrics(config: MediaApiConfig) extends CloudWatchMetrics(s"${config.stage}/MediaApi", config) {
+class MediaApiMetrics(namespace: String, client: AmazonCloudWatch) extends CloudWatchMetrics(namespace, client) {
 
   val searchQueries = new TimeMetric("ElasticSearch")
 

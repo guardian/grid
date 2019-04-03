@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearch
 import com.gu.mediaservice.model.{Agencies, Image}
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch._
-import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
+import lib.{MediaApiConfig, SupplierUsageSummary}
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
 import org.elasticsearch.index.query.QueryBuilders._

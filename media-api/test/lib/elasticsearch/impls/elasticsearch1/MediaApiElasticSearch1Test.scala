@@ -8,7 +8,7 @@ import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.querysyntax.{HasField, HasValue, Match}
-import lib.{MediaApiConfig, MediaApiMetrics}
+import lib.MediaApiConfig
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders

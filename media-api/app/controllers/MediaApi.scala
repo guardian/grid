@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaU
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.{MetadataConfig, Services}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
@@ -26,15 +26,15 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MediaApi(
-                auth: Authentication,
-                messageSender: MessageSender,
-                elasticSearch: ElasticSearchVersion,
-                imageResponse: ImageResponse,
-                override val config: MediaApiConfig,
-                override val controllerComponents: ControllerComponents,
-                s3Client: S3Client,
-                mediaApiMetrics: MediaApiMetrics
+class MediaApi(auth: Authentication,
+               services: Services,
+               imageBucket: String,
+               messageSender: MessageSender,
+               elasticSearch: ElasticSearchVersion,
+               imageResponse: ImageResponse,
+               override val controllerComponents: ControllerComponents,
+               s3Client: S3Client,
+               mediaApiMetrics: MediaApiMetrics
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -43,7 +43,7 @@ class MediaApi(
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
     "persisted", "usageStatus", "usagePlatform", "hasRightsAcquired", "syndicationStatus").mkString(",")
 
-  private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
+  private val searchLinkHref = s"${services.apiBaseUri}/images{?$searchParamList}"
 
   private val searchLink = Link("search", searchLinkHref)
 
@@ -54,19 +54,19 @@ class MediaApi(
     )
     val indexLinks = List(
       searchLink,
-      Link("image",           s"${config.rootUri}/images/{id}"),
+      Link("image",           s"${services.apiBaseUri}/images/{id}"),
       // FIXME: credit is the only field available for now as it's the only on
       // that we are indexing as a completion suggestion
-      Link("metadata-search", s"${config.rootUri}/suggest/metadata/{field}{?q}"),
-      Link("label-search",    s"${config.rootUri}/images/edits/label{?q}"),
-      Link("cropper",         config.cropperUri),
-      Link("loader",          config.loaderUri),
-      Link("edits",           config.metadataUri),
-      Link("session",         s"${config.authUri}/session"),
-      Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
-      Link("collections",     config.collectionsUri),
-      Link("permissions",     s"${config.rootUri}/permissions"),
-      Link("leases",          config.leasesUri)
+      Link("metadata-search", s"${services.apiBaseUri}/suggest/metadata/{field}{?q}"),
+      Link("label-search",    s"${services.apiBaseUri}/images/edits/label{?q}"),
+      Link("cropper",         services.cropperBaseUri),
+      Link("loader",          services.loaderBaseUri),
+      Link("edits",           services.metadataBaseUri),
+      Link("session",         s"${services.authBaseUri}/session"),
+      Link("witness-report",  s"${services.guardianWitnessBaseUri}/2/report/{id}"),
+      Link("collections",     services.collectionsBaseUri),
+      Link("permissions",     s"${services.apiBaseUri}/permissions"),
+      Link("leases",          services.leasesBaseUri)
     )
     respond(indexData, indexLinks)
   }
@@ -152,7 +152,7 @@ class MediaApi(
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         val links = List(
-          Link("image", s"${config.rootUri}/images/$id")
+          Link("image", s"${services.apiBaseUri}/images/$id")
         )
         respond(Json.toJson(image.fileMetadata), links)
       case _ => ImageNotFound(id)
@@ -165,7 +165,7 @@ class MediaApi(
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         val links = List(
-          Link("image", s"${config.rootUri}/images/$id")
+          Link("image", s"${services.apiBaseUri}/images/$id")
         )
         respond(Json.toJson(image.exports), links)
       case _ => ImageNotFound(id)
@@ -218,7 +218,7 @@ class MediaApi(
         val apiKey = request.user.apiKey
         GridLogger.info(s"Download original image $id", apiKey, id)
         mediaApiMetrics.incrementOriginalImageDownload(apiKey)
-        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+        val s3Object = s3Client.getObject(imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
 
@@ -285,7 +285,7 @@ class MediaApi(
       val (imageData, imageLinks, imageActions) =
         imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.apiKey.tier)
       val id = (imageData \ "id").as[String]
-      val imageUri = URI.create(s"${config.rootUri}/images/$id")
+      val imageUri = URI.create(s"${services.apiBaseUri}/images/$id")
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
     }
 

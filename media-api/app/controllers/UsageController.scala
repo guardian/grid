@@ -10,7 +10,7 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearch: ElasticSearchVersion, usageQuota: UsageQuota,
+class UsageController(auth: Authentication, elasticSearch: ElasticSearchVersion, usageQuota: UsageQuota,
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
