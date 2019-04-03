@@ -1,46 +1,50 @@
-import com.gu.mediaservice.lib.play.GridComponents
+import com.gu.mediaservice.lib.play.{GridAuthentication, GridComponents}
 import controllers.{AssetsComponents, KahunaController}
 import play.api.ApplicationLoader.Context
-import play.api.Configuration
 import play.filters.headers.SecurityHeadersConfig
 import router.Routes
 
-class KahunaComponents(context: Context) extends GridComponents(context) with AssetsComponents {
-  final override lazy val config = new KahunaConfig(configuration)
-  final override lazy val securityHeadersConfig: SecurityHeadersConfig = KahunaSecurityConfig(config, context.initialConfiguration)
+import scala.collection.JavaConverters._
 
-  val controller = new KahunaController(auth, config, controllerComponents)
+class KahunaComponents(context: Context) extends GridComponents(context) with GridAuthentication with AssetsComponents {
+  val toolsDomains = config.underlying.getStringList("domain.tools").asScala
+
+  val thumbOrigin = config.get[String]("origin.thumb")
+  val fullOrigin = config.get[String]("origin.full")
+  val cropOrigin = config.get[String]("origin.crops")
+  val imageOrigin = config.get[String]("origin.images")
+
+  val sentryDsn = config.getOptional[String]("sentry.dsn")
+  val googleTrackingId = config.getOptional[String]("google.tracking.id")
+  val googleAnalytics = googleTrackingId.map(_ => "www.google-analytics.com").getOrElse("")
+
+  val serviceUris = List(
+    services.apiBaseUri,
+    services.loaderBaseUri,
+    services.cropperBaseUri,
+    services.metadataBaseUri,
+    services.imgopsBaseUri,
+    services.usageBaseUri,
+    services.collectionsBaseUri,
+    services.leasesBaseUri,
+    services.authBaseUri,
+    services.guardianWitnessBaseUri,
+    imageOrigin
+  )
+
+  val frameSources = s"frame-src ${services.authBaseUri} ${services.kahunaBaseUri} https://accounts.google.com"
+  val frameAncestors = s"frame-ancestors ${toolsDomains.map(domain => s"*.$domain").mkString(" ")}"
+  val connectSources = s"connect-src ${serviceUris.mkString(" ")} 'self' $googleAnalytics"
+  val imageSources = s"img-src data: blob: ${services.imgopsBaseUri} https://$fullOrigin https://$thumbOrigin https://$cropOrigin $googleAnalytics 'self'"
+  val fontSources = s"font-src data: 'self'"
+
+  final override lazy val securityHeadersConfig: SecurityHeadersConfig = SecurityHeadersConfig.fromConfiguration(configuration).copy(
+    // covered by frame-ancestors in contentSecurityPolicy
+    frameOptions = None,
+    // We use inline styles and script tags <sad face>
+    contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $fontSources; $imageSources; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' www.google-analytics.com;")
+  )
+
+  val controller = new KahunaController(auth, services, sentryDsn, googleTrackingId, controllerComponents)
   final override val router = new Routes(httpErrorHandler, controller, assets, management)
-}
-
-object KahunaSecurityConfig {
-  def apply(config: KahunaConfig, playConfig: Configuration): SecurityHeadersConfig = {
-    val base = SecurityHeadersConfig.fromConfiguration(playConfig)
-
-    val services = List(
-      config.services.apiBaseUri,
-      config.services.loaderBaseUri,
-      config.services.cropperBaseUri,
-      config.services.metadataBaseUri,
-      config.services.imgopsBaseUri,
-      config.services.usageBaseUri,
-      config.services.collectionsBaseUri,
-      config.services.leasesBaseUri,
-      config.services.authBaseUri,
-      config.services.guardianWitnessBaseUri
-    )
-
-    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"
-    val frameAncestors = s"frame-ancestors ${config.services.toolsDomains.map(domain => s"*.$domain").mkString(" ")}"
-    val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self' www.google-analytics.com"
-    val imageSources = s"img-src data: blob: ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} https://${config.cropOrigin} www.google-analytics.com 'self'"
-    val fontSources = s"font-src data: 'self'"
-
-    base.copy(
-      // covered by frame-ancestors in contentSecurityPolicy
-      frameOptions = None,
-      // We use inline styles and script tags <sad face>
-      contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $fontSources; $imageSources; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' www.google-analytics.com;")
-    )
-  }
 }
