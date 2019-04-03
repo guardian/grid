@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.config
 
-class Services(val domainRoot: String, isProd: Boolean) {
+class Services(val domainRoot: String) {
   val appName = "media"
 
   val kahunaHost: String   = s"$appName.$domainRoot"
@@ -26,26 +26,6 @@ class Services(val domainRoot: String, isProd: Boolean) {
   val authBaseUri        = baseUri(authHost)
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
-
-  val toolsDomains: Set[String] = if(isProd) {
-    Set(domainRoot)
-  } else {
-    Set(
-      domainRoot.replace("test", "local"),
-      domainRoot.replace("test", "code")
-    )
-  }
-
-  // TODO move to config
-  val corsAllowedTools: Set[String] = toolsDomains.foldLeft(Set[String]()) {(acc, domain) => {
-    val tools = Set(
-      baseUri(s"composer.$domain"),
-      baseUri(s"fronts.$domain")
-    )
-
-    acc ++ tools
-  }}
-
   val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
 
   def baseUri(host: String) = {

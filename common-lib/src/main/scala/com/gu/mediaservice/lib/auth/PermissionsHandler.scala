@@ -1,7 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
-import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.permissions.{PermissionDefinition, PermissionsConfig, PermissionsProvider}
 
 

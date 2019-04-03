@@ -3,6 +3,7 @@ package lib
 import java.io.InputStream
 import java.util.Properties
 
+import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
@@ -121,9 +122,9 @@ object UsageStore {
 
 class UsageStore(
   bucket: String,
-  config: MediaApiConfig,
+  client: AmazonS3,
   quotaStore: QuotaStore
-)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config) {
+)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, client) {
   import UsageStore._
 
   def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
@@ -187,17 +188,13 @@ class UsageStore(
 class QuotaStore(
   quotaFile: String,
   bucket: String,
-  config: MediaApiConfig
-)(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, config)(ec) {
+  client: AmazonS3
+)(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, client)(ec) {
 
   def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
 
   def update() {
-    if (config.quotaUpdateEnabled) {
-      store.send(_ => fetchQuota)
-    } else {
-      GridLogger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
-    }
+    store.send(_ => fetchQuota)
   }
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {

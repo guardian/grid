@@ -5,10 +5,10 @@ import java.io.InputStream
 import _root_.play.api.Logger
 import akka.actor.Scheduler
 import com.amazonaws.AmazonServiceException
+import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.util.IOUtils
 import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
-import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 
@@ -17,8 +17,8 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext) {
-  val s3 = new S3(config)
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, client: AmazonS3)(implicit ec: ExecutionContext) {
+  val s3 = new S3(client)
 
   private val log = LoggerFactory.getLogger(getClass)
 
@@ -26,7 +26,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   protected val lastUpdated: Box[DateTime] = Box(DateTime.now())
 
   protected def getS3Object(key: String): Option[String] = {
-    val content = s3.client.getObject(bucket, key)
+    val content = client.getObject(bucket, key)
     val stream = content.getObjectContent
     try
       Some(IOUtils.toString(stream).trim)
@@ -40,7 +40,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   }
 
   protected def getLatestS3Stream: Option[InputStream] = {
-    val objects = s3.client
+    val objects = client
       .listObjects(bucket).getObjectSummaries.asScala
       .filterNot(_.getKey == "AMAZON_SES_SETUP_NOTIFICATION")
 
@@ -48,7 +48,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
       val obj = objects.maxBy(_.getLastModified)
       Logger.info(s"Latest key ${obj.getKey} in bucket $bucket")
 
-      val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
+      val stream = client.getObject(bucket, obj.getKey).getObjectContent
       Some(stream)
     } else {
       Logger.error(s"Bucket $bucket is empty")

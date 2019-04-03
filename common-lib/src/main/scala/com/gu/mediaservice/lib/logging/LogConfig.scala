@@ -3,7 +3,6 @@ package com.gu.mediaservice.lib.logging
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.{LoggerContext, Logger => LogbackLogger}
 import com.gu.logback.appender.kinesis.KinesisAppender
-import com.gu.mediaservice.lib.config.CommonConfig
 import net.logstash.logback.layout.LogstashLayout
 import org.slf4j.{LoggerFactory, Logger => SLFLogger}
 import play.api.ApplicationLoader.Context

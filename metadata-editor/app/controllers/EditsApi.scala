@@ -4,7 +4,6 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model._
-import lib.EditsConfig
 import model.UsageRightsProperty
 import play.api.libs.json._
 import play.api.mvc.{BaseController, ControllerComponents}

@@ -1,6 +1,6 @@
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{CollectionsController, ImageCollectionsController}
-import lib.{CollectionsConfig, CollectionsMetrics, Notifications}
+import lib.{CollectionsMetrics, Notifications}
 import play.api.ApplicationLoader.Context
 import router.Routes
 import store.CollectionsStore

@@ -7,7 +7,6 @@ import java.nio.charset.{Charset, StandardCharsets}
 import com.amazonaws.ClientConfiguration
 import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
-import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.Image
 import org.joda.time.{DateTime, Duration}
 
@@ -18,14 +17,12 @@ case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
 case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
-class S3(config: CommonConfig) {
+class S3(client: AmazonS3) {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
 
   val s3Endpoint = "s3.amazonaws.com"
-
-  lazy val client: AmazonS3 = buildS3Client()
 
   private def removeExtension(filename: String): String = {
     val regex = """\.[a-zA-Z]{3,4}$""".r
@@ -147,17 +144,5 @@ class S3(config: CommonConfig) {
   private def objectUrl(bucket: Bucket, key: Key): URI = {
     val bucketUrl = s"$bucket.$s3Endpoint"
     new URI("http", bucketUrl, s"/$key", null)
-  }
-
-  private def buildS3Client(): AmazonS3 = {
-    // Force v2 signatures: https://github.com/aws/aws-sdk-java/issues/372
-    // imgops proxies direct to S3, passing the AWS security signature as query parameters
-    // This does not work with AWS v4 signatures, presumably because the signature includes the host
-    val clientConfig = new ClientConfiguration()
-    clientConfig.setSignerOverride("S3SignerType")
-
-    val builder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
-
-    config.withAWSCredentials(builder).build()
   }
 }

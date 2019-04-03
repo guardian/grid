@@ -5,7 +5,6 @@ import java.util.UUID
 
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
-import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.usage.UsageNotice
 import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}

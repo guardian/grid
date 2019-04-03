@@ -3,7 +3,6 @@ package store
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.Collection
-import lib.CollectionsConfig
 import play.api.libs.json.JsValue
 
 import scala.concurrent.ExecutionContext.Implicits.global

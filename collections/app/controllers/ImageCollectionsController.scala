@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.net.{URI => UriOps}
 import com.gu.mediaservice.model.{ActionData, Collection}
-import lib.{CollectionsConfig, Notifications}
+import lib.Notifications
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}

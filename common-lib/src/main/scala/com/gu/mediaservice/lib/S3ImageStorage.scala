@@ -2,15 +2,15 @@ package com.gu.mediaservice.lib
 
 import java.io.File
 
+import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.lib.aws.S3
-import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 // TODO: If deleteObject fails - we should be catching the errors here to avoid them bubbling to the application
-class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage {
+class S3ImageStorage(client: AmazonS3) extends S3(client) with ImageStorage {
   private val log = LoggerFactory.getLogger(getClass)
 
   def storeImage(bucket: String, id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =

@@ -2,8 +2,6 @@ package com.gu.mediaservice.lib
 
 import java.io.File
 
-import com.gu.mediaservice.lib.config.CommonConfig
-
 class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig)
   extends S3ImageStorage(config) {
 

@@ -1,6 +1,6 @@
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.MediaLeaseController
-import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
+import lib.{LeaseNotifier, LeaseStore}
 import play.api.ApplicationLoader.Context
 import router.Routes
 

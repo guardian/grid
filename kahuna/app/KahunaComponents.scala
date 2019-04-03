@@ -1,6 +1,5 @@
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{AssetsComponents, KahunaController}
-import lib.KahunaConfig
 import play.api.ApplicationLoader.Context
 import play.api.Configuration
 import play.filters.headers.SecurityHeadersConfig

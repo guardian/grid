@@ -1,11 +1,10 @@
 package com.gu.mediaservice.lib.auth
 
-import akka.actor.ActorSystem
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{Request => _, _}
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
@@ -17,7 +16,10 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class Authentication(config: CommonConfig, actorSystem: ActorSystem,
+class Authentication(services: Services,
+                     userValidationEmailDomain: String,
+                     keyStore: KeyStore,
+                     final override val panDomainSettings: PanDomainAuthSettingsRefresher,
                      override val parser: BodyParser[AnyContent],
                      override val wsClient: WSClient,
                      override val controllerComponents: ControllerComponents,
@@ -28,21 +30,13 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   implicit val ec: ExecutionContext = executionContext
 
   val loginLinks = List(
-    Link("login", config.services.loginUriTemplate)
+    Link("login", services.loginUriTemplate)
   )
 
   // API key errors
   val invalidApiKeyResult = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
-  val keyStore = new KeyStore(config.authKeyStoreBucket, config)
-
-  keyStore.scheduleUpdates(actorSystem.scheduler)
-
-  private val userValidationEmailDomain = config.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
-
-  override lazy val panDomainSettings = buildPandaSettings()
-
-  final override def authCallbackUrl: String = s"${config.services.authBaseUri}/oauthCallback"
+  final override def authCallbackUrl: String = s"${services.authBaseUri}/oauthCallback"
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
     // Try to auth by API key, and failing that, with Panda
@@ -51,7 +45,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
             GridLogger.info(s"Using api key with name ${apiKey.name} and tier ${apiKey.tier}", apiKey)
-            if (ApiKey.hasAccess(apiKey, request, config.services))
+            if (ApiKey.hasAccess(apiKey, request, services))
               block(new AuthenticatedRequest(AuthenticatedService(apiKey), request))
             else
               Future.successful(ApiKey.unauthorizedResult)
@@ -79,16 +73,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
         case Some(cookie) => OnBehalfOfUser(user, DefaultWSCookie(cookieName, cookie.value))
         case None => throw new IllegalStateException(s"Unable to generate cookie header on behalf of ${principal.apiKey}. Missing original cookie $cookieName")
       }
-  }
-
-  private def buildPandaSettings() = {
-    new PanDomainAuthSettingsRefresher(
-      domain = config.services.domainRoot,
-      system = config.stringOpt("panda.system").getOrElse("media-service"),
-      bucketName = config.stringOpt("panda.bucketName").getOrElse("pan-domain-auth-settings"),
-      settingsFileKey = config.stringOpt("panda.settingsFileKey").getOrElse(s"${config.services.domainRoot}.settings"),
-      s3Client = config.withAWSCredentials(AmazonS3ClientBuilder.standard()).build()
-    )
   }
 }
 

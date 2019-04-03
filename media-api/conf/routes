@@ -28,6 +28,7 @@ GET     /suggest/metadata/photoshoot                  controllers.SuggestionCont
 # usage quotas
 GET     /usage/suppliers                              controllers.UsageController.bySupplier
 GET     /usage/suppliers/:id                          controllers.UsageController.forSupplier(id: String)
+# TODO MRB: we think these can be removed?
 GET     /usage/quotas                                 controllers.UsageController.quotas
 GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
 

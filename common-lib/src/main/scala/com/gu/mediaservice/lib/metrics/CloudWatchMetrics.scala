@@ -3,7 +3,6 @@ package com.gu.mediaservice.lib.metrics
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, StandardUnit}
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
-import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._

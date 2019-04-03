@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
-import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
+import lib.{LeaseNotifier, LeaseStore}
 import play.api.libs.json._
 import play.api.mvc._
 

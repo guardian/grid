@@ -2,7 +2,7 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.ManagementWithPermissions
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.CropperController
-import lib.{CropStore, CropperConfig, Crops, Notifications}
+import lib.{CropStore, Crops, Notifications}
 import play.api.ApplicationLoader.Context
 import router.Routes
 

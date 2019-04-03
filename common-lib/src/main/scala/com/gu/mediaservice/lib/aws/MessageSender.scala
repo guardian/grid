@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib.aws
 
-import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.UsageNotice
 import org.joda.time.DateTime

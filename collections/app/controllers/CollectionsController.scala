@@ -8,7 +8,6 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.getEmail
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.{ActionData, Collection}
-import lib.CollectionsConfig
 import model.Node
 import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
