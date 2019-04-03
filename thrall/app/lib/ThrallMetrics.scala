@@ -28,6 +28,4 @@ class ThrallMetrics(config: ThrallConfig) extends CloudWatchMetrics(s"${config.s
 
   val snsMessage = new CountMetric("SNSMessage")
 
-  val kinesisMessage = new CountMetric("KinesisMessage")
-
 }
