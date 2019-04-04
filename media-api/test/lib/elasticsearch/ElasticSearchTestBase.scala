@@ -19,20 +19,13 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     createImage(UUID.randomUUID().toString, StaffPhotographer("Yellow Giraffe", "The Guardian")),
     createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
 
-    // with user metadata
-    createImage(id = "persisted-because-edited", Handout()).copy(
-      userMetadata = Some(Edits(
-        metadata = ImageMetadata(credit = Some("author")))
-      ),
-      uploadTime = DateTime.now.minusMonths(1)
+    createImageUploadedInThePast("persisted-because-edited").copy(
+      userMetadata = Some(Edits(metadata = ImageMetadata(credit = Some("author"))))
     ),
 
-    createImage(id = "test-image-14-unedited", Handout()).copy(
-      uploadTime = DateTime.now.minusMonths(1)
-    ),
+    createImageUploadedInThePast("test-image-14-unedited"),
 
-    createImage(id = "persisted-because-usage", Handout()).copy(
-      uploadTime = DateTime.now.minusMonths(1),
+    createImageUploadedInThePast("persisted-because-usage").copy(
       usages = List(createPrintUsage())
     ),
 

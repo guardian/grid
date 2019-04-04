@@ -55,6 +55,10 @@ trait Fixtures {
     )
   }
 
+  def createImageUploadedInThePast(id: String): Image = createImage(id = id, Handout()).copy(
+    uploadTime = DateTime.now.minusMonths(1)
+  )
+
   def createImageForSyndication(
     id: String,
     rightsAcquired: Boolean,
