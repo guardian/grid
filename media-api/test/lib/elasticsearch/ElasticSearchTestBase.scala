@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
-import com.gu.mediaservice.model.{Edits, FileMetadata, ImageMetadata, Handout, StaffPhotographer}
+import com.gu.mediaservice.model.{Edits, FileMetadata, Handout, ImageMetadata, StaffPhotographer}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
@@ -20,8 +20,21 @@ class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
 
     // with user metadata
-    createImage(id = "test-image-13-edited", Handout()).copy(userMetadata = Some(Edits(metadata = ImageMetadata(credit = Some("author")))), uploadTime = DateTime.now.minusMonths(1)),
-    createImage(id = "test-image-14-unedited", Handout()).copy(uploadTime = DateTime.now.minusMonths(1)),
+    createImage(id = "persisted-because-edited", Handout()).copy(
+      userMetadata = Some(Edits(
+        metadata = ImageMetadata(credit = Some("author")))
+      ),
+      uploadTime = DateTime.now.minusMonths(1)
+    ),
+
+    createImage(id = "test-image-14-unedited", Handout()).copy(
+      uploadTime = DateTime.now.minusMonths(1)
+    ),
+
+    createImage(id = "persisted-because-usage", Handout()).copy(
+      uploadTime = DateTime.now.minusMonths(1),
+      usages = List(createPrintUsage())
+    ),
 
     // available for syndication
     createImageForSyndication(

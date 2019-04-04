@@ -98,6 +98,8 @@ trait Fixtures {
     createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, date)
   }
 
+  def createPrintUsage(date: DateTime = DateTime.now): Usage = createUsage(InDesignUsageReference, PrintUsage, PendingUsageStatus, date)
+
   def stringLongerThan(i: Int): String = {
     var out = ""
     while (out.trim.length < i) {

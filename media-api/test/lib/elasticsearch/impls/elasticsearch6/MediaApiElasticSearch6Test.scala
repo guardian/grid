@@ -85,8 +85,13 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
   }
 
   describe("persistence") {
-    it("can persist any images older than 20 days that have edited user metadata") {
-      val searchParams = SearchParams(tier = Internal, length = 100, until = Some(DateTime.now.minusDays(20)), persisted = Some(false))
+    it("should not persist unedited or unused images") {
+      val searchParams = SearchParams(
+        tier = Internal,
+        length = 100,
+        until = Some(DateTime.now.minusDays(20)),
+        persisted = Some(false)
+      )
 
       val searchResult = ES.search(searchParams)
       whenReady(searchResult, timeout, interval) { result =>
@@ -95,6 +100,25 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
         val imageId = result.hits.map(_._1)
         imageId.size shouldBe 1
         imageId.contains("test-image-14-unedited") shouldBe true
+      }
+    }
+
+    it("should persist edited or used images") {
+      val searchParams = SearchParams(
+        tier = Internal,
+        length = 100,
+        until = Some(DateTime.now.minusDays(20)),
+        persisted = Some(true)
+      )
+
+      val searchResult = ES.search(searchParams)
+      whenReady(searchResult, timeout, interval) { result =>
+        result.total shouldBe 2
+
+        val imageIds = result.hits.map(_._1)
+        imageIds.size shouldBe 2
+        imageIds.contains("persisted-because-edited") shouldBe true
+        imageIds.contains("persisted-because-usage") shouldBe true
       }
     }
   }
