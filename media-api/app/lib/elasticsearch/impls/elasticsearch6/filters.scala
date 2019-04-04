@@ -3,7 +3,7 @@ package lib.elasticsearch.impls.elasticsearch6
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.searches.queries.{BoolQuery, Query}
+import com.sksamuel.elastic4s.searches.queries.{BoolQuery, NestedQuery, Query}
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._
@@ -67,4 +67,5 @@ object filters {
     )
   }
 
+  def nested(path: String, query: Query) = NestedQuery(path, query)
 }

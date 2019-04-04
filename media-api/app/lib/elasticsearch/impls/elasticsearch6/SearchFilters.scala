@@ -61,7 +61,7 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   )
 
   val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
-  val usedInContent = filters.bool.must(filters.existsOrMissing("usages", exists = true))
+  val usedInContent = filters.nested("usages", filters.exists(NonEmptyList("usages")))
   val existedPreGrid = filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier)))
   val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
   val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))

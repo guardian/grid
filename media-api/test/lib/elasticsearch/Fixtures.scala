@@ -55,6 +55,10 @@ trait Fixtures {
     )
   }
 
+  def createImageUploadedInThePast(id: String): Image = createImage(id = id, Handout()).copy(
+    uploadTime = DateTime.now.minusMonths(1)
+  )
+
   def createImageForSyndication(
     id: String,
     rightsAcquired: Boolean,
@@ -97,6 +101,8 @@ trait Fixtures {
   def createDigitalUsage(date: DateTime = DateTime.now): Usage = {
     createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, date)
   }
+
+  def createPrintUsage(date: DateTime = DateTime.now): Usage = createUsage(InDesignUsageReference, PrintUsage, PendingUsageStatus, date)
 
   def stringLongerThan(i: Int): String = {
     var out = ""
