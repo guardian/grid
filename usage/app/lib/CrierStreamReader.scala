@@ -9,8 +9,12 @@ import com.amazonaws.auth.InstanceProfileCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
+import com.gu.contentapi.client.GuardianContentClient
+import _root_.KinesisReaderConfig
 
-class CrierStreamReader(config: UsageConfig) {
+import scala.util.Try
+
+class CrierStreamReader(region: String, liveReaderConfig: Try[KinesisReaderConfig], previewReaderConfig: Try[KinesisReaderConfig], capi: GuardianContentClient) {
 
   lazy val workerId: String = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
@@ -38,22 +42,22 @@ class CrierStreamReader(config: UsageConfig) {
       credentialsProvider,
       workerId
     ).withInitialPositionInStream(initialPosition)
-     .withRegionName(config.awsRegionName)
+     .withRegionName(region)
 
   private lazy val liveConfig =
-    config.liveKinesisReaderConfig.map(kinesisClientLibConfig)
+    liveReaderConfig.map(kinesisClientLibConfig)
 
   private lazy val previewConfig =
-    config.previewKinesisReaderConfig.map(kinesisClientLibConfig)
+    previewReaderConfig.map(kinesisClientLibConfig)
 
   protected val LiveEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
-      new CrierLiveEventProcessor(config)
+      new CrierLiveEventProcessor(capi)
   }
 
   protected val PreviewEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
-      new CrierPreviewEventProcessor(config)
+      new CrierPreviewEventProcessor(capi)
   }
 
   lazy val liveWorker = liveConfig.map(new Worker.Builder().recordProcessorFactory(LiveEventProcessorFactory).config(_).build())

@@ -8,7 +8,7 @@ import org.joda.time.format.ISODateTimeFormat
 
 import scala.util.Try
 
-class UsageMetadataBuilder(config: UsageConfig) {
+class UsageMetadataBuilder(composerContentBaseUrl: String) {
 
   def buildFront(metadataMap: Map[String, Any]): Option[FrontUsageMetadata] = {
     Try {
@@ -74,7 +74,7 @@ class UsageMetadataBuilder(config: UsageConfig) {
   def composerUrl(content: Content): Option[URI] = content.fields
     .flatMap(_.internalComposerCode)
     .flatMap(composerId => {
-      Try(URI.create(s"${config.composerContentBaseUrl}/$composerId")).toOption
+      Try(URI.create(s"$composerContentBaseUrl/$composerId")).toOption
     })
 
 }

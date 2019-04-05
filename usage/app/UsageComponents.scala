@@ -1,4 +1,9 @@
-import com.gu.mediaservice.lib.play.GridComponents
+import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder
+import com.amazonaws.services.kinesis.AmazonKinesisClientBuilder
+import com.amazonaws.services.sns.AmazonSNSClientBuilder
+import com.gu.mediaservice.lib.aws.{Kinesis, MessageSender, SNS}
+import com.gu.mediaservice.lib.play.{GridCORSAuthentication, GridComponents}
 import controllers.UsageApi
 import lib._
 import model._
@@ -7,24 +12,34 @@ import router.Routes
 
 import scala.concurrent.Future
 
-class UsageComponents(context: Context) extends GridComponents(context) {
+case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-  final override lazy val config = new UsageConfig(configuration)
+class UsageComponents(context: Context) extends GridComponents(context) with GridCORSAuthentication {
+  val dynamoClient = AmazonDynamoDBAsyncClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
+  val cloudwatchClient = AmazonCloudWatchClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
+  val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
+  val kinesisClient = AmazonKinesisClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
 
-  val usageMetadataBuilder = new UsageMetadataBuilder(config)
+  val usageConfig = new UsageConfig(config)
+
+  val usageMetadataBuilder = new UsageMetadataBuilder(usageConfig.composerContentBaseUrl)
   val mediaWrapper = new MediaWrapperOps(usageMetadataBuilder)
   val mediaUsage = new MediaUsageOps(usageMetadataBuilder)
-  val liveContentApi = new LiveContentApi(config)
-  val usageGroup = new UsageGroupOps(config, mediaUsage, liveContentApi, mediaWrapper)
-  val usageTable = new UsageTable(config, mediaUsage)
-  val usageMetrics = new UsageMetrics(config)
-  val usageNotifier = new UsageNotifier(config, usageTable)
+  val liveContentApi = new LiveContentApi(usageConfig.capiLiveUrl, usageConfig.capiApiKey)
+  val usageGroup = new UsageGroupOps(services, usageConfig.usageDateLimit, mediaUsage, liveContentApi, mediaWrapper)
+  val usageTable = new UsageTable(usageConfig.usageRecordTable, mediaUsage, dynamoClient)
+  val usageMetrics = new UsageMetrics(usageConfig.cloudwatchMetricsNamespace, cloudwatchClient)
+
+  val sns = new SNS(snsClient, usageConfig.snsTopicArn)
+  val kinesis = new Kinesis(kinesisClient, usageConfig.thrallKinesisStream)
+  val messageSender = new MessageSender(sns, kinesis)
+
+  val usageNotifier = new UsageNotifier(usageTable, messageSender)
   val usageStream = new UsageStream(usageGroup)
   val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageStream, usageNotifier, usageNotifier)
-  val notifications = new Notifications(config)
 
-  if(!config.apiOnly) {
-    val crierReader = new CrierStreamReader(config)
+  if(!usageConfig.apiOnly) {
+    val crierReader = new CrierStreamReader(region, usageConfig.liveKinesisReaderConfig, usageConfig.previewKinesisReaderConfig, liveContentApi)
     crierReader.start()
   }
 
@@ -34,7 +49,7 @@ class UsageComponents(context: Context) extends GridComponents(context) {
     Future.successful(())
   })
 
-  val controller = new UsageApi(auth, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
+  val controller = new UsageApi(auth, services, usageTable, usageGroup, messageSender, usageRecorder, liveContentApi, usageConfig.maxPrintRequestLengthInKb, controllerComponents, playBodyParsers)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }

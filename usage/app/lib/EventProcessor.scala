@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
-abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor {
+abstract class EventProcessor(capi: GuardianContentClient) extends IRecordProcessor {
 
   implicit val codec = Event
 
@@ -63,9 +63,6 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor {
         event.payload match {
           case Some(retrievableContent: EventPayload.RetrievableContent) =>
             val capiUrl = retrievableContent.retrievableContent.capiUrl
-
-            val capi: GuardianContentClient = new LiveContentApi(config)
-
             val query = ItemQuery(capiUrl, Map())
 
             capi.getResponse(query).map(response => {
@@ -86,7 +83,7 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor {
   }
 }
 
-private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+private class CrierLiveEventProcessor(capi: GuardianContentClient) extends EventProcessor(capi) {
 
   val contentStream = LiveCrierContentStream
 
@@ -105,7 +102,7 @@ private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcesso
   }
 }
 
-private class CrierPreviewEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+private class CrierPreviewEventProcessor(capi: GuardianContentClient) extends EventProcessor(capi) {
 
   val contentStream = PreviewCrierContentStream
 

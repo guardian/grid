@@ -1,11 +1,11 @@
 package model
 
+import com.amazonaws.services.dynamodbv2.{AmazonDynamoDB, AmazonDynamoDBAsync}
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus}
-import lib.UsageConfig
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
@@ -36,7 +36,7 @@ object UsageTableFullKey {
   }
 }
 
-class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoDB(config, config.usageRecordTable){
+class UsageTable(usageRecordTable: String, mediaUsage: MediaUsageOps, dynamoClient: AmazonDynamoDBAsync) extends DynamoDB(dynamoClient, usageRecordTable){
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
