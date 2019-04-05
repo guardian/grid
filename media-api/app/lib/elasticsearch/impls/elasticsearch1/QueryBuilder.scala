@@ -6,14 +6,7 @@ import org.elasticsearch.index.query.FilterBuilders._
 import org.elasticsearch.index.query.QueryBuilders._
 import org.elasticsearch.index.query.{MatchQueryBuilder, MultiMatchQueryBuilder, NestedQueryBuilder}
 
-class QueryBuilder(queriableIdentifiers: Seq[String]) extends ImageFields {
-  private val matchFields: Seq[String] = Seq("id") ++
-    Seq("description", "title", "byline", "source", "credit", "keywords",
-      "subLocation", "city", "state", "country", "suppliersReference", "englishAnalysedCatchAll").map(metadataField) ++
-    Seq("labels").map(editsField) ++
-    queriableIdentifiers.map(identifierField) ++
-    Seq("restrictions").map(usageRightsField)
-
+class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]) =
     new MultiMatchQueryBuilder(value, fields: _*).`type`(MultiMatchQueryBuilder.Type.PHRASE)
@@ -83,5 +76,16 @@ class QueryBuilder(queriableIdentifiers: Seq[String]) extends ImageFields {
 
       nestedQueries.foldLeft(query) { case (q, nestedQ) => q.must(nestedQ) }
     }
+  }
+}
+
+object QueryBuilderFactory extends ImageFields  {
+  def build(queriableIdentifiers: Seq[String]): QueryBuilder = {
+    new QueryBuilder(Seq("id") ++
+      Seq("description", "title", "byline", "source", "credit", "keywords",
+        "subLocation", "city", "state", "country", "suppliersReference", "englishAnalysedCatchAll").map(metadataField) ++
+      Seq("labels").map(editsField) ++
+      queriableIdentifiers.map(identifierField) ++
+      Seq("restrictions").map(usageRightsField))
   }
 }

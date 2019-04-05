@@ -8,14 +8,12 @@ import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.gu.mediaservice.syntax._
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.querysyntax.{HasField, HasValue, Match}
-import lib.MediaApiConfig
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
-import play.api.Configuration
 import play.api.libs.json.Json
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -33,14 +31,8 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
 
   private val imageAlias = "readAlias"
 
-  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
-    "persistence.identifier" -> "picdarUrn",
-  )))
-
-  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
   val elasticConfig = ElasticSearchConfig(alias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
-
-  val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
+  val ES = ElasticSearchFactory.build(elasticConfig, None, "picdarUrn", None, List.empty, List.empty)
 
   private val expectedNumberOfImages = images.size
 

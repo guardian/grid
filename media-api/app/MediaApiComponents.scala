@@ -4,6 +4,8 @@ import com.amazonaws.services.sns.AmazonSNSClientBuilder
 import com.gu.mediaservice.lib.auth.PermissionsHandler
 import com.gu.mediaservice.lib.aws.{Kinesis, MessageSender, SNS}
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import lib.elasticsearch.impls.elasticsearch1.{ElasticSearchFactory => Elasticsearch1Factory}
+import lib.elasticsearch.impls.elasticsearch6.{ElasticSearchFactory => Elasticsearch6Factory}
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.ManagementWithPermissions
@@ -85,25 +87,11 @@ class MediaApiComponents(context: Context) extends GridComponents(context) with 
   val elasticSearches = Seq(
     es1Config.map { c =>
       Logger.info("Configuring ES1: " + c)
-
-      val queryBuilder1 = new lib.elasticsearch.impls.elasticsearch1.QueryBuilder(Seq(persistenceIdentifier))
-      val syndicationFilter1 = new lib.elasticsearch.impls.elasticsearch1.SyndicationFilter(syndicationStartDate)
-      val searchFilter1 = new lib.elasticsearch.impls.elasticsearch1.SearchFilters(requiredMetadata, persistenceIdentifier, persistenceCollections, syndicationFilter1)
-      val es1 = new lib.elasticsearch.impls.elasticsearch1.ElasticSearch(queryBuilder1, syndicationFilter1, searchFilter1, mediaApiMetrics, c)
-
-      es1.ensureAliasAssigned()
-      es1
+      Elasticsearch1Factory.build(c, Some(mediaApiMetrics), persistenceIdentifier, syndicationStartDate, requiredMetadata, persistenceCollections)
     },
     es6Config.map { c =>
       Logger.info("Configuring ES6: " + c)
-
-      val queryBuilder6 = new lib.elasticsearch.impls.elasticsearch6.QueryBuilder(Seq(persistenceIdentifier))
-      val syndicationFilter6 = new lib.elasticsearch.impls.elasticsearch6.SyndicationFilter(syndicationStartDate)
-      val searchFilter6 = new lib.elasticsearch.impls.elasticsearch6.SearchFilters(requiredMetadata, persistenceIdentifier, persistenceCollections, syndicationFilter6)
-      val es6 = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(queryBuilder6, syndicationFilter6, searchFilter6, mediaApiMetrics, c)
-
-      es6.ensureAliasAssigned()
-      es6
+      Elasticsearch6Factory.build(c, Some(mediaApiMetrics), persistenceIdentifier, syndicationStartDate, requiredMetadata, persistenceCollections)
     }
   ).flatten
 

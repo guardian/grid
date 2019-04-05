@@ -17,7 +17,7 @@ trait FutureSyntax {
     }
 
     def incrementOnSuccess[N](metric: Metric[N])(implicit N: Numeric[N]): Future[A] =
-      toMetric(metric)(_ => N.fromInt(1))
+      toMetric(Some(metric))(_ => N.fromInt(1))
 
     def incrementOnFailure[B](metric: Metric[B])(pfn: PartialFunction[Throwable, Boolean])
                              (implicit B: Numeric[B]): Future[A] = {
@@ -27,8 +27,8 @@ trait FutureSyntax {
       self
     }
 
-    def toMetric[B](metric: Metric[B], dims: List[Dimension] = List())(f: A => B): Future[A] = {
-      self.foreach { case a => metric.runRecordOne(f(a), dims) }
+    def toMetric[B](metric: Option[Metric[B]], dims: Option[Dimension] = None)(f: A => B): Future[A] = {
+      self.foreach { case a => metric.foreach(_.runRecordOne(f(a), dims.toList)) }
       self
     }
 

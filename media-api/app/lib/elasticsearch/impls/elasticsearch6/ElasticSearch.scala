@@ -14,6 +14,7 @@ import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiMetrics, SupplierUsageSummary}
+import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -23,7 +24,8 @@ import scalaz.syntax.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFilter, searchFilters: SearchFilters, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with FutureSyntax {
+class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFilter, searchFilters: SearchFilters,
+                    mediaApiMetrics: Option[MediaApiMetrics], elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with FutureSyntax {
 
   lazy val imagesAlias = elasticConfig.alias
   lazy val host = elasticConfig.host
@@ -132,7 +134,7 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
     val searchRequest = prepareSearch(withFilter) from params.offset size params.length sortBy sort
 
     executeAndLog(searchRequest, "image search").
-      toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
+      toMetric(mediaApiMetrics.map(_.searchQueries), mediaApiMetrics.map(_.searchTypeDimension("results")))(_.result.took).map { r =>
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.id, i))
       SearchResults(hits = imageHits, total = r.result.totalHits)
     }
@@ -192,7 +194,7 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
     val search = prepareSearch(query) aggregations aggregation size 0
 
     executeAndLog(search, s"$name aggregate search")
-      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("aggregate")))(_.result.took).map { r =>
+      .toMetric(mediaApiMetrics.map(_.searchQueries), mediaApiMetrics.map(_.searchTypeDimension("aggregate")))(_.result.took).map { r =>
       searchResultToAggregateResponse(r.result, name, extract)
     }
   }
@@ -205,7 +207,7 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
   override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[CompletionSuggestionResults] = {
     val completionSuggestion = ElasticDsl.completionSuggestion(name).on(name).text(q).skipDuplicates(true)
     executeAndLog(ElasticDsl.search(imagesAlias) suggestions completionSuggestion, "completion suggestion query").
-      toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>
+      toMetric(mediaApiMetrics.map(_.searchQueries), mediaApiMetrics.map(_.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>
       val x = r.result.suggestions.get(name).map { suggestions =>
         suggestions.flatMap { s =>
           s.toCompletion.options.map { o =>
@@ -230,4 +232,23 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
     }
   }
 
+}
+
+object ElasticSearchFactory {
+  def build(config: ElasticSearch6Config,
+            mediaApiMetrics: Option[MediaApiMetrics],
+            persistenceIdentifier: String,
+            syndicationStartDate: Option[DateTime],
+            requiredMetadata: List[String],
+            persistedCollections: List[String]): ElasticSearch = {
+
+    // TODO MRB: should this have the same matchFields as the ES1 implementation?
+    val queryBuilder6 = new lib.elasticsearch.impls.elasticsearch6.QueryBuilder(Seq(persistenceIdentifier))
+    val syndicationFilter6 = new lib.elasticsearch.impls.elasticsearch6.SyndicationFilter(syndicationStartDate)
+    val searchFilter6 = new lib.elasticsearch.impls.elasticsearch6.SearchFilters(requiredMetadata, persistenceIdentifier, persistedCollections, syndicationFilter6)
+    val es6 = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(queryBuilder6, syndicationFilter6, searchFilter6, mediaApiMetrics, config)
+
+    es6.ensureAliasAssigned()
+    es6
+  }
 }

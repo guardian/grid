@@ -15,6 +15,7 @@ import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogram
 import org.elasticsearch.search.aggregations.{AbstractAggregationBuilder, AggregationBuilders}
 import org.elasticsearch.search.suggest.completion.{CompletionSuggestion, CompletionSuggestionBuilder}
+import org.joda.time.DateTime
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 import scalaz.NonEmptyList
@@ -25,7 +26,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFilter, searchFilters: SearchFilters,
-                    mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig) extends ElasticSearchVersion with ElasticSearchClient
+                    mediaApiMetrics: Option[MediaApiMetrics], elasticConfig: ElasticSearchConfig) extends ElasticSearchVersion with ElasticSearchClient
   with ImageFields with ArgoHelpers {
 
   lazy val imagesAlias = elasticConfig.alias
@@ -110,7 +111,7 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
       .setFrom(params.offset)
       .setSize(params.length)
       .executeAndLog("image search")
-      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("results")))(_.getTookInMillis)
+      .toMetric(mediaApiMetrics.map(_.searchQueries), mediaApiMetrics.map(_.searchTypeDimension("results")))(_.getTookInMillis)
       .map(_.getHits)
       .map { results =>
         val hitsTuples = results.hits.toList flatMap (h => h.sourceOpt map (h.id -> _.as[Image]))
@@ -181,7 +182,7 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
     search
       .setSearchType(SearchType.COUNT)
       .executeAndLog(s"$name aggregate search")
-      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("aggregate")))(_.getTookInMillis)
+      .toMetric(mediaApiMetrics.map(_.searchQueries), mediaApiMetrics.map(_.searchTypeDimension("aggregate")))(_.getTookInMillis)
       .map(searchResultToAggregateResponse(_, name))
   }
 
@@ -191,7 +192,7 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
 
     search
       .executeAndLog("completion suggestion query")
-      .toMetric(mediaApiMetrics.searchQueries, List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.getTookInMillis)
+      .toMetric(mediaApiMetrics.map(_.searchQueries), mediaApiMetrics.map(_.searchTypeDimension("suggestion-completion")))(_.getTookInMillis)
       .map { response =>
         val options =
           response.getSuggest
@@ -230,4 +231,22 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
   private def prepareImagesSearch: SearchRequestBuilder =
     client.prepareSearch(imagesAlias).setTypes(imageType)
 
+}
+
+object ElasticSearchFactory {
+  def build(config: ElasticSearchConfig,
+            mediaApiMetrics: Option[MediaApiMetrics],
+            persistenceIdentifier: String,
+            syndicationStartDate: Option[DateTime],
+            requiredMetadata: List[String],
+            persistedCollections: List[String]): ElasticSearch = {
+
+    val queryBuilder1 = QueryBuilderFactory.build(Seq(persistenceIdentifier))
+    val syndicationFilter1 = new SyndicationFilter(syndicationStartDate)
+    val searchFilter1 = new SearchFilters(requiredMetadata, persistenceIdentifier, persistedCollections, syndicationFilter1)
+    val es1 = new ElasticSearch(queryBuilder1, syndicationFilter1, searchFilter1, mediaApiMetrics, config)
+
+    es1.ensureAliasAssigned()
+    es1
+  }
 }
