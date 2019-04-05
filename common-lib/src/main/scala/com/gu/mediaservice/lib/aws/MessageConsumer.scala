@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) extends ImageId {
+abstract class MessageConsumer(queueUrl: String, metric: Metric[Long], client: AmazonSQS) extends ImageId {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
@@ -29,8 +29,6 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
 
   def startSchedule(): Unit =
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
-
-  lazy val client: AmazonSQS = config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]]
 

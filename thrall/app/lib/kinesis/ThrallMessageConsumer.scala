@@ -3,13 +3,16 @@ package lib.kinesis
 import java.net.InetAddress
 import java.util.UUID
 
+import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import lib._
 import org.joda.time.DateTime
 import play.api.Logger
 
-class ThrallMessageConsumer(config: ThrallConfig,
+class ThrallMessageConsumer(thrallKinesisStream: String,
+                            credentialsProvider: AWSCredentialsProvider,
+                            awsRegion: String,
                             es: ElasticSearchVersion,
                             thrallMetrics: ThrallMetrics,
                             store: ThrallStore,
@@ -26,8 +29,8 @@ class ThrallMessageConsumer(config: ThrallConfig,
 
   private val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
   private val thrallKinesisWorker = builder(
-    kinesisClientLibConfig(kinesisAppName = config.thrallKinesisStream,
-    streamName = config.thrallKinesisStream,
+    kinesisClientLibConfig(kinesisAppName = thrallKinesisStream,
+    streamName = thrallKinesisStream,
     from = from
   ))
   private val thrallKinesisWorkerThread = makeThread(thrallKinesisWorker)
@@ -39,8 +42,6 @@ class ThrallMessageConsumer(config: ThrallConfig,
   }
 
   private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, from: Option[DateTime]): KinesisClientLibConfiguration = {
-    val credentialsProvider = config.awsCredentials
-
     val kinesisConfig = new KinesisClientLibConfiguration(
       kinesisAppName,
       streamName,
@@ -48,7 +49,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
       credentialsProvider,
       credentialsProvider,
       workerId
-    ).withRegionName(config.awsRegion).
+    ).withRegionName(awsRegion).
       withMaxRecords(100).
       withIdleMillisBetweenCalls(1000).
       withIdleTimeBetweenReadsInMillis(250)

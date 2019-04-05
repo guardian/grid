@@ -7,7 +7,7 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageConsumerVersion, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageConsumerVersion, healthyMessageRate: Int, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   def healthCheck = Action.async {
@@ -35,7 +35,7 @@ class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageC
 
   private def messageQueueHealth: Option[String] = {
     val timeLastMessage = messageConsumer.lastProcessed
-    if (timeLastMessage.plusMinutes(config.healthyMessageRate).isBeforeNow)
+    if (timeLastMessage.plusMinutes(healthyMessageRate).isBeforeNow)
       Some(s"Not received a message since $timeLastMessage")
     else
       None

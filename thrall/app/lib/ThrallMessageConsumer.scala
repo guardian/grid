@@ -1,26 +1,25 @@
 package lib
 
+import com.amazonaws.services.sqs.AmazonSQS
 import com.gu.mediaservice.lib.aws.{Kinesis, MessageConsumer}
 import org.joda.time.DateTime
 import play.api.libs.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ThrallMessageConsumer(
-                             config: ThrallConfig,
-                             es: ElasticSearchVersion,
-                             thrallMetrics: ThrallMetrics,
-                             store: ThrallStore,
-                             metadataNotifications: MetadataNotifications,
-                             syndicationRightsOps: SyndicationRightsOps
+class ThrallMessageConsumer(sqsQueueUrl: String,
+                            sqsClient: AmazonSQS,
+                            kinesis: Kinesis,
+                            es: ElasticSearchVersion,
+                            thrallMetrics: ThrallMetrics,
+                            store: ThrallStore,
+                            metadataNotifications: MetadataNotifications,
+                            syndicationRightsOps: SyndicationRightsOps
 )(implicit ec: ExecutionContext) extends MessageConsumer (
-  config.queueUrl,
-  config.awsEndpoint,
-  config,
-  thrallMetrics.snsMessage
+  sqsQueueUrl,
+  thrallMetrics.snsMessage,
+  sqsClient,
 ) with MessageConsumerVersion {
-
-  val kinesis: Kinesis = new Kinesis(config, config.thrallKinesisStream)
 
   val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps, kinesis)
 
