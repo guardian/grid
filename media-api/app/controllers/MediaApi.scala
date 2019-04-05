@@ -32,10 +32,11 @@ class MediaApi(auth: Authentication,
                messageSender: MessageSender,
                elasticSearch: ElasticSearchVersion,
                imageResponse: ImageResponse,
+               permissionsHandler: PermissionsHandler,
                override val controllerComponents: ControllerComponents,
                s3Client: S3Client,
                mediaApiMetrics: MediaApiMetrics
-)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
+)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -95,7 +96,7 @@ class MediaApi(auth: Authentication,
         if (user.user.email.toLowerCase == image.uploadedBy.toLowerCase) {
           true
         } else {
-          hasPermission(user, permission)
+          permissionsHandler.hasPermission(user, permission)
         }
       case service: AuthenticatedService if service.apiKey.tier == Internal => true
       case _ => false
@@ -110,7 +111,7 @@ class MediaApi(auth: Authentication,
     isUploaderOrHasPermission(request, image, Permissions.DeleteImage)
   }
 
-  def canUserDeleteCropsOrUsages(user: Principal): Boolean = hasPermission(user, Permissions.DeleteCrops)
+  def canUserDeleteCropsOrUsages(user: Principal): Boolean = permissionsHandler.hasPermission(user, Permissions.DeleteCrops)
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 

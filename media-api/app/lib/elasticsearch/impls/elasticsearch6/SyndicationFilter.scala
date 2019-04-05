@@ -1,16 +1,12 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.SyndicationUsage
 import com.sksamuel.elastic4s.searches.queries.Query
-import lib.MediaApiConfig
-import lib.elasticsearch.impls.elasticsearch1.SyndicationFilter._
 import org.joda.time.DateTime
 
-class SyndicationFilter(config: MediaApiConfig) {
-
-  val isSyndicationDateFilterActive = config.isProd
-
+class SyndicationFilter(syndicationStartDate: Option[DateTime]) extends ImageFields {
   private def syndicationRightsAcquired(acquired: Boolean): Query = filters.boolTerm(
     field = "syndicationRights.rights.acquired",
     value = acquired
@@ -91,8 +87,8 @@ class SyndicationFilter(config: MediaApiConfig) {
         )
       )
 
-      config.syndicationStartDate match {
-        case Some(date) if config.isProd => filters.and(
+      syndicationStartDate match {
+        case Some(date) => filters.and(
           filters.date("uploadTime", Some(date), None).get,
           rightsAcquiredNoLeaseFilter
         )

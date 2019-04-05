@@ -20,8 +20,8 @@ import play.utils.UriEncoding
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Try}
 
-class ImageResponse(services: Services, imageBucket: String, thumbBucket: String, cloudFrontDomainThumbBucket: Option[String],
-                    persistenceIdentifier: String, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
+class ImageResponse(override val services: Services, imageBucket: String, thumbBucket: String, cloudFrontDomainThumbBucket: Option[String],
+                    persistenceIdentifier: String, persistedRootCollections: List[String], s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
 //  implicit val dateTimeFormat = DateFormat
   implicit val usageQuotas = usageQuota
 
@@ -61,7 +61,7 @@ class ImageResponse(services: Services, imageBucket: String, thumbBucket: String
     val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
 
     // is image in at least one persisted collection?
-    (collectionPaths diff config.persistedRootCollections).length < collectionPaths.length
+    (collectionPaths diff persistedRootCollections).length < collectionPaths.length
   }
 
   def isPhotographerCategory[T <: UsageRights](usageRights: T) =

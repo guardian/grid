@@ -5,8 +5,8 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ImageFields}
 import com.gu.mediaservice.model.{Agencies, Image}
 import com.gu.mediaservice.syntax._
+import lib.{MediaApiMetrics, SupplierUsageSummary}
 import lib.elasticsearch._
-import lib.{MediaApiConfig, SupplierUsageSummary}
 import org.elasticsearch.action.get.GetRequestBuilder
 import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse, SearchType}
 import org.elasticsearch.index.query.QueryBuilders._
@@ -24,8 +24,9 @@ import scalaz.syntax.std.list._
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig) extends ElasticSearchVersion with ElasticSearchClient
-  with ImageFields with ArgoHelpers with MatchFields {
+class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFilter, searchFilters: SearchFilters,
+                    mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig) extends ElasticSearchVersion with ElasticSearchClient
+  with ImageFields with ArgoHelpers {
 
   lazy val imagesAlias = elasticConfig.alias
   lazy val host = elasticConfig.host
@@ -33,12 +34,8 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   lazy val cluster = elasticConfig.cluster
   lazy val clientTransportSniff = true
 
-  val searchFilters = new SearchFilters(config)
-
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
     prepareGet(id).executeAndLog(s"get image by id $id") map (_.sourceOpt.map(_.as[Image]))
-
-  val queryBuilder = new QueryBuilder(matchFields)
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
 
@@ -80,7 +77,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       params.usageStatus.toNel.map(status => filters.terms(usagesField("status"), status.map(_.toString))) ++
       params.usagePlatform.toNel.map(filters.terms(usagesField("platform"), _))
 
-    val syndicationStatusFilter = params.syndicationStatus.map(status => SyndicationFilter.statusFilter(status, config))
+    val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
     val filterOpt = (
       metadataFilter.toList

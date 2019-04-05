@@ -3,6 +3,7 @@ package com.gu.mediaservice.model
 import java.net.{URI, URLEncoder}
 
 import com.gu.mediaservice.lib.argo.model.{Action, EmbeddedEntity}
+import com.gu.mediaservice.lib.config.Services
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
@@ -42,7 +43,7 @@ object Edits {
 }
 
 trait EditsResponse {
-  val metadataBaseUri: String
+  val services: Services
 
   type ArchivedEntity = EmbeddedEntity[Boolean]
   type SetEntity = EmbeddedEntity[Seq[EmbeddedEntity[String]]]
@@ -84,7 +85,7 @@ trait EditsResponse {
     EmbeddedEntity(entityUri(id, s"/$setName/${URLEncoder.encode(name, "UTF-8")}"), Some(name))
 
   private def entityUri(id: String, endpoint: String = ""): URI =
-    URI.create(s"$metadataBaseUri/metadata/$id$endpoint")
+    URI.create(s"${services.metadataBaseUri}/metadata/$id$endpoint")
 
   def labelsUri(id: String) = entityUri(id, "/labels")
 

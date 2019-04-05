@@ -38,13 +38,11 @@ import scala.concurrent.{ExecutionContext, Future}
 //   }
 // }
 
-class EditsController(auth: Authentication, services: Services, store: EditsStore, notifications: MessageSender,
+class EditsController(auth: Authentication, override val services: Services, store: EditsStore, notifications: MessageSender,
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers with EditsResponse {
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
-
-  val metadataBaseUri = services.metadataBaseUri
 
   def decodeUriParam(param: String): String = decode(param, "UTF-8")
 

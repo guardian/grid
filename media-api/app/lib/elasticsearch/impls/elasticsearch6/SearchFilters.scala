@@ -5,20 +5,18 @@ import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.searches.queries.Query
-import lib.MediaApiConfig
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
-class SearchFilters(config: MediaApiConfig)  extends ImageFields {
-
-  val syndicationFilter = new SyndicationFilter(config)
+class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: String, persistedRootCollections: List[String],
+                    syndicationFilter: SyndicationFilter)  extends ImageFields {
 
   import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!
-  val validFilter: Option[Query] = config.requiredMetadata.map(metadataField).toNel.map(filters.exists)
-  val invalidFilter: Option[Query] = config.requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
+  val validFilter: Option[Query] = requiredMetadata.map(metadataField).toNel.map(filters.exists)
+  val invalidFilter: Option[Query] = requiredMetadata.map(metadataField).toNel.map(filters.anyMissing)
 
   val (suppliersWithExclusions, suppliersNoExclusions) = freeSuppliers.partition(suppliersCollectionExcl.contains)
   val suppliersWithExclusionsFilters: List[Query] = for {
@@ -62,11 +60,11 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
 
   val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
   val usedInContent = filters.nested("usages", filters.exists(NonEmptyList("usages")))
-  val existedPreGrid = filters.exists(NonEmptyList(identifierField(config.persistenceIdentifier)))
+  val existedPreGrid = filters.exists(NonEmptyList(identifierField(persistenceIdentifier)))
   val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
   val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
   val hasPersistedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
-  val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), config.persistedRootCollections.toNel.get))
+  val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), persistedRootCollections.toNel.get))
   val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))
   val hasLabels = filters.exists(NonEmptyList(editsField("labels")))
 

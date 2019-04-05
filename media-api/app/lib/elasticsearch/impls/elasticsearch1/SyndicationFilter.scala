@@ -3,11 +3,10 @@ package lib.elasticsearch.impls.elasticsearch1
 import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.SyndicationUsage
-import lib.MediaApiConfig
 import org.elasticsearch.index.query.FilterBuilder
 import org.joda.time.DateTime
 
-object SyndicationFilter extends ImageFields {
+class SyndicationFilter(syndicationStartDate: Option[DateTime]) extends ImageFields {
   private def syndicationRightsAcquired(acquired: Boolean): FilterBuilder = filters.boolTerm(
     field = "syndicationRights.rights.acquired",
     value = acquired
@@ -58,7 +57,7 @@ object SyndicationFilter extends ImageFields {
     filters.term(usageRightsField("category"), ContractPhotographer.category)
   )
 
-  def statusFilter(status: SyndicationStatus, config: MediaApiConfig): FilterBuilder = status match {
+  def statusFilter(status: SyndicationStatus): FilterBuilder = status match {
     case SentForSyndication => filters.and(
       hasRightsAcquired,
       hasAllowLease,
@@ -90,8 +89,8 @@ object SyndicationFilter extends ImageFields {
         )
       )
 
-      config.syndicationStartDate match {
-        case Some(date) if config.isProd => filters.and(
+      syndicationStartDate match {
+        case Some(date) => filters.and(
           filters.date("uploadTime", Some(date), None).get,
           rightsAcquiredNoLeaseFilter
         )
