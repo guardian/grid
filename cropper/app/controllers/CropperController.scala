@@ -143,10 +143,13 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
-    val baseRequest = ws.url(uri).withQueryStringParameters("include" -> "fileMetadata")
+    val baseRequest = ws.url(uri)
+      .withQueryStringParameters("include" -> "fileMetadata")
+      .withHttpHeaders(Authentication.originalServiceHeaderName -> "cropper")
+
     val request = onBehalfOfPrincipal match {
       case OnBehalfOfService(service) =>
-        baseRequest.withHttpHeaders(Authentication.headerKey -> service.apiKey.name)
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.apiKey.name)
 
       case OnBehalfOfUser(_, cookie) =>
         baseRequest.addCookies(cookie)

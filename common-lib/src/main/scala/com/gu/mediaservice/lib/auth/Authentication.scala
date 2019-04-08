@@ -46,7 +46,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
     // Try to auth by API key, and failing that, with Panda
-    request.headers.get(headerKey) match {
+    request.headers.get(Authentication.apiKeyHeaderName) match {
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
@@ -103,7 +103,8 @@ object Authentication {
   case class OnBehalfOfUser(override val principal: PandaUser, cookie: WSCookie) extends OnBehalfOfPrincipal
   case class OnBehalfOfService(override val principal: AuthenticatedService) extends OnBehalfOfPrincipal
 
-  val headerKey = "X-Gu-Media-Key"
+  val apiKeyHeaderName = "X-Gu-Media-Key"
+  val originalServiceHeaderName = "X-Gu-Original-Service"
 
   def getEmail(principal: Principal): String = principal match {
     case PandaUser(user) => user.email
