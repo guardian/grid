@@ -16,5 +16,5 @@ services:
     volumes:
      - "./elasticsearch6/test/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
     ports:  
-      - "9206:9200"
-      - "9306:9300"
+      - "9207:9200"
+      - "9307:9300"
