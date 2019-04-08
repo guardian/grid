@@ -140,7 +140,7 @@ def playProject(projectName: String, port: Int): Project =
       maintainer in Linux := "Guardian Developers <dig.dev.software@theguardian.com>",
       packageSummary in Linux := description.value,
       packageDescription := description.value,
-      
+
       javaOptions in Universal ++= Seq(
         "-Dpidfile.path=/dev/null"
       ),
