@@ -1,0 +1,18 @@
+{
+  "name": "sample-images",
+  "version": "0.0.0",
+  "description": "Upload images from Unsplash into Grid for demonstration",
+  "main": "index.js",
+  "dependencies": {
+    "es6-promise": "^4.2.6",
+    "isomorphic-fetch": "^2.2.1",
+    "unsplash-js": "^5.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "upload-sample-images": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
