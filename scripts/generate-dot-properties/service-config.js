@@ -150,6 +150,7 @@ function getThrallConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |sqs.queue.url=${config.stackProps.SqsQueueUrl}
+        |thrall.kinesis.stream=${config.stackProps.ThrallMessageQueue}
         |indexed.image.sns.topic.arn=${config.stackProps.IndexedImageTopicArn}
         |es.index.aliases.write=writeAlias
         |es6.host=localhost
