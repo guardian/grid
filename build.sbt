@@ -151,7 +151,12 @@ def playProject(projectName: String, port: Int): Project =
       riffRaffArtifactResources := Seq(
         (packageBin in Debian).value -> s"${name.value}/${name.value}.deb",
         file(s"$projectName/conf/riff-raff.yaml") -> "riff-raff.yaml"
-      )
+      ),
+
+      dockerUsername := Some("guardiangrid"),
+      dockerBaseImage := "openjdk:8-jre",
+      dockerExposedPorts in Docker := Seq(port),
+      version in Docker := riffRaffBuildInfo.value.buildIdentifier
     ))
 
 val testSettings = Seq(
