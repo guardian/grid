@@ -34,34 +34,44 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
   private def logSuccess(request: RequestHeader, response: Result, duration: Long): Unit = {
     val originIp = request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
     val referer = request.headers.get("Referer").getOrElse("")
-    val originalService = request.headers.get(Authentication.originalServiceHeaderName).getOrElse("")
+    val originalService = request.headers.get(Authentication.originalServiceHeaderName)
     val length = response.header.headers.getOrElse("Content-Length", 0)
 
-    val markers = MarkerContext(appendEntries(Map(
+    val mandatoryMarkers = Map(
       "origin" -> originIp,
       "referrer" -> referer,
       "originalService" -> originalService,
       "method" -> request.method,
       "status" -> response.header.status,
       "duration" -> duration
-    ).asJava))
+    )
 
+    val optionalMarkers = originalService
+      .map { s => Map(Authentication.originalServiceHeaderName -> s ) }
+      .getOrElse(Map.empty)
+
+    val markers = MarkerContext(appendEntries((mandatoryMarkers ++ optionalMarkers).asJava))
     logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ${response.header.status} $length "$referer" ${duration}ms""")(markers)
   }
 
   private def logFailure(request: RequestHeader, throwable: Throwable, duration: Long): Unit = {
     val originIp = request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
     val referer = request.headers.get("Referer").getOrElse("")
-    val originalService = request.headers.get(Authentication.originalServiceHeaderName).getOrElse("")
+    val originalService = request.headers.get(Authentication.originalServiceHeaderName)
 
-    val markers = MarkerContext(appendEntries(Map(
+    val mandatoryMarkers = Map(
       "origin" -> originIp,
       "referrer" -> referer,
       "originalService" -> originalService,
       "method" -> request.method,
       "duration" -> duration
-    ).asJava))
+    )
 
+    val optionalMarkers = originalService
+      .map { s => Map(Authentication.originalServiceHeaderName -> s ) }
+      .getOrElse(Map.empty)
+
+    val markers = MarkerContext(appendEntries((mandatoryMarkers ++ optionalMarkers).asJava))
     logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ERROR "$referer" ${duration}ms""")(markers)
     logger.error(s"Error for ${request.method} ${request.uri}", throwable)
   }
