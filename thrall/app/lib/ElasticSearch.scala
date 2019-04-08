@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticImageUpdate {
+class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchVersion with ElasticSearchClient with ImageFields with ElasticImageUpdate {
 
   import com.gu.mediaservice.lib.formatting._
 
@@ -61,7 +61,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
             addToSuggestersScript,
           scriptType)
         .executeAndLog(s"Indexing image $id")
-        .incrementOnSuccess(metrics.indexedImages)
+        .incrementOnSuccess(metrics.map(_.indexedImages))
     }
   }
 
@@ -88,8 +88,8 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
             case _ => Future.failed(ImageNotDeletable)
           }
           deleteFuture
-            .incrementOnSuccess(metrics.deletedImages)
-            .incrementOnFailure(metrics.failedDeletedImages) { case ImageNotDeletable => true }
+            .incrementOnSuccess(metrics.map(_.deletedImages))
+            .incrementOnFailure(metrics.map(_.failedDeletedImages)) { case ImageNotDeletable => true }
         }.map ( _ => ElasticSearchDeleteResponse())
     }
   }
@@ -109,7 +109,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
           scriptType)
         .executeAndLog(s"updating usages on image $id")
         .recover { case e: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -132,7 +132,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
           scriptType)
         .executeAndLog(s"updating syndicationRights on image $id with rights $rightsJson")
         .recover { case e: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(metrics.failedSyndicationRightsUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -143,7 +143,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
         scriptType)
         .executeAndLog(s"removing all usages on image $id")
         .recover { case e: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -152,7 +152,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
       request.setScript(deleteSyndicationRightsScript, scriptType)
         .executeAndLog(s"removing syndication rights on image $id")
         .recover { case e: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(metrics.failedSyndicationRightsUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -168,7 +168,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
           scriptType)
         .executeAndLog(s"updating all leases on image $id with: ${leases.toString}")
         .recover { case e: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(metrics.failedUsagesUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -183,7 +183,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
           scriptType)
         .executeAndLog(s"adding lease on image $id with: $lease")
         .recover { case _: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(metrics.failedUsagesUpdates) { case _: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _: VersionConflictEngineException => true }
     }
   }
 
@@ -198,7 +198,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
           scriptType)
         .executeAndLog(s"removing lease with id $leaseId from image $id ")
         .recover { case _: DocumentMissingException => new UpdateResponse }
-        .incrementOnFailure(metrics.failedUsagesUpdates) { case _: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _: VersionConflictEngineException => true }
     }
   }
 
@@ -213,7 +213,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
             updateLastModifiedScript,
           scriptType)
         .executeAndLog(s"updating exports on image $id")
-        .incrementOnFailure(metrics.failedExportsUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -227,7 +227,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
             updateLastModifiedScript,
           scriptType)
         .executeAndLog(s"removing exports from image $id")
-        .incrementOnFailure(metrics.failedExportsUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case e: VersionConflictEngineException => true }
     }
 
   def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
@@ -247,7 +247,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
             photoshootSuggestionScript,
           scriptType)
         .executeAndLog(s"updating user metadata on image $id")
-        .incrementOnFailure(metrics.failedMetadataUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedMetadataUpdates)) { case e: VersionConflictEngineException => true }
     }
   }
 
@@ -262,7 +262,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: ThrallMetrics) extends
             updateLastModifiedScript,
           scriptType)
         .executeAndLog(s"setting collections on image $id")
-        .incrementOnFailure(metrics.failedCollectionsUpdates) { case e: VersionConflictEngineException => true }
+        .incrementOnFailure(metrics.map(_.failedCollectionsUpdates)) { case e: VersionConflictEngineException => true }
     }
 
   private def prepareImageUpdate(id: String)(op: UpdateRequestBuilder => Future[UpdateResponse])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
