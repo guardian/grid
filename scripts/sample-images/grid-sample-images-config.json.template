@@ -1,0 +1,10 @@
+{
+  "unsplash": {
+    "accessKey": "",
+    "appSecret": ""
+  },
+  "grid": {
+    "apiKey": "",
+    "mediaApi": ""
+  }
+}
