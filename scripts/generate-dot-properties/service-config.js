@@ -47,12 +47,17 @@ function getCropperConfig(config) {
 
 function getImageLoaderConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
         |aws.region=${config.aws.region}
+        |domain.root=${config.domainRoot}
+        |panda.bucket.name=${config.panda.bucketName}
+        |panda.settings.key=${config.panda.settingsFileKey}
+        |panda.user.domain=${config.panda.userDomain}
+        |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream=${config.stackProps.ThrallMessageQueue}
         |`;
 }
 
@@ -161,8 +166,8 @@ module.exports = {
         return {
             auth: getAuthConfig(config),
             collections: getCollectionsConfig(config),
-            cropper: getCropperConfig(config)
-//            'image-loader': getImageLoaderConfig(config),
+            cropper: getCropperConfig(config),
+            'image-loader': getImageLoaderConfig(config)
 //            kahuna: getKahunaConfig(config),
 //            leases: getLeasesConfig(config),
 //            'media-api': getMediaApiConfig(config),
