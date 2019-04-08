@@ -7,7 +7,7 @@ import _root_.play.api.libs.json._
 import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfService, OnBehalfOfUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
@@ -15,7 +15,7 @@ import com.gu.mediaservice.model._
 import lib._
 import model._
 import org.joda.time.DateTime
-import play.api.libs.ws.WSClient
+import play.api.libs.ws.{WSClient, WSCookie}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -34,9 +34,6 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
 
-  val mediaApiKey = auth.keyStore.findKey("cropper").getOrElse(throw new Error("Missing cropper API key in key bucket"))
-
-
   val indexResponse = {
     val indexData = Map("description" -> "This is the Cropper Service")
     val indexLinks = List(
@@ -50,9 +47,9 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   def export = auth.async(parse.json) { httpRequest =>
     httpRequest.body.validate[ExportRequest] map { exportRequest =>
       val user = httpRequest.user
-      val onBehalfOfHeaders = auth.getOnBehalfOfHeaders(user, httpRequest)
+      val onBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user, httpRequest)
 
-      executeRequest(exportRequest, user, onBehalfOfHeaders).map { case (imageId, export) =>
+      executeRequest(exportRequest, user, onBehalfOfPrincipal).map { case (imageId, export) =>
         val cropJson = Json.toJson(export).as[JsObject]
         val exports = Json.obj(
           "id" -> imageId,
@@ -121,10 +118,10 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     }
   }
 
-  def executeRequest(exportRequest: ExportRequest, user: Principal, onBehalfOfHeaders: Map[String, String]): Future[(String, Crop)] =
+  def executeRequest(exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[(String, Crop)] =
     for {
       _          <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
-      apiImage   <- fetchSourceFromApi(exportRequest.uri, onBehalfOfHeaders)
+      apiImage   <- fetchSourceFromApi(exportRequest.uri, onBehalfOfPrincipal)
       _          <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option
       dimensions <- ifDefined(apiImage.source.dimensions, InvalidImage)
@@ -142,13 +139,20 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   // TODO: lame, parse into URI object and compare host instead
   def isMediaApiUri(uri: String): Boolean = uri.startsWith(config.apiUri)
 
-  def fetchSourceFromApi(uri: String, onBehalfOfHeaders: Map[String, String]): Future[SourceImage] = {
+  def fetchSourceFromApi(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[SourceImage] = {
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
-    val responseFuture = ws.url(uri).
-      withQueryStringParameters("include" -> "fileMetadata").
-      withHttpHeaders(onBehalfOfHeaders.toSeq: _*).get.map { r =>
+    val baseRequest = ws.url(uri).withQueryStringParameters("include" -> "fileMetadata")
+    val request = onBehalfOfPrincipal match {
+      case OnBehalfOfService(service) =>
+        baseRequest.withHttpHeaders(Authentication.headerKey -> service.apiKey.name)
+
+      case OnBehalfOfUser(_, cookie) =>
+        baseRequest.addCookies(cookie)
+    }
+
+    val responseFuture = request.get.map { r =>
       HttpClientResponse(r.status, r.statusText, Json.parse(r.body))
     }
 

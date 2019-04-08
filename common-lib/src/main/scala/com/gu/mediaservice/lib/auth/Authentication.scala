@@ -11,7 +11,7 @@ import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import com.gu.pandomainauth.service.Google2FAGroupChecker
-import play.api.libs.ws.WSClient
+import play.api.libs.ws.{DefaultWSCookie, WSClient, WSCookie}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -34,7 +34,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   // API key errors
   val invalidApiKeyResult = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
-  private val headerKey = "X-Gu-Media-Key"
   val keyStore = new KeyStore(config.authKeyStoreBucket, config)
 
   keyStore.scheduleUpdates(actorSystem.scheduler)
@@ -69,15 +68,15 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
     Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
   }
 
-  def getOnBehalfOfHeaders(principal: Principal, originalRequest: Request[_]): Map[String, String] = principal match {
-    case AuthenticatedService(apiKey) =>
-      Map(headerKey -> apiKey.name)
+  def getOnBehalfOfPrincipal(principal: Principal, originalRequest: Request[_]): OnBehalfOfPrincipal = principal match {
+    case service: AuthenticatedService =>
+      OnBehalfOfService(service)
 
-    case PandaUser(_) =>
+    case user: PandaUser =>
       val cookieName = panDomainSettings.settings.cookieSettings.cookieName
 
       originalRequest.cookies.get(cookieName) match {
-        case Some(cookie) => Map("Cookie" -> s"$cookieName=${cookie.value}")
+        case Some(cookie) => OnBehalfOfUser(user, DefaultWSCookie(cookieName, cookie.value))
         case None => throw new IllegalStateException(s"Unable to generate cookie header on behalf of ${principal.apiKey}. Missing original cookie $cookieName")
       }
   }
@@ -99,6 +98,12 @@ object Authentication {
   case class AuthenticatedService(apiKey: ApiKey) extends Principal
 
   type Request[A] = AuthenticatedRequest[A, Principal]
+
+  sealed trait OnBehalfOfPrincipal { def principal: Principal }
+  case class OnBehalfOfUser(override val principal: PandaUser, cookie: WSCookie) extends OnBehalfOfPrincipal
+  case class OnBehalfOfService(override val principal: AuthenticatedService) extends OnBehalfOfPrincipal
+
+  val headerKey = "X-Gu-Media-Key"
 
   def getEmail(principal: Principal): String = principal match {
     case PandaUser(user) => user.email
