@@ -50,8 +50,9 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   def export = auth.async(parse.json) { httpRequest =>
     httpRequest.body.validate[ExportRequest] map { exportRequest =>
       val user = httpRequest.user
+      val onBehalfOfHeaders = auth.getOnBehalfOfHeaders(user, httpRequest)
 
-      executeRequest(exportRequest, user).map { case (imageId, export) =>
+      executeRequest(exportRequest, user, onBehalfOfHeaders).map { case (imageId, export) =>
         val cropJson = Json.toJson(export).as[JsObject]
         val exports = Json.obj(
           "id" -> imageId,
@@ -120,10 +121,10 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     }
   }
 
-  def executeRequest(exportRequest: ExportRequest, user: Principal): Future[(String, Crop)] =
+  def executeRequest(exportRequest: ExportRequest, user: Principal, onBehalfOfHeaders: Map[String, String]): Future[(String, Crop)] =
     for {
       _          <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
-      apiImage   <- fetchSourceFromApi(exportRequest.uri)
+      apiImage   <- fetchSourceFromApi(exportRequest.uri, onBehalfOfHeaders)
       _          <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option
       dimensions <- ifDefined(apiImage.source.dimensions, InvalidImage)
@@ -141,13 +142,13 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   // TODO: lame, parse into URI object and compare host instead
   def isMediaApiUri(uri: String): Boolean = uri.startsWith(config.apiUri)
 
-  def fetchSourceFromApi(uri: String): Future[SourceImage] = {
+  def fetchSourceFromApi(uri: String, onBehalfOfHeaders: Map[String, String]): Future[SourceImage] = {
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
     val responseFuture = ws.url(uri).
       withQueryStringParameters("include" -> "fileMetadata").
-      withHttpHeaders(("X-Gu-Media-Key", mediaApiKey)).get.map { r =>
+      withHttpHeaders(onBehalfOfHeaders.toSeq: _*).get.map { r =>
       HttpClientResponse(r.status, r.statusText, Json.parse(r.body))
     }
 

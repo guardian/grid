@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser}
+import com.gu.mediaservice.lib.auth.Authentication.{Request => _, _}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
@@ -67,6 +67,19 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
     Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+  }
+
+  def getOnBehalfOfHeaders(principal: Principal, originalRequest: Request[_]): Map[String, String] = principal match {
+    case AuthenticatedService(apiKey) =>
+      Map(headerKey -> apiKey.name)
+
+    case PandaUser(_) =>
+      val cookieName = panDomainSettings.settings.cookieSettings.cookieName
+
+      originalRequest.cookies.get(cookieName) match {
+        case Some(cookie) => Map("Cookie" -> s"$cookieName=${cookie.value}")
+        case None => throw new IllegalStateException(s"Unable to generate cookie header on behalf of ${principal.apiKey}. Missing original cookie $cookieName")
+      }
   }
 
   private def buildPandaSettings() = {
