@@ -1,0 +1,32 @@
+<configuration>
+  <property name="LOGS_LOCATION" value="${application.home}/logs" />
+
+  <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOGS_LOCATION}/application.log</file>
+
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOGS_LOCATION}/application.log.%d{yyyy-MM-dd}.gz</fileNamePattern>
+      <maxHistory>7</maxHistory>
+    </rollingPolicy>
+
+    <encoder>
+      <pattern>%date - [%level] - from %logger in %thread markers=%marker %n%message%n%xException%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%date - [%level] - from %logger in %thread markers=%marker %n%message%n%xException%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="play" level="INFO" />
+  <logger name="application" level="INFO" />
+  <logger name="request" level="INFO" />
+
+  <root level="INFO">
+    <appender-ref ref="LOGFILE"/>
+    <appender-ref ref="STDOUT"/>
+  </root>
+
+</configuration>

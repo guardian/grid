@@ -1,15 +1,5 @@
 <configuration>
-
-    <conversionRule conversionWord="coloredLevel" converterClass="play.api.libs.logback.ColoredLevel" />
-
-    <if condition='property("STAGE").contains("DEV")'>
-        <then>
-            <property name="LOGS_LOCATION" value="${application.home}/logs" />
-        </then>
-        <else>
-            <property name="LOGS_LOCATION" value="logs" />
-        </else>
-    </if>
+  <property name="LOGS_LOCATION" value="${application.home}/logs" />
 
     <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOGS_LOCATION}/application.log</file>
@@ -24,12 +14,19 @@
         </encoder>
     </appender>
 
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>%date - [%level] - from %logger in %thread markers=%marker %n%message%n%xException%n</pattern>
+      </encoder>
+    </appender>
+
     <logger name="play" level="INFO" />
     <logger name="application" level="INFO" />
     <logger name="request" level="INFO" />
 
     <root level="INFO">
         <appender-ref ref="LOGFILE"/>
+        <appender-ref ref="STDOUT"/>
     </root>
 
 </configuration>
