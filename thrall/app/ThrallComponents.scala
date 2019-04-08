@@ -29,7 +29,6 @@ class ThrallComponents(context: Context) extends GridComponents("thrall", contex
   val metadataTopicArn = config.get[String]("indexed.image.sns.topic.arn")
   val cloudwatchNamespace = config.get[String]("cloudwatch.metrics.namespace")
 
-  val healthyMessageRate = config.get[Int]("sqs.message.min.frequency")
   val thrallFrom = config.getOptional[String]("thrall.from").map(ISODateTimeFormat.dateTime.parseDateTime)
 
   val store = new ThrallStore(imageBucket, thumbBucket, s3Client)
@@ -78,7 +77,7 @@ class ThrallComponents(context: Context) extends GridComponents("thrall", contex
     es6
   }
 
-  val messageConsumerForHealthCheck = es1Opt.map { es1 =>
+  val es1MessageConsumer = es1Opt.map { es1 =>
     val kinesis = new Kinesis(kinesisClient, thrallKinesisStreamName)
     val thrallMessageConsumer = new ThrallMessageConsumer(thrallTopicArn, sqsClient, kinesis, es1, thrallMetrics, store, dynamoNotifications, new SyndicationRightsOps(es1))
 
@@ -87,16 +86,19 @@ class ThrallComponents(context: Context) extends GridComponents("thrall", contex
       () => thrallMessageConsumer.actorSystem.terminate()
     }
     thrallMessageConsumer
-  }.get
+  }
 
-  es6pot.map { es6 =>
+  val es6MessageConsumer = es6pot.map { es6 =>
     val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(thrallKinesisStreamName, awsCredentials, region, es6, thrallMetrics,
       store, dynamoNotifications, new SyndicationRightsOps(es6), thrallFrom)
     thrallKinesisMessageConsumer.start()
+
+    thrallKinesisMessageConsumer
   }
 
+
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, healthyMessageRate, controllerComponents)
+  val healthCheckController = new HealthCheck((es6pot orElse es1Opt).get, (es1MessageConsumer orElse es6MessageConsumer).get, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }

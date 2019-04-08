@@ -7,12 +7,12 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageConsumerVersion, healthyMessageRate: Int, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageConsumerVersion, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   def healthCheck = Action.async {
     elasticHealth.map { esHealth =>
-      val problems = Seq(esHealth, actorSystemHealth, messageQueueHealth).flatten
+      val problems = Seq(esHealth, actorSystemHealth).flatten
       if (problems.nonEmpty) {
         val problemsMessage = problems.mkString(",")
         Logger.warn("Health check failed with problems: " + problemsMessage)
@@ -33,18 +33,10 @@ class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageC
     }
   }
 
-  private def messageQueueHealth: Option[String] = {
-    val timeLastMessage = messageConsumer.lastProcessed
-    if (timeLastMessage.plusMinutes(healthyMessageRate).isBeforeNow)
-      Some(s"Not received a message since $timeLastMessage")
-    else
-      None
-  }
-
   private def actorSystemHealth: Option[String] = {
     // A completed actor system whenTerminated Future is a sign that the actor system has terminated and is no longer running
     if (messageConsumer.isStopped)
-      Some("Thrall consumer actor system appears to have stopped")
+      Some("Thrall consumer appears to have stopped")
     else
       None
   }

@@ -150,13 +150,13 @@ function getThrallConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |sqs.queue.url=${config.stackProps.SqsQueueUrl}
-        |sqs.message.min.frequency=${config.sqsMessageMinFrequency}
-        |persistence.identifier=picdarUrn
-        |es.index.aliases.write=writeAlias
-        |es.index.aliases.read=readAlias
         |indexed.image.sns.topic.arn=${config.stackProps.IndexedImageTopicArn}
-        |es.port=9300
-        |es.cluster=media-service
+        |es.index.aliases.write=writeAlias
+        |es6.host=localhost
+        |es6.port=9206
+        |es6.cluster=media-service
+        |es6.shards=1
+        |es6.replicas=0
         |`;
 }
 
@@ -189,8 +189,8 @@ module.exports = {
             leases: getLeasesConfig(config),
             'media-api': getMediaApiConfig(config),
             'metadata-editor': getMetadataEditorConfig(config),
-//            s3Watcher: getS3WatcherConfig(config),
-//            thrall: getThrallConfig(config),
+            s3Watcher: getS3WatcherConfig(config),
+            thrall: getThrallConfig(config)
 //            usage: getUsageConfig(config)
         };
     }
