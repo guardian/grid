@@ -51,7 +51,7 @@ trait GridAuthentication { this: GridComponents =>
 
   val pandaSettings = new PanDomainAuthSettingsRefresher(
     domain = services.domainRoot,
-    system = config.get[String]("panda.system"),
+    system = "media-service",
     bucketName = config.get[String]("panda.bucketName"),
     settingsFileKey = config.get[String]("panda.settingsFileKey"),
     s3Client
