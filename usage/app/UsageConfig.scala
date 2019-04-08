@@ -1,3 +1,4 @@
+import lib.KinesisReaderConfig
 import play.api.{Configuration, Logger}
 
 import scala.util.Try

@@ -12,8 +12,6 @@ import router.Routes
 
 import scala.concurrent.Future
 
-case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
-
 class UsageComponents(context: Context) extends GridComponents(context) with GridCORSAuthentication {
   val dynamoClient = AmazonDynamoDBAsyncClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val cloudwatchClient = AmazonCloudWatchClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()

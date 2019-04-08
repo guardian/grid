@@ -10,7 +10,6 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import com.gu.contentapi.client.GuardianContentClient
-import _root_.KinesisReaderConfig
 
 import scala.util.Try
 
