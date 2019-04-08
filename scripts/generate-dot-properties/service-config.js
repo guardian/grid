@@ -102,12 +102,13 @@ function getMediaApiConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream=${config.stackProps.ThrallMessageQueue}
         |es.index.aliases.read=readAlias
         |es6.host=localhost
         |es6.port=9206
         |es6.cluster=media-service
         |es6.shards=1
-        |es6.replicas=1
+        |es6.replicas=0
         |# TODO MRB: quota and usage should be optional
         |quota.store.key=rcs-quota.json
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
