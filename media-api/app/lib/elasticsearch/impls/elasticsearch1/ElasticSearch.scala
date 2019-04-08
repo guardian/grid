@@ -239,7 +239,7 @@ object ElasticSearchFactory {
             persistenceIdentifier: String,
             syndicationStartDate: Option[DateTime],
             requiredMetadata: List[String],
-            persistedCollections: List[String]): ElasticSearch = {
+            persistedCollections: Option[List[String]]): ElasticSearch = {
 
     val queryBuilder1 = QueryBuilderFactory.build(Seq(persistenceIdentifier))
     val syndicationFilter1 = new SyndicationFilter(syndicationStartDate)

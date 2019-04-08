@@ -9,7 +9,7 @@ import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 
-class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: String, persistedRootCollections: List[String],
+class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: String, persistedRootCollections: Option[List[String]],
                     syndicationFilter: SyndicationFilter) extends ImageFields {
 
   import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
@@ -65,21 +65,28 @@ class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: Strin
   val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
   val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
   val hasPersistedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
-  val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), persistedRootCollections.toNel.get))
   val addedToPhotoshoot = filters.exists(NonEmptyList(editsField("photoshoot")))
   val hasLabels = filters.exists(NonEmptyList(editsField("labels")))
 
-  val persistedFilter: FilterBuilder = filters.or(
+  val basePersistedFilters: Seq[FilterBuilder] = Seq(
     hasCrops,
     usedInContent,
     existedPreGrid,
     addedToLibrary,
     hasUserEditsToImageMetadata,
     hasPersistedUsageRights,
-    addedGNMArchiveOrPersistedCollections,
     addedToPhotoshoot,
     hasLabels
   )
+
+  val persistedFilter: FilterBuilder = persistedRootCollections match {
+    case Some(persistedCollections) =>
+      val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), persistedCollections.toNel.get))
+      filters.or(basePersistedFilters :+ addedGNMArchiveOrPersistedCollections:_ *)
+
+    case None =>
+      filters.or(basePersistedFilters:_ *)
+  }
 
   val nonPersistedFilter: FilterBuilder = filters.not(persistedFilter)
 

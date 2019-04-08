@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.ManagementWithPermissions
 import com.gu.mediaservice.lib.play.{GridCORSAuthentication, GridComponents}
+import com.typesafe.config.ConfigException
 import controllers._
 import lib._
 import lib.elasticsearch.ElasticSearchVersion
@@ -19,6 +20,7 @@ import play.api.Logger
 import router.Routes
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 class MediaApiComponents(context: Context) extends GridComponents(context) with GridCORSAuthentication {
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
@@ -40,7 +42,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) with 
   val usageMailBucket = config.get[String]("s3.usagemail.bucket")
   val quotaStoreKey = config.get[String]("quota.store.key")
 
-  val persistenceCollections = config.underlying.getStringList("persistence.collections").asScala.toList
+  val persistenceCollections = Try(Some(config.underlying.getStringList("persistence.collections").asScala.toList)).recover { case _: ConfigException.Missing => None }.get
   val persistenceIdentifier = config.get[String]("persistence.identifier")
   val syndicationStartDate = config.getOptional[String]("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
 
@@ -106,7 +108,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) with 
   val usageQuota = new UsageQuota(quotaStore, usageStore, elasticSearch, actorSystem.scheduler)
   usageQuota.scheduleUpdates()
 
-  val imageResponse = new ImageResponse(services, imageBucket, thumbBucket, cloudFrontDomainThumbBucket, persistenceIdentifier, persistenceCollections, cloudFrontS3Client, usageQuota)
+  val imageResponse = new ImageResponse(services, imageBucket, thumbBucket, cloudFrontDomainThumbBucket, persistenceIdentifier, persistenceCollections.getOrElse(List.empty), cloudFrontS3Client, usageQuota)
 
   val mediaApi = new MediaApi(auth, services, imageBucket, messageSender, elasticSearch, imageResponse, permissionsHandler, controllerComponents, cloudFrontS3Client, mediaApiMetrics)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)

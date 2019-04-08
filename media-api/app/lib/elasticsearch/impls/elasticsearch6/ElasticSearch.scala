@@ -240,13 +240,13 @@ object ElasticSearchFactory {
             persistenceIdentifier: String,
             syndicationStartDate: Option[DateTime],
             requiredMetadata: List[String],
-            persistedCollections: List[String]): ElasticSearch = {
+            persistedCollections: Option[List[String]]): ElasticSearch = {
 
     // TODO MRB: should this have the same matchFields as the ES1 implementation?
-    val queryBuilder6 = new lib.elasticsearch.impls.elasticsearch6.QueryBuilder(Seq(persistenceIdentifier))
-    val syndicationFilter6 = new lib.elasticsearch.impls.elasticsearch6.SyndicationFilter(syndicationStartDate)
-    val searchFilter6 = new lib.elasticsearch.impls.elasticsearch6.SearchFilters(requiredMetadata, persistenceIdentifier, persistedCollections, syndicationFilter6)
-    val es6 = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(queryBuilder6, syndicationFilter6, searchFilter6, mediaApiMetrics, config)
+    val queryBuilder6 = new QueryBuilder(Seq(persistenceIdentifier))
+    val syndicationFilter6 = new SyndicationFilter(syndicationStartDate)
+    val searchFilter6 = new SearchFilters(requiredMetadata, persistenceIdentifier, persistedCollections, syndicationFilter6)
+    val es6 = new ElasticSearch(queryBuilder6, syndicationFilter6, searchFilter6, mediaApiMetrics, config)
 
     es6.ensureAliasAssigned()
     es6
