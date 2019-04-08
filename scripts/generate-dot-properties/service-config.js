@@ -11,7 +11,6 @@ function getAuthConfig(config) {
         |panda.settings.key=${config.panda.settingsFileKey}
         |panda.user.domain=${config.panda.userDomain}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |permissions.stage=CODE
         |`;
 }
 
@@ -41,7 +40,6 @@ function getCropperConfig(config) {
         |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
         |thrall.kinesis.stream=${config.stackProps.ThrallMessageQueue}
-        |permissions.stage=CODE
         |`;
 }
 
@@ -112,7 +110,6 @@ function getMediaApiConfig(config) {
         |# TODO MRB: quota and usage should be optional
         |quota.store.key=rcs-quota.json
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
-        |permissions.stage=CODE
         |`;
 }
 

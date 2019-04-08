@@ -46,15 +46,13 @@ class MediaApiComponents(context: Context) extends GridComponents("media-api", c
   val persistenceIdentifier = config.getOptional[String]("persistence.identifier")
   val syndicationStartDate = config.getOptional[String]("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
 
-  val permissionStage = config.get[String]("permissions.stage")
-
   val requiredMetadata = List("credit", "description", "usageRights")
 
   val sns = new SNS(snsClient, snsTopicArn)
   val kinesis = new Kinesis(kinesisClient, thrallKinesisStream)
   val messageSender = new MessageSender(sns, kinesis)
 
-  val permissionsHandler = new PermissionsHandler(permissionStage, region, awsCredentials)
+  val permissionsHandler = PermissionsHandler.build(config, region, awsCredentials)
   val mediaApiMetrics = new MediaApiMetrics(cloudwatchMetricsNamespace, cloudwatchClient)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
