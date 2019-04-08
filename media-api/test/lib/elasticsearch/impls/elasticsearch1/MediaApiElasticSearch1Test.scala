@@ -32,7 +32,7 @@ class MediaApiElasticSearch1Test extends ElasticSearchTestBase with Eventually w
   private val imageAlias = "readAlias"
 
   val elasticConfig = ElasticSearchConfig(alias = imageAlias, host = "localhost", port = 9301, cluster = "media-service-test")
-  val ES = ElasticSearchFactory.build(elasticConfig, None, "picdarUrn", None, List.empty, None)
+  val ES = ElasticSearchFactory.build(elasticConfig, None, None, None, List.empty, None)
 
   private val expectedNumberOfImages = images.size
 

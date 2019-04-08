@@ -8,7 +8,7 @@ import com.sksamuel.elastic4s.searches.queries.Query
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
-class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: String, persistedRootCollections: Option[List[String]],
+class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: Option[String], persistedRootCollections: Option[List[String]],
                     syndicationFilter: SyndicationFilter)  extends ImageFields {
 
   import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
@@ -60,7 +60,6 @@ class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: Strin
 
   val hasCrops = filters.bool.must(filters.existsOrMissing("exports", exists = true))
   val usedInContent = filters.nested("usages", filters.exists(NonEmptyList("usages")))
-  val existedPreGrid = filters.exists(NonEmptyList(identifierField(persistenceIdentifier)))
   val addedToLibrary = filters.bool.must(filters.boolTerm(editsField("archived"), value = true))
   val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
   val hasPersistedUsageRights = filters.bool.must(filters.terms(usageRightsField("category"), persistedCategories))
@@ -70,7 +69,6 @@ class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: Strin
   val basePersistedFilters: Seq[Query] = Seq(
     hasCrops,
     usedInContent,
-    existedPreGrid,
     addedToLibrary,
     hasUserEditsToImageMetadata,
     hasPersistedUsageRights,
@@ -78,14 +76,15 @@ class SearchFilters(requiredMetadata: List[String], persistenceIdentifier: Strin
     hasLabels
   )
 
-  val persistedFilter: Query = persistedRootCollections match {
-    case Some(persistedCollections) =>
-      val addedGNMArchiveOrPersistedCollections = filters.bool.must(filters.terms(collectionsField("path"), persistedCollections.toNel.get))
-      filters.or(basePersistedFilters :+ addedGNMArchiveOrPersistedCollections: _*)
-
-    case None =>
-      filters.or(basePersistedFilters: _*)
+  val existedPreGrid = persistenceIdentifier.map { p =>
+    filters.exists(NonEmptyList(identifierField(p)))
   }
+
+  val addedGNMArchiveOrPersistedCollections = persistedRootCollections.map { c =>
+    filters.bool.must(filters.terms(collectionsField("path"), c.toNel.get))
+  }
+
+  val persistedFilter: Query = filters.or(basePersistedFilters ++ existedPreGrid.toSeq ++ addedGNMArchiveOrPersistedCollections.toSeq: _*)
 
   val nonPersistedFilter: Query = filters.not(persistedFilter)
 

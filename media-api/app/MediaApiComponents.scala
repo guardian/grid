@@ -43,7 +43,7 @@ class MediaApiComponents(context: Context) extends GridComponents("media-api", c
   val quotaStoreKey = config.get[String]("quota.store.key")
 
   val persistenceCollections = Try(Some(config.underlying.getStringList("persistence.collections").asScala.toList)).recover { case _: ConfigException.Missing => None }.get
-  val persistenceIdentifier = config.get[String]("persistence.identifier")
+  val persistenceIdentifier = config.getOptional[String]("persistence.identifier")
   val syndicationStartDate = config.getOptional[String]("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
 
   val permissionStage = config.get[String]("permissions.stage")

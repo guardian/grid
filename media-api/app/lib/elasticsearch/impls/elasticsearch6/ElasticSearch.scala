@@ -237,13 +237,13 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
 object ElasticSearchFactory {
   def build(config: ElasticSearch6Config,
             mediaApiMetrics: Option[MediaApiMetrics],
-            persistenceIdentifier: String,
+            persistenceIdentifier: Option[String],
             syndicationStartDate: Option[DateTime],
             requiredMetadata: List[String],
             persistedCollections: Option[List[String]]): ElasticSearch = {
 
     // TODO MRB: should this have the same matchFields as the ES1 implementation?
-    val queryBuilder6 = new QueryBuilder(Seq(persistenceIdentifier))
+    val queryBuilder6 = new QueryBuilder(persistenceIdentifier.toSeq)
     val syndicationFilter6 = new SyndicationFilter(syndicationStartDate)
     val searchFilter6 = new SearchFilters(requiredMetadata, persistenceIdentifier, persistedCollections, syndicationFilter6)
     val es6 = new ElasticSearch(queryBuilder6, syndicationFilter6, searchFilter6, mediaApiMetrics, config)

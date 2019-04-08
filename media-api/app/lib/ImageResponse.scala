@@ -21,7 +21,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Try}
 
 class ImageResponse(override val services: Services, imageBucket: String, thumbBucket: String, cloudFrontDomainThumbBucket: Option[String],
-                    persistenceIdentifier: String, persistedRootCollections: List[String], s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
+                    persistenceIdentifier: Option[String], persistedRootCollections: List[String], s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
 //  implicit val dateTimeFormat = DateFormat
   implicit val usageQuotas = usageQuota
 
@@ -40,7 +40,7 @@ class ImageResponse(override val services: Services, imageBucket: String, thumbB
   type MediaLeasesEntity = EmbeddedEntity[LeasesByMedia]
 
   def hasPersistenceIdentifier(image: Image) =
-    image.identifiers.contains(persistenceIdentifier)
+    persistenceIdentifier.exists(image.identifiers.contains)
 
   def hasExports(image: Image) =
     image.exports.nonEmpty

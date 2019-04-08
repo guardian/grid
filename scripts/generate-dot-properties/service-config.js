@@ -93,19 +93,25 @@ function getLeasesConfig(config) {
 
 function getMediaApiConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
         |aws.region=${config.aws.region}
+        |domain.root=${config.domainRoot}
+        |panda.bucket.name=${config.panda.bucketName}
+        |panda.settings.key=${config.panda.settingsFileKey}
+        |panda.user.domain=${config.panda.userDomain}
+        |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
-        |s3.config.bucket=${config.stackProps.ConfigBucket}
-        |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
-        |persistence.identifier=picdarUrn
         |es.index.aliases.read=readAlias
-        |es.port=9300
-        |es.cluster=media-service
+        |es6.host=localhost
+        |es6.port=9206
+        |es6.cluster=media-service
+        |es6.shards=1
+        |es6.replicas=1
+        |# TODO MRB: quota and usage should be optional
         |quota.store.key=rcs-quota.json
+        |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
+        |permissions.stage=DEV
         |`;
 }
 
@@ -175,8 +181,8 @@ module.exports = {
             cropper: getCropperConfig(config),
             'image-loader': getImageLoaderConfig(config),
             kahuna: getKahunaConfig(config),
-            leases: getLeasesConfig(config)
-//            'media-api': getMediaApiConfig(config),
+            leases: getLeasesConfig(config),
+            'media-api': getMediaApiConfig(config)
 //            'metadata-editor': getMetadataEditorConfig(config),
 //            s3Watcher: getS3WatcherConfig(config),
 //            thrall: getThrallConfig(config),

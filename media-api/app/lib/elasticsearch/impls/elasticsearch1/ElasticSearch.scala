@@ -236,12 +236,12 @@ class ElasticSearch(queryBuilder: QueryBuilder, syndicationFilter: SyndicationFi
 object ElasticSearchFactory {
   def build(config: ElasticSearchConfig,
             mediaApiMetrics: Option[MediaApiMetrics],
-            persistenceIdentifier: String,
+            persistenceIdentifier: Option[String],
             syndicationStartDate: Option[DateTime],
             requiredMetadata: List[String],
             persistedCollections: Option[List[String]]): ElasticSearch = {
 
-    val queryBuilder1 = QueryBuilderFactory.build(Seq(persistenceIdentifier))
+    val queryBuilder1 = QueryBuilderFactory.build(persistenceIdentifier.toSeq)
     val syndicationFilter1 = new SyndicationFilter(syndicationStartDate)
     val searchFilter1 = new SearchFilters(requiredMetadata, persistenceIdentifier, persistedCollections, syndicationFilter1)
     val es1 = new ElasticSearch(queryBuilder1, syndicationFilter1, searchFilter1, mediaApiMetrics, config)
