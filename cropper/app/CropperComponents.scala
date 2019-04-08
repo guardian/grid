@@ -21,7 +21,6 @@ class CropperComponents(context: Context) extends GridComponents("cropper", cont
   val imgPublishingHost = config.getOptional[String]("publishing.image.host")
   val snsTopicArn = config.get[String]("sns.topic.arn")
   val thrallKinesisStream = config.get[String]("thrall.kinesis.stream")
-  val mediaApiKey = config.get[String]("media.api.key")
   val permissionStage = config.get[String]("permissions.stage")
 
   val tempDir = new File(config.get[String]("crop.output.tmp.dir"))
@@ -41,7 +40,7 @@ class CropperComponents(context: Context) extends GridComponents("cropper", cont
 
   val permissionsHandler = new PermissionsHandler(permissionStage, region, awsCredentials)
 
-  val controller = new CropperController(auth, services, mediaApiKey, permissionsHandler, crops, store, notifications, controllerComponents, wsClient)
+  val controller = new CropperController(auth, services, permissionsHandler, crops, store, notifications, controllerComponents, wsClient)
   // TODO: refactor into common base usage?
   val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, permissionsHandler)
 

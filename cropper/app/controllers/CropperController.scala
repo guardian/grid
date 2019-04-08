@@ -16,7 +16,7 @@ import com.gu.mediaservice.model._
 import lib._
 import model._
 import org.joda.time.DateTime
-import play.api.libs.ws.{WSClient, WSCookie}
+import play.api.libs.ws.WSClient
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -26,7 +26,7 @@ case object InvalidSource extends Exception("Invalid source URI, not a media API
 case object ImageNotFound extends Exception("No such image found")
 case object ApiRequestFailed extends Exception("Failed to fetch the source")
 
-class CropperController(auth: Authentication, services: Services, mediaApiKey: String, permissionsHandler: PermissionsHandler,
+class CropperController(auth: Authentication, services: Services,permissionsHandler: PermissionsHandler,
                         crops: Crops, store: CropStore, notifications: MessageSender, override val controllerComponents: ControllerComponents,
                         ws: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
