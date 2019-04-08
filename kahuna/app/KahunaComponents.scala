@@ -6,7 +6,7 @@ import router.Routes
 
 import scala.collection.JavaConverters._
 
-class KahunaComponents(context: Context) extends GridComponents(context) with GridAuthentication with AssetsComponents {
+class KahunaComponents(context: Context) extends GridComponents("kahuna", context) with GridAuthentication with AssetsComponents {
   val toolsDomains = config.underlying.getStringList("domain.tools").asScala
 
   val thumbOrigin = config.get[String]("origin.thumb")

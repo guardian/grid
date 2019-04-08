@@ -13,7 +13,7 @@ import model.CropSizes
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class CropperComponents(context: Context) extends GridComponents(context) with GridAuthentication {
+class CropperComponents(context: Context) extends GridComponents("cropper", context) with GridAuthentication {
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val kinesisClient = AmazonKinesisClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
 

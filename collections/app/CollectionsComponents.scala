@@ -10,7 +10,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 import store.CollectionsStore
 
-class CollectionsComponents(context: Context) extends GridComponents(context) with GridAuthentication {
+class CollectionsComponents(context: Context) extends GridComponents("collections", context) with GridAuthentication {
   val dynamoClient = AmazonDynamoDBAsyncClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val kinesisClient = AmazonKinesisClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()

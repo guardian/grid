@@ -5,10 +5,13 @@ function stripMargin(template, ...args) {
 
 function getAuthConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |s3.config.bucket=${config.stackProps.ConfigBucket}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |aws.region=${config.aws.region}
+        |domain.root=${config.domainRoot}
+        |panda.bucket.name=${config.panda.bucketName}
+        |panda.settings.key=${config.panda.settingsFileKey}
+        |panda.user.domain=${config.panda.userDomain}
+        |auth.keystore.bucket=${config.stackProps.KeyBucket}
+        |permissions.stage=DEV
         |`;
 }
 
@@ -150,17 +153,17 @@ function getUsageConfig(config) {
 module.exports = {
     getConfigs: (config) => {
         return {
-            auth: getAuthConfig(config),
-            collections: getCollectionsConfig(config),
-            cropper: getCropperConfig(config),
-            'image-loader': getImageLoaderConfig(config),
-            kahuna: getKahunaConfig(config),
-            leases: getLeasesConfig(config),
-            'media-api': getMediaApiConfig(config),
-            'metadata-editor': getMetadataEditorConfig(config),
-            s3Watcher: getS3WatcherConfig(config),
-            thrall: getThrallConfig(config),
-            usage: getUsageConfig(config)
+            auth: getAuthConfig(config)
+//            collections: getCollectionsConfig(config),
+//            cropper: getCropperConfig(config),
+//            'image-loader': getImageLoaderConfig(config),
+//            kahuna: getKahunaConfig(config),
+//            leases: getLeasesConfig(config),
+//            'media-api': getMediaApiConfig(config),
+//            'metadata-editor': getMetadataEditorConfig(config),
+//            s3Watcher: getS3WatcherConfig(config),
+//            thrall: getThrallConfig(config),
+//            usage: getUsageConfig(config)
         };
     }
 };

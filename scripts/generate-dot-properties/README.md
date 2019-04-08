@@ -3,15 +3,7 @@
 Generate the configuration files for the various Grid services.
 
 ## Requirements
-- Node 8
-- Write access to `/etc/gu/`
-
-NB you can run this to create and give yourself write access to `/etc/gu`:
-
-```sh
-mkdir /etc/gu
-sudo chown -R $(whoami) /etc/gu
-```
+- Node > 8
 
 ## Usage
 - `npm install`

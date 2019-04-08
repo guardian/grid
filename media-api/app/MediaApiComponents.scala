@@ -22,7 +22,7 @@ import router.Routes
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-class MediaApiComponents(context: Context) extends GridComponents(context) with GridCORSAuthentication {
+class MediaApiComponents(context: Context) extends GridComponents("media-api", context) with GridCORSAuthentication {
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val kinesisClient = AmazonKinesisClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val cloudwatchClient = AmazonCloudWatchClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()

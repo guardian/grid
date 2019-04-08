@@ -2,6 +2,8 @@
 
 const fs = require('fs');
 const AWS = require('aws-sdk');
+const os = require('os');
+
 require('json5/lib/require');
 const defaultConfig = require('./config.json5');
 const ServiceConfig = require('./service-config');
@@ -46,7 +48,7 @@ function writeToDisk({path, content}) {
 
     await Promise.all(
         Object.keys(serviceConfigs).map(filename => writeToDisk({
-            path: `/etc/gu/${filename}.properties`,
+            path: os.homedir() + `/.gu/${filename}.properties`,
             content: serviceConfigs[filename]
         })
     ));

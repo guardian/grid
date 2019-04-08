@@ -8,7 +8,7 @@ import lib.{LeaseNotifier, LeaseStore}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class LeasesComponents(context: Context) extends GridComponents(context) with GridAuthentication {
+class LeasesComponents(context: Context) extends GridComponents("leases", context) with GridAuthentication {
   val dynamoClient = AmazonDynamoDBAsyncClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val kinesisClient = AmazonKinesisClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()

@@ -14,7 +14,7 @@ import play.api.ApplicationLoader.Context
 import play.api.Logger
 import router.Routes
 
-class ThrallComponents(context: Context) extends GridComponents(context) {
+class ThrallComponents(context: Context) extends GridComponents("thrall", context) {
   val s3Client = AmazonS3ClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val sqsClient = AmazonSQSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()

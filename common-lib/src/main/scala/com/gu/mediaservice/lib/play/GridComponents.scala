@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib.play
 
+import java.io.File
+
 import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
@@ -7,8 +9,9 @@ import com.gu.mediaservice.lib.auth.{Authentication, KeyStore}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.management.Management
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
+import com.typesafe.config.ConfigFactory
 import play.api.ApplicationLoader.Context
-import play.api.BuiltInComponentsFromContext
+import play.api.{BuiltInComponentsFromContext, Configuration}
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
@@ -18,13 +21,16 @@ import play.filters.gzip.GzipFilterComponents
 
 import scala.concurrent.ExecutionContext
 import scala.collection.JavaConverters._
+import scala.util.Try
 
-abstract class GridComponents(protected val context: Context) extends BuiltInComponentsFromContext(context)
+abstract class GridComponents(service: String, protected val context: Context) extends BuiltInComponentsFromContext(context)
   with AhcWSComponents with HttpFiltersComponents with CORSComponents with GzipFilterComponents {
 
   implicit val ec: ExecutionContext = executionContext
 
-  val config = context.initialConfiguration
+  val localOverrideFile = new File(s"${System.getProperty("user.home")}/.gu/$service.properties")
+  val localOverrides = Try(ConfigFactory.parseFile(localOverrideFile)).getOrElse(ConfigFactory.empty())
+  val config = new Configuration(localOverrides.withFallback(context.initialConfiguration.underlying))
 
   val region = config.get[String]("aws.region")
   val domainRoot = config.get[String]("domain.root")
@@ -44,7 +50,7 @@ abstract class GridComponents(protected val context: Context) extends BuiltInCom
 }
 
 trait GridAuthentication { this: GridComponents =>
-  val userValidationEmailDomain = config.get[String]("panda.userDomain")
+  val userValidationEmailDomain = config.get[String]("panda.user.domain")
   val authKeyStoreBucket = config.get[String]("auth.keystore.bucket")
 
   val s3Client = AmazonS3ClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
@@ -52,8 +58,8 @@ trait GridAuthentication { this: GridComponents =>
   val pandaSettings = new PanDomainAuthSettingsRefresher(
     domain = services.domainRoot,
     system = "media-service",
-    bucketName = config.get[String]("panda.bucketName"),
-    settingsFileKey = config.get[String]("panda.settingsFileKey"),
+    bucketName = config.get[String]("panda.bucket.name"),
+    settingsFileKey = config.get[String]("panda.settings.key"),
     s3Client
   )
 

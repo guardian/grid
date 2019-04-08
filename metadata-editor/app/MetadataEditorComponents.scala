@@ -11,7 +11,7 @@ import lib._
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class MetadataEditorComponents(context: Context) extends GridComponents(context) with GridAuthentication {
+class MetadataEditorComponents(context: Context) extends GridComponents("metadata-editor", context) with GridAuthentication {
   val dynamoClient = AmazonDynamoDBAsyncClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val sqsClient = AmazonSQSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()

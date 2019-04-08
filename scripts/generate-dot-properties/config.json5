@@ -9,6 +9,17 @@
   // Domain root of your site, e.g. foobar.co.uk
   domainRoot: '',
 
+  panda: {
+    // The domain for users email addresses
+    userDomain: '',
+
+    // The bucket containing the Pan Domain Auth settings for the domain
+    bucketName: '',
+
+    // The file in the bucket e.g. ${domain.root}.settings
+    settingsFileKey: ''
+  },
+
   // The minimum number of messages to retrieve from SQS to be deemed healthy.
   sqsMessageMinFrequency: 5,
 

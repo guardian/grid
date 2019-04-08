@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.play.{GridAuthentication, GridComponents}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class AuthComponents(context: Context) extends GridComponents(context) with GridAuthentication {
+class AuthComponents(context: Context) extends GridComponents("auth", context) with GridAuthentication {
   val permissionStage = config.get[String]("permissions.stage")
   val permissionsHandler = new PermissionsHandler(permissionStage, region, awsCredentials)
 

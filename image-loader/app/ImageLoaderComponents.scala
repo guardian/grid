@@ -12,7 +12,7 @@ import model.{ImageUploadOps, OptimisedPngOps}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class ImageLoaderComponents(context: Context) extends GridComponents(context) with GridAuthentication {
+class ImageLoaderComponents(context: Context) extends GridComponents("image-loader", context) with GridAuthentication {
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val kinesisClient = AmazonKinesisClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
 

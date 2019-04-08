@@ -12,7 +12,7 @@ import router.Routes
 
 import scala.concurrent.Future
 
-class UsageComponents(context: Context) extends GridComponents(context) with GridCORSAuthentication {
+class UsageComponents(context: Context) extends GridComponents("usage", context) with GridCORSAuthentication {
   val dynamoClient = AmazonDynamoDBAsyncClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val cloudwatchClient = AmazonCloudWatchClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
   val snsClient = AmazonSNSClientBuilder.standard().withRegion(region).withCredentials(awsCredentials).build()
