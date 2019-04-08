@@ -1,13 +1,14 @@
 package lib
 
+import com.amazonaws.services.sqs.AmazonSQS
 import com.gu.mediaservice.lib.aws.MessageConsumer
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class MetadataMessageConsumer(config: EditsConfig, metadataEditorMetrics: MetadataEditorMetrics, store: EditsStore) extends MessageConsumer(
-  config.queueUrl, config.awsEndpoint, config, metadataEditorMetrics.processingLatency) {
+class MetadataMessageConsumer(queueUrl: String, metadataEditorMetrics: MetadataEditorMetrics, store: EditsStore, client: AmazonSQS) extends MessageConsumer(
+  queueUrl, metadataEditorMetrics.processingLatency, client) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
     PartialFunction.condOpt(subject) {
