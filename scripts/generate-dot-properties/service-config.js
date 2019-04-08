@@ -17,13 +17,16 @@ function getAuthConfig(config) {
 
 function getCollectionsConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
         |aws.region=${config.aws.region}
+        |domain.root=${config.domainRoot}
+        |panda.bucket.name=${config.panda.bucketName}
+        |panda.settings.key=${config.panda.settingsFileKey}
+        |panda.user.domain=${config.panda.userDomain}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |s3.collections.bucket=${config.stackProps.CollectionsBucket}
         |dynamo.table.collections=${config.stackProps.CollectionsDynamoTable}
         |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream=${config.stackProps.ThrallMessageQueue}
         |`;
 }
 
@@ -153,8 +156,8 @@ function getUsageConfig(config) {
 module.exports = {
     getConfigs: (config) => {
         return {
-            auth: getAuthConfig(config)
-//            collections: getCollectionsConfig(config),
+            auth: getAuthConfig(config),
+            collections: getCollectionsConfig(config)
 //            cropper: getCropperConfig(config),
 //            'image-loader': getImageLoaderConfig(config),
 //            kahuna: getKahunaConfig(config),

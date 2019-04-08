@@ -274,3 +274,5 @@ Outputs:
     Value: !Ref 'LiveContentPollTable'
   PreviewContentPollTable:
     Value: !Ref 'PreviewContentPollTable'
+  ThrallMessageQueue:
+    Value: !Ref 'ThrallMessageQueue'
