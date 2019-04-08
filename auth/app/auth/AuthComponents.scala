@@ -10,8 +10,8 @@ class AuthComponents(context: Context) extends GridComponents(context) with Grid
   val permissionStage = config.get[String]("permissions.stage")
   val permissionsHandler = new PermissionsHandler(permissionStage, region, awsCredentials)
 
-  val controller = new AuthController(auth, config, permissionsHandler, controllerComponents)
-  val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, controller)
+  val controller = new AuthController(auth, services, permissionsHandler, controllerComponents)
+  val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, permissionsHandler)
 
   override val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)
 }
