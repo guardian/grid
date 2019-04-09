@@ -1,7 +1,7 @@
 package com.gu.mediaservice.scripts
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
+import com.amazonaws.auth.{AWSCredentialsProviderChain, EnvironmentVariableCredentialsProvider, InstanceProfileCredentialsProvider}
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.{ContentType, InputStreamEntity}
@@ -20,7 +20,8 @@ object LoadFromS3Bucket {
 
     lazy val awsCredentials = new AWSCredentialsProviderChain(
       new ProfileCredentialsProvider("media-service"),
-      InstanceProfileCredentialsProvider.getInstance()
+      InstanceProfileCredentialsProvider.getInstance(),
+      new EnvironmentVariableCredentialsProvider(),
     )
 
     val client = AmazonS3ClientBuilder.standard().withCredentials(awsCredentials).build()

@@ -19,7 +19,8 @@ class CrierStreamReader(region: String, liveReaderConfig: Try[KinesisReaderConfi
 
   val credentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
-    InstanceProfileCredentialsProvider.getInstance()
+    InstanceProfileCredentialsProvider.getInstance(),
+    new EnvironmentVariableCredentialsProvider(),
   )
 
   private lazy val dynamoCredentialsProvider = credentialsProvider
@@ -29,7 +30,8 @@ class CrierStreamReader(region: String, liveReaderConfig: Try[KinesisReaderConfi
 
   private def kinesisCredentialsProvider(arn: String)  = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("capi"),
-    new STSAssumeRoleSessionCredentialsProvider.Builder(arn, sessionId).build()
+    new STSAssumeRoleSessionCredentialsProvider.Builder(arn, sessionId).build(),
+    new EnvironmentVariableCredentialsProvider(),
   )
 
   private def kinesisClientLibConfig(kinesisReaderConfig: KinesisReaderConfig) =

@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.play
 import java.io.File
 import java.nio.file.Files
 
+import com.amazonaws.auth.{AWSCredentialsProviderChain, EnvironmentVariableCredentialsProvider, InstanceProfileCredentialsProvider}
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
@@ -37,7 +38,8 @@ abstract class GridComponents(service: String, protected val context: Context) e
 
   val awsCredentials = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
-    InstanceProfileCredentialsProvider.getInstance()
+    InstanceProfileCredentialsProvider.getInstance(),
+    new EnvironmentVariableCredentialsProvider(),
   )
 
   val services = new Services(domainRoot)
