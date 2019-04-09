@@ -4,6 +4,9 @@ libraryDependencies += "org.vafer" % "jdeb" % "1.3" artifacts (Artifact("jdeb", 
 
 addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.6.20")
 
+// get later version of native packager with dockerAliases
+addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.3.20")
+
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0")
 
 addSbtPlugin("com.gu" % "sbt-riffraff-artifact" % "1.1.9")

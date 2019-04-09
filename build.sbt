@@ -161,11 +161,26 @@ def playProject(projectName: String, port: Int): Project =
       dockerUsername := Some("guardiangrid"),
       dockerBaseImage := "openjdk:8-jre",
       dockerExposedPorts in Docker := Seq(port),
+      dockerAliases += DockerAlias(None, dockerUsername.value, projectName, Some(makeValidDockerTag(riffRaffBuildInfo.value.branch))),
       version in Docker := riffRaffBuildInfo.value.buildIdentifier,
       javaOptions in Docker ++= Seq(
         s"-Dlogger.file=/opt/docker/conf/logback-docker.xml"
       ),
     ))
+
+def makeValidDockerTag(branchName: String): String = {
+  /* A tag name must be valid ASCII and may contain lowercase and uppercase letters, digits, underscores, periods 
+   * and dashes. A tag name may not start with a period or a dash and may contain a maximum of 128 characters.
+   */
+  val validInitialChars = Set('_') ++ ('a' to 'z' ) ++ ('A' to 'Z') ++ ('0' to '9')
+  val validChars = validInitialChars ++ Set('.', '-')
+  
+  branchName.zipWithIndex.map {
+    case (validInitial, 0) if validInitialChars.contains(validInitial) => validInitial
+    case (valid, notZero) if validChars.contains(valid) && notZero != 0 => valid
+    case _ => '_'
+  }.mkString
+}
 
 val testSettings = Seq(
   testOptions in Test += Tests.Setup(_ => {
