@@ -67,25 +67,25 @@ lazy val commonLib = project("common-lib").settings(
 
 lazy val auth = playProject("auth", 9011)
 
-lazy val collections = playProject("collections", 9010)
+lazy val collections = playProject("collections", 9010, true)
 
-lazy val cropper = playProject("cropper", 9006)
+lazy val cropper = playProject("cropper", 9006, true)
 
-lazy val imageLoader = playProject("image-loader", 9003).settings {
+lazy val imageLoader = playProject("image-loader", 9003, true).settings {
   libraryDependencies ++= Seq(
     "com.squareup.okhttp3" % "okhttp" % "3.12.1"
   )
 }
 
-lazy val kahuna = playProject("kahuna", 9005)
+lazy val kahuna = playProject("kahuna", 9005, true)
 
-lazy val leases = playProject("leases", 9012).settings(
+lazy val leases = playProject("leases", 9012, true).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "scanamo" % "1.0.0-M8"
   )
 )
 
-lazy val mediaApi = playProject("media-api", 9001).settings(
+lazy val mediaApi = playProject("media-api", 9001, true).settings(
   libraryDependencies ++= Seq(
     "org.apache.commons" % "commons-email" % "1.5",
     "org.parboiled" %% "parboiled" % "2.1.5",
@@ -95,9 +95,9 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 ).settings(testSettings)
 
-lazy val metadataEditor = playProject("metadata-editor", 9007)
+lazy val metadataEditor = playProject("metadata-editor", 9007, true)
 
-lazy val thrall = playProject("thrall", 9002).settings(
+lazy val thrall = playProject("thrall", 9002, true).settings(
   libraryDependencies ++= Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
@@ -105,7 +105,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
   )
 ).settings(testSettings)
 
-lazy val usage = playProject("usage", 9009).settings(
+lazy val usage = playProject("usage", 9009, true).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client" % "11.53",
     "io.reactivex" %% "rxscala" % "0.26.5",
