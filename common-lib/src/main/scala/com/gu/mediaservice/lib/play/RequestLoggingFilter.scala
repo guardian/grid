@@ -40,7 +40,6 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     val mandatoryMarkers = Map(
       "origin" -> originIp,
       "referrer" -> referer,
-      "originalService" -> originalService,
       "method" -> request.method,
       "status" -> response.header.status,
       "duration" -> duration
@@ -62,7 +61,6 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     val mandatoryMarkers = Map(
       "origin" -> originIp,
       "referrer" -> referer,
-      "originalService" -> originalService,
       "method" -> request.method,
       "duration" -> duration
     )
