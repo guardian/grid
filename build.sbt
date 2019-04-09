@@ -134,6 +134,11 @@ def playProject(projectName: String, port: Int): Project =
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, RiffRaffArtifact, BuildInfoPlugin)
     .dependsOn(commonLib)
     .settings(commonSettings ++ Seq(
+      // disable documentation generation for speed
+      publishArtifact in (Compile, packageDoc) := false,
+      publishArtifact in packageDoc := false,
+      sources in (Compile,doc) := Seq.empty,
+
       playDefaultPort := port,
 
       debianPackageDependencies := Seq("openjdk-8-jre-headless"),
