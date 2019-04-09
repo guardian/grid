@@ -156,7 +156,10 @@ def playProject(projectName: String, port: Int): Project =
       dockerUsername := Some("guardiangrid"),
       dockerBaseImage := "openjdk:8-jre",
       dockerExposedPorts in Docker := Seq(port),
-      version in Docker := riffRaffBuildInfo.value.buildIdentifier
+      version in Docker := riffRaffBuildInfo.value.buildIdentifier,
+      javaOptions in Docker ++= Seq(
+        s"-Dlogger.file=/opt/docker/conf/logback-docker.xml"
+      ),
     ))
 
 val testSettings = Seq(

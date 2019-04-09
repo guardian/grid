@@ -1,0 +1,15 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder>
+        <pattern>%date - [%level] - from %logger in %thread markers=%marker %n%message%n%xException%n</pattern>
+      </encoder>
+    </appender>
+
+    <logger name="play" level="INFO" />
+    <logger name="application" level="INFO" />
+    <logger name="request" level="INFO" />
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
