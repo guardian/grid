@@ -16,9 +16,9 @@ mappings:
   - prefix: media-usage
     port: 9009
   - prefix: media-collections
-    port: 9010
+    port: 32110
   - prefix: media-auth
-    port: 9011
+    port: 32111
   - prefix: media-leases
     port: 9012
   - prefix: es.media

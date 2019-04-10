@@ -13,3 +13,4 @@ data
 kahuna/npm-debug.log
 imgops/dev/nginx.conf
 *.iml
+kubenetes/conf/*
