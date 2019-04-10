@@ -2,7 +2,6 @@ package lib
 
 import akka.actor.Scheduler
 import com.amazonaws.services.s3.AmazonS3
-import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.model.UsageRights
 import lib.elasticsearch.ElasticSearchVersion
@@ -69,7 +68,7 @@ class GuardianUsageQuota(quotaStore: QuotaStore, _usageStore: UsageStore, elasti
     Await.result(
       _usageStore.getUsageStatusForUsageRights(rights),
       waitMillis.millis)
-  }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
+  }.toOption.exists(_.exceeded)
 
   override def usageStatusForImage(id: String)(implicit request: AuthenticatedRequest[AnyContent, Principal]): Future[UsageStatus] = for {
     imageOption <- elasticSearch.getImageById(id)
