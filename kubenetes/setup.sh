@@ -5,7 +5,7 @@ SCRIPT_DIR=$(dirname $0)
 function create_config_map {
     app=${1}
     kubectl create configmap ${app} \
-        --from-file=auth.conf=${SCRIPT_DIR}/conf/${app}.conf \
+        --from-file=${app}.conf=${SCRIPT_DIR}/conf/${app}.conf \
         -o yaml --dry-run | kubectl apply -f -
 }
 

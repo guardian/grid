@@ -5,9 +5,9 @@ metadata:
 spec:
   containers:
     - name: test-container
-      image: guardiangrid/auth:sihil_dockerise
-      #command: [ "/bin/sh", "-c", "ls -laR /etc/grid; cat /opt/docker/conf/application.conf; cat /etc/grid/auth.conf" ]
-      args: [ -Dlogger.file=/opt/docker/conf/logback-docker.xml ]
+      image: guardiangrid/collections:sihil_dockerise
+      command: [ "/bin/sh", "-c", "ls -laR /etc/grid; cat /opt/docker/conf/application.conf; cat /etc/grid/collections.conf" ]
+      #args: [ -Dlogger.file=/opt/docker/conf/logback-docker.xml ]
       env:
         - name: AWS_CREDENTIAL_PROFILES_FILE
           value: /etc/grid/aws-credentials
@@ -19,5 +19,5 @@ spec:
       configMap:
         # Provide the name of the ConfigMap containing the files you want
         # to add to the container
-        name: auth
+        name: collections
   restartPolicy: Never
