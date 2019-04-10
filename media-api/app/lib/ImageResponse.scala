@@ -147,11 +147,9 @@ class ImageResponse(override val services: Services, imageBucket: String, thumbB
       .map(s3Client.signUrl(imageBucket, _, image))
 
     def s3SignedThumbUrl = s3Client.signUrl(thumbBucket, fileUri, image)
-    val thumbUrl = if(FeatureToggle.get("cloudfront-signing")) {
-      cloudFrontDomainThumbBucket
+    val thumbUrl = cloudFrontDomainThumbBucket
         .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
         .getOrElse(s3SignedThumbUrl)
-    } else { s3SignedThumbUrl }
 
     val validityMap       = ImageExtras.validityMap(image, withWritePermission)
     val valid             = ImageExtras.isValid(validityMap)
