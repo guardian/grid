@@ -2,7 +2,6 @@ package lib
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
@@ -21,15 +20,8 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Try}
 
 class ImageResponse(override val services: Services, imageBucket: String, thumbBucket: String, cloudFrontDomainThumbBucket: Option[String],
-                    persistenceIdentifier: Option[String], persistedRootCollections: List[String], s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
-//  implicit val dateTimeFormat = DateFormat
-  implicit val usageQuotas = usageQuota
-
-  object Costing extends CostCalculator {
-    val quotas = usageQuotas
-  }
-
-  implicit val costing = Costing
+                    persistenceIdentifier: Option[String], persistedRootCollections: List[String], s3Client: S3Client)
+                   (implicit usageQuota: UsageQuota, costing: CostCalculator) extends EditsResponse {
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
 
@@ -255,7 +247,7 @@ class ImageResponse(override val services: Services, imageBucket: String, thumbB
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = Costing.getCost(usageRights)
+    val cost = costing.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }

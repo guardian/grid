@@ -14,6 +14,7 @@ import com.typesafe.config.ConfigException
 import controllers._
 import lib._
 import lib.elasticsearch.ElasticSearchVersion
+import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
 import play.api.ApplicationLoader.Context
 import play.api.Logger
@@ -95,9 +96,13 @@ class MediaApiComponents(context: Context) extends GridComponents("media-api", c
   elasticSearch.ensureAliasAssigned()
 
   val cloudFrontS3Client = new S3Client(cloudFrontPrivateKeyLocation, cloudFrontKeyPairId, s3Client)
-  val usageQuota = UsageQuota.build(config, elasticSearch, s3Client, actorSystem.scheduler)
 
-  val imageResponse = new ImageResponse(services, imageBucket, thumbBucket, cloudFrontDomainThumbBucket, persistenceIdentifier, persistenceCollections.getOrElse(List.empty), cloudFrontS3Client, usageQuota)
+  val usageQuota = UsageQuota.build(config, elasticSearch, s3Client, actorSystem.scheduler)
+  val costing = new CostCalculator {
+    override val quotas: UsageQuota = usageQuota
+  }
+
+  val imageResponse = new ImageResponse(services, imageBucket, thumbBucket, cloudFrontDomainThumbBucket, persistenceIdentifier, persistenceCollections.getOrElse(List.empty), cloudFrontS3Client)(usageQuota, costing)
 
   val mediaApi = new MediaApi(auth, services, imageBucket, messageSender, elasticSearch, imageResponse, permissionsHandler, controllerComponents, cloudFrontS3Client, mediaApiMetrics)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
