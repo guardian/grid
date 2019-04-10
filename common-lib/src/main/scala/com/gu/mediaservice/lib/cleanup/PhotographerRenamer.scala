@@ -12,6 +12,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Alberto E Rodriguez" -> "Alberto E Rodríguez",
     "Alberto Estevez" -> "Alberto Estévez",
     "Alberto Valdes" -> "Alberto Valdés",
+    "Alecsandra Dragoi" -> "Alecsandra Raluca Drăgoi",
     "Alecsandra Raluca Dragoi" -> "Alecsandra Raluca Drăgoi",
     "Alejandro Garcia" -> "Alejandro García",
     "Aleksander Kozminski" -> "Aleksander Koźmiński",
