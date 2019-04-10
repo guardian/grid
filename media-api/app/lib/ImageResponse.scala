@@ -147,11 +147,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .map(s3Client.signUrl(config.imageBucket, _, image))
 
     def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image)
-    val thumbUrl = if(FeatureToggle.get("cloudfront-signing")) {
-      config.cloudFrontDomainThumbBucket
+    val thumbUrl = config.cloudFrontDomainThumbBucket
         .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
         .getOrElse(s3SignedThumbUrl)
-    } else { s3SignedThumbUrl }
 
     val validityMap       = ImageExtras.validityMap(image, withWritePermission)
     val valid             = ImageExtras.isValid(validityMap)
