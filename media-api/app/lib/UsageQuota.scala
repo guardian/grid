@@ -19,8 +19,7 @@ case class ImageNotFound() extends Exception("Image not found")
 case class NoUsageQuota() extends Exception("No usage found for this image")
 
 trait UsageQuota {
-  def usageStore: UsageStore
-  def quotaStore: QuotaStore
+  def usageStore: Option[UsageStore]
 
   def isOverQuota(rights: UsageRights): Boolean
   def usageStatusForImage(id: String)(implicit request: AuthenticatedRequest[AnyContent, Principal]): Future[UsageStatus]
@@ -44,22 +43,31 @@ object UsageQuota {
 
       case _ =>
         Logger.info("Running without usage or quotas")
-        ???
+
+        new UsageQuota {
+          override def usageStore: Option[UsageStore] = None
+          override def isOverQuota(rights: UsageRights): Boolean = false
+          override def usageStatusForImage(id: String)(implicit request: AuthenticatedRequest[AnyContent, Principal]): Future[UsageStatus] = Future.failed(NoUsageQuota())
+        }
     }
   }
 }
 
-class GuardianUsageQuota(override val quotaStore: QuotaStore, override val usageStore: UsageStore, elasticSearch: ElasticSearchVersion,
+class GuardianUsageQuota(quotaStore: QuotaStore, _usageStore: UsageStore, elasticSearch: ElasticSearchVersion,
                          scheduler: Scheduler, waitMillis: Int = 100) extends UsageQuota {
+
+  override def usageStore: Option[UsageStore] = {
+    Some(_usageStore)
+  }
 
   def scheduleUpdates(): Unit = {
     quotaStore.scheduleUpdates(scheduler)
-    usageStore.scheduleUpdates(scheduler)
+    _usageStore.scheduleUpdates(scheduler)
   }
 
   override def isOverQuota(rights: UsageRights): Boolean = Try {
     Await.result(
-      usageStore.getUsageStatusForUsageRights(rights),
+      _usageStore.getUsageStatusForUsageRights(rights),
       waitMillis.millis)
   }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
 
@@ -69,7 +77,7 @@ class GuardianUsageQuota(override val quotaStore: QuotaStore, override val usage
     image <- Future { imageOption.get }
       .recover { case _ => throw new ImageNotFound }
 
-    usageStatus <- usageStore.getUsageStatusForUsageRights(image.usageRights)
+    usageStatus <- _usageStore.getUsageStatusForUsageRights(image.usageRights)
 
   } yield usageStatus
 
