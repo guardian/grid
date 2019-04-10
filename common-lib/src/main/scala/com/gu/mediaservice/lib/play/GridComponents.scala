@@ -1,9 +1,10 @@
 package com.gu.mediaservice.lib.play
 
 import java.io.File
+import java.nio.file.Files
 
-import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
+import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.gu.mediaservice.lib.auth.{Authentication, KeyStore}
 import com.gu.mediaservice.lib.config.Services
@@ -11,25 +12,24 @@ import com.gu.mediaservice.lib.management.Management
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.typesafe.config.ConfigFactory
 import play.api.ApplicationLoader.Context
-import play.api.{BuiltInComponentsFromContext, Configuration}
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
+import play.api.{BuiltInComponentsFromContext, Configuration}
 import play.filters.HttpFiltersComponents
 import play.filters.cors.CORSConfig.Origins
 import play.filters.cors.{CORSComponents, CORSConfig}
 import play.filters.gzip.GzipFilterComponents
 
-import scala.concurrent.ExecutionContext
 import scala.collection.JavaConverters._
-import scala.util.Try
+import scala.concurrent.ExecutionContext
 
 abstract class GridComponents(service: String, protected val context: Context) extends BuiltInComponentsFromContext(context)
   with AhcWSComponents with HttpFiltersComponents with CORSComponents with GzipFilterComponents {
 
   implicit val ec: ExecutionContext = executionContext
 
-  val localOverrideFile = new File(s"${System.getProperty("user.home")}/.gu/$service.properties")
-  val localOverrides = Try(ConfigFactory.parseFile(localOverrideFile)).getOrElse(ConfigFactory.empty())
+  val localOverrideFile = new File(s"${System.getProperty("user.home")}/.grid/$service.conf")
+  val localOverrides = if(Files.exists(localOverrideFile.toPath)) { ConfigFactory.parseFile(localOverrideFile) } else { ConfigFactory.empty() }
   val config = new Configuration(localOverrides.withFallback(context.initialConfiguration.underlying))
 
   val region = config.get[String]("aws.region")

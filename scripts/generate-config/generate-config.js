@@ -33,6 +33,26 @@ function writeToDisk({path, content}) {
     });
 }
 
+function ensureDirectory(dir) {
+  return new Promise((resolve, reject) => {
+    // mkdir is deprecated in node, they recommend to use `stat` trapping errors instead
+    fs.stat(dir, (err, stats) => {
+      if(err) {
+        fs.mkdir(dir, err => {
+          if(err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        })
+      } else {
+        // already exists
+        resolve();
+      }
+    });
+  });
+}
+
 (async () => {
     const cfnData = await getCloudformationStackOutput();
     const stackOutputs = cfnData.Stacks[0].Outputs;
@@ -46,9 +66,12 @@ function writeToDisk({path, content}) {
     const config = Object.assign({}, defaultConfig, {stackProps});
     const serviceConfigs = ServiceConfig.getConfigs(config);
 
+    const configDir = `${os.homedir()}/.grid`;
+    await ensureDirectory(configDir);
+
     await Promise.all(
         Object.keys(serviceConfigs).map(filename => writeToDisk({
-            path: os.homedir() + `/.gu/${filename}.properties`,
+            path: `${configDir}/${filename}.conf`,
             content: serviceConfigs[filename]
         })
     ));

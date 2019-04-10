@@ -1,23 +1,23 @@
 {
   // where is your cloudformation stack running?
   aws: {
-    region: 'eu-west-1',
-    profile: 'media-service',
-    stackName: 'media-service-DEV'
+    region: 'eu-west-2',
+    profile: 'developerPlayground',
+    stackName: 'grid-test-mrb'
   },
 
   // Domain root of your site, e.g. foobar.co.uk
-  domainRoot: '',
+  domainRoot: 'tools.carpark.dev',
 
   panda: {
     // The domain for users email addresses
-    userDomain: '',
+    userDomain: 'mbarton.cc',
 
     // The bucket containing the Pan Domain Auth settings for the domain
-    bucketName: '',
+    bucketName: 'grid-cognito-test-mrb-settingsbucket-1jl1uidoufixa',
 
     // The file in the bucket e.g. ${domain.root}.settings
-    settingsFileKey: ''
+    settingsFileKey: 'tools.carpark.dev.settings'
   },
 
   // The minimum number of messages to retrieve from SQS to be deemed healthy.

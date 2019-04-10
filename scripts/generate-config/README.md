@@ -1,4 +1,4 @@
-# Generate .properties
+# Generate Configuration
 
 Generate the configuration files for the various Grid services.
 
@@ -8,4 +8,4 @@ Generate the configuration files for the various Grid services.
 ## Usage
 - `npm install`
 - Fill in [`config.json5`](./config.json5)
-- `npm run generate-properties`
+- `npm run generate-config`
