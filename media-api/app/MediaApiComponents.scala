@@ -38,10 +38,6 @@ class MediaApiComponents(context: Context) extends GridComponents("media-api", c
   val cloudFrontKeyPairId = config.getOptional[String]("cloudfront.keypair.id")
   val cloudFrontPrivateKeyLocation = "/etc/gu/ssl/private/cloudfront.pem"
 
-  val configBucket = config.get[String]("s3.config.bucket")
-  val usageMailBucket = config.get[String]("s3.usagemail.bucket")
-  val quotaStoreKey = config.get[String]("quota.store.key")
-
   val persistenceCollections = Try(Some(config.underlying.getStringList("persistence.collections").asScala.toList)).recover { case _: ConfigException.Missing => None }.get
   val persistenceIdentifier = config.getOptional[String]("persistence.identifier")
   val syndicationStartDate = config.getOptional[String]("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
@@ -99,19 +95,14 @@ class MediaApiComponents(context: Context) extends GridComponents("media-api", c
   elasticSearch.ensureAliasAssigned()
 
   val cloudFrontS3Client = new S3Client(cloudFrontPrivateKeyLocation, cloudFrontKeyPairId, s3Client)
-
-  val quotaStore = new QuotaStore(quotaStoreKey, configBucket, s3Client)
-  val usageStore = new UsageStore(usageMailBucket, s3Client, quotaStore)
-
-  val usageQuota = new UsageQuota(quotaStore, usageStore, elasticSearch, actorSystem.scheduler)
-  usageQuota.scheduleUpdates()
+  val usageQuota = UsageQuota.build(config, elasticSearch, s3Client, actorSystem.scheduler)
 
   val imageResponse = new ImageResponse(services, imageBucket, thumbBucket, cloudFrontDomainThumbBucket, persistenceIdentifier, persistenceCollections.getOrElse(List.empty), cloudFrontS3Client, usageQuota)
 
   val mediaApi = new MediaApi(auth, services, imageBucket, messageSender, elasticSearch, imageResponse, permissionsHandler, controllerComponents, cloudFrontS3Client, mediaApiMetrics)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
-  val usageController = new UsageController(auth, elasticSearch, usageQuota, controllerComponents)
+  val usageController = new UsageController(auth, elasticSearch, usageQuota, usageQuota.usageStore, controllerComponents)
   val healthcheckController = new ManagementWithPermissions(controllerComponents, permissionsHandler)
 
   override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, healthcheckController)

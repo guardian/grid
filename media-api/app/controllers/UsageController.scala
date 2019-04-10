@@ -10,7 +10,7 @@ import play.api.mvc._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class UsageController(auth: Authentication, elasticSearch: ElasticSearchVersion, usageQuota: UsageQuota,
+class UsageController(auth: Authentication, elasticSearch: ElasticSearchVersion, usageQuota: UsageQuota, usageStore: UsageStore,
                       override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -51,7 +51,7 @@ class UsageController(auth: Authentication, elasticSearch: ElasticSearchVersion,
   }
 
   def quotas = auth.async { request =>
-    usageQuota.usageStore.getUsageStatus()
+    usageStore.getUsageStatus()
       .map((s: StoreAccess) => respond(s))
       .recover {
         case e => respondError(InternalServerError, "unknown-error", e.toString)
