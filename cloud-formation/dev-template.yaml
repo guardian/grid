@@ -1,5 +1,17 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Media Service Dev
+
+Parameters:
+  # These buckets are required to get Guardian-specific quotas and usage data
+  CreateUsageAndQuotaBuckets:
+    Type: String
+    AllowedValues: [true, false]
+    Default: false
+
+Conditions:
+  CreateUsageAndQuotaBuckets:
+    !Equals [!Ref CreateUsageAndQuotaBuckets, true]
+
 Resources:
   ImageBucket:
     Type: AWS::S3::Bucket
@@ -30,6 +42,7 @@ Resources:
 
   ConfigBucket:
     Type: AWS::S3::Bucket
+    Condition: CreateUsageAndQuotaBuckets
 
   S3WatcherIngestBucket:
     Type: AWS::S3::Bucket
@@ -42,6 +55,7 @@ Resources:
 
   UsageMailBucket:
     Type: AWS::S3::Bucket
+    Condition: CreateUsageAndQuotaBuckets
     Properties:
       VersioningConfiguration:
         Status: Enabled
@@ -243,7 +257,7 @@ Outputs:
   ImageOriginWebsite:
     Value: !GetAtt 'ImageOriginBucket.WebsiteURL'
   ConfigBucket:
-    Value: !Ref 'ConfigBucket'
+    Value: !If [CreateUsageAndQuotaBuckets, !Ref 'ConfigBucket', "null"]
   CollectionsBucket:
     Value: !Ref 'CollectionsBucket'
   S3WatcherIngestBucket:
@@ -251,7 +265,7 @@ Outputs:
   S3WatcherFailBucket:
     Value: !Ref 'S3WatcherFailBucket'
   UsageMailBucket:
-    Value: !Ref 'UsageMailBucket'
+    Value: !If [CreateUsageAndQuotaBuckets, !Ref 'UsageMailBucket', "null"]
   EditsDynamoTable:
     Value: !Ref 'EditsDynamoTable'
   CollectionsDynamoTable:
@@ -276,3 +290,5 @@ Outputs:
     Value: !Ref 'PreviewContentPollTable'
   ThrallMessageQueue:
     Value: !Ref 'ThrallMessageQueue'
+  QuotaStoreKey:
+    Value: !If [CreateUsageAndQuotaBuckets, "rcs-quota.json", "null"]

@@ -107,9 +107,10 @@ function getMediaApiConfig(config) {
         |es6.cluster="media-service"
         |es6.shards=1
         |es6.replicas=0
-        |# TODO MRB: quota and usage should be optional
-        |quota.store.key="rcs-quota.json"
-        |s3.usagemail.bucket="${config.stackProps.UsageMailBucket}"
+        |# the following are unquoted since they can be "null"
+        |s3.config.bucket=${config.stackProps.ConfigBucket}
+        |quota.store.key=${config.stackProps.QuotaStoreKey}
+        |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |`;
 }
 
