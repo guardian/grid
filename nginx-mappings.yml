@@ -3,7 +3,7 @@ mappings:
   - prefix: api.media
     port: 32101
   - prefix: loader.media
-    port: 9003
+    port: 32103
     client_max_body_size: 20m
   - prefix: media
     port: 32105
