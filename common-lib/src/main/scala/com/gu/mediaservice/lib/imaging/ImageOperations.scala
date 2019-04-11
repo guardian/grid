@@ -19,7 +19,7 @@ class ImageOperations(playPath: String) {
   import ExifTool._
   import ImageMagick._
 
-  private def profilePath(fileName: String): String = s"$playPath/$fileName"
+  private def profilePath(fileName: String): String = s"$playPath/conf/$fileName"
 
   private def profileLocation(colourModel: String, optimised: Boolean = false): String = colourModel match {
     case "RGB" if optimised => profilePath("facebook-TINYsRGB_c2.icc")
