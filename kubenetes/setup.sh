@@ -10,7 +10,7 @@ function create_config_map {
 }
 
 # Create config maps
-for app in auth collections; do
+for app in media-api auth collections; do
     create_config_map $app
 done
 
