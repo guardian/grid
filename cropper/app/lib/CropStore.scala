@@ -99,7 +99,7 @@ class CropStore(bucket: String, customPublishingHost: Option[String], client: Am
 
   // FIXME: this (still!) doesn't really belong here
   def translateImgHost(uri: URI): URI = {
-    val host = customPublishingHost.getOrElse(bucket + "s3.amazonaws.com")
+    val host = customPublishingHost.getOrElse(bucket + ".s3.amazonaws.com")
     new URI("https", host, uri.getPath, uri.getFragment)
   }
 }
