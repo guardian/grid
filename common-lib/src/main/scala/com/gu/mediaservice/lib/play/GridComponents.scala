@@ -63,5 +63,6 @@ abstract class AuthGridComponents(context: Context) extends GridComponents(conte
   )
 
   val keyStore = new KeyStore(authKeyStoreBucket, s3Client)
+  keyStore.scheduleUpdates(actorSystem.scheduler)
   val auth = new Authentication(services, userValidationEmailDomain, keyStore, pandaSettings, defaultBodyParser, wsClient, controllerComponents, executionContext)
 }
