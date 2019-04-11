@@ -8,6 +8,10 @@ Parameters:
     AllowedValues: [true, false]
     Default: false
 
+  Stage:
+    Type: String
+    Default: DEV
+
 Conditions:
   CreateUsageAndQuotaBuckets:
     !Equals [!Ref CreateUsageAndQuotaBuckets, true]
@@ -127,12 +131,12 @@ Resources:
   ThrallMessageQueue:
     Type: AWS::Kinesis::Stream
     Properties:
-      Name: media-service-thrall-DEV
+      Name: !Sub media-service-thrall-${Stage}
       ShardCount: 1
       RetentionPeriodHours: 168
       Tags:
       - { Key: Stack, Value: media-service }
-      - { Key: Stage, Value: DEV }
+      - { Key: Stage, Value: !Ref Stage }
 
   # TODO MRB: remove this when we migrate to Kinesis
   Topic:
