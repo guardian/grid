@@ -41,7 +41,7 @@ spec:
               mountPath: /etc/aws
           resources:
             limits:
-              memory: "256Mi"
+              memory: "512Mi"
           livenessProbe:
             httpGet:
               path: /management/healthcheck
