@@ -10,7 +10,8 @@ function create_config_map {
 }
 
 # Create config maps
-for app in media-api auth collections; do
+for conf in $(ls ${SCRIPT_DIR}/conf); do
+    app=${conf%.conf} # strip .conf off end of file
     create_config_map $app
 done
 
