@@ -20,4 +20,4 @@ kubectl create configmap aws-credentials \
   -o yaml --dry-run | kubectl apply -f -
 
 # Spin up stack
-kubectl apply -f ${SCRIPT_DIR}/grid.yaml
+kubectl apply -f ${SCRIPT_DIR}/manifests/
