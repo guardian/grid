@@ -71,12 +71,12 @@ lazy val commonLib = project("common-lib").settings(
 
 lazy val auth = playProject("auth", 9011)
 
-lazy val collections = playProject("collections", 9010, true)
+lazy val collections = playProject("collections", 9010)
 
-lazy val cropper = playProject("cropper", 9006, true)
+lazy val cropper = playProject("cropper", 9006)
   .settings(graphicsMagickDockerSettings)
 
-lazy val imageLoader = playProject("image-loader", 9003, true)
+lazy val imageLoader = playProject("image-loader", 9003)
   .settings(graphicsMagickDockerSettings)
   .settings {
     libraryDependencies ++= Seq(
@@ -84,15 +84,15 @@ lazy val imageLoader = playProject("image-loader", 9003, true)
     )
   }
 
-lazy val kahuna = playProject("kahuna", 9005, true)
+lazy val kahuna = playProject("kahuna", 9005)
 
-lazy val leases = playProject("leases", 9012, true).settings(
+lazy val leases = playProject("leases", 9012).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "scanamo" % "1.0.0-M8"
   )
 )
 
-lazy val mediaApi = playProject("media-api", 9001, true).settings(
+lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
     "org.apache.commons" % "commons-email" % "1.5",
     "org.parboiled" %% "parboiled" % "2.1.5",
@@ -102,9 +102,9 @@ lazy val mediaApi = playProject("media-api", 9001, true).settings(
   )
 ).settings(testSettings)
 
-lazy val metadataEditor = playProject("metadata-editor", 9007, true)
+lazy val metadataEditor = playProject("metadata-editor", 9007)
 
-lazy val thrall = playProject("thrall", 9002, true).settings(
+lazy val thrall = playProject("thrall", 9002).settings(
   libraryDependencies ++= Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
@@ -112,7 +112,7 @@ lazy val thrall = playProject("thrall", 9002, true).settings(
   )
 ).settings(testSettings)
 
-lazy val usage = playProject("usage", 9009, true).settings(
+lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client" % "11.53",
     "io.reactivex" %% "rxscala" % "0.26.5",
