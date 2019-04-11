@@ -26,7 +26,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
 
   private val index = "images"
 
-  val elasticConfig = ElasticSearch6Config(alias = "readAlias", host = "localhost", port = 9206,
+  val elasticConfig = ElasticSearch6Config(alias = "readAlias", host = "localhost", port = 9207,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = ElasticSearchFactory.build(elasticConfig, None, None, None, List.empty, None)
