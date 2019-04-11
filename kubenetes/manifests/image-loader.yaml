@@ -25,7 +25,7 @@ spec:
       containers:
         - name: image-loader
           image: guardiangrid/image-loader:sihil_dockerise
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           args: 
             - -Dlogger.file=/opt/docker/conf/logback-docker.xml
             - -Dhttp.port=9003

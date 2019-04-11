@@ -8,7 +8,7 @@ mappings:
   - prefix: media
     port: 32105
   - prefix: cropper.media
-    port: 9006
+    port: 32106
   - prefix: media-metadata
     port: 32107
   - prefix: media-imgops

@@ -25,7 +25,7 @@ spec:
       containers:
         - name: media-api
           image: guardiangrid/media-api:sihil_dockerise
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           args: 
             - -Dlogger.file=/opt/docker/conf/logback-docker.xml
             - -Dhttp.port=9001

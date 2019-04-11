@@ -24,7 +24,7 @@ spec:
       containers:
         - name: thrall
           image: guardiangrid/thrall:sihil_dockerise
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           args: 
             - -Dlogger.file=/opt/docker/conf/logback-docker.xml
             - -Dhttp.port=9002
