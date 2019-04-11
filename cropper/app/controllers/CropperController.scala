@@ -143,7 +143,11 @@ class CropperController(auth: Authentication, services: Services,permissionsHand
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
-    val baseRequest = ws.url(uri)
+    val kubeUri = if (isMediaApiUri(uri)) {
+      s"http://media-api:9001${uri.stripPrefix(services.apiBaseUri)}"
+    } else uri
+
+    val baseRequest = ws.url(kubeUri)
       .withQueryStringParameters("include" -> "fileMetadata")
       .withHttpHeaders(Authentication.originalServiceHeaderName -> "cropper")
 
@@ -170,7 +174,7 @@ class CropperController(auth: Authentication, services: Services,permissionsHand
       if (resp.status == 404) {
         throw ImageNotFound
       } else if (resp.status != 200) {
-        Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
+        Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $kubeUri")
         throw ApiRequestFailed
       } else {
         resp.json.as[SourceImage]
