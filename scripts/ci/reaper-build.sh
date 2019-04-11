@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+SCRIPT_DIR=$(dirname ${0})
+
 NODE_VERSION="6.2.1"
 
 export NVM_DIR="$HOME/.nvm"
@@ -7,7 +9,7 @@ export NVM_DIR="$HOME/.nvm"
 
 nvm use ${NODE_VERSION}
 
-pushd ../reaper
+pushd ${SCRIPT_DIR}/../../reaper
 
 npm install
 npm run riffraff-artefact
