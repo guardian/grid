@@ -151,8 +151,7 @@ object BarcroftParser extends ImageProcessor {
 object BloombergParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Bloomberg") => image.copy(
-      usageRights = Agency("Bloomberg"),
-      metadata    = image.metadata.copy(credit = Some("Bloomberg"))
+      usageRights = Agencies.get("bloomberg")
     )
     case _ => image
   }
