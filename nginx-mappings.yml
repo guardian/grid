@@ -6,7 +6,7 @@ mappings:
     port: 9003
     client_max_body_size: 20m
   - prefix: media
-    port: 9005
+    port: 32105
   - prefix: cropper.media
     port: 9006
   - prefix: media-metadata
