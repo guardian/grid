@@ -1,4 +1,8 @@
 import PlayKeys._
+import com.typesafe.sbt.packager.docker.CmdLike
+import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport.dockerBaseImage
+import sbt.Def
+
 import scala.sys.process._
 
 val commonSettings = Seq(
@@ -70,12 +74,15 @@ lazy val auth = playProject("auth", 9011)
 lazy val collections = playProject("collections", 9010, true)
 
 lazy val cropper = playProject("cropper", 9006, true)
+  .settings(graphicsMagickDockerSettings)
 
-lazy val imageLoader = playProject("image-loader", 9003, true).settings {
-  libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % "3.12.1"
-  )
-}
+lazy val imageLoader = playProject("image-loader", 9003, true)
+  .settings(graphicsMagickDockerSettings)
+  .settings {
+    libraryDependencies ++= Seq(
+      "com.squareup.okhttp3" % "okhttp" % "3.12.1"
+    )
+  }
 
 lazy val kahuna = playProject("kahuna", 9005, true)
 
@@ -171,6 +178,22 @@ def playProject(projectName: String, port: Int): Project =
         s"-Dlogger.file=/opt/docker/conf/logback-docker.xml"
       ),
     ))
+
+val graphicsMagickDockerSettings: Seq[Def.Setting[Task[Seq[CmdLike]]]] = {
+  import com.typesafe.sbt.packager.docker._
+  Seq(
+    dockerCommands ++= Seq(
+      Cmd("USER", "root"),
+      ExecCmd("RUN", "apt-get", "update"),
+      ExecCmd("RUN", "apt-get", "install", "-y", "apt-utils"),
+      ExecCmd("RUN", "apt-get", "upgrade", "-y"),
+      ExecCmd("RUN", "apt-get", "install", "-y", "graphicsmagick"),
+      ExecCmd("RUN", "apt-get", "install", "-y", "graphicsmagick-imagemagick-compat"),
+      ExecCmd("RUN", "apt-get", "install", "-y", "pngquant"),
+      ExecCmd("RUN", "apt-get", "install", "-y", "libimage-exiftool-perl")
+    )
+  )
+}
 
 def makeValidDockerTag(branchName: String): String = {
   /* A tag name must be valid ASCII and may contain lowercase and uppercase letters, digits, underscores, periods 
