@@ -141,6 +141,10 @@ def playProject(projectName: String, port: Int): Project =
 
       playDefaultPort := port,
 
+      mappings in Universal ++= Seq(
+        file("common-lib/src/main/resources/logback-docker.xml") -> "conf/logback-docker.xml"
+      ),
+
       debianPackageDependencies := Seq("openjdk-8-jre-headless"),
       maintainer in Linux := "Guardian Developers <dig.dev.software@theguardian.com>",
       packageSummary in Linux := description.value,
