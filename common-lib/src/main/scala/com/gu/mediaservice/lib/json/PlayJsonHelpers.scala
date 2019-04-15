@@ -3,18 +3,11 @@ package com.gu.mediaservice.lib.json
 import scala.PartialFunction.condOpt
 
 import play.api.libs.json._
-import play.api.Logger
 import play.api.libs.json.JsString
-
 
 trait PlayJsonHelpers {
 
-  def logParseErrors(parseResult: JsResult[_]): Unit =
-    parseResult.fold(
-      _ map { case (path, errors) =>
-        Logger.error(s"Validation errors at $path: [${errors.map(_.message).mkString(", ")}]")
-      },
-      _ => ())
+  def logParseErrors[A](parseResult: JsResult[A]): Either[Seq[(JsPath, Seq[JsonValidationError])], A] = parseResult.asEither
 
   def string(v: JsValue): Option[String] =
     condOpt(v) { case JsString(s) => s }
