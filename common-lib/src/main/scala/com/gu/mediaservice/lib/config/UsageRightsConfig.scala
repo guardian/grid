@@ -68,7 +68,6 @@ object UsageRightsConfig {
     "Allstar Picture Library",
     "AP",
     "Barcroft Media",
-    "Bloomberg",
     "EPA",
     "Getty Images",
     "PA",
