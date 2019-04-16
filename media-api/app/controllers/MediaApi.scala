@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(
                 auth: Authentication,
-                messageSender: MessageSender,
+                messageSender: ThrallMessageSender,
                 elasticSearch: ElasticSearchVersion,
                 imageResponse: ImageResponse,
                 override val config: MediaApiConfig,

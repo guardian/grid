@@ -1,12 +1,12 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model.{LeaseNotice, LeasesByMedia, MediaLease}
 import org.joda.time.DateTime
 import play.api.libs.json._
 
-class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends MessageSender(config, config.topicArn) {
+class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessageSender(config, config.topicArn) {
   private def build(mediaId: String, leases: List[MediaLease] ): LeaseNotice = {
     LeaseNotice(mediaId, Json.toJson(LeasesByMedia.build(leases)))
   }

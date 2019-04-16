@@ -7,8 +7,8 @@ import org.joda.time.DateTime
 import play.api.libs.json.JsValue
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
-class MessageSender(config: CommonConfig, snsTopicArn: String) {
-  private val legacySns = new SNS(config, snsTopicArn)
+class ThrallMessageSender(config: CommonConfig, thrallSnsTopic: String) {
+  private val legacySns = new SNS(config, thrallSnsTopic)
   private val kinesis = new Kinesis(config, config.thrallKinesisStream)
 
   // TODO deprecate the message JsValue input in favour of the more structured update message
