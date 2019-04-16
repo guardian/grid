@@ -59,8 +59,6 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   lazy val cloudFrontDomainThumbBucket: Option[String] = properties.get("cloudfront.domain.thumbbucket")
   lazy val cloudFrontKeyPairId: Option[String]         = properties.get("cloudfront.keypair.id")
 
-  lazy val topicArn: String = properties("sns.topic.arn")
-
   // Note: had to make these lazy to avoid init order problems ;_;
 
   lazy val rootUri: String = services.apiBaseUri

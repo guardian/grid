@@ -37,8 +37,6 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
 
   val usageDateLimit: String = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
 
-  val topicArn = properties("sns.topic.arn")
-
   private val composerBaseUrlProperty: String = properties("composer.baseUrl")
   private val composerBaseUrl = ensureSecure(composerBaseUrlProperty)
 

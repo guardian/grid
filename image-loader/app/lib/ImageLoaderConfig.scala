@@ -9,8 +9,6 @@ class ImageLoaderConfig(override val configuration: Configuration) extends Commo
 
   final override lazy val appName = "image-loader"
 
-  val topicArn: String = properties("sns.topic.arn")
-
   val imageBucket: String = properties("s3.image.bucket")
 
   val thumbnailBucket: String = properties("s3.thumb.bucket")
