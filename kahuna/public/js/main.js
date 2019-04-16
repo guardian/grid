@@ -2,7 +2,6 @@
 import 'babel-polyfill';
 import angular from 'angular';
 import 'angular-ui-router';
-import 'angular-cookies';
 import {heal} from 'pandular';
 
 import {cropperApi} from './services/api/media-cropper';
@@ -86,8 +85,7 @@ var kahuna = angular.module('kahuna', [
     // directives used throughout
     imageFade.name,
     icon.name,
-    tooltip.name,
-    'ngCookies'
+    tooltip.name
 ]);
 
 
