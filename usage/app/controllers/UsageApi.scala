@@ -193,7 +193,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     }
 
     val updateMessage = UpdateMessage(subject = " delete-usages", id = Some(mediaId))
-    notifications.publish(Json.obj("id" -> mediaId), "delete-usages", updateMessage)
+    notifications.publish(updateMessage)
     Future.successful(Ok)
   }
 }

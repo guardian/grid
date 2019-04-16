@@ -4,16 +4,13 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.UsageNotice
 import org.joda.time.DateTime
-import play.api.libs.json.JsValue
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
-class ThrallMessageSender(config: CommonConfig, thrallSnsTopic: String) {
-  private val legacySns = new SNS(config, thrallSnsTopic)
+class ThrallMessageSender(config: CommonConfig) {
   private val kinesis = new Kinesis(config, config.thrallKinesisStream)
 
   // TODO deprecate the message JsValue input in favour of the more structured update message
-  def publish(message: JsValue, subject: String, updateMessage: UpdateMessage): Unit = {
-    legacySns.publish(message, subject)
+  def publish(updateMessage: UpdateMessage): Unit = {
     kinesis.publish(updateMessage)
   }
 }
