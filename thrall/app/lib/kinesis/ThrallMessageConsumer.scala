@@ -13,7 +13,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             es: ElasticSearchVersion,
                             thrallMetrics: ThrallMetrics,
                             store: ThrallStore,
-                            metadataNotifications: MetadataNotifications,
+                            metadataEditorNotifications: MetadataEditorNotifications,
                             syndicationRightsOps: SyndicationRightsOps,
                             from: Option[DateTime]
                            ) extends MessageConsumerVersion {
@@ -21,7 +21,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
   val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   private val thrallEventProcessorFactory = new IRecordProcessorFactory {
-    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataNotifications, syndicationRightsOps)
+    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps)
   }
 
   private val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()

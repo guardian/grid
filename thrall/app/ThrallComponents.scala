@@ -11,7 +11,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ThrallConfig(configuration)
 
   val store = new ThrallStore(config)
-  val dynamoNotifications = new MetadataNotifications(config)
+  val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
   val es1Config = for {
@@ -70,7 +70,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
 
   es6pot.map { es6 =>
     val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
-      store, dynamoNotifications, new SyndicationRightsOps(es6), config.from)
+      store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from)
     thrallKinesisMessageConsumer.start()
   }
 
