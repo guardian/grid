@@ -84,7 +84,7 @@ abstract class MessageConsumer(queueUrl: String, awsEndpoint: String, config: Co
     ).getMessages.asScala.toList
 
   private def extractSNSMessage(sqsMessage: SQSMessage): Either[Seq[(JsPath, Seq[JsonValidationError])], SNSMessage] =
-    logParseErrors(Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)))
+    Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)).asEither
 
   private def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
@@ -110,10 +110,10 @@ object SNSMessage {
   implicit def snsMessageReads: Reads[SNSMessage] =
     (
       (__ \ "Type").read[String] ~
-        (__ \ "MessageId").read[String] ~
-        (__ \ "TopicArn").read[String] ~
-        (__ \ "Subject").readNullable[String] ~
-        (__ \ "Timestamp").read[String].map(parseTimestamp) ~
-        (__ \ "Message").read[String].map(Json.parse)
-      )(SNSMessage(_, _, _, _, _, _))
+      (__ \ "MessageId").read[String] ~
+      (__ \ "TopicArn").read[String] ~
+      (__ \ "Subject").readNullable[String] ~
+      (__ \ "Timestamp").read[String].map(parseTimestamp) ~
+      (__ \ "Message").read[String].map(Json.parse)
+    )(SNSMessage(_, _, _, _, _, _))
 }

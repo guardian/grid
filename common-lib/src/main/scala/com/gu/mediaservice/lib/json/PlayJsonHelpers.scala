@@ -7,8 +7,6 @@ import play.api.libs.json.JsString
 
 trait PlayJsonHelpers {
 
-  def logParseErrors[A](parseResult: JsResult[A]): Either[Seq[(JsPath, Seq[JsonValidationError])], A] = parseResult.asEither
-
   def string(v: JsValue): Option[String] =
     condOpt(v) { case JsString(s) => s }
 
