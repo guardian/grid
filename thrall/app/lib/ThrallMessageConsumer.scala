@@ -11,7 +11,6 @@ class ThrallMessageConsumer(
                              es: ElasticSearchVersion,
                              thrallMetrics: ThrallMetrics,
                              store: ThrallStore,
-                             metadataNotifications: MetadataNotifications,
                              syndicationRightsOps: SyndicationRightsOps
 )(implicit ec: ExecutionContext) extends MessageConsumer (
   config.queueUrl,
@@ -22,7 +21,7 @@ class ThrallMessageConsumer(
 
   val kinesis: Kinesis = new Kinesis(config, config.thrallKinesisStream)
 
-  val messageProcessor = new MessageProcessor(es, store, metadataNotifications, syndicationRightsOps, kinesis)
+  val messageProcessor = new MessageProcessor(es, store, syndicationRightsOps, kinesis)
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] = {
     messageProcessor.chooseProcessor(subject)

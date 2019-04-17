@@ -10,7 +10,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class MessageProcessor(es: ElasticSearchVersion,
                        store: ThrallStore,
-                       metadataNotifications: MetadataNotifications,
                        syndicationRightsOps: SyndicationRightsOps,
                        kinesis: Kinesis
                       ) extends ImageId {
@@ -83,10 +82,6 @@ class MessageProcessor(es: ElasticSearchVersion,
         es.deleteImage(id).map { requests =>
           requests.map {
             case _: ElasticSearchDeleteResponse =>
-              //store.deleteOriginal(id)
-              //store.deleteThumbnail(id)
-              //store.deletePng(id)
-              //metadataNotifications.publish(Json.obj("id" -> id), "image-deleted")
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>

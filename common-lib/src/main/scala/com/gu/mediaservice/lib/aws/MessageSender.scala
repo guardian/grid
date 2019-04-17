@@ -18,16 +18,17 @@ class MessageSender(config: CommonConfig, snsTopicArn: String) {
   }
 }
 
-case class UpdateMessage(subject: String,
-                         image: Option[Image] = None,
-                         id: Option[String] = None,
-                         usageNotice: Option[UsageNotice] = None,
-                         edits: Option[Edits] = None,
-                         lastModified: Option[DateTime] = None,
-                         collections: Option[Seq[Collection]] = None,
-                         leaseId: Option[String] = None,
-                         crops: Option[Seq[Crop]] = None,
-                         mediaLease: Option[MediaLease] = None,
-                         leases: Option[Seq[MediaLease]] = None,
-                         syndicationRights: Option[SyndicationRights] = None
-                        )
+case class UpdateMessage(
+  subject: String,
+  image: Option[Image] = None,
+  id: Option[String] = None,
+  usageNotice: Option[UsageNotice] = None,
+  edits: Option[Edits] = None,
+  lastModified: Option[DateTime] = None,
+  collections: Option[Seq[Collection]] = None,
+  leaseId: Option[String] = None,
+  crops: Option[Seq[Crop]] = None,
+  mediaLease: Option[MediaLease] = None,
+  leases: Option[Seq[MediaLease]] = None,
+  syndicationRights: Option[SyndicationRights] = None
+)
