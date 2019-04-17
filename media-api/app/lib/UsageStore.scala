@@ -161,6 +161,7 @@ class UsageStore(
         case s if s.agency.supplier.contains("Getty Images") => copyAgency(s, "getty")
         case s if s.agency.supplier.contains("Australian Associated Press") => copyAgency(s, "aap")
         case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
+        case s if s.agency.supplier.contains("Bloomberg") => copyAgency(s, "bloomberg")
         case s => s
       }
 
