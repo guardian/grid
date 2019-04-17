@@ -48,9 +48,13 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
     latestRights <- getLatestSyndicationRights(image, photoshoot, excludedImageId)
     inferredImages <- getInferredSyndicationRightsImages(image, photoshoot, excludedImageId)
   } yield {
-    val updatedRights = latestRights.map(_.copy(isInferred = true))
-    GridLogger.info(s"Using rights $updatedRights to infer rights for images (photoshoot: $photoshoot): ${inferredImages.map(_.id)}")
-    inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights))
+    GridLogger.info(s"No rights to infer in photoshoot $photoshoot")
+    latestRights.map(_.copy(isInferred = true)) match {
+      case updatedRights@Some(rights) =>
+        GridLogger.info(s"Using rights $rights to infer rights for images (photoshoot: $photoshoot): ${inferredImages.map(_.id)}")
+        inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights))
+      case None => ()
+    }
   }
 
   /* The following methods are needed because ES is eventually consistent.
