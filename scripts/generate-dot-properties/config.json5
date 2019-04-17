@@ -17,6 +17,13 @@
     key: ''
   },
 
+  es6: {
+    cluster: 'media-service',
+    url: 'http://localhost:9206',
+    shards: 1,
+    replicas: 0
+  },
+
   // Guardian specific properties for the Usage service
   capi: {
     poll:  5,

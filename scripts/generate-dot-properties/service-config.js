@@ -90,6 +90,10 @@ function getMediaApiConfig(config) {
         |es.index.aliases.read=readAlias
         |es.port=9300
         |es.cluster=media-service
+        |es6.url=${config.es6.url}
+        |es6.cluster=${config.es6.cluster}
+        |es6.shards=${config.es6.shards}
+        |es6.replicas=${config.es6.replicas}
         |quota.store.key=rcs-quota.json
         |`;
 }
@@ -133,6 +137,10 @@ function getThrallConfig(config) {
         |indexed.image.sns.topic.arn=${config.stackProps.IndexedImageTopicArn}
         |es.port=9300
         |es.cluster=media-service
+        |es6.url=${config.es6.url}
+        |es6.cluster=${config.es6.cluster}
+        |es6.shards=${config.es6.shards}
+        |es6.replicas=${config.es6.replicas}
         |`;
 }
 
