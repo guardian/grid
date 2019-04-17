@@ -3,7 +3,6 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model.Image
 import lib.SupplierUsageSummary
-import play.api.Logger
 import play.api.mvc.{AnyContent, Security}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -11,16 +10,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class TogglingElasticSearch(a: ElasticSearchVersion,
                             b: ElasticSearchVersion) extends ElasticSearchVersion {
 
-  val OPT_OUT_COOKIE_NAME = "GRID_ELASTIC6_OPT_OUT"
-
-  def active()(implicit request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]) = {
-    val userIdentifier = request.user.apiKey.name
-    val userHasRequestedOptOut = request.cookies.exists(c => c.name == OPT_OUT_COOKIE_NAME)
-    if (userHasRequestedOptOut) {
-      Logger.info("User " + userIdentifier + " is still opted out of Elastic 6 indexes")
-      a
-    } else b
-  }
+  // `a` is ES1, `b` is ES6... always use ES6
+  // TODO this class is no longer needed and can be removed
+  def active()(implicit request: Security.AuthenticatedRequest[AnyContent, Authentication.Principal]) = b
 
   override def ensureAliasAssigned(): Unit = {
     a.ensureAliasAssigned
