@@ -9,7 +9,6 @@ import org.joda.time.DateTime
 class ThrallMessageSender(config: CommonConfig) {
   private val kinesis = new Kinesis(config, config.thrallKinesisStream)
 
-  // TODO deprecate the message JsValue input in favour of the more structured update message
   def publish(updateMessage: UpdateMessage): Unit = {
     kinesis.publish(updateMessage)
   }
