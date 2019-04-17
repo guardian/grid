@@ -1,9 +1,13 @@
 <section ng:if="! ctrl.editInline">
     <button class="image-info__edit"
             ng:click="photoshootEditForm.$show()"
-            ng:hide="photoshootEditForm.$visible">
+            ng:hide="photoshootEditForm.$visible || ctrl.editingDisabled">
         ✎
     </button>
+
+    <div ng:hide="!ctrl.editingDisabled">
+        Editing photoshoots is not possible for more than 10 images at a time. We are working to improve this, contact thegrid.dev@guardian.co.uk.
+    </div>
 
     <span editable-text="ctrl.photoshootData.title"
           ng:hide="photoshootEditForm.$visible"
