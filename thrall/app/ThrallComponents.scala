@@ -14,66 +14,39 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es1Config = for {
-    h <- config.elasticsearchHost
-    p <- config.elasticsearchPort
-    c <- config.elasticsearchCluster
-  } yield {
-    ElasticSearchConfig(
-      alias = config.writeAlias,
-      host = h,
-      port = p,
-      cluster = c
-    )
+  val es1Config = ElasticSearchConfig(
+    alias = config.writeAlias,
+    host = config.elasticsearchHost,
+    port = config.elasticsearchPort,
+    cluster = config.elasticsearchCluster
+  )
+
+  val es6Config = ElasticSearch6Config(
+    alias = config.writeAlias,
+    url = config.elasticsearch6Url,
+    cluster = config.elasticsearch6Cluster,
+    shards = config.elasticsearch6Shards,
+    replicas = config.elasticsearch6Replicas
+  )
+
+  val es1 = new ElasticSearch(es1Config, Some(thrallMetrics))
+  val es6 = new ElasticSearch6(es6Config, Some(thrallMetrics))
+
+  val messageConsumerForHealthCheck = new ThrallMessageConsumer(config, es1, thrallMetrics, store, new SyndicationRightsOps(es1))
+
+  messageConsumerForHealthCheck.startSchedule()
+
+  context.lifecycle.addStopHook {
+    () => messageConsumerForHealthCheck.actorSystem.terminate()
   }
 
-  val es6Config =
-    for {
-      u <- config.elasticsearch6Url
-      c <- config.elasticsearch6Cluster
-      s <- config.elasticsearch6Shards
-      r <- config.elasticsearch6Replicas
-    } yield {
-      ElasticSearch6Config(
-        alias = config.writeAlias,
-        url = u,
-        cluster = c,
-        shards = s,
-        replicas = r
-      )
-  }
-
-  val es1Opt = es1Config.map { c =>
-    Logger.info("Configuring ES1: " + c)
-    val es1 = new ElasticSearch(c, Some(thrallMetrics))
-    es1.ensureAliasAssigned()
-    es1
-  }
-
-  val es6pot = es6Config.map { c =>
-    Logger.info("Configuring ES6: " + c)
-    val es6 = new ElasticSearch6(c, Some(thrallMetrics))
-    es6.ensureAliasAssigned()
-    es6
-  }
-
-  val messageConsumerForHealthCheck = es1Opt.map { es1 =>
-    val thrallMessageConsumer = new ThrallMessageConsumer(config, es1, thrallMetrics, store, new SyndicationRightsOps(es1))
-    thrallMessageConsumer.startSchedule()
-    context.lifecycle.addStopHook {
-      () => thrallMessageConsumer.actorSystem.terminate()
-    }
-    thrallMessageConsumer
-  }.get
-
-  es6pot.map { es6 =>
-    val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(config, es6, thrallMetrics,
-      store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from)
-    thrallKinesisMessageConsumer.start()
-  }
+  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(
+    config, es6, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from
+  )
+  thrallKinesisMessageConsumer.start()
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es1Opt.get, messageConsumerForHealthCheck, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es1, messageConsumerForHealthCheck, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }
