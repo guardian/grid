@@ -23,11 +23,6 @@
     live: {
       url: '',
       key: ''
-    },
-    preview: {
-      url: '',
-      user: '',
-      password: ''
     }
   },
 
