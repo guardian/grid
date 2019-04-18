@@ -2,29 +2,17 @@ package lib.elasticsearch
 
 import java.util.UUID
 
-import com.gu.mediaservice.model._
-import com.whisk.docker.impl.spotify.DockerKitSpotify
-import com.whisk.docker.scalatest.DockerTestKit
-import com.whisk.docker.{DockerContainer, DockerKit}
+import com.gu.mediaservice.model.{Edits, FileMetadata, Handout, ImageMetadata, StaffPhotographer}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
-import scala.concurrent.duration._
-
-trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify {
+class ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures {
 
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
-
-  def esContainer: Option[DockerContainer]
-
-  final override def dockerContainers: List[DockerContainer] =
-    esContainer.toList ++ super.dockerContainers
-
-  final override val StartContainersTimeout = 1.minute
 
   lazy val images = Seq(
     createImage(UUID.randomUUID().toString, Handout()),

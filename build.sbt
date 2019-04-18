@@ -33,7 +33,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.typesafe.play" %% "play" % "2.6.20", ws,
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
-    "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2",
+    "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.0",
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -91,11 +91,9 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "org.parboiled" %% "parboiled" % "2.1.5",
     "org.http4s" %% "http4s-core" % "0.18.7",
     "org.mockito" % "mockito-core" % "2.18.0",
-    "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
-    "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
-    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
+    "com.softwaremill.quicklens" %% "quicklens" % "1.4.11"
   )
-)
+).settings(testSettings)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
@@ -103,11 +101,9 @@ lazy val thrall = playProject("thrall", 9002).settings(
   libraryDependencies ++= Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
-    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
-    "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
+    "com.amazonaws" % "amazon-kinesis-client" % "1.8.10"
   )
-)
+).settings(testSettings)
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
@@ -163,4 +159,18 @@ def playProject(projectName: String, port: Int): Project =
         file(s"$projectName/conf/riff-raff.yaml") -> "riff-raff.yaml"
       )
     ))
+
+val testSettings = Seq(
+  testOptions in Test += Tests.Setup(_ => {
+    println(s"Launching docker container with ES")
+    s"docker-compose --file docker-compose-test.yml --project-name grid-test up -d".!
+
+    // This is needed to ensure docker has had enough time to start up
+    Thread.sleep(30000)
+  }),
+  testOptions in Test += Tests.Cleanup(_ => {
+    println(s"Removing container")
+    s"docker-compose --file docker-compose-test.yml --project-name grid-test down".!
+  })
+)
 

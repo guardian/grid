@@ -4,39 +4,26 @@ import java.util.UUID
 
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
-import com.whisk.docker.impl.spotify.DockerKitSpotify
-import com.whisk.docker.scalatest.DockerTestKit
-import com.whisk.docker.{DockerContainer, DockerKit}
 import helpers.Fixtures
-import org.joda.time.{DateTime, DateTimeZone}
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.joda.time.{DateTime, Duration => JodaDuration, DateTimeZone}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
-import play.api.libs.json.{JsDefined, JsLookupResult, Json}
+import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import play.api.libs.json.{JsDefined, JsLookupResult, Json, __}
 
-import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.{Duration, MILLISECONDS, SECONDS}
+import scala.concurrent.ExecutionContext.Implicits.global
 
-trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
+trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with Eventually with ScalaFutures {
 
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
 
   def ES: ElasticSearchVersion
-  def esContainer: Option[DockerContainer]
 
   override def beforeAll {
-    super.beforeAll()
     ES.ensureAliasAssigned()
   }
-
-  override def afterAll: Unit = {
-   super.afterAll()
-  }
-
-  final override def dockerContainers: List[DockerContainer] =
-    esContainer.toList ++ super.dockerContainers
-
-  final override val StartContainersTimeout = 1.minute
 
   "Elasticsearch" - {
 
