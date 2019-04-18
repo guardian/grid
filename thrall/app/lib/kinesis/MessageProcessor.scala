@@ -142,7 +142,7 @@ class MessageProcessor(es: ElasticSearchVersion,
   def deleteAllUsages(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) =
     Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))
 
-  def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Future[Unit] = {
     withId(updateMessage) { id =>
       withSyndicationRights(updateMessage) { syndicationRights =>
         es.getImage(id) map {
@@ -159,7 +159,7 @@ class MessageProcessor(es: ElasticSearchVersion,
     }
   }
 
-  def updateImagePhotoshoot(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def updateImagePhotoshoot(message: UpdateMessage)(implicit ec: ExecutionContext): Future[Unit] = {
     withEdits(message) { upcomingEdits =>
       withId(message) { id =>
         for {

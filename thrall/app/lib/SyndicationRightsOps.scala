@@ -52,10 +52,10 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
 
   private def updateRights(image: Image, photoshoot: Photoshoot, latestRights: Option[SyndicationRights], inferredImages: List[Image]): Unit = latestRights match {
     case updatedRights@Some(rights) if inferredImages.exists(_.syndicationRights.isDefined) || image.syndicationRights.isDefined =>
-      GridLogger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for image ids: ${inferredImages.map(_.id)} (total = ${inferredImages.length}) in photoshoot $photoshoot")
+      GridLogger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for image ids (photoshoot $photoshoot): ${inferredImages.map(_.id)} (total = ${inferredImages.length}).")
       inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights.map(_.copy(isInferred = true))))
     case None if image.syndicationRights.isDefined =>
-      GridLogger.info(s"Removing rights from images: ${inferredImages.map(_.id)} (total = ${inferredImages.length}) in photoshoot $photoshoot")
+      GridLogger.info(s"Removing rights from images (photoshoot $photoshoot): ${inferredImages.map(_.id)} (total = ${inferredImages.length}).")
       inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, None))
     case _ =>
       GridLogger.info(s"No rights to refresh in photoshoot $photoshoot")
