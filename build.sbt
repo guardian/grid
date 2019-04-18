@@ -174,4 +174,3 @@ def playProject(projectName: String, port: Int): Project =
         s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
       )
     ))
-

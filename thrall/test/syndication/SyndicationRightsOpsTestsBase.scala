@@ -25,17 +25,17 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
 
   def withImage(image: Image)(test: Image => Unit): Unit = {
     ES.indexImage(image.id, Json.toJson(image))
-    Thread.sleep(5000)
+    Thread.sleep(1000)
     test(image)
   }
 
   def withPhotoshoot(photoshoot: Photoshoot)(test: List[Image] => Unit): Unit = {
-    val images = (1 until 5).map { _ =>
+    val images = (1 to 5).map { _ =>
       val image = imageWithPhotoshoot(photoshoot)
       ES.indexImage(image.id, Json.toJson(image))
       image
     }.toList
-    Thread.sleep(5000)
+    Thread.sleep(1000)
     test(images)
   }
 
@@ -44,7 +44,7 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
     ES.ensureAliasAssigned()
   }
 
-  def addSyndicationRights(image: Image, someRights: Option[SyndicationRights]) = {
+  def addSyndicationRights(image: Image, someRights: Option[SyndicationRights]): Image = {
     image.copy(syndicationRights = someRights)
   }
 
@@ -58,8 +58,8 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
   "SyndicationRightsOps" - {
     "General logic" - {
       "return the most recent syndication rights" in {
-        val image1 = createImageForSyndication(UUID.randomUUID().toString, true, Some(DateTime.now()), None)
-        val image2 = createImageForSyndication(UUID.randomUUID().toString, true, Some(DateTime.now().minusDays(5)), None)
+        val image1 = createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = true, Some(DateTime.now()), None)
+        val image2 = createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = true, Some(DateTime.now().minusDays(5)), None)
 
         syndRightsOps.mostRecentSyndicationRights(image1, image2) shouldBe image1.syndicationRights
       }
@@ -138,7 +138,8 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
 
         withPhotoshoot(photoshootTitle) { images =>
           val imageWithNoRights = images.head
-          whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(imageWithNoRights, syndRights), previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+          val imageWithRights = addSyndicationRights(imageWithNoRights, syndRights)
+          whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
             images.tail.foreach { img =>
               whenReady(ES.getImage(img.id)) { optImg =>
                 optImg.get.syndicationRights shouldBe syndRights.map(_.copy(isInferred = true))

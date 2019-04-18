@@ -2,6 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
+import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -47,14 +48,17 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
   private def refreshPhotoshoot(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[Unit] = for {
     latestRights <- getLatestSyndicationRights(image, photoshoot, excludedImageId)
     inferredImages <- getInferredSyndicationRightsImages(image, photoshoot, excludedImageId)
-  } yield {
-    GridLogger.info(s"No rights to infer in photoshoot $photoshoot")
-    latestRights.map(_.copy(isInferred = true)) match {
-      case updatedRights@Some(rights) =>
-        GridLogger.info(s"Using rights $rights to infer rights for images (photoshoot: $photoshoot): ${inferredImages.map(_.id)}")
-        inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights))
-      case None => ()
-    }
+  } yield updateRights(image, photoshoot, latestRights, inferredImages)
+
+  private def updateRights(image: Image, photoshoot: Photoshoot, latestRights: Option[SyndicationRights], inferredImages: List[Image]): Unit = latestRights match {
+    case updatedRights@Some(rights) if inferredImages.exists(_.syndicationRights.isDefined) || image.syndicationRights.isDefined =>
+      GridLogger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for image ids: ${inferredImages.map(_.id)} (total = ${inferredImages.length})", Map("photoshoot" -> photoshoot))
+      inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights.map(_.copy(isInferred = true))))
+    case None if image.syndicationRights.isDefined =>
+      GridLogger.info(s"Removing rights from images: ${inferredImages.map(_.id)} (total = ${inferredImages.length})", Map("photoshoot" -> photoshoot))
+      inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, None))
+    case _ =>
+      GridLogger.info(s"No rights to refresh in photoshoot $photoshoot", Map("photoshoot" -> photoshoot))
   }
 
   /* The following methods are needed because ES is eventually consistent.
