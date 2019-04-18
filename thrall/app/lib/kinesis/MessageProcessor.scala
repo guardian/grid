@@ -148,7 +148,7 @@ class MessageProcessor(es: ElasticSearchVersion,
         es.getImage(id) map {
           case Some(image) =>
             val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights $syndicationRights", id)
+            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}", id)
             syndicationRightsOps.upsertOrRefreshRights(
               image = image.copy(syndicationRights = Some(syndicationRights)),
               currentPhotoshootOpt = photoshoot
