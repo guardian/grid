@@ -19,6 +19,11 @@ templates:
     dependencies:
       - imaging-ami-update
 
+  usage-autoscaling:
+    type: autoscaling
+    app: usage
+    contentDirectory: usage
+
 deployments:
   auth:
     template: autoscaling
@@ -49,24 +54,19 @@ deployments:
 
   # Usage is confusingly a single artifact running twice with different configuration
   usage-artifact:
-    template: autoscaling
-    app: usage
+    template: usage-autoscaling
     actions:
       - uploadArtifacts
 
   usage-api:
-    template: autoscaling
-    app: usage
-    contentDirectory: usage
+    template: usage-autoscaling
     actions:
       - deploy
     dependencies:
       - usage-artifact
 
   usage-stream:
-    template: autoscaling
-    app: usage-stream
-    contentDirectory: usage
+    template: usage-autoscaling
     actions:
       - deploy
     dependencies:
