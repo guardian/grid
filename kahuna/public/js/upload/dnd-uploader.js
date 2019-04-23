@@ -47,7 +47,7 @@ dndUploader.controller('DndUploaderCtrl',
                       update(userMetadata, metadata, fullImage);
 
             const rights = {
-                category: 'guardian-witness'
+                category: 'guardian-readers-photos'
             };
             const userRights = fullImage.data.userMetadata.data.usageRights;
             const rightsUpdate = editsService.
