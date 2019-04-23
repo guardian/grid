@@ -4,8 +4,9 @@ import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.nio.file.Files
 
-import com.google.common.hash.{Hashing, HashingOutputStream}
+import com.google.common.hash.HashingOutputStream
 import com.google.common.io.ByteStreams
+import com.gu.mediaservice.DeprecatedHashWrapper
 import okhttp3.{OkHttpClient, Request}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,7 +16,7 @@ case object TruncatedDownload extends Exception
 //TODO Revisit this logic
 class Downloader(implicit ec: ExecutionContext) {
   private val client = new OkHttpClient()
-  private val digester = Hashing.sha1()
+  private val digester = DeprecatedHashWrapper.sha1()
 
   def download(uri: URI, file: File): Future[DigestedFile] = Future {
     val request = new Request.Builder().url(uri.toString).build()
