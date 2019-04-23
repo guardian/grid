@@ -261,12 +261,15 @@ final case class GuardianWitness(restrictions: Option[String] = None) extends Us
   val defaultCost = GuardianWitness.defaultCost
 }
 object GuardianWitness extends UsageRightsSpec {
-  val category = "guardian-witness"
+  val category = "guardian-readers-photos"
   val defaultCost = Some(Free)
-  val name = "GuardianWitness"
+  val name = "Guardian Readers Photos"
   val description =
-    "Images provided by readers in response to callouts and assignments on GuardianWitness."
+    "Images provided by readers in response to community callouts and assignments."
 
+  override val caution =
+    Some("Please coordinate use with community team by emailing community@theguardian.com.")
+  
   implicit val formats: Format[GuardianWitness] =
     UsageRights.subtypeFormat(GuardianWitness.category)(Json.format[GuardianWitness])
 }
