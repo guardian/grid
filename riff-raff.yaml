@@ -71,6 +71,7 @@ deployments:
 
   usage-stream:
     template: usage-autoscaling
+    app: usage-stream
     actions:
       - deploy
     dependencies:
