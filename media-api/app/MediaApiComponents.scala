@@ -41,6 +41,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
       alias = config.imagesAlias,
       host = h,
       port = p,
+      protocol = config.elasticsearch6Protocol,
       cluster = c,
       shards = s,
       replicas = r

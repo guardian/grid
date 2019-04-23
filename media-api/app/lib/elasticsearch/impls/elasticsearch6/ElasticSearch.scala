@@ -28,6 +28,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   lazy val imagesAlias = elasticConfig.alias
   lazy val host = elasticConfig.host
   lazy val port = elasticConfig.port
+  lazy val protocol = elasticConfig.protocol
   lazy val cluster = elasticConfig.cluster
   lazy val shards = elasticConfig.shards
   lazy val replicas = elasticConfig.replicas
