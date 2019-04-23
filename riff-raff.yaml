@@ -23,6 +23,8 @@ templates:
     type: autoscaling
     app: usage
     contentDirectory: usage
+    parameters:
+      bucket: media-service-dist
 
 deployments:
   auth:
@@ -57,6 +59,8 @@ deployments:
     template: usage-autoscaling
     actions:
       - uploadArtifacts
+    dependencies:
+      - ami-update
 
   usage-api:
     template: usage-autoscaling
