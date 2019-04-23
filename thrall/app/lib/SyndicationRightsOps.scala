@@ -51,15 +51,22 @@ class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionConte
   } yield updateRights(image, photoshoot, latestRights, inferredImages)
 
   private def updateRights(image: Image, photoshoot: Photoshoot, latestRights: Option[SyndicationRights], inferredImages: List[Image]): Unit = latestRights match {
-    case updatedRights@Some(rights) if inferredImages.exists(_.syndicationRights.isDefined) || image.syndicationRights.isDefined =>
+    case updatedRights@Some(rights) if updateRequired(image, inferredImages) =>
       GridLogger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for ${inferredImages.length} image id(s) in photoshoot $photoshoot: ${inferredImages.map(_.id)}")
       inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights.map(_.copy(isInferred = true))))
-    case None if image.syndicationRights.isDefined =>
+    case None if image.hasNonInferredRights =>
       GridLogger.info(s"Removing rights from images (photoshoot $photoshoot): ${inferredImages.map(_.id)} (total = ${inferredImages.length}).")
       inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, None))
     case _ =>
       GridLogger.info(s"No rights to refresh in photoshoot $photoshoot")
   }
+
+  /* Only replace rights if at least one of the following is true:
+   * - the image that triggered the action has syndication rights that are not inferred
+   * - the list of images with inferred rights has at least one image with syndication rights (inferred or not inferred)
+   * Both these condition indicate something has changed in the state of the photoshoot and we need to update the rights.
+   */
+  private def updateRequired(image: Image, inferredImages: List[Image]): Boolean = image.hasNonInferredRights || inferredImages.exists(_.syndicationRights.isDefined)
 
   /* The following methods are needed because ES is eventually consistent.
    * When we move an image into a photoshoot we have to refresh the photoshoot by querying for the latest syndication
