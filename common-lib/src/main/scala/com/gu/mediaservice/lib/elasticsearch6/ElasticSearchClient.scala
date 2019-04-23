@@ -20,6 +20,8 @@ trait ElasticSearchClient {
 
   def port: Int
 
+  def protocol: String
+
   def cluster: String
 
   def imagesAlias: String
@@ -34,7 +36,7 @@ trait ElasticSearchClient {
 
   lazy val client = {
     Logger.info("Connecting to Elastic 6: " + host + " / " + port)
-    ElasticClient(ElasticProperties("http://" + host + ":" + port)) // TODO don't like this string config
+    ElasticClient(ElasticProperties(protocol + "://" + host + ":" + port)) // TODO don't like this string config
   }
 
   def ensureAliasAssigned() {

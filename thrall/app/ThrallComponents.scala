@@ -39,6 +39,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
         alias = config.writeAlias,
         host = h,
         port = p,
+        protocol = config.elasticsearch6Protocol,
         cluster = c,
         shards = s,
         replicas = r

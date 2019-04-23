@@ -52,6 +52,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
       properties.get("es6.host")
   }
   lazy val elasticsearch6Port: Option[Int] = properties.get("es6.port").map(_.toInt)
+  lazy val elasticsearch6Protocol: String = properties.getOrElse("es6.protocol", "http")
   lazy val elasticsearch6Cluster: Option[String] = properties.get("es6.cluster")
   lazy val elasticsearch6Shards = Some(if (isDev) 1 else properties("es6.shards").toInt)
   lazy val elasticsearch6Replicas = Some(if (isDev) 0 else properties("es6.replicas").toInt)

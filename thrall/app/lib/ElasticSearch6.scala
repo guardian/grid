@@ -21,6 +21,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
   lazy val imagesAlias = config.alias
   lazy val host = config.host
   lazy val port = config.port
+  lazy val protocol = config.protocol
   lazy val cluster = config.cluster
   lazy val shards = config.shards
   lazy val replicas = config.replicas

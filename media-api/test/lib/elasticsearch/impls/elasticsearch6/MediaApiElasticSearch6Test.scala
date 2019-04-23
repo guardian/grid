@@ -32,7 +32,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     "persistence.identifier" -> "picdarUrn")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearch6Config(alias = "readAlias", host = "localhost", port = 9206,
+  val elasticConfig = ElasticSearch6Config(alias = "readAlias", host = "localhost", port = 9206, protocol = "http",
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
