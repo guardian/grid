@@ -14,6 +14,25 @@ val commonSettings = Seq(
 
 lazy val root = project("grid", path = Some("."))
   .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+  .enablePlugins(RiffRaffArtifact)
+  .settings(
+    riffRaffManifestProjectName := s"media-service::grid::all",
+    riffRaffUploadArtifactBucket := Some("riffraff-artifact"),
+    riffRaffUploadManifestBucket := Some("riffraff-builds"),
+    riffRaffArtifactResources := Seq(
+      (packageBin in Debian in auth).value -> s"${(name in auth).value}/${(name in auth).value}.deb",
+      (packageBin in Debian in collections).value -> s"${(name in collections).value}/${(name in collections).value}.deb",
+      (packageBin in Debian in cropper).value -> s"${(name in cropper).value}/${(name in cropper).value}.deb",
+      (packageBin in Debian in imageLoader).value -> s"${(name in imageLoader).value}/${(name in imageLoader).value}.deb",
+      (packageBin in Debian in leases).value -> s"${(name in leases).value}/${(name in leases).value}.deb",
+      (packageBin in Debian in thrall).value -> s"${(name in thrall).value}/${(name in thrall).value}.deb",
+      (packageBin in Debian in kahuna).value -> s"${(name in kahuna).value}/${(name in kahuna).value}.deb",
+      (packageBin in Debian in metadataEditor).value -> s"${(name in metadataEditor).value}/${(name in metadataEditor).value}.deb",
+      (packageBin in Debian in usage).value -> s"${(name in usage).value}/${(name in usage).value}.deb",
+      (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
+      file("riff-raff.yaml") -> "riff-raff.yaml"
+    )
+  )
 
 addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run")
 
@@ -135,7 +154,7 @@ def project(projectName: String, path: Option[String] = None): Project =
 
 def playProject(projectName: String, port: Int): Project =
   project(projectName, None)
-    .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, RiffRaffArtifact, BuildInfoPlugin)
+    .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
     .dependsOn(commonLib)
     .settings(commonSettings ++ Seq(
       playDefaultPort := port,
@@ -153,14 +172,6 @@ def playProject(projectName: String, port: Int): Project =
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
         s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
-      ),
-
-      riffRaffManifestProjectName := s"media-service::grid::${name.value}",
-      riffRaffUploadArtifactBucket := Some("riffraff-artifact"),
-      riffRaffUploadManifestBucket := Some("riffraff-builds"),
-      riffRaffArtifactResources := Seq(
-        (packageBin in Debian).value -> s"${name.value}/${name.value}.deb",
-        file(s"$projectName/conf/riff-raff.yaml") -> "riff-raff.yaml"
       )
     ))
 

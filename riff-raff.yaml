@@ -1,0 +1,102 @@
+stacks:
+  - media-service
+
+regions:
+  - eu-west-1
+
+templates:
+  autoscaling:
+    type: autoscaling
+    parameters:
+      bucket: media-service-dist
+    dependencies:
+      - ami-update
+
+  imaging-autoscaling:
+    type: autoscaling
+    parameters:
+      bucket: media-service-dist
+    dependencies:
+      - imaging-ami-update
+
+  usage-autoscaling:
+    type: autoscaling
+    app: usage
+    contentDirectory: usage
+    parameters:
+      bucket: media-service-dist
+
+deployments:
+  auth:
+    template: autoscaling
+
+  collections:
+    template: autoscaling
+
+  cropper:
+    template: imaging-autoscaling
+
+  image-loader:
+    template: imaging-autoscaling
+
+  kahuna:
+    template: autoscaling
+
+  leases:
+    template: autoscaling
+
+  media-api:
+    template: autoscaling
+
+  metadata-editor:
+    template: autoscaling
+
+  thrall:
+    template: autoscaling
+
+  # Usage is confusingly a single artifact running twice with different configuration
+  usage-artifact:
+    template: usage-autoscaling
+    actions:
+      - uploadArtifacts
+    dependencies:
+      - ami-update
+
+  usage-api:
+    template: usage-autoscaling
+    actions:
+      - deploy
+    dependencies:
+      - usage-artifact
+
+  usage-stream:
+    template: usage-autoscaling
+    app: usage-stream
+    actions:
+      - deploy
+    dependencies:
+      - usage-artifact
+
+  ami-update:
+    type: ami-cloudformation-parameter
+    parameters:
+      cloudFormationStackByTags: false
+      cloudFormationStackName: media-service
+      prependStackToCloudFormationStackName: false
+      amiTags:
+        BuiltBy: amigo
+        AmigoStage: PROD
+        Recipe: editorial-tools-xenial-java8
+      amiParameter: AmiId
+
+  imaging-ami-update:
+    type: ami-cloudformation-parameter
+    parameters:
+      cloudFormationStackByTags: false
+      cloudFormationStackName: media-service
+      prependStackToCloudFormationStackName: false
+      amiTags:
+        BuiltBy: amigo
+        AmigoStage: PROD
+        Recipe: grid-xenial
+      amiParameter: ImagingAmiId
