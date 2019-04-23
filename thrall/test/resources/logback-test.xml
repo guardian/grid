@@ -8,8 +8,11 @@
         </encoder>
     </appender>
 
-  <root level="INFO">
-    <appender-ref ref="CONSOLE"/>
-  </root>
+<!--  <logger name="application" level="INFO" />-->
+<!--  <logger name="play" level="INFO" />-->
+
+<!--  <root level="INFO">-->
+<!--    <appender-ref ref="CONSOLE"/>-->
+<!--  </root>-->
 
 </configuration>
