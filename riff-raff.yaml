@@ -50,6 +50,7 @@ deployments:
   # Usage is confusingly a single artifact running twice with different configuration
   usage-artifact:
     template: autoscaling
+    app: usage
     actions:
       - uploadArtifacts
 
