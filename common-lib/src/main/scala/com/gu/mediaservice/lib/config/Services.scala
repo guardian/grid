@@ -1,18 +1,21 @@
 package com.gu.mediaservice.lib.config
 
-class Services(val domainRoot: String, isProd: Boolean) {
-  val appName = "media"
+case class ServiceHosts(kahunaPrefix: String, apiPrefix: String, loaderPrefix: String,
+                        cropperPrefix: String, metadataPrefix: String, imgopsPrefix: String,
+                        usagePrefix: String, collectionsPrefix: String, leasesPrefix: String,
+                        authPrefix: String)
 
-  val kahunaHost: String   = s"$appName.$domainRoot"
-  val apiHost: String      = s"api.$appName.$domainRoot"
-  val loaderHost: String   = s"loader.$appName.$domainRoot"
-  val cropperHost: String  = s"cropper.$appName.$domainRoot"
-  val metadataHost: String = s"$appName-metadata.$domainRoot"
-  val imgopsHost: String   = s"$appName-imgops.$domainRoot"
-  val usageHost: String    = s"$appName-usage.$domainRoot"
-  val collectionsHost: String = s"$appName-collections.$domainRoot"
-  val leasesHost: String   = s"$appName-leases.$domainRoot"
-  val authHost: String     = s"$appName-auth.$domainRoot"
+class Services(val domainRoot: String, isProd: Boolean, hosts: ServiceHosts) {
+  val kahunaHost: String      = s"${hosts.kahunaPrefix}$domainRoot"
+  val apiHost: String         = s"${hosts.apiPrefix}$domainRoot"
+  val loaderHost: String      = s"${hosts.loaderPrefix}$domainRoot"
+  val cropperHost: String     = s"${hosts.cropperPrefix}$domainRoot"
+  val metadataHost: String    = s"${hosts.metadataPrefix}$domainRoot"
+  val imgopsHost: String      = s"${hosts.imgopsPrefix}$domainRoot"
+  val usageHost: String       = s"${hosts.usagePrefix}$domainRoot"
+  val collectionsHost: String = s"${hosts.collectionsPrefix}$domainRoot"
+  val leasesHost: String      = s"${hosts.leasesPrefix}$domainRoot"
+  val authHost: String        = s"${hosts.authPrefix}$domainRoot"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)
