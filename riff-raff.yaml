@@ -12,19 +12,19 @@ templates:
     dependencies:
       - ami-update
 
-  imaging-autoscaling:
-    type: autoscaling
-    parameters:
-      bucket: media-service-dist
-    dependencies:
-      - imaging-ami-update
-
   usage-autoscaling:
     type: autoscaling
     app: usage
     contentDirectory: usage
     parameters:
       bucket: media-service-dist
+
+  usage-deploy:
+    template: usage-autoscaling
+    actions:
+      - deploy
+    dependencies:
+      - usage-artifact
 
 deployments:
   auth:
@@ -34,10 +34,10 @@ deployments:
     template: autoscaling
 
   cropper:
-    template: imaging-autoscaling
+    template: autoscaling
 
   image-loader:
-    template: imaging-autoscaling
+    template: autoscaling
 
   kahuna:
     template: autoscaling
@@ -63,19 +63,11 @@ deployments:
       - ami-update
 
   usage-api:
-    template: usage-autoscaling
-    actions:
-      - deploy
-    dependencies:
-      - usage-artifact
+    template: usage-deploy
 
   usage-stream:
-    template: usage-autoscaling
+    template: usage-deploy
     app: usage-stream
-    actions:
-      - deploy
-    dependencies:
-      - usage-artifact
 
   ami-update:
     type: ami-cloudformation-parameter
@@ -83,20 +75,12 @@ deployments:
       cloudFormationStackByTags: false
       cloudFormationStackName: media-service
       prependStackToCloudFormationStackName: false
-      amiTags:
-        BuiltBy: amigo
-        AmigoStage: PROD
-        Recipe: editorial-tools-xenial-java8
-      amiParameter: AmiId
-
-  imaging-ami-update:
-    type: ami-cloudformation-parameter
-    parameters:
-      cloudFormationStackByTags: false
-      cloudFormationStackName: media-service
-      prependStackToCloudFormationStackName: false
-      amiTags:
-        BuiltBy: amigo
-        AmigoStage: PROD
-        Recipe: grid-xenial
-      amiParameter: ImagingAmiId
+      amiParametersToTags:
+        AmiId:
+          BuiltBy: amigo
+          AmigoStage: PROD
+          Recipe: editorial-tools-xenial-java8
+        ImagingAmiId:
+          BuiltBy: amigo
+          AmigoStage: PROD
+          Recipe: grid-xenial
