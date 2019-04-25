@@ -8,11 +8,11 @@
         </encoder>
     </appender>
 
-    <logger name="play" level="INFO" />
-    <logger name="application" level="DEBUG" />
+<!--  <logger name="application" level="INFO" />-->
+<!--  <logger name="play" level="INFO" />-->
 
-    <logger name="com.amazonaws">
-        <level value="ERROR" />
-    </logger>
+<!--  <root level="INFO">-->
+<!--    <appender-ref ref="CONSOLE"/>-->
+<!--  </root>-->
 
 </configuration>

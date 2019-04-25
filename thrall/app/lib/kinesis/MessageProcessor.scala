@@ -142,13 +142,13 @@ class MessageProcessor(es: ElasticSearchVersion,
   def deleteAllUsages(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) =
     Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))
 
-  def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Future[Unit] = {
     withId(updateMessage) { id =>
       withSyndicationRights(updateMessage) { syndicationRights =>
         es.getImage(id) map {
           case Some(image) =>
             val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights $syndicationRights", id)
+            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}", id)
             syndicationRightsOps.upsertOrRefreshRights(
               image = image.copy(syndicationRights = Some(syndicationRights)),
               currentPhotoshootOpt = photoshoot
@@ -159,7 +159,7 @@ class MessageProcessor(es: ElasticSearchVersion,
     }
   }
 
-  def updateImagePhotoshoot(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def updateImagePhotoshoot(message: UpdateMessage)(implicit ec: ExecutionContext): Future[Unit] = {
     withEdits(message) { upcomingEdits =>
       withId(message) { id =>
         for {

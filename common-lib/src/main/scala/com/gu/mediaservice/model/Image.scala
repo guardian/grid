@@ -32,6 +32,8 @@ case class Image(
 
   def hasInferredSyndicationRightsOrNoRights: Boolean = syndicationRights.forall(_.isInferred)
 
+  def hasNonInferredRights: Boolean = !hasInferredSyndicationRightsOrNoRights
+
   def syndicationStatus: SyndicationStatus = {
     val isRightsAcquired: Boolean = syndicationRights.exists(_.isRightsAcquired)
 
