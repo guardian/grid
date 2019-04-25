@@ -21,6 +21,7 @@ function getCollectionsConfig(config) {
         |dynamo.table.collections=${config.stackProps.CollectionsDynamoTable}
         |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |`;
 }
 
@@ -32,6 +33,7 @@ function getCropperConfig(config) {
         |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
         |publishing.image.host=${config.stackProps.ImageOriginBucket}.s3.amazonaws.com
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |`;
 }
@@ -44,6 +46,7 @@ function getImageLoaderConfig(config) {
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |`;
 }
 
@@ -67,6 +70,7 @@ function getLeasesConfig(config) {
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |dynamo.tablename.leasesTable=${config.stackProps.LeasesDynamoTable}
         |`;
 }
@@ -79,6 +83,7 @@ function getMediaApiConfig(config) {
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
@@ -96,6 +101,7 @@ function getMetadataEditorConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
         |indexed.images.sqs.queue.url=${config.stackProps.IndexedImageMetadataQueueUrl}
         |`;
@@ -118,6 +124,7 @@ function getThrallConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
+        |sns.topic.arn=${config.stackProps.SnsTopicArn}
         |sqs.queue.url=${config.stackProps.SqsQueueUrl}
         |sqs.message.min.frequency=${config.sqsMessageMinFrequency}
         |persistence.identifier=picdarUrn
@@ -139,6 +146,7 @@ function getUsageConfig(config) {
         |dynamo.tablename.usageRecordTable=${config.stackProps.UsageRecordTable}
         |composer.baseUrl=${config.composer.url}
         |sns.topic.arn=${config.stackProps.SnsTopicArn}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |crier.live.arn=${config.crier.live.roleArn}
         |crier.preview.arn=${config.crier.preview.roleArn}
         |crier.preview.name=${config.crier.preview.streamName}

@@ -32,7 +32,7 @@ object Main extends App with JsonCleaners {
   val es6Alias= args(8)
 
   val es1Config = ElasticSearchConfig(alias = es1Alias, host = es1Host, port = es1Port, cluster = es1Cluster)
-  val es6Config = ElasticSearch6Config(alias = es6Alias, host = es6Host, port = es6Port, protocol = "http", cluster = es6Cluster, shards = 5, replicas = 0)
+  val es6Config = ElasticSearch6Config(alias = es6Alias, url = s"http://$es6Host:$es6Port", cluster = es6Cluster, shards = 5, replicas = 0)
 
   Logger.info("Configuring ES1: " + es1Config)
   val es1 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {

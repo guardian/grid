@@ -34,15 +34,12 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val elasticsearchPort: Option[Int] = properties.get("es.port").map(_.toInt)
   lazy val elasticsearchCluster: Option[String] = properties.get("es.cluster")
 
-  lazy val elasticsearch6Host: Option[String] =  {
+  lazy val elasticsearch6Url: Option[String] =  {
     if (isDev)
-      Some(properties.getOrElse("es6.host", "localhost"))
+      Some(properties.getOrElse("es6.url", "http://localhost:9200"))
     else
-      properties.get("es6.host")
+      properties.get("es6.url")
   }
-
-  lazy val elasticsearch6Port: Option[Int] = properties.get("es6.port").map(_.toInt)
-  lazy val elasticsearch6Protocol: String = properties.getOrElse("es6.protocol", "http")
   lazy val elasticsearch6Cluster: Option[String] = properties.get("es6.cluster")
   lazy val elasticsearch6Shards = Some(if (isDev) 1 else properties("es6.shards").toInt)
   lazy val elasticsearch6Replicas = Some(if (isDev) 0 else properties("es6.replicas").toInt)
