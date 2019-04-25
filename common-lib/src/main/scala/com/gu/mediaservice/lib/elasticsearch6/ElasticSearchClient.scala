@@ -16,11 +16,7 @@ trait ElasticSearchClient {
   private val tenSeconds = Duration(10, SECONDS)
   private val thirtySeconds = Duration(30, SECONDS)
 
-  def host: String
-
-  def port: Int
-
-  def protocol: String
+  def url: String
 
   def cluster: String
 
@@ -35,8 +31,8 @@ trait ElasticSearchClient {
   def replicas: Int
 
   lazy val client = {
-    Logger.info("Connecting to Elastic 6: " + host + " / " + port)
-    ElasticClient(ElasticProperties(protocol + "://" + host + ":" + port)) // TODO don't like this string config
+    Logger.info("Connecting to Elastic 6: " + url)
+    ElasticClient(ElasticProperties(url))
   }
 
   def ensureAliasAssigned() {

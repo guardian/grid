@@ -46,7 +46,7 @@ trait CommonConfig {
   val isProd: Boolean = stage == "PROD"
   val isDev: Boolean = stage == "DEV"
 
-  final val thrallKinesisStream = properties.getOrElse("thrall.kinesis.stream.name", s"$stackName-thrall-$stage")
+  final val thrallKinesisStream = properties("thrall.kinesis.stream.name")
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")

@@ -113,7 +113,6 @@ Resources:
   ThrallMessageQueue:
     Type: AWS::Kinesis::Stream
     Properties:
-      Name: media-service-thrall-DEV
       ShardCount: 1
       RetentionPeriodHours: 168
       Tags:
@@ -274,3 +273,5 @@ Outputs:
     Value: !Ref 'LiveContentPollTable'
   PreviewContentPollTable:
     Value: !Ref 'PreviewContentPollTable'
+  ThrallMessageQueue:
+    Value: !Ref 'ThrallMessageQueue'

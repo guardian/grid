@@ -31,17 +31,14 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   }
 
   val es6Config: Option[ElasticSearch6Config] = for {
-    h <- config.elasticsearch6Host
-    p <- config.elasticsearch6Port
+    u <- config.elasticsearch6Url
     c <- config.elasticsearch6Cluster
     s <- config.elasticsearch6Shards
     r <- config.elasticsearch6Replicas
   } yield {
     ElasticSearch6Config(
       alias = config.imagesAlias,
-      host = h,
-      port = p,
-      protocol = config.elasticsearch6Protocol,
+      url = u,
       cluster = c,
       shards = s,
       replicas = r

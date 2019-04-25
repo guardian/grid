@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 
 class ElasticSearch6Test extends ElasticSearchTestBase {
 
-  val elasticSearchConfig = ElasticSearch6Config("writeAlias", "localhost", 9206, "http", "media-service-test", 1, 0)
+  val elasticSearchConfig = ElasticSearch6Config("writeAlias", "http://localhost:9206", "media-service-test", 1, 0)
 
   val ES = new ElasticSearch6(elasticSearchConfig, new ThrallMetrics(new ThrallConfig(Configuration.empty)))
   val esContainer = Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
