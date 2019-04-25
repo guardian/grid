@@ -68,7 +68,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
     "com.sksamuel.elastic4s" %% "elastic4s-http" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
-    "com.gu" %% "thrift-serializer" % "3.0.0",
+    "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "com.drewnoakes" % "metadata-extractor" % "2.11.0",
     "org.im4java" % "im4java" % "1.4.0",
@@ -130,7 +130,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
 
 lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
-    "com.gu" %% "content-api-client" % "11.53",
+    "com.gu" %% "content-api-client-default" % "14.2",
     "io.reactivex" %% "rxscala" % "0.26.5",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10"
   )
