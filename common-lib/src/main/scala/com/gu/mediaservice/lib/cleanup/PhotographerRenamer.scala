@@ -252,7 +252,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Mustafa Ciftci" -> "Mustafa Çiftçi",
     "Mustafa Yalcin" -> "Mustafa Yalçın",
     "Niklas Halle’N" -> "Niklas Halle’n",
-    "Omer Urer" -. "Ömer Ürer",
+    "Omer Urer" -> "Ömer Ürer",
     "Onur Coban" -> "Onur Çoban",
     "Oscar Corral" -> "Óscar Corral",
     "Oscar del Pozo" -> "Óscar del Pozo",
