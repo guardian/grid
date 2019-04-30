@@ -10,7 +10,7 @@ class ElasticSearch6Test extends ElasticSearchTestBase {
 
   val elasticSearchConfig = ElasticSearch6Config("writeAlias", "localhost", 9206, "media-service-test", 1, 0)
 
-  val ES = new ElasticSearch6(elasticSearchConfig, new ThrallMetrics(new ThrallConfig(Configuration.empty)))
+  val ES = new ElasticSearch6(elasticSearchConfig, None)
   val esContainer = Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
     .withPorts(9200 -> Some(9206))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")

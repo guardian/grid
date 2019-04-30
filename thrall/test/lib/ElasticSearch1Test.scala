@@ -12,7 +12,7 @@ class ElasticSearch1Test extends ElasticSearchTestBase {
 
   val elasticSearchConfig = ElasticSearchConfig("writeAlias", "localhost", 9301, "media-service-test")
 
-  val ES = new ElasticSearch(elasticSearchConfig, new ThrallMetrics(new ThrallConfig(Configuration.empty)))
+  val ES = new ElasticSearch(elasticSearchConfig, None)
 
   def findElasticsearchConfig(): Path = {
     // SBT does some monkey stuff and runs the test from the "thrall" folder compared to IntelliJ that runs it from the root
