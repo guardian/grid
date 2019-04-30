@@ -37,6 +37,8 @@ trait CommonConfig {
 
   lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
 
+  lazy val permissionsBucket = properties.getOrElse("permissions.bucket", "permissions-cache")
+
   def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
     .withRegion(awsRegion)
     .withCredentials(awsCredentials)
