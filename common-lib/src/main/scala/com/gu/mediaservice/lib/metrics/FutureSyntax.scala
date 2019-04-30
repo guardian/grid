@@ -10,12 +10,6 @@ trait FutureSyntax {
 
   implicit class FutureOps[A](self: Future[A])(implicit ex: ExecutionContext) {
 
-    def thenIncrement[M, N](onSuccess: Metric[M], onFailure: Metric[N])
-                           (implicit M: Numeric[M], N: Numeric[N]): Future[A] = {
-      incrementOnSuccess(onSuccess)
-      incrementOnFailure(onFailure) { case _ => true }
-    }
-
     def incrementOnSuccess[N](metric: Metric[N])(implicit N: Numeric[N]): Future[A] =
       toMetric(metric)(_ => N.fromInt(1))
 
