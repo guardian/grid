@@ -30,8 +30,7 @@ To turn off Elastic 1.7 the es.* config elements should be removed, with the exc
 ```
 es.index.aliases.write=writeAlias
 
-es6.host=elastic6.local
-es6.port=9200
+es6.url=http://elastic6.local:9200
 es6.cluster=media-service
 es6.shards=5
 es6.replicas=2
@@ -42,8 +41,7 @@ es6.replicas=2
 ```
 es.index.aliases.read=readAlias
 
-es6.host=elastic6.local
-es6.port=9200
+es6.url=http://elastic6.local:9200
 es6.cluster=media-service
 es6.shards=5
 es6.replicas=2

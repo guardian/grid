@@ -37,6 +37,8 @@ trait CommonConfig {
 
   lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
 
+  lazy val permissionsBucket = properties.getOrElse("permissions.bucket", "permissions-cache")
+
   def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
     .withRegion(awsRegion)
     .withCredentials(awsCredentials)
@@ -46,17 +48,31 @@ trait CommonConfig {
   val isProd: Boolean = stage == "PROD"
   val isDev: Boolean = stage == "DEV"
 
-  final val thrallKinesisStream = s"$stackName-thrall-$stage"
+  lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
-  lazy val services = new Services(domainRoot, isProd)
+  lazy val rootAppName: String = properties.getOrElse("app.name.root", "media")
+  lazy val serviceHosts = ServiceHosts(stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
+                                       stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
+                                       stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
+                                       stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
+                                       stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
+                                       stringDefault("hosts.imgopsPrefix", s"$rootAppName-imgops."),
+                                       stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
+                                       stringDefault("hosts.collectionsPrefix", s"$rootAppName-collections."),
+                                       stringDefault("hosts.leasesPrefix", s"$rootAppName-leases."),
+                                       stringDefault("hosts.authPrefix", s"$rootAppName-auth."))
+  lazy val services = new Services(domainRoot, isProd, serviceHosts)
 
   final def apply(key: String): String =
     string(key)
 
   final def string(key: String): String =
     configuration.getOptional[String](key) getOrElse missing(key, "string")
+
+  final def stringDefault(key: String, default: String): String =
+    configuration.getOptional[String](key) getOrElse default
 
   final def stringOpt(key: String): Option[String] = configuration.getOptional[String](key)
 
