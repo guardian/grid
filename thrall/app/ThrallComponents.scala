@@ -47,14 +47,14 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
 
   val es1Opt = es1Config.map { c =>
     Logger.info("Configuring ES1: " + c)
-    val es1 = new ElasticSearch(c, thrallMetrics)
+    val es1 = new ElasticSearch(c, Some(thrallMetrics))
     es1.ensureAliasAssigned()
     es1
   }
 
   val es6pot = es6Config.map { c =>
     Logger.info("Configuring ES6: " + c)
-    val es6 = new ElasticSearch6(c, thrallMetrics)
+    val es6 = new ElasticSearch6(c, Some(thrallMetrics))
     es6.ensureAliasAssigned()
     es6
   }

@@ -15,7 +15,7 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
+class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics]) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {
 
   lazy val imagesAlias = config.alias
@@ -106,7 +106,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating usages on image $id")
-      .incrementOnFailure(metrics.failedUsagesUpdates){case _ => true}
+      .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -248,8 +248,8 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
         case _ => Future.failed(ImageNotDeletable)
       }
       deleteFuture
-        .incrementOnSuccess(metrics.deletedImages)
-        .incrementOnFailure(metrics.failedDeletedImages) { case ImageNotDeletable => true }
+        .incrementOnSuccess(metrics.map(_.deletedImages))
+        .incrementOnFailure(metrics.map(_.failedDeletedImages)) { case ImageNotDeletable => true }
     }
 
     List(eventualDeleteResponse.map { _ =>
@@ -265,7 +265,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing all usages on image $id")
-      .incrementOnFailure(metrics.failedUsagesUpdates){case _ => true}
+      .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -280,7 +280,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing syndication rights on image $id")
-      .incrementOnFailure(metrics.failedSyndicationRightsUpdates){case _ => true}
+      .incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)){case _ => true}
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -308,7 +308,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating all leases on image $id with: ${leases.toString}")
-      .incrementOnFailure(metrics.failedSyndicationRightsUpdates){case _ => true}
+      .incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)){case _ => true}
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -342,7 +342,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 adding lease on image $id with: $leaseParameter")
-      .incrementOnFailure(metrics.failedUsagesUpdates){case _ => true}
+      .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -377,7 +377,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing lease with id $leaseIdParameter from image $id")
-      .incrementOnFailure(metrics.failedUsagesUpdates) { case _ => true }
+      .incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _ => true }
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -414,7 +414,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating exports on image $id")
-      .incrementOnFailure(metrics.failedExportsUpdates) { case _ => true }
+      .incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case _ => true }
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -439,7 +439,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing exports from image $id")
-      .incrementOnFailure(metrics.failedExportsUpdates) { case _ => true }
+      .incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case _ => true }
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
@@ -466,7 +466,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: ThrallMetrics) exten
     val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 setting collections on image $id")
-      .incrementOnFailure(metrics.failedCollectionsUpdates) { case _ => true }
+      .incrementOnFailure(metrics.map(_.failedCollectionsUpdates)) { case _ => true }
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
