@@ -9,6 +9,8 @@ trait ImageProcessor {
 
 object SupplierProcessors {
   val all: List[ImageProcessor] = List(
+    GettyXmpParser,
+    GettyCreditParser,
     AapParser,
     ActionImagesParser,
     AlamyParser,
@@ -18,8 +20,6 @@ object SupplierProcessors {
     BloombergParser,
     CorbisParser,
     EpaParser,
-    GettyXmpParser,
-    GettyCreditParser,
     PaParser,
     ReutersParser,
     RexParser,
