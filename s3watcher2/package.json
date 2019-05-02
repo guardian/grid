@@ -1,0 +1,28 @@
+{
+  "name": "s3watcher",
+  "version": "0.0.0",
+  "description": "Lambda to upload images from an S3 bucket to the Grid",
+  "author": "The Guardian <digitalcms.dev@theguardian.com>",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/guardian/grid",
+  "isAwsLambda": true,
+  "cloudformation": false,
+  "riffraffFile": "./riff-raff.yaml",
+  "projectName": "media-service::grid::s3-watcher",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.24",
+    "@types/node": "^11.13.8",
+    "@types/node-fetch": "^2.3.3",
+    "node-riffraff-artefact": "^2.0.1",
+    "typescript": "^3.4.5"
+  },
+  "scripts": {
+    "clean": "rm -rf target",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@guardian/elk-kinesis-logger": "^0.5.0",
+    "aws-sdk": "^2.447.0",
+    "node-fetch": "^2.5.0"
+  }
+}
