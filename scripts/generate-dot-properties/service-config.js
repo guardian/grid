@@ -134,6 +134,7 @@ function getThrallConfig(config) {
         |es6.cluster=${config.es6.cluster}
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |`;
 }
 
