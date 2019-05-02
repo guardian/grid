@@ -142,7 +142,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       image = imageUpload.image
     } yield {
       val updateMessage = UpdateMessage(subject = "image", image = Some(image))
-      notifications.publish(Json.toJson(image), "image", updateMessage)
+      notifications.publish(updateMessage)
 
       // TODO: centralise where all these URLs are constructed
       Accepted(Json.obj("uri" -> s"${config.apiUri}/images/${uploadRequest.id}")).as(ArgoMediaType)

@@ -16,7 +16,6 @@ class EditsConfig(override val configuration: Configuration) extends CommonConfi
 
   val editsTable = properties("dynamo.table.edits")
 
-  val topicArn = properties("sns.topic.arn")
   val queueUrl = properties("indexed.images.sqs.queue.url")
 
   val rootUri: String = services.metadataBaseUri

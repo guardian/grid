@@ -1,5 +1,5 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.MessageSender
+import com.gu.mediaservice.lib.aws.ThrallMessageSender
 
-class Notifications(config: CropperConfig) extends MessageSender(config, config.topicArn)
+class Notifications(config: CropperConfig) extends ThrallMessageSender(config)

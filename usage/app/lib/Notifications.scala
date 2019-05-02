@@ -1,5 +1,5 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.{MessageSender, SNS}
+import com.gu.mediaservice.lib.aws.ThrallMessageSender
 
-class Notifications(config: UsageConfig) extends MessageSender(config, config.topicArn)
+class Notifications(config: UsageConfig) extends ThrallMessageSender(config)

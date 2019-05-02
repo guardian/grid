@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{MessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(
                 auth: Authentication,
-                messageSender: MessageSender,
+                messageSender: ThrallMessageSender,
                 elasticSearch: ElasticSearchVersion,
                 imageResponse: ImageResponse,
                 override val config: MediaApiConfig,
@@ -197,7 +197,7 @@ class MediaApi(
           if (canDelete) {
             val deleteImage = "delete-image"
             val updateMessage = UpdateMessage(subject = deleteImage, id = Some(id))
-            messageSender.publish(Json.obj("id" -> id), deleteImage, updateMessage)
+            messageSender.publish(updateMessage)
             Accepted
           } else {
             ImageDeleteForbidden
@@ -251,11 +251,9 @@ class MediaApi(
             originalUsageRights = processedImage.usageRights
           )
 
-          val notification = Json.toJson(finalImage)
-
           val updateImage = "update-image"
           val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
-          messageSender.publish(notification, updateImage, updateMessage)
+          messageSender.publish(updateMessage)
 
           Ok(Json.obj(
             "id" -> id,

@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.aws.MessageSender
+import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -15,7 +15,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
 
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
-  val messageSender = new MessageSender(config, config.topicArn)
+  val messageSender = new ThrallMessageSender(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
   val es1Config: ElasticSearchConfig = ElasticSearchConfig(

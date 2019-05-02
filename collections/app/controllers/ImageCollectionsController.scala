@@ -63,13 +63,8 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
   def publish(id: String)(collections: List[Collection]): List[Collection] = {
     val onlyLatestCollections = onlyLatest(collections)
-    val message = Json.obj(
-      "id" -> id,
-      "data" -> Json.toJson(onlyLatestCollections)
-    )
-
     val updateMessage = UpdateMessage(subject = "set-image-collections", id = Some(id), collections = Some(onlyLatestCollections))
-    notifications.publish(message, "set-image-collections", updateMessage)
+    notifications.publish(updateMessage)
     onlyLatestCollections
   }
 }

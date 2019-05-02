@@ -217,14 +217,8 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
 
   def publish(id: String, subject: String = "update-image-user-metadata")(metadata: JsObject): Edits = {
     val edits = metadata.as[Edits]
-    val message = Json.obj(
-      "id" -> id,
-      "data" -> Json.toJson(edits),
-      "lastModified" -> printDateTime(new DateTime())
-    )
-
     val updateMessage = UpdateMessage(subject = subject, id = Some(id), edits = Some(edits), lastModified = Some(new DateTime()))
-    notifications.publish(message, subject, updateMessage)
+    notifications.publish(updateMessage)
     edits
   }
 
