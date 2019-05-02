@@ -1,18 +1,18 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.{Kinesis, MessageConsumer}
+import com.gu.mediaservice.lib.aws.{Kinesis, SqsMessageConsumer}
 import org.joda.time.DateTime
 import play.api.libs.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ThrallMessageConsumer(
+class ThrallSqsMessageConsumer(
                              config: ThrallConfig,
                              es: ElasticSearchVersion,
                              thrallMetrics: ThrallMetrics,
                              store: ThrallStore,
                              syndicationRightsOps: SyndicationRightsOps
-)(implicit ec: ExecutionContext) extends MessageConsumer (
+)(implicit ec: ExecutionContext) extends SqsMessageConsumer (
   config.queueUrl,
   config.awsEndpoint,
   config,

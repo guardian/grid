@@ -13,7 +13,7 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val metrics = new MetadataEditorMetrics(config)
-  val messageConsumer = new MetadataMessageConsumer(config, metrics, store)
+  val messageConsumer = new MetadataSqsMessageConsumer(config, metrics, store)
 
   messageConsumer.startSchedule()
   context.lifecycle.addStopHook {
