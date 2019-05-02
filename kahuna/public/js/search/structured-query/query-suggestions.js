@@ -21,6 +21,7 @@ export const filterFields = [
     'keyword',
     'label',
     'location',
+    'source',
     'state',
     'subject',
     'supplier',
@@ -124,6 +125,11 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
             then(results => results.data.map(res => res.key));
     }
 
+    function suggestSource(prefix) {
+        return mediaApi.metadataSearch('source', {q: prefix}).
+            then(results => results.data.map(res => res.key));
+    }
+
     function suggestLabels(prefix) {
         return mediaApi.labelsSuggest({q: prefix}).
             then(labels => labels.data);
@@ -141,6 +147,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'subject':  return prefixFilter(value)(subjects);
         case 'label':    return suggestLabels(value);
         case 'credit':   return suggestCredit(value);
+        case 'source':   return suggestSource(value);
         case 'supplier': return listSuppliers().then(prefixFilter(value));
         // TODO: list all known bylines, not just our photographers
         case 'by':       return listPhotographers().then(prefixFilter(value));
