@@ -29,15 +29,10 @@ class MessageProcessor(es: ElasticSearchVersion,
       case "add-image-lease" => addImageLease
       case "remove-image-lease" => removeImageLease
       case "set-image-collections" => setImageCollections
-      case "heartbeat" => heartbeat
       case "delete-usages" => deleteAllUsages
       case "upsert-rcs-rights" => upsertSyndicationRights
       case "update-image-photoshoot" => updateImagePhotoshoot
     }
-  }
-
-  def heartbeat(message: UpdateMessage)(implicit ec: ExecutionContext) = Future {
-    None
   }
 
   def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
