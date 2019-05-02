@@ -32,7 +32,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val es1 = new ElasticSearch(es1Config, Some(thrallMetrics))
   val es6 = new ElasticSearch6(es6Config, Some(thrallMetrics))
 
-  val messageConsumerForHealthCheck = new ThrallMessageConsumer(config, es1, thrallMetrics, store, new SyndicationRightsOps(es1))
+  val messageConsumerForHealthCheck = new ThrallSqsMessageConsumer(config, es1, thrallMetrics, store, new SyndicationRightsOps(es1))
 
   messageConsumerForHealthCheck.startSchedule()
 

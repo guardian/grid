@@ -1,12 +1,12 @@
 package lib
 
-import com.gu.mediaservice.lib.aws.MessageConsumer
+import com.gu.mediaservice.lib.aws.SqsMessageConsumer
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class MetadataMessageConsumer(config: EditsConfig, metadataEditorMetrics: MetadataEditorMetrics, store: EditsStore) extends MessageConsumer(
+class MetadataSqsMessageConsumer(config: EditsConfig, metadataEditorMetrics: MetadataEditorMetrics, store: EditsStore) extends SqsMessageConsumer(
   config.queueUrl, config.awsEndpoint, config, metadataEditorMetrics.snsMessage) {
 
   override def chooseProcessor(subject: String): Option[JsValue => Future[Any]] =
