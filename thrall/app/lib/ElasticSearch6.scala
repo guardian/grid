@@ -15,6 +15,8 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+object ImageNotDeletable extends Throwable("Image cannot be deleted")
+
 class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics]) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {
 
