@@ -38,8 +38,6 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val elasticsearch6Shards: Int = properties("es6.shards").toInt
   lazy val elasticsearch6Replicas: Int = properties("es6.replicas").toInt
 
-  lazy val healthyMessageRate: Int = properties("sqs.message.min.frequency").toInt
-
   lazy val metadataTopicArn: String = properties("indexed.image.sns.topic.arn")
 
   lazy val from: Option[DateTime] = properties.get("rewind.from").map(ISODateTimeFormat.dateTime.parseDateTime)

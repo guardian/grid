@@ -123,7 +123,6 @@ function getThrallConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |sqs.queue.url=${config.stackProps.SqsQueueUrl}
-        |sqs.message.min.frequency=${config.sqsMessageMinFrequency}
         |persistence.identifier=picdarUrn
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias

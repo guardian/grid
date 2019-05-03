@@ -62,8 +62,6 @@ class ThrallMessageConsumer(config: ThrallConfig,
 
   private def makeThread(worker: Runnable) = new Thread(worker, s"${getClass.getSimpleName}-$workerId")
 
-  override def lastProcessed: DateTime = DateTime.now() // TODO implement
-
   override def isStopped: Boolean = !thrallKinesisWorkerThread.isAlive
 
 }

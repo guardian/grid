@@ -30,7 +30,4 @@ class ThrallSqsMessageConsumer(
   override def isStopped: Boolean = {
     actorSystem.whenTerminated.isCompleted
   }
-
-  override def lastProcessed: DateTime = timeMessageLastProcessed.get
-
 }

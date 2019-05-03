@@ -35,8 +35,6 @@ abstract class SqsMessageConsumer(queueUrl: String, awsEndpoint: String, config:
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]]
 
-  val timeMessageLastProcessed = new AtomicReference[DateTime](DateTime.now)
-
   @tailrec
   final def processMessages(): Unit = {
     // Pull 1 message at a time to avoid starvation
@@ -50,7 +48,6 @@ abstract class SqsMessageConsumer(queueUrl: String, awsEndpoint: String, config:
           sys.error(s"Unrecognised message subject ${message.subject}"))(
             _.apply(message.body))
         _ = recordMessageCount(message)
-        _ = timeMessageLastProcessed.lazySet(DateTime.now)
       } yield ()
       future |> deleteOnSuccess(msg)
     }

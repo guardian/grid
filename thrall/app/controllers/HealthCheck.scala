@@ -12,7 +12,7 @@ class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageC
 
   def healthCheck = Action.async {
     elasticHealth.map { esHealth =>
-      val problems = Seq(esHealth, actorSystemHealth, messageQueueHealth).flatten
+      val problems = Seq(esHealth, actorSystemHealth).flatten
       if (problems.nonEmpty) {
         val problemsMessage = problems.mkString(",")
         Logger.warn("Health check failed with problems: " + problemsMessage)
@@ -31,14 +31,6 @@ class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageC
         None
       }
     }
-  }
-
-  private def messageQueueHealth: Option[String] = {
-    val timeLastMessage = messageConsumer.lastProcessed
-    if (timeLastMessage.plusMinutes(config.healthyMessageRate).isBeforeNow)
-      Some(s"Not received a message since $timeLastMessage")
-    else
-      None
   }
 
   private def actorSystemHealth: Option[String] = {
