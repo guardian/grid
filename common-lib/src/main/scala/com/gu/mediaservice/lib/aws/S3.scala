@@ -37,6 +37,7 @@ class S3(config: CommonConfig) {
     val extension = image.source.mimeType match {
       case Some("image/jpeg") => "jpg"
       case Some("image/png")  => "png"
+      case Some("image/tiff")  => "tif"
       case _ => throw new Exception("Unsupported mime type")
     }
 

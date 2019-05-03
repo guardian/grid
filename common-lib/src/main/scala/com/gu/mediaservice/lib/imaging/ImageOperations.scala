@@ -125,6 +125,16 @@ class ImageOperations(playPath: String) {
     } yield outputFile
   }
 
+  def transformImage(sourceFile: File, tempDir: File): Future[File] = {
+    for {
+      outputFile  <- createTempFile(s"transformed-", ".png", tempDir)
+      transformSource = addImage(sourceFile)
+      addOutput    = addDestImage(transformSource)(outputFile)
+      _           <- runConvertCmd(addOutput)
+    }
+      yield outputFile
+  }
+
 }
 
 object ImageOperations {
@@ -156,8 +166,8 @@ object ImageOperations {
           colourModel = output.headOption
         } yield colourModel
 
-      case "image/png" =>
-        // assume that the colour model is RGB for pngs
+      case _ =>
+        // assume that the colour model is RGB for other image types
         Future.successful(Some("RGB"))
     }
   }
