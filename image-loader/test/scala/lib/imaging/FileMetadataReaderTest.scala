@@ -17,13 +17,33 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
-  it("should read the correct dimensions for a JPG images") {
+  it("should read the correct dimensions for a JPG image") {
     val image = fileAt("getty.jpg")
     val dimsFuture = FileMetadataReader.dimensions(image, Some("image/jpeg"))
     whenReady(dimsFuture) { dimOpt =>
       dimOpt should be ('defined)
       dimOpt.get.width should be (100)
       dimOpt.get.height should be (60)
+    }
+  }
+
+  it("should read the correct dimensions for a tiff image") {
+    val image = fileAt("flower.tif")
+    val dimsFuture = FileMetadataReader.dimensions(image, Some("image/tiff"))
+    whenReady(dimsFuture) { dimOpt =>
+      dimOpt should be ('defined)
+      dimOpt.get.width should be (73)
+      dimOpt.get.height should be (43)
+    }
+  }
+
+  it("should read the correct dimensions for a png image") {
+    val image = fileAt("schaik.com_pngsuite/basn0g08.png")
+    val dimsFuture = FileMetadataReader.dimensions(image, Some("image/png"))
+    whenReady(dimsFuture) { dimOpt =>
+      dimOpt should be ('defined)
+      dimOpt.get.width should be (32)
+      dimOpt.get.height should be (32)
     }
   }
 
@@ -221,6 +241,103 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       sameMaps(metadata.getty, Map())
     }
   }
+  it("should read the correct metadata for tiff images") {
+    val image = fileAt("flag.tif")
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(image, "dummy")
+    whenReady(metadataFuture) { metadata =>
+      val iptc = Map(
+        "Country/Primary Location Name" -> "United Kingdom",
+        "Fixture Identifier" -> "Warehouse",
+        "Category" -> "S",
+        "Copyright Notice" -> "PA Wire",
+        "Supplemental Category(s)" -> "Cricket",
+        "Application Record Version" -> "3",
+        "Caption/Abstract" -> "File photo dated 24-06-2014 of England's Moeen Ali. PRESS ASSOCIATION Photo. Issue date: Thursday April 2, 2015. Moeen Ali is planning to join England for the latter stages of their Test tour of the West Indies, as his side injury continues to improve. See PA story CRICKET England Moeen. Photo credit should read Martin Rickett/PA Wire.",
+        "Credit" -> "PA",
+        "Source" -> "PA",
+        "Image Orientation" -> "P",
+        "City" -> "Leeds",
+        "Keywords" -> "cricket england cricket world cup talking points",
+        "Time Created" -> "15:10:41+0000",
+        "By-line" -> "Martin Rickett",
+        "Special Instructions" -> "FILE PHOTO Use subject to restrictions. Editorial use only. No commercial use. Call 44 (0)1158 447447 for further information. Use subject to restrictions. Editorial use only. No commercial use. Call 44 (0)1158 447447 for further information.",
+        "Headline" -> "Cricket - Moeen Ali File Photo",
+        "Object Name" -> "CRICKET England Moeen 111162",
+        "Reference Date" -> "2015:04:02",
+        "Original Transmission Reference" -> "CRICKET_England_Moeen_111162.JPG",
+        "Date Created" -> "2015:04:02",
+        "Date Time Created Composite" -> "Thu Apr 02 16:10:41.000 BST 2015"
+      )
+      val exif = Map(
+        "Image Description" -> "England's Moeen Ali plays defensively from the bowling of Sri Lanka's Shaminda Eranga, during day five of the second Investec Test match at Headingley, Leeds. PRESS ASSOCIATION Photo. Picture date: Tuesday June 24, 2014. See PA Story CRICKET England. Photo credit should read: Martin Rickett/PA Wire. Editorial use only. RESTRICTIONS: Use subject to restrictions. Editorial use only. No commercial use. Call 44 (0)1158 447447 for further information.",
+        "X Resolution" -> "200 dots per inch",
+        "Software" -> "Adobe Photoshop CS2 Windows",
+        "Make" -> "NIKON CORPORATION",
+        "Rows Per Strip" -> "55 rows/strip",
+        "Compression" -> "Uncompressed",
+        "New Subfile Type" -> "Full-resolution image",
+        "Photometric Interpretation" -> "RGB",
+        "Strip Byte Counts" -> "20460 20460 5208 bytes",
+        "Bits Per Sample" -> "8 8 8 bits/component/pixel",
+        "Strip Offsets" -> "8206 28666 49126",
+        "Image Height" -> "124 pixels",
+        "Image Width" -> "124 pixels",
+        "Samples Per Pixel" -> "3 samples/pixel",
+        "Copyright" -> "PA Wire",
+        "Date/Time" -> "2014:06:24 15:18:55",
+        "Model" -> "NIKON D4",
+        "Orientation" -> "Top, left side (Horizontal / normal)",
+        "Resolution Unit" -> "Inch",
+        "Y Resolution" -> "200 dots per inch",
+        "Artist" -> "Martin Rickett"
+      )
+      val exifSub = Map(
+        "CFA Pattern" -> "[Red,Green][Green,Blue]",
+        "Exif Version" -> "2.30",
+        "Subject Distance Range" -> "Unknown",
+        "Exposure Mode" -> "Manual exposure",
+        "ISO Speed Ratings" -> "400",
+        "Custom Rendered" -> "Normal process",
+        "Exif Image Height" -> "1672 pixels",
+        "User Comment" -> "ASCII",
+        "White Balance" -> "Unknown",
+        "Focal Length" -> "600 mm",
+        "Date/Time Original" -> "2014:06:24 15:10:41",
+        "Date/Time Original Composite" -> "Tue Jun 24 16:10:41.700 BST 2014",
+        "White Balance Mode" -> "Auto white balance",
+        "Exif Image Width" -> "1264 pixels",
+        "Gain Control" -> "Low gain up",
+        "Sensing Method" -> "One-chip color area sensor",
+        "Scene Type" -> "Directly photographed image",
+        "Sub-Sec Time Original" -> "70",
+        "Exposure Time" -> "1/1600 sec",
+        "Sharpness" -> "Hard",
+        "Metering Mode" -> "Multi-segment",
+        "Exposure Program" -> "Manual control",
+        "Digital Zoom Ratio" -> "1",
+        "Exposure Bias Value" -> "1/3 EV",
+        "F-Number" -> "f/4.0",
+        "Color Space" -> "sRGB",
+        "FlashPix Version" -> "1.00",
+        "Sub-Sec Time" -> "70",
+        "Components Configuration" -> "YCbCr",
+        "Focal Length 35" -> "600 mm",
+        "Date/Time Digitized" -> "2014:06:24 15:10:41",
+        "Sensitivity Type" -> "Recommended Exposure Index",
+        "Contrast" -> "None",
+        "Scene Capture Type" -> "Standard",
+        "File Source" -> "Digital Still Camera (DSC)",
+        "Sub-Sec Time Digitized" -> "70",
+        "Saturation" -> "None",
+        "Max Aperture Value" -> "f/4.0"
+      )
+
+      sameMaps(metadata.iptc, iptc)
+      sameMaps(metadata.exif, exif)
+      sameMaps(metadata.exifSub, exifSub)
+      sameMaps(metadata.getty, Map())
+    }
+  }
 
   it("should read the correct metadata for Guardian photographer JPG images") {
     val image = fileAt("guardian-turner.jpg")
@@ -294,7 +411,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a grayscale png") {
     val image = fileAt("schaik.com_pngsuite/basn0g08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain (
         "colorType" -> "Greyscale"
@@ -304,7 +421,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a colour 8bit paletted png") {
     val image = fileAt("schaik.com_pngsuite/basn3p08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain (
         "colorType" -> "Indexed Color"
@@ -314,7 +431,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a truecolour png without alpha channel") {
     val image = fileAt("schaik.com_pngsuite/basn2c08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain (
         "colorType" -> "True Color"
@@ -324,10 +441,30 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a truecolour pnd with alpha channel") {
     val image = fileAt("schaik.com_pngsuite/basn6a08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain (
         "colorType" -> "True Color with Alpha"
+      )
+    }
+  }
+
+  it("should read the correct colour metadata for a greyscale tiff") {
+    val image = fileAt("flower.tif")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/tiff")
+    whenReady(metadataFuture) { metadata =>
+      metadata.colourModelInformation should contain (
+        "photometricInterpretation" -> "BlackIsZero"
+      )
+    }
+  }
+
+  it("should read the correct colour metadata for an alpha tiff") {
+    val image = fileAt("lighthouse.tif")
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/tiff")
+    whenReady(metadataFuture) { metadata =>
+      metadata.colourModelInformation should contain (
+        "photometricInterpretation" -> "RGB"
       )
     }
   }

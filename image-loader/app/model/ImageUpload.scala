@@ -22,7 +22,7 @@ case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPn
 
 case object OptimisedPng {
 
-  def isPng24(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
+  def shouldOptimise(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
     mimeType match {
       case Some("image/png") =>
         fileMetadata.colourModelInformation.get("colorType") match {
@@ -30,6 +30,7 @@ case object OptimisedPng {
           case Some("True Color with Alpha") => true
           case _ => false
         }
+      case Some("image/tiff") => true
       case _ => false
     }
 }
@@ -40,8 +41,10 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
     optimisedPngFile
   )
 
+  private def isTransformedFilePath(filePath: String) = filePath.contains("transformed-")
+
   def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata): OptimisedPng = {
-    if (OptimisedPng.isPng24(uploadRequest.mimeType, fileMetadata)) {
+    if (OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
 
       val optimisedFile = {
         val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.id + ".png"
@@ -51,6 +54,9 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
       val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
         .map(result => result.map(Option(_)))
         .getOrElse(Future.successful(None))
+
+      if (isTransformedFilePath(file.getAbsolutePath))
+        file.delete
 
       OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
     }
@@ -95,9 +101,9 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
 
     val uploadedFile = uploadRequest.tempFile
 
-
     val fileMetadataFuture = uploadRequest.mimeType match {
-      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id)
+      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id, uploadRequest.mimeType.get)
+      case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id, uploadRequest.mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile, uploadRequest.id)
     }
 
@@ -116,8 +122,24 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
         thumb <- imageOps.createThumbnail(uploadedFile, config.thumbWidth, config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
       } yield thumb
 
+      //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
+      val toOptimiseFileFuture: Future[File] = uploadRequest.mimeType match {
+        case Some(mime) => mime match {
+          case transcodedMime if config.transcodedMimeTypes.contains(mime) =>
+            for {
+            transformedImage <- imageOps.transformImage(uploadedFile, config.tempDir)
+            } yield transformedImage
+          case _ =>
+            Future.apply(uploadedFile)
+        }
+        case _ =>
+          Future.apply(uploadedFile)
+      }
 
-      val optimisedPng = optimisedPngOps.build(uploadedFile, uploadRequest, fileMetadata)
+
+      toOptimiseFileFuture.flatMap(toOptimiseFile => {
+
+      val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
 
       bracket(thumbFuture)(_.delete) { thumb =>
         // Run the operations in parallel
@@ -161,6 +183,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
             ImageUpload(uploadRequest, finalImage)
           }
       }
+    })
     })
   }
 

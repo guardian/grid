@@ -57,7 +57,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
         file          <- imageOperations.resizeImage(sourceFile, dimensions, cropQuality, config.tempDir, mediaType.extension)
         optimisedFile = imageOperations.optimiseImage(file, mediaType)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, mediaType.extension)
-        sizing        <- store.storeCropSizing(optimisedFile, filename, mediaType.extension, crop, dimensions)
+        sizing        <- store.storeCropSizing(optimisedFile, filename, mediaType.name, crop, dimensions)
         _             <- delete(file)
         _             <- delete(optimisedFile)
       }
@@ -108,15 +108,15 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 object Crops {
   /**
     * The aim here is to decide whether the crops should be JPEG or PNGs depending on a predicted quality/size trade-off.
-    *  - If the PNG has transparency then it should always be a PNG as the transparency is not available in JPEG
-    *  - If the PNG is not true colour then we assume it is a graphic that should be retained as a PNG
+    *  - If the image has transparency then it should always be a PNG as the transparency is not available in JPEG
+    *  - If the image is not true colour then we assume it is a graphic that should be retained as a PNG
     */
   def cropType(mediaType: String, colourType: String, hasAlpha: Boolean): MimeType = {
-    val isPng = mediaType == "image/png"
-    val isGraphic = !colourType.startsWith("True Color")
-    val retainAsPng = hasAlpha || isGraphic
+    val isJpeg = mediaType == "image/jpeg"
+    val isGraphic = !colourType.matches("True[ ]?Color.*")
+    val outputAsPng = hasAlpha || isGraphic
 
-    if ( isPng && retainAsPng ) {
+    if ( !isJpeg && outputAsPng ) {
       ImageOperations.Png
     } else {
       ImageOperations.Jpeg
