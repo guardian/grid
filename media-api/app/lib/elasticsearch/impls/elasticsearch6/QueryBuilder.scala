@@ -1,7 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.IndexSettings
+import com.gu.mediaservice.lib.elasticsearch6.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
@@ -20,7 +20,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
     case Words(value) => ElasticDsl.multiMatchQuery(value).fields(fields).
       operator(Operator.AND).
       matchType(MultiMatchQueryBuilderType.CROSS_FIELDS).
-      analyzer(IndexSettings.enslishSStemmerAnalyzerName)
+      analyzer(IndexSettings.englishSStemmerAnalyzerName)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
