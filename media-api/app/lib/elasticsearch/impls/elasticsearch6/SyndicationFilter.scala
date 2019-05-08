@@ -1,13 +1,13 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.SyndicationUsage
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.MediaApiConfig
-import lib.elasticsearch.impls.elasticsearch1.SyndicationFilter._
 import org.joda.time.DateTime
 
-class SyndicationFilter(config: MediaApiConfig) {
+class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
 
   val isSyndicationDateFilterActive = config.isProd
 
