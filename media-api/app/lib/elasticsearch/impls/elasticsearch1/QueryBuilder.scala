@@ -1,6 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch1
 
-import com.gu.mediaservice.lib.elasticsearch.{ImageFields, IndexSettings}
+import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import lib.querysyntax._
 import org.elasticsearch.index.query.FilterBuilders._
 import org.elasticsearch.index.query.QueryBuilders._

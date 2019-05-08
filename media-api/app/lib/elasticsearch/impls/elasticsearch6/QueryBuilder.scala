@@ -1,6 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
-import com.gu.mediaservice.lib.elasticsearch.{ImageFields, IndexSettings}
+import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl

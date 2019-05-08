@@ -1,6 +1,6 @@
 package lib.elasticsearch.impls.elasticsearch1
 
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
+import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.SyndicationUsage
 import lib.MediaApiConfig
