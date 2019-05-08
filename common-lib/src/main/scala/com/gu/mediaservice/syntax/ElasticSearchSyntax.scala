@@ -3,14 +3,12 @@ package syntax
 
 import java.util.regex.Pattern
 
-import com.gu.mediaservice.lib.elasticsearch.FutureConversions
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.{ActionRequest, ActionRequestBuilder, ActionResponse, ListenableActionFuture}
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.aggregations.bucket.terms.TermsBuilder
 import play.api.{Logger, MarkerContext}
 import play.api.libs.json.{JsValue, Json}
-
 import net.logstash.logback.marker.Markers.appendEntries
 
 import scala.collection.JavaConverters._
