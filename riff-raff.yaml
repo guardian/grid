@@ -24,7 +24,7 @@ templates:
     actions:
       - deploy
     dependencies:
-      - usage-artifact
+      - usage
 
 deployments:
   auth:
@@ -55,7 +55,7 @@ deployments:
     template: autoscaling
 
   # Usage is confusingly a single artifact running twice with different configuration
-  usage-artifact:
+  usage:
     template: usage-autoscaling
     actions:
       - uploadArtifacts
