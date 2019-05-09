@@ -152,11 +152,27 @@ def project(projectName: String, path: Option[String] = None): Project =
   Project(projectName, file(path.getOrElse(projectName)))
     .settings(commonSettings)
 
+val buildInfo = Seq(
+  buildInfoKeys := Seq[BuildInfoKey](
+    name,
+    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse(try {
+      "git rev-parse HEAD".!!.trim
+    } catch {
+      case e: Exception => "unknown"
+    }))
+  ),
+  buildInfoPackage := "utils.buildinfo",
+  buildInfoOptions := Seq(
+    BuildInfoOption.Traits("com.gu.mediaservice.lib.management.BuildInfo"),
+    BuildInfoOption.ToJson
+  )
+)
+
 def playProject(projectName: String, port: Int): Project =
   project(projectName, None)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
     .dependsOn(commonLib)
-    .settings(commonSettings ++ Seq(
+    .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
 
       debianPackageDependencies := Seq("openjdk-8-jre-headless"),
