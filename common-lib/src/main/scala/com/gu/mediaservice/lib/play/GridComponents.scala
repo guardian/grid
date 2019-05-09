@@ -31,6 +31,6 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
     allowedOrigins = Origins.Matching(Set(config.services.kahunaBaseUri) ++ config.services.corsAllowedTools)
   )
 
-  val management = new Management(controllerComponents, buildInfo)
+  lazy val management = new Management(controllerComponents, buildInfo)
   val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
 }
