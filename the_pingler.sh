@@ -3,7 +3,7 @@
 set -o shwordsplit
 
 API="http://localhost:9001/management/healthcheck"
-THRALL="http://localhost:9002/"
+THRALL="http://localhost:9002/management/healthcheck"
 IMAGE_LOADER="http://localhost:9003/management/healthcheck"
 KAHUNA="http://localhost:9005/management/healthcheck"
 CROPPER="http://localhost:9006/management/healthcheck"
