@@ -13,6 +13,8 @@ import router.Routes
 class MediaApiComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new MediaApiConfig(configuration)
 
+  final override val buildInfo = utils.buildinfo.BuildInfo
+
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val messageSender = new ThrallMessageSender(config)
@@ -50,7 +52,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)
-  val healthcheckController = new ManagementWithPermissions(controllerComponents, mediaApi)
+  val healthcheckController = new ManagementWithPermissions(controllerComponents, mediaApi, buildInfo)
 
   override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, healthcheckController)
 }

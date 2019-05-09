@@ -8,6 +8,8 @@ import store.CollectionsStore
 class CollectionsComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new CollectionsConfig(configuration)
 
+  final override val buildInfo = utils.buildinfo.BuildInfo
+
   val store = new CollectionsStore(config)
   val metrics = new CollectionsMetrics(config)
   val notifications = new Notifications(config)
