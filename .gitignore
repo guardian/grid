@@ -13,3 +13,6 @@ data
 kahuna/npm-debug.log
 imgops/dev/nginx.conf
 *.iml
+
+.bloop
+.metals
