@@ -1,8 +1,8 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
 import com.gu.mediaservice.lib.config.UsageRightsConfig
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.MediaApiConfig

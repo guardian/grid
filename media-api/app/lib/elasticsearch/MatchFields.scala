@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
+import com.gu.mediaservice.lib.ImageFields
 import lib.MediaApiConfig
 
 trait MatchFields extends ImageFields {

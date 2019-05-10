@@ -1,8 +1,8 @@
-package com.gu.mediaservice.lib.elasticsearch
+package com.gu.mediaservice.syntax
 
-import scala.concurrent.{Future, Promise}
 import org.elasticsearch.action.{ActionListener, ListenableActionFuture}
 
+import scala.concurrent.{Future, Promise}
 
 object FutureConversions {
 

@@ -1,7 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Image}

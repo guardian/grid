@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.elasticsearch
+package com.gu.mediaservice.lib
 
 trait ImageFields {
   // TODO: share with mappings

@@ -83,8 +83,6 @@ function getMediaApiConfig(config) {
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
         |es.index.aliases.read=readAlias
-        |es.port=9300
-        |es.cluster=media-service
         |es6.url=${config.es6.url}
         |es6.cluster=${config.es6.cluster}
         |es6.shards=${config.es6.shards}

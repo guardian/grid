@@ -1,9 +1,8 @@
 package lib.querysyntax
 
+import com.gu.mediaservice.lib.ImageFields
 import org.joda.time.DateTime
 import org.parboiled2._
-
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
 
 case class InvalidQuery(message: String) extends Exception(message)
 

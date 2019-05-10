@@ -1,8 +1,8 @@
 package controllers
 
+import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.elasticsearch.ImageFields
 import lib.elasticsearch.{AggregateSearchParams, CompletionSuggestionResults, ElasticSearchVersion}
 import play.api.mvc.{BaseController, ControllerComponents}
 
