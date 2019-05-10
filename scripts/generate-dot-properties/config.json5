@@ -16,7 +16,7 @@
 
   es6: {
     cluster: 'media-service',
-    url: 'http://localhost:9206',
+    url: 'http://localhost:9200',
     shards: 1,
     replicas: 0
   },

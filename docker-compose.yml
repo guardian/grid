@@ -5,7 +5,7 @@ services:
     volumes:
     - "./elasticsearch6/dev/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
     ports:
-    - "9206:9200"
+    - "9200:9200"
   imgops:
     build:
       context: ./imgops/dev
