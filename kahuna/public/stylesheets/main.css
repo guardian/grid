@@ -975,17 +975,13 @@ textarea.ng-invalid {
     background-color: green;
 }
 
-.costs {
-    display: flex;
-}
-
 .costs li {
-    flex-grow: 1;
-    flex-basis: 0;
+    display: inline-block;
 }
 
 .costs .image-notice {
-    padding: 3px;
+    padding: 3px 6px;
+    margin: 0 3px 3px 0;
 }
 
 /* Hacky pointer to some element above */

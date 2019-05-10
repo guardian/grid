@@ -15,9 +15,19 @@
                         {{cost.count}} free
                     </div>
 
+                    <div ng:switch-when="no_rights"
+                         class="image-notice image-info__group status cost cost--pay">
+                        {{cost.count}} no rights
+                    </div>
+
                     <div ng:switch-when="pay"
                          class="image-notice image-info__group status cost cost--pay">
                         {{cost.count}} pay
+                    </div>
+
+                    <div ng:switch-when="overquota"
+                         class="image-notice image-info__group status cost cost--pay">
+                        {{cost.count}} over quota
                     </div>
 
                     <div ng:switch-when="conditional"

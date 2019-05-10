@@ -6,7 +6,10 @@ const imageList = angular.module('kahuna.services.image-list', []);
 /**
  * Helper functions to operate on list of images.
  */
-imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
+imageList.factory("imageList", [
+  "imageAccessor",
+  "imageService",
+  function(imageAccessor, imageService) {
 
     function countOccurrences(collection) {
         return collection.reduce((counts, item) => {
@@ -27,8 +30,8 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
         return images.filter(imageAccessor.isArchived).size;
     }
 
-    function getCost(images) {
-        return images.map(imageAccessor.readCost);
+    function getCostState(images) {
+        return images.map(img => imageService(img).states.costState);
     }
 
     function getLabels(images) {
@@ -66,7 +69,7 @@ imageList.factory('imageList', ['imageAccessor', function(imageAccessor) {
 
     return {
         archivedCount,
-        getCost,
+        getCostState,
         getLabels,
         getLeases,
         getMetadata,
