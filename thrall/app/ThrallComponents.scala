@@ -1,10 +1,8 @@
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
 import play.api.ApplicationLoader.Context
-import play.api.Logger
 import router.Routes
 
 class ThrallComponents(context: Context) extends GridComponents(context) {
@@ -14,13 +12,6 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es1Config = ElasticSearchConfig(
-    alias = config.writeAlias,
-    host = config.elasticsearchHost,
-    port = config.elasticsearchPort,
-    cluster = config.elasticsearchCluster
-  )
-
   val es6Config = ElasticSearch6Config(
     alias = config.writeAlias,
     url = config.elasticsearch6Url,
@@ -29,18 +20,8 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     replicas = config.elasticsearch6Replicas
   )
 
-  val es1 = new ElasticSearch(es1Config, Some(thrallMetrics))
   val es6 = new ElasticSearch6(es6Config, Some(thrallMetrics))
-
   es6.ensureAliasAssigned()
-
-  val messageConsumerForHealthCheck = new ThrallSqsMessageConsumer(config, es1, thrallMetrics, store, new SyndicationRightsOps(es1))
-
-  messageConsumerForHealthCheck.startSchedule()
-
-  context.lifecycle.addStopHook {
-    () => messageConsumerForHealthCheck.actorSystem.terminate()
-  }
 
   val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(
     config, es6, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from

@@ -127,8 +127,6 @@ function getThrallConfig(config) {
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias
         |indexed.image.sns.topic.arn=${config.stackProps.IndexedImageTopicArn}
-        |es.port=9300
-        |es.cluster=media-service
         |es6.url=${config.es6.url}
         |es6.cluster=${config.es6.cluster}
         |es6.shards=${config.es6.shards}
