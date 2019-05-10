@@ -1,17 +1,5 @@
 version: '3'
 services:
-  elasticsearch:
-    build:
-      context: ./elasticsearch/dev
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - "./elasticsearch/dev/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
   elasticsearch6:
     image: docker.elastic.co/elasticsearch/elasticsearch:6.5.4
     volumes:
