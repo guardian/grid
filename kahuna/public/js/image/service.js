@@ -22,10 +22,13 @@ imageService.factory('imageService', ['imageLogic', function(imageLogic) {
     }
 
     function getStates(image) {
+      const hasRights = !(Object.keys(image.data.usageRights).length === 0);
+      const cost = image.data.cost;
         return {
-            cost: image.data.cost,
+            cost,
             hasCrops: image.data.exports && image.data.exports.length > 0,
-            hasRights: !Boolean(Object.keys(image.data.usageRights).length === 0),
+            hasRights,
+            costState: hasRights ? cost : "no_rights",
             isValid: image.data.valid,
             canDelete: imageLogic.canBeDeleted(image),
             canArchive: imageLogic.canBeArchived(image),

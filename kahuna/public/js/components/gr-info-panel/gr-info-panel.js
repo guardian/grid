@@ -62,7 +62,7 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
 
     const selectedCosts$ = selectedImagesList$.
-    map(imageList.getCost).
+    map(imageList.getCostState).
     map(imageList.getOccurrences);
     inject$($scope, selectedCosts$, ctrl, 'selectedCosts');
 

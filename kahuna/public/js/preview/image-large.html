@@ -126,12 +126,24 @@
                 </gr-archiver-status>
 
                 <div class="bottom-bar__action bottom-bar__action--cost preview__cost"
-                     ng:if="ctrl.states.cost !== 'free'"
-                     ng:switch="ctrl.states.cost">
+                     ng:if="ctrl.states.costState !== 'free'"
+                     ng:switch="ctrl.states.costState">
                     <div ng:switch-when="pay"
                          class="cost cost--pay">
                         <!-- material icons doesn't have a £ icon -->
                         <span title="pay to use">£</span>
+                    </div>
+
+                    <div ng:switch-when="no_rights"
+                        class="cost cost--no_rights">
+
+                        <!-- material icons doesn't have a £ icon -->
+                        <gr-icon>warning</gr-icon>
+                    </div>
+
+                    <div ng:switch-when="overquota"
+                         class="cost cost--pay">
+                        <gr-icon>trending_up</gr-icon>
                     </div>
 
                     <div ng:switch-when="conditional"

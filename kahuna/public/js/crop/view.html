@@ -62,6 +62,11 @@
                 Pay to use
             </div>
 
+            <div ng:switch-when="overquota"
+                 class="cost cost--pay">
+                Quota exceeded for this supplier
+            </div>
+
             <div ng:switch-when="conditional"
                  class="cost cost--conditional"
                  title="restricted use: {{ctrl.image.data.usageRights.restrictions}}">

@@ -51,6 +51,9 @@
                 <span class="result-editor__status status status--invalid"
                       ng:switch-when="pay">Pay to use</span>
 
+                <span class="result-editor__status status status--invalid"
+                      ng:switch-when="overquota">Quota exceeded for this supplier</span>
+
                 <span class="result-editor__status status status--valid"
                       ng:switch-when="free">Free to use</span>
 
