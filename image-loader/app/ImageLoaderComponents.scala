@@ -14,6 +14,8 @@ import router.Routes
 class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ImageLoaderConfig(configuration)
 
+  final override val buildInfo = utils.buildinfo.BuildInfo
+
   val store = new ImageLoaderStore(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 

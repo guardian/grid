@@ -11,6 +11,8 @@ class UsageComponents(context: Context) extends GridComponents(context) {
 
   final override lazy val config = new UsageConfig(configuration)
 
+  final override val buildInfo = utils.buildinfo.BuildInfo
+
   val usageMetadataBuilder = new UsageMetadataBuilder(config)
   val mediaWrapper = new MediaWrapperOps(usageMetadataBuilder)
   val mediaUsage = new MediaUsageOps(usageMetadataBuilder)

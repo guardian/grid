@@ -9,6 +9,8 @@ import router.Routes
 class CropperComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new CropperConfig(configuration)
 
+  final override val buildInfo = utils.buildinfo.BuildInfo
+
   val store = new CropStore(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
@@ -16,7 +18,7 @@ class CropperComponents(context: Context) extends GridComponents(context) {
   val notifications = new Notifications(config)
 
   val controller = new CropperController(auth, crops, store, notifications, config, controllerComponents, wsClient)
-  val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, controller)
+  val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, controller, buildInfo)
 
   override lazy val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)
 }

@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.management.Management
+import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
 import play.api.BuiltInComponentsFromContext
 import play.api.libs.ws.ahc.AhcWSComponents
@@ -19,6 +19,8 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
 
   def config: CommonConfig
 
+  def buildInfo: BuildInfo
+
   implicit val ec: ExecutionContext = executionContext
 
   final override def httpFilters: Seq[EssentialFilter] = {
@@ -29,6 +31,6 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
     allowedOrigins = Origins.Matching(Set(config.services.kahunaBaseUri) ++ config.services.corsAllowedTools)
   )
 
-  val management = new Management(controllerComponents)
+  lazy val management = new Management(controllerComponents, buildInfo)
   val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
 }

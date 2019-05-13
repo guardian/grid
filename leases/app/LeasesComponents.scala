@@ -7,6 +7,8 @@ import router.Routes
 class LeasesComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new LeasesConfig(configuration)
 
+  final override val buildInfo = utils.buildinfo.BuildInfo
+
   val store = new LeaseStore(config)
   val notifications = new LeaseNotifier(config, store)
 
