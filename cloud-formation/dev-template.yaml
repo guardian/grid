@@ -118,35 +118,6 @@ Resources:
       Tags:
       - { Key: Stack, Value: media-service }
       - { Key: Stage, Value: DEV }
-
-  # TODO MRB: remove this when we migrate to Kinesis
-  Topic:
-    Type: AWS::SNS::Topic
-    Properties:
-      Subscription:
-      - Endpoint: !GetAtt 'Queue.Arn'
-        Protocol: sqs
-  Queue:
-    Type: AWS::SQS::Queue
-    Properties: {}
-  QueuePolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Id: MyQueuePolicy
-        Statement:
-        - Sid: Allow-SendMessage-To-Queue-From-Topic
-          Effect: Allow
-          Principal:
-            AWS: '*'
-          Action:
-          - sqs:SendMessage
-          Resource: '*'
-          Condition:
-            ArnEquals:
-              aws:SourceArn: !Ref 'Topic'
-      Queues:
-      - !Ref 'Queue'
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -259,10 +230,6 @@ Outputs:
     Value: !Ref 'ImageCollectionsDynamoTable'
   LeasesDynamoTable:
     Value: !Ref 'LeasesDynamoTable'
-  SnsTopicArn:
-    Value: !Ref 'Topic'
-  SqsQueueUrl:
-    Value: !Ref 'Queue'
   IndexedImageTopicArn:
     Value: !Ref 'IndexedImageTopic'
   IndexedImageMetadataQueueUrl:
