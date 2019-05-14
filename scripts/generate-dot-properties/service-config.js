@@ -120,7 +120,6 @@ function getThrallConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
-        |sqs.queue.url=${config.stackProps.SqsQueueUrl}
         |persistence.identifier=picdarUrn
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias
