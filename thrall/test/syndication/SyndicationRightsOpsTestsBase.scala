@@ -15,8 +15,12 @@ import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
+import scala.util.Properties
 
 trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
+
+  val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
+  val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
   def ES: ElasticSearchVersion
   def esContainer: Option[DockerContainer]
