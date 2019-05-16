@@ -1,13 +1,13 @@
 {
   "checkpoints": {
-    "auth": { "url": "https://media-auth.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "collections": { "url": "https://media-collections.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "cropper": { "url": "https://cropper.media.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "image-loader": { "url": "https://loader.media.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "kahuna": { "url": "https://media.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "leases": { "url": "https://media-leases.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "media-api": { "url": "https://api.media.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "metadata-editor": { "url": "https://media-metadata.gutools.co.uk/management/manifest", "overdue": "12M" },
-    "usage": { "url": "https://media-usage.gutools.co.uk/management/manifest", "overdue": "12M" }
+    "auth": { "url": "https://media-auth.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "collections": { "url": "https://media-collections.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "cropper": { "url": "https://cropper.media.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "image-loader": { "url": "https://loader.media.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "kahuna": { "url": "https://media.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "leases": { "url": "https://media-leases.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "media-api": { "url": "https://api.media.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "metadata-editor": { "url": "https://media-metadata.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "usage": { "url": "https://media-usage.gutools.co.uk/management/manifest", "overdue": "30M" }
   }
 }
