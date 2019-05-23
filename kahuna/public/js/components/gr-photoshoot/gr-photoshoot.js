@@ -24,6 +24,8 @@ photoshoot.controller('GrPhotoshootCtrl', [
     function($rootScope, $scope, imageService, mediaApi, imageAccessor, photoshootService) {
         const ctrl = this;
 
+        ctrl.editingDisabled = false;
+
         function refreshForOne() {
             const image = ctrl._images[0];
             const photoshootResource = imageAccessor.getPhotoshoot(image);
@@ -53,6 +55,8 @@ photoshoot.controller('GrPhotoshootCtrl', [
         function refresh() {
             // `ctrl.images` is a `Set` in multi-select mode, be safe and always have an array
             ctrl._images = Array.from(ctrl.images);
+            ctrl.editingDisabled = ctrl._images.length > 10;
+
             return ctrl._images.length === 1 ? refreshForOne() : refreshForMany();
         }
 
