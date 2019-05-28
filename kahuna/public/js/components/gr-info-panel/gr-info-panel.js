@@ -172,12 +172,20 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
 
     ctrl.updateMetadataField = function (field, value) {
       var imageArray = Array.from(ctrl.selectedImages);
+      ctrl.completedBatchOperations = 0;
+
       return editsService.batchUpdateMetadataField(
         imageArray,
         field,
         value,
-        ctrl.descriptionOption
-      );
+        ctrl.descriptionOption,
+        () => { ctrl.completedBatchOperations++ }
+      ).then(() => {
+        ctrl.completedBatchOperations = undefined;
+      }).catch(err => {
+        ctrl.completedBatchOperations = undefined;
+        throw err;
+      });
     };
 
     ctrl.addLabel = function (label) {

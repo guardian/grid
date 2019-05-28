@@ -299,10 +299,10 @@ service.factory('editsService',
     }
 
 
-    function batchUpdateMetadataField (images, field, value, editOption = overwrite.key) {
+    function batchUpdateMetadataField (images, field, value, editOption = overwrite.key, callback = undefined) {
         return $q.all(images.map(image => {
           const newFieldValue = getNewFieldValue(image, field, value, editOption);
-          return updateMetadataField(image, field, newFieldValue);
+          return updateMetadataField(image, field, newFieldValue).then(() => callback());
         }));
     }
 

@@ -37,6 +37,11 @@
                 </div>
             </li>
         </ul>
+        <ul class="batch_progress" ng:if="ctrl.completedBatchOperations > 0">
+            <li class="image-notice">
+                Updated {{ctrl.completedBatchOperations}} of {{ctrl.selectedImages.size}}
+            </li>
+        </ul>
     </div>
 
     <div ng:if="ctrl.selectedImages.size > 0">

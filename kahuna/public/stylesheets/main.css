@@ -984,6 +984,16 @@ textarea.ng-invalid {
     margin: 0 3px 3px 0;
 }
 
+.batch_progress {
+    position: absolute;
+    top: 5px;
+    z-index: 9999;
+}
+
+.batch_progress li {
+    background-color: #565656;
+}
+
 /* Hacky pointer to some element above */
 .validity--invalid--point-up {
     position: relative;
