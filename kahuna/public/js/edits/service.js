@@ -302,7 +302,7 @@ service.factory('editsService',
     function batchUpdateMetadataField (images, field, value, editOption = overwrite.key) {
         return $q.all(images.map(image => {
           const newFieldValue = getNewFieldValue(image, field, value, editOption);
-          updateMetadataField(image, field, newFieldValue);
+          return updateMetadataField(image, field, newFieldValue);
         }));
     }
 
