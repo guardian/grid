@@ -300,7 +300,7 @@ service.factory('editsService',
 
 
     function batchUpdateMetadataField (images, field, value, editOption = overwrite.key) {
-        var completed = 0;
+        let completed = 0;
         $rootScope.$broadcast("events:batch-operations:start", { key: field, completed: 0, total: images.length });
 
         return $q.all(images.map(image => {
