@@ -58,6 +58,7 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     const ctrl = this;
 
     ctrl.showUsageRights = false;
+    ctrl.batchOperations = [];
 
     inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
 
@@ -171,19 +172,29 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     };
 
     ctrl.updateMetadataField = function (field, value) {
-      var imageArray = Array.from(ctrl.selectedImages);
-      ctrl.completedBatchOperations = 0;
+      const imageArray = Array.from(ctrl.selectedImages);
+      const operation = { key: field, completed: 0, total: ctrl.selectedImages.size };
+
+      ctrl.batchOperations = [operation, ...ctrl.batchOperations];
 
       return editsService.batchUpdateMetadataField(
         imageArray,
         field,
         value,
         ctrl.descriptionOption,
-        () => { ctrl.completedBatchOperations++ }
+        () => {
+          ctrl.batchOperations = ctrl.batchOperations.map(entry => {
+            if(entry.key === field) {
+              return Object.assign({}, entry, { completed: entry.completed + 1 });
+            }
+
+            return entry;
+          });
+        }
       ).then(() => {
-        ctrl.completedBatchOperations = undefined;
+        ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== field);
       }).catch(err => {
-        ctrl.completedBatchOperations = undefined;
+        ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== field);
         throw err;
       });
     };
