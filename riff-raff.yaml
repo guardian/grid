@@ -68,6 +68,11 @@ deployments:
   usage-stream:
     template: usage-deploy
     app: usage-stream
+  
+  imgops:
+    template: autoscaling
+    actions:
+      - deploy
 
   ami-update:
     type: ami-cloudformation-parameter
@@ -84,3 +89,7 @@ deployments:
           BuiltBy: amigo
           AmigoStage: PROD
           Recipe: grid-xenial
+        ImgOpsAmiId:
+          BuiltBy: amigo
+          AmigoStage: PROD
+          Recipe: grid-imgops
