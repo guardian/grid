@@ -58,14 +58,14 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     const ctrl = this;
 
     ctrl.showUsageRights = false;
-    
+
     ctrl.batchOperations = [];
     $scope.$on("events:batch-operations:start", (e, entry) => {
       ctrl.batchOperations = [entry, ...ctrl.batchOperations];
     });
     $scope.$on("events:batch-operations:progress", (e, { key, completed }) => {
       ctrl.batchOperations = ctrl.batchOperations.map(entry => {
-        if(entry.key === key) {
+        if (entry.key === key) {
           return Object.assign({}, entry, { completed });
         }
 
@@ -73,7 +73,7 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
       });
     });
     $scope.$on("events:batch-operations:complete", (e, { key }) => {
-      ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== key)
+      ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== key);
     });
 
     inject$($scope, selectedImagesList$, ctrl, 'selectedImages');

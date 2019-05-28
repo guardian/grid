@@ -1,5 +1,5 @@
 import angular from 'angular';
-import { trackAll } from '../util/batch-tracking'
+import { trackAll } from '../util/batch-tracking';
 
 var labelService = angular.module('kahuna.services.label', []);
 

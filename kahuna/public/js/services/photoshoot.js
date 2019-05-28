@@ -25,7 +25,8 @@ photoshootService.factory('photoshootService', [
             const key = "photoshoot-remove";
             let completed = 0;
 
-            $rootScope.$broadcast("events:batch-operations:start", { key, completed: 0, total: images.length });
+            $rootScope.$broadcast("events:batch-operations:start",
+                { key, completed: 0, total: images.length });
 
             return $q.all(images.map(image =>
                 deletePhotoshoot({ image }).then(r => {
