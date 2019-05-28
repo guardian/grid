@@ -299,11 +299,26 @@ service.factory('editsService',
     }
 
 
-    function batchUpdateMetadataField (images, field, value, editOption = overwrite.key, callback = undefined) {
+    function batchUpdateMetadataField (images, field, value, editOption = overwrite.key) {
+        var completed = 0;
+        $rootScope.$broadcast("events:batch-operations:start", { key: field, completed: 0, total: images.length });
+
         return $q.all(images.map(image => {
           const newFieldValue = getNewFieldValue(image, field, value, editOption);
-          return updateMetadataField(image, field, newFieldValue).then(() => callback());
-        }));
+          return updateMetadataField(image, field, newFieldValue)
+            .then(r => {
+                completed++;
+                $rootScope.$broadcast("events:batch-operations:progress", { key: field, completed });
+
+                return r;
+            });
+        })).then(r => {
+            $rootScope.$broadcast("events:batch-operations:complete", { key: field });
+            return r;
+        }).catch(err => {
+            $rootScope.$broadcast("events:batch-operations:complete", { key: field });
+            throw err;
+        });
     }
 
     return {

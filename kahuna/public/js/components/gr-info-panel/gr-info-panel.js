@@ -58,7 +58,23 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     const ctrl = this;
 
     ctrl.showUsageRights = false;
+    
     ctrl.batchOperations = [];
+    $scope.$on("events:batch-operations:start", (e, entry) => {
+      ctrl.batchOperations = [entry, ...ctrl.batchOperations];
+    });
+    $scope.$on("events:batch-operations:progress", (e, { key, completed }) => {
+      ctrl.batchOperations = ctrl.batchOperations.map(entry => {
+        if(entry.key === key) {
+          return Object.assign({}, entry, { completed });
+        }
+
+        return entry;
+      });
+    });
+    $scope.$on("events:batch-operations:complete", (e, { key }) => {
+      ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== key)
+    });
 
     inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
 
@@ -173,30 +189,13 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
 
     ctrl.updateMetadataField = function (field, value) {
       const imageArray = Array.from(ctrl.selectedImages);
-      const operation = { key: field, completed: 0, total: ctrl.selectedImages.size };
-
-      ctrl.batchOperations = [operation, ...ctrl.batchOperations];
 
       return editsService.batchUpdateMetadataField(
         imageArray,
         field,
         value,
-        ctrl.descriptionOption,
-        () => {
-          ctrl.batchOperations = ctrl.batchOperations.map(entry => {
-            if(entry.key === field) {
-              return Object.assign({}, entry, { completed: entry.completed + 1 });
-            }
-
-            return entry;
-          });
-        }
-      ).then(() => {
-        ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== field);
-      }).catch(err => {
-        ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== field);
-        throw err;
-      });
+        ctrl.descriptionOption
+      );
     };
 
     ctrl.addLabel = function (label) {
