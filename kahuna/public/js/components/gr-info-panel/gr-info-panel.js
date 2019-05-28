@@ -62,6 +62,10 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     ctrl.batchOperations = [];
     $scope.$on("events:batch-operations:start", (e, entry) => {
       ctrl.batchOperations = [entry, ...ctrl.batchOperations];
+
+      window.onbeforeunload = function() {
+        return 'Batch update in progress, are you sure you want to leave?';
+      };
     });
     $scope.$on("events:batch-operations:progress", (e, { key, completed }) => {
       ctrl.batchOperations = ctrl.batchOperations.map(entry => {
@@ -74,6 +78,10 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     });
     $scope.$on("events:batch-operations:complete", (e, { key }) => {
       ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== key);
+
+      if (ctrl.batchOperations.length === 0) {
+        window.onbeforeunload = null;
+      }
     });
 
     inject$($scope, selectedImagesList$, ctrl, 'selectedImages');
