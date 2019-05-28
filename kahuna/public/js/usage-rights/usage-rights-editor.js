@@ -22,8 +22,8 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi', 'imageList',
-    function($q, $scope, inject$, observe$, editsService, editsApi, imageList) {
+    ['$q', '$rootScope', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi', 'imageList',
+    function($q, $rootScope, $scope, inject$, observe$, editsService, editsApi, imageList) {
 
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
@@ -156,13 +156,30 @@ usageRightsEditor.controller(
     ctrl.cancel = () => ctrl.onCancel();
 
     function save(data) {
+        const key = "rights";
+        let completed = 0;
+
+        $rootScope.$broadcast("events:batch-operations:start", { key, completed: 0, total: ctrl.usageRights.length });
+
         return $q.all(ctrl.usageRights.map(usageRights => {
             const image = usageRights.image;
             const resource = image.data.userMetadata.data.usageRights;
             return editsService.update(resource, data, image).
                 then(resource => resource.data).
-                then(() => setMetadataFromUsageRights(image));
-        }));
+                then(() => setMetadataFromUsageRights(image)).
+                then(r => {
+                    completed++;
+
+                    $rootScope.$broadcast("events:batch-operations:progress", { key, completed });
+                    return r;
+                });
+        })).then(r => {
+            $rootScope.$broadcast("events:batch-operations:complete", { key });
+            return r;
+        }).catch(err => {
+            $rootScope.$broadcast("events:batch-operations:complete", { key });
+            throw err;
+        });
     }
 
     function saveComplete() {
