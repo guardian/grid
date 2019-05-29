@@ -18,11 +18,9 @@ object BylineCreditReorganise extends MetadataCleaner {
     )
   }
 
-  def bothExist(byline: Field, credit: Field): Option[(String, String)] =
-    for(b <- byline; c <- credit) yield (b, c)
-
   def removeBylineFromCredit(bylineField: Field, creditField: Field) =
-    bothExist(bylineField, creditField).map { case (byline, credit) =>
+    bylineField.map { byline =>
+      val credit = creditField.getOrElse("")
       val bylineParts = byline.split("/").filter(!_.isEmpty)
       val creditParts = credit.split("/").filter(!_.isEmpty)
 
@@ -41,7 +39,7 @@ object BylineCreditReorganise extends MetadataCleaner {
       }
     }
     // Convert the strings back to `Option`s
-    .map{ case (b, c) => (Some(b), Some(c)) }
+    .map{ case (b, c) => (Some(b), Some(c).filter(!_.isEmpty)) }
     // return the defaults if they both didn't exist
     .getOrElse((bylineField, creditField))
 
