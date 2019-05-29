@@ -37,11 +37,6 @@
                 </div>
             </li>
         </ul>
-        <ul class="batch_progress">
-            <li class="image-notice" ng-repeat="entry in ctrl.batchOperations">
-                Updating {{entry.key}}: {{entry.completed}}/{{entry.total}}
-            </li>
-        </ul>
     </div>
 
     <div ng:if="ctrl.selectedImages.size > 0">

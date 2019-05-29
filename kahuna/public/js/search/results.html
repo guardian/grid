@@ -37,6 +37,14 @@
                     {{ctrl.selectionCount}} selected
                 </div>
 
+                <div class="results-toolbar-item results-toolbar-item--right results-toolbar-item--static"
+                     ng:if="ctrl.batchOperations.length > 0">
+
+                    <span ng-repeat="entry in ctrl.batchOperations">
+                        Updating {{entry.key}}: {{entry.completed}}/{{entry.total}}
+                    </span>
+                </div>
+
                 <a class="results-toolbar-item results-toolbar-item--right"
                    ng:click="ctrl.clearSelection()"
                    ng:if="ctrl.selectionCount > 0">
