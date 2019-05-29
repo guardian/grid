@@ -11,12 +11,12 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
 
   it ("should remove spaces between slashes") {
     CreditByline("Man /In /Suit", "Presseye/ INPHO /REX")
-    .whenCleaned("Man/In/Suit"  , "Presseye/INPHO/REX")
+    .whenCleaned("Man"  , "In/Suit/Presseye/INPHO/REX")
   }
 
-  it ("should leave non matching byline and credit") {
+  it ("should clean credits from byline but leave non-matching name") {
     CreditByline("Ella/BPI/REX", "Ella Ling/BPI/REX")
-    .whenCleaned("Ella/BPI/REX", "Ella Ling/BPI/REX")
+    .whenCleaned("Ella", "Ella Ling/BPI/REX")
   }
 
   it ("should remove matching byline from credit in triple slash") {
@@ -44,13 +44,33 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
       .whenCleaned("Barcroft Media", "Philip Glass")
   }
 
+  it ("should remove organisation from byline") {
+    CreditByline("Philip Glass/Barcroft Media", "Barcroft Media")
+      .whenCleaned("Philip Glass", "Barcroft Media")
+  }
+
+  it ("should handle empty byline") {
+    CreditByline("", "Barcroft Media")
+      .whenCleaned("", "Barcroft Media")
+  }
+
+  it ("should handle empty credit") {
+    CreditByline("John Doe", "")
+      .whenCleaned("John Doe", "")
+  }
+
+  it ("should handle empty credit when byline has organisation names") {
+    CreditByline("John Doe/BPI/REX", "")
+      .whenCleaned("John Doe", "BPI/REX")
+  }
+
   case class CreditByline(byline: String, credit: String) {
     def whenCleaned(cByline: String, cCredit: String) = {
       val metadata = createImageMetadata(
         "byline" -> byline,
         "credit" -> credit
       )
-      val cleanMetadata = ByLineCreditReorganise.clean(metadata)
+      val cleanMetadata = BylineCreditReorganise.clean(metadata)
 
       cleanMetadata.byline should be (Some(cByline))
       cleanMetadata.credit should be (Some(cCredit))
