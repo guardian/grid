@@ -4,16 +4,15 @@ export function trackAll($rootScope, key, input, fn) {
     $rootScope.$broadcast("events:batch-operations:start",
         { key, completed: 0, total: input.size ? input.size : input.length });
 
-    return Promise.all(input.map(item => fn(item).then(intermediateResult => {
-        completed++;
-        $rootScope.$broadcast("events:batch-operations:progress", { key, completed });
+    const results = input.map(item => {
+        return fn(item).then(result => {
+            completed++;
+            $rootScope.$broadcast("events:batch-operations:progress", { key, completed });
+            return result;
+        });
+    });
 
-        return intermediateResult;
-    }))).then(finalResult => {
+    return Promise.all(results).finally(() => {
         $rootScope.$broadcast("events:batch-operations:complete", { key });
-        return finalResult;
-    }).catch(error => {
-        $rootScope.$broadcast("events:batch-operations:complete", { key });
-        throw error;
     });
 }

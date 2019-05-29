@@ -171,7 +171,7 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     };
 
     ctrl.updateMetadataField = function (field, value) {
-      const imageArray = Array.from(ctrl.selectedImages);
+      var imageArray = Array.from(ctrl.selectedImages);
 
       return editsService.batchUpdateMetadataField(
         imageArray,
