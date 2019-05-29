@@ -66,21 +66,11 @@ photoshoot.controller('GrPhotoshootCtrl', [
                 return ctrl.remove();
             }
 
-            return photoshootService.batchAdd({ images: ctrl.images, data: { title } })
-                .then(images => {
-                    // TODO be better! Pretty sure this isn't performant
-                    // reassign images to trigger a `refresh` by the `$watchCollection` below
-                    ctrl.images = images;
-                });
+            return photoshootService.batchAdd({ images: ctrl.images, data: { title } });
         };
 
         ctrl.remove = () => {
-            return photoshootService.batchRemove({ images: ctrl.images })
-                .then(images => {
-                    // TODO be better! Pretty sure this isn't performant
-                    // reassign images to trigger a `refresh` by the `$watchCollection` below
-                    ctrl.images = images;
-                });
+            return photoshootService.batchRemove({ images: ctrl.images });
         };
 
         if (Boolean(ctrl.withBatch)) {
