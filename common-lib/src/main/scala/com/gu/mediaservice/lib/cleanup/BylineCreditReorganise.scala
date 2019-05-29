@@ -26,7 +26,11 @@ object BylineCreditReorganise extends MetadataCleaner {
       val bylineParts = byline.split("/").filter(!_.isEmpty)
       val creditParts = credit.split("/").filter(!_.isEmpty)
 
-      if (bylineParts.length == 0 || (bylineParts.length == 1 && creditParts.length == 1)) {
+      // It's very difficult to decide how to reorganise the byline or credits if they're both single tokens
+      // since we'd need to know what's likely to be a name and what's likely to be an organisation.
+      val ambiguousBylineCredit = bylineParts.length == 0 || (bylineParts.length == 1 && creditParts.length == 1)
+
+      if (ambiguousBylineCredit) {
         (byline, credit)
       } else {
         val outputByline = bylineParts.head
