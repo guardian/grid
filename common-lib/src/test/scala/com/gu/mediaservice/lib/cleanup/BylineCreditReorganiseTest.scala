@@ -56,7 +56,7 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
 
   it ("should handle empty credit") {
     CreditByline("John Doe", "")
-      .whenCleaned("John Doe", "")
+      .whenCleaned("John Doe", None)
   }
 
   it ("should handle empty credit when byline has organisation names") {
@@ -65,6 +65,18 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
   }
 
   case class CreditByline(byline: String, credit: String) {
+    def whenCleaned(cByline: String, cCredit: Option[String]) = {
+      val metadata = createImageMetadata(
+        "byline" -> byline,
+        "credit" -> credit
+      )
+
+      val cleanMetadata = BylineCreditReorganise.clean(metadata)
+
+      cleanMetadata.byline should be (Some(cByline))
+      cleanMetadata.credit should be (cCredit)
+    }
+
     def whenCleaned(cByline: String, cCredit: String) = {
       val metadata = createImageMetadata(
         "byline" -> byline,
