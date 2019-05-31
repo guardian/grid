@@ -473,15 +473,21 @@ results.controller('SearchResultsCtrl', [
         ctrl.batchOperations = [];
 
         ctrl.buildBatchProgressGradient = () => {
-            const completed = ctrl.batchOperations.map(({ completed }) => completed).reduce((acc, x) => acc + x, 0);
-            const total = ctrl.batchOperations.map(({ total }) => total).reduce((acc, x) => acc + x, 0);
+            const completed = ctrl.batchOperations
+                .map(({ completed }) => completed)
+                .reduce((acc, x) => acc + x, 0);
+
+            const total = ctrl.batchOperations
+                .map(({ total }) => total)
+                .reduce((acc, x) => acc + x, 0);
 
             const percentage = Math.round(((completed * 1.0) / total) * 100);
-            
+
             return {
-                background: `linear-gradient(90deg, #00adee ${percentage}%, transparent ${percentage}%)`
+                background:
+                    `linear-gradient(90deg, #00adee ${percentage}%, transparent ${percentage}%)`
             };
-        }
+        };
 
         $scope.$on("events:batch-operations:start", (e, entry) => {
             ctrl.batchOperations = [entry, ...ctrl.batchOperations];
