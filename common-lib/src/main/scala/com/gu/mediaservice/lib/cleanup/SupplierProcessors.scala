@@ -168,7 +168,7 @@ object CorbisParser extends ImageProcessor {
 
 object EpaParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("EPA") => image.copy(
+    case Some(x) if x.matches(".*\\bEPA\\b.*") => image.copy(
       usageRights = Agency("EPA")
     )
     case _ => image
