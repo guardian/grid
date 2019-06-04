@@ -38,7 +38,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
-      strip <- imageOperations.cropImage(sourceFile, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
+      strip <- imageOperations.cropImage(sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
       file: File <- imageOperations.appendMetadata(strip, metadata)
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType.extension, true)
@@ -54,7 +54,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
-        file          <- imageOperations.resizeImage(sourceFile, dimensions, cropQuality, config.tempDir, mediaType.extension)
+        file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, mediaType.extension)
         optimisedFile = imageOperations.optimiseImage(file, mediaType)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, mediaType.extension)
         sizing        <- store.storeCropSizing(optimisedFile, filename, mediaType.name, crop, dimensions)

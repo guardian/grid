@@ -119,7 +119,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
         fileMetadata <- fileMetadataFuture
         colourModel <- colourModelFuture
         iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
-        thumb <- imageOps.createThumbnail(uploadedFile, config.thumbWidth, config.thumbQuality, config.tempDir, iccColourSpace, colourModel, uploadRequest.mimeType)
+        thumb <- imageOps.createThumbnail(uploadedFile, uploadRequest.mimeType, config.thumbWidth, config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
       } yield thumb
 
       //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
@@ -127,7 +127,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
         case Some(mime) => mime match {
           case transcodedMime if config.transcodedMimeTypes.contains(mime) =>
             for {
-            transformedImage <- imageOps.transformImage(uploadedFile, config.tempDir, uploadRequest.mimeType)
+            transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir)
             } yield transformedImage
           case _ =>
             Future.apply(uploadedFile)
