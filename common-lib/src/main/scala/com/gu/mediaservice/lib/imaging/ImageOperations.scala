@@ -67,7 +67,7 @@ class ImageOperations(playPath: String) {
       cropped       = crop(profiled)(bounds)
       depthAdjusted = depth(cropped)(8)
       addOutput     = addDestImage(depthAdjusted)(outputFile)
-      _             <- runConvertCmd(addOutput)
+      _             <- runConvertCmd(addOutput, useImageMagick = fileType == "image/tiff")
     }
     yield outputFile
   }
@@ -86,7 +86,7 @@ class ImageOperations(playPath: String) {
       qualified    = quality(resizeSource)(qual)
       resized      = scale(qualified)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
-      _           <- runConvertCmd(addOutput)
+      _           <- runConvertCmd(addOutput, useImageMagick = fileType == "image/tiff")
     }
     yield outputFile
   }
@@ -109,7 +109,7 @@ class ImageOperations(playPath: String) {
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
-  def createThumbnail(sourceFile: File, width: Int, qual: Double = 100d, tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
+  def createThumbnail(sourceFile: File, width: Int, qual: Double = 100d, tempDir: File, iccColourSpace: Option[String], colourModel: Option[String], fileType: Option[String]): Future[File] = {
     for {
       outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
       cropSource  = addImage(sourceFile)
@@ -121,16 +121,16 @@ class ImageOperations(playPath: String) {
       unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
       qualified   = quality(unsharpened)(qual)
       addOutput   = addDestImage(qualified)(outputFile)
-      _          <- runConvertCmd(addOutput)
+      _          <- runConvertCmd(addOutput, useImageMagick = fileType.contains("image/tiff"))
     } yield outputFile
   }
 
-  def transformImage(sourceFile: File, tempDir: File): Future[File] = {
+  def transformImage(sourceFile: File, tempDir: File, fileType: Option[String]): Future[File] = {
     for {
       outputFile  <- createTempFile(s"transformed-", ".png", tempDir)
       transformSource = addImage(sourceFile)
       addOutput    = addDestImage(transformSource)(outputFile)
-      _           <- runConvertCmd(addOutput)
+      _           <- runConvertCmd(addOutput, useImageMagick = fileType.contains("image/tiff"))
     }
       yield outputFile
   }
@@ -162,7 +162,7 @@ object ImageOperations {
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
 
         for {
-          output <- runIdentifyCmd(formatter)
+          output <- runIdentifyCmd(formatter, useImageMagick = true)
           colourModel = output.headOption
         } yield colourModel
 

@@ -31,11 +31,10 @@ object ImageMagick {
   def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
   def format(op: IMOperation)(definition: String): IMOperation = op <| (_.format(definition))
   def depth(op: IMOperation)(depth: Int): IMOperation = op <| (_.depth(depth))
-  val useGraphicsMagick = true
 
-  def runConvertCmd(op: IMOperation): Future[Unit] = Future((new ConvertCmd(useGraphicsMagick)).run(op))
-  def runIdentifyCmd(op: IMOperation): Future[List[String]] = Future {
-    val cmd = new IdentifyCmd(useGraphicsMagick)
+  def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = Future((new ConvertCmd(!useImageMagick)).run(op))
+  def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean): Future[List[String]] = Future {
+    val cmd = new IdentifyCmd(!useImageMagick)
     val output = new ArrayListOutputConsumer()
     cmd.setOutputConsumer(output)
     cmd.run(op)
