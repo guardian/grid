@@ -162,7 +162,7 @@ object ImageOperations {
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
 
         for {
-          output <- runIdentifyCmd(formatter, useImageMagick = true)
+          output <- runIdentifyCmd(formatter)
           colourModel = output.headOption
         } yield colourModel
 

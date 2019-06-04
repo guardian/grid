@@ -1,17 +1,16 @@
 package com.gu.mediaservice.lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
-
 import java.io.File
+
 import org.im4java.process.ArrayListOutputConsumer
 
 import scala.collection.JavaConverters._
-
-import scala.concurrent.{Future, ExecutionContext}
-import org.im4java.core.{IdentifyCmd, IMOperation, ConvertCmd}
+import scala.concurrent.{ExecutionContext, Future}
+import org.im4java.core.{ConvertCmd, IMOperation, IdentifyCmd}
 import scalaz.syntax.id._
-
-import com.gu.mediaservice.model.{Dimensions, Bounds}
+import com.gu.mediaservice.model.{Bounds, Dimensions}
+import play.api.Logger
 
 
 object ImageMagick {
@@ -32,9 +31,14 @@ object ImageMagick {
   def format(op: IMOperation)(definition: String): IMOperation = op <| (_.format(definition))
   def depth(op: IMOperation)(depth: Int): IMOperation = op <| (_.depth(depth))
 
-  def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = Future((new ConvertCmd(!useImageMagick)).run(op))
-  def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean): Future[List[String]] = Future {
-    val cmd = new IdentifyCmd(!useImageMagick)
+  def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = {
+    // TODO MRB:
+    Logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging operation")
+    Future((new ConvertCmd(!useImageMagick)).run(op))
+  }
+
+  def runIdentifyCmd(op: IMOperation): Future[List[String]] = Future {
+    val cmd = new IdentifyCmd(true)
     val output = new ArrayListOutputConsumer()
     cmd.setOutputConsumer(output)
     cmd.run(op)
