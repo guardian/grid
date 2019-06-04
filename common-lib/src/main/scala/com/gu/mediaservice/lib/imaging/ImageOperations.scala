@@ -67,7 +67,7 @@ class ImageOperations(playPath: String) {
       cropped       = crop(profiled)(bounds)
       depthAdjusted = depth(cropped)(8)
       addOutput     = addDestImage(depthAdjusted)(outputFile)
-      _             <- runConvertCmd(addOutput, useImageMagick = fileType == "image/tiff")
+      _             <- runConvertCmd(addOutput, useImageMagick = fileType == "tif")
     }
     yield outputFile
   }
@@ -86,7 +86,7 @@ class ImageOperations(playPath: String) {
       qualified    = quality(resizeSource)(qual)
       resized      = scale(qualified)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
-      _           <- runConvertCmd(addOutput, useImageMagick = fileType == "image/tiff")
+      _           <- runConvertCmd(addOutput, useImageMagick = fileType == "tif")
     }
     yield outputFile
   }
@@ -121,7 +121,7 @@ class ImageOperations(playPath: String) {
       unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
       qualified   = quality(unsharpened)(qual)
       addOutput   = addDestImage(qualified)(outputFile)
-      _          <- runConvertCmd(addOutput, useImageMagick = fileType.contains("image/tiff"))
+      _          <- runConvertCmd(addOutput, useImageMagick = fileType.contains("tif"))
     } yield outputFile
   }
 
@@ -130,7 +130,7 @@ class ImageOperations(playPath: String) {
       outputFile  <- createTempFile(s"transformed-", ".png", tempDir)
       transformSource = addImage(sourceFile)
       addOutput    = addDestImage(transformSource)(outputFile)
-      _           <- runConvertCmd(addOutput, useImageMagick = fileType.contains("image/tiff"))
+      _           <- runConvertCmd(addOutput, useImageMagick = fileType.contains("tif"))
     }
       yield outputFile
   }
