@@ -1082,7 +1082,7 @@ textarea.ng-invalid {
 .results-toolbar-item__progress {
     /* updated in JS to show progress */
     background: linear-gradient(90deg, #00adee 0%, transparent 0%);
-    text-shadow: 1px 1px 2px #333;
+    color: white;
 }
 
 .image-results-count__new {
