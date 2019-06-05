@@ -63,7 +63,7 @@ trait CapitalisationFixer {
 
   val joinWords: List[String] = List()
 
-  val delimiters: List[String] = List("'", "-")
+  val delimiters: List[String] = List("'", "’", "-")
 
   def capitaliseWord(word: String, firstOrLast: Boolean): String = {
     // Don't capitalise join words (e.g. Fleur de la Cour)
