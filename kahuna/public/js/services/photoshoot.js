@@ -1,5 +1,7 @@
 import angular from 'angular';
 
+import { trackAll } from '../util/batch-tracking';
+
 export const photoshootService = angular.module('kahuna.services.photoshoot', []);
 
 photoshootService.factory('photoshootService', [
@@ -14,11 +16,15 @@ photoshootService.factory('photoshootService', [
         }
 
         function batchAdd({ data, images }) {
-            return $q.all(images.map(image => putPhotoshoot({data, image})));
+            return trackAll($rootScope, "photoshoot", images, image =>
+                putPhotoshoot({data, image})
+            );
         }
 
         function batchRemove({ images }) {
-            return $q.all(images.map(image => deletePhotoshoot({ image })));
+            return trackAll($rootScope, "photoshoot", images, image =>
+                deletePhotoshoot({ image })
+            );
         }
 
         function putPhotoshoot({ data, image }) {

@@ -1,6 +1,7 @@
 import angular from 'angular';
 
 import template from './gr-batch-export-original-images.html';
+import { trackAll } from '../../util/batch-tracking';
 
 export const batchExportOriginalImages = angular.module('gr.batchExportOriginalImages', []);
 
@@ -40,14 +41,15 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
         function cropImages() {
           ctrl.cropping = true;
           ctrl.needsConfirmation = false;
-          const cropImages = ctrl.images.map(image =>
+
+          const cropImages = trackAll($rootScope, "crop", ctrl.images, image =>
             mediaCropper.createFullCrop(image).then(crop => ({
               image,
               crop
             }))
           );
 
-          Promise.all(cropImages).then(specs => {
+          cropImages.then(specs => {
             $rootScope.$emit('events:crops-created', specs);
           }).finally(() => {
             ctrl.cropping = false;

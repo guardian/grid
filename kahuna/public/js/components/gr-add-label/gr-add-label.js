@@ -38,8 +38,7 @@ addLabel.controller('GrAddLabelCtrl', [
             ctrl.active = false;
 
             labelService.batchAdd(imageArray, label)
-                .then(images => {
-                    ctrl.images = images;
+                .then(() => {
                     reset();
                 })
                 .catch(saveFailed)

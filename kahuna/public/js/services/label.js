@@ -1,4 +1,5 @@
 import angular from 'angular';
+import { trackAll } from '../util/batch-tracking';
 
 var labelService = angular.module('kahuna.services.label', []);
 
@@ -59,11 +60,11 @@ labelService.factory('labelService',
     }
 
     function batchAdd (images, labels) {
-        return $q.all(images.map(image => add(image, labels)));
+        return trackAll($rootScope, "label", images, image => add(image, labels));
     }
 
     function batchRemove (images, label) {
-        return $q.all(images.map(image => remove(image, label)));
+        return trackAll($rootScope, "label", images, image => remove(image, label));
     }
 
     return {

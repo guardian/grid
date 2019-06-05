@@ -4,6 +4,7 @@ import Rx from 'rx';
 import {editsApi} from '../services/api/edits-api';
 import {mediaApi} from '../services/api/media-api';
 import { overwrite, prepend, append } from '../util/constants/editOptions';
+import { trackAll } from '../util/batch-tracking';
 
 export var service = angular.module('kahuna.edits.service', [
     editsApi.name,
@@ -300,10 +301,10 @@ service.factory('editsService',
 
 
     function batchUpdateMetadataField (images, field, value, editOption = overwrite.key) {
-        return $q.all(images.map(image => {
-          const newFieldValue = getNewFieldValue(image, field, value, editOption);
-          return updateMetadataField(image, field, newFieldValue);
-        }));
+        return trackAll($rootScope, field, images, image => {
+            const newFieldValue = getNewFieldValue(image, field, value, editOption);
+            return updateMetadataField(image, field, newFieldValue);
+        });
     }
 
     return {

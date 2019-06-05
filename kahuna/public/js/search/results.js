@@ -470,6 +470,51 @@ results.controller('SearchResultsCtrl', [
         // FIXME: nicer (reactive?) way to do this?
         var scopeGone = false;
 
+        ctrl.batchOperations = [];
+
+        ctrl.buildBatchProgressGradient = () => {
+            const completed = ctrl.batchOperations
+                .map(({ completed }) => completed)
+                .reduce((acc, x) => acc + x, 0);
+
+            const total = ctrl.batchOperations
+                .map(({ total }) => total)
+                .reduce((acc, x) => acc + x, 0);
+
+            const percentage = Math.round(((completed * 1.0) / total) * 100);
+
+            return {
+                background:
+                    `linear-gradient(90deg, #00adee ${percentage}%, transparent ${percentage}%)`
+            };
+        };
+
+        $scope.$on("events:batch-operations:start", (e, entry) => {
+            ctrl.batchOperations = [entry, ...ctrl.batchOperations];
+
+            window.onbeforeunload = function() {
+                return 'Batch update in progress, are you sure you want to leave?';
+            };
+        });
+
+        $scope.$on("events:batch-operations:progress", (e, { key, completed }) => {
+            ctrl.batchOperations = ctrl.batchOperations.map(entry => {
+                if (entry.key === key) {
+                    return Object.assign({}, entry, { completed });
+                }
+
+                return entry;
+            });
+        });
+
+        $scope.$on("events:batch-operations:complete", (e, { key }) => {
+            ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== key);
+
+            if (ctrl.batchOperations.length === 0) {
+                window.onbeforeunload = null;
+            }
+        });
+
         $scope.$on('$destroy', () => {
             scrollPosition.save($stateParams);
             freeUpdateListener();

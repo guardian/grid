@@ -1079,6 +1079,12 @@ textarea.ng-invalid {
     padding: 0px;
 }
 
+.results-toolbar-item__progress {
+    /* updated in JS to show progress */
+    background: linear-gradient(90deg, #00adee 0%, transparent 0%);
+    color: white;
+}
+
 .image-results-count__new {
     font-family: inherit;
     background-color: #00adee;

@@ -4,6 +4,7 @@ import './media-api';
 import '../../services/image-list';
 
 import {service} from '../../edits/service';
+import { trackAll } from '../../util/batch-tracking';
 
 var leaseService = angular.module('kahuna.services.lease', [
   service.name
@@ -78,7 +79,7 @@ leaseService.factory('leaseService', [
     }
 
     function batchAdd(lease, images) {
-      return $q.all(images.map(image => add(image, lease))).then(() => {
+      return trackAll($rootScope, "leases", images, image => add(image, lease)).then(() => {
         pollLeases(images);
       });
     }

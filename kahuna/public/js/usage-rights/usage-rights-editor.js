@@ -12,6 +12,7 @@ import template from './usage-rights-editor.html';
 import './usage-rights-editor.css';
 
 import '../components/gr-confirm-delete/gr-confirm-delete.js';
+import { trackAll } from '../util/batch-tracking';
 
 export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', [
     'monospaced.elastic',
@@ -22,8 +23,8 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi', 'imageList',
-    function($q, $scope, inject$, observe$, editsService, editsApi, imageList) {
+    ['$q', '$rootScope', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi', 'imageList',
+    function($q, $rootScope, $scope, inject$, observe$, editsService, editsApi, imageList) {
 
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
@@ -156,13 +157,13 @@ usageRightsEditor.controller(
     ctrl.cancel = () => ctrl.onCancel();
 
     function save(data) {
-        return $q.all(ctrl.usageRights.map(usageRights => {
+        return trackAll($rootScope, "rights", ctrl.usageRights, usageRights => {
             const image = usageRights.image;
             const resource = image.data.userMetadata.data.usageRights;
             return editsService.update(resource, data, image).
                 then(resource => resource.data).
                 then(() => setMetadataFromUsageRights(image));
-        }));
+        });
     }
 
     function saveComplete() {
