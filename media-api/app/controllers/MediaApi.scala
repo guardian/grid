@@ -223,7 +223,7 @@ class MediaApi(
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
 
         Future.successful(
-          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image))
+          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
         )
       }
       case _ => Future.successful(ImageNotFound(id))

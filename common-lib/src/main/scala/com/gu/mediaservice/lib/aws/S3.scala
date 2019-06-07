@@ -8,7 +8,7 @@ import com.amazonaws.ClientConfiguration
 import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.model.{Image, ImageType, OptimisedPng, Source, Thumbnail}
 import org.joda.time.{DateTime, Duration}
 
 import scala.collection.JavaConverters._
@@ -32,9 +32,15 @@ class S3(config: CommonConfig) {
     regex.replaceAllIn(filename, "")
   }
 
-  private def getContentDispositionFilename(image: Image, charset: Charset): String = {
+  private def getContentDispositionFilename(image: Image, imageType: ImageType, charset: Charset): String = {
 
-    val extension = image.source.mimeType match {
+    val asset = imageType match {
+      case Source => image.source
+      case Thumbnail => image.thumbnail.getOrElse(image.source)
+      case OptimisedPng => image.optimisedPng.getOrElse(image.source)
+    }
+
+    val extension = asset.mimeType match {
       case Some("image/jpeg") => "jpg"
       case Some("image/png")  => "png"
       case Some("image/tiff")  => "tif"
@@ -55,11 +61,11 @@ class S3(config: CommonConfig) {
     }
   }
 
-  def getContentDisposition(image: Image): String = {
+  def getContentDisposition(image: Image, imageType: ImageType): String = {
     // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
     // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
     // See http://tools.ietf.org/html/rfc6266#section-5
-    s"""attachment; filename="${getContentDispositionFilename(image, StandardCharsets.ISO_8859_1)}"; filename*=UTF-8''${getContentDispositionFilename(image, StandardCharsets.UTF_8)}"""
+    s"""attachment; filename="${getContentDispositionFilename(image, imageType, StandardCharsets.ISO_8859_1)}"; filename*=UTF-8''${getContentDispositionFilename(image, imageType, StandardCharsets.UTF_8)}"""
   }
 
   private def roundDateTime(t: DateTime, d: Duration): DateTime = t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
@@ -68,11 +74,11 @@ class S3(config: CommonConfig) {
   // TODO: do we really need these expiration tokens? they kill our ability to cache...
   private def defaultExpiration: DateTime = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
 
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = defaultExpiration): String = {
+  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = defaultExpiration, imageType: ImageType = Source): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
-    val contentDisposition = getContentDisposition(image)
+    val contentDisposition = getContentDisposition(image, imageType)
 
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
