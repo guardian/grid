@@ -6,7 +6,7 @@ import java.util.Date
 import java.util.concurrent.Executors
 
 import com.drew.imaging.ImageMetadataReader
-import com.drew.metadata.exif.{ExifIFD0Directory, ExifSubIFDDirectory}
+import com.drew.metadata.exif.{ExifDirectoryBase, ExifIFD0Directory, ExifSubIFDDirectory}
 import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.iptc.IptcDirectory
 import com.drew.metadata.jpeg.JpegDirectory
@@ -31,10 +31,10 @@ object FileMetadataReader {
     }
     yield getMetadataWithICPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
-  def fromICPTCHeadersWithColorInfo(image: File, imageId:String): Future[FileMetadata] =
+  def fromICPTCHeadersWithColorInfo(image: File, imageId:String, mimeType: String): Future[FileMetadata] =
     for {
       metadata <- readMetadata(image)
-      colourModelInformation <- getColorModelInformation(image, metadata)
+      colourModelInformation <- getColorModelInformation(image, metadata, mimeType)
     }
     yield getMetadataWithICPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
 
@@ -150,34 +150,54 @@ object FileMetadataReader {
           Dimensions(width, height)
         }
 
+        case Some("image/tiff") => for {
+          exifDir <- Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
+
+        } yield {
+          val width = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_WIDTH)
+          val height = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_HEIGHT)
+          Dimensions(width, height)
+        }
+
         case _ => None
 
       }
     }
 
-  def getColorModelInformation(image: File, metadata: Metadata): Future[Map[String, String]] = {
+  def getColorModelInformation(image: File, metadata: Metadata, mimeType: String): Future[Map[String, String]] = {
 
     val source = addImage(image)
 
     val formatter = format(source)("%r")
 
-    runIdentifyCmd(formatter).map{ imageType => getColourInformation(metadata, imageType.headOption) }
-      .recover { case _ => getColourInformation(metadata, None) }
+    runIdentifyCmd(formatter).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
+      .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 
-  private def getColourInformation(metadata: Metadata, maybeImageType: Option[String]): Map[String, String] = {
-    val pngDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
+  private def getColourInformation(metadata: Metadata, maybeImageType: Option[String], mimeType: String): Map[String, String] = {
     
     val hasAlpha = maybeImageType.map(imageType => if (imageType.contains("Matte")) "true" else "false")
+
+    mimeType match {
+      case "image/png" => val metaDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
+        Map(
+          "hasAlpha" -> hasAlpha,
+          "colorType" -> Option(metaDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
+          "bitsPerSample" -> Option(metaDir.getDescription(PngDirectory.TAG_BITS_PER_SAMPLE)),
+          "paletteHasTransparency" -> Option(metaDir.getDescription(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY)),
+          "paletteSize" -> Option(metaDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
+          "iccProfileName" -> Option(metaDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
+        ).flattenOptions
+      case _ => val metaDir = metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory])
+        Map(
+          "hasAlpha" -> hasAlpha,
+          "colorType" -> maybeImageType,
+          "photometricInterpretation" -> Option(metaDir.getDescription(ExifDirectoryBase.TAG_PHOTOMETRIC_INTERPRETATION)),
+          "bitsPerSample" -> Option(metaDir.getDescription(ExifDirectoryBase.TAG_BITS_PER_SAMPLE))
+        ).flattenOptions
+    }
                        
-    Map(
-      "hasAlpha" -> hasAlpha,
-      "colorType" -> Option(pngDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
-      "bitsPerSample" -> Option(pngDir.getDescription(PngDirectory.TAG_BITS_PER_SAMPLE)),
-      "paletteHasTransparency" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY)),
-      "paletteSize" -> Option(pngDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
-      "iccProfileName" -> Option(pngDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
-    ).flattenOptions
+
 
   }
 
