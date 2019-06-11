@@ -32,7 +32,6 @@ object ImageMagick {
   def depth(op: IMOperation)(depth: Int): IMOperation = op <| (_.depth(depth))
 
   def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = {
-    // TODO MRB:
     Logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging operation $op")
 
     Future((new ConvertCmd(!useImageMagick)).run(op))
