@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 green='\x1B[0;32m'
 red='\x1B[0;31m'
 plain='\x1B[0m' # No Color
@@ -95,6 +97,7 @@ changeNodeVersion() {
     node_version=`cat .nvmrc`
     echo -e "${red}nvm not found ${plain} NVM is required to run this project"
     echo -e "Install it from https://github.com/creationix/nvm#installation"
+    exit 1
   else
     source "$NVM_DIR/nvm.sh"
     nvm install
