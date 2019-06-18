@@ -67,7 +67,11 @@ labelService.factory('labelService',
     }
 
     function batchRemove (images, label) {
-        return trackAll($rootScope, "label", images, image => remove(image, label));
+        const affectedImages = images.filter(image =>
+            imageAccessor.readLabels(image).some(({ data }) => data === label)
+        );
+
+        return trackAll($rootScope, "label", affectedImages, image => remove(image, label));
     }
 
     return {
