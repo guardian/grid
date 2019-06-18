@@ -45,6 +45,9 @@ labelService.factory('labelService',
                     return newImage;
                 });
         }
+
+        // no-op
+        return Promise.resolve(image);
     }
 
     function add (image, labels) {
