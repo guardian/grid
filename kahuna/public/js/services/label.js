@@ -45,6 +45,9 @@ labelService.factory('labelService',
                     return newImage;
                 });
         }
+
+        // no-op
+        return Promise.resolve(image);
     }
 
     function add (image, labels) {
@@ -64,7 +67,11 @@ labelService.factory('labelService',
     }
 
     function batchRemove (images, label) {
-        return trackAll($rootScope, "label", images, image => remove(image, label));
+        const affectedImages = images.filter(image =>
+            imageAccessor.readLabels(image).some(({ data }) => data === label)
+        );
+
+        return trackAll($rootScope, "label", affectedImages, image => remove(image, label));
     }
 
     return {
