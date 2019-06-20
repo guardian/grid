@@ -16,7 +16,21 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
     function imageName(imageData) {
         const filename = imageData.uploadInfo.filename;
         const imageId = imageData.id;
-        const extension = imageData.source.mimeType === 'image/jpeg' ? 'jpg' : 'png';
+        function getExt() {
+            switch (imageData.source.mimeType){
+                case 'image/png': {
+                    return 'png';
+                }
+                case 'image/tiff': {
+                    return 'tif';
+                }
+                default: {
+                  // Return jpg because it’s user-friendly: will open in image viewer app
+                  return 'jpg';
+                }
+            }
+        }
+        const extension = getExt();
 
         if (filename) {
             const basename = stripExtension(filename);
