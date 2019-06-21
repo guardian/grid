@@ -29,6 +29,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Filter = rule {
     HasMatch ~> Match |
+    IsMatch ~> Match |
     ScopedMatch ~> Match | HashMatch | CollectionRule |
     DateConstraintMatch |
     DateRangeMatch ~> Match | AtMatch |
@@ -39,6 +40,11 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def HasMatchField = rule { capture(HasFieldName) ~> (_ => HasField) }
   def HasFieldName = rule { "has" }
   def HasMatchValue = rule { String ~> HasValue }
+
+  def IsMatch = rule { IsMatchField ~ ':' ~ IsMatchValue }
+  def IsMatchField = rule { capture(IsFieldName) ~> (_ => IsField) }
+  def IsFieldName = rule { "is" }
+  def IsMatchValue = rule { String ~> IsValue }
 
   def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ MatchValue }
   def NestedDateMatch = rule { ParentField ~ "@" ~ DateConstraintMatch ~> (

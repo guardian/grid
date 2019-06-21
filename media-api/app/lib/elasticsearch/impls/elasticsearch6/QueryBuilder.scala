@@ -44,6 +44,13 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       case HasValue(value) => boolQuery().filter(existsQuery(getFieldPath(value)))
       case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
     }
+    case IsField => condition.value match {
+      case IsValue(value) => IsQueryFilter.apply(value) match {
+        case Some(isQuery) => isQuery.query
+        case _ => throw InvalidQuery(s"Cannot perform is query on ${condition.value}")
+      }
+      case _ => throw InvalidQuery(s"Cannot perform is query on ${condition.value}")
+    }
   }
 
   def makeQuery(conditions: List[Condition]) = conditions match {
