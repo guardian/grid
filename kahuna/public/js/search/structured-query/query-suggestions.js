@@ -34,7 +34,8 @@ export const filterFields = [
     'croppedBy',
     'filename',
     'photoshoot',
-    'leasedBy'
+    'leasedBy',
+    'is'
 ].sort();
 // TODO: add date fields
 
@@ -58,6 +59,10 @@ const subjects = [
     'sport',
     'war',
     'weather'
+];
+
+const isSearch = [
+  'staff'
 ];
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
@@ -154,6 +159,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'illustrator': return listIllustrators().then(prefixFilter(value));
         case 'category': return listCategories().then(prefixFilter(value));
         case 'photoshoot': return suggestPhotoshoot(value);
+        case 'is': return isSearch;
         // No suggestions
         default:         return [];
         }
