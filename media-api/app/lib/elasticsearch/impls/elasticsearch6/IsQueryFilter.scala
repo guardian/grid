@@ -8,18 +8,19 @@ sealed trait IsQueryFilter extends Query with ImageFields {
   def query: Query
 
   override def toString: String = this match {
-    case IsStaffPhotographer => "staff"
+    case IsGnmOwnedPhotographer => "gnm-owned"
   }
 }
 
 object IsQueryFilter {
+  // for readability, the client capitalises gnm, so `toLowerCase` it before matching
   def apply(value: String): Option[IsQueryFilter] = value.toLowerCase match {
-    case "staff" => Some(IsStaffPhotographer)
+    case "gnm-owned" => Some(IsGnmOwnedPhotographer)
     case _ => None
   }
 }
 
-object IsStaffPhotographer extends IsQueryFilter {
+object IsGnmOwnedPhotographer extends IsQueryFilter {
   override def query: Query = filters.or(
     filters.term(usageRightsField("category"), StaffPhotographer.category),
     filters.term(usageRightsField("category"), CommissionedPhotographer.category),

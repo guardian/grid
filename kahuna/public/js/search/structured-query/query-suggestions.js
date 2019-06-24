@@ -62,7 +62,7 @@ const subjects = [
 ];
 
 const isSearch = [
-  'staff'
+  'GNM-owned'
 ];
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
