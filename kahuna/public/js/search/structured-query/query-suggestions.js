@@ -62,6 +62,8 @@ const subjects = [
 ];
 
 const isSearch = [
+  'GNM-owned-photo',
+  'GNM-owned-illustration',
   'GNM-owned'
 ];
 
