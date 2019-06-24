@@ -9,6 +9,7 @@ import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.searches.queries.Query
 import com.sksamuel.elastic4s.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
+import play.api.Logger
 
 class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
 
@@ -43,6 +44,19 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
     case HasField => condition.value match {
       case HasValue(value) => boolQuery().filter(existsQuery(getFieldPath(value)))
       case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
+    }
+    case IsField => condition.value match {
+      case IsValue(value) => IsQueryFilter.apply(value) match {
+        case Some(isQuery) => isQuery.query
+        case _ => {
+          Logger.info(s"Cannot perform IS query on ${condition.value}")
+          matchNoneQuery
+        }
+      }
+      case _ => {
+        Logger.info(s"Cannot perform IS query on ${condition.value}")
+        matchNoneQuery
+      }
     }
   }
 
