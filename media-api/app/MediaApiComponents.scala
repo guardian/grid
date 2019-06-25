@@ -1,4 +1,5 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.ManagementWithPermissions
@@ -37,7 +38,10 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
-  val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics)
+  val metaDataConfigStore = MetadataStore(config.configBucket, config)
+  metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
+
+  val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, metaDataConfigStore)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)
