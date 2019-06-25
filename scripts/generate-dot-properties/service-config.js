@@ -43,6 +43,7 @@ function getImageLoaderConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
         |aws.region=${config.aws.region}
+        |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
@@ -107,6 +108,7 @@ function getMetadataEditorConfig(config) {
     return stripMargin`
         |domain.root=${config.domainRoot}
         |aws.region=${config.aws.region}
+        |s3.config.bucket=${config.stackProps.ConfigBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
