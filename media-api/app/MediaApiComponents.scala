@@ -31,7 +31,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
 
   val s3Client = new S3Client(config)
 
-  val usageQuota = new UsageQuota(config, elasticSearch, actorSystem.scheduler)
+  val usageQuota = new UsageQuota(config, actorSystem.scheduler)
   usageQuota.scheduleUpdates()
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
