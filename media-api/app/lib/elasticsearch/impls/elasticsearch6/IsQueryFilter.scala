@@ -4,7 +4,6 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.http.ElasticDsl.matchNoneQuery
 import com.sksamuel.elastic4s.searches.queries.Query
-import lib.UsageStore
 import scalaz.syntax.std.list._
 
 sealed trait IsQueryFilter extends Query with ImageFields {
@@ -20,11 +19,11 @@ sealed trait IsQueryFilter extends Query with ImageFields {
 
 object IsQueryFilter {
   // for readability, the client capitalises gnm, so `toLowerCase` it before matching
-  def apply(value: String, usageStore: UsageStore): Option[IsQueryFilter] = value.toLowerCase match {
+  def apply(value: String, exceededAgencies: () =>  List[Agency]): Option[IsQueryFilter] = value.toLowerCase match {
     case "gnm-owned-photo" => Some(IsOwnedPhotograph)
     case "gnm-owned-illustration" => Some(IsOwnedIllustration)
     case "gnm-owned" => Some(IsOwnedImage)
-    case "over-quota" => Some(IsOverQuota(usageStore.exceededAgencies))
+    case "over-quota" => Some(IsOverQuota(exceededAgencies()))
     case _ => None
   }
 }
@@ -49,6 +48,6 @@ object IsOwnedImage extends IsQueryFilter {
 
 case class IsOverQuota(exceededAgencies: List[Agency]) extends IsQueryFilter {
   override def query: Query = exceededAgencies.toNel
-    .map(i => filters.not(filters.terms(usageRightsField("supplier"), i.map(_.supplier))))
+    .map(agency => filters.not(filters.terms(usageRightsField("supplier"), agency.map(_.supplier))))
     .getOrElse(matchNoneQuery)
 }
