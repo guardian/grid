@@ -84,3 +84,7 @@ gr-static-filter-chip,
 gr-filter-chip {
     margin-right: 5px;
 }
+
+gr-text-chip input::placeholder {
+  color: #888;
+}
