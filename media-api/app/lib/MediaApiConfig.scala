@@ -2,7 +2,6 @@ package lib
 
 import com.amazonaws.services.ec2.{AmazonEC2, AmazonEC2ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.discovery.EC2._
 import org.joda.time.DateTime
 import play.api.Configuration
 
