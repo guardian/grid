@@ -8,10 +8,11 @@ import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.searches.queries.Query
 import com.sksamuel.elastic4s.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
+import lib.UsageStore
 import lib.querysyntax._
 import play.api.Logger
 
-class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
+class QueryBuilder(matchFields: Seq[String], usageStore: UsageStore) extends ImageFields {
 
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
@@ -46,7 +47,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
     }
     case IsField => condition.value match {
-      case IsValue(value) => IsQueryFilter.apply(value) match {
+      case IsValue(value) => IsQueryFilter.apply(value, usageStore) match {
         case Some(isQuery) => isQuery.query
         case _ => {
           Logger.info(s"Cannot perform IS query on ${condition.value}")

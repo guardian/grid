@@ -13,7 +13,7 @@ import com.sksamuel.elastic4s.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
-import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
+import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary, UsageStore}
 import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -23,7 +23,7 @@ import scalaz.syntax.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config, usageStore: UsageStore) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
 
   lazy val imagesAlias = elasticConfig.alias
   lazy val url = elasticConfig.url
@@ -34,7 +34,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
 
-  val queryBuilder = new QueryBuilder(matchFields)
+  val queryBuilder = new QueryBuilder(matchFields, usageStore)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
     executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
