@@ -3,7 +3,7 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.config.{MetadataConfig, MetadataStore, UsageRightsConfig, UsageRightsStore}
+import com.gu.mediaservice.lib.config.{MetadataConfig, MetadataStore}
 import com.gu.mediaservice.model._
 import lib.EditsConfig
 import model.UsageRightsProperty
@@ -14,8 +14,7 @@ import scala.concurrent.ExecutionContext
 
 class EditsApi(auth: Authentication, config: EditsConfig,
                override val controllerComponents: ControllerComponents,
-               metadataStore: MetadataStore,
-               usageRightsStore: UsageRightsStore)(implicit val ec: ExecutionContext)
+               metadataStore: MetadataStore)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
 
@@ -38,11 +37,7 @@ class EditsApi(auth: Authentication, config: EditsConfig,
 
   def usageRightsResponse = {
       val metadataConfig = metadataStore.get
-      val usageRightsConfig = usageRightsStore.get
-
-      val usageRightsData = UsageRights
-        .getAll(usageRightsConfig.usageRights)
-        .map(u => CategoryResponse.fromUsageRights(u, metadataConfig, usageRightsConfig))
+      val usageRightsData = UsageRights.all.map(u => CategoryResponse.fromUsageRights(u, metadataConfig))
 
       respond(usageRightsData)
   }
@@ -62,7 +57,7 @@ case class CategoryResponse(
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
-  def fromUsageRights(u: UsageRightsSpec, m: MetadataConfig, c: UsageRightsConfig): CategoryResponse =
+  def fromUsageRights(u: UsageRightsSpec, m: MetadataConfig): CategoryResponse =
     CategoryResponse(
       value               = u.category,
       name                = u.name,
@@ -70,7 +65,7 @@ object CategoryResponse {
       description         = u.description,
       defaultRestrictions = u.defaultRestrictions,
       caution             = u.caution,
-      properties          = UsageRightsProperty.getPropertiesForSpec(u, m, c)
+      properties          = UsageRightsProperty.getPropertiesForSpec(u, m)
     )
 
   implicit val categoryResponseWrites: Writes[CategoryResponse] = Json.writes[CategoryResponse]
