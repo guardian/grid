@@ -4,7 +4,7 @@ import java.io.File
 
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
@@ -71,7 +71,6 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 case object ImageUpload {
-  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
   def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
@@ -98,7 +97,11 @@ case object ImageUpload {
   }
 }
 
-class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
+class ImageUploadOps(metadataStore: MetadataStore,
+                     loaderStore: ImageLoaderStore,
+                     config: ImageLoaderConfig,
+                     imageOps: ImageOperations,
+                     optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
     Logger.info("Starting image ops")(uploadRequest.toLogMarker)
     val uploadedFile = uploadRequest.tempFile
@@ -165,8 +168,10 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
             colourModel <- colourModelFuture
             fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
+            metaDataConfig = metadataStore.get
+            metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
             metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
-            cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
+            cleanMetadata = metadataCleaners.clean(metadata)
 
             sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
             thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
@@ -177,7 +182,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
               None
 
             baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
-            processedImage = SupplierProcessors.process(baseImage)
+            processedImage = new SupplierProcessors(metaDataConfig).process(baseImage)
 
             // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
             finalImage = processedImage.copy(
@@ -194,7 +199,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
     })
   }
 
-  def storeSource(uploadRequest: UploadRequest) = store.storeOriginal(
+  def storeSource(uploadRequest: UploadRequest) = loaderStore.storeOriginal(
     uploadRequest.imageId,
     uploadRequest.tempFile,
     uploadRequest.mimeType,
@@ -203,7 +208,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
       "upload_time" -> printDateTime(uploadRequest.uploadTime)
     ) ++ uploadRequest.identifiersMeta
   )
-  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
+  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = loaderStore.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
     Some("image/jpeg")
