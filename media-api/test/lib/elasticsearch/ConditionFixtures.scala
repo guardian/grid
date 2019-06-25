@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import lib.elasticsearch.impls.elasticsearch6.{IsOwnedIllustration, IsOwnedImage, IsOwnedPhotograph}
 import lib.querysyntax.{Nested, _}
 import org.joda.time.{DateTime, DateTimeZone}
 
@@ -14,6 +15,10 @@ trait ConditionFixtures {
   val dateMatchCondition = Match(SingleField("adatefield"), DateRange(dateRangeStart, dateRangeEnd))
 
   val hasFieldCondition = Match(HasField, HasValue("foo"))
+  val isOwnedPhotoCondition = Match(IsField, IsValue(IsOwnedPhotograph.toString))
+  val isOwnedIllustrationCondition = Match(IsField, IsValue(IsOwnedIllustration.toString))
+  val isOwnedImageCondition = Match(IsField, IsValue(IsOwnedImage.toString))
+
   val hierarchyFieldPhraseCondition = Match(HierarchyField, Phrase("foo"))
   val anyFieldPhraseCondition = Match(AnyField, Phrase("cats and dogs"))
   val anyFieldWordsCondition = Match(AnyField, Words("cats dogs"))
