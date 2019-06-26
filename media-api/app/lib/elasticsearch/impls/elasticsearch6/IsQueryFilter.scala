@@ -33,8 +33,7 @@ object IsOwnedPhotograph extends IsQueryFilter {
 
 object IsOwnedIllustration extends IsQueryFilter {
   override def query: Query = filters.or(
-    filters.terms(usageRightsField("category"), UsageRights.illustrator.toNel.get.map(_.category)
-    )
+    filters.terms(usageRightsField("category"), UsageRights.illustrator.toNel.get.map(_.category))
   )
 }
 

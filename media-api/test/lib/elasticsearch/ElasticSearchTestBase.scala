@@ -14,7 +14,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
 import scala.concurrent.duration._
 
-trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify {
+trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
 
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
@@ -28,7 +28,10 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
 
   lazy val images = Seq(
     createImage(UUID.randomUUID().toString, Handout()),
-    createImage(UUID.randomUUID().toString, StaffPhotographer("Yellow Giraffe", "The Guardian")),
+    createImage("iron-suit", CommissionedPhotographer("Iron Man")),
+    createImage("green-giant", StaffIllustrator("Hulk")),
+    createImage("hammer-hammer-hammer", ContractIllustrator("Thor")),
+    createImage("green-leaf", StaffPhotographer("Yellow Giraffe", "The Guardian")),
     createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
 
     createImageUploadedInThePast("persisted-because-edited").copy(
@@ -112,7 +115,7 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     ),
 
     // no rights acquired, not available for syndication
-    createImageForSyndication(UUID.randomUUID().toString, rightsAcquired = false, None, None),
+    createImageForSyndication("test-image-13", rightsAcquired = false, None, None),
 
     // Agency image with published usage yesterday
     createImageForSyndication(
