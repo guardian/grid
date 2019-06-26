@@ -35,7 +35,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
   val elasticConfig = ElasticSearch6Config(alias = "readAlias", url = "http://localhost:9200",
     cluster = "media-service-test", shards = 1, replicas = 0)
 
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
+  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
   val client = ES.client
 
   def esContainer = Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
@@ -386,6 +386,33 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
           "test-image-13",
           "green-giant",
           "hammer-hammer-hammer"
+        )
+
+        val imageIds = result.hits.map(_._1)
+        imageIds.size shouldBe expected.size
+        expected.foreach(imageIds.contains(_) shouldBe true)
+      }}
+    }
+
+    it("should return no images when no agencies are over quota") {
+      val search = SearchParams(tier = Internal, structuredQuery = List(isOverQuotaCondition))
+
+      whenReady(ES.search(search), timeout, interval) { result => {
+        result.total shouldBe 0
+      }}
+    }
+
+    it("should return images from agencies over quota") {
+      def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
+
+      val search = SearchParams(tier = Internal, structuredQuery = List(isOverQuotaCondition))
+      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies)
+
+      whenReady(elasticsearch.search(search), timeout, interval) { result => {
+        val expected = List(
+          "getty-image-1",
+          "getty-image-2",
+          "ap-image-1"
         )
 
         val imageIds = result.hits.map(_._1)

@@ -138,7 +138,7 @@ class UsageStore(
       l <- lastUpdated
     } yield StoreAccess(s,l)).get())
 
-  def exceededAgencies: List[Agency] = store.get.collect {
+  def overQuotaAgencies: List[Agency] = store.get.collect {
     case (_, status) if status.exceeded => status.usage.agency
   }.toList
 
