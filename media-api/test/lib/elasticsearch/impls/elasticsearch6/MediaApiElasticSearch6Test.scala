@@ -32,19 +32,19 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     "persistence.identifier" -> "picdarUrn")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearch6Config(alias = "readAlias", url = "http://localhost:9200",
+  val elasticConfig = ElasticSearch6Config(alias = "readAlias", url = es6TestUrl,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig)
   val client = ES.client
 
-  def esContainer = Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
+  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(
       DockerReadyChecker.HttpResponseCode(9200, "/", Some("0.0.0.0")).within(10.minutes).looped(40, 1250.millis)
     )
-  )
+  ) else None
 
   private val expectedNumberOfImages = images.size
 
