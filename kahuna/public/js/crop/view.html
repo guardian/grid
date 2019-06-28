@@ -1,4 +1,5 @@
 <gr-top-bar>
+  <gr-top-bar-row>
     <gr-top-bar-nav>
         <a class="top-bar-item clickable side-padded"
            ui:sref="image({ imageId: ctrl.image.data.id })"
@@ -88,6 +89,7 @@
             </button>
         </div>
     </gr-top-bar-actions>
+  </gr-top-bar-row>
 </gr-top-bar>
 
 <div class="warning" ng:if="ctrl.cropSizeWarning()">

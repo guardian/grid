@@ -1,5 +1,6 @@
 <!-- TODO: rename this file and split it into it's components -->
-<gr-top-bar fixed="true">
+<gr-top-bar fixed="true" class="search-bar">
+  <gr-top-bar-row>
     <gr-top-bar-nav>
         <search-query></search-query>
     </gr-top-bar-nav>
@@ -14,6 +15,11 @@
         </a>
         <file-uploader class="top-bar-item side-padded"></file-uploader>
     </gr-top-bar-actions>
+  </gr-top-bar-row>
+
+  <gr-top-bar-row small="true">
+
+  </gr-top-bar-row>
 </gr-top-bar>
 
 <gr-panels class="search-panels">

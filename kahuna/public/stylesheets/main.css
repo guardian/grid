@@ -113,7 +113,7 @@ input,
 option,
 textarea,
 button {
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+  font-family: "Guardian Agate Sans Web", Helvetica, Arial, sans-serif;
     font-size: 1.4rem;
 }
 
@@ -619,6 +619,10 @@ textarea.ng-invalid {
     display: flex;
     height: 30px;
     line-height: 12px;
+}
+
+.search-bar {
+  height: 75px; /* gr-top-bar with a gr-top-bar-row and gr-top-bar-row.small */
 }
 
 .search-query__magnifier {

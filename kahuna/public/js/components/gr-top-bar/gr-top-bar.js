@@ -36,3 +36,16 @@ topBar.directive('grTopBarActions', [function() {
                    <ui-user-actions></ui-user-actions>`
     };
 }]);
+
+topBar.directive('grTopBarRow', [function () {
+  return {
+    restrict: 'E',
+    transclude: true,
+    scope: {
+      small: '='
+    },
+    template: `<ng:transclude class="gr-top-bar-row-inner"
+                              ng:class="{'gr-top-bar-row--small': small}">
+               </ng:transclude>`
+  };
+}]);
