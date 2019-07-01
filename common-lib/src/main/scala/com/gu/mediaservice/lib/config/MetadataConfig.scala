@@ -133,11 +133,9 @@ object MetadataConfig {
   val contractIllustrators: Map[String, String] = Map(
     "Ben Lamb"              -> "The Guardian",
     "Andrzej Krauze"        -> "The Guardian",
-    "Chris Ware"            -> "The Guardian",
     "David Squires"         -> "The Guardian",
     "First Dog on the Moon" -> "The Guardian",
     "Harry Venning"         -> "The Guardian",
-    "Kipper Williams"       -> "The Guardian",
     "Martin Rowson"         -> "The Guardian",
     "Matt Kenyon"           -> "The Guardian",
     "Matthew Blease"        -> "The Guardian",
@@ -149,7 +147,6 @@ object MetadataConfig {
     "Chris Riddell"         -> "The Observer",
     "David Foldvari"        -> "The Observer",
     "David Simonds"         -> "The Observer",
-    "Ian Tovey"             -> "The Observer",
   )
 
   val allPhotographers = staffPhotographers ++ contractedPhotographers
