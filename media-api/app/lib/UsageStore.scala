@@ -138,10 +138,6 @@ class UsageStore(
       l <- lastUpdated
     } yield StoreAccess(s,l)).get())
 
-  def overQuotaAgencies: List[Agency] = store.get.collect {
-    case (_, status) if status.exceeded => status.usage.agency
-  }.toList
-
   def update() {
     lastUpdated.send(_ => DateTime.now())
     fetchUsage.foreach { usage => store.send(usage) }

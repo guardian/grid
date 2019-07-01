@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
-import com.gu.mediaservice.model.{Agencies, Agency, Image}
+import com.gu.mediaservice.model.{Agencies, Image}
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.search.{Aggregations, SearchHit, SearchResponse}
@@ -23,7 +23,7 @@ import scalaz.syntax.std.list._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config, overQuotaAgencies: () => List[Agency]) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
 
   lazy val imagesAlias = elasticConfig.alias
   lazy val url = elasticConfig.url
@@ -34,7 +34,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
 
-  val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
+  val queryBuilder = new QueryBuilder(matchFields)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
     executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
