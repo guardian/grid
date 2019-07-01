@@ -16,7 +16,7 @@ import scala.util.Try
 case class ImageNotFound() extends Exception("Image not found")
 case class NoUsageQuota() extends Exception("No usage found for this image")
 
-class UsageQuota(config: MediaApiConfig, scheduler: Scheduler) {
+class UsageQuota(config: MediaApiConfig, elasticSearch: ElasticSearchVersion, scheduler: Scheduler) {
   val quotaStore = new QuotaStore(
     config.quotaStoreConfig.storeKey,
     config.quotaStoreConfig.storeBucket,
@@ -39,5 +39,16 @@ class UsageQuota(config: MediaApiConfig, scheduler: Scheduler) {
       usageStore.getUsageStatusForUsageRights(rights),
       waitMillis.millis)
   }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
+
+  def usageStatusForImage(id: String)(implicit request: AuthenticatedRequest[AnyContent, Principal]): Future[UsageStatus] = for {
+    imageOption <- elasticSearch.getImageById(id)
+
+    image <- Future { imageOption.get }
+      .recover { case _ => throw new ImageNotFound }
+
+    usageStatus <- usageStore.getUsageStatusForUsageRights(image.usageRights)
+
+  } yield usageStatus
+
 }
 

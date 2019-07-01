@@ -2,11 +2,9 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.model.{Agencies, Image}
+import com.gu.mediaservice.model.Agencies
 import lib._
 import lib.elasticsearch.ElasticSearchVersion
-import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,21 +39,10 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
 
   }
 
-  def usageStatusForImage(id: String)(implicit request: AuthenticatedRequest[AnyContent, Principal]): Future[UsageStatus] = for {
-    imageOption <- elasticSearch.getImageById(id)
-
-    image <- Future { imageOption.get }
-      .recover { case _ => throw new ImageNotFound }
-
-    usageStatus <- usageQuota.usageStore.getUsageStatusForUsageRights(image.usageRights)
-
-  } yield usageStatus
-
-
   def quotaForImage(id: String) = auth.async { request =>
     implicit val r = request
 
-    usageStatusForImage(id)
+    usageQuota.usageStatusForImage(id)
       .map((u: UsageStatus) => respond(u))
       .recover {
         case e: ImageNotFound => respondError(NotFound, "image-not-found", e.toString)

@@ -1,6 +1,6 @@
 package lib.elasticsearch.impls.elasticsearch6
 
-import com.gu.mediaservice.model.{Agency, UsageRights}
+import com.gu.mediaservice.model.UsageRights
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
@@ -15,7 +15,7 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
-  val queryBuilder = new QueryBuilder(matchFields, () => Nil)
+  val queryBuilder = new QueryBuilder(matchFields)
 
   describe("Query builder") {
     it("Nil conditions parameter should give the match all query") {
@@ -197,30 +197,6 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
       query.must.size shouldBe 1
       query.must.head shouldBe ElasticDsl.matchNoneQuery()
-    }
-
-    it("should return the match none query when no over quota agencies") {
-      val qBuilder = new QueryBuilder(matchFields, () => List.empty)
-      val query = qBuilder.makeQuery(List(isOverQuotaCondition)).asInstanceOf[BoolQuery]
-      query.must.size shouldBe 1
-      query.must.head shouldBe ElasticDsl.matchNoneQuery()
-    }
-
-    it("should correctly construct an over quota query") {
-      def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
-
-      val qBuilder = new QueryBuilder(matchFields, () => overQuotaAgencies)
-      val query = qBuilder.makeQuery(List(isOverQuotaCondition)).asInstanceOf[BoolQuery]
-      query.must.size shouldBe 1
-
-      val isClause = query.must.head.asInstanceOf[BoolQuery]
-      isClause.should.size shouldBe 1
-
-      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
-      termQuery.field shouldBe "usageRights.supplier"
-
-      val expected = overQuotaAgencies.map(_.supplier)
-      termQuery.values shouldEqual expected
     }
   }
 
