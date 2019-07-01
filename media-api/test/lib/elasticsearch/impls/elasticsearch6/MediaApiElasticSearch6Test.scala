@@ -322,6 +322,79 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     }
   }
 
+  describe("is field filter") {
+    it("should return no images with an invalid search") {
+      val search = SearchParams(tier = Internal, structuredQuery = List(isInvalidCondition))
+      whenReady(ES.search(search), timeout, interval) { result => {
+        result.total shouldBe 0
+      }}
+    }
+
+    it("should return owned photographs") {
+      val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedPhotoCondition), length = 50)
+      whenReady(ES.search(search), timeout, interval) { result => {
+        val expected = List(
+          "iron-suit",
+          "green-leaf",
+          "test-image-1",
+          "test-image-2",
+          "test-image-3",
+          "test-image-4",
+          "test-image-5",
+          "test-image-6",
+          "test-image-7",
+          "test-image-8",
+          "test-image-12",
+          "test-image-13"
+        )
+
+        val imageIds = result.hits.map(_._1)
+        imageIds.size shouldBe expected.size
+        expected.foreach(imageIds.contains(_) shouldBe true)
+      }}
+    }
+
+    it("should return owned illustrations") {
+      val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedIllustrationCondition))
+      whenReady(ES.search(search), timeout, interval) { result => {
+        val expected = List(
+          "green-giant",
+          "hammer-hammer-hammer"
+        )
+
+        val imageIds = result.hits.map(_._1)
+        imageIds.size shouldBe expected.size
+        expected.foreach(imageIds.contains(_) shouldBe true)
+      }}
+    }
+
+    it("should return all owned images") {
+      val search = SearchParams(tier = Internal, structuredQuery = List(isOwnedImageCondition), length = 50)
+      whenReady(ES.search(search), timeout, interval) { result => {
+        val expected = List(
+          "iron-suit",
+          "green-leaf",
+          "test-image-1",
+          "test-image-2",
+          "test-image-3",
+          "test-image-4",
+          "test-image-5",
+          "test-image-6",
+          "test-image-7",
+          "test-image-8",
+          "test-image-12",
+          "test-image-13",
+          "green-giant",
+          "hammer-hammer-hammer"
+        )
+
+        val imageIds = result.hits.map(_._1)
+        imageIds.size shouldBe expected.size
+        expected.foreach(imageIds.contains(_) shouldBe true)
+      }}
+    }
+  }
+
   private def saveImages(images: Seq[Image]) = {
     Future.sequence(images.map { i =>
       executeAndLog(indexInto(index, "_doc") id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")

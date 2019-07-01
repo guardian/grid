@@ -62,7 +62,9 @@ const subjects = [
 ];
 
 const isSearch = [
-  'staff'
+  'GNM-owned-photo',
+  'GNM-owned-illustration',
+  'GNM-owned'
 ];
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {

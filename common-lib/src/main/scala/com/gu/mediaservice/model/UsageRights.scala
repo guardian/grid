@@ -32,6 +32,10 @@ object UsageRights {
     Composite, PublicDomain
   )
 
+  val photographer = List(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
+  val illustrator = List(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
+  val whollyOwned = photographer ++ illustrator
+
   // this is a convenience method so that we use the same formatting for all subtypes
   // i.e. use the standard `Json.writes`. I still can't find a not have to pass the `f:Format[T]`
   // explicitly and inferring the type, but I think that has to do with the reflection that's used

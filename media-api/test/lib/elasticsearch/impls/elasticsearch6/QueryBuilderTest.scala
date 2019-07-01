@@ -1,11 +1,12 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import com.gu.mediaservice.model.UsageRights
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.searches.queries._
 import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import com.sksamuel.elastic4s.searches.queries.term.TermQuery
+import com.sksamuel.elastic4s.searches.queries.term.{TermQuery, TermsQuery}
 import lib.elasticsearch.ConditionFixtures
 import lib.querysyntax.Negation
 import org.scalatest.{FunSpec, Matchers}
@@ -139,6 +140,63 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       val query = queryBuilder.makeQuery(List(nestedCondition, anotherNestedCondition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 2
+    }
+  }
+
+  describe("is search filter") {
+    it("should correctly construct an is owned photo query") {
+      val query = queryBuilder.makeQuery(List(isOwnedPhotoCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+
+      val isClause = query.must.head.asInstanceOf[BoolQuery]
+      isClause.should.size shouldBe 1
+
+      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
+      termQuery.field shouldBe "usageRights.category"
+
+      val expected = UsageRights.photographer.map(_.category)
+
+      termQuery.values shouldEqual expected
+    }
+
+    it("should correctly construct an is owned illustration query") {
+      val query = queryBuilder.makeQuery(List(isOwnedIllustrationCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+
+      val isClause = query.must.head.asInstanceOf[BoolQuery]
+      isClause.should.size shouldBe 1
+
+      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
+      termQuery.field shouldBe "usageRights.category"
+
+      val expected = UsageRights.illustrator.map(_.category)
+
+      termQuery.values shouldEqual expected
+    }
+
+    it("should correctly construct an is owned image query") {
+      val query = queryBuilder.makeQuery(List(isOwnedImageCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+
+      val isClause = query.must.head.asInstanceOf[BoolQuery]
+      isClause.should.size shouldBe 1
+
+      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
+      termQuery.field shouldBe "usageRights.category"
+
+      val expected = UsageRights.whollyOwned.map(_.category)
+
+      termQuery.values shouldEqual expected
+    }
+
+    it("should return the match none query on an invalid is query") {
+      val query = queryBuilder.makeQuery(List(isInvalidCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      query.must.head shouldBe ElasticDsl.matchNoneQuery()
     }
   }
 
