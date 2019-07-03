@@ -29,6 +29,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val s3Client = new S3Client(config)
 
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)
+  usageQuota.quotaStore.update()
   usageQuota.scheduleUpdates()
 
   val elasticSearch = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies)
