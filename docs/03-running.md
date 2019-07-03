@@ -3,7 +3,7 @@
 Once all the requirements have been installed and you have configuration files, Grid can be started by running the following from the project root:
 
 ```bash
-./dev-start.sh
+./scripts/dev-start.sh
 ```
 
 ## Client Side code
@@ -24,5 +24,5 @@ It's recommended to keep this running in the background while you have the stack
 and keep it running in a background terminal.
 
 ```bash
-./the_pingler.sh
+./scripts/the_pingler.sh
 ```

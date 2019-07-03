@@ -6,6 +6,9 @@ green='\x1B[0;32m'
 red='\x1B[0;31m'
 plain='\x1B[0m' # No Color
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR=${DIR}/..
+
 IS_DEBUG=false
 for arg in "$@"
 do
@@ -20,7 +23,7 @@ startDockerContainers() {
 }
 
 buildJs() {
-  pushd kahuna
+  pushd ${ROOT_DIR}/kahuna
   npm run build-dev
   popd
 }
@@ -46,6 +49,7 @@ setNodeVersion() {
 }
 
 main() {
+  cd ${ROOT_DIR}
   setNodeVersion
   startDockerContainers
   buildJs
