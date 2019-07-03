@@ -3,6 +3,7 @@ package lib.elasticsearch.impls.elasticsearch6
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch6.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.model.Agency
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
@@ -11,7 +12,7 @@ import com.sksamuel.elastic4s.searches.queries.matches.{MultiMatchQuery, MultiMa
 import lib.querysyntax._
 import play.api.Logger
 
-class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
+class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agency]) extends ImageFields {
 
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
@@ -46,7 +47,7 @@ class QueryBuilder(matchFields: Seq[String]) extends ImageFields {
       case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
     }
     case IsField => condition.value match {
-      case IsValue(value) => IsQueryFilter.apply(value) match {
+      case IsValue(value) => IsQueryFilter.apply(value, overQuotaAgencies) match {
         case Some(isQuery) => isQuery.query
         case _ => {
           Logger.info(s"Cannot perform IS query on ${condition.value}")
