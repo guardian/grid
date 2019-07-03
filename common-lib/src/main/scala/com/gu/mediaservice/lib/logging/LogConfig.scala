@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.logging
 
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.{LoggerContext, Logger => LogbackLogger}
+import com.amazonaws.util.EC2MetadataUtils
 import com.gu.logback.appender.kinesis.KinesisAppender
 import com.gu.mediaservice.lib.config.CommonConfig
 import net.logstash.logback.layout.LogstashLayout
@@ -19,18 +20,21 @@ object LogConfig {
 
   case class KinesisAppenderConfig(stream: String, region: String, roleArn: String, bufferSize: Int)
 
-  def makeCustomFields(config: CommonConfig): String = {
+  private def makeCustomFields(config: CommonConfig): String = {
+    val instanceId = Option(EC2MetadataUtils.getInstanceId).getOrElse("unknown")
+
     Json.toJson(Map(
       "stack" -> config.stackName,
       "stage" -> config.stage.toUpperCase,
       "app"   -> config.appName,
-      "sessionId" -> config.sessionId
+      "sessionId" -> config.sessionId,
+      "instanceId" -> instanceId
     )).toString()
   }
 
-  def makeLayout(customFields: String) = new LogstashLayout() <| (_.setCustomFields(customFields))
+  private def makeLayout(customFields: String) = new LogstashLayout() <| (_.setCustomFields(customFields))
 
-  def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) =
+  private def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) =
     new KinesisAppender[ILoggingEvent]() <| { a =>
       a.setStreamName(appenderConfig.stream)
       a.setRegion(appenderConfig.region)
