@@ -2,7 +2,7 @@ package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
-import com.sksamuel.elastic4s.http.ElasticDsl.matchNoneQuery
+import com.sksamuel.elastic4s.http.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.searches.queries.Query
 import scalaz.syntax.std.list._
 
@@ -13,7 +13,7 @@ sealed trait IsQueryFilter extends Query with ImageFields {
     case IsOwnedPhotograph => "gnm-owned-photo"
     case IsOwnedIllustration => "gnm-owned-illustration"
     case IsOwnedImage => "gnm-owned"
-    case _: IsOverQuota => "over-quota"
+    case _: IsUnderQuota => "under-quota"
   }
 }
 
@@ -23,7 +23,7 @@ object IsQueryFilter {
     case "gnm-owned-photo" => Some(IsOwnedPhotograph)
     case "gnm-owned-illustration" => Some(IsOwnedIllustration)
     case "gnm-owned" => Some(IsOwnedImage)
-    case "over-quota" => Some(IsOverQuota(overQuotaAgencies()))
+    case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
     case _ => None
   }
 }
@@ -46,8 +46,8 @@ object IsOwnedImage extends IsQueryFilter {
   )
 }
 
-case class IsOverQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter {
+case class IsUnderQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter {
   override def query: Query = overQuotaAgencies.toNel
-    .map(agency => filters.or(filters.terms(usageRightsField("supplier"), agency.map(_.supplier))))
-    .getOrElse(matchNoneQuery)
+    .map(agency => filters.mustNot(filters.terms(usageRightsField("supplier"), agency.map(_.supplier))))
+    .getOrElse(matchAllQuery)
 }

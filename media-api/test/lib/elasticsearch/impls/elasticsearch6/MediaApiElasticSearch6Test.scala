@@ -394,30 +394,30 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       }}
     }
 
-    it("should return no images when no agencies are over quota") {
-      val search = SearchParams(tier = Internal, structuredQuery = List(isOverQuotaCondition))
+    it("should return all images when no agencies are over quota") {
+      val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition))
 
       whenReady(ES.search(search), timeout, interval) { result => {
-        result.total shouldBe 0
+        result.total shouldBe images.size
       }}
     }
 
-    it("should return images from agencies over quota") {
+    it("should return any image whose agency is not over quota") {
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
-      val search = SearchParams(tier = Internal, structuredQuery = List(isOverQuotaCondition))
+      val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition), length = 50)
       val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies)
 
       whenReady(elasticsearch.search(search), timeout, interval) { result => {
-        val expected = List(
+        val overQuotaImages = List(
           "getty-image-1",
           "getty-image-2",
           "ap-image-1"
         )
-
+        val expectedUnderQuotaImages = images.map(_.id).filterNot(overQuotaImages.contains)
+        result.total shouldBe expectedUnderQuotaImages.size
         val imageIds = result.hits.map(_._1)
-        imageIds.size shouldBe expected.size
-        expected.foreach(imageIds.contains(_) shouldBe true)
+        expectedUnderQuotaImages.foreach(imageIds.contains(_) shouldBe true)
       }}
     }
   }
