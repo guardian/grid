@@ -31,6 +31,10 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
   final override val StartContainersTimeout = 1.minute
 
   lazy val images = Seq(
+    createImage("getty-image-1", Agency("Getty Images")),
+    createImage("getty-image-2", Agency("Getty Images")),
+    createImage("ap-image-1", Agency("AP")),
+    createImage("gnm-image-1", Agency("GNM")),
     createImage(UUID.randomUUID().toString, Handout()),
     createImage("iron-suit", CommissionedPhotographer("Iron Man")),
     createImage("green-giant", StaffIllustrator("Hulk")),
