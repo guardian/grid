@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import lib.elasticsearch.impls.elasticsearch6.{IsOverQuota, IsOwnedIllustration, IsOwnedImage, IsOwnedPhotograph}
+import lib.elasticsearch.impls.elasticsearch6.{IsUnderQuota, IsOwnedIllustration, IsOwnedImage, IsOwnedPhotograph}
 import lib.querysyntax.{Nested, _}
 import org.joda.time.{DateTime, DateTimeZone}
 
@@ -19,7 +19,7 @@ trait ConditionFixtures {
   val isOwnedPhotoCondition = Match(IsField, IsValue(IsOwnedPhotograph.toString))
   val isOwnedIllustrationCondition = Match(IsField, IsValue(IsOwnedIllustration.toString))
   val isOwnedImageCondition = Match(IsField, IsValue(IsOwnedImage.toString))
-  val isOverQuotaCondition = Match(IsField, IsValue(IsOverQuota(Nil).toString))
+  val isUnderQuotaCondition = Match(IsField, IsValue(IsUnderQuota(Nil).toString))
   val isInvalidCondition = Match(IsField, IsValue("a-random-string"))
 
   val hierarchyFieldPhraseCondition = Match(HierarchyField, Phrase("foo"))

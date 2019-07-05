@@ -199,28 +199,28 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       query.must.head shouldBe ElasticDsl.matchNoneQuery()
     }
 
-    it("should return the match none query when no over quota agencies") {
+    it("should return the match all query when no agencies are over quota") {
       val qBuilder = new QueryBuilder(matchFields, () => List.empty)
-      val query = qBuilder.makeQuery(List(isOverQuotaCondition)).asInstanceOf[BoolQuery]
+      val query = qBuilder.makeQuery(List(isUnderQuotaCondition)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
-      query.must.head shouldBe ElasticDsl.matchNoneQuery()
+      query.must.head shouldBe ElasticDsl.matchAllQuery()
     }
 
-    it("should correctly construct an over quota query") {
+    it("should correctly construct an under quota query") {
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
       val qBuilder = new QueryBuilder(matchFields, () => overQuotaAgencies)
-      val query = qBuilder.makeQuery(List(isOverQuotaCondition)).asInstanceOf[BoolQuery]
+      val query = qBuilder.makeQuery(List(isUnderQuotaCondition)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
 
-      val isClause = query.must.head.asInstanceOf[BoolQuery]
-      isClause.should.size shouldBe 1
+      val mustQuery = query.must.head.asInstanceOf[BoolQuery]
+      mustQuery.not.size shouldBe 1
 
-      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
-      termQuery.field shouldBe "usageRights.supplier"
+      val notQuery = mustQuery.not.head.asInstanceOf[TermsQuery[String]]
+      notQuery.field shouldBe "usageRights.supplier"
 
       val expected = overQuotaAgencies.map(_.supplier)
-      termQuery.values shouldEqual expected
+      notQuery.values shouldEqual expected
     }
   }
 
