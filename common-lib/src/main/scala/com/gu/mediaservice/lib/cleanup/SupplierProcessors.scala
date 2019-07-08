@@ -69,11 +69,13 @@ object ActionImagesParser extends ImageProcessor {
 }
 
 object AlamyParser extends ImageProcessor {
-  def apply(image: Image): Image = (image.metadata.credit, image.metadata.source) match {
-    case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
-      usageRights = Agencies.get("alamy")
-    )
-    case _ => image
+  def apply(image: Image): Image = {
+    val isAlamy = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
+      creditOrSource == "Alamy" || creditOrSource == "Alamy Stock Photo"
+    }
+    if (isAlamy) {
+      image.copy(usageRights = Agencies.get("alamy"))
+    } else image
   }
 }
 
@@ -255,12 +257,13 @@ object PaParser extends ImageProcessor {
     "Press Association Images"
   ).map(_.toLowerCase)
 
-  def apply(image: Image): Image = (image.metadata.credit, image.metadata.source) match {
-    case Some(credit) if paCredits.contains(credit.toLowerCase) => image.copy(
-      usageRights = Agency("PA")
-    )
-
-    case _ => image
+  def apply(image: Image): Image = {
+    val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
+      paCredits.contains(creditOrSource.toLowerCase)
+    }
+    if (isPa) {
+      image.copy(usageRights = Agency("PA"))
+    } else image
   }
 }
 
