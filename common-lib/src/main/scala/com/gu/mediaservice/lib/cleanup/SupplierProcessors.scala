@@ -69,7 +69,7 @@ object ActionImagesParser extends ImageProcessor {
 }
 
 object AlamyParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
+  def apply(image: Image): Image = (image.metadata.credit, image.metadata.source) match {
     case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
       usageRights = Agencies.get("alamy")
     )
@@ -255,9 +255,8 @@ object PaParser extends ImageProcessor {
     "Press Association Images"
   ).map(_.toLowerCase)
 
-  def apply(image: Image): Image = image.metadata.credit match {
+  def apply(image: Image): Image = (image.metadata.credit, image.metadata.source) match {
     case Some(credit) if paCredits.contains(credit.toLowerCase) => image.copy(
-      metadata = image.metadata.copy(credit = Some("PA")),
       usageRights = Agency("PA")
     )
 
