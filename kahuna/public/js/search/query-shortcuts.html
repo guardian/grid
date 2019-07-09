@@ -1,0 +1,11 @@
+<form>
+  <label>
+    <input type="checkbox"
+           ng:model="searchQuery.filter.shortcuts.isUnderQuota"
+           ng:true-value="'true'"
+           ng:false-value="undefined" />
+    Under quota only
+  </label>
+
+  {{searchQuery.filter.shortcuts.isUnderQuota}}
+</form>

@@ -8,6 +8,7 @@ import moment from 'moment';
 import {eq} from '../util/eq';
 import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
+import shortcutsTemplate from './query-shortcuts.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
 
@@ -36,7 +37,10 @@ query.controller('SearchQueryCtrl', [
     };
 
     ctrl.filter = {
-        uploadedByMe: false
+      uploadedByMe: false,
+      shortcuts: {
+        isUnderQuota: undefined
+      }
     };
 
     ctrl.dateFilter = {
@@ -138,10 +142,14 @@ query.controller('SearchQueryCtrl', [
 
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
-        filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
-        ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
+      console.log(filter);
+        const updatedFilter = Object.assign({}, filter, {
+          uploadedBy: filter.uploadedByMe ? ctrl.user.email : undefined
+        });
 
-        $state.go('search.results', filter);
+        ctrl.collectionSearch = filter.query ? filter.query.indexOf('~') === 0 : false;
+
+        $state.go('search.results', updatedFilter);
     }));
 
     $scope.$watch(() => ctrl.ordering.orderBy, onValChange(newVal => {
@@ -185,4 +193,12 @@ query.directive('searchQuery', [function() {
         controller: 'SearchQueryCtrl as searchQuery',
         template: template
     };
+}]);
+
+query.directive('searchQueryShortcuts', [function () {
+  return {
+    restrict: 'E',
+    controller: 'SearchQueryCtrl as searchQuery',
+    template: shortcutsTemplate
+  }
 }]);

@@ -625,6 +625,11 @@ textarea.ng-invalid {
   height: 75px; /* gr-top-bar with a gr-top-bar-row and gr-top-bar-row.small */
 }
 
+.search-bar-shortcuts {
+  padding: 0 10px;
+  line-height: 25px;
+}
+
 .search-query__magnifier {
     /* Better vertical centering */
     align-self: center;
