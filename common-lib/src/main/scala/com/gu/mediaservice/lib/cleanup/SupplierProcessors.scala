@@ -291,8 +291,9 @@ object RexParser extends ImageProcessor {
 
   def apply(image: Image): Image = (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit
-    case (Some("Rex Features"), _) => image.copy(usageRights = rexAgency)
-    case (_, Some(SlashRex()))     => image.copy(usageRights = rexAgency)
+    case (Some("Rex Features"), _)      => image.copy(usageRights = rexAgency)
+    case (_, Some(SlashRex()))          => image.copy(usageRights = rexAgency)
+    case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = rexAgency)
     case _ => image
   }
 }
