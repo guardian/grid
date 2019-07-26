@@ -66,7 +66,8 @@ class MediaApi(
       Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
-      Link("leases",          config.leasesUri)
+      Link("leases",          config.leasesUri),
+      Link("helpLinks",       s"${config.rootUri}/helpLinks")
     )
     respond(indexData, indexLinks)
   }
@@ -306,6 +307,16 @@ class MediaApi(
       params => respondSuccess(params)
     )
   }
+  
+  def helpLinks() = auth { request =>
+    implicit val r = request
+    Ok(Json.obj(
+      "feedbackForm" -> "https://goo.gl/forms/OO7CrMt9BRobi1j63",
+      "usageRightsHelp" -> "https://docs.google.com/a/guardian.co.uk/document/d/1owx57raHRncnSU-voyg1b21yZBcrkM1ttka7CDQLYOs/pub",
+      "invalidSessionHelp"-> "https://docs.google.com/a/guardian.co.uk/document/d/1qlQhHM2NX3xWBIREB2O8D7S4ZtN0sYb7IDV2leE4Ubc/edit?usp=sharing",
+      "supportEmail"-> "mailto:thegrid.dev@theguardian.com"
+    ))
+  }
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
     // Enforce a toDate to exclude new images since the current request
@@ -341,5 +352,4 @@ class MediaApi(
       None
     }
   }
-
 }

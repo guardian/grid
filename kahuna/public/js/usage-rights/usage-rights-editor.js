@@ -23,8 +23,8 @@ export var usageRightsEditor = angular.module('kahuna.edits.usageRightsEditor', 
 
 usageRightsEditor.controller(
     'UsageRightsEditorCtrl',
-    ['$q', '$rootScope', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi', 'imageList',
-    function($q, $rootScope, $scope, inject$, observe$, editsService, editsApi, imageList) {
+    ['$q', '$rootScope', '$scope', 'inject$', 'observe$', 'editsService', 'editsApi', 'imageList', 'mediaApi',
+    function($q, $rootScope, $scope, inject$, observe$, editsService, editsApi, imageList, mediaApi) {
 
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
@@ -112,6 +112,9 @@ usageRightsEditor.controller(
     inject$($scope, forceRestrictions$, ctrl, 'forceRestrictions');
     inject$($scope, showRestrictions$, ctrl, 'showRestrictions');
     inject$($scope, categoryInvalid$, ctrl, 'categoryInvalid');
+
+    mediaApi.getHelpLinks().then(links => ctrl.setUsageRightsHelpLink(links));
+    ctrl.setUsageRightsHelpLink = ({usageRightsHelp}) => ctrl.usageRightsHelp = usageRightsHelp;
 
     // TODO: Some of these could be streams
     ctrl.saving = false;

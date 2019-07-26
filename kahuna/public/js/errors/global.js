@@ -35,11 +35,19 @@ globalErrors.factory('globalErrors', [function() {
 
 
 globalErrors.controller('GlobalErrorsCtrl',
-                  ['$location', 'globalErrors',
-                   function($location, globalErrors) {
+                  ['$location', 'globalErrors', 'mediaApi',
+                   function($location, globalErrors, mediaApi) {
 
     var ctrl = this;
     ctrl.errors = globalErrors.getErrors();
+
+    mediaApi.getHelpLinks().then(links => {
+      ctrl.setInvalidSessionHelpLink(links);
+      ctrl.setSupportEmail(links);
+    });
+
+    ctrl.setInvalidSessionHelpLink = ({invalidSessionHelp}) => ctrl.invalidSessionHelp = invalidSessionHelp;
+    ctrl.setSupportEmail = ({supportEmail}) => ctrl.supportEmail = supportEmail;
 
     // handy as these can happen anywhere
     ctrl.getCurrentLocation = () => $location.url();

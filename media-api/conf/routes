@@ -21,6 +21,9 @@ POST    /images/:id/reindex                           controllers.MediaApi.reind
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
 GET     /images                                       controllers.MediaApi.imageSearch
 
+# Help links
+GET     /helpLinks                                    controllers.MediaApi.helpLinks
+
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
 GET     /suggest/metadata/photoshoot                  controllers.SuggestionController.suggestPhotoshoot(q: Option[String], size: Option[Int])

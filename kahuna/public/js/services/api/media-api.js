@@ -12,6 +12,7 @@ mediaApi.factory('mediaApi',
 
     var root = client.resource(mediaApiUri);
     var session;
+    var helpLinks;
 
     function search(query = '', {ids, since, until, archived, valid, free,
                                  payType, uploadedBy, offset, length, orderBy,
@@ -50,6 +51,10 @@ mediaApi.factory('mediaApi',
         }
 
         return undefined;
+    }
+
+    function getHelpLinks() {
+      return helpLinks || (helpLinks = root.follow('helpLinks').get());
     }
 
     function getOrder(orderBy) {
@@ -96,6 +101,7 @@ mediaApi.factory('mediaApi',
         metadataSearch,
         labelSearch,
         labelsSuggest,
+        getHelpLinks,
         delete: delete_
     };
 }]);
