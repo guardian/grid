@@ -3,7 +3,11 @@
   reauthUri: String,
   sentryDsn: Option[String],
   sessionId: String,
-  googleTrackingId: Option[String])
+  googleTrackingId: Option[String],
+  feedbackForm: Option[String],
+  usageRightsHelp: Option[String],
+  invalidSessionHelp: Option[String],
+  supportEmail: Option[String])
 <!DOCTYPE html>
 <html>
   <head>
@@ -33,7 +37,11 @@
     <script>
         this._clientConfig = {
           sessionId: "@Html(sessionId)",
-          googleTrackingId: "@Html(googleTrackingId.getOrElse(""))"
+          googleTrackingId: "@Html(googleTrackingId.getOrElse(""))",
+          feedbackForm: "@Html(feedbackForm.getOrElse(""))",
+          usageRightsHelp: "@Html(usageRightsHelp.getOrElse(""))",
+          invalidSessionHelp: "@Html(invalidSessionHelp.getOrElse(""))",
+          supportEmail: "@Html(supportEmail.getOrElse(""))"
         }
     </script>
 

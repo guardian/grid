@@ -21,7 +21,11 @@ class KahunaController(auth: Authentication, config: KahunaConfig, override val 
       s"${config.authUri}/login?redirectUri=$returnUri",
       config.sentryDsn,
       config.sessionId,
-      config.googleTrackingId
+      config.googleTrackingId,
+      config.feedbackForm,
+      config.usageRightsHelp,
+      config.invalidSessionHelp,
+      config.supportEmail
     ))
   }
 
