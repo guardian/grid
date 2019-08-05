@@ -41,7 +41,7 @@ globalErrors.controller('GlobalErrorsCtrl',
     var ctrl = this;
     ctrl.errors = globalErrors.getErrors();
 
-    ctrl.invalidSessionHelpLink = window._clientConfig.invalidSessionHelp;
+    ctrl.invalidSessionHelpLink = window._clientConfig.invalidSessionHelpLink;
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
 
     // handy as these can happen anywhere

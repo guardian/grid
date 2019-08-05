@@ -29,7 +29,7 @@ usageRightsEditor.controller(
     var ctrl = this;
     const multiCat = { name: 'Multiple categories', value: 'multi-cat', properties: [] };
 
-    ctrl.usageRightsHelpLink = window._clientConfig.usageRightsHelp;
+    ctrl.usageRightsHelpLink = window._clientConfig.usageRightsHelpLink;
 
     // @return Stream.<Array.<UsageRights>>
     const usageRights$ = observe$($scope, () => ctrl.usageRights);

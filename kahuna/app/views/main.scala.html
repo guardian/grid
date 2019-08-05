@@ -4,9 +4,9 @@
   sentryDsn: Option[String],
   sessionId: String,
   googleTrackingId: Option[String],
-  feedbackForm: Option[String],
-  usageRightsHelp: Option[String],
-  invalidSessionHelp: Option[String],
+  feedbackFormLink: Option[String],
+  usageRightsHelpLink: Option[String],
+  invalidSessionHelpLink: Option[String],
   supportEmail: Option[String])
 <!DOCTYPE html>
 <html>
@@ -38,9 +38,9 @@
         this._clientConfig = {
           sessionId: "@Html(sessionId)",
           googleTrackingId: "@Html(googleTrackingId.getOrElse(""))",
-          feedbackForm: "@Html(feedbackForm.getOrElse(""))",
-          usageRightsHelp: "@Html(usageRightsHelp.getOrElse(""))",
-          invalidSessionHelp: "@Html(invalidSessionHelp.getOrElse(""))",
+          feedbackFormLink: "@Html(feedbackFormLink.getOrElse(""))",
+          usageRightsHelpLink: "@Html(usageRightsHelpLink.getOrElse(""))",
+          invalidSessionHelpLink: "@Html(invalidSessionHelpLink.getOrElse(""))",
           supportEmail: "@Html(supportEmail.getOrElse(""))"
         }
     </script>

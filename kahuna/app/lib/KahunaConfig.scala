@@ -19,8 +19,8 @@ class KahunaConfig(override val configuration: Configuration) extends CommonConf
   val imageOrigin: String = properties("origin.images")
   val googleTrackingId: Option[String] = properties.get("google.tracking.id").filterNot(_.isEmpty)
 
-  val feedbackForm: Option[String]= properties.get("links.feedbackForm").filterNot(_.isEmpty)
-  val usageRightsHelp: Option[String]= properties.get("links.usageRightsHelp").filterNot(_.isEmpty)
-  val invalidSessionHelp: Option[String]= properties.get("links.invalidSessionHelp").filterNot(_.isEmpty)
+  val feedbackFormLink: Option[String]= properties.get("links.feedbackForm").filterNot(_.isEmpty)
+  val usageRightsHelpLink: Option[String]= properties.get("links.usageRightsHelp").filterNot(_.isEmpty)
+  val invalidSessionHelpLink: Option[String]= properties.get("links.invalidSessionHelp").filterNot(_.isEmpty)
   val supportEmail: Option[String]= properties.get("links.supportEmail").filterNot(_.isEmpty)
 }

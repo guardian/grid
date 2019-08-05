@@ -7,7 +7,7 @@ userActions.controller('userActionCtrl',
     [
         function() {
             var ctrl = this;
-            ctrl.feedbackFormLink = window._clientConfig.feedbackForm;
+            ctrl.feedbackFormLink = window._clientConfig.feedbackFormLink;
         }]);
 
 userActions.directive('uiUserActions', [function() {

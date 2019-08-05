@@ -22,9 +22,9 @@ class KahunaController(auth: Authentication, config: KahunaConfig, override val 
       config.sentryDsn,
       config.sessionId,
       config.googleTrackingId,
-      config.feedbackForm,
-      config.usageRightsHelp,
-      config.invalidSessionHelp,
+      config.feedbackFormLink,
+      config.usageRightsHelpLink,
+      config.invalidSessionHelpLink,
       config.supportEmail
     ))
   }
