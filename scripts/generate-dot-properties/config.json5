@@ -49,5 +49,13 @@
     tracking: {
       id: ''
     }
+  },
+
+  // Front end support links/email
+  links: {
+    feedbackForm: '',
+    usageRightsHelp: '',
+    invalidSessionHelp: '',
+    supportEmail: ''
   }
 }

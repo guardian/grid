@@ -58,6 +58,10 @@ function getKahunaConfig(config) {
         |origin.images=${config.stackProps.ImageBucket}.s3.${config.aws.region}.amazonaws.com
         |origin.crops=${config.stackProps.ImageOriginBucket}
         |google.tracking.id=${config.google.tracking.id}
+        |links.feedbackForm=${config.links.feedbackForm}
+        |links.usageRightsHelp=${config.links.usageRightsHelp}
+        |links.invalidSessionHelp=${config.links.invalidSessionHelp}
+        |links.supportEmail=${config.links.supportEmail}
         |`;
 }
 
