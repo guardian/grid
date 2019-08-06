@@ -2,6 +2,7 @@ package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
@@ -24,7 +25,7 @@ import play.mvc.Http.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config, overQuotaAgencies: () => List[Agency]) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config, overQuotaAgencies: () => List[Agency], usageRightsConfig: () => UsageRightsConfig) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
 
   lazy val imagesAlias = elasticConfig.alias
   lazy val url = elasticConfig.url
@@ -32,7 +33,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   lazy val shards = elasticConfig.shards
   lazy val replicas = elasticConfig.replicas
 
-  val searchFilters = new SearchFilters(config)
+  val searchFilters = new SearchFilters(config, usageRightsConfig)
   val syndicationFilter = new SyndicationFilter(config)
 
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)

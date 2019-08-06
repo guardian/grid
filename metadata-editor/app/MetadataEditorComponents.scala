@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.config.MetadataStore
+import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{EditsApi, EditsController}
@@ -23,11 +23,14 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context)
     () => messageConsumer.actorSystem.terminate()
   }
 
+  val usageRightsConfigStore = UsageRightsStore(config.configBucket, config)
+  usageRightsConfigStore.scheduleUpdates(actorSystem.scheduler)
+
   val metaDataConfigStore = MetadataStore(config.configBucket, config)
   metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
 
   val editsController = new EditsController(auth, store, notifications, config, controllerComponents)
-  val controller = new EditsApi(auth, config, controllerComponents, metaDataConfigStore)
+  val controller = new EditsApi(auth, config, controllerComponents, metaDataConfigStore, usageRightsConfigStore)
 
   override val router = new Routes(httpErrorHandler, controller, editsController, management)
 }

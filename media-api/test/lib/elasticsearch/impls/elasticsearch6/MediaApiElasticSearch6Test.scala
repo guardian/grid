@@ -2,6 +2,7 @@ package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
@@ -35,7 +36,9 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
   val elasticConfig = ElasticSearch6Config(alias = "readAlias", url = es6TestUrl,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
+  private val usageRightsConfig = UsageRightsConfig(List(), List(), Map("" -> List()))
+
+  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty, () => usageRightsConfig)
   val client = ES.client
 
   def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
@@ -406,7 +409,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
       val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition), length = 50)
-      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies)
+      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies, () => usageRightsConfig)
 
       whenReady(elasticsearch.search(search), timeout, interval) { result => {
         val overQuotaImages = List(
