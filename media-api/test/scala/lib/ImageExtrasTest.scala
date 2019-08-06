@@ -2,18 +2,20 @@ package lib
 
 import java.net.URI
 
+import com.gu.mediaservice.lib.config.UsageRightsStore
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.{AsyncFunSpec, Matchers}
 
-class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
+
+class ImageExtrasTest extends AsyncFunSpec with Matchers with MockitoSugar   {
 
   val Quota = mock[UsageQuota]
+  val usageRightsStore = mock[UsageRightsStore]
 
-  object Costing extends CostCalculator {
-    val quotas = Quota
+  object Costing extends CostCalculator(usageRightsStore, Quota) {
     override def getOverQuota(usageRights: UsageRights) = None
   }
 
