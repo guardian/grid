@@ -65,7 +65,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, implicit val cos
       .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
       .getOrElse(s3SignedThumbUrl)
 
-    val validityMap = ImageExtras.validityMap(image, withWritePermission)
+    val validityMap = ImageExtras.validityMap(image, withWritePermission)(costCalculator)
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap)
 
