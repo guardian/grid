@@ -1,18 +1,20 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.lib.config.UsageRightsStore
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 
-trait CostCalculator {
-  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
+import scala.concurrent.ExecutionContext
+
+case class CostCalculator(usageRightsStore: UsageRightsStore, quotas: UsageQuota)(implicit val ec: ExecutionContext) {
 
   val defaultCost = Pay
-  val quotas: UsageQuota
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
-      val free = isFreeSupplier(supplier) && ! collection.exists(isExcludedColl(supplier, _))
-      if (free) Some(Free) else None
+    val c = usageRightsStore.get
+    val free = c.isFreeSupplier(supplier) && ! collection.exists(c.isExcludedColl(supplier, _))
+
+    if (free) Some(Free) else None
   }
 
   def isConditional(usageRights: UsageRights): Boolean =
@@ -29,23 +31,19 @@ trait CostCalculator {
     }
 
   def getCost(usageRights: UsageRights): Cost = {
-      val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
-      val categoryCost: Option[Cost] = usageRights.defaultCost
-      val overQuota: Option[Cost] = getOverQuota(usageRights)
-      val supplierCost: Option[Cost] = usageRights match {
-        case u: Agency => getCost(u.supplier, u.suppliersCollection)
-        case _ => None
-      }
+    val restricted  : Option[Cost] = usageRights.restrictions.map(r => Conditional)
+    val categoryCost: Option[Cost] = usageRights.defaultCost
+    val overQuota: Option[Cost] = getOverQuota(usageRights)
+    val supplierCost: Option[Cost] = usageRights match {
+      case u: Agency => getCost(u.supplier, u.suppliersCollection)
+      case _ => None
+    }
 
-      restricted
-        .orElse(overQuota)
-        .orElse(categoryCost)
-        .orElse(supplierCost)
-        .getOrElse(defaultCost)
+    restricted
+      .orElse(overQuota)
+      .orElse(categoryCost)
+      .orElse(supplierCost)
+      .getOrElse(defaultCost)
   }
 
-  private def isFreeSupplier(supplier: String) = freeSuppliers.contains(supplier)
-
-  private def isExcludedColl(supplier: String, supplierColl: String) =
-    suppliersCollectionExcl.get(supplier).exists(_.contains(supplierColl))
 }

@@ -37,7 +37,7 @@ object ImageExtras {
   def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
 
   def validityMap(image: Image, withWritePermission: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota): ValidMap = {
+    implicit cost: CostCalculator): ValidMap = {
 
     val shouldOverride = validityOverrides(image, withWritePermission).exists(_._2 == true)
 
@@ -51,7 +51,7 @@ object ImageExtras {
       "missing_credit"       -> createCheck(!hasCredit(image.metadata), overrideable = false),
       "missing_description"  -> createCheck(!hasDescription(image.metadata), overrideable = false),
       "current_deny_lease"   -> createCheck(hasCurrentDenyLease(image.leases)),
-      "over_quota"           -> createCheck(quotas.isOverQuota(image.usageRights))
+      "over_quota"           -> createCheck(cost.quotas.isOverQuota(image.usageRights))
     )
   }
 

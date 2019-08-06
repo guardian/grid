@@ -23,14 +23,37 @@ sealed trait UsageRightsSpec {
 }
 
 object UsageRights {
-  val all = List(
-    NoRights, Handout, PrImage, Screengrab, SocialMedia,
-    Agency, CommissionedAgency, Chargeable, Bylines,
-    StaffPhotographer, ContractPhotographer, CommissionedPhotographer,
-    CreativeCommons, GuardianWitness, Pool, CrownCopyright, Obituary,
-    ContractIllustrator, CommissionedIllustrator, StaffIllustrator,
-    Composite, PublicDomain
+
+  val usageRightsMap: Map[String, UsageRightsSpec] = Map(
+    "NoRights"                -> NoRights,
+    "Handout"                 -> Handout,
+    "PrImage"                 -> PrImage,
+    "Screengrab"              -> Screengrab,
+    "SocialMedia"             -> SocialMedia,
+    "Agency"                  -> Agency,
+    "CommissionedAgency"      -> CommissionedAgency,
+    "Chargeable"              -> Chargeable,
+    "Bylines"                 -> Bylines,
+    "StaffPhotographer"       -> StaffPhotographer,
+    "ContractPhotographer"    -> ContractPhotographer,
+    "CommissionedPhotographer"-> CommissionedPhotographer,
+    "CreativeCommons"         -> CreativeCommons,
+    "GuardianWitness"         -> GuardianWitness,
+    "Pool"                    -> Pool,
+    "CrownCopyright"          -> CrownCopyright,
+    "Obituary"                -> Obituary,
+    "ContractIllustrator"     -> ContractIllustrator,
+    "CommissionedIllustrator" -> CommissionedIllustrator,
+    "StaffIllustrator"        -> StaffIllustrator,
+    "Composite"               -> Composite,
+    "PublicDomain"            -> PublicDomain
   )
+
+  def getAll(usageRights: List[String]): List[UsageRightsSpec] =
+    usageRights
+      .map(usageRightsMap.get)
+      .collect { case Some(spec) => spec }
+  
 
   val photographer = List(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
   val illustrator = List(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
