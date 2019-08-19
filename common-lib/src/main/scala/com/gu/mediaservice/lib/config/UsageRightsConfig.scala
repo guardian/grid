@@ -59,7 +59,6 @@ object UsageRightsConfig {
     "SAMURAI JAPAN",
     "Sports Illustrated",
     "Sports Illustrated Classic",
-    "Sportsfile",
     "Sygma Premium",
     "Terry O'Neill",
     "The Asahi Shimbun Premium",
