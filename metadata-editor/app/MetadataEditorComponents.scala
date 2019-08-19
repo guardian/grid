@@ -23,8 +23,7 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context)
     () => messageConsumer.actorSystem.terminate()
   }
 
-  val metaDataConfigStore = new MetadataStore(config.configBucket, config)
-  metaDataConfigStore()
+  val metaDataConfigStore = MetadataStore(config.configBucket, config)
   metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
 
   val editsController = new EditsController(auth, store, notifications, config, controllerComponents)
