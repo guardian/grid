@@ -17,7 +17,6 @@ object SupplierProcessors {
     AllStarParser,
     ApParser,
     BarcroftParser,
-    BloombergParser,
     CorbisParser,
     EpaParser,
     PaParser,
@@ -146,15 +145,6 @@ object BarcroftParser extends ImageProcessor {
     if(List(image.metadata.credit, image.metadata.source).flatten.map(_.toLowerCase).exists { s =>
       List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars").exists(s.contains)
     }) image.copy(usageRights = Agency("Barcroft Media")) else image
-}
-
-object BloombergParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Bloomberg") => image.copy(
-      usageRights = Agencies.get("bloomberg")
-    )
-    case _ => image
-  }
 }
 
 object CorbisParser extends ImageProcessor {
