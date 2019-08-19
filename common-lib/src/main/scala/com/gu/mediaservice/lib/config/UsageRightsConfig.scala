@@ -13,7 +13,6 @@ object UsageRightsConfig {
     // Note: Even though we have a deal directly with Barcroft, it
     // does not apply to images sourced through Getty. Silly, I know.
     "Barcroft Media",
-    "Bloomberg",
     "Bob Thomas Sports Photography",
     "Carnegie Museum of Art",
     "Catwalking",
