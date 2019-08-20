@@ -16,4 +16,4 @@ services:
   cerebro:
     image: lmenezes/cerebro
     ports:
-    - "9000:9000"
+    - "9090:9000"
