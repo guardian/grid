@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.config.MetadataStore
+import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
@@ -23,7 +23,10 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   val metaDataConfigStore = MetadataStore(config.configBucket, config)
   metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
 
-  val imageUploadOps = new ImageUploadOps(metaDataConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
+  val usageRightsConfigStore = UsageRightsStore(config.configBucket, config)
+  usageRightsConfigStore.scheduleUpdates(actorSystem.scheduler)
+
+  val imageUploadOps = new ImageUploadOps(metaDataConfigStore, usageRightsConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
 
   val controller = new ImageLoaderController(auth, downloader, loaderStore, notifications, config, imageUploadOps, controllerComponents, wsClient)
 
