@@ -448,25 +448,6 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
 
-  describe("Bloomberg") {
-    it("should match Bloomberg credit") {
-      val image = createImageFromMetadata("credit" -> "Bloomberg")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("Bloomberg"))
-      processedImage.metadata.credit should be(Some("Bloomberg"))
-    }
-    
-    it("should detect Bloomberg via Getty as Getty with suppliersCollection Bloomberg and not as Bloomberg") {
-      val image = createImageFromMetadata("credit" -> "Bloomberg via Getty Images", "source" -> "Bloomberg")
-      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Original Filename" -> "atari.jpg")))
-      val processedImage = applyProcessors(gettyImage)
-      processedImage.usageRights should be(Agency("Getty Images", Some("Bloomberg")))
-      processedImage.metadata.credit should be(Some("Bloomberg via Getty Images"))
-      processedImage.metadata.source should be(Some("Bloomberg"))
-    }
-  }
-
-
   def applyProcessors(image: Image): Image =
     SupplierProcessors.process(image)
 
