@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaU
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataStore
+import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
@@ -35,7 +35,8 @@ class MediaApi(
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
-                metadataStore: MetadataStore
+                metadataStore: MetadataStore,
+                usageRightsStore: UsageRightsStore
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -246,7 +247,8 @@ class MediaApi(
           val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
           val cleanMetadata = metadataCleaners.clean(imageMetadata)
           val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-          val processedImage = new SupplierProcessors(metadataConfig).process(imageCleanMetadata)
+          val usageRightsConfig = usageRightsStore.get
+          val processedImage = new SupplierProcessors(metadataConfig).process(imageCleanMetadata, usageRightsConfig)
 
           // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
           val finalImage = processedImage.copy(
