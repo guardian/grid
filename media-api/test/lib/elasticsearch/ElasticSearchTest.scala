@@ -39,7 +39,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
-  private val usageRightsConfig = UsageRightsConfig(List(), List(), Map("" -> List()))
+  private val usageRightsConfig = UsageRightsConfig(List(), List(), List(), Map("" -> List()))
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
   val client = ES.client
