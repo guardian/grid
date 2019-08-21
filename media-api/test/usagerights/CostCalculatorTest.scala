@@ -14,7 +14,7 @@ class CostCalculatorTest extends AsyncFunSpec with Matchers with MockitoSugar {
     val Quota = mock[UsageQuota]
     val usageRightsStore = mock[UsageRightsStore]
 
-    when(usageRightsStore.get) thenReturn UsageRightsConfig(List(), List(), List("Getty Images"), Map("Getty Images" -> List("Terry O'Neill")))
+    when(usageRightsStore.get) thenReturn UsageRightsConfig(List(), List(), List(), List("Getty Images"), Map("Getty Images" -> List("Terry O'Neill")))
 
     object Costing extends CostCalculator(usageRightsStore, Quota) {
       override def getOverQuota(usageRights: UsageRights) = None
