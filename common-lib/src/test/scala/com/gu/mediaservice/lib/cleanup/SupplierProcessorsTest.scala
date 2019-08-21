@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.{Company, MetadataConfig}
+import com.gu.mediaservice.lib.config.{Company, MetadataConfig, SupplierMatch, UsageRightsConfig}
 import com.gu.mediaservice.model._
-import org.scalatest.{Matchers, FunSpec}
+import org.scalatest.{FunSpec, Matchers}
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
