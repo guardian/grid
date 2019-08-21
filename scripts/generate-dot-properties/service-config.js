@@ -10,6 +10,7 @@ function getAuthConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |aws.region=${config.aws.region}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -23,6 +24,7 @@ function getCollectionsConfig(config) {
         |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -36,6 +38,7 @@ function getCropperConfig(config) {
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -48,6 +51,7 @@ function getImageLoaderConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -68,6 +72,7 @@ function getKahunaConfig(config) {
         |links.supportEmail=${config.links.supportEmail}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |security.frameAncestors=${config.security.frameAncestors}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -79,6 +84,7 @@ function getLeasesConfig(config) {
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
         |dynamo.tablename.leasesTable=${config.stackProps.LeasesDynamoTable}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -100,6 +106,7 @@ function getMediaApiConfig(config) {
         |es6.replicas=${config.es6.replicas}
         |quota.store.key=rcs-quota.json
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -113,6 +120,7 @@ function getMetadataEditorConfig(config) {
         |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
         |indexed.images.sqs.queue.url=${config.stackProps.IndexedImageMetadataQueueUrl}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -142,6 +150,7 @@ function getThrallConfig(config) {
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |metrics.request.enabled=false
         |`;
 }
 
@@ -161,6 +170,7 @@ function getUsageConfig(config) {
         |crier.live.name=${config.crier.live.streamName}
         |app.name=usage
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |metrics.request.enabled=false
         |`;
 }
 
