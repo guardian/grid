@@ -17,6 +17,7 @@ class SearchFilters(config: MediaApiConfig, usageRightsConfig: () => UsageRights
   val usageRights: List[String] = usageRightsConf.usageRights
   val freeSuppliers: List[String] = usageRightsConf.freeSuppliers
   val suppliersCollectionExcl: Map[String, List[String]] = usageRightsConf.suppliersCollectionExcl
+  val supplierCostingsMap: Map[String, Cost] = usageRightsConf.supplierCostings
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!
@@ -36,7 +37,8 @@ class SearchFilters(config: MediaApiConfig, usageRightsConfig: () => UsageRights
 
   val suppliersWithExclusionsFilter: Option[Query] = suppliersWithExclusionsFilters.toNel.map(filters.or)
   val suppliersNoExclusionsFilter: Option[Query] = suppliersNoExclusions.toNel.map(filters.terms(usageRightsField("supplier"), _))
-  val freeSupplierFilter: Option[Query] = filterOrFilter(suppliersWithExclusionsFilter, suppliersNoExclusionsFilter)
+  val freeSuppliersCostFilter: Option[Query] = freeToUseSuppliers.toNel.map(filters.terms(usageRightsField("supplier"), _))
+  val freeSupplierFilter: Option[Query] = filterAndFilter(filterOrFilter(suppliersWithExclusionsFilter, suppliersNoExclusionsFilter), freeSuppliersCostFilter)
 
   // We're showing `Conditional` here too as we're considering them potentially
   // free. We could look into sending over the search query as a cost filter
@@ -52,6 +54,9 @@ class SearchFilters(config: MediaApiConfig, usageRightsConfig: () => UsageRights
 
   lazy val freeToUseCategories: List[String] =
     UsageRights.getAll(usageRights).filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
+
+  lazy val freeToUseSuppliers: List[String] =
+    freeSuppliers.filter(s => supplierCostingsMap.get(s).exists(cost => cost == Free || cost == Conditional))
 
   val persistedCategories = NonEmptyList(
     StaffPhotographer.category,

@@ -11,10 +11,12 @@ case class CostCalculator(usageRightsStore: UsageRightsStore, quotas: UsageQuota
   val defaultCost = Pay
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {
-    val c = usageRightsStore.get
-    val free = c.isFreeSupplier(supplier) && ! collection.exists(c.isExcludedColl(supplier, _))
+    val costingPerAgency = usageRightsStore.get.supplierCostings
 
-    if (free) Some(Free) else None
+    val c = usageRightsStore.get
+    val excluded = collection.exists(c.isExcludedColl(supplier, _))
+
+    if (excluded) None else costingPerAgency.get(supplier)
   }
 
   def isConditional(usageRights: UsageRights): Boolean =

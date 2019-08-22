@@ -521,7 +521,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     )
 
     val usageRightsConfig =
-      UsageRightsConfig(matches, supplierParsers, List(), List(), Map())
+      UsageRightsConfig(matches, supplierParsers, Map(), List(), List(), Map())
 
     val metadataConfig =
       MetadataConfig(List(), List(),

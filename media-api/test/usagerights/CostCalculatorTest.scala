@@ -14,7 +14,16 @@ class CostCalculatorTest extends AsyncFunSpec with Matchers with MockitoSugar {
     val Quota = mock[UsageQuota]
     val usageRightsStore = mock[UsageRightsStore]
 
-    when(usageRightsStore.get) thenReturn UsageRightsConfig(List(), List(), List(), List("Getty Images"), Map("Getty Images" -> List("Terry O'Neill")))
+    when(usageRightsStore.get) thenReturn UsageRightsConfig(List(), List(),
+      Map(
+        "Rex Features"-> Pay,
+        "Alamy"       -> Pay,
+        "Reuters"     -> Pay,
+        "EPA"         -> Conditional,
+        "Getty Images"-> Free,
+        "AFP"         -> Conditional,
+        "PA"          -> Conditional
+      ),List(), List("Getty Images"), Map("Getty Images" -> List("Terry O'Neill")))
 
     object Costing extends CostCalculator(usageRightsStore, Quota) {
       override def getOverQuota(usageRights: UsageRights) = None
@@ -56,6 +65,20 @@ class CostCalculatorTest extends AsyncFunSpec with Matchers with MockitoSugar {
 
     it("should not be pay-for with a free supplier but excluded collection") {
       val usageRights = Agency("Getty Images", Some("Terry O'Neill"))
+      val cost = Costing.getCost(usageRights)
+
+      cost should be (Pay)
+    }
+
+    it("should be Conditional for an agency set to be conditional in usage rights config") {
+      val usageRights = Agency("EPA")
+      val cost = Costing.getCost(usageRights)
+
+      cost should be (Conditional)
+    }
+
+    it("should be Pay for an agency set to be pay in usage rights config") {
+      val usageRights = Agency("Alamy")
       val cost = Costing.getCost(usageRights)
 
       cost should be (Pay)
