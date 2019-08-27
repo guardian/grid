@@ -211,7 +211,7 @@ final case class Agency(supplier: String, suppliersCollection: Option[String] = 
 }
 object Agency extends UsageRightsSpec {
   val category = "agency"
-  val defaultCost = Some(Pay)
+  val defaultCost = None
   val name = "Agency - subscription"
   val description =
     "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid to access and use pictures."
