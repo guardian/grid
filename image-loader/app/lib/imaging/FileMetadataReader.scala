@@ -1,8 +1,6 @@
 package lib.imaging
 
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.concurrent.Executors
 
 import com.drew.imaging.ImageMetadataReader
@@ -16,6 +14,8 @@ import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+import org.joda.time.{DateTime, DateTimeZone}
+import org.joda.time.format.ISODateTimeFormat
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -66,26 +66,16 @@ object FileMetadataReader {
 
       directory match {
         case d: IptcDirectory =>
-          val dateTimeCreated = try {
-            Map("Date Time Created Composite" -> dateToString(d.getDateCreated))
-          } catch {
-            case _: Throwable => Map()
-          }
+          val dateTimeCreated =
+            Option(d.getDateCreated).map(d => dateToUTCString(new DateTime(d))).map("Date Time Created Composite" -> _)
 
-          val digitalDateTimeCreated = try {
-            Map("Digital Date Time Created Composite" -> dateToString(d.getDigitalDateCreated))
-          } catch {
-            case _: Throwable => Map()
-          }
+          val digitalDateTimeCreated =
+            Option(d.getDigitalDateCreated).map(d => dateToUTCString(new DateTime(d))).map("Digital Date Time Created Composite" -> _)
 
           metaTagsMap ++ dateTimeCreated ++ digitalDateTimeCreated
 
         case d: ExifSubIFDDirectory =>
-          val dateTimeCreated = try {
-            Map("Date/Time Original Composite" -> dateToString(d.getDateOriginal))
-          } catch {
-            case _: Throwable => Map()
-          }
+          val dateTimeCreated = Option(d.getDateOriginal).map(d => dateToUTCString(new DateTime(d))).map("Date/Time Original Composite" -> _)
           metaTagsMap ++ dateTimeCreated
 
         case _ => metaTagsMap
@@ -126,7 +116,7 @@ object FileMetadataReader {
       ).flattenOptions
   }
 
-  private def dateToString(date: Date): String = new SimpleDateFormat("E MMM dd HH:mm:ss.SSS z yyyy").format(date.getTime)
+  private def dateToUTCString(date: DateTime): String = ISODateTimeFormat.dateTime.print(date.withZone(DateTimeZone.UTC))
 
   def dimensions(image: File, mimeType: Option[String]): Future[Option[Dimensions]] =
     for {
@@ -175,7 +165,7 @@ object FileMetadataReader {
   }
 
   private def getColourInformation(metadata: Metadata, maybeImageType: Option[String], mimeType: String): Map[String, String] = {
-    
+
     val hasAlpha = maybeImageType.map(imageType => if (imageType.contains("Matte")) "true" else "false")
 
     mimeType match {
@@ -196,7 +186,7 @@ object FileMetadataReader {
           "bitsPerSample" -> Option(metaDir.getDescription(ExifDirectoryBase.TAG_BITS_PER_SAMPLE))
         ).flattenOptions
     }
-                       
+
 
 
   }
