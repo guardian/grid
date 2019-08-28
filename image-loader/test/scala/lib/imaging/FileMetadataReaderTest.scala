@@ -83,7 +83,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Image Rank" -> "3",
         "Original Filename" -> "43885812_SEA.jpg",
         "Exclusive Coverage" -> "False",
-        "Original Create Date Time" -> "0001-01-01T00:00:00.000+00:00"
+        "Original Create Date Time" -> "0001-01-01T00:00:00.000Z"
       )
       val xmp = Map(
         "GettyImagesGIFT:ImageRank" -> "3",
@@ -101,10 +101,10 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "dc:description[1]" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images",
         "photoshop:City" -> "KITZBUEHEL",
         "GettyImagesGIFT:ExclusiveCoverage" -> "False",
-        "photoshop:DateCreated" -> "2015-01-22T00:00:00.000+00:00",
+        "photoshop:DateCreated" -> "2015-01-22T00:00:00.000Z",
         "photoshop:Credit" -> "AFP/Getty Images",
         "dc:Rights" -> "CHRISTOF STACHE",
-        "GettyImagesGIFT:OriginalCreateDateTime" -> "0001-01-01T00:00:00.000+00:00",
+        "GettyImagesGIFT:OriginalCreateDateTime" -> "0001-01-01T00:00:00.000Z",
         "Iptc4xmpCore:CountryCode" -> "AUT",
         "GettyImagesGIFT:CallForImage" -> "False",
         "photoshop:Country" -> "AUSTRIA",
