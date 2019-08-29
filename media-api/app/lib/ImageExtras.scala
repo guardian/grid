@@ -47,7 +47,7 @@ object ImageExtras {
 
     Map(
       "paid_image"           -> createCheck(cost.isPay(image.usageRights)),
-      "conditional_paid"     -> createCheck(cost.isConditional(image.usageRights)),
+//      "conditional_paid"     -> createCheck(cost.isConditional(image.usageRights)), //TODO: Need a better way around this, potentially extracting this to config. This allows all conditional/restricted images to be edited as normal. Reason being we want 'amber' images to be usable
       "no_rights"            -> createCheck(!hasRights(image.usageRights)),
       "missing_credit"       -> createCheck(!hasCredit(image.metadata), overrideable = false),
       "missing_description"  -> createCheck(!hasDescription(image.metadata), overrideable = false),
