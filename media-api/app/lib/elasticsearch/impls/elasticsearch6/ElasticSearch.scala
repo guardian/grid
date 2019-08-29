@@ -20,6 +20,7 @@ import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
+import play.mvc.Http.Status
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -37,9 +38,10 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
-    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
-      mapImageFrom(r.result.sourceAsString, id)
-    }
+    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r => r.status match {
+      case Status.OK => mapImageFrom(r.result.sourceAsString, id)
+      case _ => None
+    }}
   }
 
   override def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
