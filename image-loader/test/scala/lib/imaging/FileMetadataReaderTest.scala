@@ -83,7 +83,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Image Rank" -> "3",
         "Original Filename" -> "43885812_SEA.jpg",
         "Exclusive Coverage" -> "False",
-        "Original Create Date Time" -> "0001-01-01T00:00:00.000+00:00"
+        "Original Create Date Time" -> "0001-01-01T00:00:00.000Z"
       )
       val xmp = Map(
         "GettyImagesGIFT:ImageRank" -> "3",
@@ -101,10 +101,10 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "dc:description[1]" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images",
         "photoshop:City" -> "KITZBUEHEL",
         "GettyImagesGIFT:ExclusiveCoverage" -> "False",
-        "photoshop:DateCreated" -> "2015-01-22T00:00:00.000+00:00",
+        "photoshop:DateCreated" -> "2015-01-22T00:00:00.000Z",
         "photoshop:Credit" -> "AFP/Getty Images",
         "dc:Rights" -> "CHRISTOF STACHE",
-        "GettyImagesGIFT:OriginalCreateDateTime" -> "0001-01-01T00:00:00.000+00:00",
+        "GettyImagesGIFT:OriginalCreateDateTime" -> "0001-01-01T00:00:00.000Z",
         "Iptc4xmpCore:CountryCode" -> "AUT",
         "GettyImagesGIFT:CallForImage" -> "False",
         "photoshop:Country" -> "AUSTRIA",
@@ -177,7 +177,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Reference Date" -> "2015:04:02",
         "Original Transmission Reference" -> "CRICKET_England_Moeen_111162.JPG",
         "Date Created" -> "2015:04:02",
-        "Date Time Created Composite" -> "Thu Apr 02 16:10:41.000 BST 2015"
+        "Date Time Created Composite" -> "2015-04-02T15:10:41.000Z"
       )
       val exif = Map(
         "Image Description" -> "England's Moeen Ali plays defensively from the bowling of Sri Lanka's Shaminda Eranga, during day five of the second Investec Test match at Headingley, Leeds. PRESS ASSOCIATION Photo. Picture date: Tuesday June 24, 2014. See PA Story CRICKET England. Photo credit should read: Martin Rickett/PA Wire. Editorial use only. RESTRICTIONS: Use subject to restrictions. Editorial use only. No commercial use. Call 44 (0)1158 447447 for further information.",
@@ -206,7 +206,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "White Balance" -> "Unknown",
         "Focal Length" -> "600 mm",
         "Date/Time Original" -> "2014:06:24 15:10:41",
-        "Date/Time Original Composite" -> "Tue Jun 24 16:10:41.700 BST 2014",
+        "Date/Time Original Composite" -> "2014-06-24T15:10:41.700Z",
         "White Balance Mode" -> "Auto white balance",
         "Exif Image Width" -> "1264 pixels",
         "Gain Control" -> "Low gain up",
@@ -266,7 +266,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Reference Date" -> "2015:04:02",
         "Original Transmission Reference" -> "CRICKET_England_Moeen_111162.JPG",
         "Date Created" -> "2015:04:02",
-        "Date Time Created Composite" -> "Thu Apr 02 16:10:41.000 BST 2015"
+        "Date Time Created Composite" -> "2015-04-02T15:10:41.000Z"
       )
       val exif = Map(
         "Image Description" -> "England's Moeen Ali plays defensively from the bowling of Sri Lanka's Shaminda Eranga, during day five of the second Investec Test match at Headingley, Leeds. PRESS ASSOCIATION Photo. Picture date: Tuesday June 24, 2014. See PA Story CRICKET England. Photo credit should read: Martin Rickett/PA Wire. Editorial use only. RESTRICTIONS: Use subject to restrictions. Editorial use only. No commercial use. Call 44 (0)1158 447447 for further information.",
@@ -303,7 +303,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "White Balance" -> "Unknown",
         "Focal Length" -> "600 mm",
         "Date/Time Original" -> "2014:06:24 15:10:41",
-        "Date/Time Original Composite" -> "Tue Jun 24 16:10:41.700 BST 2014",
+        "Date/Time Original Composite" -> "2014-06-24T15:10:41.700Z",
         "White Balance Mode" -> "Auto white balance",
         "Exif Image Width" -> "1264 pixels",
         "Gain Control" -> "Low gain up",
@@ -350,7 +350,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "By-line" -> "Graham Turner",
       "Object Name" -> "Tulips",
       "Date Created" -> "2015:04:15",
-      "Date Time Created Composite" -> "Wed Apr 15 02:08:44.000 BST 2015"
+      "Date Time Created Composite" -> "2015-04-15T01:08:44.000Z"
     )
     val exif = Map(
       "Image Description" -> "Reuben Smith age 5 from Hampshire and  \"Darwin Hybrid Mix' tulips in the cut flower Garden at Arundel Castle.\n18,000 tulips were planted in  a total of 52,000 spring bulbs last autumn.\nPhotograph: Graham Turner.",
@@ -376,7 +376,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "Flash" -> "Flash did not fire, auto",
       "Focal Length" -> "88 mm",
       "Date/Time Original" -> "2015:04:15 01:08:44",
-      "Date/Time Original Composite" -> "Wed Apr 15 02:08:44.880 BST 2015",
+      "Date/Time Original Composite" -> "2015-04-15T01:08:44.880Z",
       "White Balance Mode" -> "Auto white balance",
       "Shutter Speed Value" -> "1/1599 sec",
       "Exif Image Width" -> "5760 pixels",

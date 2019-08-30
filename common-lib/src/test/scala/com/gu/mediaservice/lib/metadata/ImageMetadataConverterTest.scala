@@ -83,19 +83,19 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   it("should populate the dateTaken field of ImageMetadata from EXIF Date/Time Original Composite (Mon Jun 18 01:23:45 BST 2018)") {
     val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map("Date/Time Original Composite" -> "Mon Jun 18 01:23:45 BST 2018"), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T01:23:45")))
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T00:23:45Z")))
   }
 
   it("should populate the dateTaken field of ImageMetadata from EXIF Date/Time Original Composite with milliseconds (Mon Jun 18 01:23:45.025 BST 2018)") {
     val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map("Date/Time Original Composite" -> "Mon Jun 18 01:23:45.025 BST 2018"), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T01:23:45.025")))
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T00:23:45.025Z")))
   }
 
   it("should populate the dateTaken field of ImageMetadata from IPTC Date Time Created Composite (Mon Jun 18 01:23:45 BST 2018)") {
     val fileMetadata = FileMetadata(iptc = Map("Date Time Created Composite" -> "Mon Jun 18 01:23:45 BST 2018"), exif = Map(), exifSub = Map(), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T01:23:45")))
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-18T00:23:45Z")))
   }
 
   it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (2014-12-16T02:23:45+01:00)") {
@@ -113,13 +113,13 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (2018-06-27T13:54:55)") {
     val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "2018-06-27T13:54:55"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(parseDate("2018-06-27T13:54:55")))
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-27T13:54:55Z")))
   }
 
   it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (2018-06-27T13:54:55.123)") {
     val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "2018-06-27T13:54:55.123"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(parseDate("2018-06-27T13:54:55.123")))
+    imageMetadata.dateTaken should be (Some(parseDate("2018-06-27T13:54:55.123Z")))
   }
 
   it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (Tue Dec 16 01:23:45 GMT 2014)") {
@@ -137,7 +137,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (Tue Dec 16 01:23:45 BST 2014)") {
     val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> "Tue Dec 16 01:23:45 BST 2014"))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T01:23:45")))
+    imageMetadata.dateTaken should be (Some(parseDate("2014-12-16T00:23:45Z")))
   }
 
   it("should populate the dateTaken field of ImageMetadata from XMP photoshop:DateCreated (Tue Dec 16 01:23:45 PDT 2014)") {
@@ -195,47 +195,47 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   }
 
   it("should clean up 'just date' dates into iso format") {
-    ImageMetadataConverter.cleanDate("2014-12-16") shouldBe "2014-12-16T00:00:00.000+00:00"
+    ImageMetadataConverter.cleanDate("2014-12-16") shouldBe "2014-12-16T00:00:00.000Z"
   }
 
   it("should clean up iso dates with seconds into iso format") {
-    ImageMetadataConverter.cleanDate("2014-12-16T01:02:03.040Z") shouldBe "2014-12-16T01:02:03.040+00:00"
+    ImageMetadataConverter.cleanDate("2014-12-16T01:02:03.040Z") shouldBe "2014-12-16T01:02:03.040Z"
   }
 
   it("should clean up iso dates without sub-second precision into iso format") {
-    ImageMetadataConverter.cleanDate("2014-12-16T01:02:03Z") shouldBe "2014-12-16T01:02:03.000+00:00"
+    ImageMetadataConverter.cleanDate("2014-12-16T01:02:03Z") shouldBe "2014-12-16T01:02:03.000Z"
   }
 
   it("should clean up iso dates without seconds into iso format") {
-    ImageMetadataConverter.cleanDate("2014-12-16T01:02Z") shouldBe "2014-12-16T01:02:00.000+00:00"
+    ImageMetadataConverter.cleanDate("2014-12-16T01:02Z") shouldBe "2014-12-16T01:02:00.000Z"
   }
 
   it("should clean up iso dates without seconds but with fractional seconds 'lol' into iso format") {
-    ImageMetadataConverter.cleanDate("2014-12-16T01:02.040Z") shouldBe "2014-12-16T01:02:00.040+00:00"
+    ImageMetadataConverter.cleanDate("2014-12-16T01:02.040Z") shouldBe "2014-12-16T01:02:00.040Z"
   }
 
   it("should clean up machine dates with GMT time zone with subsecond precision into iso format") {
-    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03.040 GMT 2014") shouldBe "2014-12-16T01:02:03.040+00:00"
+    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03.040 GMT 2014") shouldBe "2014-12-16T01:02:03.040Z"
   }
 
   it("should clean up machine dates with GMT time zone without subsecond precision into iso format") {
-    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03 GMT 2014") shouldBe "2014-12-16T01:02:03.000+00:00"
+    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03 GMT 2014") shouldBe "2014-12-16T01:02:03.000Z"
   }
 
   it("should clean up machine dates with valid BST time zone and subsecond precision into iso format") {
-    ImageMetadataConverter.cleanDate("Sat Aug 16 01:02:03.040 BST 2014") shouldBe "2014-08-16T00:02:03.040+00:00"
+    ImageMetadataConverter.cleanDate("Sat Aug 16 01:02:03.040 BST 2014") shouldBe "2014-08-16T00:02:03.040Z"
   }
 
   it("should clean up machine dates with valid BST time zone without subsecond precision into iso format") {
-    ImageMetadataConverter.cleanDate("Sat Aug 16 01:02:03 BST 2014") shouldBe "2014-08-16T00:02:03.000+00:00"
+    ImageMetadataConverter.cleanDate("Sat Aug 16 01:02:03 BST 2014") shouldBe "2014-08-16T00:02:03.000Z"
   }
 
   it("should clean up machine dates with invalid BST time zone and subsecond precision into iso format") {
-    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03.040 BST 2014") shouldBe "2014-12-16T01:02:03.040+00:00"
+    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03.040 BST 2014") shouldBe "2014-12-16T00:02:03.040Z"
   }
 
   it("should clean up machine dates with invalid BST time zone without subsecond precision into iso format") {
-    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03 BST 2014") shouldBe "2014-12-16T01:02:03.000+00:00"
+    ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03 BST 2014") shouldBe "2014-12-16T00:02:03.000Z"
   }
 
 
