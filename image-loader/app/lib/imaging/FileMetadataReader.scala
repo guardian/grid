@@ -14,8 +14,10 @@ import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
+import play.api.Logger
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -91,29 +93,40 @@ object FileMetadataReader {
       }
     } getOrElse Map()
 
+  private def toLogstashFriendlyMarkers(data: Map[String, String]): LogstashMarker = {
+    val cleaned = data.collect {
+      case (key, value) => key.replaceAll("[\\[\\]:/]", "") -> value
+    }
+
+    Markers.appendEntries(cleaned.asJava)
+  }
+
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
   // this only extracts a small subset of properties as a means to identify Getty images.
   private def exportGettyDirectory(metadata: Metadata, imageId:String): Map[String, String] = {
-      val xmpProperties = exportXmpProperties(metadata, imageId)
+    val xmpProperties: Map[String, String] = exportXmpProperties(metadata, imageId)
 
-      def readProperty(name: String): Option[String] = xmpProperties.get(name)
+    val markers = toLogstashFriendlyMarkers(xmpProperties ++ Map("id" -> imageId))
+    Logger.info(s"Extracted xmp metadata for image ${imageId}")(markers)
 
-      def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
+    def readProperty(name: String): Option[String] = xmpProperties.get(name)
 
-      Map(
-        "Asset ID" -> readAssetId,
-        "Call For Image" -> readProperty("GettyImagesGIFT:CallForImage"),
-        "Camera Filename" -> readProperty("GettyImagesGIFT:CameraFilename"),
-        "Camera Make Model" -> readProperty("GettyImagesGIFT:CameraMakeModel"),
-        "Composition" -> readProperty("GettyImagesGIFT:Composition"),
-        "Exclusive Coverage" -> readProperty("GettyImagesGIFT:ExclusiveCoverage"),
-        "Image Rank" -> readProperty("GettyImagesGIFT:ImageRank"),
-        "Original Create Date Time" -> readProperty("GettyImagesGIFT:OriginalCreateDateTime"),
-        "Original Filename" -> readProperty("GettyImagesGIFT:OriginalFilename"),
-        "Personality" -> readProperty("GettyImagesGIFT:Personality"),
-        "Time Shot" -> readProperty("GettyImagesGIFT:TimeShot")
-      ).flattenOptions
+    def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
+
+    Map(
+      "Asset ID" -> readAssetId,
+      "Call For Image" -> readProperty("GettyImagesGIFT:CallForImage"),
+      "Camera Filename" -> readProperty("GettyImagesGIFT:CameraFilename"),
+      "Camera Make Model" -> readProperty("GettyImagesGIFT:CameraMakeModel"),
+      "Composition" -> readProperty("GettyImagesGIFT:Composition"),
+      "Exclusive Coverage" -> readProperty("GettyImagesGIFT:ExclusiveCoverage"),
+      "Image Rank" -> readProperty("GettyImagesGIFT:ImageRank"),
+      "Original Create Date Time" -> readProperty("GettyImagesGIFT:OriginalCreateDateTime"),
+      "Original Filename" -> readProperty("GettyImagesGIFT:OriginalFilename"),
+      "Personality" -> readProperty("GettyImagesGIFT:Personality"),
+      "Time Shot" -> readProperty("GettyImagesGIFT:TimeShot")
+    ).flattenOptions
   }
 
   private def dateToUTCString(date: DateTime): String = ISODateTimeFormat.dateTime.print(date.withZone(DateTimeZone.UTC))
