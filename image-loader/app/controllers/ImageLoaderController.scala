@@ -104,7 +104,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       uploadInfo = uploadInfo_
     )
 
-    Logger.info(s"Received ${uploadRequestDescription(uploadRequest)}")
+    Logger.info(s"Received request to load file")(uploadRequest.toLogMarker)
 
     val supportedMimeType = config.supportedMimeTypes.exists(mimeType_.contains(_))
 
@@ -117,16 +117,11 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
               (request: Authentication.Request[DigestedFile]): Future[Result] =
     loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime, filename)
 
-
-  def uploadRequestDescription(u: UploadRequest): String = {
-    s"id: ${u.id}, by: ${u.uploadedBy} @ ${u.uploadTime}, mimeType: ${u.mimeType getOrElse "none"}, filename: ${u.uploadInfo.filename getOrElse "none"}"
-  }
-
   val invalidUri        = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
   val failedUriDownload = respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
 
   def unsupportedTypeError(u: UploadRequest): Future[Result] = Future {
-    Logger.info(s"Rejected ${uploadRequestDescription(u)}: mime-type is not supported")
+    Logger.info(s"Rejected request to load file: mime-type is not supported")(u.toLogMarker)
     val mimeType = u.mimeType getOrElse "none"
 
     respondError(
@@ -150,7 +145,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     result recover {
       case e =>
-        Logger.warn(s"Rejected ${uploadRequestDescription(uploadRequest)}: ${e.getMessage}.", e)
+        Logger.warn(s"Failed to store file: ${e.getMessage}.", e)(uploadRequest.toLogMarker)
 
         store.deleteOriginal(uploadRequest.id).onComplete {
           case Failure(err) => Logger.error(s"Failed to delete image for ${uploadRequest.id}: $err")
