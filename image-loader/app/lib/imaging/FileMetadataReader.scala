@@ -3,6 +3,7 @@ package lib.imaging
 import java.io.File
 import java.util.concurrent.Executors
 
+import com.adobe.xmp.XMPMetaFactory
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.{ExifDirectoryBase, ExifIFD0Directory, ExifSubIFDDirectory}
 import com.drew.metadata.icc.IccDirectory
@@ -23,6 +24,29 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 object FileMetadataReader {
+
+  /*
+  The XMPMetaFactory in the Adobe xmpcore library keeps a stateful list of previously seen prefix (namespace) to schema
+  mappings in a `XMPSchemaRegistry`
+
+  Let:
+  - Image A namespace Getty schema (http://xmp.gettyimages.com/gift/1.0/) with `prefix0`
+  - Image B namespace Getty schema (http://xmp.gettyimages.com/gift/1.0/) with `GettyImagesGIFT`
+
+  If we process Image A first, the `XMPSchemaRegistry` will say the Getty namespace is prefixed with `prefix0`.
+  When we process Image B, we'll see it uses the Getty namespace with the `GettyImagesGIFT` prefix,
+  but that the namespace is in the `XMPSchemaRegistry` from Image A, so we'll set the prefix to `prefix0`.
+
+  Conversely, if we process Image B first, the `XMPSchemaRegistry` cache will be in the desired state and Image A will
+  be ingested correctly. That is, it's pot luck!
+
+  As a workaround, register the Getty prefix as `GettyImagesGIFT` early to force Getty metadata to use the correct prefix.
+  This is what ExifTool does - https://github.com/exiftool/exiftool/blob/3339862c31076f9db30270b3965ac1c49ee0687a/lib/Image/ExifTool/XMP.pm#L184
+   */
+  private val namespaces = Map(
+    "GettyImagesGIFT" -> "http://xmp.gettyimages.com/gift/1.0/"
+  )
+  for ((prefix, namespaceUri) <- namespaces) XMPMetaFactory.getSchemaRegistry.registerNamespace(namespaceUri, prefix)
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
