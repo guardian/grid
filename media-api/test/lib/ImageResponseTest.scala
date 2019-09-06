@@ -46,35 +46,33 @@ class ImageResponseTest extends FunSpec with Matchers {
       originalUsageRights = null
     )
 
-    val mediaApiCfg = buildMediaAPIConfig
-    val noS3Client = null
-    val noUsageQuota = null
-    val imageResponse = new ImageResponse(mediaApiCfg, noS3Client, noUsageQuota)
-    import imageResponse._
+    val persistedIdentifier = "test-p-id"
 
-    imagePersistenceReasons(img) shouldBe Nil
-    val imgWithPersistenceIdentifier = img.copy(identifiers = Map(mediaApiCfg.persistenceIdentifier -> "test-id"))
-    imagePersistenceReasons(imgWithPersistenceIdentifier) shouldBe List("persistence-identifier")
+    val persistedRootCollections = List()
+
+    ImageResponse.imagePersistenceReasonsFoo(img, persistedRootCollections, persistedIdentifier) shouldBe Nil
+    val imgWithPersistenceIdentifier = img.copy(identifiers = Map(persistedIdentifier -> "test-id"))
+    ImageResponse.imagePersistenceReasonsFoo(imgWithPersistenceIdentifier, persistedRootCollections, persistedIdentifier) shouldBe List("persistence-identifier")
     val imgWithExports = img.copy(exports = List(Crop(None, None, None, null, None, Nil)))
-    imagePersistenceReasons(imgWithExports) shouldBe List("exports")
+    ImageResponse.imagePersistenceReasonsFoo(imgWithExports, persistedRootCollections, persistedIdentifier) shouldBe List("exports")
     val imgWithUsages = img.copy(usages = List(Usage("test", Nil, null, "img", null, None, None, now())))
-    imagePersistenceReasons(imgWithUsages) shouldBe List("usages")
+    ImageResponse.imagePersistenceReasonsFoo(imgWithUsages, persistedRootCollections, persistedIdentifier) shouldBe List("usages")
     val imgWitArchive = img.copy(userMetadata = Some(Edits(archived = true, metadata = null)))
-    imagePersistenceReasons(imgWitArchive) shouldBe List("archived")
+    ImageResponse.imagePersistenceReasonsFoo(imgWitArchive, persistedRootCollections, persistedIdentifier) shouldBe List("archived")
     val imgWitPhotographerCategory = img.copy(usageRights = ContractPhotographer("test"))
-    imagePersistenceReasons(imgWitPhotographerCategory) shouldBe List("photographer-category")
+    ImageResponse.imagePersistenceReasonsFoo(imgWitPhotographerCategory, persistedRootCollections, persistedIdentifier) shouldBe List("photographer-category")
     val imgWitIllustratorCategory = img.copy(usageRights = StaffIllustrator("test"))
-    imagePersistenceReasons(imgWitIllustratorCategory) shouldBe List("illustrator-category")
+    ImageResponse.imagePersistenceReasonsFoo(imgWitIllustratorCategory, persistedRootCollections, persistedIdentifier) shouldBe List("illustrator-category")
     val imgWitAgencyCommissionedCategory = img.copy(usageRights = CommissionedAgency("test"))
-    imagePersistenceReasons(imgWitAgencyCommissionedCategory) shouldBe List(CommissionedAgency.category)
+    ImageResponse.imagePersistenceReasonsFoo(imgWitAgencyCommissionedCategory, persistedRootCollections, persistedIdentifier) shouldBe List(CommissionedAgency.category)
     val imgWitLeases = img.copy(leases = LeasesByMedia.build(List(MediaLease(id = None, leasedBy = None, notes = None, mediaId = "test"))))
-    imagePersistenceReasons(imgWitLeases) shouldBe List("leases")
+    ImageResponse.imagePersistenceReasonsFoo(imgWitLeases, persistedRootCollections, persistedIdentifier) shouldBe List("leases")
 
     val imgWitPhotoshoot = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("test")), photoshoot = Some(Photoshoot("test")))))
-    imagePersistenceReasons(imgWitPhotoshoot) shouldBe List("photoshoot", "edited")
+    ImageResponse.imagePersistenceReasonsFoo(imgWitPhotoshoot, persistedRootCollections, persistedIdentifier) shouldBe List("photoshoot", "edited")
 
     val imgWitUserEdits = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("test")))))
-    imagePersistenceReasons(imgWitUserEdits) shouldBe List("edited")
+    ImageResponse.imagePersistenceReasonsFoo(imgWitUserEdits, persistedRootCollections, persistedIdentifier) shouldBe List("edited")
   }
 
   private def buildMediaAPIConfig = {
