@@ -117,7 +117,17 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       reasons += "photoshoot"
     }
 
+    if (hasUserEdits(image)) {
+      reasons += "edited"
+    }
+
     reasons.toList
+  }
+
+  def hasUserEdits(image: Image) = {
+    val hasUserMeta = image.userMetadata.exists(_.metadata != null)
+    val hasUserLabels = image.userMetadata.exists(_.labels.nonEmpty)
+    hasUserMeta || hasUserLabels
   }
 
   def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
@@ -276,7 +286,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     __.read[JsObject].map { root =>
       val edits = (root \ "userMetadata").asOpt[Edits].getOrElse(Edits.getEmpty)
       val editsJson = Json.toJson(editsEmbeddedEntity(id, edits))
-      
+
       root ++ Json.obj("userMetadata" -> editsJson)
     }
 
