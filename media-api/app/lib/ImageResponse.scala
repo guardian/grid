@@ -2,7 +2,6 @@ package lib
 
 import java.net.URI
 
-import com.gu.mediaservice.lib.FeatureToggle
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
@@ -20,7 +19,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
-//  implicit val dateTimeFormat = DateFormat
+  //  implicit val dateTimeFormat = DateFormat
   implicit val usageQuotas = usageQuota
 
   object Costing extends CostCalculator {
@@ -39,23 +38,21 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   type MediaLeaseEntity = EmbeddedEntity[MediaLease]
   type MediaLeasesEntity = EmbeddedEntity[LeasesByMedia]
 
-  import ImageResponse._
+  import ImageResponse.{imagePersistenceReasonsFunction, canImgBeDeleted}
 
   private val getImagePersistenceReasonsFunction = imagePersistenceReasonsFunction(config.persistedRootCollections, config.persistenceIdentifier)
 
-  def imagePersistenceReasons(image: Image): List[String] = {
-    getImagePersistenceReasonsFunction(image)
-  }
+  def imagePersistenceReasons(image: Image): List[String] = getImagePersistenceReasonsFunction(image)
 
-  def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
+  def canBeDeleted(image: Image) = canImgBeDeleted(image)
 
   def create(
-    id: String,
-    image: Image,
-    withWritePermission: Boolean,
-    withDeleteImagePermission: Boolean,
-    withDeleteCropsOrUsagePermission: Boolean,
-    included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
+              id: String,
+              image: Image,
+              withWritePermission: Boolean,
+              withDeleteImagePermission: Boolean,
+              withDeleteCropsOrUsagePermission: Boolean,
+              included: List[String] = List(), tier: Tier): (JsValue, List[Link], List[Action]) = {
 
     val source = Try {
       Json.toJson(image)(imageResponseWrites(image.id, included.contains("fileMetadata")))
@@ -74,13 +71,14 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .map(s3Client.signUrl(config.imageBucket, _, image, imageType = OptimisedPng))
 
     def s3SignedThumbUrl = s3Client.signUrl(config.thumbBucket, fileUri, image, imageType = Thumbnail)
-    val thumbUrl = config.cloudFrontDomainThumbBucket
-        .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
-        .getOrElse(s3SignedThumbUrl)
 
-    val validityMap       = ImageExtras.validityMap(image, withWritePermission)
-    val valid             = ImageExtras.isValid(validityMap)
-    val invalidReasons    = ImageExtras.invalidReasons(validityMap)
+    val thumbUrl = config.cloudFrontDomainThumbBucket
+      .flatMap(s3Client.signedCloudFrontUrl(_, fileUri.getPath.drop(1)))
+      .getOrElse(s3SignedThumbUrl)
+
+    val validityMap = ImageExtras.validityMap(image, withWritePermission)
+    val valid = ImageExtras.isValid(validityMap)
+    val invalidReasons = ImageExtras.invalidReasons(validityMap)
 
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
@@ -92,7 +90,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
         pngUrl
           .map(url => addSecureOptimisedPngUrl(url))
           .getOrElse(__.json.pick)
-        ))
+      ))
       .flatMap(_.transform(addValidity(valid)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
@@ -106,7 +104,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val isDeletable = canBeDeleted(image) && withDeleteImagePermission
 
-    val actions: List[Action] = if(tier == Internal) imageActions(id, isDeletable, withWritePermission, withDeleteCropsOrUsagePermission) else Nil
+    val actions: List[Action] = if (tier == Internal) imageActions(id, isDeletable, withWritePermission, withDeleteCropsOrUsagePermission) else Nil
 
     (data, links, actions)
   }
@@ -121,7 +119,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       case Some(secureUrl) => Some(Link("optimisedPng", makeImgopsUri(new URI(secureUrl))))
       case _ => None
     }
-    val imageLink = Link("ui:image",  s"${config.kahunaUri}/images/$id")
+    val imageLink = Link("ui:image", s"${config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
     val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
@@ -161,16 +159,16 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val deleteUsagesAction = Action("delete-usages", deleteUsagesUri, "DELETE")
 
     List(
-      deleteAction        -> isDeletable,
-      reindexAction       -> withWritePermission,
-      addLeasesAction     -> withWritePermission,
+      deleteAction -> isDeletable,
+      reindexAction -> withWritePermission,
+      addLeasesAction -> withWritePermission,
       replaceLeasesAction -> withWritePermission,
-      deleteLeasesAction  -> withWritePermission,
-      deleteUsagesAction  -> withDeleteCropsOrUsagePermission,
+      deleteLeasesAction -> withWritePermission,
+      deleteUsagesAction -> withDeleteCropsOrUsagePermission,
       addCollectionAction -> true
     )
-    .filter{ case (action, active) => active }
-    .map   { case (action, active) => action }
+      .filter { case (action, active) => active }
+      .map { case (action, active) => action }
   }
 
   def addUsageCost(source: JsValue): Reads[JsObject] = {
@@ -214,7 +212,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (__ \ "optimisedPng").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
 
   def addSecureThumbUrl(url: String): Reads[JsObject] =
-    (__ \ "thumbnail").json.update(__.read[JsObject].map (_ ++ Json.obj("secureUrl" -> url)))
+    (__ \ "thumbnail").json.update(__.read[JsObject].map(_ ++ Json.obj("secureUrl" -> url)))
 
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
@@ -234,43 +232,46 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def imageResponseWrites(id: String, expandFileMetaData: Boolean): Writes[Image] = (
     (__ \ "id").write[String] ~
-    (__ \ "uploadTime").write[DateTime] ~
-    (__ \ "uploadedBy").write[String] ~
-    (__ \ "lastModified").writeNullable[DateTime] ~
-    (__ \ "identifiers").write[Map[String,String]] ~
-    (__ \ "uploadInfo").write[UploadInfo] ~
-    (__ \ "source").write[Asset] ~
-    (__ \ "thumbnail").writeNullable[Asset] ~
-    (__ \ "optimisedPng").writeNullable[Asset] ~
-    (__ \ "fileMetadata").write[FileMetadataEntity]
-      .contramap(fileMetadataEntity(id, expandFileMetaData, _: FileMetadata)) ~
-    (__ \ "userMetadata").writeNullable[Edits] ~
-    (__ \ "metadata").write[ImageMetadata](ImageResponse.newlineNormalisingImageMetadataWriter) ~
-    (__ \ "originalMetadata").write[ImageMetadata] ~
-    (__ \ "usageRights").write[UsageRights] ~
-    (__ \ "originalUsageRights").write[UsageRights] ~
-    (__ \ "exports").write[List[Export]]
-      .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_:Crop))) ~
-    (__ \ "usages").write[UsagesEntity]
-      .contramap(usagesEntity(id, _: List[Usage])) ~
-    (__ \ "leases").write[MediaLeasesEntity]
+      (__ \ "uploadTime").write[DateTime] ~
+      (__ \ "uploadedBy").write[String] ~
+      (__ \ "lastModified").writeNullable[DateTime] ~
+      (__ \ "identifiers").write[Map[String, String]] ~
+      (__ \ "uploadInfo").write[UploadInfo] ~
+      (__ \ "source").write[Asset] ~
+      (__ \ "thumbnail").writeNullable[Asset] ~
+      (__ \ "optimisedPng").writeNullable[Asset] ~
+      (__ \ "fileMetadata").write[FileMetadataEntity]
+        .contramap(fileMetadataEntity(id, expandFileMetaData, _: FileMetadata)) ~
+      (__ \ "userMetadata").writeNullable[Edits] ~
+      (__ \ "metadata").write[ImageMetadata](ImageResponse.newlineNormalisingImageMetadataWriter) ~
+      (__ \ "originalMetadata").write[ImageMetadata] ~
+      (__ \ "usageRights").write[UsageRights] ~
+      (__ \ "originalUsageRights").write[UsageRights] ~
+      (__ \ "exports").write[List[Export]]
+        .contramap((crops: List[Crop]) => crops.map(Export.fromCrop(_: Crop))) ~
+      (__ \ "usages").write[UsagesEntity]
+        .contramap(usagesEntity(id, _: List[Usage])) ~
+      (__ \ "leases").write[MediaLeasesEntity]
         .contramap(leasesEntity(id, _: LeasesByMedia)) ~
-    (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
-      .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
-    (__ \ "syndicationRights").write[Option[SyndicationRights]] ~
-    (__ \ "usermetaDataLastModified").writeNullable[DateTime]
+      (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
+        .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
+      (__ \ "syndicationRights").write[Option[SyndicationRights]] ~
+      (__ \ "usermetaDataLastModified").writeNullable[DateTime]
 
-    )(unlift(Image.unapply))
+    ) (unlift(Image.unapply))
 
   def fileMetaDataUri(id: String) = URI.create(s"${config.rootUri}/images/$id/fileMetadata")
 
   def usagesUri(id: String) = URI.create(s"${config.usageUri}/usages/media/$id")
+
   def usageUri(id: String) = {
     URI.create(s"${config.usageUri}/usages/${UriEncoding.encodePathSegment(id, "UTF-8")}")
   }
+
   def leasesUri(id: String) = URI.create(s"${config.leasesUri}/leases/media/$id")
 
   def usageEntity(usage: Usage) = EmbeddedEntity[Usage](usageUri(usage.id), Some(usage))
+
   def usagesEntity(id: String, usages: List[Usage]) =
     EmbeddedEntity[List[UsageEntity]](usagesUri(id), Some(usages.map(usageEntity)))
 
@@ -278,7 +279,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     EmbeddedEntity[LeasesByMedia](leasesUri(id), Some(leaseByMedia))
 
   def collectionsEntity(id: String, c: Collection): EmbeddedEntity[CollectionResponse] =
-      collectionEntity(config.collectionsUri, id, c)
+    collectionEntity(config.collectionsUri, id, c)
 
   def collectionEntity(rootUri: String, imageId: String, c: Collection) = {
     // TODO: Currently the GET for this URI does nothing
@@ -290,7 +291,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   }
 
   def fileMetadataEntity(id: String, expandFileMetaData: Boolean, fileMetadata: FileMetadata) = {
-    val displayableMetadata = if(expandFileMetaData) Some(fileMetadata) else None
+    val displayableMetadata = if (expandFileMetaData) Some(fileMetadata) else None
 
     EmbeddedEntity[FileMetadata](fileMetaDataUri(id), displayableMetadata)
   }
@@ -311,51 +312,55 @@ object ImageResponse {
   ).using(_.map(ImageResponse.normaliseNewLines))
 
   private val pattern = """(\r|\n|\r\n)+""".r
+
   def normaliseNewLines(string: String): String = pattern.replaceAllIn(string, "\n")
 
-  def imagePersistenceReasonsFunction(persistedRootCollections: List[String], persistenceIdentifier: String): Image => List[String] = {
-    def imagePersistenceReasons(image: Image) = {
-      val reasons = ListBuffer[String]()
+  def imagePersistenceReasonsFunction(persistedRootCollections: List[String], persistenceIdentifier: String): Image => List[String] = (image: Image) => {
+    val reasons = ListBuffer[String]()
 
-      if (hasPersistenceIdentifier(image, persistenceIdentifier))
-        reasons += "persistence-identifier"
+    if (hasPersistenceIdentifier(image, persistenceIdentifier))
+      reasons += "persistence-identifier"
 
-      if (hasExports(image))
-        reasons += "exports"
+    if (hasExports(image))
+      reasons += "exports"
 
-      if (hasUsages(image))
-        reasons += "usages"
+    if (hasUsages(image))
+      reasons += "usages"
 
-      if (isArchived(image))
-        reasons += "archived"
+    if (isArchived(image))
+      reasons += "archived"
 
-      if (isPhotographerCategory(image.usageRights))
-        reasons += "photographer-category"
+    if (isPhotographerCategory(image.usageRights))
+      reasons += "photographer-category"
 
-      if (isIllustratorCategory(image.usageRights))
-        reasons += "illustrator-category"
+    if (isIllustratorCategory(image.usageRights))
+      reasons += "illustrator-category"
 
-      if (isAgencyCommissionedCategory(image.usageRights))
-        reasons += CommissionedAgency.category
+    if (isAgencyCommissionedCategory(image.usageRights))
+      reasons += CommissionedAgency.category
 
-      if (hasLeases(image))
-        reasons += "leases"
+    if (hasLeases(image))
+      reasons += "leases"
 
-      if (isInPersistedCollection(image, persistedRootCollections)) {
-        reasons += "persisted-collection"
-      }
-
-      if (hasPhotoshoot(image)) {
-        reasons += "photoshoot"
-      }
-
-      if (hasUserEdits(image)) {
-        reasons += "edited"
-      }
-      reasons.toList
+    if (isInPersistedCollection(image, persistedRootCollections)) {
+      reasons += "persisted-collection"
     }
-    imagePersistenceReasons
+
+    if (hasPhotoshoot(image)) {
+      reasons += "photoshoot"
+    }
+
+    if (hasUserEdits(image)) {
+      reasons += "edited"
+    }
+    reasons.toList
   }
+
+  def canImgBeDeleted(image: Image) = !hasExports(image) && !hasUsages(image)
+
+  private def hasExports(image: Image) = image.exports.nonEmpty
+
+  private def hasUsages(image: Image) = image.usages.nonEmpty
 
   private def isInPersistedCollection(image: Image, persistedRootCollections: List[String]): Boolean = {
     // list of the first element of each collection's `path`, i.e all the root collections
@@ -373,7 +378,7 @@ object ImageResponse {
 
   private def isIllustratorCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
-      case _:Illustrator => true
+      case _: Illustrator => true
       case _ => false
     }
 
@@ -385,7 +390,7 @@ object ImageResponse {
 
   private def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
-      case _:Photographer => true
+      case _: Photographer => true
       case _ => false
     }
 
@@ -395,21 +400,16 @@ object ImageResponse {
     image.identifiers.contains(persistenceIdentifier)
   }
 
-  def hasExports(image: Image) =
-    image.exports.nonEmpty
-
   private def isArchived(image: Image) =
     image.userMetadata.exists(_.archived)
-
-  def hasUsages(image: Image) =
-    image.usages.nonEmpty
 
   private def hasLeases(image: Image) =
     image.leases.leases.nonEmpty
 }
 
 // We're using this to slightly hydrate the json response
-case class CollectionResponse private (path: List[String], pathId: String, description: String, cssColour: Option[String], actionData: ActionData)
+case class CollectionResponse private(path: List[String], pathId: String, description: String, cssColour: Option[String], actionData: ActionData)
+
 object CollectionResponse {
   implicit def writes: Writes[CollectionResponse] = Json.writes[CollectionResponse]
 

@@ -1,8 +1,8 @@
 package lib
 
-import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model.{CommissionedAgency, ContractPhotographer, Crop, Edits, Image, ImageMetadata, LeasesByMedia, MediaLease, Photoshoot, StaffIllustrator, StaffPhotographer, UsageRights}
-import org.joda.time.DateTime
+import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage, UsageType}
+import com.gu.mediaservice.model.{ActionData, Bounds, Collection, CommissionedAgency, ContractPhotographer, Crop, CropSpec, Edits, Image, ImageMetadata, LeasesByMedia, MediaLease, Photoshoot, StaffIllustrator, StaffPhotographer, UsageRights}
+import org.joda.time.DateTime.now
 import org.scalatest.{FunSpec, Matchers}
 
 class ImageResponseTest extends FunSpec with Matchers {
@@ -24,29 +24,28 @@ class ImageResponseTest extends FunSpec with Matchers {
     normalisedText shouldBe "Here is some text\nthat spans across\nmultiple lines\n"
   }
 
-  it("should generate image persistence reasons") {
-    import DateTime.now
-    val img = Image(
-      id = "test-id",
-      uploadTime = now(),
-      uploadedBy = "user",
-      lastModified = None,
-      identifiers = Map.empty,
-      uploadInfo = null,
-      source = null,
-      thumbnail = None,
-      optimisedPng = None,
-      fileMetadata = null,
-      userMetadata = None,
-      metadata = null,
-      originalMetadata = null,
-      usageRights = null,
-      originalUsageRights = null
-    )
+  private val img = Image(
+    id = "test-id",
+    uploadTime = now(),
+    uploadedBy = "user",
+    lastModified = None,
+    identifiers = Map.empty,
+    uploadInfo = null,
+    source = null,
+    thumbnail = None,
+    optimisedPng = None,
+    fileMetadata = null,
+    userMetadata = None,
+    metadata = null,
+    originalMetadata = null,
+    usageRights = null,
+    originalUsageRights = null
+  )
 
+  it("should generate image persistence reasons") {
     val persistedIdentifier = "test-p-id"
-    val persistedRootCollections = List()
-    val getImagePersistenceReasonsFunction =  ImageResponse.imagePersistenceReasonsFunction(persistedRootCollections, persistedIdentifier)
+    val persistedRootCollections = List("coll1", "coll2", "coll3")
+    val getImagePersistenceReasonsFunction = ImageResponse.imagePersistenceReasonsFunction(persistedRootCollections, persistedIdentifier)
 
     getImagePersistenceReasonsFunction(img) shouldBe Nil
     val imgWithPersistenceIdentifier = img.copy(identifiers = Map(persistedIdentifier -> "test-id"))
@@ -65,11 +64,29 @@ class ImageResponseTest extends FunSpec with Matchers {
     getImagePersistenceReasonsFunction(imgWitAgencyCommissionedCategory) shouldBe List(CommissionedAgency.category)
     val imgWitLeases = img.copy(leases = LeasesByMedia.build(List(MediaLease(id = None, leasedBy = None, notes = None, mediaId = "test"))))
     getImagePersistenceReasonsFunction(imgWitLeases) shouldBe List("leases")
+    val imgWitPersistedRootCollections = img.copy(collections = List(Collection.build(persistedRootCollections.tail, ActionData("testAuthor", now()))))
+    getImagePersistenceReasonsFunction(imgWitPersistedRootCollections) shouldBe List("persisted-collection")
 
     val imgWitPhotoshoot = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("test")), photoshoot = Some(Photoshoot("test")))))
     getImagePersistenceReasonsFunction(imgWitPhotoshoot) shouldBe List("photoshoot", "edited")
 
     val imgWitUserEdits = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("test")))))
     getImagePersistenceReasonsFunction(imgWitUserEdits) shouldBe List("edited")
+  }
+
+  it("should indicate if image can be deleted" +
+    "(it can be deleted if there is no exports or usages)") {
+    val testCrop = Crop(Some("crop-id"), None, None, CropSpec("test-uri", Bounds(0, 0, 0, 0), None), None, Nil)
+    val testUsage = Usage(id = "usage-id", references = Nil, platform = PrintUsage, media = "test", status = PendingUsageStatus, dateAdded = None, dateRemoved = None, now())
+
+    val imgWithNoExportsAndUsages = img
+    import ImageResponse.canImgBeDeleted
+    canImgBeDeleted(imgWithNoExportsAndUsages) shouldEqual true
+    val imgWithExportsAndUsages = img.copy(exports = List(testCrop)).copy(usages = List(testUsage))
+    canImgBeDeleted(imgWithExportsAndUsages) shouldEqual false
+    val imgWithOnlyUsages = img.copy(usages = List(testUsage))
+    canImgBeDeleted(imgWithOnlyUsages) shouldEqual false
+    val imgWithOnlyExports = img.copy(exports = List(testCrop))
+    canImgBeDeleted(imgWithOnlyExports) shouldEqual false
   }
 }
