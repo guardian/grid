@@ -41,8 +41,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   import ImageResponse._
 
+  private val getImagePersistenceReasonsFunction = imagePersistenceReasonsFunction(config.persistedRootCollections, config.persistenceIdentifier)
+
   def imagePersistenceReasons(image: Image): List[String] = {
-    imagePersistenceReasonsFoo(image, config.persistedRootCollections, config.persistenceIdentifier)
+    getImagePersistenceReasonsFunction(image)
   }
 
   def canBeDeleted(image: Image) = ! hasExports(image) && ! hasUsages(image)
@@ -311,46 +313,48 @@ object ImageResponse {
   private val pattern = """(\r|\n|\r\n)+""".r
   def normaliseNewLines(string: String): String = pattern.replaceAllIn(string, "\n")
 
-  def imagePersistenceReasonsFoo(image: Image, persistedRootCollections: List[String], persistenceIdentifier: String ): List[String] = {
-    val reasons = ListBuffer[String]()
+  def imagePersistenceReasonsFunction(persistedRootCollections: List[String], persistenceIdentifier: String): Image => List[String] = {
+    def imagePersistenceReasons(image: Image) = {
+      val reasons = ListBuffer[String]()
 
-    if (hasPersistenceIdentifier(image, persistenceIdentifier))
-      reasons += "persistence-identifier"
+      if (hasPersistenceIdentifier(image, persistenceIdentifier))
+        reasons += "persistence-identifier"
 
-    if (hasExports(image))
-      reasons += "exports"
+      if (hasExports(image))
+        reasons += "exports"
 
-    if (hasUsages(image))
-      reasons += "usages"
+      if (hasUsages(image))
+        reasons += "usages"
 
-    if (isArchived(image))
-      reasons += "archived"
+      if (isArchived(image))
+        reasons += "archived"
 
-    if (isPhotographerCategory(image.usageRights))
-      reasons += "photographer-category"
+      if (isPhotographerCategory(image.usageRights))
+        reasons += "photographer-category"
 
-    if (isIllustratorCategory(image.usageRights))
-      reasons += "illustrator-category"
+      if (isIllustratorCategory(image.usageRights))
+        reasons += "illustrator-category"
 
-    if (isAgencyCommissionedCategory(image.usageRights))
-      reasons += CommissionedAgency.category
+      if (isAgencyCommissionedCategory(image.usageRights))
+        reasons += CommissionedAgency.category
 
-    if (hasLeases(image))
-      reasons += "leases"
+      if (hasLeases(image))
+        reasons += "leases"
 
-    if (isInPersistedCollection(image, persistedRootCollections)) {
-      reasons += "persisted-collection"
+      if (isInPersistedCollection(image, persistedRootCollections)) {
+        reasons += "persisted-collection"
+      }
+
+      if (hasPhotoshoot(image)) {
+        reasons += "photoshoot"
+      }
+
+      if (hasUserEdits(image)) {
+        reasons += "edited"
+      }
+      reasons.toList
     }
-
-    if (hasPhotoshoot(image)) {
-      reasons += "photoshoot"
-    }
-
-    if (hasUserEdits(image)) {
-      reasons += "edited"
-    }
-
-    reasons.toList
+    imagePersistenceReasons
   }
 
   private def isInPersistedCollection(image: Image, persistedRootCollections: List[String]): Boolean = {
