@@ -349,7 +349,7 @@ object ImageResponse {
       reasons += "photoshoot"
 
     if (hasLabels(image))
-      reasons += "labels"
+      reasons += "labeled"
 
     if (hasUserEdits(image))
       reasons += "edited"
@@ -373,7 +373,8 @@ object ImageResponse {
 
   private def hasLabels(image: Image) = image.userMetadata.exists(_.labels.nonEmpty)
 
-  private def hasUserEdits(image: Image) = image.userMetadata.exists(_.metadata != null)
+  private def hasUserEdits(image: Image) =
+    image.userMetadata.exists(ed => ed.metadata != ImageMetadata.empty)
 
   private def isIllustratorCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
