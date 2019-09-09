@@ -72,6 +72,9 @@ class ImageResponseTest extends FunSpec with Matchers {
 
     val imgWitUserEdits = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("test")))))
     getImagePersistenceReasonsFunction(imgWitUserEdits) shouldBe List("edited")
+
+    val imgWithLabels = img.copy(userMetadata = Some(Edits(metadata = null, labels = List("test-label"))))
+    getImagePersistenceReasonsFunction(imgWithLabels) shouldBe List("labels")
   }
 
   it("should indicate if image can be deleted" +

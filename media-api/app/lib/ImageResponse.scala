@@ -342,17 +342,18 @@ object ImageResponse {
     if (hasLeases(image))
       reasons += "leases"
 
-    if (isInPersistedCollection(image, persistedRootCollections)) {
+    if (isInPersistedCollection(image, persistedRootCollections))
       reasons += "persisted-collection"
-    }
 
-    if (hasPhotoshoot(image)) {
+    if (hasPhotoshoot(image))
       reasons += "photoshoot"
-    }
 
-    if (hasUserEdits(image)) {
+    if (hasLabels(image))
+      reasons += "labels"
+
+    if (hasUserEdits(image))
       reasons += "edited"
-    }
+
     reasons.toList
   }
 
@@ -370,11 +371,9 @@ object ImageResponse {
     (collectionPaths diff persistedRootCollections).length < collectionPaths.length
   }
 
-  private def hasUserEdits(image: Image) = {
-    val hasUserMeta = image.userMetadata.exists(_.metadata != null)
-    val hasUserLabels = image.userMetadata.exists(_.labels.nonEmpty)
-    hasUserMeta || hasUserLabels
-  }
+  private def hasLabels(image: Image) = image.userMetadata.exists(_.labels.nonEmpty)
+
+  private def hasUserEdits(image: Image) = image.userMetadata.exists(_.metadata != null)
 
   private def isIllustratorCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
