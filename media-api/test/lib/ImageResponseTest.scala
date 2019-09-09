@@ -24,67 +24,11 @@ class ImageResponseTest extends FunSpec with Matchers {
     normalisedText shouldBe "Here is some text\nthat spans across\nmultiple lines\n"
   }
 
-  private val img = Image(
-    id = "test-id",
-    uploadTime = now(),
-    uploadedBy = "user",
-    lastModified = None,
-    identifiers = Map.empty,
-    uploadInfo = null,
-    source = null,
-    thumbnail = None,
-    optimisedPng = None,
-    fileMetadata = null,
-    userMetadata = None,
-    metadata = null,
-    originalMetadata = null,
-    usageRights = null,
-    originalUsageRights = null
-  )
-
-  it("should generate image persistence reasons") {
-    val persistedIdentifier = "test-p-id"
-    val persistedRootCollections = List("coll1", "coll2", "coll3")
-    val imgPersistenceReasons = ImagePersistenceReasons.apply(persistedRootCollections, persistedIdentifier)
-
-    imgPersistenceReasons.getImagePersistenceReasons(img) shouldBe Nil
-    val imgWithPersistenceIdentifier = img.copy(identifiers = Map(persistedIdentifier -> "test-id"))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWithPersistenceIdentifier) shouldBe List("persistence-identifier")
-    val imgWithExports = img.copy(exports = List(Crop(None, None, None, null, None, Nil)))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWithExports) shouldBe List("exports")
-    val imgWithUsages = img.copy(usages = List(Usage("test", Nil, null, "img", null, None, None, now())))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWithUsages) shouldBe List("usages")
-    val imgWitArchive = img.copy(userMetadata = Some(Edits(archived = true, metadata = ImageMetadata.empty)))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitArchive) shouldBe List("archived")
-    val imgWitPhotographerCategory = img.copy(usageRights = ContractPhotographer("test"))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitPhotographerCategory) shouldBe List("photographer-category")
-    val imgWitIllustratorCategory = img.copy(usageRights = StaffIllustrator("test"))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitIllustratorCategory) shouldBe List("illustrator-category")
-    val imgWitAgencyCommissionedCategory = img.copy(usageRights = CommissionedAgency("test"))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitAgencyCommissionedCategory) shouldBe List(CommissionedAgency.category)
-    val imgWitLeases = img.copy(leases = LeasesByMedia.build(List(MediaLease(id = None, leasedBy = None, notes = None, mediaId = "test"))))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitLeases) shouldBe List("leases")
-    val imgWitPersistedRootCollections = img.copy(collections = List(Collection.build(persistedRootCollections.tail, ActionData("testAuthor", now()))))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitPersistedRootCollections) shouldBe List("persisted-collection")
-
-    val imgWitPhotoshoot = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata.empty, photoshoot = Some(Photoshoot("test")))))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitPhotoshoot) shouldBe List("photoshoot")
-
-    val imgWitUserEdits = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("test")))))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWitUserEdits) shouldBe List("edited")
-
-    val imgWithLabels = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata.empty, labels = List("test-label"))))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWithLabels) shouldBe List("labeled")
-
-    val imgWithMultipleReasons = img.copy(userMetadata = Some(Edits(
-      labels = List("test-label"),
-      metadata = ImageMetadata(title = Some("test")),
-      photoshoot = Some(Photoshoot("test")))))
-    imgPersistenceReasons.getImagePersistenceReasons(imgWithMultipleReasons) should contain theSameElementsAs  List("labeled", "edited", "photoshoot")
-  }
-
   it("should indicate if image can be deleted" +
     "(it can be deleted if there is no exports or usages)") {
+
+    import TestUtils._
+
     val testCrop = Crop(Some("crop-id"), None, None, CropSpec("test-uri", Bounds(0, 0, 0, 0), None), None, Nil)
     val testUsage = Usage(id = "usage-id", references = Nil, platform = PrintUsage, media = "test", status = PendingUsageStatus, dateAdded = None, dateRemoved = None, now())
 

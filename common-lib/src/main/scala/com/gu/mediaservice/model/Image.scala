@@ -33,6 +33,8 @@ case class Image(
 
   def hasUsages = usages.nonEmpty
 
+  def canBeDeleted = !hasExports && !hasUsages
+
   def rcsPublishDate: Option[DateTime] = syndicationRights.flatMap(_.published)
 
   def hasInferredSyndicationRightsOrNoRights: Boolean = syndicationRights.forall(_.isInferred)

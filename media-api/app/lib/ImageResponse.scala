@@ -41,8 +41,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def imagePersistenceReasons(image: Image): List[String] = imgPersistenceReasons.getImagePersistenceReasons(image)
 
-  def canBeDeleted(image: Image) =
-    !image.hasExports && !image.hasUsages
+  def canBeDeleted(image: Image) = image.canBeDeleted
 
   def create(
               id: String,

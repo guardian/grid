@@ -17,10 +17,10 @@ class ImagePersistenceReasons(persistedRootCollections: List[String], persistenc
     if (hasPersistenceIdentifier(image, persistenceIdentifier))
       reasons += "persistence-identifier"
 
-    if (hasExports(image))
+    if (image.hasExports)
       reasons += "exports"
 
-    if (hasUsages(image))
+    if (image.hasUsages)
       reasons += "usages"
 
     if (isArchived(image))
@@ -52,10 +52,6 @@ class ImagePersistenceReasons(persistedRootCollections: List[String], persistenc
 
     reasons.toList
   }
-
-  private def hasExports(image: Image) = image.exports.nonEmpty
-
-  private def hasUsages(image: Image) = image.usages.nonEmpty
 
   private def isInPersistedCollection(image: Image, persistedRootCollections: List[String]): Boolean = {
     // list of the first element of each collection's `path`, i.e all the root collections
