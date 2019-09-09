@@ -45,42 +45,42 @@ class ImageResponseTest extends FunSpec with Matchers {
   it("should generate image persistence reasons") {
     val persistedIdentifier = "test-p-id"
     val persistedRootCollections = List("coll1", "coll2", "coll3")
-    val getImagePersistenceReasonsFunction = ImageResponse.imagePersistenceReasonsFunction(persistedRootCollections, persistedIdentifier)
+    val imgPersistenceReasons = ImagePersistenceReasons.apply(persistedRootCollections, persistedIdentifier)
 
-    getImagePersistenceReasonsFunction(img) shouldBe Nil
+    imgPersistenceReasons.getImagePersistenceReasons(img) shouldBe Nil
     val imgWithPersistenceIdentifier = img.copy(identifiers = Map(persistedIdentifier -> "test-id"))
-    getImagePersistenceReasonsFunction(imgWithPersistenceIdentifier) shouldBe List("persistence-identifier")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWithPersistenceIdentifier) shouldBe List("persistence-identifier")
     val imgWithExports = img.copy(exports = List(Crop(None, None, None, null, None, Nil)))
-    getImagePersistenceReasonsFunction(imgWithExports) shouldBe List("exports")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWithExports) shouldBe List("exports")
     val imgWithUsages = img.copy(usages = List(Usage("test", Nil, null, "img", null, None, None, now())))
-    getImagePersistenceReasonsFunction(imgWithUsages) shouldBe List("usages")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWithUsages) shouldBe List("usages")
     val imgWitArchive = img.copy(userMetadata = Some(Edits(archived = true, metadata = ImageMetadata.empty)))
-    getImagePersistenceReasonsFunction(imgWitArchive) shouldBe List("archived")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitArchive) shouldBe List("archived")
     val imgWitPhotographerCategory = img.copy(usageRights = ContractPhotographer("test"))
-    getImagePersistenceReasonsFunction(imgWitPhotographerCategory) shouldBe List("photographer-category")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitPhotographerCategory) shouldBe List("photographer-category")
     val imgWitIllustratorCategory = img.copy(usageRights = StaffIllustrator("test"))
-    getImagePersistenceReasonsFunction(imgWitIllustratorCategory) shouldBe List("illustrator-category")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitIllustratorCategory) shouldBe List("illustrator-category")
     val imgWitAgencyCommissionedCategory = img.copy(usageRights = CommissionedAgency("test"))
-    getImagePersistenceReasonsFunction(imgWitAgencyCommissionedCategory) shouldBe List(CommissionedAgency.category)
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitAgencyCommissionedCategory) shouldBe List(CommissionedAgency.category)
     val imgWitLeases = img.copy(leases = LeasesByMedia.build(List(MediaLease(id = None, leasedBy = None, notes = None, mediaId = "test"))))
-    getImagePersistenceReasonsFunction(imgWitLeases) shouldBe List("leases")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitLeases) shouldBe List("leases")
     val imgWitPersistedRootCollections = img.copy(collections = List(Collection.build(persistedRootCollections.tail, ActionData("testAuthor", now()))))
-    getImagePersistenceReasonsFunction(imgWitPersistedRootCollections) shouldBe List("persisted-collection")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitPersistedRootCollections) shouldBe List("persisted-collection")
 
     val imgWitPhotoshoot = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata.empty, photoshoot = Some(Photoshoot("test")))))
-    getImagePersistenceReasonsFunction(imgWitPhotoshoot) shouldBe List("photoshoot")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitPhotoshoot) shouldBe List("photoshoot")
 
     val imgWitUserEdits = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("test")))))
-    getImagePersistenceReasonsFunction(imgWitUserEdits) shouldBe List("edited")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWitUserEdits) shouldBe List("edited")
 
     val imgWithLabels = img.copy(userMetadata = Some(Edits(metadata = ImageMetadata.empty, labels = List("test-label"))))
-    getImagePersistenceReasonsFunction(imgWithLabels) shouldBe List("labeled")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWithLabels) shouldBe List("labeled")
 
     val imgWithMultipleReasons = img.copy(userMetadata = Some(Edits(
       labels = List("test-label"),
       metadata = ImageMetadata(title = Some("test")),
       photoshoot = Some(Photoshoot("test")))))
-    getImagePersistenceReasonsFunction(imgWithMultipleReasons) should contain theSameElementsAs  List("labeled", "edited", "photoshoot")
+    imgPersistenceReasons.getImagePersistenceReasons(imgWithMultipleReasons) should contain theSameElementsAs  List("labeled", "edited", "photoshoot")
   }
 
   it("should indicate if image can be deleted" +

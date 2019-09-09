@@ -28,6 +28,11 @@ case class Image(
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None,
   userMetadataLastModified: Option[DateTime] = None) {
+
+  def hasExports = exports.nonEmpty
+
+  def hasUsages = usages.nonEmpty
+
   def rcsPublishDate: Option[DateTime] = syndicationRights.flatMap(_.published)
 
   def hasInferredSyndicationRightsOrNoRights: Boolean = syndicationRights.forall(_.isInferred)

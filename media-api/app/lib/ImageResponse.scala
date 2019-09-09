@@ -15,7 +15,6 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.utils.UriEncoding
 
-import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
@@ -38,13 +37,12 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   type MediaLeaseEntity = EmbeddedEntity[MediaLease]
   type MediaLeasesEntity = EmbeddedEntity[LeasesByMedia]
 
-  import ImageResponse.{imagePersistenceReasonsFunction, canImgBeDeleted}
+  private val imgPersistenceReasons = ImagePersistenceReasons.apply(config.persistedRootCollections, config.persistenceIdentifier)
 
-  private val getImagePersistenceReasonsFunction = imagePersistenceReasonsFunction(config.persistedRootCollections, config.persistenceIdentifier)
+  def imagePersistenceReasons(image: Image): List[String] = imgPersistenceReasons.getImagePersistenceReasons(image)
 
-  def imagePersistenceReasons(image: Image): List[String] = getImagePersistenceReasonsFunction(image)
-
-  def canBeDeleted(image: Image) = canImgBeDeleted(image)
+  def canBeDeleted(image: Image) =
+    !image.hasExports && !image.hasUsages
 
   def create(
               id: String,
@@ -315,96 +313,11 @@ object ImageResponse {
 
   def normaliseNewLines(string: String): String = pattern.replaceAllIn(string, "\n")
 
-  def imagePersistenceReasonsFunction(persistedRootCollections: List[String], persistenceIdentifier: String): Image => List[String] = (image: Image) => {
-    val reasons = ListBuffer[String]()
-
-    if (hasPersistenceIdentifier(image, persistenceIdentifier))
-      reasons += "persistence-identifier"
-
-    if (hasExports(image))
-      reasons += "exports"
-
-    if (hasUsages(image))
-      reasons += "usages"
-
-    if (isArchived(image))
-      reasons += "archived"
-
-    if (isPhotographerCategory(image.usageRights))
-      reasons += "photographer-category"
-
-    if (isIllustratorCategory(image.usageRights))
-      reasons += "illustrator-category"
-
-    if (isAgencyCommissionedCategory(image.usageRights))
-      reasons += CommissionedAgency.category
-
-    if (hasLeases(image))
-      reasons += "leases"
-
-    if (isInPersistedCollection(image, persistedRootCollections))
-      reasons += "persisted-collection"
-
-    if (hasPhotoshoot(image))
-      reasons += "photoshoot"
-
-    if (hasLabels(image))
-      reasons += "labeled"
-
-    if (hasUserEdits(image))
-      reasons += "edited"
-
-    reasons.toList
-  }
-
   def canImgBeDeleted(image: Image) = !hasExports(image) && !hasUsages(image)
 
   private def hasExports(image: Image) = image.exports.nonEmpty
 
   private def hasUsages(image: Image) = image.usages.nonEmpty
-
-  private def isInPersistedCollection(image: Image, persistedRootCollections: List[String]): Boolean = {
-    // list of the first element of each collection's `path`, i.e all the root collections
-    val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
-
-    // is image in at least one persisted collection?
-    (collectionPaths diff persistedRootCollections).length < collectionPaths.length
-  }
-
-  private def hasLabels(image: Image) = image.userMetadata.exists(_.labels.nonEmpty)
-
-  private def hasUserEdits(image: Image) =
-    image.userMetadata.exists(ed => ed.metadata != ImageMetadata.empty)
-
-  private def isIllustratorCategory[T <: UsageRights](usageRights: T) =
-    usageRights match {
-      case _: Illustrator => true
-      case _ => false
-    }
-
-  private def isAgencyCommissionedCategory[T <: UsageRights](usageRights: T) =
-    usageRights match {
-      case _: CommissionedAgency => true
-      case _ => false
-    }
-
-  private def isPhotographerCategory[T <: UsageRights](usageRights: T) =
-    usageRights match {
-      case _: Photographer => true
-      case _ => false
-    }
-
-  private def hasPhotoshoot(image: Image): Boolean = image.userMetadata.exists(_.photoshoot.isDefined)
-
-  private def hasPersistenceIdentifier(image: Image, persistenceIdentifier: String) = {
-    image.identifiers.contains(persistenceIdentifier)
-  }
-
-  private def isArchived(image: Image) =
-    image.userMetadata.exists(_.archived)
-
-  private def hasLeases(image: Image) =
-    image.leases.leases.nonEmpty
 }
 
 // We're using this to slightly hydrate the json response
