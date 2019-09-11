@@ -1809,6 +1809,10 @@ FIXME: what to do with touch devices
     padding-bottom: 10px;
 }
 
+.select-all-wrap {
+    user-select: all;
+}
+
 .metadata-line__info--crop {
     padding-bottom: 0;
 }
