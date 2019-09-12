@@ -1527,13 +1527,14 @@ FIXME: what to do with touch devices
 }
 
 .easel__image {
-    display: block;
-    margin: 0 auto;
-    position: relative;
-    top: 50%;
-    transform: translateY(-50%);
-    max-width: calc(100% - 20px); /* 20px here for padding */
-    max-height: calc(100vh - 68px);
+  display: block;
+  margin: 0 auto;
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: calc(100% - 20px); /* 20px here for padding */
+  max-height: calc(100vh - 68px);
+  pointer-events: none;
 }
 
 .easel__image:fullscreen,
