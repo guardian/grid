@@ -141,26 +141,26 @@
 <div class="image-holder">
     <div class="easel">
         <div class="easel__canvas"
-            ng:if="!ctrl.crop"
-        >
-            <img class="easel__image easel__image--checkered__background"
-                 alt="preview of original image"
-                 ng:src="{{:: ctrl.optimisedImageUri}}"
-                 grid:track-image="ctrl.image"
-                 grid:track-image-location="original"
-                 grid:track-image-loadtime
-                 gr:image-fade-on-load
-                 ui:drag-data="ctrl.image | asImageDragData" />
+             ng:if="!ctrl.crop"
+             draggable="true"
+             ui:drag-data="ctrl.image | asImageDragData">
+          <img class="easel__image easel__image--checkered__background"
+               alt="preview of original image"
+               ng:src="{{:: ctrl.optimisedImageUri}}"
+               grid:track-image="ctrl.image"
+               grid:track-image-location="original"
+               grid:track-image-loadtime
+               gr:image-fade-on-load/>
         </div>
 
         <!-- TODO: As this loads async, add a loader -->
-        <div class="easel__canvas" ng:if="ctrl.crop">
-            <a draggable="true"
-               class="easel__image-container"
+        <div class="easel__canvas" ng:if="ctrl.crop"
+             draggable="true"
+             ui:drag-data="ctrl.image | asImageAndCropsDragData:ctrl.crop"
+             ui:drag-image="extremeAssets.smallest | assetFile">
+            <a class="easel__image-container"
                ng:init="extremeAssets = (ctrl.crop | getExtremeAssets)"
-               ui:sref="{crop: ctrl.cropKey}"
-               ui:drag-data="ctrl.image | asImageAndCropsDragData:ctrl.crop"
-               ui:drag-image="extremeAssets.smallest | assetFile">
+               ui:sref="{crop: ctrl.cropKey}">
                 <!-- TODO: Add tracking to crop -->
                 <img class="easel__image easel__image--checkered__background"
                      alt="cropped image"
