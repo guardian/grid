@@ -21,4 +21,6 @@ grXeditable.run(['editableOptions', 'editableThemes', function (editableOptions,
     editableThemes['default'].cancelTpl = null;
 
     editableThemes['default'].buttonsTpl = buttonTemplate;
+
+    editableOptions.blurElem = 'ignore';
 }]);
