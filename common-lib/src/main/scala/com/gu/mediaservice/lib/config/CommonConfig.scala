@@ -51,10 +51,7 @@ trait CommonConfig {
 
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
 
-  lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase match {
-    case "true" => true
-    case _ => false
-  }
+  lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase == "true"
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
