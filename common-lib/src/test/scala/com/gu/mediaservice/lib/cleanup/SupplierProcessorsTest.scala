@@ -464,20 +464,6 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     }
   }
 
-  describe("AFP") {
-    it("should match AFP credit") {
-      val image = createImageFromMetadata("credit" -> "AFP/Getty Images")
-      val processedImage = applyProcessors(image, List(SupplierMatch("AfpParser", List("AFP/.*"), List("AFP"))))
-      processedImage.usageRights should be(Agency("AFP"))
-    }
-
-    it("should match AFP source") {
-      val image = createImageFromMetadata("source" -> "AFP")
-      val processedImage = applyProcessors(image, List(SupplierMatch("AfpParser", List("AFP/.*"), List("AFP"))))
-      processedImage.usageRights should be(Agency("AFP"))
-    }
-  }
-
 
   def applyProcessors(image: Image, extraSupplierMatches: List[SupplierMatch] = List()): Image = {
 
