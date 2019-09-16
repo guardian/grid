@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
@@ -23,7 +24,10 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
   val metaDataConfigStore = MetadataStore(config.configBucket, config)
   metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
 
-  val imageUploadOps = new ImageUploadOps(metaDataConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
+  val metadataCleaners = new MetadataCleaners(metaDataConfigStore)
+  val supplierProcessors = new SupplierProcessors(metaDataConfigStore)
+
+  val imageUploadOps = new ImageUploadOps(loaderStore, config, imageOperations, optimisedPngOps, metadataCleaners, supplierProcessors)
 
   val controller = new ImageLoaderController(auth, downloader, loaderStore, notifications, config, imageUploadOps, controllerComponents, wsClient)
 

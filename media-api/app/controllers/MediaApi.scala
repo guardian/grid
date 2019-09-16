@@ -35,7 +35,8 @@ class MediaApi(
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
-                metadataStore: MetadataStore
+                metadataCleaners: MetadataCleaners,
+                supplierProcessors: SupplierProcessors
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -234,9 +235,6 @@ class MediaApi(
   def reindexImage(id: String) = auth.async { request =>
     implicit val r = request
 
-    val metadataConfig = metadataStore.get
-    val metadataCleaners = new MetadataCleaners(metadataConfig.allPhotographers)
-
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request, image) =>
         // TODO: apply rights to edits API too
@@ -246,7 +244,7 @@ class MediaApi(
           val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
           val cleanMetadata = metadataCleaners.clean(imageMetadata)
           val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-          val processedImage = new SupplierProcessors(metadataConfig).process(imageCleanMetadata)
+          val processedImage = supplierProcessors.process(imageCleanMetadata)
 
           // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
           val finalImage = processedImage.copy(

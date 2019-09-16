@@ -1,13 +1,13 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.{MetadataConfig, MetadataConfigGetter}
 import com.gu.mediaservice.model._
 
 trait ImageProcessor {
   def apply(image: Image): Image
 }
 
-class SupplierProcessors(metadataConfig: MetadataConfig) {
+class SupplierProcessors(metadataConfigGetter: MetadataConfigGetter) {
   val all: List[ImageProcessor] = List(
     GettyXmpParser,
     GettyCreditParser,
@@ -23,7 +23,7 @@ class SupplierProcessors(metadataConfig: MetadataConfig) {
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    new PhotographerParser(metadataConfig)
+    new PhotographerParser(metadataConfigGetter.get)
   )
 
   def process(image: Image): Image =

@@ -97,11 +97,12 @@ case object ImageUpload {
   }
 }
 
-class ImageUploadOps(metadataStore: MetadataStore,
-                     loaderStore: ImageLoaderStore,
+class ImageUploadOps(loaderStore: ImageLoaderStore,
                      config: ImageLoaderConfig,
                      imageOps: ImageOperations,
-                     optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
+                     optimisedPngOps: OptimisedPngOps,
+                     metadataCleaners: MetadataCleaners,
+                     supplierProcessors: SupplierProcessors)(implicit val ec: ExecutionContext) {
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
     Logger.info("Starting image ops")(uploadRequest.toLogMarker)
     val uploadedFile = uploadRequest.tempFile
@@ -168,8 +169,6 @@ class ImageUploadOps(metadataStore: MetadataStore,
             colourModel <- colourModelFuture
             fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
-            metaDataConfig = metadataStore.get
-            metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
             metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
             cleanMetadata = metadataCleaners.clean(metadata)
 
@@ -182,7 +181,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
               None
 
             baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
-            processedImage = new SupplierProcessors(metaDataConfig).process(baseImage)
+            processedImage = supplierProcessors.process(baseImage)
 
             // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
             finalImage = processedImage.copy(
