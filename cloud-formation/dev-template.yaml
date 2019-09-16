@@ -126,7 +126,8 @@ Resources:
         Protocol: sqs
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
-    Properties: {}
+    Properties:
+      KmsMasterKeyId: 'alias/aws/sqs'
   IndexedImageMetadataQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
