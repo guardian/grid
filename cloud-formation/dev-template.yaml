@@ -121,6 +121,7 @@ Resources:
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
+      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-${Stage}"
       Subscription:
       - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
         Protocol: sqs
