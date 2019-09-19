@@ -18,10 +18,10 @@ class Kinesis(config: CommonConfig, streamName: String) {
 
     implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
     implicit val unw = Json.writes[UsageNotice]
-    implicit val umw = Json.writes[UpdateMessage]
 
     val asJson = Json.toJson(message)
-    Logger.debug("Publishing message: " + Json.stringify(asJson))
+    Logger.info("Publishing message to kinesis")(message.toLogMarker)
+
     val payload = Json.toBytes(asJson)
 
     val request = new PutRecordRequest()

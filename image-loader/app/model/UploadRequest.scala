@@ -1,6 +1,7 @@
 package model
 
 import java.io.File
+import java.util.UUID
 
 import com.gu.mediaservice.model.UploadInfo
 import net.logstash.logback.marker.{LogstashMarker, Markers}
@@ -10,7 +11,8 @@ import org.joda.time.{DateTime, DateTimeZone}
 import scala.collection.JavaConverters._
 
 case class UploadRequest(
-  id: String,
+  requestId: UUID,
+  imageId: String,
   tempFile: File,
   mimeType: Option[String],
   uploadTime: DateTime,
@@ -24,11 +26,13 @@ case class UploadRequest(
     val fallback = "none"
 
     val markers = Map (
-      "id" -> id,
+      "requestId" -> requestId,
+      "imageId" -> imageId,
       "mimeType" -> mimeType.getOrElse(fallback),
       "uploadTime" -> ISODateTimeFormat.dateTime.print(uploadTime.withZone(DateTimeZone.UTC)),
       "uploadedBy" -> uploadedBy,
-      "filename" -> uploadInfo.filename.getOrElse(fallback)
+      "filename" -> uploadInfo.filename.getOrElse(fallback),
+      "filesize" -> tempFile.length
     ) ++ identifiersMeta
 
     Markers.appendEntries(markers.asJava)

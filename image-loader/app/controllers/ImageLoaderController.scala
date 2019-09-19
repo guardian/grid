@@ -2,6 +2,7 @@ package controllers
 
 import java.io.File
 import java.net.URI
+import java.util.UUID
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -14,19 +15,29 @@ import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, UploadRequest}
+import net.logstash.logback.marker.Markers
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
+case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
+  def toMarker(extraMarkers: Map[String, String] = Map.empty) =  Markers.appendEntries(
+    (extraMarkers + ("requestId" -> requestId)).asJava
+  )
+}
+
 class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications, config: ImageLoaderConfig, imageUploadOps: ImageUploadOps,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
+
+  val LOG_FALLBACK = "unknown"
 
   val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -39,24 +50,49 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
   def index = auth { indexResponse }
 
-  def createTempFile(prefix: String) = File.createTempFile(prefix, "", config.tempDir)
+  private def createTempFile(prefix: String, requestContext: RequestLoggingContext) = {
+    Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
+    File.createTempFile(prefix, "", config.tempDir)
+  }
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
-    auth.async(DigestBodyParser.create(createTempFile("requestBody"))) { req =>
-      val result = loadFile(uploadedBy, identifiers, uploadTime, filename)(req)
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
+    val requestContext = RequestLoggingContext()
+
+    val markers = Map(
+      "uploadedBy" -> uploadedBy.getOrElse(LOG_FALLBACK),
+      "identifiers" -> identifiers.getOrElse(LOG_FALLBACK),
+      "uploadTime" -> uploadTime.getOrElse(LOG_FALLBACK),
+      "filename" -> filename.getOrElse(LOG_FALLBACK)
+    )
+
+    Logger.info("loadImage request start")(requestContext.toMarker(markers))
+
+    val parsedBody = DigestBodyParser.create(createTempFile("requestBody", requestContext))
+    Logger.info("body parsed")(requestContext.toMarker(markers))
+
+    auth.async(parsedBody) { req =>
+      val result = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
       result.onComplete { _ => req.body.file.delete() }
-
+      Logger.info("loadImage request end")(requestContext.toMarker(markers))
       result
     }
+  }
 
-  def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) =
+
+  def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
     auth.async { request =>
-      GridLogger.info(s"request to import an image", request.user.apiKey)
+      val requestContext = RequestLoggingContext()
+      val apiKey = request.user.apiKey
+
+      Logger.info("importImage request start")(requestContext.toMarker(Map(
+        "key-tier" -> apiKey.tier.toString,
+        "key-name" -> apiKey.name
+      )))
       Try(URI.create(uri)) map { validUri =>
-        val tmpFile = createTempFile("download")
+        val tmpFile = createTempFile("download", requestContext)
 
         val result = downloader.download(validUri, tmpFile).flatMap { digestedFile =>
-          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename)
+          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
         } recover {
           case NonFatal(e) =>
             Logger.error(s"Unable to download image $uri", e)
@@ -64,14 +100,25 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         }
 
         result onComplete (_ => tmpFile.delete())
+        Logger.info("importImage request end")(requestContext.toMarker(Map(
+          "key-tier" -> apiKey.tier.toString,
+          "key-name" -> apiKey.name
+        )))
         result
 
-      } getOrElse Future.successful(invalidUri)
+      } getOrElse {
+        Logger.info("importImage request end")(requestContext.toMarker(Map(
+          "key-tier" -> apiKey.tier.toString,
+          "key-name" -> apiKey.name
+        )))
+        Future.successful(invalidUri)
+      }
     }
+  }
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
-               uploadTime: Option[String], filename: Option[String]): Future[Result] = {
+               uploadTime: Option[String], filename: Option[String], requestContext: RequestLoggingContext): Future[Result] = {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     val uploadedBy_ = uploadedBy match {
@@ -91,11 +138,14 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       case None => DateTime.now
     }
 
+    Logger.info("Detecting mimetype")(requestContext.toMarker())
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
+    Logger.info(s"Detected mimetype as ${mimeType_.getOrElse(LOG_FALLBACK)}")(requestContext.toMarker())
 
     val uploadRequest = UploadRequest(
-      id = id_,
+      requestId = requestContext.requestId,
+      imageId = id_,
       tempFile = tempFile_,
       mimeType = mimeType_,
       uploadTime = uploadTime_,
@@ -104,18 +154,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       uploadInfo = uploadInfo_
     )
 
-    Logger.info(s"Received request to load file")(uploadRequest.toLogMarker)
-
     val supportedMimeType = config.supportedMimeTypes.exists(mimeType_.contains(_))
 
     if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
   }
-
-  // Convenience alias
-  private def loadFile(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String],
-               filename: Option[String])
-              (request: Authentication.Request[DigestedFile]): Future[Result] =
-    loadFile(request.body, request.user, uploadedBy, identifiers, uploadTime, filename)
 
   val invalidUri        = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
   val failedUriDownload = respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
@@ -132,6 +174,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   def storeFile(uploadRequest: UploadRequest): Future[Result] = {
+    Logger.info("Storing file")(uploadRequest.toLogMarker)
     val result = for {
       imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest)
       image = imageUpload.image
@@ -140,15 +183,15 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       notifications.publish(updateMessage)
 
       // TODO: centralise where all these URLs are constructed
-      Accepted(Json.obj("uri" -> s"${config.apiUri}/images/${uploadRequest.id}")).as(ArgoMediaType)
+      Accepted(Json.obj("uri" -> s"${config.apiUri}/images/${uploadRequest.imageId}")).as(ArgoMediaType)
     }
 
     result recover {
       case e =>
         Logger.warn(s"Failed to store file: ${e.getMessage}.", e)(uploadRequest.toLogMarker)
 
-        store.deleteOriginal(uploadRequest.id).onComplete {
-          case Failure(err) => Logger.error(s"Failed to delete image for ${uploadRequest.id}: $err")
+        store.deleteOriginal(uploadRequest.imageId).onComplete {
+          case Failure(err) => Logger.error(s"Failed to delete image for ${uploadRequest.imageId}: $err")
           case _ =>
         }
         respondError(BadRequest, "upload-error", e.getMessage)
