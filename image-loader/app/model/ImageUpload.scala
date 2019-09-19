@@ -13,6 +13,7 @@ import com.gu.mediaservice.model._
 import lib.ImageLoaderConfig
 import lib.imaging.FileMetadataReader
 import lib.storage.ImageLoaderStore
+import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
@@ -37,7 +38,7 @@ case object OptimisedPng {
 
 class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implicit val ec: ExecutionContext) {
   private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = store.storeOptimisedPng(
-    uploadRequest.id,
+    uploadRequest.imageId,
     optimisedPngFile
   )
 
@@ -47,7 +48,7 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
     if (OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
 
       val optimisedFile = {
-        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.id + ".png"
+        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
         Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
         new File(optimisedFilePath)
       }
@@ -75,7 +76,7 @@ case object ImageUpload {
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
     val usageRights = NoRights
     Image(
-      uploadRequest.id,
+      uploadRequest.imageId,
       uploadRequest.uploadTime,
       uploadRequest.uploadedBy,
       Some(uploadRequest.uploadTime),
@@ -98,19 +99,21 @@ case object ImageUpload {
 
 class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
-
+    Logger.info("Starting image ops")(uploadRequest.toLogMarker)
     val uploadedFile = uploadRequest.tempFile
 
     val fileMetadataFuture = uploadRequest.mimeType match {
-      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id, uploadRequest.mimeType.get)
-      case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.id, uploadRequest.mimeType.get)
-      case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile, uploadRequest.id)
+      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType.get)
+      case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType.get)
+      case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile, uploadRequest.imageId)
     }
+    Logger.info("Have read file headers")(uploadRequest.toLogMarker)
 
     fileMetadataFuture.flatMap(fileMetadata => {
 
       // These futures are started outside the for-comprehension, otherwise they will not run in parallel
       val sourceStoreFuture = storeSource(uploadRequest)
+      Logger.info("stored source file")(uploadRequest.toLogMarker)
       // FIXME: pass mimeType
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
@@ -121,6 +124,8 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
         iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
         thumb <- imageOps.createThumbnail(uploadedFile, uploadRequest.mimeType, config.thumbWidth, config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
       } yield thumb
+
+      Logger.info("thumbnail created")(uploadRequest.toLogMarker)
 
       //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
       val toOptimiseFileFuture: Future[File] = uploadRequest.mimeType match {
@@ -136,59 +141,57 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
           Future.apply(uploadedFile)
       }
 
-
       toOptimiseFileFuture.flatMap(toOptimiseFile => {
+        Logger.info("optimised image created")(uploadRequest.toLogMarker)
 
-      val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
+        val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
 
-      bracket(thumbFuture)(_.delete) { thumb =>
-        // Run the operations in parallel
-        val thumbStoreFuture = storeThumbnail(uploadRequest, thumb)
+        bracket(thumbFuture)(_.delete) { thumb =>
+          // Run the operations in parallel
+          val thumbStoreFuture = storeThumbnail(uploadRequest, thumb)
+          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
 
-        val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
+          for {
+            s3Source <- sourceStoreFuture
+            s3Thumb <- thumbStoreFuture
+            s3PngOption <- optimisedPng.optimisedFileStoreFuture
+            sourceDimensions <- sourceDimensionsFuture
+            thumbDimensions <- thumbDimensionsFuture
+            fileMetadata <- fileMetadataFuture
+            colourModel <- colourModelFuture
+            fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
 
-        for {
-          s3Source <- sourceStoreFuture
-          s3Thumb <- thumbStoreFuture
-          s3PngOption <- optimisedPng.optimisedFileStoreFuture
-          sourceDimensions <- sourceDimensionsFuture
-          thumbDimensions <- thumbDimensionsFuture
-          fileMetadata <- fileMetadataFuture
-          colourModel <- colourModelFuture
-          fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
+            metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
+            cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
 
-          metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
-          cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
+            sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
+            thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
-          sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
-          thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
+            pngAsset = if (optimisedPng.isPng24)
+              Some(Asset.fromS3Object(s3PngOption.get, sourceDimensions))
+            else
+              None
 
-          pngAsset = if (optimisedPng.isPng24)
-            Some(Asset.fromS3Object(s3PngOption.get, sourceDimensions))
-          else
-            None
+            baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+            processedImage = SupplierProcessors.process(baseImage)
 
-          baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
-          processedImage = SupplierProcessors.process(baseImage)
-
-          // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-          finalImage = processedImage.copy(
-            originalMetadata = processedImage.metadata,
-            originalUsageRights = processedImage.usageRights
-          )
-        }
-          yield {
-            if (optimisedPng.isPng24)
-              optimisedPng.optimisedTempFile.get.delete
+            // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+            finalImage = processedImage.copy(
+              originalMetadata = processedImage.metadata,
+              originalUsageRights = processedImage.usageRights
+            )
+          } yield {
+            if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
+            Logger.info("Ending image ops")(uploadRequest.toLogMarker)
             ImageUpload(uploadRequest, finalImage)
           }
-      }
-    })
+        }
+      })
     })
   }
 
   def storeSource(uploadRequest: UploadRequest) = store.storeOriginal(
-    uploadRequest.id,
+    uploadRequest.imageId,
     uploadRequest.tempFile,
     uploadRequest.mimeType,
     Map(
@@ -197,7 +200,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
     ) ++ uploadRequest.identifiersMeta
   )
   def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
-    uploadRequest.id,
+    uploadRequest.imageId,
     thumbFile,
     Some("image/jpeg")
   )
