@@ -33,10 +33,7 @@ object JsonByteArrayUtil extends PlayJsonHelpers {
 
   def hasCompressionMarker(bytes: Array[Byte]) = bytes.head == compressionMarkerByte
 
-  def toByteArray[T](obj: T, withCompression: Boolean = false)(implicit writes: Writes[T]): Array[Byte] = {
-    val bytes = Json.toBytes(Json.toJson(obj))
-    if (withCompression) compress(bytes) else bytes
-  }
+  def toByteArray[T](obj: T)(implicit writes: Writes[T]): Array[Byte] = compress(Json.toBytes(Json.toJson(obj)))
 
   def fromByteArray[T](bytes: Array[Byte])(implicit reads: Reads[T]): Option[T] = {
     val string = new String(
