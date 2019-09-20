@@ -6,6 +6,7 @@ import java.util.UUID
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.usage.UsageNotice
 import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
@@ -19,10 +20,9 @@ class Kinesis(config: CommonConfig, streamName: String) {
     implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
     implicit val unw = Json.writes[UsageNotice]
 
-    val asJson = Json.toJson(message)
     Logger.info("Publishing message to kinesis")(message.toLogMarker)
 
-    val payload = Json.toBytes(asJson)
+    val payload = JsonByteArrayUtil.toByteArray(message, withCompression = false)
 
     val request = new PutRecordRequest()
       .withStreamName(streamName)
