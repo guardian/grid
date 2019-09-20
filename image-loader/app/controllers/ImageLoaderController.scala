@@ -9,7 +9,8 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.logging.LoggingContext
+import com.gu.mediaservice.lib.logging.LoggingContext.withContext
 import com.gu.mediaservice.model.UploadInfo
 import lib._
 import lib.imaging.MimeTypeDetection
@@ -35,7 +36,7 @@ case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
 
 class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications, config: ImageLoaderConfig, imageUploadOps: ImageUploadOps,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with ArgoHelpers with LoggingContext {
 
   val LOG_FALLBACK = "unknown"
 
@@ -55,7 +56,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     File.createTempFile(prefix, "", config.tempDir)
   }
 
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
+  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = withContext(Map("pokemon" -> "pikachu", "route" -> "loadImage")){
     val requestContext = RequestLoggingContext()
 
     val markers = Map(
@@ -64,7 +65,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       "uploadTime" -> uploadTime.getOrElse(LOG_FALLBACK),
       "filename" -> filename.getOrElse(LOG_FALLBACK)
     )
-
+    Logger.info("hi")
     Logger.info("loadImage request start")(requestContext.toMarker(markers))
 
     val parsedBody = DigestBodyParser.create(createTempFile("requestBody", requestContext))
