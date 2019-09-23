@@ -8,7 +8,7 @@ import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.usage.UsageNotice
-import net.logstash.logback.marker.Markers
+import net.logstash.logback.marker.{LogstashMarker, Markers}
 import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
 
@@ -23,7 +23,7 @@ class Kinesis(config: CommonConfig, streamName: String) {
 
     val payload = JsonByteArrayUtil.toByteArray(message, withCompression = false)
 
-    val markers = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
+    val markers: LogstashMarker = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
     Logger.info("Publishing message to kinesis")(markers)
 
     val request = new PutRecordRequest()
