@@ -8,7 +8,7 @@ import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
 import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.lib.json.PlayJsonHelpers
+import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import play.api.Logger
@@ -40,32 +40,28 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
       records.asScala.foreach { r =>
 
         try {
-          val subject = r.getPartitionKey
-          val message = new String(r.getData.array(), StandardCharsets.UTF_8)
-          Logger.debug("Got kinesis event: " + subject + " / " + message)
-
           implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads
           implicit val unr = Json.reads[UsageNotice]
           implicit val umr = Json.reads[UpdateMessage]
 
-          val updateMessage = Json.parse(message).as[UpdateMessage] // TODO validation
-          val timestamp = r.getApproximateArrivalTimestamp
+          JsonByteArrayUtil.fromByteArray[UpdateMessage](r.getData.array) map { updateMessage =>
+            val timestamp = r.getApproximateArrivalTimestamp
 
-          Logger.info(s"Received ${updateMessage.subject} message at $timestamp")(updateMessage.toLogMarker)
+            Logger.info(s"Received ${updateMessage.subject} message at $timestamp")(updateMessage.toLogMarker)
 
-          messageProcessor.chooseProcessor(updateMessage).map { p =>
-            val ThirtySeconds = Duration(30, SECONDS)
-            val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
-            eventuallyAppliedUpdate.map { _ =>
-              Logger.info(s"Completed processing of ${updateMessage.subject} message")(updateMessage.toLogMarker)
-            }.recover {
-              case e: Throwable =>
-                Logger.error(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)(updateMessage.toLogMarker)
+            messageProcessor.chooseProcessor(updateMessage).map { p =>
+              val ThirtySeconds = Duration(30, SECONDS)
+              val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
+              eventuallyAppliedUpdate.map { _ =>
+                Logger.info(s"Completed processing of ${updateMessage.subject} message")(updateMessage.toLogMarker)
+              }.recover {
+                case e: Throwable =>
+                  Logger.error(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)(updateMessage.toLogMarker)
+              }
+
+              Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
             }
-
-            Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
           }
-
         } catch {
           case e: Throwable =>
             Logger.error("Exception during process record block", e)
