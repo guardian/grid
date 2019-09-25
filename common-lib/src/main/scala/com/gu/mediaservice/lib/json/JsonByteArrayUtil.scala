@@ -31,15 +31,10 @@ object JsonByteArrayUtil extends PlayJsonHelpers {
     decompressedBytes
   }
 
-  def hasCompressionMarker(bytes: Array[Byte]) = bytes.head == compressionMarkerByte
-
   def toByteArray[T](obj: T)(implicit writes: Writes[T]): Array[Byte] = compress(Json.toBytes(Json.toJson(obj)))
 
   def fromByteArray[T](bytes: Array[Byte])(implicit reads: Reads[T]): Option[T] = {
-    val string = new String(
-      if (hasCompressionMarker(bytes)) decompress(bytes) else bytes,
-      StandardCharsets.UTF_8
-    )
+    val string = new String(decompress(bytes), StandardCharsets.UTF_8)
 
     Json.parse(string).validate[T] match {
       case JsSuccess(obj, _) => Some(obj)
