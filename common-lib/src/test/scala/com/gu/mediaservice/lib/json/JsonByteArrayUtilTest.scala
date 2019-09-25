@@ -15,10 +15,16 @@ class JsonByteArrayUtilTest extends FunSuite with Matchers {
   val triangle = Shape("triangle", 3)
   val square = Shape("square", 4)
 
-  test("To compressed byte array and back again") {
+  test("To byte array and back again") {
     val bytes = JsonByteArrayUtil.toByteArray(circle)
-    JsonByteArrayUtil.hasCompressionMarker(bytes) shouldBe true
+    JsonByteArrayUtil.hasCompressionMarker(bytes) shouldBe false
     JsonByteArrayUtil.fromByteArray[Shape](bytes) shouldBe Some(circle)
+  }
+
+  test("To compressed byte array and back again") {
+    val bytes = JsonByteArrayUtil.toByteArray(triangle, withCompression = true)
+    JsonByteArrayUtil.hasCompressionMarker(bytes) shouldBe true
+    JsonByteArrayUtil.fromByteArray[Shape](bytes) shouldBe Some(triangle)
   }
 
   test("From byte array into different type") {
@@ -31,8 +37,8 @@ class JsonByteArrayUtilTest extends FunSuite with Matchers {
     // compressing `circle` by itself results in a longer byte array 😅
     val shapes = List(circle, triangle, square)
 
-    val uncompressedBytes = Json.toBytes(Json.toJson(shapes))
-    val compressedBytes = JsonByteArrayUtil.toByteArray(shapes)
+    val uncompressedBytes = JsonByteArrayUtil.toByteArray(shapes, withCompression = false)
+    val compressedBytes = JsonByteArrayUtil.toByteArray(shapes, withCompression = true)
     compressedBytes.length < uncompressedBytes.length shouldBe true
 
     JsonByteArrayUtil.fromByteArray[List[Shape]](uncompressedBytes) shouldBe Some(shapes)
