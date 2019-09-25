@@ -216,14 +216,37 @@ class MediaApi(
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.apiKey
-        GridLogger.info(s"Download original image $id", apiKey, id)
-        mediaApiMetrics.incrementOriginalImageDownload(apiKey)
+        GridLogger.info(s"Download original image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
 
         Future.successful(
           Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+        )
+      }
+      case _ => Future.successful(ImageNotFound(id))
+    }
+  }
+
+  def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image) if hasPermission(request, image) => {
+        val apiKey = request.user.apiKey
+        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
+
+        val sourceImageUri =
+          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
+            case Some(_) => OptimisedPng
+            case _ => Source
+          }))
+
+        Future.successful(
+          Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
         )
       }
       case _ => Future.successful(ImageNotFound(id))
