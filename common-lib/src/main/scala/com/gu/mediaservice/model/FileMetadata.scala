@@ -18,13 +18,13 @@ case class FileMetadata(
 ) {
   def toLogMarker = {
     val markers = Map (
-      "iptc" -> iptc.size,
-      "exif" -> exif.size,
-      "exifSub" -> exifSub.size,
-      "xmp" -> xmp.size,
-      "icc" -> icc.size,
-      "getty" -> getty.size,
-      "colourModelInformation" -> colourModelInformation.size,
+      "iptcFieldCount" -> iptc.size,
+      "exifFieldCount" -> exif.size,
+      "exifSubFieldCount" -> exifSub.size,
+      "xmpFieldCount" -> xmp.size,
+      "iccFieldCount" -> icc.size,
+      "gettyFieldCount" -> getty.size,
+      "colourModelInformationFieldCount" -> colourModelInformation.size,
     )
 
     Markers.appendEntries(markers.asJava)
