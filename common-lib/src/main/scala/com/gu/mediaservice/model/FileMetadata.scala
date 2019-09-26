@@ -1,7 +1,10 @@
 package com.gu.mediaservice.model
 
+import net.logstash.logback.marker.Markers
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+
+import scala.collection.JavaConverters._
 
 case class FileMetadata(
   iptc: Map[String, String]                     = Map(),
@@ -12,8 +15,21 @@ case class FileMetadata(
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
   colourModelInformation: Map[String, String]   = Map()
+) {
+  def toLogMarker = {
+    val markers = Map (
+      "iptcFieldCount" -> iptc.size,
+      "exifFieldCount" -> exif.size,
+      "exifSubFieldCount" -> exifSub.size,
+      "xmpFieldCount" -> xmp.size,
+      "iccFieldCount" -> icc.size,
+      "gettyFieldCount" -> getty.size,
+      "colourModelInformationFieldCount" -> colourModelInformation.size,
+    )
 
-)
+    Markers.appendEntries(markers.asJava)
+  }
+}
 
 object FileMetadata {
   // TODO: reindex all images to make the getty map always present
