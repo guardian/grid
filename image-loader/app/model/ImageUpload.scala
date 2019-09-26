@@ -13,6 +13,7 @@ import com.gu.mediaservice.model._
 import lib.ImageLoaderConfig
 import lib.imaging.FileMetadataReader
 import lib.storage.ImageLoaderStore
+import net.logstash.logback.marker.LogstashMarker
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -107,9 +108,12 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
       case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile, uploadRequest.imageId)
     }
-    Logger.info("Have read file headers")(uploadRequest.toLogMarker)
+    val uploadMarkers = uploadRequest.toLogMarker
+    Logger.info("Have read file headers")(uploadMarkers)
 
     fileMetadataFuture.flatMap(fileMetadata => {
+      val markers: LogstashMarker = fileMetadata.toLogMarker.and(uploadMarkers)
+      Logger.info("Have read file metadata")(markers)
 
       // These futures are started outside the for-comprehension, otherwise they will not run in parallel
       val sourceStoreFuture = storeSource(uploadRequest)
