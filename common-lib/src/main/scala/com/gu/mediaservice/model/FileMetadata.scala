@@ -17,15 +17,18 @@ case class FileMetadata(
   colourModelInformation: Map[String, String]   = Map()
 ) {
   def toLogMarker = {
-    val markers = Map (
+    val fieldCountMarkers = Map (
       "iptcFieldCount" -> iptc.size,
       "exifFieldCount" -> exif.size,
       "exifSubFieldCount" -> exifSub.size,
       "xmpFieldCount" -> xmp.size,
       "iccFieldCount" -> icc.size,
       "gettyFieldCount" -> getty.size,
-      "colourModelInformationFieldCount" -> colourModelInformation.size,
+      "colourModelInformationFieldCount" -> colourModelInformation.size
     )
+
+    val totalFieldCount = fieldCountMarkers.foldLeft(0)(_ + _._2)
+    val markers = fieldCountMarkers + ("totalFieldCount" -> totalFieldCount)
 
     Markers.appendEntries(markers.asJava)
   }
