@@ -23,4 +23,6 @@ class KahunaConfig(override val configuration: Configuration) extends CommonConf
   val usageRightsHelpLink: Option[String]= properties.get("links.usageRightsHelp").filterNot(_.isEmpty)
   val invalidSessionHelpLink: Option[String]= properties.get("links.invalidSessionHelp").filterNot(_.isEmpty)
   val supportEmail: Option[String]= properties.get("links.supportEmail").filterNot(_.isEmpty)
+
+  val frameAncestors: Set[String] = getStringSetFromProperties("security.frameAncestors")
 }

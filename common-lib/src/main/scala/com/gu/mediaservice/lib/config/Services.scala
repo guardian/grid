@@ -5,7 +5,7 @@ case class ServiceHosts(kahunaPrefix: String, apiPrefix: String, loaderPrefix: S
                         usagePrefix: String, collectionsPrefix: String, leasesPrefix: String,
                         authPrefix: String)
 
-class Services(val domainRoot: String, isProd: Boolean, hosts: ServiceHosts) {
+class Services(val domainRoot: String, isProd: Boolean, hosts: ServiceHosts, corsAllowedOrigins: Set[String]) {
   val kahunaHost: String      = s"${hosts.kahunaPrefix}$domainRoot"
   val apiHost: String         = s"${hosts.apiPrefix}$domainRoot"
   val loaderHost: String      = s"${hosts.loaderPrefix}$domainRoot"
@@ -30,28 +30,9 @@ class Services(val domainRoot: String, isProd: Boolean, hosts: ServiceHosts) {
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 
-  val toolsDomains: Set[String] = if(isProd) {
-    Set(domainRoot)
-  } else {
-    Set(
-      domainRoot.replace("test", "local"),
-      domainRoot.replace("test", "code")
-    )
-  }
-
-  // TODO move to config
-  val corsAllowedTools: Set[String] = toolsDomains.foldLeft(Set[String]()) {(acc, domain) => {
-    val tools = Set(
-      baseUri(s"composer.$domain"),
-      baseUri(s"fronts.$domain")
-    )
-
-    acc ++ tools
-  }}
+  val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri)
 
   val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
 
-  def baseUri(host: String) = {
-    s"https://$host"
-  }
+  def baseUri(host: String) = s"https://$host"
 }

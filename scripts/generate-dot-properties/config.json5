@@ -57,5 +57,10 @@
     usageRightsHelp: '',
     invalidSessionHelp: '',
     supportEmail: ''
+  },
+
+  security: {
+    frameAncestors: '',
+    corsAllowedOrigins: ''
   }
 }

@@ -28,7 +28,7 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
   }
 
   final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
-    allowedOrigins = Origins.Matching(Set(config.services.kahunaBaseUri) ++ config.services.corsAllowedTools)
+    allowedOrigins = Origins.Matching(Set(config.services.kahunaBaseUri) ++ config.services.corsAllowedDomains)
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)
