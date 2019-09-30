@@ -121,12 +121,14 @@ Resources:
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
+      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-${Stage}"
       Subscription:
       - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
         Protocol: sqs
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
-    Properties: {}
+    Properties:
+      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-${Stage}"
   IndexedImageMetadataQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
@@ -145,6 +147,42 @@ Resources:
               aws:SourceArn: !Ref 'IndexedImageTopic'
       Queues:
       - !Ref 'IndexedImageMetadataQueue'
+
+  KmsKeySqsQueueFromSns:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "Shared key so the SQS queue can read from the SNS Topic"
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: SNS-to-SQS-Key
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action:
+              - kms:*
+            Resource: "*"
+          - Effect: Allow
+            Principal:
+              Service: sqs.amazonaws.com
+            Action:
+              - kms:GenerateDataKey*
+              - kms:Decrypt
+            Resource: "*"
+          - Effect: Allow
+            Principal:
+              Service: sns.amazonaws.com
+            Action:
+              - kms:GenerateDataKey*
+              - kms:Decrypt
+            Resource: "*"
+
+    KmsKeySqsQueueFromSnsAlias:
+      Type: AWS::KMS::Alias
+      Properties:
+        AliasName: !Sub "alias/media-service/sns-to-sqs-${Stage}"
+        TargetKeyId:
+          Ref: KmsKeySqsQueueFromSns
 
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
