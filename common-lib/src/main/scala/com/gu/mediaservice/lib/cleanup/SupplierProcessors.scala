@@ -245,13 +245,13 @@ object PaParser extends ImageProcessor {
     "Press Association Images"
   ).map(_.toLowerCase)
 
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some(credit) if paCredits.contains(credit.toLowerCase) => image.copy(
-      metadata = image.metadata.copy(credit = Some("PA")),
-      usageRights = Agency("PA")
-    )
-
-    case _ => image
+  def apply(image: Image): Image = {
+    val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
+      paCredits.contains(creditOrSource.toLowerCase)
+    }
+    if (isPa) {
+      image.copy(usageRights = Agency("PA"))
+    } else image
   }
 }
 
