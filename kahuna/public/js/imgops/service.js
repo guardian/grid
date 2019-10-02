@@ -1,4 +1,5 @@
 import angular from 'angular';
+import Rx from "rx";
 
 export var imgops = angular.module('kahuna.imgops', []);
 
@@ -30,6 +31,14 @@ imgops.factory('imgops', ['$window', function($window) {
         });
     }
 
+    function getLowResDownloadUri(image) {
+        return getOptimisedDownloadUri(image, {
+            width: lowResMaxWidth,
+            height: lowResMaxHeight,
+            quality: quality
+        });
+    }
+
     function getOptimisedUri(image, options) {
 
         if (image.data.optimisedPng) {
@@ -43,9 +52,16 @@ imgops.factory('imgops', ['$window', function($window) {
         }
     }
 
+    function getOptimisedDownloadUri(image, options) {
+        return image.follow('downloadOptimised', options).getUri().catch(() => {
+            return image.follow('download');
+        });
+    }
+
     return {
         getFullScreenUri,
-        getLowResUri
+        getLowResUri,
+        getLowResDownloadUri
     };
 
 }]);

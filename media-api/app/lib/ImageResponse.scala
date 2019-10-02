@@ -107,7 +107,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   }
 
   def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
-  def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised{&width,height,quality}")
+  def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
 
   def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean) = {
     val cropLink = Link("crops", s"${config.cropperUri}/crops/$id")
