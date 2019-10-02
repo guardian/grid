@@ -46,13 +46,14 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
         const originalName$   = image$.map((image) => imageName(image));
 
         const secureUri$     = image$.map((image) => image.source.secureUrl);
+        const downloadUri$   = Rx.Observable.fromPromise(imageResource.getLink("download")).map((download) => download.href);
         const lowRezUri$     = Rx.Observable.fromPromise(imgops.getLowResUri(imageResource));
         const fullScreenUri$ = Rx.Observable.fromPromise(imgops.getFullScreenUri(imageResource));
 
-        return Rx.Observable.zip(originalName$, secureUri$, lowRezUri$, fullScreenUri$,
-                (originalName, secureUri, lowRezUri, fullScreenUri) => ({
+        return Rx.Observable.zip(originalName$, secureUri$, lowRezUri$, fullScreenUri$, downloadUri$,
+                (originalName, secureUri, lowRezUri, fullScreenUri, downloadUri) => ({
                     filename: originalName,
-                    uris: {secureUri, lowRezUri, fullScreenUri}
+                    uris: {secureUri, lowRezUri, fullScreenUri, downloadUri}
                 }));
     }
 
@@ -63,7 +64,7 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
         const downloads$ = Rx.Observable.merge(downloadObservables);
 
         const zip = new JSZip();
-        const imageHttp = url => $http.get(url, { responseType:'arraybuffer' });
+        const imageHttp = url => $http.get(url, { responseType:'arraybuffer', withCredentials: true });
 
         const addDownloadsToZip$ = downloads$
             .flatMap((downloads) => Rx.Observable
