@@ -178,12 +178,12 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
       "Panoramic/Avalon", "Panoramic", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA", "EMPICS", "Empics News",
       "S&G and Barratts/EMPICS Sport", "EMPICS Sport", "EMPICS SPORT", "EMPICS Sports Photo Agency",
       "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
-      "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM"
+      "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS"
     )
 
     val excludedSource = List(
       "www.capitalpictures.com", "Replay Images", "UKTV", "PinPep", "Pinnacle Photo Agency Ltd", "News Images",
-      "London News Pictures Ltd", "Showtime", "Propaganda"
+      "London News Pictures Ltd", "Showtime", "Propaganda", "Equinox Features", "Athena Picture Agency Ltd"
     )
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
