@@ -9,6 +9,7 @@ import com.amazonaws.client.builder.AwsClientBuilder
 import play.api.Configuration
 
 import scala.io.Source._
+import scala.util.Try
 
 
 trait CommonConfig {
@@ -53,17 +54,26 @@ trait CommonConfig {
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
   lazy val rootAppName: String = properties.getOrElse("app.name.root", "media")
-  lazy val serviceHosts = ServiceHosts(stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
-                                       stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
-                                       stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
-                                       stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
-                                       stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
-                                       stringDefault("hosts.imgopsPrefix", s"$rootAppName-imgops."),
-                                       stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
-                                       stringDefault("hosts.collectionsPrefix", s"$rootAppName-collections."),
-                                       stringDefault("hosts.leasesPrefix", s"$rootAppName-leases."),
-                                       stringDefault("hosts.authPrefix", s"$rootAppName-auth."))
-  lazy val services = new Services(domainRoot, isProd, serviceHosts)
+  lazy val serviceHosts = ServiceHosts(
+    stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
+    stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
+    stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
+    stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
+    stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
+    stringDefault("hosts.imgopsPrefix", s"$rootAppName-imgops."),
+    stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
+    stringDefault("hosts.collectionsPrefix", s"$rootAppName-collections."),
+    stringDefault("hosts.leasesPrefix", s"$rootAppName-leases."),
+    stringDefault("hosts.authPrefix", s"$rootAppName-auth.")
+  )
+
+  lazy val corsAllowedOrigins: Set[String] = getStringSetFromProperties("security.cors.allowedOrigins")
+
+  lazy val services = new Services(domainRoot, isProd, serviceHosts, corsAllowedOrigins)
+
+  final def getStringSetFromProperties(key: String): Set[String] = Try(
+    properties(key).split(",").map(_.trim).toSet
+  ).getOrElse(Set.empty)
 
   final def apply(key: String): String =
     string(key)
