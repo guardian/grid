@@ -1,5 +1,4 @@
 import angular from 'angular';
-import Rx from "rx";
 
 export var imgops = angular.module('kahuna.imgops', []);
 
