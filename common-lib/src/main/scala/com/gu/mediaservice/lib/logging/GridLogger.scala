@@ -20,7 +20,7 @@ object GridLogger {
   def info(message: String, imageId: String): Unit = info(message, imageIdMarker(imageId))
 
   private def apiKeyMarkers(apiKey: ApiKey) = Map(
-    "key-tier" -> apiKey.tier,
+    "key-tier" -> apiKey.tier.toString,
     "key-name" -> apiKey.name
   )
 
