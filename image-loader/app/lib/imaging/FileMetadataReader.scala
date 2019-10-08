@@ -62,20 +62,17 @@ object FileMetadataReader {
     }
     yield getMetadataWithICPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
 
-  private def getMetadataWithICPTCHeaders(metadata: Metadata, imageId:String): FileMetadata = {
-    val xmpProperties = exportXmpProperties(metadata, imageId)
-
+  private def getMetadataWithICPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =
     FileMetadata(
       iptc = exportDirectory(metadata, classOf[IptcDirectory]),
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-      xmp = xmpProperties,
+      xmp = exportXmpProperties(metadata, imageId),
       icc = exportDirectory(metadata, classOf[IccDirectory]),
-      getty = exportGettyDirectory(xmpProperties),
+      getty = exportGettyDirectory(metadata, imageId),
       colourModel = None,
       colourModelInformation = Map()
     )
-  }
 
   // Export all the metadata in the directory
   private def exportDirectory[T <: Directory](metadata: Metadata, directoryClass: Class[T]): Map[String, String] =
@@ -110,31 +107,24 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
-
-  private def xmpDirectoryToMap(directory: XmpDirectory, imageId: String): Map[String, String] = {
-    directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
-      case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
-      case (key, Some(value)) => key -> value
-    }
-  }
-
-  private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] = {
-    val directories = metadata.getDirectoriesOfType(classOf[XmpDirectory]).asScala.toList
-    directories.foldLeft[Map[String, String]](Map.empty)((acc, dir) => {
-      // An image can have multiple xmp directories. A directory has multiple xmp properties.
-      // A property can be repeated across directories and its value may not be unique.
-      // Keep the first value encountered on the basis that there will only be multiple directories
-      // if there is no space in the previous one as directories have a maximum size.
-      acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
-    })
-  }
+  private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] =
+    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
+      directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
+        case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
+        case (key, Some(value)) => key -> value
+      }
+    } getOrElse Map()
 
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
   // this only extracts a small subset of properties as a means to identify Getty images.
-  private def exportGettyDirectory(xmpProperties: Map[String, String]): Map[String, String] = {
+  private def exportGettyDirectory(metadata: Metadata, imageId:String): Map[String, String] = {
+      val xmpProperties = exportXmpProperties(metadata, imageId)
+
       def readProperty(name: String): Option[String] = xmpProperties.get(name)
+
       def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
+
       Map(
         "Asset ID" -> readAssetId,
         "Call For Image" -> readProperty("GettyImagesGIFT:CallForImage"),
