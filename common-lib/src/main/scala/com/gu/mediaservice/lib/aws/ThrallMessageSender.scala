@@ -7,7 +7,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.DateTime
-import play.api.libs.json.{JodaWrites, Json}
+import play.api.libs.json.{JodaReads, JodaWrites, Json}
 
 import scala.collection.JavaConverters._
 
@@ -22,8 +22,11 @@ class ThrallMessageSender(config: CommonConfig) {
 
 object UpdateMessage {
   implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
-  implicit val unw = Json.writes[UsageNotice]
+  implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads
+  implicit val usageNoticeWrites = Json.writes[UsageNotice]
+  implicit val usageNoticeReads = Json.reads[UsageNotice]
   implicit val writes = Json.writes[UpdateMessage]
+  implicit val reads = Json.reads[UpdateMessage]
 }
 
 // TODO add RequestID

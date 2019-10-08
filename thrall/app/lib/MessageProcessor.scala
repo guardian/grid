@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.aws.{EsResponse, Kinesis, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Edits, MediaLease, SyndicationRights}
+import play.api.Logger
 import play.api.libs.json.{JsError, JsValue, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,8 +42,20 @@ class MessageProcessor(es: ElasticSearchVersion,
   def updateImageUsages(usages: JsValue)(implicit ec: ExecutionContext) =
     Future.sequence(withImageId(usages)(id => es.updateImageUsages(id, usages \ "data", usages \ "lastModified")))
 
-  def indexImage(image: JsValue)(implicit ec: ExecutionContext) =
-    Future.sequence(withImageId(image)(id => es.indexImage(id, image)))
+  def indexImage(image: JsValue)(implicit ec: ExecutionContext) = {
+    val updateMessage = image.as[UpdateMessage]
+
+    val maxXmpFields = 1000
+
+    updateMessage.image match {
+      case Some(img) if img.fileMetadata.xmp.size > maxXmpFields => {
+        Logger.warn(s"Dropping message for image ${img.id} as there are too many xmp fields")
+        Future.successful(List.empty)
+      }
+      case _ => Future.sequence(withImageId(image)(id => es.indexImage(id, image)))
+    }
+
+  }
 
   def updateImageExports(exports: JsValue)(implicit ec: ExecutionContext) =
     Future.sequence(withImageId(exports)(id => es.updateImageExports(id, exports \ "data")))
