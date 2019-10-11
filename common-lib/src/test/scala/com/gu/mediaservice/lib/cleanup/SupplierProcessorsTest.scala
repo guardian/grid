@@ -448,7 +448,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
         SupplierMatch("BloombergParser", List("Bloomberg"), List()),
         SupplierMatch("CorbisParser", List(), List("Corbis")),
         SupplierMatch("EpaParser", List(".*\\bEPA\\b.*"), List()),
-        SupplierMatch("PaParser", List("PA", "PA WIRE", "PA Wire/PA Images", "PA Wire/PA Photos", "PA Wire/Press Association Images", "PA Archive/PA Photos", "PA Archive/PA Images", "PA Archive/Press Association Ima", "PA Archive/Press Association Images", "Press Association Images"), List()),
+        SupplierMatch("PaParser", List("PA", "PA WIRE", "PA Wire/PA Images", "PA Wire/PA Photos", "PA Wire/Press Association Images", "PA Archive/PA Photos", "PA Archive/PA Images", "PA Archive/Press Association Ima", "PA Archive/Press Association Images", "Press Association Images"), List("PA")),
         SupplierMatch("ReutersParser", List("REUTERS", "Reuters", "RETUERS", "REUTERS/"), List()),
         SupplierMatch("RexParser", List(".+/ Rex Features"), List("Rex Features", "REX/Shutterstock")),
         SupplierMatch("RonaldGrantParser", List("www.ronaldgrantarchive.com", "Ronald Grant Archive"), List()),
