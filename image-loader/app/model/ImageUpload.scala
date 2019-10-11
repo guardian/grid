@@ -200,7 +200,8 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
     uploadRequest.mimeType,
     Map(
       "uploaded_by" -> uploadRequest.uploadedBy,
-      "upload_time" -> printDateTime(uploadRequest.uploadTime)
+      "upload_time" -> printDateTime(uploadRequest.uploadTime),
+      "file_name" -> uploadRequest.uploadInfo.filename.orNull
     ) ++ uploadRequest.identifiersMeta
   )
   def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
