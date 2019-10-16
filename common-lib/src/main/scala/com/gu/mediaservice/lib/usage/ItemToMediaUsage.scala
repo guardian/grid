@@ -28,6 +28,8 @@ object ItemToMediaUsage {
         .map(_.asScala.toMap).flatMap(buildSyndication),
       Option(item.getMap[Any]("front_metadata"))
         .map(_.asScala.toMap).flatMap(buildFront),
+      Option(item.getMap[Any]("download_metadata"))
+        .map(_.asScala.toMap).flatMap(buildDownload),
       new DateTime(item.getLong("last_modified")),
       Try {
         item.getLong("date_added")
@@ -90,4 +92,11 @@ object ItemToMediaUsage {
     }.toOption
   }
 
+  private def buildDownload(metadataMap: Map[String, Any]): Option[DownloadUsageMetadata] = {
+    Try {
+      DownloadUsageMetadata(
+        metadataMap("downloadedBy").asInstanceOf[String]
+      )
+    }.toOption
+  }
 }

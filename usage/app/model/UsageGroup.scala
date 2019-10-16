@@ -40,6 +40,13 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     ).mkString("_"))
   }"
 
+  def buildId(downloadUsageRequest: DownloadUsageRequest): String = s"download/${
+    MD5.hash(List(
+      downloadUsageRequest.mediaId,
+      downloadUsageRequest.metadata.downloadedBy
+    ).mkString("_"))
+  }"
+
   def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
@@ -76,6 +83,16 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       usageGroupId,
       frontUsageRequest.status,
       frontUsageRequest.dateAdded
+    )
+  }
+
+  def build(downloadUsageRequest: DownloadUsageRequest): UsageGroup = {
+    val usageGroupId = buildId(downloadUsageRequest)
+    UsageGroup(
+      Set(MediaUsageBuilder.build(downloadUsageRequest, usageGroupId)),
+      usageGroupId,
+      downloadUsageRequest.status,
+      downloadUsageRequest.dateAdded
     )
   }
 

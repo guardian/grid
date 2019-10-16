@@ -15,6 +15,14 @@ class UsageMetadataBuilder(config: UsageConfig) {
       Try(URI.create(s"${config.composerContentBaseUrl}/$composerId")).toOption
     })
 
+  def buildDownload(metadataMap: Map[String, Any]): Option[DownloadUsageMetadata] = {
+    Try {
+      DownloadUsageMetadata(
+        metadataMap("downloadedBy").asInstanceOf[String]
+      )
+    }.toOption
+  }
+
   def build(content: Content): DigitalUsageMetadata = {
     DigitalUsageMetadata(
       URI.create(content.webUrl),
