@@ -19,7 +19,8 @@ object UsageBuilder {
     usage.printUsageMetadata,
     usage.digitalUsageMetadata,
     usage.syndicationUsageMetadata,
-    usage.frontUsageMetadata
+    usage.frontUsageMetadata,
+    usage.downloadUsageMetadata
   )
 
   private def buildStatusString(usage: MediaUsage): UsageStatus = if (usage.isRemoved) RemovedUsageStatus else usage.status
@@ -33,6 +34,7 @@ object UsageBuilder {
       case DigitalUsage => buildDigitalUsageReference(usage)
       case PrintUsage => buildPrintUsageReference(usage)
       case SyndicationUsage => buildSyndicationUsageReference(usage)
+      case DownloadUsage => buildDownloadUsageReference(usage)
     }
   }
 
@@ -65,6 +67,16 @@ object UsageBuilder {
     List(
       UsageReference(
         SyndicationUsageReference, None, Some(metadata.partnerName)
+      )
+    )
+  }).getOrElse(
+    List[UsageReference]()
+  )
+
+  private def buildDownloadUsageReference(usage: MediaUsage): List[UsageReference] = usage.downloadUsageMetadata.map (metadata => {
+    List(
+      UsageReference(
+        DownloadUsageReference, None, Some(metadata.downloadedBy)
       )
     )
   }).getOrElse(

@@ -20,6 +20,7 @@ case class UsageRecord(
   digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
   syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
   frontUsageMetadata: Option[FrontUsageMetadata] = None,
+  downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
   dateAdded: Option[DateTime] = None,
   // Either is used here to represent 3 possible states:
   // remove-date, add-date and no-date
@@ -37,6 +38,7 @@ case class UsageRecord(
         digitalUsageMetadata.map(_.toMap).map(map => M("digital_metadata").set(map.asJava)),
         syndicationUsageMetadata.map(_.toMap).map(map => M("syndication_metadata").set(map.asJava)),
         frontUsageMetadata.map(_.toMap).map(map => M("front_metadata").set(map.asJava)),
+        downloadUsageMetadata.map(_.toMap).map(map => M("download_metadata").set(map.asJava)),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.fold(
           _ => Some(N("date_removed").remove),
@@ -65,7 +67,8 @@ object UsageRecord {
     mediaUsage.printUsageMetadata,
     mediaUsage.digitalUsageMetadata,
     mediaUsage.syndicationUsageMetadata,
-    mediaUsage.frontUsageMetadata
+    mediaUsage.frontUsageMetadata,
+    mediaUsage.downloadUsageMetadata
   )
 
   def buildCreateRecord(mediaUsage: MediaUsage) = UsageRecord(
@@ -80,6 +83,7 @@ object UsageRecord {
     mediaUsage.digitalUsageMetadata,
     mediaUsage.syndicationUsageMetadata,
     mediaUsage.frontUsageMetadata,
+    mediaUsage.downloadUsageMetadata,
     Some(mediaUsage.lastModified),
     Left("clear")
   )

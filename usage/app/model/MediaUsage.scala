@@ -19,6 +19,7 @@ case class MediaUsage(
   digitalUsageMetadata: Option[DigitalUsageMetadata],
   syndicationUsageMetadata: Option[SyndicationUsageMetadata],
   frontUsageMetadata: Option[FrontUsageMetadata],
+  downloadUsageMetadata: Option[DownloadUsageMetadata],
   lastModified: DateTime,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
@@ -57,6 +58,8 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildSyndication),
       Option(item.getMap[Any]("front_metadata"))
         .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildFront),
+      Option(item.getMap[Any]("download_metadata"))
+        .map(_.asScala.toMap).flatMap(usageMetadataBuilder.buildDownload),
       new DateTime(item.getLong("last_modified")),
       Try { item.getLong("date_added") }.toOption.map(new DateTime(_)),
       Try { item.getLong("date_removed") }.toOption.map(new DateTime(_))
@@ -70,6 +73,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
     "image",
     printUsage.usageStatus,
     Some(printUsage.printUsageMetadata),
+    None,
     None,
     None,
     None,
@@ -90,6 +94,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
       None,
       None,
+      downloadUsageMetadata = None,
       lastModified = mediaWrapper.lastModified
     )
   }
@@ -107,6 +112,7 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       digitalUsageMetadata = None,
       syndicationUsageMetadata = Some(syndicationUsageRequest.metadata),
       None,
+      downloadUsageMetadata = None,
       lastModified = syndicationUsageRequest.dateAdded
     )
   }
@@ -125,7 +131,27 @@ class MediaUsageOps(usageMetadataBuilder: UsageMetadataBuilder) {
       digitalUsageMetadata = None,
       syndicationUsageMetadata = None,
       frontUsageMetadata = Some(frontUsageRequest.metadata),
+      downloadUsageMetadata = None,
       lastModified = frontUsageRequest.dateAdded
+    )
+  }
+
+  def build(downloadUsageRequest: DownloadUsageRequest, groupId: String): MediaUsage = {
+    val usageId = UsageId.build(downloadUsageRequest)
+
+    MediaUsage (
+      usageId,
+      groupId,
+      downloadUsageRequest.mediaId,
+      DownloadUsage,
+      mediaType = "image",
+      downloadUsageRequest.status,
+      printUsageMetadata = None,
+      digitalUsageMetadata = None,
+      syndicationUsageMetadata = None,
+      frontUsageMetadata = None,
+      downloadUsageMetadata = Some(downloadUsageRequest.metadata),
+      lastModified = downloadUsageRequest.dateAdded
     )
   }
 }

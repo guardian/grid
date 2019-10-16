@@ -183,6 +183,23 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     )
   }}
 
+  def setDownloadUsages() = auth(parse.json) { req => {
+    val request = (req.body \ "data").validate[DownloadUsageRequest]
+    request.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "download-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      fur => {
+        GridLogger.info("recording download usage", req.user.apiKey, fur.mediaId)
+        val group = usageGroup.build(fur)
+        usageRecorder.usageSubject.onNext(group)
+        Accepted
+      }
+    )
+  }}
+
   def deleteUsages(mediaId: String) = auth.async {
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)

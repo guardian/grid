@@ -18,7 +18,8 @@ case class Usage(
   printUsageMetadata: Option[PrintUsageMetadata] = None,
   digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
   syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
-  frontUsageMetadata: Option[FrontUsageMetadata] = None
+  frontUsageMetadata: Option[FrontUsageMetadata] = None,
+  downloadUsageMetadata: Option[DownloadUsageMetadata] = None
 )
 object Usage {
   import JodaWrites._
