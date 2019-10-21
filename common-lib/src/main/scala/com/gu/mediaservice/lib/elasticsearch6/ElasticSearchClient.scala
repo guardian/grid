@@ -129,6 +129,17 @@ trait ElasticSearchClient {
     Logger.info("Got alias action response: " + aliasActionResponse)
   }
 
+  def changeAliasTo(newIndex: String, oldIndex: String, alias: String = imagesAlias): Unit = {
+    Logger.info(s"Assigning alias $alias to $newIndex")
+    val aliasActionResponse = Await.result(client.execute {
+      aliases(
+        removeAlias(alias, oldIndex),
+        addAlias(alias, newIndex)
+      )
+    }, tenSeconds)
+    Logger.info("Got alias action response: " + aliasActionResponse)
+  }
+
   def removeAliasFrom(index: String) = {
     ???
   }
