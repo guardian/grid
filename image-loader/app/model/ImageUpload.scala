@@ -194,24 +194,15 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
     })
   }
 
-  def storeSource(uploadRequest: UploadRequest) = {
-    val baseMeta = Map(
+  def storeSource(uploadRequest: UploadRequest) = store.storeOriginal(
+    uploadRequest.imageId,
+    uploadRequest.tempFile,
+    uploadRequest.mimeType,
+    Map(
       "uploaded_by" -> uploadRequest.uploadedBy,
       "upload_time" -> printDateTime(uploadRequest.uploadTime)
     ) ++ uploadRequest.identifiersMeta
-
-    val meta = uploadRequest.uploadInfo.filename match {
-      case Some(f) => baseMeta ++ Map("file_name" -> f)
-      case _ => baseMeta
-    }
-
-    store.storeOriginal(
-      uploadRequest.imageId,
-      uploadRequest.tempFile,
-      uploadRequest.mimeType,
-      meta
-    )
-  }
+  )
   def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
