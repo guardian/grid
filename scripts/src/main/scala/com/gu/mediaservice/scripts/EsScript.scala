@@ -130,10 +130,17 @@ object Reindex extends EsScript {
           }
         }
 
+        def analyseBulkResponse(bulkResponse: BulkResponse) = {
+          val successes = bulkResponse.items.filter(item => item.status == 201).map(item => item.id)
+          val failures = bulkResponse.items.filterNot(item => item.status == 201).map(item => item.id)
+          println(s"...added ${successes.length}/${bulkResponse.items.length} items in ${bulkResponse.took} ms (${failures.length} failures)")
+          if (failures.nonEmpty) println(s"......failure IDs: $failures")
+        }
 
         val hits = scroll.hits.hits
         if(hits.nonEmpty) {
-          bulkFromHits(hits)
+          val bulkResponse = bulkFromHits(hits)
+          analyseBulkResponse(bulkResponse)
           val scrollResponse = performScroll(scroll.scrollId.get, scrollTime)
           _scroll(scrollResponse, currentBatch)
         } else {
