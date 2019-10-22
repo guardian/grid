@@ -220,11 +220,11 @@ object UpdateMapping extends EsScript {
         val index = specifiedIndex.getOrElse(imagesAlias)
         println(s"Updating mapping on index: $index")
 
-        val result = Await.result(client.execute {
+        val result = client.execute {
           putMapping(IndexesAndType(s"$index/${Mappings.dummyType}")) as {
             Mappings.imageMapping.fields
           }
-        }, Duration(30, SECONDS))
+        }.await
 
         result.status match {
           case 200 => println(Json.prettyPrint(Json.parse(result.body.get)))
