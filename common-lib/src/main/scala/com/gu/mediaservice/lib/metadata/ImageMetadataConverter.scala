@@ -24,6 +24,15 @@ object ImageMetadataConverter {
       .distinct
   }
 
+  private def extractPeople(fileMetadata: FileMetadata): List[String] = {
+    val xmpIptcPeople = fileMetadata.xmp.filterKeys(_ matches "Iptc4xmpExt:PersonInImage\\[\\d+\\]")
+      .values
+      .toList
+      .distinct
+
+    xmpIptcPeople // There may be other metadata that contains who is in the image we could use
+  }
+
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata = {
     val xmp = fileMetadata.xmp
     val readXmpHeadStringProp: String => Option[String] = (name: String) => {
@@ -77,7 +86,8 @@ object ImageMetadataConverter {
                             fileMetadata.iptc.get("Province/State"),
       country             = readXmpHeadStringProp("photoshop:Country") orElse
                             fileMetadata.iptc.get("Country/Primary Location Name"),
-      subjects            = extractSubjects(fileMetadata))
+      subjects            = extractSubjects(fileMetadata)),
+      peopleInImage       = extractPeople(fileMetadata)
   }
 
   // IPTC doesn't appear to enforce the datetime format of the field, which means we have to

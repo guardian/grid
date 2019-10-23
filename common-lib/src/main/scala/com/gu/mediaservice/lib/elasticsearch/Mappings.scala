@@ -98,6 +98,7 @@ object Mappings {
     standardAnalysed("city").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("state").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("country").copyTo("metadata.englishAnalysedCatchAll"),
+    nonAnalysedList("peopleInImage").copyTo("metadata.englishAnalysedCatchAll"),
     sStemmerAnalysed("englishAnalysedCatchAll")
   )
 
