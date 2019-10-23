@@ -25,6 +25,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.city should be ('empty)
     imageMetadata.state should be ('empty)
     imageMetadata.country should be ('empty)
+    imageMetadata.peopleInImage should be ('empty)
   }
 
   it("should populate string fields of ImageMetadata from default FileMetadata fields") {
@@ -239,5 +240,32 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   }
 
 
+  // People in Image
+
+  it("should populate peopleInImage field of ImageMetadata from corresponding xmp iptc ext fields") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> "person 1"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (List("person 1"))
+  }
+
+  it("should populate peopleInImage field of ImageMetadata from multiple corresponding xmp iptc ext fields") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> "person 1",
+      "Iptc4xmpExt:PersonInImage[2]" -> "person 2", "Iptc4xmpExt:PersonInImage[3]" -> "person 3"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (List("person 1","person 2","person 3"))
+  }
+
+  it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp iptc ext fields") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> "person 1",
+      "Iptc4xmpExt:PersonInImage[2]" -> "person 2", "Iptc4xmpExt:PersonInImage[3]" -> "person 2"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (List("person 1","person 2"))
+  }
+
+  it("should ignore invalid peopleInImage field of ImageMetadata") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[-1]" -> "person 1"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be ('empty)
+  }
 
 }
