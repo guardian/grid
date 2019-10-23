@@ -5,6 +5,10 @@
 __TL;DR__ When you update the mapping, use [Reindex](#Reindex),
 when you add a mapping, use [UpdateMapping](#UpdateMapping)
 
+If using SSH tunnel, and you wish to execute commands via https, you will need to add something like:
+```127.0.0.1      es.eu-west-1.es.amazonaws.com``` to your `/private/etc/hosts` file to match the certificate path. Then when issuing the command do
+```scripts/run <command> https://es.eu-west-1.es.amazonaws.com:<tunneled_port>```
+
 ### Reindex
 On occasion you will need to update the our [Elasticsearch mappings](https://github.com/guardian/grid/blob/master/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/Mappings.scala).
 Unfortunately, you need to change the mapping and then reindex the data to apply said change.
