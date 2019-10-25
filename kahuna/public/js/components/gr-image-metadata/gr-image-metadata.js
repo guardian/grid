@@ -58,7 +58,7 @@ module.controller('grImageMetadataCtrl', [
         const ignoredMetadata = [
             'title', 'description', 'copyright', 'keywords', 'byline',
             'credit', 'subLocation', 'city', 'state', 'country',
-            'dateTaken', 'specialInstructions', 'subjects'
+            'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
         ];
 
         ctrl.metadataSearch = (field, q) => {

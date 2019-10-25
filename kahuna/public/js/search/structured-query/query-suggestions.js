@@ -21,6 +21,7 @@ export const filterFields = [
     'keyword',
     'label',
     'location',
+    'person',
     'source',
     'state',
     'subject',
