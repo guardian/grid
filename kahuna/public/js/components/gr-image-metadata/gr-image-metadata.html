@@ -234,6 +234,20 @@
                     </span>
                 </span>
             </dd>
+
+            <dt ng:if="ctrl.metadata.peopleInImage.length > 0"
+                class="image-info__group--dl__key metadata-line__key image-info__wrap">
+                People
+            </dt>
+            <dd ng:if="ctrl.metadata.peopleInImage.length > 0"
+                class="image-info__group--dl__value metadata-line__info">
+                <span class="metadata-line__info">
+                    <span ng:repeat="person in ctrl.metadata.peopleInImage">
+                        <a ui:sref="search.results({query: (person | queryFilter:'person')})">{{person}}</a>
+                        <span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1">, </span>
+                    </span>
+                </span>
+            </dd>
         </dl>
     </div>
     <!-- FIXME: iff has useful metadata -->
