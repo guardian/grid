@@ -77,6 +77,7 @@ photoshoot.controller('GrPhotoshootCtrl', [
             const batchApplyEvent = 'events:batch-apply:photoshoot';
 
             $scope.$on(batchApplyEvent, (e, { title }) => {
+                ctrl.photoshootData.title = title;
                 ctrl.save(title);
             });
 
