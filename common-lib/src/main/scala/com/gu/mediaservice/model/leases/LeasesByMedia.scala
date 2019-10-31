@@ -24,7 +24,7 @@ object LeasesByMedia {
 
   implicit def dateTimeOrdering: Ordering[DateTime] = Ordering.fromLessThan(_ isBefore _)
 
-  def empty = LeasesByMedia(Nil, Some(DateTime.now))
+  def empty = LeasesByMedia(Nil, None)
 
   def build (leases: List[MediaLease]) = {
     val lastModified = leases.sortBy(_.createdAt).reverse.headOption.map(_.createdAt).getOrElse(DateTime.now)
