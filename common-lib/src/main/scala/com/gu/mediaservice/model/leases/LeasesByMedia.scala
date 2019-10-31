@@ -27,8 +27,8 @@ object LeasesByMedia {
   def empty = LeasesByMedia(Nil, None)
 
   def build (leases: List[MediaLease]) = {
-    val lastModified = leases.sortBy(_.createdAt).reverse.headOption.map(_.createdAt).getOrElse(DateTime.now)
-    LeasesByMedia(leases, Some(lastModified))
+    val lastModified = leases.sortBy(_.createdAt).reverse.headOption.map(_.createdAt)
+    LeasesByMedia(leases, lastModified)
   }
 
   def toJson(leases: JsValue, lastModified: JsValue) : JsObject = {
