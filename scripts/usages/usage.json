@@ -1,0 +1,27 @@
+{
+  "printUsageRecords": [
+    {
+      "dateAdded": "2017-01-01T01:01:01",
+      "mediaId": "<IMAGE_ID>",
+      "containerId": "foo",
+      "printUsageMetadata": {
+        "edition": 1,
+        "issueDate": "2016-08-22T00:00:00.000Z",
+        "layoutId": 11832309,
+        "orderedBy": "Foo Bar",
+        "pageNumber": 16,
+        "publicationCode": "gdn",
+        "publicationName": "Guardian",
+        "sectionCode": "itl",
+        "sectionName": "International (G1)",
+        "size": {
+          "x": 394,
+          "y": 294
+        },
+        "storyName": "eyewitness"
+      },
+      "usageId": "f5e174e4a0d6888fc4dd651cd8cf7170",
+      "usageStatus": "published"
+    }
+  ]
+}
