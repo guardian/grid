@@ -29,12 +29,16 @@ trait CommonConfig {
 
   final val sessionId = UUID.randomUUID().toString
 
+  final val awsRegion = properties.getOrElse("aws.region", "eu-west-1")
+
+  final val kinesisAWSEndpoint = s"kinesis.$awsRegion.amazonaws.com"
+
+  final val dynamodbAWSEndpoint = s"dynamodb.$awsRegion.amazonaws.com"
+
   lazy val awsCredentials = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
     InstanceProfileCredentialsProvider.getInstance()
   )
-
-  lazy val awsRegion = properties.getOrElse("aws.region", "eu-west-1")
 
   lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
 
@@ -50,6 +54,10 @@ trait CommonConfig {
   val isDev: Boolean = stage == "DEV"
 
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
+
+  lazy val thrallKinesisEndpoint: String = properties.getOrElse("thrall.local.kinesis.url", kinesisAWSEndpoint)
+
+  lazy val thrallKinesisDynamoEndpoint: String = properties.getOrElse("thrall.local.dynamodb.url", dynamodbAWSEndpoint)
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")

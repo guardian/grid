@@ -3,9 +3,9 @@ services:
   elasticsearch6:
     image: docker.elastic.co/elasticsearch/elasticsearch:6.5.4
     volumes:
-    - "./elasticsearch6/dev/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
+      - "./elasticsearch6/dev/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
     ports:
-    - "9200:9200"
+      - "9200:9200"
   imgops:
     build:
       context: ./imgops/dev
@@ -16,4 +16,14 @@ services:
   cerebro:
     image: lmenezes/cerebro
     ports:
-    - "9090:9000"
+      - "9090:9000"
+  localstack:
+    image: localstack/localstack:0.8.6
+    ports:
+      - "4567-4584:4567-4584"
+      - "8081:8080"
+    environment:
+      - SERVICES=kinesis:4568,dynamodb:4569
+      - DEFAULT_REGION=eu-west-1
+      - KINESIS_ERROR_PROBABILITY=0.0
+

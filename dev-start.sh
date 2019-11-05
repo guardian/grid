@@ -104,12 +104,30 @@ changeNodeVersion() {
   fi
 }
 
+setupLocalKinesis() {
+  sleep 3s
+  # java sdk use CBOR protocol
+  # which does not work with localstack kinesis which use kinesislite
+  export AWS_CBOR_DISABLE=true
+  # dummy env variables for local kinesis
+  export AWS_ACCESS_KEY_ID=foobar
+  export AWS_SECRET_ACCESS_KEY=foobar
+  export AWS_REGION=eu-west-2
+  echo 'creating local kinesis streams'
+  # ignore stream already exists error
+  set +e
+  stream_name='media-service-DEV-ThrallMessageQueue-1N0T2UXYNUIC9'
+  aws --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
+  aws --endpoint-url=http://localhost:4568 kinesis --region=eu-west-2 list-streams
+}
+
 main() {
     checkRequirements
     changeNodeVersion
     setupImgops
     downloadApplicationConfig
     startDockerContainers
+    setupLocalKinesis
     buildJs
     startPlayApps
 }

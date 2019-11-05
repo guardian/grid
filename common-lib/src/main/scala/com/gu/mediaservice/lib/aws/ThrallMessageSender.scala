@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
 class ThrallMessageSender(config: CommonConfig) {
-  private val kinesis = new Kinesis(config, config.thrallKinesisStream)
+  private val kinesis = new Kinesis(config)
 
   def publish(updateMessage: UpdateMessage): Unit = {
     kinesis.publish(updateMessage)
