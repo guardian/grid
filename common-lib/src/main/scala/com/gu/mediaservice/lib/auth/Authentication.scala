@@ -10,10 +10,11 @@ import com.gu.mediaservice.lib.config.{CommonConfig, ValidEmailsStore}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
-import com.gu.pandomainauth.model.{AuthenticatedUser, User}
-import com.gu.pandomainauth.service.Google2FAGroupChecker
+import com.gu.pandomainauth.model.{AuthenticatedUser, PanDomainAuthSettings, User}
+import com.gu.pandomainauth.service.{CookieUtils, Google2FAGroupChecker, OAuthException}
 import play.api.Logger
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSCookie}
+import play.api.mvc.Results.Redirect
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -75,6 +76,8 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
     Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker, validEmails)
   }
 
+  override def cacheValidation: Boolean = true  //dont call 'validateUser' every api request if user has a valid session
+
 
   override def showUnauthedMessage(message: String)(implicit request: RequestHeader): Result = {
     Logger.info(message)
@@ -126,13 +129,17 @@ object Authentication {
   def getIdentity(principal: Principal): String = principal.accessor.identity
 
   def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker], validEmails: Option[List[String]]): Boolean = {
-    val isValidEmail = validEmails match {
-      case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
-      case _ => false
-    }
+//    val isValidEmail = validEmails match {
+//      case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
+//      case _ => false
+//    }
     val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
     val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
+    val inAccessGroup = authedUser.permissions.exists(_.toLowerCase.contains("grid access"))
 
-    isValidEmail && isValidDomain && passesMultifactor
+    val isValid = inAccessGroup && isValidDomain && passesMultifactor
+
+    GridLogger.info(s"Validated user ${authedUser.user.email} as ${if(isValid) "valid" else "invalid"}")
+    isValid
   }
 }
