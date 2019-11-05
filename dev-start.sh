@@ -112,7 +112,7 @@ setupLocalKinesis() {
   # dummy env variables for local kinesis
   export AWS_ACCESS_KEY_ID=foobar
   export AWS_SECRET_ACCESS_KEY=foobar
-  export AWS_REGION=eu-west-2
+  export AWS_REGION=eu-west-1
   echo 'creating local kinesis streams'
   # ignore stream already exists error
   set +e
