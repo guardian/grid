@@ -4,6 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{DigitalUsage, PublishedUsageStatus, Usage}
 import org.joda.time.DateTime
 
@@ -65,10 +66,7 @@ trait Fixtures {
 
     val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
 
-    val leaseByMedia = lease.map(l => LeasesByMedia(
-      lastModified = leasesLastModified,
-      leases = List(l)
-    ))
+    val leaseByMedia = lease.map(l => LeasesByMedia.build(List(l)))
 
     createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), leaseByMedia, usages, fileMetadata = fileMetadata)
   }

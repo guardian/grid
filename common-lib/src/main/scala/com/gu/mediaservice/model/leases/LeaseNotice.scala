@@ -1,4 +1,4 @@
-package com.gu.mediaservice.model
+package com.gu.mediaservice.model.leases
 
 import com.gu.mediaservice.lib.formatting.printDateTime
 import org.joda.time.DateTime

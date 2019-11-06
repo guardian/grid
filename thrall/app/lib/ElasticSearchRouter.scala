@@ -1,5 +1,6 @@
 package lib
-import com.gu.mediaservice.model.{Image, MediaLease, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.model.leases.MediaLease
+import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import play.api.libs.json.{JsLookupResult, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}

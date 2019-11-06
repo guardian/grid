@@ -1,7 +1,7 @@
 package lib
 
-import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage, UsageType}
-import com.gu.mediaservice.model.{ActionData, Bounds, Collection, CommissionedAgency, ContractPhotographer, Crop, CropSpec, Edits, Image, ImageMetadata, LeasesByMedia, MediaLease, Photoshoot, StaffIllustrator, StaffPhotographer, UsageRights}
+import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
+import com.gu.mediaservice.model.{Bounds, Crop, CropSpec}
 import org.joda.time.DateTime.now
 import org.scalatest.{FunSpec, Matchers}
 

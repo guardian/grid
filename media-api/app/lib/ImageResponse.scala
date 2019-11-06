@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import com.softwaremill.quicklens._
 import lib.usagerights.CostCalculator

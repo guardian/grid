@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions}
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
@@ -24,7 +25,7 @@ import scala.concurrent.{Await, Future}
 
 class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearch6Executions with MockitoSugar {
 
-  implicit val request  = mock[AuthenticatedRequest[AnyContent, Principal]]
+  implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
 
   private val index = "images"
 
@@ -66,7 +67,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
 
   describe("Native elastic search sanity checks") {
 
-    def eventualMatchAllSearchResponse = client.execute (ElasticDsl.search(index) size expectedNumberOfImages * 2)
+    def eventualMatchAllSearchResponse = client.execute(ElasticDsl.search(index) size expectedNumberOfImages * 2)
 
     it("images are actually persisted in Elastic search") {
       val searchResponse = Await.result(eventualMatchAllSearchResponse, fiveSeconds)
@@ -327,7 +328,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       val search = SearchParams(tier = Internal, structuredQuery = List(isInvalidCondition))
       whenReady(ES.search(search), timeout, interval) { result => {
         result.total shouldBe 0
-      }}
+      }
+      }
     }
 
     it("should return owned photographs") {
@@ -351,7 +353,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
         val imageIds = result.hits.map(_._1)
         imageIds.size shouldBe expected.size
         expected.foreach(imageIds.contains(_) shouldBe true)
-      }}
+      }
+      }
     }
 
     it("should return owned illustrations") {
@@ -365,7 +368,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
         val imageIds = result.hits.map(_._1)
         imageIds.size shouldBe expected.size
         expected.foreach(imageIds.contains(_) shouldBe true)
-      }}
+      }
+      }
     }
 
     it("should return all owned images") {
@@ -391,7 +395,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
         val imageIds = result.hits.map(_._1)
         imageIds.size shouldBe expected.size
         expected.foreach(imageIds.contains(_) shouldBe true)
-      }}
+      }
+      }
     }
 
     it("should return all images when no agencies are over quota") {
@@ -399,7 +404,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
 
       whenReady(ES.search(search), timeout, interval) { result => {
         result.total shouldBe images.size
-      }}
+      }
+      }
     }
 
     it("should return any image whose agency is not over quota") {
@@ -418,7 +424,8 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
         result.total shouldBe expectedUnderQuotaImages.size
         val imageIds = result.hits.map(_._1)
         expectedUnderQuotaImages.foreach(imageIds.contains(_) shouldBe true)
-      }}
+      }
+      }
     }
   }
 
@@ -432,6 +439,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
 
   private def purgeTestImages = {
     def deleteImages = executeAndLog(deleteByQuery(index, "_doc", matchAllQuery()), s"Deleting images")
+
     Await.result(deleteImages, fiveSeconds)
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
   }

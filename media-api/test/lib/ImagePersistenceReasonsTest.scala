@@ -1,6 +1,7 @@
 package lib
 
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.Usage
 import org.joda.time.DateTime.now
 import org.scalatest.{FunSpec, Matchers}
