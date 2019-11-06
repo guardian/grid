@@ -3,6 +3,7 @@ package lib.kinesis
 import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import org.joda.time.DateTime

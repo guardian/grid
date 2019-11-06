@@ -5,7 +5,7 @@ import java.util.UUID
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
 import play.api.libs.json._
 import play.api.mvc._

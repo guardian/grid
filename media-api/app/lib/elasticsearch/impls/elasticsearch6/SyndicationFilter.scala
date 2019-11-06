@@ -2,6 +2,7 @@ package lib.elasticsearch.impls.elasticsearch6
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease}
 import com.gu.mediaservice.model.usage.SyndicationUsage
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.MediaApiConfig

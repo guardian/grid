@@ -4,6 +4,7 @@ import java.nio.ByteBuffer
 
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.DateTime

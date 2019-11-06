@@ -3,6 +3,7 @@ package lib.elasticsearch
 import java.net.URI
 import java.util.UUID
 
+import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{UsageStatus => Status, _}
 import com.gu.mediaservice.model.{StaffPhotographer, _}
 import org.joda.time.DateTime
@@ -15,12 +16,12 @@ trait Fixtures {
   val screengrab = Screengrab(None, None)
 
   def createImage(
-                   id: String,
-                   usageRights: UsageRights,
-                   syndicationRights: Option[SyndicationRights] = None,
-                   leases: Option[LeasesByMedia] = None,
-                   usages: List[Usage] = Nil,
-                   fileMetadata: Option[FileMetadata] = None
+    id: String,
+    usageRights: UsageRights,
+    syndicationRights: Option[SyndicationRights] = None,
+    leases: Option[LeasesByMedia] = None,
+    usages: List[Usage] = Nil,
+    fileMetadata: Option[FileMetadata] = None
   ): Image = {
     Image(
       id = id,
@@ -74,10 +75,7 @@ trait Fixtures {
 
     val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
 
-    val leaseByMedia = lease.map(l => LeasesByMedia(
-      lastModified = None,
-      leases = List(l)
-    ))
+    val leaseByMedia = lease.map(l => LeasesByMedia.build(List(l)))
 
     createImage(id, usageRights, Some(syndicationRights), leaseByMedia, usages, fileMetadata)
   }

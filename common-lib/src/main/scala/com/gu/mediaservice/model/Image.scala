@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia}
 import com.gu.mediaservice.model.usage.{SyndicationUsage, Usage}
 import org.joda.time.DateTime
 import play.api.libs.functional.syntax._

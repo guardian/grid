@@ -1,10 +1,8 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
-import com.gu.mediaservice.lib.formatting._
-import com.gu.mediaservice.model.{LeaseNotice, LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.MediaLease
 import org.joda.time.DateTime
-import play.api.libs.json._
 
 class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessageSender(config) {
   def sendReindexLeases(mediaId: String) = {
