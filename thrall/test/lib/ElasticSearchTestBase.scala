@@ -96,6 +96,15 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
           lastModified.nonEmpty shouldBe false
         }
 
+        "initial indexing does not add lastModified to the leases object" in {
+          val id = UUID.randomUUID().toString
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
+
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+          val loadedImage = reloadedImage(id).get
+          loadedImage.leases.lastModified shouldBe None
+        }
+
         "updating an existing image should set the last modified date" in {
           val id = UUID.randomUUID().toString
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
