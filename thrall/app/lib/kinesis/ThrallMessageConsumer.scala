@@ -16,20 +16,38 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             metadataEditorNotifications: MetadataEditorNotifications,
                             syndicationRightsOps: SyndicationRightsOps,
                             from: Option[DateTime]
-                           ) extends MessageConsumerVersion {
+) extends MessageConsumerVersion {
 
-  val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
+  private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   private val thrallEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps)
   }
 
-  private val builder: KinesisClientLibConfiguration => Worker = new Worker.Builder().recordProcessorFactory(thrallEventProcessorFactory).config(_).build()
-  private val thrallKinesisWorker = builder(
-    kinesisClientLibConfig(kinesisAppName = config.thrallKinesisStream,
+  private def createKinesisWorker(cfg: KinesisClientLibConfiguration): Worker = {
+    new Worker.Builder()
+      .recordProcessorFactory(thrallEventProcessorFactory)
+      .config(cfg)
+      .build()
+  }
+
+  private val kinesisCfg = kinesisClientLibConfig(
+    kinesisAppName = config.thrallKinesisStream,
     streamName = config.thrallKinesisStream,
     from = from
-  ))
+  )
+
+  private def getThrallKinesisWorker = {
+    import config.{thrallKinesisEndpoint, thrallKinesisDynamoEndpoint, awsRegion}
+    Logger.info(s"creating kinesis consumer with endpoint=$thrallKinesisEndpoint, region=$awsRegion")
+    val kinesisCfgWithEndpoints = kinesisCfg
+      .withKinesisEndpoint(thrallKinesisEndpoint)
+      .withDynamoDBEndpoint(thrallKinesisDynamoEndpoint)
+    createKinesisWorker(kinesisCfgWithEndpoints)
+  }
+
+  private val thrallKinesisWorker = getThrallKinesisWorker
+
   private val thrallKinesisWorkerThread = makeThread(thrallKinesisWorker)
 
   def start(from: Option[DateTime] = None) = {

@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.aws
 import java.nio.ByteBuffer
 import java.util.UUID
 
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -12,8 +13,21 @@ import net.logstash.logback.marker.{LogstashMarker, Markers}
 import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
 
-class Kinesis(config: CommonConfig, streamName: String) {
-  lazy val client: AmazonKinesis = config.withAWSCredentials(AmazonKinesisClientBuilder.standard()).build()
+class Kinesis(config: CommonConfig) {
+
+  private val builder = AmazonKinesisClientBuilder.standard()
+
+  import config.{awsRegion, awsCredentials, thrallKinesisEndpoint, thrallKinesisStream}
+
+  private def getKinesisClient: AmazonKinesis = {
+    Logger.info(s"creating kinesis publisher with endpoint=$thrallKinesisEndpoint , region=$awsRegion")
+   builder
+     .withEndpointConfiguration(new EndpointConfiguration(thrallKinesisEndpoint, awsRegion))
+     .withCredentials(awsCredentials)
+     .build()
+  }
+
+  private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
   def publish(message: UpdateMessage) {
     val partitionKey = UUID.randomUUID().toString
@@ -27,11 +41,12 @@ class Kinesis(config: CommonConfig, streamName: String) {
     Logger.info("Publishing message to kinesis")(markers)
 
     val request = new PutRecordRequest()
-      .withStreamName(streamName)
+      .withStreamName(thrallKinesisStream)
       .withPartitionKey(partitionKey)
       .withData(ByteBuffer.wrap(payload))
 
-    val result = client.putRecord(request)
+    val result = kinesisClient.putRecord(request)
     Logger.info(s"Published kinesis message: $result")
   }
 }
+
