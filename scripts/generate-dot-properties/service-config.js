@@ -3,9 +3,9 @@ function stripMargin(template, ...args) {
     return result.replace(/\r?(\n)\s*\|/g, '$1');
 }
 
-var localKinesisURL='http://localhost:4568'
+const localKinesisURL='http://localhost:4568'
 
-var localDynamoURL='http://localhost:4569'
+const localDynamoURL='http://localhost:4569'
 
 function getAuthConfig(config) {
     return stripMargin`
