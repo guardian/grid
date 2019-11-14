@@ -17,6 +17,7 @@ GET     /images/:id/fileMetadata                      controllers.MediaApi.getIm
 GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                     controllers.MediaApi.downloadOriginalImage(imageId: String)
+GET     /images/:imageId/downloadOptimised            controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
 GET     /images                                       controllers.MediaApi.imageSearch

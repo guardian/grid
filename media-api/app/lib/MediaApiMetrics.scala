@@ -11,7 +11,17 @@ class MediaApiMetrics(config: MediaApiConfig) extends CloudWatchMetrics(s"${conf
   def searchTypeDimension(value: String): Dimension =
     new Dimension().withName("SearchType").withValue(value)
 
-  def incrementOriginalImageDownload(apiKey: ApiKey) = {
+  sealed trait DownloadType {
+    val metricName: String
+  }
+  case object OriginalDownloadType extends DownloadType {
+    val metricName = "OriginalImageDownload"
+  }
+  case object OptimisedDownloadType extends DownloadType {
+    val metricName = "OptimisedImageDownload"
+  }
+
+  def incrementImageDownload(apiKey: ApiKey, downloadType: DownloadType) = {
     val metric = new CountMetric(apiKey.tier.toString)
 
     // CW Metrics have a maximum of 10 dimensions per metric.
@@ -21,7 +31,7 @@ class MediaApiMetrics(config: MediaApiConfig) extends CloudWatchMetrics(s"${conf
       case _ => apiKey.tier.toString
     }
 
-    val dimension = new Dimension().withName("OriginalImageDownload").withValue(dimensionValue)
+    val dimension = new Dimension().withName(downloadType.metricName).withValue(dimensionValue)
 
     metric.increment(List(dimension)).run
   }

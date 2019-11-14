@@ -49,7 +49,7 @@ downloader.controller('DownloaderCtrl', [
 
         const downloads$ = imageDownloadsService.download$(
                 ctrl.imagesArray(),
-                downloadKey || 'secureUri'
+                downloadKey || 'downloadUri'
         );
 
         downloads$.subscribe((zip) => {

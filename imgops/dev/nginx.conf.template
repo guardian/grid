@@ -22,6 +22,12 @@ http {
     }
 
     location / {
+      # Set proper CORS headers
+      proxy_hide_header Access-Control-Allow-Origin;
+      proxy_hide_header Access-Control-Allow-Credentials;
+      add_header "Access-Control-Allow-Origin" "$http_origin";
+      add_header "Access-Control-Allow-Credentials" "true";
+
       # We're using Google here as a resolver
       # as Amazon's 172.16.0.23 is very very slow
       resolver 8.8.8.8 8.8.4.4;
