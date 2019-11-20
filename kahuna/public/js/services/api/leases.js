@@ -103,19 +103,30 @@ leaseService.factory('leaseService', [
     }
 
     function pollLeases(images) {
+      console.log('pollLeases', images);
       apiPoll(() => {
         return untilLeasesChange(images);
       });
     }
 
     function untilLeasesChange(images) {
+      console.log('untilLeasesChange', images);
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
         return image.get().then(apiImage => {
+          console.log('untilLeasesChange image.get then apiImage', apiImage);
           const apiLeases = imageAccessor.readLeases(apiImage);
+          console.log('apiLeases', apiLeases);
           const leases = imageAccessor.readLeases(image);
+          console.log('leases', leases);
+          // new created
+          if (leases && apiLeases && leases.lastModified === null && apiLeases.lastModified === null){
+            return { image: apiImage, leases: apiLeases };
+          }
           const currentLastModified = moment(apiLeases.lastModified);
+          console.log('currentLastModified', currentLastModified.format());
           const previousLastModified = moment(leases.lastModified);
+          console.log('previousLastModified', previousLastModified.format());
           if (currentLastModified.isAfter(previousLastModified)) {
             return { image: apiImage, leases: apiLeases };
           } else {
@@ -128,6 +139,8 @@ leaseService.factory('leaseService', [
           $rootScope.$emit('leases-updated');
           return result.leases;
         });
+      }).catch((e) => {
+        console.log('untilLeasesChange image.get error', e);
       });
     }
 
