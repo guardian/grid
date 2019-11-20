@@ -120,17 +120,22 @@ leaseService.factory('leaseService', [
           const leases = imageAccessor.readLeases(image);
           console.log('leases', leases);
           // new created
-          if (leases && apiLeases && leases.lastModified === null && apiLeases.lastModified === null){
-            return { image: apiImage, leases: apiLeases };
-          }
-          const currentLastModified = moment(apiLeases.lastModified);
-          console.log('currentLastModified', currentLastModified.format());
-          const previousLastModified = moment(leases.lastModified);
-          console.log('previousLastModified', previousLastModified.format());
-          if (currentLastModified.isAfter(previousLastModified)) {
-            return { image: apiImage, leases: apiLeases };
+          if (leases && apiLeases && leases.lastModified === null && apiLeases.lastModified === null) {
+            if (leases.leases.length > 0 && apiLeases.leases.length > 0){
+              return { image: apiImage, leases: apiLeases };
+            } else {
+              return $q.reject();
+            }
           } else {
-            return $q.reject();
+            const currentLastModified = moment(apiLeases.lastModified);
+            console.log('currentLastModified', currentLastModified.format());
+            const previousLastModified = moment(leases.lastModified);
+            console.log('previousLastModified', previousLastModified.format());
+            if (currentLastModified.isAfter(previousLastModified)) {
+              return { image: apiImage, leases: apiLeases };
+            } else {
+              return $q.reject();
+            }
           }
         });
       })).then(results => {
