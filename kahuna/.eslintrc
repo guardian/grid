@@ -18,13 +18,7 @@
       2,
       15
     ],
-    "max-len": [
-      2,
-      {
-        "code": 100,
-        "ignoreComments": true
-      }
-    ],
+    "max-len": "off",
     "curly": [
       2,
       "all"
