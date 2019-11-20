@@ -137,7 +137,7 @@ leaseService.factory('leaseService', [
         console.log('     then(results   ', results);
         return results.map(result => {
           $rootScope.$emit('image-updated', result.image);
-          $rootScope.$emit('leases-updated');
+          $rootScope.$emit('leases-updated', result.leases);
           return result.leases;
         });
       });

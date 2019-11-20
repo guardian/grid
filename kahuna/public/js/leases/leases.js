@@ -130,13 +130,17 @@ leases.controller('LeasesCtrl', [
             };
         }
 
-        ctrl.updateLeases = () => {
+        ctrl.updateLeases = (newLeases) => {
             console.log('ctrl.updateLeases');
             leaseService.getLeases(ctrl.images)
                 .then((leaseByMedias) => {
                     ctrl.editing = false;
                     ctrl.adding = false;
-                    ctrl.leases = leaseService.flattenLeases(leaseByMedias);
+                    if (newLeases) {
+                      ctrl.leases = newLeases;
+                    } else {
+                      ctrl.leases = leaseService.flattenLeases(leaseByMedias);
+                    }
                     console.log('ctrl.leases', ctrl.leases);
                 });
         };
@@ -231,9 +235,9 @@ leases.controller('LeasesCtrl', [
             ctrl.adding = false;
         }
 
-        $rootScope.$on('leases-updated', () => {
+        $rootScope.$on('leases-updated', (e, newLeases) => {
             console.log('$on(leases-updated');
-            ctrl.updateLeases();
+            ctrl.updateLeases(newLeases);
         });
 
         $scope.$watchCollection(() => Array.from(ctrl.images), (images) => {
