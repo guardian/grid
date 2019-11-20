@@ -103,14 +103,14 @@ leaseService.factory('leaseService', [
     }
 
     function pollLeases(images) {
-      console.log('pollLeases')
+      console.log('pollLeases');
       apiPoll(() => {
         return untilLeasesChange(images);
       });
     }
 
     function untilLeasesChange(images) {
-      console.log('untilLeasesChange')
+      console.log('untilLeasesChange');
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
         return image.get().then(apiImage => {
