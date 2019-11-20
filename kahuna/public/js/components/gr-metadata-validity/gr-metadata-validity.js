@@ -17,6 +17,7 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', function ($rootScope
     }
 
     $rootScope.$on('leases-updated', () => {
+        console.log('$on(leases-updated');
         updateState();
     });
 

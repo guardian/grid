@@ -103,17 +103,28 @@ leaseService.factory('leaseService', [
     }
 
     function pollLeases(images) {
+      console.log('pollLeases')
       apiPoll(() => {
         return untilLeasesChange(images);
       });
     }
 
     function untilLeasesChange(images) {
+      console.log('untilLeasesChange')
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
         return image.get().then(apiImage => {
+          console.log('apiImage', apiImage);
           const apiLeases = imageAccessor.readLeases(apiImage);
           const leases = imageAccessor.readLeases(image);
+          if (leases.lastModified === null && apiLeases.lastModified === null) {
+            const promise = apiImage.data.leases.get().then((l) => {
+              console.log('   untilLeasesChange l', l.data);
+              return { image: apiImage, leases: l.data };
+            });
+           console.log('   untilLeasesChange promise', promise);
+           return promise;
+          }
           const currentLastModified = moment(apiLeases.lastModified);
           const previousLastModified = moment(leases.lastModified);
           if (currentLastModified.isAfter(previousLastModified)) {
@@ -123,6 +134,7 @@ leaseService.factory('leaseService', [
           }
         });
       })).then(results => {
+        console.log('     then(results   ', results);
         return results.map(result => {
           $rootScope.$emit('image-updated', result.image);
           $rootScope.$emit('leases-updated');

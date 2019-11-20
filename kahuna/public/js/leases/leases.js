@@ -131,11 +131,13 @@ leases.controller('LeasesCtrl', [
         }
 
         ctrl.updateLeases = () => {
+            console.log('ctrl.updateLeases');
             leaseService.getLeases(ctrl.images)
                 .then((leaseByMedias) => {
                     ctrl.editing = false;
                     ctrl.adding = false;
                     ctrl.leases = leaseService.flattenLeases(leaseByMedias);
+                    console.log('ctrl.leases', ctrl.leases);
                 });
         };
 
@@ -230,6 +232,7 @@ leases.controller('LeasesCtrl', [
         }
 
         $rootScope.$on('leases-updated', () => {
+            console.log('$on(leases-updated');
             ctrl.updateLeases();
         });
 
