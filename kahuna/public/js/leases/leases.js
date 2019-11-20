@@ -76,6 +76,8 @@ leases.controller('LeasesCtrl', [
                 }
 
                 const incomingLeaseIsSyndication = leaseService.isLeaseSyndication(ctrl);
+                console.log(' incomingLeaseIsSyndication', incomingLeaseIsSyndication);
+                console.log('   ctrl.leases', ctrl.leases);
                 const syndLeases = ctrl.leases.leases.filter((l) =>
                     l.access.endsWith('-syndication')
                 );
@@ -136,6 +138,7 @@ leases.controller('LeasesCtrl', [
                 .then((leaseByMedias) => {
                     ctrl.editing = false;
                     ctrl.adding = false;
+                    console.log('ctrl.updateLeases leaseByMedias', leaseByMedias);
                     ctrl.leases = leaseService.flattenLeases(leaseByMedias);
                     console.log('   ctrl.updateLeases ctrl.leases', ctrl.leases)
                 });

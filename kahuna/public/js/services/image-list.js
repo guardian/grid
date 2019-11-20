@@ -41,6 +41,7 @@ imageList.factory("imageList", [
     }
 
     function getLeases(images) {
+        console.log('getLeases images', images)
         return images.map((i) => imageAccessor.readLeases(i));
     }
 

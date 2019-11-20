@@ -28,12 +28,21 @@ leaseService.factory('leaseService', [
     }
 
     function getLeases(images) {
+      console.log('getLeases images', images);
       // search page has fancy image list
       if (angular.isDefined(images.toArray)) {
         images = images.toArray();
       }
-      return $q.all(images.map(i => i.get()))
-          .then((images) => imageList.getLeases(images));
+
+      return imageList.getLeases(images).then((leases) => {
+        console.log('leases', leases)
+        return leases;
+      });
+      // return $q.all(images.map(i => i.get()))
+      //     .then((images) => imageList.getLeases(images)).then((leases) => {
+      //         console.log('leases', leases)
+      //         return leases;
+      //     });
       }
 
     function clear(image) {
@@ -110,11 +119,11 @@ leaseService.factory('leaseService', [
     }
 
     function untilLeasesChange(images) {
-      console.log('untilLeasesChange', images);
-      const imagesArray = images.toArray ? images.toArray() : images;
-      return $q.all(imagesArray.map(image => {
-        return image.get().then(apiImage => {
-          console.log('untilLeasesChange image.get then apiImage', apiImage);
+          console.log('untilLeasesChange', images);
+          const imagesArray = images.toArray ? images.toArray() : images;
+          return $q.all(imagesArray.map(image => {
+            return image.get().then(apiImage => {
+              console.log('untilLeasesChange image.get then apiImage', apiImage);
           const apiLeases = imageAccessor.readLeases(apiImage);
           console.log('apiLeases', apiLeases);
           const leases = imageAccessor.readLeases(image);
@@ -146,16 +155,17 @@ leaseService.factory('leaseService', [
           console.log('emmiting leases-updated')
           return result.leases;
         });
-      }).catch((e) => {
-        console.log('untilLeasesChange image.get error', e);
       });
     }
 
     function flattenLeases(leaseByMedias) {
-      return {
+      console.log('flattenLeases leaseByMedias', leaseByMedias)
+      const res = {
         leases: leaseByMedias.map(l => l.leases).reduce((a, b) => a.concat(b)),
         lastModified: leaseByMedias.map(l => l.lastModified).sort()[0]
       };
+      console.log('flattenLeases res', res);
+      return res;
     }
 
     function isLeaseSyndication(lease) {

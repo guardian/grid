@@ -26,7 +26,11 @@ imageAccessor.factory('imageAccessor', function() {
     }
 
     function readLeases(image) {
-        return image.data.leases.data;
+      console.log('readLeases')
+        return image.data.leases.get().then((res) => {
+          console.log('   readLeases res.data', res.data);
+          return res.data;
+        });
     }
 
     function readMetadata(image) {
