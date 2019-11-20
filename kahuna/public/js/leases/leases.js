@@ -199,6 +199,7 @@ leases.controller('LeasesCtrl', [
         ctrl.isCurrent = (lease) => lease.active && lease.access.match(/-use/i);
 
         ctrl.leaseStatus = (lease) => {
+            console.log('leaseStatus lease', lease);
             const active = lease.active ? 'active ' : ' ';
 
             // Current only makes sense for use leases
@@ -206,11 +207,13 @@ leases.controller('LeasesCtrl', [
 
             const access = (lease.access.match(/allow/i)) ? 'allowed' : 'denied';
 
-            return {
+            const res =  {
                 active: active,
                 current: current,
                 access: access
             };
+            console.log('leaseStatus res', res);
+            return res;
         };
 
         ctrl.leaseName = (lease) => {

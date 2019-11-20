@@ -134,9 +134,11 @@ leaseService.factory('leaseService', [
           }
         });
       })).then(results => {
+        console.log('untilLeasesChange results', results);
         return results.map(result => {
           $rootScope.$emit('image-updated', result.image);
           $rootScope.$emit('leases-updated');
+          console.log('emmiting leases-updated')
           return result.leases;
         });
       }).catch((e) => {
