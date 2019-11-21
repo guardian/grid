@@ -40,13 +40,14 @@
     "expose-loader": "^0.7.3",
     "html-loader": "^0.5.1",
     "htmllint-cli": "0.0.7",
+    "jest": "^24.8.0",
     "style-loader": "^0.19.0",
     "svg-inline-loader": "^0.8.0",
     "uglifyjs-webpack-plugin": "^1.0.1",
     "webpack": "^3.8.1"
   },
   "scripts": {
-    "test": "npm run lint",
+    "test": "npm run lint && jest --coverage",
     "lint": "eslint public/js && htmllint public/js/**/*.html",
     "lint-fix": "eslint public/js --fix && htmllint public/js/**/*.html",
     "dist": "webpack --progress --config webpack.config.prod.js",
