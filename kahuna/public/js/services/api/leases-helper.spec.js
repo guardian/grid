@@ -3,7 +3,7 @@ import moment from 'moment';
 
 describe('leases-helper', () => {
 
-  describe('test for new created leases', () => {
+  describe('tests for new created leases', () => {
       const newUploadedImage = {
         data: {
           leases: {
@@ -15,7 +15,7 @@ describe('leases-helper', () => {
         }
       };
 
-      it('should return undefined if leases are new created and api reponse is not up to date yet', () => {
+      it('should return undefined if leases are new created and image leases from api reponse are not up to date', () => {
 
         const apiImageWithoutLeases = {
           data: {
@@ -32,7 +32,7 @@ describe('leases-helper', () => {
       expect(actual).toEqual(undefined);
     });
 
-      it('should return result if leases are new created and api reponse isup to date', () => {
+      it('should return result if leases are new created and image leases from api reponse are up to date', () => {
         const time = moment();
 
       const apiLeases = {
@@ -60,8 +60,8 @@ describe('leases-helper', () => {
     });
   });
 
-  describe('test for leases updates', () => {
-    it('should return undefined if image from api still have not up to date leases', () => {
+  describe('tests for leases updates', () => {
+    it('should return undefined if image leases from api are not up to date', () => {
 
       const time = moment();
 
@@ -104,7 +104,7 @@ describe('leases-helper', () => {
       expect(actual).toEqual(undefined);
     });
 
-    it('should return result if image from api have up to date leases', () => {
+    it('should return result if image leases from api are up to date', () => {
       const time = moment();
 
       const clientSideImage = {
