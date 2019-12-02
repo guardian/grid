@@ -23,6 +23,8 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val metadataTopicArn: String = properties("indexed.image.sns.topic.arn")
 
+  lazy val isVersionedS3: Boolean = properties.getOrElse("s3.image.versioned", "false").toBoolean
+
   lazy val from: Option[DateTime] = properties.get("rewind.from").map(ISODateTimeFormat.dateTime.parseDateTime)
 
 }

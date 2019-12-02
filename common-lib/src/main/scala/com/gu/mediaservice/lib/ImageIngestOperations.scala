@@ -4,7 +4,7 @@ import java.io.File
 
 import com.gu.mediaservice.lib.config.CommonConfig
 
-class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig)
+class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
   extends S3ImageStorage(config) {
 
   def storeOriginal(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
@@ -17,7 +17,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some("image/png"))
   }
 
-  def deleteOriginal(id: String) = deleteVersionedImage(imageBucket, fileKeyFromId(id))
+  def deleteOriginal(id: String) = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String) = deleteImage(thumbnailBucket, fileKeyFromId(id))
   def deletePng(id: String) = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 
