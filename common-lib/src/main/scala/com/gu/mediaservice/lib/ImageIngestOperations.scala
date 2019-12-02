@@ -32,8 +32,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
                        (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some(Png))
 
-  def deleteOriginal(id: String): Future[Unit] = deleteImage(imageBucket, fileKeyFromId(id))
+  def deleteOriginal(id: String): Future[Unit] = deleteVersionedImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
   def deletePng(id: String): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
-
 }
