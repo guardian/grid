@@ -17,7 +17,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some("image/png"))
   }
 
-  def deleteOriginal(id: String) = deleteImage(imageBucket, fileKeyFromId(id))
+  def deleteOriginal(id: String) = deleteVersionedImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String) = deleteImage(thumbnailBucket, fileKeyFromId(id))
   def deletePng(id: String) = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 
