@@ -1,0 +1,11 @@
+{
+  "projectName": "media-service::grid::reaper-lambda",
+  "vcsURL": "https://github.com/guardian/grid/",
+  "actions": [
+    {
+      "action": "reaper",
+      "path": ".",
+      "compress": "zip"
+    }
+  ]
+}

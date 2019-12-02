@@ -5,7 +5,7 @@
   "main": "lambda.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "riffraff-artefact": "VERBOSE=true ARTEFACT_PATH=$PWD riffraff-artefact"
+    "riffraff-artefact": "node-riffraff-artifact"
   },
   "isAwsLambda": true,
   "cloudformation": false,
@@ -15,7 +15,7 @@
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "node-riffraff-artefact": "^2.0.1",
+    "@guardian/node-riffraff-artifact": "^0.1.0",
     "aws-sdk": "^2.127.0"
   },
   "dependencies": {
