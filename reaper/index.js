@@ -1,5 +1,4 @@
 const fetch = require("node-fetch");
-const ELKKinesisLogger = require("@guardian/elk-kinesis-logger");
 const CredentialsConfig = require("./CredentialsConfig");
 
 exports.handler = (event, context, callback) => {
