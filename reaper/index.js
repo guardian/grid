@@ -1,19 +1,13 @@
 const fetch = require("node-fetch");
 const CredentialsConfig = require("./CredentialsConfig");
+const pAll = require("p-all");
 
 exports.handler = (event, context, callback) => {
   CredentialsConfig.read()
     .then(data => {
       const json = JSON.parse(data);
-      const logger = new ELKKinesisLogger({
-        stage: json.stage,
-        stack: json.stack,
-        app: json.app,
-        roleArn: json.roleArn,
-        streamName: json.streamName
-      });
 
-      console.log("logger started");
+      console.log("console started");
       const headers = {
         "X-Gu-Media-Key": json["X-Gu-Media-Key"]
       };
@@ -21,10 +15,10 @@ exports.handler = (event, context, callback) => {
         headers
       })
         .then(res => res.json())
-        .then(json =>
-          json.data.forEach(image => {
+        .then(json => {
+          const deletions = json.data.map(image => () => {
             const imageId = image.data.id;
-            fetch(image.uri, { headers, method: "DELETE" }).then(res => {
+            return fetch(image.uri, { headers, method: "DELETE" }).then(res => {
               if (res.status >= 200 && res.status < 300) {
                 console.log(
                   `${res.status}: successfully deleted picture ${imageId}`,
@@ -41,11 +35,12 @@ exports.handler = (event, context, callback) => {
                 );
               }
             });
-          })
-        )
+          });
+          return pAll(deletions, { concurrency: 4 });
+        })
         .catch(e => {
           console.error(e.message);
-          callback(e.message);
+          console.close().then(() => callback(e.message));
         });
     })
     .catch(e => {
