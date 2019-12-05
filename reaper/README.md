@@ -13,3 +13,7 @@ See [this PR](https://github.com/guardian/grid-infra/pull/306) for the template 
 
 This needs to be deployed as a standalone service in Riff Raff, by selecting the project `media-service::grid::reaper-lambda` and the appropriate stage.
 The package `node-riffraff-artefact` is responsible for building the Riff Raff artifact.
+
+### Logs
+
+Logs are sent to cloudwatch, which can then be shipped to ELK using [cloudwatch logs management](https://github.com/guardian/cloudwatch-logs-management)
