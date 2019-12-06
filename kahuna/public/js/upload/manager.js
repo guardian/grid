@@ -34,9 +34,9 @@ upload.factory('uploadManager',
       }
 
       async function uploadFile(file) {
-        const job = createJobItem(file);
-        jobs.add(job);
-        await job.resourcePromise;
+        const jobItem = createJobItem(file);
+        const job = [jobItem]
+        await jobItem.resourcePromise;
         return job;
       }
 
@@ -47,7 +47,7 @@ upload.factory('uploadManager',
           ), {concurrency: 4});
         fileJobs.then(job => {
           jobs.delete(job);
-          $window.URL.revokeObjectURL(job.dataUrl);
+          job.map(jobItem=> $window.URL.revokeObjectURL(jobItem.dataUrl));
         });
       }
 
