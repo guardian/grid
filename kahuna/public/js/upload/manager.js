@@ -35,7 +35,7 @@ upload.factory('uploadManager',
 
       async function uploadFile(file) {
         const jobItem = createJobItem(file);
-        const job = [jobItem]
+        const job = [jobItem];
         await jobItem.resourcePromise;
         return job;
       }
