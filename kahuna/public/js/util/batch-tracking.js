@@ -1,5 +1,5 @@
 // TODO MRB: invoke function lazily, does it improve UI jank?
-import { pAll } from "p-all";
+import pAll from "p-all";
 
 export function trackAll($rootScope, key, input, fn) {
   let completed = 0;

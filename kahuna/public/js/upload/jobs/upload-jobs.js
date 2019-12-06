@@ -1,5 +1,5 @@
 import angular from "angular";
-import { pAll } from "p-all";
+import pAll from "p-all";
 import template from "./upload-jobs.html";
 import "../../preview/image";
 import "../../components/gr-delete-image/gr-delete-image";
