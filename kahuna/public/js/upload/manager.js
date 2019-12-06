@@ -37,7 +37,7 @@ upload.factory('uploadManager',
         const job = createJobItem(file);
         jobs.add(job);
         await job.resourcePromise;
-        return job
+        return job;
       }
 
       function upload(files) {
@@ -48,7 +48,7 @@ upload.factory('uploadManager',
         fileJobs.then(job => {
           jobs.delete(job);
           $window.URL.revokeObjectURL(job.dataUrl);
-        })
+        });
       }
 
       function uploadUri(uri) {
