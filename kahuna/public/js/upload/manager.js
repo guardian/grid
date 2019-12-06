@@ -1,48 +1,57 @@
 import angular from 'angular';
+import pAll from "p-all";
 
 var upload = angular.module('kahuna.upload.manager', []);
 
 upload.factory('uploadManager',
-               ['$q', '$window', 'fileUploader',
-                function($q, $window, fileUploader) {
+  ['$q', '$window', 'fileUploader',
+    function ($q, $window, fileUploader) {
 
-    var jobs = new Set();
+      var jobs = new Set();
 
-    function createJobItem(file) {
+      function createJobItem(file) {
         var request = fileUploader.upload(file);
         // TODO: find out where we can revoke these
         // see: https://developer.mozilla.org/en-US/docs/Web/API/URL.revokeObjectURL
         var dataUrl = $window.URL.createObjectURL(file);
 
         return {
-            name: file.name,
-            size: file.size,
-            dataUrl: dataUrl,
-            resourcePromise: request
+          name: file.name,
+          size: file.size,
+          dataUrl: dataUrl,
+          resourcePromise: request
         };
-    }
-    function createUriJobItem(fileUri) {
+      }
+
+      function createUriJobItem(fileUri) {
         var request = fileUploader.loadUriImage(fileUri);
 
         return {
-            name: fileUri,
-            dataUrl: fileUri,
-            resourcePromise: request
+          name: fileUri,
+          dataUrl: fileUri,
+          resourcePromise: request
         };
-    }
+      }
 
-    function upload(files) {
-        var job = files.map(createJobItem);
-        var promises = job.map(jobItem => jobItem.resourcePromise);
-
+      async function uploadFile(file) {
+        const job = createJobItem(file);
         jobs.add(job);
+        await job.resourcePromise;
+        return job
+      }
 
-        // once all `jobItems` in a job are complete, remove it
-        // TODO: potentially move these to a `completeJobs` `Set`
-        $q.all(promises).finally(() => jobs.delete(job));
-    }
+      function upload(files) {
+        const fileJobs = pAll(
+          files.map(
+            file => () => uploadFile(file)
+          ), {concurrency: 4});
+        fileJobs.then(job => {
+          jobs.delete(job);
+          $window.URL.revokeObjectURL(job.dataUrl);
+        })
+      }
 
-    function uploadUri(uri) {
+      function uploadUri(uri) {
         var jobItem = createUriJobItem(uri);
         var promise = jobItem.resourcePromise;
         var job = [jobItem];
@@ -52,51 +61,51 @@ upload.factory('uploadManager',
         // once all `jobItems` in a job are complete, remove it
         // TODO: potentially move these to a `completeJobs` `Set`
         promise.finally(() => jobs.delete(job));
-    }
+      }
 
-    function getLatestRunningJob() {
+      function getLatestRunningJob() {
         return jobs.values().next().value;
-    }
+      }
 
-    return {
+      return {
         upload,
         uploadUri,
         getLatestRunningJob
-    };
-}]);
+      };
+    }]);
 
 
 upload.factory('fileUploader',
-               ['$q', 'loaderApi',
-                function($q, loaderApi) {
+  ['$q', 'loaderApi',
+    function ($q, loaderApi) {
 
-    function upload(file) {
+      function upload(file) {
         return readFile(file).then(fileData => {
-            return uploadFile(fileData, { filename: file.name });
+          return uploadFile(fileData, {filename: file.name});
         });
-    }
+      }
 
-    function readFile(file) {
+      function readFile(file) {
         var reader = new FileReader();
         var def = $q.defer();
 
-        reader.addEventListener('load',  event => def.resolve(event.target.result));
+        reader.addEventListener('load', event => def.resolve(event.target.result));
         reader.addEventListener('error', def.reject);
         reader.readAsArrayBuffer(file);
 
         return def.promise;
-    }
+      }
 
-    function uploadFile(fileData, uploadInfo) {
+      function uploadFile(fileData, uploadInfo) {
         return loaderApi.load(new Uint8Array(fileData), uploadInfo);
-    }
+      }
 
-    function loadUriImage(fileUri) {
+      function loadUriImage(fileUri) {
         return loaderApi.import(fileUri);
-    }
+      }
 
-    return {
+      return {
         upload,
         loadUriImage
-    };
-}]);
+      };
+    }]);
