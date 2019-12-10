@@ -63,18 +63,16 @@ async.factory('poll',
           return race([promise, timeout]);
         }
 
+        const JITTER = 100;
+        const BACKOFF = 2;
+        let i = 0;
 
-        const withBackoff = (()=>{
-          const JITTER = 100;
-          const BACKOFF = 2;
-          let i = 0;
-          return () => {
+        const withBackoff = () => {
             const jitter = Math.floor(Math.random() * JITTER);
             const wait = pollEvery * BACKOFF ** (i++) + jitter;
             console.log(wait);
             return wait;
-          };
-        })();
+        };
 
         function pollRecursive() {
           return func().catch(() => {
