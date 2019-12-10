@@ -70,7 +70,6 @@ async.factory('poll',
         const withBackoff = () => {
             const jitter = Math.floor(Math.random() * JITTER);
             const wait = pollEvery * BACKOFF ** (i++) + jitter;
-            console.log(wait);
             return wait;
         };
 
