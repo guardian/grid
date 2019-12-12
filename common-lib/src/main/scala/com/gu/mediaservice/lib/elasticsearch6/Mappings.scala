@@ -12,7 +12,7 @@ object Mappings {
   val imageMapping: MappingDefinition = {
 
     // Non indexed fields stored as keywords can still participate in exists / has queries
-    def filemetaDataStringsAsKeyword: DynamicTemplateRequest = {
+    def fileMetaDataStringsAsKeyword: DynamicTemplateRequest = {
       // Extremely long user generated file metadata files may prevent an image from been ingested due to an keyword size limit in the underlying Lucene index.
       // As a trade off between reliable ingestion, the has field feature and the complexity budget, use the ignore_above field parameter to ignore long fields.
       // These ignored fields will still be visible in the persisted document source (and therefore API output) but will omitted from
@@ -48,7 +48,14 @@ object Mappings {
         assetMapping("optimisedPng"),
         userMetadataMapping("userMetadata"),
         dateField("userMetadataLastModified"),
-        dynamicObj("fileMetadata"),
+        NestedField("fileMetadata").dynamic(true),
+        //        nestedField("fileMetadata").fields(
+        //          // 1st option
+        ////          textKeywordField("key").termVector("with_positions_offsets"),
+        ////          textField("values").termVector("with_positions_offsets")
+        //          // second option
+        //          dynamicObj("fileMetadata")
+        //        ).dynamic(true),
         exportsMapping("exports"),
         dateField("uploadTime"),
         keywordField("uploadedBy"),
@@ -58,11 +65,12 @@ object Mappings {
         simpleSuggester("suggestMetadataCredit"),
         usagesMapping("usages"),
         keywordField("usagesPlatform"),
-        keywordField("usagesStatus"),  // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
-        dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
+        keywordField("usagesStatus"), // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
+        dateField("usagesLastModified"), // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections")
-      ).dynamicTemplates(Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate))
+      )
+      .dynamicTemplates(Seq(fileMetaDataStringsAsKeyword, storedJsonObjectTemplate))
   }
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(
@@ -244,20 +252,20 @@ object Mappings {
 
   def usagesMapping(name: String): NestedField = nestedField(name).
     fields(
-    keywordField("id"),
-    sStemmerAnalysed("title"),
-    usageReference("references"),
-    keywordField("platform").copyTo("usagesPlatform"),
-    keywordField("media"),
-    keywordField("status").copyTo("usagesStatus"),
-    dateField("dateAdded"),
-    dateField("dateRemoved"),
-    dateField("lastModified"),
-    printUsageMetadata("printUsageMetadata"),
-    digitalUsageMetadata("digitalUsageMetadata"),
-    syndicationUsageMetadata("syndicationUsageMetadata"),
-    frontUsageMetadata("frontUsageMetadata")
-  )
+      keywordField("id"),
+      sStemmerAnalysed("title"),
+      usageReference("references"),
+      keywordField("platform").copyTo("usagesPlatform"),
+      keywordField("media"),
+      keywordField("status").copyTo("usagesStatus"),
+      dateField("dateAdded"),
+      dateField("dateRemoved"),
+      dateField("lastModified"),
+      printUsageMetadata("printUsageMetadata"),
+      digitalUsageMetadata("digitalUsageMetadata"),
+      syndicationUsageMetadata("syndicationUsageMetadata"),
+      frontUsageMetadata("frontUsageMetadata")
+    )
 
   def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
     keywordField("id"),
@@ -278,7 +286,7 @@ object Mappings {
 
   private def nonDynamicObjectField(name: String) = ObjectField(name).dynamic("strict")
 
-  private def nestedField(name: String) = NestedField(name).dynamic("strict") // ES1 include_in_parent needs to be emulated with field bby field copy_tos
+  //  private def nestedField(name: String) = NestedField(name).dynamic("strict") // ES1 include_in_parent needs to be emulated with field bby field copy_tos
 
   private def dynamicObj(name: String) = objectField(name).dynamic(true)
 
