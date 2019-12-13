@@ -14,9 +14,10 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
+import com.gu.mediaservice.model.FileMetadata.StringOrStrings
 import com.gu.mediaservice.model.{Dimensions, FileMetadata}
-import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
+import org.joda.time.{DateTime, DateTimeZone}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,20 +50,20 @@ object FileMetadataReader {
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def fromIPTCHeaders(image: File, imageId:String): Future[FileMetadata] =
+  def fromIPTCHeaders(image: File, imageId: String): Future[FileMetadata] =
     for {
       metadata <- readMetadata(image)
     }
-    yield getMetadataWithICPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
+      yield getMetadataWithICPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
-  def fromICPTCHeadersWithColorInfo(image: File, imageId:String, mimeType: String): Future[FileMetadata] =
+  def fromICPTCHeadersWithColorInfo(image: File, imageId: String, mimeType: String): Future[FileMetadata] =
     for {
       metadata <- readMetadata(image)
       colourModelInformation <- getColorModelInformation(image, metadata, mimeType)
     }
-    yield getMetadataWithICPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
+      yield getMetadataWithICPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
 
-  private def getMetadataWithICPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =
+  private def getMetadataWithICPTCHeaders(metadata: Metadata, imageId: String): FileMetadata =
     FileMetadata(
       iptc = exportDirectory(metadata, classOf[IptcDirectory]),
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
@@ -107,37 +108,59 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
-  private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] =
-    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
+
+  private def exportXmpProperties(metadata: Metadata, imageId: String): Map[String, StringOrStrings] = {
+
+    val props = Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
         case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
         case (key, Some(value)) => key -> value
       }
     } getOrElse Map()
 
+    PropertiesAggregator.aggregateMetadataMap(props)
+  }
+
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
   // this only extracts a small subset of properties as a means to identify Getty images.
-  private def exportGettyDirectory(metadata: Metadata, imageId:String): Map[String, String] = {
-      val xmpProperties = exportXmpProperties(metadata, imageId)
+  private def exportGettyDirectory(metadata: Metadata, imageId: String): Map[String, String] = {
+    val xmpProperties = exportXmpProperties(metadata, imageId)
 
-      def readProperty(name: String): Option[String] = xmpProperties.get(name)
+//    def readProperty(name: String): Option[String] = {
+//      xmpProperties.get(name).map {
+//        case StringsVal(v) => v.head
+//        case StringVal(v) => v
+//      }
+//    }
 
-      def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
+    def readProperty(name: String, genericMap: Map[String, StringOrStrings]): Option[String] = {
+      genericMap.get(name).map(prop => {
+        prop match {
+          case scala.Left(v) => v
+          case scala.Right(v) => v.head
+        }
+      })
+    }
 
-      Map(
-        "Asset ID" -> readAssetId,
-        "Call For Image" -> readProperty("GettyImagesGIFT:CallForImage"),
-        "Camera Filename" -> readProperty("GettyImagesGIFT:CameraFilename"),
-        "Camera Make Model" -> readProperty("GettyImagesGIFT:CameraMakeModel"),
-        "Composition" -> readProperty("GettyImagesGIFT:Composition"),
-        "Exclusive Coverage" -> readProperty("GettyImagesGIFT:ExclusiveCoverage"),
-        "Image Rank" -> readProperty("GettyImagesGIFT:ImageRank"),
-        "Original Create Date Time" -> readProperty("GettyImagesGIFT:OriginalCreateDateTime"),
-        "Original Filename" -> readProperty("GettyImagesGIFT:OriginalFilename"),
-        "Personality" -> readProperty("GettyImagesGIFT:Personality"),
-        "Time Shot" -> readProperty("GettyImagesGIFT:TimeShot")
-      ).flattenOptions
+    def readXmpProp(name: String) = readProperty(name, xmpProperties)
+
+
+    def readAssetId: Option[String] = readXmpProp("GettyImagesGIFT:AssetId").orElse(readXmpProp("GettyImagesGIFT:AssetID"))
+
+    Map(
+      "Asset ID" -> readAssetId,
+      "Call For Image" -> readXmpProp("GettyImagesGIFT:CallForImage"),
+      "Camera Filename" -> readXmpProp("GettyImagesGIFT:CameraFilename"),
+      "Camera Make Model" -> readXmpProp("GettyImagesGIFT:CameraMakeModel"),
+      "Composition" -> readXmpProp("GettyImagesGIFT:Composition"),
+      "Exclusive Coverage" -> readXmpProp("GettyImagesGIFT:ExclusiveCoverage"),
+      "Image Rank" -> readXmpProp("GettyImagesGIFT:ImageRank"),
+      "Original Create Date Time" -> readXmpProp("GettyImagesGIFT:OriginalCreateDateTime"),
+      "Original Filename" -> readXmpProp("GettyImagesGIFT:OriginalFilename"),
+      "Personality" -> readXmpProp("GettyImagesGIFT:Personality"),
+      "Time Shot" -> readXmpProp("GettyImagesGIFT:TimeShot")
+    ).flattenOptions
   }
 
   private def dateToUTCString(date: DateTime): String = ISODateTimeFormat.dateTime.print(date.withZone(DateTimeZone.UTC))
@@ -146,37 +169,37 @@ object FileMetadataReader {
     for {
       metadata <- readMetadata(image)
     }
-    yield {
+      yield {
 
-      mimeType match {
+        mimeType match {
 
-        case Some("image/jpeg") => for {
-          jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
+          case Some("image/jpeg") => for {
+            jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
 
-        } yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
+          } yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
 
-        case Some("image/png") => for {
-          pngDir <- Option(metadata.getFirstDirectoryOfType(classOf[PngDirectory]))
+          case Some("image/png") => for {
+            pngDir <- Option(metadata.getFirstDirectoryOfType(classOf[PngDirectory]))
 
-        } yield {
-          val width = pngDir.getInt(PngDirectory.TAG_IMAGE_WIDTH)
-          val height = pngDir.getInt(PngDirectory.TAG_IMAGE_HEIGHT)
-          Dimensions(width, height)
+          } yield {
+            val width = pngDir.getInt(PngDirectory.TAG_IMAGE_WIDTH)
+            val height = pngDir.getInt(PngDirectory.TAG_IMAGE_HEIGHT)
+            Dimensions(width, height)
+          }
+
+          case Some("image/tiff") => for {
+            exifDir <- Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
+
+          } yield {
+            val width = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_WIDTH)
+            val height = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_HEIGHT)
+            Dimensions(width, height)
+          }
+
+          case _ => None
+
         }
-
-        case Some("image/tiff") => for {
-          exifDir <- Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
-
-        } yield {
-          val width = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_WIDTH)
-          val height = exifDir.getInt(ExifDirectoryBase.TAG_IMAGE_HEIGHT)
-          Dimensions(width, height)
-        }
-
-        case _ => None
-
       }
-    }
 
   def getColorModelInformation(image: File, metadata: Metadata, mimeType: String): Future[Map[String, String]] = {
 
@@ -184,7 +207,7 @@ object FileMetadataReader {
 
     val formatter = format(source)("%r")
 
-    runIdentifyCmd(formatter).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
+    runIdentifyCmd(formatter).map { imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 
@@ -210,7 +233,6 @@ object FileMetadataReader {
           "bitsPerSample" -> Option(metaDir.getDescription(ExifDirectoryBase.TAG_BITS_PER_SAMPLE))
         ).flattenOptions
     }
-
 
 
   }

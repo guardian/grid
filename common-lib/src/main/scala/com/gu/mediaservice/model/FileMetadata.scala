@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.model.FileMetadata.StringOrStrings
 import net.logstash.logback.marker.Markers
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
@@ -10,7 +11,7 @@ case class FileMetadata(
   iptc: Map[String, String]                     = Map(),
   exif: Map[String, String]                     = Map(),
   exifSub: Map[String, String]                  = Map(),
-  xmp: Map[String, String]                      = Map(),
+  xmp: Map[String, StringOrStrings]             = Map(),
   icc: Map[String, String]                      = Map(),
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
@@ -37,11 +38,35 @@ case class FileMetadata(
 object FileMetadata {
   // TODO: reindex all images to make the getty map always present
   // for data consistency, so we can fallback to use the default Reads
-  implicit val ImageMetadataReads: Reads[FileMetadata] = (
+
+//  implicit val ImageMetadataFormatter = Json.format[FileMetadata]
+
+  type StringOrStrings = Either[String, List[String]]
+
+  implicit val stringOrStringsReads: Reads[StringOrStrings] = {
+    case JsString(s) => JsSuccess(Left(s))
+    case JsArray(l) =>
+      val strings = l.map(_.as[String]).toList
+      JsSuccess(scala.Right(strings))
+    case _ => throw new Exception("Invalid json value")
+  }
+
+  implicit val stringOrStringsWrites: Writes[StringOrStrings] = new Writes[StringOrStrings] {
+    override def writes(o: StringOrStrings): JsValue = o match {
+      case scala.Right(v)  => Json.toJson(v)
+      case scala.Left(v) => Json.toJson(v)
+    }
+  }
+
+//  implicit val stringFormatter: Format[StringVal] = Json.format[StringVal]
+//
+//  implicit val stringsFormatter: Format[StringsVal] = Json.format[StringsVal]
+
+  implicit val ImageMetadataFormatter: Reads[FileMetadata] = (
     (__ \ "iptc").read[Map[String,String]] ~
     (__ \ "exif").read[Map[String,String]] ~
     (__ \ "exifSub").read[Map[String,String]] ~
-    (__ \ "xmp").read[Map[String,String]] ~
+    (__ \ "xmp").read[Map[String,StringOrStrings]] ~
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()).map(removeLongValues) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "colourModel").readNullable[String] ~
@@ -63,7 +88,7 @@ object FileMetadata {
     (JsPath \ "iptc").write[Map[String,String]] and
       (JsPath \ "exif").write[Map[String,String]] and
       (JsPath \ "exifSub").write[Map[String,String]] and
-      (JsPath \ "xmp").write[Map[String,String]] and
+      (JsPath \ "xmp").write[Map[String,StringOrStrings]] and
       (JsPath \ "icc").write[Map[String,String]].contramap[Map[String, String]](removeLongValues) and
       (JsPath \ "getty").write[Map[String,String]] and
       (JsPath \ "colourModel").writeNullable[String] and
