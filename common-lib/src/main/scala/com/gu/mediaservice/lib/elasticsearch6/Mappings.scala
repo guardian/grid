@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.elasticsearch6
 
 import com.sksamuel.elastic4s.http.ElasticDsl.{mapping, _}
 import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
-import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField}
+import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField, TextField}
 import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
@@ -33,6 +33,10 @@ object Mappings {
         pathMatch("fileMetadata.*")
     }
 
+    def textKeywordField(name: String): TextField = {
+      textField(name: String).fields(com.sksamuel.elastic4s.http.ElasticDsl.keywordField("keyword"))
+    }
+
     mapping(dummyType).
       dynamic(DynamicMapping.Strict).
       dateDetection(false).
@@ -48,7 +52,17 @@ object Mappings {
         assetMapping("optimisedPng"),
         userMetadataMapping("userMetadata"),
         dateField("userMetadataLastModified"),
-        NestedField("fileMetadata").dynamic(true),
+        objectField("fileMetadata").fields(
+          NestedField("iptc").dynamic(true),
+          NestedField("exif").dynamic(true),
+          NestedField("exifSub").dynamic(true),
+          NestedField("xmp").dynamic(true),
+          NestedField("icc").dynamic(true),
+          NestedField("getty").dynamic(true),
+          textField("colourModel"),
+          NestedField("colourModelInformation").dynamic(true)
+        ),
+//        NestedField("fileMetadata").dynamic(true),
         //        nestedField("fileMetadata").fields(
         //          // 1st option
         ////          textKeywordField("key").termVector("with_positions_offsets"),

@@ -269,9 +269,10 @@ class MediaApi(
           val processedImage = SupplierProcessors.process(imageCleanMetadata)
 
           // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+
           val finalImage = processedImage.copy(
             originalMetadata    = processedImage.metadata,
-            originalUsageRights = processedImage.usageRights
+            originalUsageRights = processedImage.usageRights,
           )
 
           val updateImage = "update-image"
