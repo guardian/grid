@@ -3,6 +3,7 @@ package com.gu.mediaservice.model
 import org.scalatest.prop.{Checkers, PropertyChecks}
 import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.Json
+import FileMetadataFormatters._
 
 class FileMetadataTest extends FreeSpec with Matchers with Checkers with PropertyChecks {
 

@@ -56,7 +56,6 @@ class ThrallEventConsumer(es: ElasticSearchVersion,
                 Logger.info(s"Completed processing of ${updateMessage.subject} message")(updateMessage.toLogMarker)
               }.recover {
                 case e: Throwable =>
-                  println(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)
                   Logger.error(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)(updateMessage.toLogMarker)
               }
 

@@ -118,7 +118,7 @@ object FileMetadataReader {
       }
     } getOrElse Map()
 
-    PropertiesAggregator.aggregateMetadataMap(props)
+    FileMetadata.aggregateMetadataMap(props)
   }
 
   // Getty made up their own XMP namespace.
@@ -127,23 +127,7 @@ object FileMetadataReader {
   private def exportGettyDirectory(metadata: Metadata, imageId: String): Map[String, String] = {
     val xmpProperties = exportXmpProperties(metadata, imageId)
 
-//    def readProperty(name: String): Option[String] = {
-//      xmpProperties.get(name).map {
-//        case StringsVal(v) => v.head
-//        case StringVal(v) => v
-//      }
-//    }
-
-    def readProperty(name: String, genericMap: Map[String, StringOrStrings]): Option[String] = {
-      genericMap.get(name).map(prop => {
-        prop match {
-          case scala.Left(v) => v
-          case scala.Right(v) => v.head
-        }
-      })
-    }
-
-    def readXmpProp(name: String) = readProperty(name, xmpProperties)
+    def readXmpProp(name: String) = FileMetadata.readStringOrListHeadProp(name, xmpProperties)
 
 
     def readAssetId: Option[String] = readXmpProp("GettyImagesGIFT:AssetId").orElse(readXmpProp("GettyImagesGIFT:AssetID"))

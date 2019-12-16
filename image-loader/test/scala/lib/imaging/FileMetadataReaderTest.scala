@@ -1,5 +1,6 @@
 package test.lib.imaging
 
+import com.gu.mediaservice.model.FileMetadata.StringOrStrings
 import lib.imaging.FileMetadataReader
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
@@ -85,72 +86,74 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "Exclusive Coverage" -> "False",
         "Original Create Date Time" -> "0001-01-01T00:00:00.000Z"
       )
-      val xmp = Map(
-        "GettyImagesGIFT:ImageRank" -> "3",
-        "GettyImagesGIFT:OriginalFilename" -> "43885812_SEA.jpg",
-        "dc:creator[1]" -> "CHRISTOF STACHE",
-        "dc:title[1]" -> "536991815",
-        "dc:title[1]/xml:lang" -> "x-default",
-        "photoshop:SupplementalCategories[1]" -> "SKI",
-        "photoshop:Headline" -> "Austria's Matthias Mayer attends the men",
-        "photoshop:TransmissionReference" -> "-",
-        "dc:description[1]/xml:lang" -> "x-default",
-        "photoshop:AuthorsPosition" -> "Stringer",
-        "photoshop:CaptionWriter" -> "CS/IW",
-        "plus:ImageSupplierImageId" -> "DV1945213",
-        "dc:description[1]" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images",
-        "photoshop:City" -> "KITZBUEHEL",
-        "GettyImagesGIFT:ExclusiveCoverage" -> "False",
-        "photoshop:DateCreated" -> "2015-01-22T00:00:00.000Z",
-        "photoshop:Credit" -> "AFP/Getty Images",
-        "dc:Rights" -> "CHRISTOF STACHE",
-        "GettyImagesGIFT:OriginalCreateDateTime" -> "0001-01-01T00:00:00.000Z",
-        "Iptc4xmpCore:CountryCode" -> "AUT",
-        "GettyImagesGIFT:CallForImage" -> "False",
-        "photoshop:Country" -> "AUSTRIA",
-        "photoshop:Source" -> "AFP",
-        "photoshop:Category" -> "S"
+      val xmp: Map[String, StringOrStrings] = Map(
+        "GettyImagesGIFT:ImageRank" -> Left("3"),
+        "GettyImagesGIFT:OriginalFilename" -> Left("43885812_SEA.jpg"),
+        "dc:creator" -> Left("CHRISTOF STACHE"),
+        "dc:title" -> Left("536991815"),
+        "dc:title/xml:lang" ->  Left("x-default"),
+        "photoshop:SupplementalCategories" -> Left("SKI"),
+        "photoshop:Headline" -> Left("Austria's Matthias Mayer attends the men"),
+        "photoshop:TransmissionReference" -> Left("-"),
+        "dc:description/xml:lang" -> Left("x-default"),
+        "photoshop:AuthorsPosition" -> Left("Stringer"),
+        "photoshop:CaptionWriter" -> Left("CS/IW"),
+        "plus:ImageSupplierImageId" -> Left("DV1945213"),
+        "dc:description" -> Left(
+          "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
+        "photoshop:City" -> Left("KITZBUEHEL"),
+        "GettyImagesGIFT:ExclusiveCoverage" -> Left("False"),
+        "photoshop:DateCreated" -> Left("2015-01-22T00:00:00.000Z"),
+        "photoshop:Credit" -> Left("AFP/Getty Images"),
+        "dc:Rights" -> Left("CHRISTOF STACHE"),
+        "GettyImagesGIFT:OriginalCreateDateTime" -> Left("0001-01-01T00:00:00.000Z"),
+        "Iptc4xmpCore:CountryCode" -> Left("AUT"),
+        "GettyImagesGIFT:CallForImage" -> Left("False"),
+        "photoshop:Country" -> Left("AUSTRIA"),
+        "photoshop:Source" -> Left("AFP"),
+        "photoshop:Category" -> Left("S")
       )
 
       sameMaps(metadata.iptc, iptc)
       sameMaps(metadata.exif, exif)
       sameMaps(metadata.exifSub, Map())
       sameMaps(metadata.getty, getty)
-      sameMaps(metadata.xmp, xmp)
+      sameMaps2(metadata.xmp, xmp)
     }
   }
 
   it("should read the xmp metadata as stored in the image (process image using GettyImagesGIFT prefix first)") {
-    val prefix0Xmp: Map[String, String] = Map(
-      "photoshop:AuthorsPosition" -> "Staff",
-      "GettyImagesGIFT:Personality[1]" -> "Petr Cech",
-      "dc:description[1]/xml:lang" -> "x-default",
-      "photoshop:SupplementalCategories[1]" -> "FOC",
-      "photoshop:DateCreated" -> "2008-08-20T00:00:00.000Z",
-      "Iptc4xmpCore:CountryCode" -> "GBR",
-      "photoshop:Credit" -> "Getty Images",
-      "photoshop:CaptionWriter" -> "jm",
-      "GettyImagesGIFT:CameraMakeModel" -> "Canon EOS-1D Mark III",
-      "photoshop:City" -> "London",
-      "dc:description[1]" -> "LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)",
-      "photoshop:Headline" -> "England v Czech Republic - International Friendly",
-      "dc:title[1]/xml:lang" -> "x-default",
-      "dc:rights[1]/xml:lang" -> "x-default",
-      "photoshop:TransmissionReference" -> "81774706",
-      "photoshop:Source" -> "Getty Images Europe",
-      "GettyImagesGIFT:CameraFilename" -> "8R8Z0144.JPG",
-      "photoshop:Category" -> "S",
-      "dc:title[1]" -> "81774706JM148_England_v_Cze",
-      "GettyImagesGIFT:OriginalFilename" -> "2008208_81774706JM148_England_v_Cze.jpg",
-      "GettyImagesGIFT:OriginalCreateDateTime" -> "2008-08-20T20:25:49.000Z",
-      "dc:rights[1]" -> "2008 Getty Images",
-      "GettyImagesGIFT:TimeShot" -> "212019+0200",
-      "photoshop:Country" -> "United Kingdom",
-      "GettyImagesGIFT:Composition" -> "Full Length",
-      "GettyImagesGIFT:ImageRank" -> "3",
-      "xmpMM:InstanceID" -> "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b",
-      "dc:creator[1]" -> "Phil Cole",
-      "GettyImagesGIFT:CameraSerialNumber" -> "0000571198"
+    val prefix0Xmp: Map[String, StringOrStrings] = Map(
+      "photoshop:AuthorsPosition" -> Left("Staff"),
+      "GettyImagesGIFT:Personality" -> Left("Petr Cech"),
+      "dc:description/xml:lang" -> Left("x-default"),
+      "photoshop:SupplementalCategories" -> Left("FOC"),
+      "photoshop:DateCreated" -> Left("2008-08-20T00:00:00.000Z"),
+      "Iptc4xmpCore:CountryCode" -> Left("GBR"),
+      "photoshop:Credit" -> Left("Getty Images"),
+      "photoshop:CaptionWriter" -> Left("jm"),
+      "GettyImagesGIFT:CameraMakeModel" -> Left("Canon EOS-1D Mark III"),
+      "photoshop:City" -> Left("London"),
+      "dc:description" -> Left(
+        "LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)"),
+      "photoshop:Headline" -> Left("England v Czech Republic - International Friendly"),
+      "dc:title/xml:lang" -> Left("x-default"),
+      "dc:rights/xml:lang" -> Left("x-default"),
+      "photoshop:TransmissionReference" -> Left("81774706"),
+      "photoshop:Source" -> Left("Getty Images Europe"),
+      "GettyImagesGIFT:CameraFilename" -> Left("8R8Z0144.JPG"),
+      "photoshop:Category" -> Left("S"),
+      "dc:title" -> Left("81774706JM148_England_v_Cze"),
+      "GettyImagesGIFT:OriginalFilename" -> Left("2008208_81774706JM148_England_v_Cze.jpg"),
+      "GettyImagesGIFT:OriginalCreateDateTime" -> Left("2008-08-20T20:25:49.000Z"),
+      "dc:rights" -> Left("2008 Getty Images"),
+      "GettyImagesGIFT:TimeShot" -> Left("212019+0200"),
+      "photoshop:Country" -> Left("United Kingdom"),
+      "GettyImagesGIFT:Composition" -> Left("Full Length"),
+      "GettyImagesGIFT:ImageRank" -> Left("3"),
+      "xmpMM:InstanceID" -> Left("uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b"),
+      "dc:creator" -> Left("Phil Cole"),
+      "GettyImagesGIFT:CameraSerialNumber" -> Left("0000571198")
     )
 
     // `getty.jpg` uses the `GettyImagesGIFT` prefix, processing it first will populate the `XMPSchemaRegistry` cache,
@@ -159,38 +162,40 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     whenReady(gettyGiftXmpFuture) { _ =>
       val prefix0MetadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
       whenReady(prefix0MetadataFuture) { metadata =>
-        sameMaps(metadata.xmp, prefix0Xmp)
+        sameMaps2(metadata.xmp, prefix0Xmp)
       }
     }
   }
 
   it("should read the xmp metadata as stored in the image (process  image using prefix0 prefix first)") {
-    val gettyGiftXmp: Map[String, String] = Map(
-      "GettyImagesGIFT:ImageRank" -> "3",
-      "GettyImagesGIFT:OriginalFilename" -> "43885812_SEA.jpg",
-      "dc:creator[1]" -> "CHRISTOF STACHE",
-      "dc:title[1]" -> "536991815",
-      "dc:title[1]/xml:lang" -> "x-default",
-      "photoshop:SupplementalCategories[1]" -> "SKI",
-      "photoshop:Headline" -> "Austria's Matthias Mayer attends the men",
-      "photoshop:TransmissionReference" -> "-",
-      "dc:description[1]/xml:lang" -> "x-default",
-      "photoshop:AuthorsPosition" -> "Stringer",
-      "photoshop:CaptionWriter" -> "CS/IW",
-      "plus:ImageSupplierImageId" -> "DV1945213",
-      "dc:description[1]" -> "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images",
-      "photoshop:City" -> "KITZBUEHEL",
-      "GettyImagesGIFT:ExclusiveCoverage" -> "False",
-      "photoshop:DateCreated" -> "2015-01-22T00:00:00.000Z",
-      "photoshop:Credit" -> "AFP/Getty Images",
-      "dc:Rights" -> "CHRISTOF STACHE",
-      "GettyImagesGIFT:OriginalCreateDateTime" -> "0001-01-01T00:00:00.000Z",
-      "Iptc4xmpCore:CountryCode" -> "AUT",
-      "GettyImagesGIFT:CallForImage" -> "False",
-      "photoshop:Country" -> "AUSTRIA",
-      "photoshop:Source" -> "AFP",
-      "photoshop:Category" -> "S"
-    )
+    val gettyGiftXmp: Map[String, StringOrStrings] = Map(
+      "GettyImagesGIFT:ImageRank" -> Left("3"),
+      "GettyImagesGIFT:OriginalFilename" -> Left("43885812_SEA.jpg"),
+      "dc:creator" -> Left("CHRISTOF STACHE"),
+      "dc:title" -> Left("536991815"),
+      "dc:title/xml:lang" -> Left("x-default"),
+      "photoshop:SupplementalCategories" -> Left("SKI"),
+      "photoshop:Headline" -> Left("Austria's Matthias Mayer attends the men"),
+      "photoshop:TransmissionReference" -> Left("-"),
+      "dc:description/xml:lang" -> Left("x-default"),
+      "photoshop:AuthorsPosition" -> Left("Stringer"),
+      "photoshop:CaptionWriter" -> Left("CS/IW"),
+      "plus:ImageSupplierImageId" -> Left("DV1945213"),
+      "dc:description" -> Left(
+        "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
+      ),
+      "photoshop:City" -> Left("KITZBUEHEL"),
+      "GettyImagesGIFT:ExclusiveCoverage" -> Left("False"),
+      "photoshop:DateCreated" -> Left("2015-01-22T00:00:00.000Z"),
+      "photoshop:Credit" -> Left("AFP/Getty Images"),
+      "dc:Rights" -> Left("CHRISTOF STACHE"),
+      "GettyImagesGIFT:OriginalCreateDateTime" -> Left("0001-01-01T00:00:00.000Z"),
+      "Iptc4xmpCore:CountryCode" -> Left("AUT"),
+      "GettyImagesGIFT:CallForImage" -> Left("False"),
+      "photoshop:Country" -> Left("AUSTRIA"),
+      "photoshop:Source" -> Left("AFP"),
+      "photoshop:Category" -> Left("S")
+      )
 
     // `cech.jpg` uses the `prefix0` prefix, processing it first will populate the `XMPSchemaRegistry` cache,
     // resulting in `getty.jpg` to be read differently from the content in the file which uses the `GettyImagesGIFT` prefix.
@@ -198,47 +203,47 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     whenReady(prefix0MetadataFuture) { _ =>
     val gettyGiftXmpFuture = FileMetadataReader.fromIPTCHeaders(fileAt("getty.jpg"), "dummy")
       whenReady(gettyGiftXmpFuture) { metadata =>
-        sameMaps(metadata.xmp, gettyGiftXmp)
+        sameMaps2(metadata.xmp, gettyGiftXmp)
       }
     }
   }
 
   it("should always use the GettyImagesGIFT namespace for XMP metadata using the Getty schema") {
-    val expected: Map[String, String] = Map(
-      "photoshop:AuthorsPosition" -> "Staff",
-      "GettyImagesGIFT:Personality[1]" -> "Petr Cech",
-      "dc:description[1]/xml:lang" -> "x-default",
-      "photoshop:SupplementalCategories[1]" -> "FOC",
-      "photoshop:DateCreated" -> "2008-08-20T00:00:00.000Z",
-      "Iptc4xmpCore:CountryCode" -> "GBR",
-      "photoshop:Credit" -> "Getty Images",
-      "photoshop:CaptionWriter" -> "jm",
-      "GettyImagesGIFT:CameraMakeModel" -> "Canon EOS-1D Mark III",
-      "photoshop:City" -> "London",
-      "dc:description[1]" -> "LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)",
-      "photoshop:Headline" -> "England v Czech Republic - International Friendly",
-      "dc:title[1]/xml:lang" -> "x-default",
-      "dc:rights[1]/xml:lang" -> "x-default",
-      "photoshop:TransmissionReference" -> "81774706",
-      "photoshop:Source" -> "Getty Images Europe",
-      "GettyImagesGIFT:CameraFilename" -> "8R8Z0144.JPG",
-      "photoshop:Category" -> "S",
-      "dc:title[1]" -> "81774706JM148_England_v_Cze",
-      "GettyImagesGIFT:OriginalFilename" -> "2008208_81774706JM148_England_v_Cze.jpg",
-      "GettyImagesGIFT:OriginalCreateDateTime" -> "2008-08-20T20:25:49.000Z",
-      "dc:rights[1]" -> "2008 Getty Images",
-      "GettyImagesGIFT:TimeShot" -> "212019+0200",
-      "photoshop:Country" -> "United Kingdom",
-      "GettyImagesGIFT:Composition" -> "Full Length",
-      "GettyImagesGIFT:ImageRank" -> "3",
-      "xmpMM:InstanceID" -> "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b",
-      "dc:creator[1]" -> "Phil Cole",
-      "GettyImagesGIFT:CameraSerialNumber" -> "0000571198"
+    val expected: Map[String, StringOrStrings] = Map(
+      "photoshop:AuthorsPosition" -> Left("Staff"),
+      "GettyImagesGIFT:Personality" -> Left("Petr Cech"),
+      "dc:description/xml:lang" -> Left("x-default"),
+      "photoshop:SupplementalCategories" -> Left("FOC"),
+      "photoshop:DateCreated" -> Left("2008-08-20T00:00:00.000Z"),
+      "Iptc4xmpCore:CountryCode" -> Left("GBR"),
+      "photoshop:Credit" -> Left("Getty Images"),
+      "photoshop:CaptionWriter" -> Left("jm"),
+      "GettyImagesGIFT:CameraMakeModel" -> Left("Canon EOS-1D Mark III"),
+      "photoshop:City" -> Left("London"),
+      "dc:description" -> Left("LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)"),
+      "photoshop:Headline" -> Left("England v Czech Republic - International Friendly"),
+      "dc:title/xml:lang" -> Left("x-default"),
+      "dc:rights/xml:lang" -> Left("x-default"),
+      "photoshop:TransmissionReference" -> Left("81774706"),
+      "photoshop:Source" -> Left("Getty Images Europe"),
+      "GettyImagesGIFT:CameraFilename" -> Left("8R8Z0144.JPG"),
+      "photoshop:Category" -> Left("S"),
+      "dc:title" -> Left("81774706JM148_England_v_Cze"),
+      "GettyImagesGIFT:OriginalFilename" -> Left("2008208_81774706JM148_England_v_Cze.jpg"),
+      "GettyImagesGIFT:OriginalCreateDateTime" -> Left("2008-08-20T20:25:49.000Z"),
+      "dc:rights" -> Left("2008 Getty Images"),
+      "GettyImagesGIFT:TimeShot" -> Left("212019+0200"),
+      "photoshop:Country" -> Left("United Kingdom"),
+      "GettyImagesGIFT:Composition" -> Left("Full Length"),
+      "GettyImagesGIFT:ImageRank" -> Left("3"),
+      "xmpMM:InstanceID" -> Left("uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b"),
+      "dc:creator" -> Left("Phil Cole"),
+      "GettyImagesGIFT:CameraSerialNumber" -> Left("0000571198")
     )
     val metadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
     whenReady(metadataFuture) { metadata =>
 
-      sameMaps(metadata.xmp, expected)
+      sameMaps2(metadata.xmp, expected)
     }
   }
 
@@ -592,6 +597,16 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
   }
 
   def sameMaps(actual: Map[String, String], expected: Map[String, String]) = {
+    // Detect mismatching keys
+    actual.keys should be (expected.keys)
+
+    // Detect mismatching values individually for better errors
+    actual.keys.foreach { key =>
+      actual.get(key) should be (expected.get(key))
+    }
+  }
+
+  def sameMaps2(actual: Map[String, StringOrStrings], expected: Map[String, StringOrStrings]) = {
     // Detect mismatching keys
     actual.keys should be (expected.keys)
 
