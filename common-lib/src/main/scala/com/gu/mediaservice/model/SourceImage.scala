@@ -2,6 +2,7 @@ package com.gu.mediaservice.model
 
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import FileMetadataFormatters._
 
 
 case class SourceImage(id: String, source: Asset, valid: Boolean, metadata: ImageMetadata, fileMetadata: FileMetadata)

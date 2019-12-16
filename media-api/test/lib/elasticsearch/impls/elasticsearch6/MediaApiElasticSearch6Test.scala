@@ -310,7 +310,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
         result.total shouldBe 1
-        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some("bar")
+        result.hits.head._2.fileMetadata.readXmpProp("foo") shouldBe Some("bar")
       }
     }
 

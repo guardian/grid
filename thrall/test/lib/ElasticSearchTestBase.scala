@@ -72,7 +72,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         "file metadata fields longer than the index keyword limit are still persisted" in {
           val id = UUID.randomUUID().toString
           val reallyLongTRC = stringLongerThan(250000)
-          val fileMetadata = FileMetadata(xmp = Map("foo" -> "bar"), exif = Map("Green TRC" -> reallyLongTRC))
+          val fileMetadata = FileMetadata(xmp = Map("foo" -> Left("bar")), exif = Map("Green TRC" -> reallyLongTRC))
 
           val imageWithReallyLongMetadataField = createImageForSyndication(id = UUID.randomUUID().toString,
             rightsAcquired = true,

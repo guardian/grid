@@ -23,6 +23,7 @@ import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+import FileMetadataFormatters._
 
 import scala.concurrent.{ExecutionContext, Future}
 

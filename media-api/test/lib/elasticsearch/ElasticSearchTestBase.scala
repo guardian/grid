@@ -117,8 +117,8 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(DateTime.parse("2018-07-03T00:00:00")),
       None,
       fileMetadata = Some(FileMetadata(xmp = Map(
-        "foo" -> "bar",
-        "toolong" -> stringLongerThan(100000)
+        "foo" -> scala.Left("bar"),
+        "toolong" -> scala.Left(stringLongerThan(100000))
       )))
     ),
 

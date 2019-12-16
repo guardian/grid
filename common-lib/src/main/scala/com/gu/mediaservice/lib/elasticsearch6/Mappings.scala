@@ -62,14 +62,6 @@ object Mappings {
           textField("colourModel"),
           NestedField("colourModelInformation").dynamic(true)
         ),
-//        NestedField("fileMetadata").dynamic(true),
-        //        nestedField("fileMetadata").fields(
-        //          // 1st option
-        ////          textKeywordField("key").termVector("with_positions_offsets"),
-        ////          textField("values").termVector("with_positions_offsets")
-        //          // second option
-        //          dynamicObj("fileMetadata")
-        //        ).dynamic(true),
         exportsMapping("exports"),
         dateField("uploadTime"),
         keywordField("uploadedBy"),
@@ -300,7 +292,7 @@ object Mappings {
 
   private def nonDynamicObjectField(name: String) = ObjectField(name).dynamic("strict")
 
-  //  private def nestedField(name: String) = NestedField(name).dynamic("strict") // ES1 include_in_parent needs to be emulated with field bby field copy_tos
+  private def nestedField(name: String) = NestedField(name).dynamic("strict") // ES1 include_in_parent needs to be emulated with field bby field copy_tos
 
   private def dynamicObj(name: String) = objectField(name).dynamic(true)
 
