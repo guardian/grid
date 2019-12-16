@@ -115,11 +115,9 @@ object FileMetadataFormatters {
     case _ => throw new Exception("Invalid json value")
   }
 
-  implicit val StringOrStringsWrites: Writes[StringOrStrings] = new Writes[StringOrStrings] {
-    override def writes(o: StringOrStrings): JsValue = o match {
-      case scala.Right(v) => Json.toJson(v)
-      case scala.Left(v) => Json.toJson(v)
-    }
+  implicit val StringOrStringsWrites: Writes[StringOrStrings] = (o: StringOrStrings) => o match {
+    case scala.Right(v) => Json.toJson(v)
+    case scala.Left(v) => Json.toJson(v)
   }
 
   implicit val ImageMetadataFormatter: Reads[FileMetadata] = (
