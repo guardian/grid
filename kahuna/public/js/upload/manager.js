@@ -38,11 +38,11 @@ upload.factory('uploadManager',
         // once all `jobItems` in a job are complete, remove it
         // TODO: potentially move these to a `completeJobs` `Set`
         $q.all(promises).finally(() => {
-          jobs.delete(job)
+          jobs.delete(job);
           job.map(jobItem => {
-            console.log(jobItem)
-            $window.revokeObjectURL(jobItem.dataUrl)
-          })
+            console.log(jobItem);
+            $window.revokeObjectURL(jobItem.dataUrl);
+          });
         });
     }
 
