@@ -10,8 +10,6 @@ upload.factory('uploadManager',
 
     function createJobItem(file) {
         var request = fileUploader.upload(file);
-        // TODO: find out where we can revoke these
-        // see: https://developer.mozilla.org/en-US/docs/Web/API/URL.revokeObjectURL
         var dataUrl = $window.URL.createObjectURL(file);
 
         return {
@@ -39,7 +37,13 @@ upload.factory('uploadManager',
 
         // once all `jobItems` in a job are complete, remove it
         // TODO: potentially move these to a `completeJobs` `Set`
-        $q.all(promises).finally(() => jobs.delete(job));
+        $q.all(promises).finally(() => {
+          jobs.delete(job)
+          job.map(jobItem => {
+            console.log(jobItem)
+            $window.revokeObjectURL(jobItem.dataUrl)
+          })
+        });
     }
 
     function uploadUri(uri) {
