@@ -42,12 +42,12 @@ object FileMetadata {
   // TODO: reindex all images to make the getty map always present
   // for data consistency, so we can fallback to use the default Reads
 
-  def aggregateMetadataMap(initialMap: Map[String, String]): Map[String, JsValue] = {
+  trait JsType
+  case object JArr extends JsType
+  case object JStr extends JsType
+  case object JObj extends JsType
 
-    trait JsType
-    case object JArr extends JsType
-    case object JStr extends JsType
-    case object JObj extends JsType
+  def aggregateMetadataMap(initialMap: Map[String, String]): Map[String, JsValue] = {
 
     val getNormalisedKeyAndValType: String => (String, String, JsType) = (k: String) => {
       val isArrayKey = k.endsWith("]")
@@ -70,7 +70,6 @@ object FileMetadata {
     for (originalKey <- initialMap.keySet) {
       val value = initialMap(originalKey)
       val (normalisedKey, rest, typ) = getNormalisedKeyAndValType(originalKey)
-//      val normalisedKey: (String, JsType) = (procKey, typ)
       if (mutableMap.contains(normalisedKey)) {
         if (rest.nonEmpty) mutableMap(normalisedKey)._2 += rest
         mutableMap(normalisedKey)._2 += value
@@ -90,7 +89,7 @@ object FileMetadata {
           case JObj =>
             val tups = for(i <- props.indices by 2) yield (props(i), JsString(props(i+1)))
             (k, JsObject(tups))
-          case _ =>
+          case JArr | JStr =>
             val value = if (props.size > 1) JsArray(props.map(JsString)) else JsString(props.head)
             (k, value)
         }
