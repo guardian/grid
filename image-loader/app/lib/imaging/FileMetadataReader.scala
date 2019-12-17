@@ -14,10 +14,10 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-import com.gu.mediaservice.model.FileMetadata.StringOrStrings
 import com.gu.mediaservice.model.{Dimensions, FileMetadata}
 import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
+import play.api.libs.json.JsValue
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -109,7 +109,7 @@ object FileMetadataReader {
 
   private val datePattern = "(.*[Dd]ate.*)".r
 
-  private def exportXmpProperties(metadata: Metadata, imageId: String): Map[String, StringOrStrings] = {
+  private def exportXmpProperties(metadata: Metadata, imageId: String): Map[String, JsValue] = {
 
     val props = Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {

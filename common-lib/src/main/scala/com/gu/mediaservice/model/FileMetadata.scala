@@ -1,6 +1,6 @@
 package com.gu.mediaservice.model
 
-import com.gu.mediaservice.model.FileMetadata.{StringOrStrings, readStringOrListHeadProp}
+import com.gu.mediaservice.model.FileMetadata.readStringOrListHeadProp
 import net.logstash.logback.marker.Markers
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -12,7 +12,7 @@ case class FileMetadata(
                          iptc: Map[String, String] = Map(),
                          exif: Map[String, String] = Map(),
                          exifSub: Map[String, String] = Map(),
-                         xmp: Map[String, StringOrStrings] = Map(),
+                         xmp: Map[String, JsValue] = Map(),
                          icc: Map[String, String] = Map(),
                          getty: Map[String, String] = Map(),
                          colourModel: Option[String] = None,
@@ -41,9 +41,15 @@ case class FileMetadata(
 object FileMetadata {
   // TODO: reindex all images to make the getty map always present
   // for data consistency, so we can fallback to use the default Reads
-  type StringOrStrings = Either[String, List[String]]
+  //  type StringOrStrings = Either[String, List[String]]
 
-  def aggregateMetadataMap(initialMap: Map[String, String]): Map[String, StringOrStrings] = {
+  def aggregateMetadataMap(initialMap: Map[String, String]): Map[String, JsValue] = {
+
+    val keyForMultiDimArray = (k: String) => {
+      val left = k.substring(0, k.indexOf("["))
+      val right = k.substring(k.indexOf("]") + 1)
+      left + right
+    }
 
     val normaliseKeys = (k: String) => {
       val isArrayKey = k.contains("[")
@@ -52,9 +58,7 @@ object FileMetadata {
         if (isSimpleArrayKey) {
           k.substring(0, k.indexOf("["))
         } else {
-          val left = k.substring(0, k.indexOf("["))
-          val right = k.substring(k.indexOf("]")+1)
-          left + right
+          keyForMultiDimArray(k)
         }
       } else {
         k
@@ -73,20 +77,21 @@ object FileMetadata {
       }
     }
 
-    val normalisedMap: Map[String, StringOrStrings] = mutableMap.map {
+    val normalisedMap: Map[String, JsValue] = mutableMap.map {
       case (k, v) =>
-        val value = if (v.size > 1) scala.Right(v.toList) else scala.Left(v.head)
+        val value = if (v.size > 1) JsArray(v.map(JsString)) else JsString(v.head)
         (k, value)
     }.toMap
 
     normalisedMap
   }
 
-  def readStringOrListHeadProp(name: String, genericMap: Map[String, StringOrStrings]): Option[String] = {
+  def readStringOrListHeadProp(name: String, genericMap: Map[String, JsValue]): Option[String] = {
     genericMap.get(name).map(prop => {
       prop match {
-        case scala.Left(v) => v
-        case scala.Right(v) => v.head
+        case JsString(v) => v
+        case JsArray(v) => v.head.toString
+        case _ => throw new Exception("sdfsdf")
       }
     })
   }
@@ -107,24 +112,11 @@ object FileMetadataFormatters {
   }
   }
 
-  implicit val StringOrStringsReads: Reads[StringOrStrings] = {
-    case JsString(s) => JsSuccess(Left(s))
-    case JsArray(l) =>
-      val strings = l.map(_.as[String]).toList
-      JsSuccess(scala.Right(strings))
-    case _ => throw new Exception("Invalid json value")
-  }
-
-  implicit val StringOrStringsWrites: Writes[StringOrStrings] = (o: StringOrStrings) => o match {
-    case scala.Right(v) => Json.toJson(v)
-    case scala.Left(v) => Json.toJson(v)
-  }
-
   implicit val ImageMetadataFormatter: Reads[FileMetadata] = (
     (__ \ "iptc").read[Map[String, String]] ~
       (__ \ "exif").read[Map[String, String]] ~
       (__ \ "exifSub").read[Map[String, String]] ~
-      (__ \ "xmp").read[Map[String, StringOrStrings]] ~
+      (__ \ "xmp").read[Map[String, JsValue]] ~
       (__ \ "icc").readNullable[Map[String, String]].map(_ getOrElse Map()).map(removeLongValues) ~
       (__ \ "getty").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
       (__ \ "colourModel").readNullable[String] ~
@@ -136,7 +128,7 @@ object FileMetadataFormatters {
     (JsPath \ "iptc").write[Map[String, String]] and
       (JsPath \ "exif").write[Map[String, String]] and
       (JsPath \ "exifSub").write[Map[String, String]] and
-      (JsPath \ "xmp").write[Map[String, StringOrStrings]] and
+      (JsPath \ "xmp").write[Map[String, JsValue]] and
       (JsPath \ "icc").write[Map[String, String]].contramap[Map[String, String]](removeLongValues) and
       (JsPath \ "getty").write[Map[String, String]] and
       (JsPath \ "colourModel").writeNullable[String] and

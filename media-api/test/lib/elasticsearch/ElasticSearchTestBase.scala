@@ -11,6 +11,7 @@ import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import play.api.libs.json.JsString
 
 import scala.concurrent.duration._
 import scala.util.Properties
@@ -117,8 +118,8 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(DateTime.parse("2018-07-03T00:00:00")),
       None,
       fileMetadata = Some(FileMetadata(xmp = Map(
-        "foo" -> scala.Left("bar"),
-        "toolong" -> scala.Left(stringLongerThan(100000))
+        "foo" -> JsString("bar"),
+        "toolong" -> JsString(stringLongerThan(100000))
       )))
     ),
 
