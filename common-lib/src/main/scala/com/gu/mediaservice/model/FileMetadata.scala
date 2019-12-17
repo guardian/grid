@@ -44,48 +44,55 @@ object FileMetadata {
 
   def aggregateMetadataMap(initialMap: Map[String, String]): Map[String, JsValue] = {
 
-    val getNormalisedKeyAndValType: String => (String, String, Int) = (k: String) => {
-      val isArrayKey = k.contains("[")
-      val isDynamicObject = k.contains("]/")
+    trait JsType
+    case object JArr extends JsType
+    case object JStr extends JsType
+    case object JObj extends JsType
 
-      val res = if (isDynamicObject){
-        val l = k.substring(0, k.indexOf("/"))
-        val r = k.substring(k.indexOf("/")+1)
-        (l, r, 3)
-      } else if (isArrayKey) {
-        (k.substring(0, k.indexOf("[")), "", 2)
+    val getNormalisedKeyAndValType: String => (String, String, JsType) = (k: String) => {
+      val isArrayKey = k.endsWith("]")
+      val isSimpleDynamicObject = k.contains("/")
+      val res = if (isArrayKey) {
+        (k.substring(0, k.lastIndexOf("[")), "", JArr)
+      } else if (isSimpleDynamicObject){
+        val sIdx = k.lastIndexOf("/")
+        val l = k.substring(0, sIdx)
+        val r = k.substring(sIdx+1)
+        (l, r, JObj)
       } else {
-        (k, "", 1)
+        (k, "", JStr)
       }
       res
     }
 
-    val mutableMap = scala.collection.mutable.Map[(String, Int), ArrayBuffer[String]]()
+    val mutableMap = scala.collection.mutable.Map[String, (JsType, ArrayBuffer[String])]()
 
     for (originalKey <- initialMap.keySet) {
       val value = initialMap(originalKey)
-      val (procKey, rest, typ) = getNormalisedKeyAndValType(originalKey)
-      val normalisedKey: (String, Int) = (procKey, typ)
+      val (normalisedKey, rest, typ) = getNormalisedKeyAndValType(originalKey)
+//      val normalisedKey: (String, JsType) = (procKey, typ)
       if (mutableMap.contains(normalisedKey)) {
-        if (rest.nonEmpty) mutableMap(normalisedKey) += rest
-        mutableMap(normalisedKey) += value
+        if (rest.nonEmpty) mutableMap(normalisedKey)._2 += rest
+        mutableMap(normalisedKey)._2 += value
       } else {
         if (rest.nonEmpty) {
-          mutableMap.put(normalisedKey, ArrayBuffer(rest, value))
+          mutableMap.put(normalisedKey, (typ, ArrayBuffer(rest, value)))
         } else {
-          mutableMap.put(normalisedKey, ArrayBuffer(value))
+          mutableMap.put(normalisedKey, (typ, ArrayBuffer(value)))
         }
       }
     }
 
     val normalisedMap: Map[String, JsValue] = mutableMap.map {
       case (k, v) =>
-        if (k._2 == 3){
-          val tups = for(i <- 0 until v.length by 2) yield (v(i), JsString(v(i+1)))
-          (k._1, JsObject(tups))
-        } else {
-          val value = if (v.size > 1) JsArray(v.map(JsString)) else JsString(v.head)
-          (k._1, value)
+        val props = v._2
+        v._1 match {
+          case JObj =>
+            val tups = for(i <- props.indices by 2) yield (props(i), JsString(props(i+1)))
+            (k, JsObject(tups))
+          case _ =>
+            val value = if (props.size > 1) JsArray(props.map(JsString)) else JsString(props.head)
+            (k, value)
         }
     }.toMap
 
