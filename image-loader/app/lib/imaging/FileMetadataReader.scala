@@ -14,9 +14,10 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+import com.gu.mediaservice.model.{Dimensions, FileMetadata, KvPair}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
+import play.api.libs.json.JsString
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -107,13 +108,19 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
-  private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] =
-    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
+  private def exportXmpProperties(metadata: Metadata, imageId:String): Seq[KvPair] = {
+    val props = Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
         case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
         case (key, Some(value)) => key -> value
       }
     } getOrElse Map()
+
+    props.map {
+      case (k, v) =>
+       KvPair(k, JsString(v))
+    }.toSeq
+  }
 
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
@@ -121,7 +128,7 @@ object FileMetadataReader {
   private def exportGettyDirectory(metadata: Metadata, imageId:String): Map[String, String] = {
       val xmpProperties = exportXmpProperties(metadata, imageId)
 
-      def readProperty(name: String): Option[String] = xmpProperties.get(name)
+      def readProperty(name: String): Option[String] = FileMetadata.readStringOrListHeadProp(name, xmpProperties)
 
       def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
 

@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.elasticsearch6
 
 import com.sksamuel.elastic4s.http.ElasticDsl.{mapping, _}
 import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
-import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField}
+import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField, TextField}
 import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
@@ -48,14 +48,20 @@ object Mappings {
         assetMapping("optimisedPng"),
         userMetadataMapping("userMetadata"),
         dateField("userMetadataLastModified"),
-        NestedField("fileMetadata").dynamic(true),
-        //        nestedField("fileMetadata").fields(
-        //          // 1st option
-        ////          textKeywordField("key").termVector("with_positions_offsets"),
-        ////          textField("values").termVector("with_positions_offsets")
-        //          // second option
-        //          dynamicObj("fileMetadata")
-        //        ).dynamic(true),
+        objectField("fileMetadata").fields(
+          NestedField("iptc").dynamic(true),
+          NestedField("exif").dynamic(true),
+          NestedField("exifSub").dynamic(true),
+          //          NestedField("xmp").dynamic(true),
+          NestedField("xmp").fields(
+            textKeywordField("key").termVector("with_positions_offsets"),
+            textField("values").termVector("with_positions_offsets")
+          ),
+          NestedField("icc").dynamic(true),
+          NestedField("getty").dynamic(true),
+          textField("colourModel"),
+          NestedField("colourModelInformation").dynamic(true)
+        ),
         exportsMapping("exports"),
         dateField("uploadTime"),
         keywordField("uploadedBy"),
@@ -71,6 +77,10 @@ object Mappings {
         collectionMapping("collections")
       )
       .dynamicTemplates(Seq(fileMetaDataStringsAsKeyword, storedJsonObjectTemplate))
+  }
+
+  def textKeywordField(name: String): TextField = {
+    textField(name: String).fields(com.sksamuel.elastic4s.http.ElasticDsl.keywordField("keyword"))
   }
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(
