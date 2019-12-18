@@ -57,6 +57,10 @@ object Mappings {
           NestedField("exif").dynamic(true),
           NestedField("exifSub").dynamic(true),
           NestedField("xmp").dynamic(true),
+//          NestedField("xmp").fields(
+//            textKeywordField("key").termVector("with_positions_offsets"),
+//            textField("values").termVector("with_positions_offsets")
+//          ),
           NestedField("icc").dynamic(true),
           NestedField("getty").dynamic(true),
           textField("colourModel"),

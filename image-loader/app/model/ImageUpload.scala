@@ -18,7 +18,8 @@ import lib.storage.ImageLoaderStore
 import net.logstash.logback.marker.LogstashMarker
 import play.api.Logger
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.sys.process._
 
 case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean,
@@ -102,7 +103,7 @@ case object ImageUpload {
 
 class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
-    Logger.info("Starting image ops")(uploadRequest.toLogMarker)
+    println("Starting image ops")
     val uploadedFile = uploadRequest.tempFile
 
     val fileMetadataFuture = uploadRequest.mimeType match {
@@ -111,15 +112,21 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
       case _ => FileMetadataReader.fromIPTCHeaders(uploadedFile, uploadRequest.imageId)
     }
     val uploadMarkers = uploadRequest.toLogMarker
-    Logger.info("Have read file headers")(uploadMarkers)
+    println("Have read file headers")
+
+    val fm = Await.result(fileMetadataFuture, Duration.Inf)
+
+    println(s"fm $fm")
 
     fileMetadataFuture.flatMap(fileMetadata => {
+      println("file metadata")
+      println(fileMetadata)
       val markers: LogstashMarker = fileMetadata.toLogMarker.and(uploadMarkers)
-      Logger.info("Have read file metadata")(markers)
+      println("Have read file metadata")
 
       // These futures are started outside the for-comprehension, otherwise they will not run in parallel
       val sourceStoreFuture = storeSource(uploadRequest)
-      Logger.info("stored source file")(uploadRequest.toLogMarker)
+      println("stored source file")
       // FIXME: pass mimeType
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
@@ -131,7 +138,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
         thumb <- imageOps.createThumbnail(uploadedFile, uploadRequest.mimeType, config.thumbWidth, config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
       } yield thumb
 
-      Logger.info("thumbnail created")(uploadRequest.toLogMarker)
+      println("thumbnail created")
 
       //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
       val toOptimiseFileFuture: Future[File] = uploadRequest.mimeType match {
@@ -148,7 +155,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
       }
 
       toOptimiseFileFuture.flatMap(toOptimiseFile => {
-        Logger.info("optimised image created")(uploadRequest.toLogMarker)
+        println("optimised image created")
 
         val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
 
@@ -188,7 +195,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
             )
           } yield {
             if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
-            Logger.info("Ending image ops")(uploadRequest.toLogMarker)
+            println("Ending image ops")
             ImageUpload(uploadRequest, finalImage)
           }
         }

@@ -14,7 +14,7 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+import com.gu.mediaservice.model.{Dimensions, FileMetadata, KvPair}
 import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.JsValue
@@ -65,6 +65,9 @@ object FileMetadataReader {
 
   private def getMetadataWithICPTCHeaders(metadata: Metadata, imageId: String): FileMetadata = {
     val xmpProperties = exportXmpProperties(metadata, imageId)
+
+    println("xmpProperties")
+    println(xmpProperties.head)
 
     FileMetadata(
       iptc = exportDirectory(metadata, classOf[IptcDirectory]),
@@ -119,7 +122,7 @@ object FileMetadataReader {
     }
   }
 
-  private def exportXmpProperties(metadata: Metadata, imageId: String): Map[String, JsValue] = {
+  private def exportXmpProperties(metadata: Metadata, imageId: String): Seq[KvPair] = {
 
     // old impl
     //    val props: Map[String, String] = Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>

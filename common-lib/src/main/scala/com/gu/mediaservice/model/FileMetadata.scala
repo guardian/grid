@@ -8,11 +8,13 @@ import play.api.libs.json._
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
+case class KvPair(key: String, values: JsValue)
+
 case class FileMetadata(
                          iptc: Map[String, String] = Map(),
                          exif: Map[String, String] = Map(),
                          exifSub: Map[String, String] = Map(),
-                         xmp: Map[String, JsValue] = Map(),
+                         xmp: Seq[KvPair] =Seq(),
                          icc: Map[String, String] = Map(),
                          getty: Map[String, String] = Map(),
                          colourModel: Option[String] = None,
@@ -47,13 +49,14 @@ object FileMetadata {
   case object JStr extends JsType
   case object JObj extends JsType
 
-  def aggregateMetadataMap(initialMap: Map[String, String]): Map[String, JsValue] = {
+  def aggregateMetadataMap(initialMap: Map[String, String]): Seq[KvPair] = {
 
     val getNormalisedKeyAndValType: String => (String, String, JsType) = (k: String) => {
       val isArrayKey = k.endsWith("]")
       val isSimpleDynamicObject = k.contains("/")
       val res = if (isArrayKey) {
-        (k.substring(0, k.lastIndexOf("[")), "", JArr)
+        val keyFromArr = k.substring(0, k.lastIndexOf("["))
+        (keyFromArr, "", JArr)
       } else if (isSimpleDynamicObject){
         val sIdx = k.lastIndexOf("/")
         val l = k.substring(0, sIdx)
@@ -82,23 +85,58 @@ object FileMetadata {
       }
     }
 
-    val normalisedMap: Map[String, JsValue] = mutableMap.map {
+    val normalisedMap: Seq[KvPair] = mutableMap.map {
       case (k, v) =>
         val props = v._2
         v._1 match {
           case JObj =>
-            val tups = for(i <- props.indices by 2) yield (props(i), JsString(props(i+1)))
-            (k, JsObject(tups))
+            val tups: Seq[(String, JsValue)] = for(i <- props.indices by 2) yield (props(i), JsString(props(i+1)))
+            val ob = JsObject(tups)
+//            val tuuups: Seq[KvPair] = Seq(KvPair("key", JsString(k)), KvPair("values", ob))
+//            val sec = JsObject(tuuups)
+            KvPair(k, ob)
           case JArr | JStr =>
             val value = if (props.size > 1) JsArray(props.map(JsString)) else JsString(props.head)
-            (k, value)
+//            val sec = JsObject(tuuups)
+              KvPair(k, value)
         }
-    }.toMap
+    }.toSeq
+
+//    normalisedMap.foreach{
+//      case (k, v) => println(s"$k ---> $v")
+//    }
+
+//    normalisedMap.foreach{
+//      case (k, v) => println(s"$k ---> $v")
+//    }
 
     normalisedMap
   }
 
-  def readStringOrListHeadProp(name: String, genericMap: Map[String, JsValue]): Option[String] = {
+//  def rollUpAllMetadata(metaMap: Map[String, JsValue]) = {
+//
+//    val aggMutableMap = scala.collection.mutable.Map[String, ArrayBuffer[JsValue]]()
+//
+//    metaMap.map{
+//      case (k, v) =>
+//        val isArrayKey = k.endsWith("]")
+//        val keyFromArr = k.substring(0, k.lastIndexOf("["))
+//        val lisofjsvals = scala.collection.mutable.ArrayBuffer[JsValue]()
+//        if (isArrayKey){
+//          v match {
+//            case JsString(value) =>
+//            case JsObject(value) =>
+//            case JsArray(value) =>
+//          }
+//        }
+//    }
+//
+//  }
+
+  def readStringOrListHeadProp(name: String, tups: Seq[KvPair]): Option[String] = {
+    val genericMap = tups.map(t => {
+      (t.key, t.values)
+    }).toMap
     genericMap.get(name).map(prop => {
       prop match {
         case JsString(v) => v
@@ -124,11 +162,13 @@ object FileMetadataFormatters {
   }
   }
 
+  implicit val KvPairFormatter = Json.format[KvPair]
+
   implicit val ImageMetadataFormatter: Reads[FileMetadata] = (
     (__ \ "iptc").read[Map[String, String]] ~
       (__ \ "exif").read[Map[String, String]] ~
       (__ \ "exifSub").read[Map[String, String]] ~
-      (__ \ "xmp").read[Map[String, JsValue]] ~
+      (__ \ "xmp").read[Seq[KvPair]] ~
       (__ \ "icc").readNullable[Map[String, String]].map(_ getOrElse Map()).map(removeLongValues) ~
       (__ \ "getty").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
       (__ \ "colourModel").readNullable[String] ~
@@ -140,7 +180,7 @@ object FileMetadataFormatters {
     (JsPath \ "iptc").write[Map[String, String]] and
       (JsPath \ "exif").write[Map[String, String]] and
       (JsPath \ "exifSub").write[Map[String, String]] and
-      (JsPath \ "xmp").write[Map[String, JsValue]] and
+      (JsPath \ "xmp").write[Seq[KvPair]] and
       (JsPath \ "icc").write[Map[String, String]].contramap[Map[String, String]](removeLongValues) and
       (JsPath \ "getty").write[Map[String, String]] and
       (JsPath \ "colourModel").writeNullable[String] and

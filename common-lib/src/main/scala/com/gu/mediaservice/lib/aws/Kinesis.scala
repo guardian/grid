@@ -21,10 +21,10 @@ class Kinesis(config: CommonConfig) {
 
   private def getKinesisClient: AmazonKinesis = {
     Logger.info(s"creating kinesis publisher with endpoint=$thrallKinesisEndpoint , region=$awsRegion")
-   builder
-     .withEndpointConfiguration(new EndpointConfiguration(thrallKinesisEndpoint, awsRegion))
-     .withCredentials(awsCredentials)
-     .build()
+    builder
+      .withEndpointConfiguration(new EndpointConfiguration(thrallKinesisEndpoint, awsRegion))
+      .withCredentials(awsCredentials)
+      .build()
   }
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
@@ -57,4 +57,3 @@ class Kinesis(config: CommonConfig) {
     }
   }
 }
-
