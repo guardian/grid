@@ -40,13 +40,21 @@ class Kinesis(config: CommonConfig) {
     val markers: LogstashMarker = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
     Logger.info("Publishing message to kinesis")(markers)
 
+    val data = ByteBuffer.wrap(payload)
     val request = new PutRecordRequest()
       .withStreamName(thrallKinesisStream)
       .withPartitionKey(partitionKey)
-      .withData(ByteBuffer.wrap(payload))
+      .withData(data)
 
-    val result = kinesisClient.putRecord(request)
-    Logger.info(s"Published kinesis message: $result")
+    try {
+      val result = kinesisClient.putRecord(request)
+      Logger.info(s"Published kinesis message: $result")
+    } catch {
+      case e: Exception =>
+        Logger.error(s"kinesis putRecord exception message: ${e.getMessage}")
+        // propagate error forward to the client
+        throw e
+    }
   }
 }
 
