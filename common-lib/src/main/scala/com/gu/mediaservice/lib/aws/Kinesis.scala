@@ -51,7 +51,9 @@ class Kinesis(config: CommonConfig) {
       Logger.info(s"Published kinesis message: $result")
     } catch {
       case e: Exception =>
-        Logger.error(s"kinesis putRecord exception message: ${e.getMessage}, cause: ${e.getCause}")
+        Logger.error(s"kinesis putRecord exception message: ${e.getMessage}")
+        // propagate error forward to the client
+        throw e
     }
   }
 }
