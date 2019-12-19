@@ -52,16 +52,17 @@ object Mappings {
         assetMapping("optimisedPng"),
         userMetadataMapping("userMetadata"),
         dateField("userMetadataLastModified"),
-        objectField("fileMetadata").fields(
-          NestedField("iptc").dynamic(true),
-          NestedField("exif").dynamic(true),
-          NestedField("exifSub").dynamic(true),
-          NestedField("xmp").dynamic(true),
-          NestedField("icc").dynamic(true),
-          NestedField("getty").dynamic(true),
-          textField("colourModel"),
-          NestedField("colourModelInformation").dynamic(true)
-        ),
+        dynamicObj("fileMetadata"),
+//        objectField("fileMetadata").fields(
+//          NestedField("iptc").dynamic(true),
+//          NestedField("exif").dynamic(true),
+//          NestedField("exifSub").dynamic(true),
+//          NestedField("xmp").dynamic(true),
+//          NestedField("icc").dynamic(true),
+//          NestedField("getty").dynamic(true),
+//          textField("colourModel"),
+//          NestedField("colourModelInformation").dynamic(true)
+//        ),
         exportsMapping("exports"),
         dateField("uploadTime"),
         keywordField("uploadedBy"),
