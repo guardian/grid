@@ -108,18 +108,32 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
-  private def exportXmpProperties(metadata: Metadata, imageId:String): Seq[KvPair] = {
-    val props = Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
-      directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
-        case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
-        case (key, Some(value)) => key -> value
-      }
-    } getOrElse Map()
 
-    props.map {
+  private def xmpDirectoryToMap(directory: XmpDirectory, imageId: String): Map[String, String] = {
+    directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
+      case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
+      case (key, Some(value)) => key -> value
+    }
+  }
+
+  private def exportXmpProperties(metadata: Metadata, imageId:String): Seq[KvPair] = {
+    val directories = metadata.getDirectoriesOfType(classOf[XmpDirectory]).asScala.toList
+    val props: Map[String, String] = directories.foldLeft[Map[String, String]](Map.empty)((acc, dir) => {
+      // An image can have multiple xmp directories. A directory has multiple xmp properties.
+      // A property can be repeated across directories and its value may not be unique.
+      // Keep the first value encountered on the basis that there will only be multiple directories
+      // if there is no space in the previous one as directories have a maximum size.
+      acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
+    })
+
+    val kvSeq = props.map {
       case (k, v) =>
        KvPair(k, JsString(v))
     }.toSeq
+
+    println(s"exportXmpProperties kvSeq size ${kvSeq.size}")
+
+    kvSeq
   }
 
   // Getty made up their own XMP namespace.

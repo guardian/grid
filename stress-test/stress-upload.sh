@@ -10,11 +10,11 @@ export NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem"
 
 pushd /Users/$USER/code/grid/stress-test/test-files
 
-profile_param=test
+profile_param=local
 
-main_filename=test
+main_filename=test-crs
 
-file_extension=png
+file_extension=jpg
 
 files_batch_size=5
 

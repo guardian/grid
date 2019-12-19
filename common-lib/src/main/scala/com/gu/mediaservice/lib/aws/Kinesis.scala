@@ -20,7 +20,7 @@ class Kinesis(config: CommonConfig) {
   import config.{awsRegion, awsCredentials, thrallKinesisEndpoint, thrallKinesisStream}
 
   private def getKinesisClient: AmazonKinesis = {
-    Logger.info(s"creating kinesis publisher with endpoint=$thrallKinesisEndpoint , region=$awsRegion")
+   println(s"creating kinesis publisher with endpoint=$thrallKinesisEndpoint , region=$awsRegion")
    builder
      .withEndpointConfiguration(new EndpointConfiguration(thrallKinesisEndpoint, awsRegion))
      .withCredentials(awsCredentials)
@@ -38,15 +38,22 @@ class Kinesis(config: CommonConfig) {
     val payload = JsonByteArrayUtil.toByteArray(message, withCompression = false)
 
     val markers: LogstashMarker = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
-    Logger.info("Publishing message to kinesis")(markers)
+   println("Publishing message to kinesis")
 
+    val data = ByteBuffer.wrap(payload)
     val request = new PutRecordRequest()
       .withStreamName(thrallKinesisStream)
       .withPartitionKey(partitionKey)
-      .withData(ByteBuffer.wrap(payload))
+      .withData(data)
 
-    val result = kinesisClient.putRecord(request)
-    Logger.info(s"Published kinesis message: $result")
+    try {
+      val result = kinesisClient.putRecord(request)
+      println(s"Published kinesis message: $result")
+    } catch {
+      case e: Exception =>
+        println(s"kinesis putRecord exception message: ${e.getMessage} cause: ${e.getCause}")
+        e.printStackTrace()
+    }
   }
 }
 
