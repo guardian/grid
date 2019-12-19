@@ -35,7 +35,7 @@ class Kinesis(config: CommonConfig) {
     implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
     implicit val unw = Json.writes[UsageNotice]
 
-    val payload = JsonByteArrayUtil.toByteArray(message, withCompression = false)
+    val payload = JsonByteArrayUtil.toByteArray(message)
 
     val markers: LogstashMarker = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
    println("Publishing message to kinesis")
