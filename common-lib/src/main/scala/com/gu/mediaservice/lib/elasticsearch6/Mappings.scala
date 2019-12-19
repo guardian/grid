@@ -49,34 +49,34 @@ object Mappings {
         userMetadataMapping("userMetadata"),
         dateField("userMetadataLastModified"),
         dynamicObj("fileMetadata"),
-        objectField("fileMetadata").fields(
-          //          NestedField("iptc").dynamic(true),
-          //          NestedField("exif").dynamic(true),
-          //          NestedField("exifSub").dynamic(true),
-          ////          NestedField("xmp").dynamic(true),
-          //          NestedField("xmp").fields(
-          //            textKeywordField("key").termVector("with_positions_offsets"),
-          //            textField("values").termVector("with_positions_offsets")
-          //          ),
-          //          NestedField("icc").dynamic(true),
-          //          NestedField("getty").dynamic(true),
-          //          textField("colourModel"),
-          //          NestedField("colourModelInformation").dynamic(true)
-          //        ),
-          exportsMapping("exports"),
-          dateField("uploadTime"),
-          keywordField("uploadedBy"),
-          dateField("lastModified"),
-          dynamicObj("identifiers"),
-          uploadInfoMapping("uploadInfo"),
-          simpleSuggester("suggestMetadataCredit"),
-          usagesMapping("usages"),
-          keywordField("usagesPlatform"),
-          keywordField("usagesStatus"), // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
-          dateField("usagesLastModified"), // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
-          leasesMapping("leases"),
-          collectionMapping("collections")
-        ).dynamicTemplates(Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate))
+        //        objectField("fileMetadata").fields(
+        //          NestedField("iptc").dynamic(true),
+        //          NestedField("exif").dynamic(true),
+        //          NestedField("exifSub").dynamic(true),
+        ////          NestedField("xmp").dynamic(true),
+        //          NestedField("xmp").fields(
+        //            textKeywordField("key").termVector("with_positions_offsets"),
+        //            textField("values").termVector("with_positions_offsets")
+        //          ),
+        //          NestedField("icc").dynamic(true),
+        //          NestedField("getty").dynamic(true),
+        //          textField("colourModel"),
+        //          NestedField("colourModelInformation").dynamic(true)
+        //        ),
+        exportsMapping("exports"),
+        dateField("uploadTime"),
+        keywordField("uploadedBy"),
+        dateField("lastModified"),
+        dynamicObj("identifiers"),
+        uploadInfoMapping("uploadInfo"),
+        simpleSuggester("suggestMetadataCredit"),
+        usagesMapping("usages"),
+        keywordField("usagesPlatform"),
+        keywordField("usagesStatus"), // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
+        dateField("usagesLastModified"), // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
+        leasesMapping("leases"),
+        collectionMapping("collections")
+      ).dynamicTemplates(Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate))
   }
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(
