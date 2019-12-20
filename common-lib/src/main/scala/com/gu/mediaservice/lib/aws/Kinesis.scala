@@ -38,7 +38,7 @@ class Kinesis(config: CommonConfig) {
     val payload = JsonByteArrayUtil.toByteArray(message)
 
     val markers: LogstashMarker = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
-    Logger.info("Publishing message to kinesis")(markers)
+    println("Publishing message to kinesis")
 
     val data = ByteBuffer.wrap(payload)
     val request = new PutRecordRequest()
@@ -51,7 +51,7 @@ class Kinesis(config: CommonConfig) {
       Logger.info(s"Published kinesis message: $result")
     } catch {
       case e: Exception =>
-        Logger.error(s"kinesis putRecord exception message: ${e.getMessage}")
+        println(s"kinesis putRecord exception message: ${e.getMessage}")
         // propagate error forward to the client
         throw e
     }

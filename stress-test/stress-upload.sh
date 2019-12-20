@@ -12,9 +12,9 @@ pushd /Users/$USER/code/grid/stress-test/test-files
 
 profile_param=local
 
-main_filename=test-crs
+main_filename=test
 
-file_extension=jpg
+file_extension=png
 
 files_batch_size=20
 
