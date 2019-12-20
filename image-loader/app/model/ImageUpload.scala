@@ -114,13 +114,11 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig, imageOp
     val uploadMarkers = uploadRequest.toLogMarker
     println("Have read file headers")
 
-    val fm = Await.result(fileMetadataFuture, Duration.Inf)
-
-    println(s"fm $fm")
+//    println(s"fm $fm")
 
     fileMetadataFuture.flatMap(fileMetadata => {
       println("file metadata")
-      println(fileMetadata)
+//      println(fileMetadata)
       val markers: LogstashMarker = fileMetadata.toLogMarker.and(uploadMarkers)
       println("Have read file metadata")
 

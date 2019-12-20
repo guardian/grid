@@ -53,7 +53,7 @@ class MessageProcessor(es: ElasticSearchVersion,
     Future.sequence(withImage(message)(img => {
       val imgJson = Json.toJson(img)
       println("indexImage imgJson")
-      println(imgJson)
+//      println(imgJson)
       es.indexImage(img.id, Json.toJson(img))
     }))
   }

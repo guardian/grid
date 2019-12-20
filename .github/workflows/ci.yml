@@ -43,4 +43,4 @@ jobs:
         ES6_USE_DOCKER: false
         ES6_TEST_URL: http://elasticsearch:9200
       with:
-        args: clean compile test
+        args: clean compile

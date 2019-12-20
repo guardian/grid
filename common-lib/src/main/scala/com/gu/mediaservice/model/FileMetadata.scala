@@ -90,15 +90,19 @@ object FileMetadata {
         val props = v._2
         v._1 match {
           case JObj =>
-            val tups: Seq[(String, JsValue)] = for(i <- props.indices by 2) yield (props(i), JsString(props(i+1)))
-            val ob = JsObject(tups)
+            val tups: Seq[Seq[String]] = for(i <- props.indices by 2) yield Seq(props(i), props(i+1))
+            val t2: Seq[JsValue] = tups.map(el => JsArray(el.map(JsString)))
+//            val ob = JsArray(props.map(JsString))
 //            val tuuups: Seq[KvPair] = Seq(KvPair("key", JsString(k)), KvPair("values", ob))
 //            val sec = JsObject(tuuups)
-            KvPair(k, ob)
+            KvPair(k, JsArray(t2))
           case JArr | JStr =>
             val value = if (props.size > 1) JsArray(props.map(JsString)) else JsString(props.head)
 //            val sec = JsObject(tuuups)
               KvPair(k, value)
+
+          case _ =>
+            KvPair(k, JsString("test"))
         }
     }.toSeq
 
@@ -134,6 +138,7 @@ object FileMetadata {
 //  }
 
   def readStringOrListHeadProp(name: String, tups: Seq[KvPair]): Option[String] = {
+    println("")
     val genericMap = tups.map(t => {
       (t.key, t.values)
     }).toMap

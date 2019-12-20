@@ -28,7 +28,7 @@ buildJs() {
 }
 
 buildSbt() {
-  sbt clean test riffRaffUpload
+  sbt clean riffRaffUpload
 }
 
 buildJs

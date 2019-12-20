@@ -138,7 +138,13 @@ object FileMetadataReader {
       acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
     })
 
-    FileMetadata.aggregateMetadataMap(props)
+    val res = FileMetadata.aggregateMetadataMap(props)
+
+    println("FileMetadata.aggregateMetadataMap(props)")
+
+    res.foreach(println(_))
+
+    res
   }
 
 

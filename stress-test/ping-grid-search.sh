@@ -8,7 +8,7 @@ plain='\x1B[0m' # No Color
 
 export NODE_EXTRA_CA_CERTS="$(mkcert -CAROOT)/rootCA.pem"
 
-profile_param=test
+profile_param=local
 
 accessGridRootInLoop() {
   while true; do

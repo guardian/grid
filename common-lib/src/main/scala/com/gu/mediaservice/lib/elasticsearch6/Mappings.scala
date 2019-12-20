@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.elasticsearch6
 
 import com.sksamuel.elastic4s.http.ElasticDsl.{mapping, _}
 import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
-import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField, TextField}
+import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField}
 import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
@@ -12,7 +12,7 @@ object Mappings {
   val imageMapping: MappingDefinition = {
 
     // Non indexed fields stored as keywords can still participate in exists / has queries
-    def fileMetaDataStringsAsKeyword: DynamicTemplateRequest = {
+    def filemetaDataStringsAsKeyword: DynamicTemplateRequest = {
       // Extremely long user generated file metadata files may prevent an image from been ingested due to an keyword size limit in the underlying Lucene index.
       // As a trade off between reliable ingestion, the has field feature and the complexity budget, use the ignore_above field parameter to ignore long fields.
       // These ignored fields will still be visible in the persisted document source (and therefore API output) but will omitted from
@@ -33,10 +33,6 @@ object Mappings {
         pathMatch("fileMetadata.*")
     }
 
-    def textKeywordField(name: String): TextField = {
-      textField(name: String).fields(com.sksamuel.elastic4s.http.ElasticDsl.keywordField("keyword"))
-    }
-
     mapping(dummyType).
       dynamic(DynamicMapping.Strict).
       dateDetection(false).
@@ -52,20 +48,21 @@ object Mappings {
         assetMapping("optimisedPng"),
         userMetadataMapping("userMetadata"),
         dateField("userMetadataLastModified"),
-        objectField("fileMetadata").fields(
-          NestedField("iptc").dynamic(true),
-          NestedField("exif").dynamic(true),
-          NestedField("exifSub").dynamic(true),
-          NestedField("xmp").dynamic(true),
-//          NestedField("xmp").fields(
-//            textKeywordField("key").termVector("with_positions_offsets"),
-//            textField("values").termVector("with_positions_offsets")
-//          ),
-          NestedField("icc").dynamic(true),
-          NestedField("getty").dynamic(true),
-          textField("colourModel"),
-          NestedField("colourModelInformation").dynamic(true)
-        ),
+        dynamicObj("fileMetadata"),
+        //        objectField("fileMetadata").fields(
+        //          NestedField("iptc").dynamic(true),
+        //          NestedField("exif").dynamic(true),
+        //          NestedField("exifSub").dynamic(true),
+        ////          NestedField("xmp").dynamic(true),
+        //          NestedField("xmp").fields(
+        //            textKeywordField("key").termVector("with_positions_offsets"),
+        //            textField("values").termVector("with_positions_offsets")
+        //          ),
+        //          NestedField("icc").dynamic(true),
+        //          NestedField("getty").dynamic(true),
+        //          textField("colourModel"),
+        //          NestedField("colourModelInformation").dynamic(true)
+        //        ),
         exportsMapping("exports"),
         dateField("uploadTime"),
         keywordField("uploadedBy"),
@@ -79,8 +76,7 @@ object Mappings {
         dateField("usagesLastModified"), // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections")
-      )
-      .dynamicTemplates(Seq(fileMetaDataStringsAsKeyword, storedJsonObjectTemplate))
+      ).dynamicTemplates(Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate))
   }
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(

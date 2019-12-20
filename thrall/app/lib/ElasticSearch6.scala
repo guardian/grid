@@ -57,9 +57,18 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
+    val strImg = Json.stringify(image)
+
+    println("indexRequest")
+
+//    image.as[Image].fileMetadata.xmp
+
+
     val indexRequest = updateById(imagesAlias, Mappings.dummyType, id).
-      upsert(Json.stringify(image)).
+      upsert(strImg).
       script(script)
+
+    println(strImg)
 
     val indexResponse = executeAndLog(indexRequest, s"ES6 indexing image $id")
 
