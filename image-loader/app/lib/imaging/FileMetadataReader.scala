@@ -14,7 +14,7 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-import com.gu.mediaservice.model.{Dimensions, FileMetadata}
+import com.gu.mediaservice.model.{Dimensions, FileMetadata, FileMetadataWrapper, KvPair}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
 
@@ -107,16 +107,20 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
+
   private def xmpDirectoryToMap(directory: XmpDirectory, imageId: String): Map[String, String] = {
     directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
       case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
       case (key, Some(value)) => key -> value
     }
   }
-  private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] =
-    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
+
+  private def exportXmpProperties(metadata: Metadata, imageId:String): Seq[KvPair] = {
+    val props = Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       xmpDirectoryToMap(directory, imageId)
     } getOrElse Map()
+    FileMetadataWrapper.wrap(props)
+  }
 
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
@@ -124,22 +128,22 @@ object FileMetadataReader {
   private def exportGettyDirectory(metadata: Metadata, imageId:String): Map[String, String] = {
       val xmpProperties = exportXmpProperties(metadata, imageId)
 
-      def readProperty(name: String): Option[String] = xmpProperties.get(name)
+      def readXmpProperty(name: String): Option[String] = FileMetadataWrapper.readProperty(name, xmpProperties)
 
-      def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
+      def readAssetId: Option[String] = readXmpProperty("GettyImagesGIFT:AssetId").orElse(readXmpProperty("GettyImagesGIFT:AssetID"))
 
       Map(
         "Asset ID" -> readAssetId,
-        "Call For Image" -> readProperty("GettyImagesGIFT:CallForImage"),
-        "Camera Filename" -> readProperty("GettyImagesGIFT:CameraFilename"),
-        "Camera Make Model" -> readProperty("GettyImagesGIFT:CameraMakeModel"),
-        "Composition" -> readProperty("GettyImagesGIFT:Composition"),
-        "Exclusive Coverage" -> readProperty("GettyImagesGIFT:ExclusiveCoverage"),
-        "Image Rank" -> readProperty("GettyImagesGIFT:ImageRank"),
-        "Original Create Date Time" -> readProperty("GettyImagesGIFT:OriginalCreateDateTime"),
-        "Original Filename" -> readProperty("GettyImagesGIFT:OriginalFilename"),
-        "Personality" -> readProperty("GettyImagesGIFT:Personality"),
-        "Time Shot" -> readProperty("GettyImagesGIFT:TimeShot")
+        "Call For Image" -> readXmpProperty("GettyImagesGIFT:CallForImage"),
+        "Camera Filename" -> readXmpProperty("GettyImagesGIFT:CameraFilename"),
+        "Camera Make Model" -> readXmpProperty("GettyImagesGIFT:CameraMakeModel"),
+        "Composition" -> readXmpProperty("GettyImagesGIFT:Composition"),
+        "Exclusive Coverage" -> readXmpProperty("GettyImagesGIFT:ExclusiveCoverage"),
+        "Image Rank" -> readXmpProperty("GettyImagesGIFT:ImageRank"),
+        "Original Create Date Time" -> readXmpProperty("GettyImagesGIFT:OriginalCreateDateTime"),
+        "Original Filename" -> readXmpProperty("GettyImagesGIFT:OriginalFilename"),
+        "Personality" -> readXmpProperty("GettyImagesGIFT:Personality"),
+        "Time Shot" -> readXmpProperty("GettyImagesGIFT:TimeShot")
       ).flattenOptions
   }
 
