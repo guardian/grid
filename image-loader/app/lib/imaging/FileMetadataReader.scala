@@ -107,12 +107,15 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
+  private def xmpDirectoryToMap(directory: XmpDirectory, imageId: String): Map[String, String] = {
+    directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
+      case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
+      case (key, Some(value)) => key -> value
+    }
+  }
   private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
-      directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
-        case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
-        case (key, Some(value)) => key -> value
-      }
+      xmpDirectoryToMap(directory, imageId)
     } getOrElse Map()
 
   // Getty made up their own XMP namespace.
