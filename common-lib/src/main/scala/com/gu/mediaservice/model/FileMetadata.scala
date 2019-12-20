@@ -10,7 +10,7 @@ case class FileMetadata(
   iptc: Map[String, String]                     = Map(),
   exif: Map[String, String]                     = Map(),
   exifSub: Map[String, String]                  = Map(),
-  xmp: Map[String, String]                      = Map(),
+  xmp: Seq[KvPair]                              = Seq(),
   icc: Map[String, String]                      = Map(),
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
@@ -37,11 +37,13 @@ case class FileMetadata(
 object FileMetadata {
   // TODO: reindex all images to make the getty map always present
   // for data consistency, so we can fallback to use the default Reads
+  implicit val KvPairFormatter: OFormat[KvPair] = Json.format[KvPair]
+
   implicit val ImageMetadataReads: Reads[FileMetadata] = (
     (__ \ "iptc").read[Map[String,String]] ~
     (__ \ "exif").read[Map[String,String]] ~
     (__ \ "exifSub").read[Map[String,String]] ~
-    (__ \ "xmp").read[Map[String,String]] ~
+    (__ \ "xmp").read[Seq[KvPair]] ~
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()).map(removeLongValues) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "colourModel").readNullable[String] ~
@@ -63,10 +65,25 @@ object FileMetadata {
     (JsPath \ "iptc").write[Map[String,String]] and
       (JsPath \ "exif").write[Map[String,String]] and
       (JsPath \ "exifSub").write[Map[String,String]] and
-      (JsPath \ "xmp").write[Map[String,String]] and
+      (JsPath \ "xmp").write[Seq[KvPair]] and
       (JsPath \ "icc").write[Map[String,String]].contramap[Map[String, String]](removeLongValues) and
       (JsPath \ "getty").write[Map[String,String]] and
       (JsPath \ "colourModel").writeNullable[String] and
       (JsPath \ "colourModelInformation").write[Map[String,String]]
   )(unlift(FileMetadata.unapply))
 }
+
+object FileMetadataWrapper {
+
+  def wrap(propsMap: Map[String, String]): Seq[KvPair] = {
+    propsMap.map {
+      case (k,v) => KvPair(k, v)
+    }.toSeq
+  }
+
+  def readProperty(name: String, props: Seq[KvPair]): Option[String] = props.find(_.key == name).map(_.values)
+
+}
+
+case class KvPair(key: String, values: String)
+
