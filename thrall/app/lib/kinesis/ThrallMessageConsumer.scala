@@ -15,8 +15,7 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             store: ThrallStore,
                             metadataEditorNotifications: MetadataEditorNotifications,
                             syndicationRightsOps: SyndicationRightsOps,
-                            from: Option[DateTime]
-) extends MessageConsumerVersion {
+                            from: Option[DateTime]) {
 
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
@@ -80,6 +79,6 @@ class ThrallMessageConsumer(config: ThrallConfig,
 
   private def makeThread(worker: Runnable) = new Thread(worker, s"${getClass.getSimpleName}-$workerId")
 
-  override def isStopped: Boolean = !thrallKinesisWorkerThread.isAlive
+  def isStopped: Boolean = !thrallKinesisWorkerThread.isAlive
 
 }
