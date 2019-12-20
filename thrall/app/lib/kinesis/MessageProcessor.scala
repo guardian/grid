@@ -11,7 +11,7 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MessageProcessor(es: ElasticSearchVersion,
+class MessageProcessor(es: ElasticSearch6,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
                        syndicationRightsOps: SyndicationRightsOps
