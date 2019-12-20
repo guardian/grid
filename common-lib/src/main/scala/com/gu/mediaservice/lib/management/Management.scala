@@ -2,19 +2,25 @@ package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.auth.PermissionsHandler
+import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
+import play.api.Logger
 import play.api.libs.json.Json
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 trait BuildInfo {
   def toJson: String
 }
 
-trait ManagementController extends BaseController with ArgoHelpers {
-  def buildInfo: BuildInfo
-
-  def healthCheck = Action {
+trait HealthCheck extends BaseController {
+  def healthCheck: Action[AnyContent] = Action {
     Ok("OK")
   }
+}
+
+trait ManagementController extends HealthCheck with BaseController with ArgoHelpers {
+  def buildInfo: BuildInfo
 
   def disallowRobots = Action {
     Ok("User-agent: *\nDisallow: /\n")
@@ -33,6 +39,28 @@ class ManagementWithPermissions(override val controllerComponents: ControllerCom
       ServiceUnavailable("Permissions store is empty")
     } else {
       Ok("ok")
+    }
+  }
+}
+
+class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext) extends HealthCheck {
+  override def healthCheck: Action[AnyContent] = Action.async {
+    elasticHealth.map {
+      case None => Ok("Ok")
+      case Some(err) => {
+        Logger.warn(s"Health check failed with problems: $err")
+        ServiceUnavailable(err)
+      }
+    }
+  }
+
+  protected def elasticHealth: Future[Option[String]] = {
+    elasticsearch.healthCheck().map { result =>
+      if (!result) {
+        Some("Elastic search call failed")
+      } else {
+        None
+      }
     }
   }
 }

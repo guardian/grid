@@ -33,7 +33,7 @@ GET     /usage/quotas                                 controllers.UsageControlle
 GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
 
 # Management
-GET     /management/healthcheck                       com.gu.mediaservice.lib.management.ManagementWithPermissions.healthCheck
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.ManagementWithPermissions.manifest
 
 # Shoo robots away
