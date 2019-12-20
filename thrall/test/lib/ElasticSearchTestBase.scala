@@ -26,7 +26,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
 
-  def ES: ElasticSearchVersion
+  def ES: ElasticSearch6
 
   def esContainer: Option[DockerContainer]
 

@@ -6,7 +6,7 @@ import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SyndicationRightsOps(es: ElasticSearchVersion)(implicit ex: ExecutionContext) {
+class SyndicationRightsOps(es: ElasticSearch6)(implicit ex: ExecutionContext) {
 
   /**
     * Upserting syndication rights and updating photoshoots accordingly.

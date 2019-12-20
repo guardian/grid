@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics]) extends ElasticSearchVersion with ElasticSearchClient with ImageFields
+class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics]) extends ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {
 
   lazy val imagesAlias = config.alias
@@ -153,8 +153,8 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics
     val lastModifiedParameter = lastModified.toOption.map(_.as[String])
 
     val params = Map(
-      "userMetadata" -> metadataParameter.getOrElse(null),
-      "lastModified" -> lastModifiedParameter.getOrElse(null)
+      "userMetadata" -> metadataParameter.orNull,
+      "lastModified" -> lastModifiedParameter.orNull
     )
 
     val scriptSource = loadPainless(
@@ -206,7 +206,7 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics
     }
   }
 
-  def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImageId: Option[String])(implicit ex: ExecutionContext): Future[Option[Image]] = {
+  def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImageId: Option[String] = None)(implicit ex: ExecutionContext): Future[Option[Image]] = {
     val nonInferredSyndicationRights = termQuery("syndicationRights.isInferred", false)
 
     val filter = excludedImageId match {
