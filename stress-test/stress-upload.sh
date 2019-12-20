@@ -16,7 +16,7 @@ main_filename=test-crs
 
 file_extension=jpg
 
-files_batch_size=5
+files_batch_size=20
 
 test_iterations=10000
 
