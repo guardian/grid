@@ -11,7 +11,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-trait ElasticSearchClient {
+trait ElasticSearchClient extends ElasticSearch6Executions {
 
   private val tenSeconds = Duration(10, SECONDS)
   private val thirtySeconds = Duration(30, SECONDS)
@@ -51,6 +51,11 @@ trait ElasticSearchClient {
     if (clusterHealthResponse.isError) {
       throw new RuntimeException("cluster health could not be confirmed as green")  // TODO Exception isn't great but our callers aren't looking at our return value
     }
+  }
+
+  def healthCheck(): Future[Boolean] = {
+    val request = search(imagesAlias) limit 0
+    executeAndLog(request, "Health check").map { _ => true}.recover { case _ => false}
   }
 
   def ensureIndexExists(index: String): Unit = {

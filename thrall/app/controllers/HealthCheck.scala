@@ -1,17 +1,18 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.management.ElasticSearchHealthCheck
 import lib._
 import lib.kinesis.ThrallMessageConsumer
 import play.api.Logger
 import play.api.mvc._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-class HealthCheck(elasticsearch: ElasticSearch6, messageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+class HealthCheck(elasticsearch: ElasticSearch6, messageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit override val ec: ExecutionContext)
+  extends ElasticSearchHealthCheck(controllerComponents, elasticsearch) with ArgoHelpers {
 
-  def healthCheck = Action.async {
+  override def healthCheck = Action.async {
     elasticHealth.map { esHealth =>
       val problems = Seq(esHealth, actorSystemHealth).flatten
       if (problems.nonEmpty) {
@@ -20,16 +21,6 @@ class HealthCheck(elasticsearch: ElasticSearch6, messageConsumer: ThrallMessageC
         ServiceUnavailable(problemsMessage)
       } else {
         Ok("Ok")
-      }
-    }
-  }
-
-  private def elasticHealth: Future[Option[String]] = {
-    elasticsearch.healthCheck().map { result =>
-      if (!result) {
-        Some("Elastic search call failed")
-      } else {
-        None
       }
     }
   }
