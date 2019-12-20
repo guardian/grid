@@ -107,7 +107,6 @@ object FileMetadataReader {
     } getOrElse Map()
 
   private val datePattern = "(.*[Dd]ate.*)".r
-
   private def xmpDirectoryToMap(directory: XmpDirectory, imageId: String): Map[String, String] = {
     directory.getXmpProperties.asScala.toMap.mapValues(nonEmptyTrimmed).collect {
       case (datePattern(key), Some(value)) => key -> ImageMetadataConverter.cleanDate(value, key, imageId)
