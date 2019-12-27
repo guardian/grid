@@ -1,68 +1,60 @@
 package com.gu.mediaservice.model
 
-import play.api.libs.json.{JsArray, JsObject, JsString, JsValue}
-
-import scala.collection.mutable.ArrayBuffer
+import play.api.libs.json._
 
 object FileMetadataAggregator {
 
-  def aggregateMetadataMap(initialMap: Map[String, String]): Map[String, JsValue] = {
+  private def isArrayKey(k: String) = k.endsWith("]")
 
-    val getNormalisedKeyAndValType: String => (String, String, JsType) = (k: String) => {
-      val isArrayKey = k.endsWith("]")
-      val isSimpleDynamicObject = k.contains("/")
-      val res = if (isArrayKey) {
-        (k.substring(0, k.lastIndexOf("[")), "", JArr)
-      } else if (isSimpleDynamicObject) {
-        val sIdx = k.lastIndexOf("/")
-        val l = k.substring(0, sIdx)
-        val r = k.substring(sIdx + 1)
-        (l, r, JObj)
-      } else {
-        (k, "", JStr)
-      }
-      res
-    }
+  private def isDynamicObjectKey(k: String) = k.contains("/")
 
-    val mutableMap = scala.collection.mutable.Map[String, (JsType, ArrayBuffer[String])]()
+  private def normaliseArrayKey(k: String) = k.substring(0, k.lastIndexOf("["))
 
-    for (originalKey <- initialMap.keySet) {
-      val value = initialMap(originalKey)
-      val (normalisedKey, rest, typ) = getNormalisedKeyAndValType(originalKey)
-      if (mutableMap.contains(normalisedKey)) {
-        if (rest.nonEmpty) mutableMap(normalisedKey)._2 += rest
-        mutableMap(normalisedKey)._2 += value
-      } else {
-        if (rest.nonEmpty) {
-          mutableMap.put(normalisedKey, (typ, ArrayBuffer(rest, value)))
-        } else {
-          mutableMap.put(normalisedKey, (typ, ArrayBuffer(value)))
-        }
-      }
-    }
+  private def toObjectNameAndValue(k: String, v: JsValue) = {
+    val slashIdx = k.lastIndexOf("/")
+    val objectName = k.substring(0, slashIdx)
+    val objectFieldName = k.substring(slashIdx + 1)
+    val stringifiedObj = Json.stringify(JsObject(Seq((objectFieldName, v)))).replace("\"", "'")
+    (objectName, JsArray(Seq(JsString(stringifiedObj))))
+  }
 
-    val normalisedMap: Map[String, JsValue] = mutableMap.map {
+  private def entryToAggregatedKeyAndJsValue(k: String, v: JsValue): (String, JsValue) = {
+   if (isArrayKey(k)) (normaliseArrayKey(k), JsArray(Seq(v))) else if (isDynamicObjectKey(k)) toObjectNameAndValue(k, v) else (k, v)
+  }
+
+  def aggregateCurrentMetadataLevel(nodes: Map[String, JsValue]): Map[String, JsValue] = {
+
+    val mutableMap = scala.collection.mutable.Map[String, JsValue]()
+
+    nodes.foreach {
       case (k, v) =>
-        val props = v._2
-        v._1 match {
-          case JObj =>
-            val tups = for (i <- props.indices by 2) yield (props(i), JsString(props(i + 1)))
-            (k, JsObject(tups))
-          case JArr | JStr =>
-            val value = if (props.size > 1) JsArray(props.map(JsString)) else JsString(props.head)
-            (k, value)
+        val (aggKey, aggV) = entryToAggregatedKeyAndJsValue(k, v)
+        if (mutableMap.contains(aggKey) && aggV.isInstanceOf[JsArray]) {
+          val cur = mutableMap(aggKey).as[JsArray]
+          val updated = cur ++ aggV.as[JsArray]
+          mutableMap(aggKey) = updated
+        } else {
+          mutableMap.put(aggKey, aggV)
         }
-    }.toMap
+    }
 
-    normalisedMap
+    mutableMap.toMap
+  }
+
+  def aggregateMetadataMap(flatProperties: Map[String, String]): Map[String, JsValue] = {
+
+    val initialMetadataStructure = flatProperties.map { case (k, v) => k -> JsString(v) }
+
+    var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure)
+
+    def anyKeyIsArrayKey(keys: Set[String]) = keys.exists(isArrayKey)
+
+    def anyKeyIsDynamicObjectKey(keys: Set[String]) = keys.exists(isDynamicObjectKey)
+
+    while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata)
+
+    aggMetadata
   }
 
 }
 
-trait JsType
-
-case object JArr extends JsType
-
-case object JStr extends JsType
-
-case object JObj extends JsType
