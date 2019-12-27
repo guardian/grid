@@ -14,7 +14,8 @@ object FileMetadataAggregator {
     val slashIdx = k.lastIndexOf("/")
     val objectName = k.substring(0, slashIdx)
     val objectFieldName = k.substring(slashIdx + 1)
-    val stringifiedObj = Json.stringify(JsObject(Seq((objectFieldName, v)))).replace("\"", "'")
+    val stringifiedObj = Json.stringify(JsObject(Seq((objectFieldName, v))))
+      .replace("\"", "'")
     (objectName, JsArray(Seq(JsString(stringifiedObj))))
   }
 
@@ -46,13 +47,13 @@ object FileMetadataAggregator {
 
     nodes.foreach {
       case (k, v) =>
-        val (aggKey, aggV) = entryToAggregatedKeyAndJsValue(k, v)
-        if (mutableMap.contains(aggKey) && aggV.isInstanceOf[JsArray]) {
-          val cur = mutableMap(aggKey).as[JsArray]
-          val updated = cur ++ aggV.as[JsArray]
-          mutableMap(aggKey) = updated
+        val (aggregatedKey, newValue) = entryToAggregatedKeyAndJsValue(k, v)
+        if (mutableMap.contains(aggregatedKey) && newValue.isInstanceOf[JsArray]) {
+          val cur = mutableMap(aggregatedKey).as[JsArray]
+          val updated = cur ++ newValue.as[JsArray]
+          mutableMap(aggregatedKey) = updated
         } else {
-          mutableMap.put(aggKey, aggV)
+          mutableMap.put(aggregatedKey, newValue)
         }
     }
 

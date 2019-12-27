@@ -115,15 +115,9 @@ object FileMetadataReader {
     }
   }
   private def exportRawXmpProperties(metadata: Metadata, imageId:String): Map[String, String] = {
-    val directories = metadata.getDirectoriesOfType(classOf[XmpDirectory]).asScala.toList
-    val props: Map[String, String] = directories.foldLeft[Map[String, String]](Map.empty)((acc, dir) => {
-      // An image can have multiple xmp directories. A directory has multiple xmp properties.
-      // A property can be repeated across directories and its value may not be unique.
-      // Keep the first value encountered on the basis that there will only be multiple directories
-      // if there is no space in the previous one as directories have a maximum size.
-      acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
-    })
-    props
+    Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
+      xmpDirectoryToMap(directory, imageId)
+    } getOrElse Map()
   }
   private def exportXmpPropertiesInTransformedSchema(metadata: Metadata, imageId:String): Map[String, JsValue] = {
     val props = exportRawXmpProperties(metadata, imageId)

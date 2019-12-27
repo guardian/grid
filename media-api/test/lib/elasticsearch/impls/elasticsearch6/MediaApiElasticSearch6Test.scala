@@ -16,7 +16,7 @@ import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
 import play.api.Configuration
-import play.api.libs.json.Json
+import play.api.libs.json.{JsString, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 
@@ -310,7 +310,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
         result.total shouldBe 1
-        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some("bar")
+        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some(JsString("bar"))
       }
     }
 

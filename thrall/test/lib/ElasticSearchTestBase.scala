@@ -12,7 +12,7 @@ import helpers.Fixtures
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
-import play.api.libs.json.{JsDefined, JsLookupResult, Json}
+import play.api.libs.json.{JsDefined, JsLookupResult, JsString, Json}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -72,7 +72,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
         "file metadata fields longer than the index keyword limit are still persisted" in {
           val id = UUID.randomUUID().toString
           val reallyLongTRC = stringLongerThan(250000)
-          val fileMetadata = FileMetadata(xmp = Map("foo" -> "bar"), exif = Map("Green TRC" -> reallyLongTRC))
+          val fileMetadata = FileMetadata(xmp = Map("foo" -> JsString("bar")), exif = Map("Green TRC" -> reallyLongTRC))
 
           val imageWithReallyLongMetadataField = createImageForSyndication(id = UUID.randomUUID().toString,
             rightsAcquired = true,
