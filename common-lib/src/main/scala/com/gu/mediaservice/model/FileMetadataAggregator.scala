@@ -62,20 +62,20 @@ object FileMetadataAggregator {
 
   def aggregateMetadataMap(flatProperties: Map[String, String]): Map[String, JsValue] = {
 
-    val arrayNormKeyValuePairToIdx = flatProperties.filter { case (k, _) => isArrayKey(k) }.map { case (k, v) =>
+    val arrayKeyValuePairToIdx = flatProperties.filter { case (k, _) => isArrayKey(k) }.map { case (k, v) =>
       val idx = k.substring(k.lastIndexOf("[") + 1, k.lastIndexOf("]")).trim.toInt
       s"${normaliseArrayKey(k)}-$v" -> idx
     }
 
     val initialMetadataStructure = flatProperties.map { case (k, v) => k -> JsString(v) }
 
-    var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure, arrayNormKeyValuePairToIdx)
+    var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure, arrayKeyValuePairToIdx)
 
     def anyKeyIsArrayKey(keys: Set[String]) = keys.exists(isArrayKey)
 
     def anyKeyIsDynamicObjectKey(keys: Set[String]) = keys.exists(isDynamicObjectKey)
 
-    while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata, arrayNormKeyValuePairToIdx)
+    while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata, arrayKeyValuePairToIdx)
 
     aggMetadata
   }
