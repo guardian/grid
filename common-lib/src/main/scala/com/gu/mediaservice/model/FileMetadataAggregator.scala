@@ -6,76 +6,82 @@ object FileMetadataAggregator {
 
   private def isArrayKey(k: String) = k.endsWith("]")
 
-  private def isDynamicObjectKey(k: String) = k.contains("/")
+  private def isCustomObjectKey(k: String) = k.contains("/")
+
+  private def isCustomObjectArrayKey(k: String) = k.contains("]/")
 
   private def normaliseArrayKey(k: String) = k.substring(0, k.lastIndexOf("["))
 
-  private def toObjectNameAndValue(k: String, v: JsValue) = {
-    val slashIdx = k.lastIndexOf("/")
-    val objectName = k.substring(0, slashIdx)
-    val objectFieldName = k.substring(slashIdx + 1)
-    val stringifiedObj = Json.stringify(JsObject(Seq((objectFieldName, v))))
-      .replace("\"", "'")
-    (objectName, JsArray(Seq(JsString(stringifiedObj))))
-  }
+  private case class MetadataEntry(index: Int, jsValue: JsValue)
 
-  private def entryToAggregatedKeyAndJsValue(k: String, v: JsValue): (String, JsValue) = {
-    if (isArrayKey(k)) (normaliseArrayKey(k), JsArray(Seq(v))) else if (isDynamicObjectKey(k)) toObjectNameAndValue(k, v)
-    else (k, v)
-  }
+  private def entryToAggregatedKeyAndJsValue(k: String, v: MetadataEntry): (String, MetadataEntry) = {
 
-  private def sortAggregatedValuesAtLevel(nodes: Map[String, JsValue], arrayNormKeyValuePairToIdx: Map[String, Int]) = {
-    nodes.map {
-      case (k, v) =>
-        val sortedValues = if (v.isInstanceOf[JsArray]) {
-          val sorted = v.as[JsArray].value.map(item => {
-            val idx = if (item.isInstanceOf[JsString]) {
-              val entryValue = item.as[JsString].value
-              arrayNormKeyValuePairToIdx.getOrElse(s"$k-$entryValue", Int.MaxValue)
-            } else Int.MaxValue
-            (item, idx)
-          }).sortBy(_._2).map(_._1)
-          JsArray(sorted)
-        } else v
-        k -> sortedValues
+    def toCustomObjectKeyAndValue(k: String, v: MetadataEntry) = {
+      val slashIdx = k.lastIndexOf("/")
+      val objectName = k.substring(0, slashIdx)
+      val objectFieldName = k.substring(slashIdx + 1)
+      val stringifiedObj = Json.stringify(JsObject(Seq((objectFieldName, v.jsValue))))
+        .replace("\"", "'")
+      val newJsVal = JsArray(Seq(JsString(stringifiedObj)))
+      (objectName, v.copy(
+        jsValue = newJsVal
+      ))
     }
+
+    def toArrayKeyAndValue(k: String, v: MetadataEntry) = {
+      val arrValue = JsArray(Seq(v.jsValue))
+      (normaliseArrayKey(k), v.copy(jsValue = arrValue))
+    }
+
+    if (isArrayKey(k)) toArrayKeyAndValue(k, v) else if (isCustomObjectKey(k)) toCustomObjectKeyAndValue(k, v) else (k, v)
   }
 
-  private def aggregateCurrentMetadataLevel(nodes: Map[String, JsValue], arrayNormKeyValuePairToIdx: Map[String, Int]): Map[String, JsValue] = {
+  private def aggregateCurrentMetadataLevel(nodes: Map[String, JsValue]): Map[String, JsValue] = {
 
-    val mutableMap = scala.collection.mutable.Map[String, JsValue]()
+    def getIdxFromKey(k: String): Int = {
+      if (isArrayKey(k) || isCustomObjectArrayKey(k)) k.substring(k.lastIndexOf("[") + 1, k.lastIndexOf("]")).trim.toInt
+      else Int.MaxValue
+    }
 
-    nodes.foreach {
+    val entriesWithIndexes = nodes.map { case (k, v) => k -> MetadataEntry(getIdxFromKey(k), v) }
+
+    val mutableMap = scala.collection.mutable.Map[String, Either[MetadataEntry, List[MetadataEntry]]]()
+
+    entriesWithIndexes.foreach {
       case (k, v) =>
-        val (aggregatedKey, newValue) = entryToAggregatedKeyAndJsValue(k, v)
-        if (mutableMap.contains(aggregatedKey) && newValue.isInstanceOf[JsArray]) {
-          val cur = mutableMap(aggregatedKey).as[JsArray]
-          val updated = cur ++ newValue.as[JsArray]
-          mutableMap(aggregatedKey) = updated
+        val (aggregatedKey, newMetadataEntry) = entryToAggregatedKeyAndJsValue(k, v)
+        if (mutableMap.contains(aggregatedKey)) {
+          val updated: List[MetadataEntry] = mutableMap(aggregatedKey) match {
+            case scala.util.Left(value) => List(value, newMetadataEntry)
+            case scala.util.Right(value) => value :+ newMetadataEntry
+          }
+          mutableMap(aggregatedKey) = scala.util.Right(updated)
         } else {
-          mutableMap.put(aggregatedKey, newValue)
+          mutableMap.put(aggregatedKey, scala.util.Left(newMetadataEntry))
         }
     }
 
-    sortAggregatedValuesAtLevel(mutableMap.toMap, arrayNormKeyValuePairToIdx)
+    val mapWithSortedValuesAtCurrentLevel = mutableMap.mapValues { v =>
+      v match {
+        case scala.util.Left(value) => value.jsValue
+        case scala.util.Right(value) => value.sortBy(_.index).map(_.jsValue.as[JsArray]).foldLeft(JsArray.empty)((acc, item) => acc ++ item)
+      }
+    }
+
+    mapWithSortedValuesAtCurrentLevel.toMap
   }
 
   def aggregateMetadataMap(flatProperties: Map[String, String]): Map[String, JsValue] = {
 
-    val arrayKeyValuePairToIdx = flatProperties.filter { case (k, _) => isArrayKey(k) }.map { case (k, v) =>
-      val idx = k.substring(k.lastIndexOf("[") + 1, k.lastIndexOf("]")).trim.toInt
-      s"${normaliseArrayKey(k)}-$v" -> idx
-    }
+    val initialMetadataStructure = flatProperties.mapValues(JsString)
 
-    val initialMetadataStructure = flatProperties.map { case (k, v) => k -> JsString(v) }
-
-    var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure, arrayKeyValuePairToIdx)
+    var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure)
 
     def anyKeyIsArrayKey(keys: Set[String]) = keys.exists(isArrayKey)
 
-    def anyKeyIsDynamicObjectKey(keys: Set[String]) = keys.exists(isDynamicObjectKey)
+    def anyKeyIsDynamicObjectKey(keys: Set[String]) = keys.exists(isCustomObjectKey)
 
-    while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata, arrayKeyValuePairToIdx)
+    while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata)
 
     aggMetadata
   }

@@ -5,7 +5,7 @@ import play.api.libs.json.{JsArray, JsString}
 
 class FileMetadataAggregatorTest extends FlatSpec with Matchers {
 
-  it should "aggregate flat file metadata" in {
+  it should "organise flat metadata into aggregated form and preserve the order of properties if they are stored in arrays" in {
 
     val testInput = Map(
       "dc:format" -> "image/png",
@@ -79,10 +79,10 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "exif:PixelYDimension" -> JsString("2000"),
       "xmp:CreateDate" -> JsString("2018-02-06T16:36:48.000Z"),
       "dc:rights" -> JsArray(Seq(
-        JsString("B814F57A-329B-441B-8564-F6D3A0973F14"),
         JsArray(Seq(
           "{'xml:lang':'x-default'}"
-        ).map(JsString))
+        ).map(JsString)),
+        JsString("B814F57A-329B-441B-8564-F6D3A0973F14")
       )),
       "xmp:CreatorTool" -> JsString("Adobe Photoshop CC 2019 (Macintosh)"),
       "photoshop:DocumentAncestors" -> JsArray(Seq(
@@ -100,32 +100,36 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
           "{'stEvt:instanceID':'xmp.iid:65d63b5e-a24e-4e51-89bd-6693ce193404'}",
           "{'stEvt:when':'2018-02-06T16:36:48Z'}",
           "{'stEvt:action':'created'}",
-          "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}"
-        ).map(JsString)),
-        JsArray(Seq(
-          "{'stEvt:parameters':'from application/vnd.adobe.photoshop to image/png'}",
-          "{'stEvt:action':'converted'}"
+          "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}",
         ).map(JsString)),
         JsArray(Seq(
           "{'stEvt:changed':'/'}",
           "{'stEvt:when':'2018-02-06T16:37:53Z'}",
           "{'stEvt:instanceID':'xmp.iid:f9859689-1601-43ae-99a2-9bfb3c159ded'}",
           "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}",
-          "{'stEvt:action':'saved'}"
+          "{'stEvt:action':'saved'}",
         ).map(JsString)),
         JsArray(Seq(
           "{'stEvt:changed':'/'}",
           "{'stEvt:instanceID':'xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9'}",
           "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
           "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
-          "{'stEvt:action':'saved'}"
+          "{'stEvt:action':'saved'}",
         ).map(JsString)),
         JsArray(Seq(
-          "{'stEvt:parameters':'converted from application/vnd.adobe.photoshop to image/png'}", "{'stEvt:action':'derived'}"
+          "{'stEvt:parameters':'from application/vnd.adobe.photoshop to image/png'}",
+          "{'stEvt:action':'converted'}",
         ).map(JsString)),
         JsArray(Seq(
-          "{'stEvt:instanceID':'xmp.iid:d9500a13-3c27-401c-a2cc-1fd027b0424f'}", "{'stEvt:action':'saved'}", "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
-          "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}", "{'stEvt:changed':'/'}"
+          "{'stEvt:parameters':'converted from application/vnd.adobe.photoshop to image/png'}",
+          "{'stEvt:action':'derived'}",
+        ).map(JsString)),
+        JsArray(Seq(
+          "{'stEvt:instanceID':'xmp.iid:d9500a13-3c27-401c-a2cc-1fd027b0424f'}",
+          "{'stEvt:action':'saved'}",
+          "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
+          "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
+          "{'stEvt:changed':'/'}",
         ).map(JsString))
       )),
       "tiff:ResolutionUnit" -> JsString("3"),

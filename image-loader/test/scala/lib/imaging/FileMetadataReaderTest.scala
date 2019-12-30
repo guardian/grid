@@ -90,8 +90,11 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       val xmp = Map(
         "GettyImagesGIFT:ImageRank" -> JsString("3"),
         "GettyImagesGIFT:OriginalFilename" -> JsString("43885812_SEA.jpg"),
+        "dc:title" -> JsArray(Seq(
+          JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
+          JsString("536991815"),
+          )),
         "dc:creator" -> JsArray(Seq(JsString("CHRISTOF STACHE"))),
-        "dc:title" -> JsArray(Seq(JsString("536991815"), JsArray(Seq(JsString("{'xml:lang':'x-default'}"))))),
         "photoshop:SupplementalCategories" -> JsArray(Seq(JsString("SKI"))),
         "photoshop:Headline" -> JsString("Austria's Matthias Mayer attends the men"),
         "photoshop:TransmissionReference" -> JsString("-"),
@@ -99,8 +102,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
         "photoshop:CaptionWriter" -> JsString("CS/IW"),
         "plus:ImageSupplierImageId" -> JsString("DV1945213"),
         "dc:description" -> JsArray(Seq(
+          JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
           JsString("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-          JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
         )),
         "photoshop:City" -> JsString("KITZBUEHEL"),
         "GettyImagesGIFT:ExclusiveCoverage" -> JsString("False"),
@@ -135,8 +138,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "GettyImagesGIFT:CameraMakeModel" -> JsString("Canon EOS-1D Mark III"),
       "photoshop:City" -> JsString("London"),
       "dc:description" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "photoshop:Headline" -> JsString("England v Czech Republic - International Friendly"),
       "photoshop:TransmissionReference" -> JsString("81774706"),
@@ -144,14 +147,14 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "GettyImagesGIFT:CameraFilename" -> JsString("8R8Z0144.JPG"),
       "photoshop:Category" -> JsString("S"),
       "dc:title" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("81774706JM148_England_v_Cze"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "GettyImagesGIFT:OriginalFilename" -> JsString("2008208_81774706JM148_England_v_Cze.jpg"),
       "GettyImagesGIFT:OriginalCreateDateTime" -> JsString("2008-08-20T20:25:49.000Z"),
       "dc:rights" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("2008 Getty Images"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "GettyImagesGIFT:TimeShot" -> JsString("212019+0200"),
       "photoshop:Country" -> JsString("United Kingdom"),
@@ -179,8 +182,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "GettyImagesGIFT:OriginalFilename" -> JsString("43885812_SEA.jpg"),
       "dc:creator" -> JsArray(Seq(JsString("CHRISTOF STACHE"))),
       "dc:title" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("536991815"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "photoshop:SupplementalCategories" -> JsArray(Seq(JsString("SKI"))),
       "photoshop:Headline" -> JsString("Austria's Matthias Mayer attends the men"),
@@ -189,8 +192,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "photoshop:CaptionWriter" -> JsString("CS/IW"),
       "plus:ImageSupplierImageId" -> JsString("DV1945213"),
       "dc:description" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "photoshop:City" -> JsString("KITZBUEHEL"),
       "GettyImagesGIFT:ExclusiveCoverage" -> JsString("False"),
@@ -228,8 +231,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "GettyImagesGIFT:CameraMakeModel" -> JsString("Canon EOS-1D Mark III"),
       "photoshop:City" -> JsString("London"),
       "dc:description" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "photoshop:Headline" -> JsString("England v Czech Republic - International Friendly"),
       "photoshop:TransmissionReference" -> JsString("81774706"),
@@ -237,14 +240,14 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "GettyImagesGIFT:CameraFilename" -> JsString("8R8Z0144.JPG"),
       "photoshop:Category" -> JsString("S"),
       "dc:title" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("81774706JM148_England_v_Cze"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "GettyImagesGIFT:OriginalFilename" -> JsString("2008208_81774706JM148_England_v_Cze.jpg"),
       "GettyImagesGIFT:OriginalCreateDateTime" -> JsString("2008-08-20T20:25:49.000Z"),
       "dc:rights" -> JsArray(Seq(
+        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
         JsString("2008 Getty Images"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
       )),
       "GettyImagesGIFT:TimeShot" -> JsString("212019+0200"),
       "photoshop:Country" -> JsString("United Kingdom"),
