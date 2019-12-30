@@ -1,6 +1,7 @@
 package com.gu.mediaservice.model
 
 import org.scalatest.{FlatSpec, Matchers}
+import play.api.libs.json
 import play.api.libs.json.{JsArray, JsString}
 
 class FileMetadataAggregatorTest extends FlatSpec with Matchers {
@@ -67,9 +68,9 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "photoshop:ColorMode" -> JsString("3"),
       "xmp:MetadataDate" -> JsString("2019-07-04T13:12:26.000Z"),
       "xmpMM:DerivedFrom" -> JsArray(Seq(
+        "{'stRef:instanceID':'xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9'}",
         "{'stRef:documentID':'xmp.did:65d63b5e-a24e-4e51-89bd-6693ce193404'}",
         "{'stRef:originalDocumentID':'xmp.did:65d63b5e-a24e-4e51-89bd-6693ce193404'}",
-        "{'stRef:instanceID':'xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9'}"
       ).map(JsString)),
       "exif:PixelXDimension" -> JsString("2000"),
       "photoshop:ICCProfile" -> JsString("sRGB IEC61966-2.1"),
@@ -97,24 +98,24 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "exif:ColorSpace" -> JsString("1"),
       "xmpMM:History" -> JsArray(Seq(
         JsArray(Seq(
+          "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}",
+          "{'stEvt:action':'created'}",
           "{'stEvt:instanceID':'xmp.iid:65d63b5e-a24e-4e51-89bd-6693ce193404'}",
           "{'stEvt:when':'2018-02-06T16:36:48Z'}",
-          "{'stEvt:action':'created'}",
-          "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}",
         ).map(JsString)),
         JsArray(Seq(
+          "{'stEvt:action':'saved'}",
+          "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}",
+          "{'stEvt:instanceID':'xmp.iid:f9859689-1601-43ae-99a2-9bfb3c159ded'}",
           "{'stEvt:changed':'/'}",
           "{'stEvt:when':'2018-02-06T16:37:53Z'}",
-          "{'stEvt:instanceID':'xmp.iid:f9859689-1601-43ae-99a2-9bfb3c159ded'}",
-          "{'stEvt:softwareAgent':'Adobe Photoshop CC (Macintosh)'}",
-          "{'stEvt:action':'saved'}",
         ).map(JsString)),
         JsArray(Seq(
+          "{'stEvt:action':'saved'}",
+          "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
+          "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
           "{'stEvt:changed':'/'}",
           "{'stEvt:instanceID':'xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9'}",
-          "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
-          "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
-          "{'stEvt:action':'saved'}",
         ).map(JsString)),
         JsArray(Seq(
           "{'stEvt:parameters':'from application/vnd.adobe.photoshop to image/png'}",
@@ -125,11 +126,11 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
           "{'stEvt:action':'derived'}",
         ).map(JsString)),
         JsArray(Seq(
+          "{'stEvt:changed':'/'}",
+          "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
+          "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
           "{'stEvt:instanceID':'xmp.iid:d9500a13-3c27-401c-a2cc-1fd027b0424f'}",
           "{'stEvt:action':'saved'}",
-          "{'stEvt:when':'2019-07-04T14:12:26+01:00'}",
-          "{'stEvt:softwareAgent':'Adobe Photoshop CC 2019 (Macintosh)'}",
-          "{'stEvt:changed':'/'}",
         ).map(JsString))
       )),
       "tiff:ResolutionUnit" -> JsString("3"),

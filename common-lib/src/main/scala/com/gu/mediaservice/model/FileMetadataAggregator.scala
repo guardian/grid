@@ -53,7 +53,7 @@ object FileMetadataAggregator {
         if (mutableMap.contains(aggregatedKey)) {
           val updated: List[MetadataEntry] = mutableMap(aggregatedKey) match {
             case scala.util.Left(value) => List(value, newMetadataEntry)
-            case scala.util.Right(value) => value :+ newMetadataEntry
+            case scala.util.Right(value) => newMetadataEntry +: value
           }
           mutableMap(aggregatedKey) = scala.util.Right(updated)
         } else {
