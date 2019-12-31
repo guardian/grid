@@ -1,7 +1,6 @@
 package com.gu.mediaservice.model
 
 import org.scalatest.{FlatSpec, Matchers}
-import play.api.libs.json
 import play.api.libs.json.{JsArray, JsString}
 
 class FileMetadataAggregatorTest extends FlatSpec with Matchers {
@@ -51,6 +50,20 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "xmpMM:DerivedFrom/stRef:instanceID" -> "xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9",
       "xmpMM:History[1]/stEvt:softwareAgent" -> "Adobe Photoshop CC (Macintosh)",
       "photoshop:DocumentAncestors[1]" -> "0",
+      "2darr:test[3][4]" -> "d",
+      "2darr:test[2][1]" -> "a",
+      "2darr:test[3][3]" -> "c",
+      "2darr:test[1][2]" -> "b",
+      "2darr:test[1][1]" -> "0",
+      "2darr:test[1][1]" -> "a",
+      "2darr:test[1][3]" -> "c",
+      "2darr:test[3][1]" -> "a",
+      "2darr:test[3][2]" -> "b",
+      "test:nested-object[1]/prop[1]" -> "0",
+      "test:nested-object[1]/prop[2]" -> "1",
+      "test:nested-object[1]/prop[3]" -> "2",
+      "test:nested-object[1]/prop2[1]" -> "0",
+      "test:nested-object[2]/prop[1]" -> "a",
       "xmpMM:History[5]/stEvt:action" -> "derived",
       "exif:ColorSpace" -> "1",
       "xmpMM:History[3]/stEvt:action" -> "saved",
@@ -92,6 +105,22 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
         "0024E0DBC7EAA19ECC90B9B2F5F1E071",
         "00A4B614125CF2B9AC52D7A1198EE974"
       ).map(JsString)),
+      "2darr:test" -> JsArray(
+        Seq(
+          JsArray(Seq("a", "b", "c").map(JsString)),
+          JsArray(Seq("a").map(JsString)),
+          JsArray(Seq("a", "b", "c", "d").map(JsString)),
+        )
+      ),
+      "test:nested-object" -> JsArray(Seq(
+        JsArray(Seq(
+          "{'prop':['0','1','2']}",
+          "{'prop2':['0']}",
+        ).map(JsString)),
+        JsArray(Seq(
+          "{'prop':['a']}",
+        ).map(JsString))
+      )),
       "xmpMM:DocumentID" -> JsString("adobe:docid:photoshop:b55c9154-805d-a14a-a383-6b3945315d73"),
       "tiff:Orientation" -> JsString("1"),
       "dc:creator" -> JsArray(Seq(JsString("tmp"))),
