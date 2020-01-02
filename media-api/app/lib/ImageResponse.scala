@@ -310,7 +310,7 @@ object ImageResponse {
     _.suppliersReference
   ).using(_.map(ImageResponse.normaliseNewLines))
 
-  private val pattern = """[\r|\n|\r\n]+""".r
+  private val pattern = """[\r\n]+""".r
 
   def normaliseNewLines(string: String): String = pattern.replaceAllIn(string, "\n")
 
