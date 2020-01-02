@@ -51,16 +51,11 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
       exifSub = Map(
 
       ),
-      xmp = Map(
-        "dc:description" -> JsArray(Seq(
-          JsString("the xmp description"),
-          JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
-        )),
-      )
+      xmp = Map()
     )
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
 
-    imageMetadata.description should be(Some("the xmp description"))
+    imageMetadata.description should be(Some("the description"))
     imageMetadata.credit should be(Some("the credit"))
     imageMetadata.byline should be(Some("the byline"))
     imageMetadata.bylineTitle should be(Some("the byline title"))
@@ -74,6 +69,72 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.city should be(Some("the city"))
     imageMetadata.state should be(Some("the state"))
     imageMetadata.country should be(Some("the country"))
+  }
+
+  it("should populate string fields of ImageMetadata from default FileMetadata fields mainly from xmp") {
+    val fileMetadata = FileMetadata(
+      iptc = Map(
+        "Caption/Abstract" -> "the description",
+        "Credit" -> "the credit",
+        "By-line" -> "the byline",
+        "By-line Title" -> "the byline title",
+        "Headline" -> "the title",
+        "Copyright Notice" -> "the copyright notice",
+        "Original Transmission Reference" -> "the suppliers reference",
+        "Source" -> "the source",
+        "Special Instructions" -> "the special instructions",
+        "Sub-location" -> "the sub location",
+        "City" -> "the city",
+        "Province/State" -> "the state",
+        "Country/Primary Location Name" -> "the country"
+      ),
+      exif = Map(
+        "Copyright" -> "the copyright"
+      ),
+      exifSub = Map(
+
+      ),
+      xmp = Map(
+        "dc:description" -> JsArray(Seq(
+          JsString("the xmp description"),
+          JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+        )),
+        "dc:title" -> JsArray(Seq(
+          JsString("the xmp title"),
+          JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+        )),
+        "dc:creator" -> JsArray(Seq(JsString("xmp creator"))),
+        "photoshop:DateCreated" -> JsString("2018-06-27T13:54:55"),
+        "photoshop:Credit" -> JsString("xmp credit"),
+        "photoshop:AuthorsPosition" -> JsString("xmp byline title"),
+        "photoshop:Headline" -> JsString("xmp "),
+        "dc:Rights" -> JsString("xmp copyrightNotice"),
+        "photoshop:TransmissionReference" -> JsString("xmp suppliersReference"),
+        "photoshop:Source" -> JsString("xmp source"),
+        "photoshop:Instructions" -> JsString("xmp specialInstructions"),
+        "Iptc4xmpCore:Location" -> JsString("xmp subLocation"),
+        "photoshop:City" -> JsString("xmp City"),
+        "photoshop:State" -> JsString("xmp State"),
+        "photoshop:Country" -> JsString("xmp Country"),
+      )
+    )
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+
+    imageMetadata.description should be(Some("the xmp description"))
+    imageMetadata.credit should be(Some("xmp credit"))
+    imageMetadata.byline should be(Some("xmp creator"))
+    imageMetadata.dateTaken should be(Some(parseDate("2018-06-27T13:54:55Z")))
+    imageMetadata.bylineTitle should be(Some("xmp byline title"))
+    imageMetadata.title should be(Some("xmp "))
+    imageMetadata.copyrightNotice should be(Some("xmp copyrightNotice"))
+    imageMetadata.copyright should be(Some("the copyright"))
+    imageMetadata.suppliersReference should be(Some("xmp suppliersReference"))
+    imageMetadata.source should be(Some("xmp source"))
+    imageMetadata.specialInstructions should be(Some("xmp specialInstructions"))
+    imageMetadata.subLocation should be(Some("xmp subLocation"))
+    imageMetadata.city should be(Some("xmp City"))
+    imageMetadata.state should be(Some("xmp State"))
+    imageMetadata.country should be(Some("xmp Country"))
   }
 
   it("should fallback to Copyright Notice for copyright field of ImageMetadata if Copyright is missing") {
