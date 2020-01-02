@@ -6,7 +6,6 @@ import org.joda.time.format._
 import scala.util.Try
 import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 import play.api.Logger
-import play.api.libs.json.{JsArray, JsString}
 
 object ImageMetadataConverter {
 
@@ -24,59 +23,50 @@ object ImageMetadataConverter {
       .distinct
   }
 
-  def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata = {
-    val xmp = fileMetadata.xmp
-    val readXmpHeadProp: String => Option[String] = (name: String) => {
-      xmp.get(name) match {
-        case Some(JsString(value)) => Some(value)
-        case Some(JsArray(value)) => value.headOption.map(_.toString)
-        case _ => None
-      }
-    }
-
+  def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseRandomDate) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseRandomDate) orElse
-                            (readXmpHeadProp("photoshop:DateCreated") flatMap parseRandomDate),
-      description         = readXmpHeadProp("dc:description") orElse
+                            (fileMetadata.xmp.get("photoshop:DateCreated") flatMap parseRandomDate),
+      description         = fileMetadata.xmp.get("dc:description[1]") orElse
                             fileMetadata.iptc.get("Caption/Abstract") orElse
                             fileMetadata.exif.get("Image Description"),
-      credit              = readXmpHeadProp("photoshop:Credit") orElse
+      credit              = fileMetadata.xmp.get("photoshop:Credit") orElse
                             fileMetadata.iptc.get("Credit"),
-      byline              = readXmpHeadProp("dc:creator") orElse
+      // FIXME: Have a way of dealing with arrays, like [1] here.
+      byline              = fileMetadata.xmp.get("dc:creator[1]") orElse
                             fileMetadata.iptc.get("By-line") orElse
                             fileMetadata.exif.get("Artist"),
-      bylineTitle         = readXmpHeadProp("photoshop:AuthorsPosition") orElse
+      bylineTitle         = fileMetadata.xmp.get("photoshop:AuthorsPosition") orElse
                             fileMetadata.iptc.get("By-line Title"),
-      title               = readXmpHeadProp("photoshop:Headline") orElse
+      title               = fileMetadata.xmp.get("photoshop:Headline") orElse
                             fileMetadata.iptc.get("Headline"),
-      copyrightNotice     = readXmpHeadProp("dc:Rights") orElse
+      copyrightNotice     = fileMetadata.xmp.get("dc:Rights") orElse
                             fileMetadata.iptc.get("Copyright Notice"),
       // FIXME: our copyright and copyrightNotice fields should be one field (they read from equivalent fields).
       copyright           = fileMetadata.exif.get("Copyright") orElse
                             fileMetadata.iptc.get("Copyright Notice"),
       // Here we combine two separate fields, based on bad habits of our suppliers.
-      suppliersReference  = readXmpHeadProp("photoshop:TransmissionReference") orElse
+      suppliersReference  = fileMetadata.xmp.get("photoshop:TransmissionReference") orElse
                             fileMetadata.iptc.get("Original Transmission Reference") orElse
-                            readXmpHeadProp("dc:title") orElse
+                            fileMetadata.xmp.get("dc:title[1]") orElse
                             fileMetadata.iptc.get("Object Name"),
-      source              = readXmpHeadProp("photoshop:Source") orElse
+      source              = fileMetadata.xmp.get("photoshop:Source") orElse
                             fileMetadata.iptc.get("Source"),
-      specialInstructions = readXmpHeadProp("photoshop:Instructions") orElse
+      specialInstructions = fileMetadata.xmp.get("photoshop:Instructions") orElse
                             fileMetadata.iptc.get("Special Instructions"),
       // FIXME: Read XMP dc:subject array:
       keywords            = fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil,
       // FIXME: Parse newest location schema: http://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#location-structure
-      subLocation         = readXmpHeadProp("Iptc4xmpCore:Location") orElse
+      subLocation         = fileMetadata.xmp.get("Iptc4xmpCore:Location") orElse
                             fileMetadata.iptc.get("Sub-location"),
-      city                = readXmpHeadProp("photoshop:City") orElse
+      city                = fileMetadata.xmp.get("photoshop:City") orElse
                             fileMetadata.iptc.get("City"),
-      state               = readXmpHeadProp("photoshop:State") orElse
+      state               = fileMetadata.xmp.get("photoshop:State") orElse
                             fileMetadata.iptc.get("Province/State"),
-      country             = readXmpHeadProp("photoshop:Country") orElse
+      country             = fileMetadata.xmp.get("photoshop:Country") orElse
                             fileMetadata.iptc.get("Country/Primary Location Name"),
       subjects            = extractSubjects(fileMetadata))
-  }
 
   // IPTC doesn't appear to enforce the datetime format of the field, which means we have to
   // optimistically attempt various formats observed in the wild. Dire times.

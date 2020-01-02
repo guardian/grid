@@ -14,10 +14,9 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-import com.gu.mediaservice.model.{Dimensions, FileMetadata, FileMetadataAggregator}
+import com.gu.mediaservice.model.{Dimensions, FileMetadata}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
-import play.api.libs.json.JsValue
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -68,7 +67,7 @@ object FileMetadataReader {
       iptc = exportDirectory(metadata, classOf[IptcDirectory]),
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
-      xmp = exportXmpPropertiesInTransformedSchema(metadata, imageId),
+      xmp = exportXmpProperties(metadata, imageId),
       icc = exportDirectory(metadata, classOf[IccDirectory]),
       getty = exportGettyDirectory(metadata, imageId),
       colourModel = None,
@@ -114,21 +113,16 @@ object FileMetadataReader {
       case (key, Some(value)) => key -> value
     }
   }
-  private def exportRawXmpProperties(metadata: Metadata, imageId:String): Map[String, String] = {
+  private def exportXmpProperties(metadata: Metadata, imageId:String): Map[String, String] =
     Option(metadata.getFirstDirectoryOfType(classOf[XmpDirectory])) map { directory =>
       xmpDirectoryToMap(directory, imageId)
     } getOrElse Map()
-  }
-  private def exportXmpPropertiesInTransformedSchema(metadata: Metadata, imageId:String): Map[String, JsValue] = {
-    val props = exportRawXmpProperties(metadata, imageId)
-    FileMetadataAggregator.aggregateMetadataMap(props)
-  }
 
   // Getty made up their own XMP namespace.
   // We're awaiting actual documentation of the properties available, so
   // this only extracts a small subset of properties as a means to identify Getty images.
   private def exportGettyDirectory(metadata: Metadata, imageId:String): Map[String, String] = {
-      val xmpProperties = exportRawXmpProperties(metadata, imageId)
+      val xmpProperties = exportXmpProperties(metadata, imageId)
 
       def readProperty(name: String): Option[String] = xmpProperties.get(name)
 
