@@ -18,6 +18,12 @@ class ImageResponseTest extends FunSpec with Matchers {
     normalisedText shouldBe "Here is some text\nthat spans across\nmultiple lines\n"
   }
 
+  it("not cause a stack overflow when many consecutive newline characters are present") {
+    val text = "\n\r\n\n\n\r\r\r\n" * 1000
+    val normalisedText = ImageResponse.normaliseNewLines(text)
+    normalisedText shouldBe "\n"
+  }
+
   it("should not touch \\n linebreaks") {
     val text = "Here is some text\nthat spans across\nmultiple lines\n"
     val normalisedText = ImageResponse.normaliseNewLines(text)
