@@ -299,20 +299,20 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 object ImageResponse {
 
   val newlineNormalisingImageMetadataWriter: Writes[ImageMetadata] = (input: ImageMetadata) => {
-    Json.toJson(normaliseNewLines(input))
+    Json.toJson(normaliseNewLinesInImageMeta(input))
   }
 
-  def normaliseNewLines(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.modifyAll(
+  def normaliseNewLinesInImageMeta(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.modifyAll(
     _.description,
     _.copyrightNotice,
     _.copyright,
     _.specialInstructions,
     _.suppliersReference
-  ).using(_.map(ImageResponse.normaliseNewLines))
+  ).using(_.map(ImageResponse.normaliseNewlineChars))
 
-  private val pattern = """(\r|\n|\r\n)+""".r
+  private val pattern = """[\r\n]+""".r
 
-  def normaliseNewLines(string: String): String = pattern.replaceAllIn(string, "\n")
+  def normaliseNewlineChars(string: String): String = pattern.replaceAllIn(string, "\n")
 
   def canImgBeDeleted(image: Image) = !hasExports(image) && !hasUsages(image)
 
