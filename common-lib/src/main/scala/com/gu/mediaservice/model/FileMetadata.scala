@@ -10,7 +10,7 @@ case class FileMetadata(
   iptc: Map[String, String]                     = Map(),
   exif: Map[String, String]                     = Map(),
   exifSub: Map[String, String]                  = Map(),
-  xmp: Map[String, String]                      = Map(),
+  xmp: Map[String, JsValue]                      = Map(),
   icc: Map[String, String]                      = Map(),
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
@@ -41,7 +41,7 @@ object FileMetadata {
     (__ \ "iptc").read[Map[String,String]] ~
     (__ \ "exif").read[Map[String,String]] ~
     (__ \ "exifSub").read[Map[String,String]] ~
-    (__ \ "xmp").read[Map[String,String]] ~
+    (__ \ "xmp").read[Map[String,JsValue]] ~
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()).map(removeLongValues) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "colourModel").readNullable[String] ~
@@ -63,7 +63,7 @@ object FileMetadata {
     (JsPath \ "iptc").write[Map[String,String]] and
       (JsPath \ "exif").write[Map[String,String]] and
       (JsPath \ "exifSub").write[Map[String,String]] and
-      (JsPath \ "xmp").write[Map[String,String]] and
+      (JsPath \ "xmp").write[Map[String,JsValue]] and
       (JsPath \ "icc").write[Map[String,String]].contramap[Map[String, String]](removeLongValues) and
       (JsPath \ "getty").write[Map[String,String]] and
       (JsPath \ "colourModel").writeNullable[String] and
