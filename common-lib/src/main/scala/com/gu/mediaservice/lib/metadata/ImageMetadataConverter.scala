@@ -27,11 +27,14 @@ object ImageMetadataConverter {
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata = {
     val xmp = fileMetadata.xmp
     val readXmpHeadProp: String => Option[String] = (name: String) => {
-      xmp.get(name) match {
-        case Some(JsString(value)) => Some(value)
-        case Some(JsArray(value)) => value.headOption.map(_.toString)
+      val res = xmp.get(name) match {
+        case Some(JsString(value)) =>
+          Some(value.toString)
+        case Some(JsArray(value)) =>
+          value.toList.headOption.map(_.as[String])
         case _ => None
       }
+      res
     }
 
     ImageMetadata(

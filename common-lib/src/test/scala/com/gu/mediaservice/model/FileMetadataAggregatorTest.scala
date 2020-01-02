@@ -13,6 +13,10 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "xmpMM:History[5]/stEvt:parameters" -> "converted from application/vnd.adobe.photoshop to image/png",
       "photoshop:ColorMode" -> "3",
       "dc:creator[1]" -> "tmp",
+      "dc:description[1]/xml:lang" -> "x-default",
+      "dc:description[1]" -> "the xmp description",
+      "dc:title[1]" -> "the xmp title",
+      "dc:title[1]/xml:lang" -> "x-default",
       "xmp:MetadataDate" -> "2019-07-04T13:12:26.000Z",
       "photoshop:DocumentAncestors[3]" -> "0024E0DBC7EAA19ECC90B9B2F5F1E071",
       "xmpMM:History[6]/stEvt:instanceID" -> "xmp.iid:d9500a13-3c27-401c-a2cc-1fd027b0424f",
@@ -79,6 +83,14 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
     val expected = Map(
       "dc:format" -> JsString("image/png"),
       "photoshop:ColorMode" -> JsString("3"),
+      "dc:description" -> JsArray(Seq(
+        JsString("the xmp description"),
+        JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+      )),
+      "dc:title" -> JsArray(Seq(
+        JsString("the xmp title"),
+        JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+      )),
       "xmp:MetadataDate" -> JsString("2019-07-04T13:12:26.000Z"),
       "xmpMM:DerivedFrom" -> JsArray(Seq(
         "{'stRef:instanceID':'xmp.iid:adbc5207-3f5b-4480-9e67-ed2a1871deb9'}",
@@ -93,10 +105,10 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "exif:PixelYDimension" -> JsString("2000"),
       "xmp:CreateDate" -> JsString("2018-02-06T16:36:48.000Z"),
       "dc:rights" -> JsArray(Seq(
+        JsString("B814F57A-329B-441B-8564-F6D3A0973F14"),
         JsArray(Seq(
           "{'xml:lang':'x-default'}"
         ).map(JsString)),
-        JsString("B814F57A-329B-441B-8564-F6D3A0973F14")
       )),
       "xmp:CreatorTool" -> JsString("Adobe Photoshop CC 2019 (Macintosh)"),
       "photoshop:DocumentAncestors" -> JsArray(Seq(

@@ -36,14 +36,20 @@ object FileMetadataAggregator {
     if (isArrayKey(k)) toArrayKeyAndValue(k, v) else if (isCustomObjectKey(k)) toCustomObjectKeyAndValue(k, v) else (k, v)
   }
 
-  private def aggregateCurrentMetadataLevel(nodes: Map[String, JsValue]): Map[String, JsValue] = {
+  private def getIdxBetweenArrayBrackets(k: String): Int = k.substring(k.lastIndexOf("[") + 1, k.lastIndexOf("]")).trim.toInt
 
-    def getIdxFromKey(k: String): Int = {
-      if (isArrayKey(k) || isCustomObjectArrayKey(k)) k.substring(k.lastIndexOf("[") + 1, k.lastIndexOf("]")).trim.toInt
-      else Int.MaxValue
+
+  private def aggregateCurrentMetadataLevel(nodes: Map[String, MetadataEntry]): Map[String, MetadataEntry] = {
+
+    def toEntriesWithUpdatedIndexes(nodes: Map[String, MetadataEntry]) = {
+      nodes.map { case (k, v) =>
+        val previousIdx = v.index
+        val curIdx: Int = getIdxFromKeyIfItExistsOrPreviousIdx(k, previousIdx)
+        k -> MetadataEntry(curIdx, v.jsValue)
+      }
     }
 
-    val entriesWithIndexes = nodes.map { case (k, v) => k -> MetadataEntry(getIdxFromKey(k), v) }
+    val entriesWithIndexes: Map[String, MetadataEntry] = toEntriesWithUpdatedIndexes(nodes)
 
     val mutableMap = scala.collection.mutable.Map[String, Either[MetadataEntry, List[MetadataEntry]]]()
 
@@ -63,17 +69,49 @@ object FileMetadataAggregator {
 
     val mapWithSortedValuesAtCurrentLevel = mutableMap.mapValues { v =>
       v match {
-        case scala.util.Left(value) => value.jsValue
-        case scala.util.Right(value) => value.sortBy(_.index).map(_.jsValue.as[JsArray]).foldLeft(JsArray.empty)((acc, item) => acc ++ item)
+        case scala.util.Left(value) => value
+        case scala.util.Right(value) => {
+          val sortedList = value.sortBy(_.index)
+          val sorted: JsArray = sortedList.map(_.jsValue.as[JsArray]).foldLeft(JsArray.empty)((acc, item) => acc ++ item)
+          println()
+          MetadataEntry(sortedList.head.index, sorted)
+        }
       }
     }
-
     mapWithSortedValuesAtCurrentLevel.toMap
+  }
+
+  def getIdxFromKeyIfItExistsOrPreviousIdx(k: String, other: Int): Int = {
+    if (isArrayKey(k) || isCustomObjectArrayKey(k)) {
+      getIdxBetweenArrayBrackets(k)
+    } else {
+      /**
+       * eventually root array key will become regular key
+       * that is why we have - 1 here as we want to prioritise it every iteration
+       * such that simple values will be prioritised over custom objects
+       * for example we want
+       *
+       * [ "the xmp description", ["{'xml:lang':'x-default'}"] ]
+       *
+       * not
+       *
+       * [ ["{'xml:lang':'x-default'}"],"the xmp description" ]
+       */
+      other - 1
+    }
   }
 
   def aggregateMetadataMap(flatProperties: Map[String, String]): Map[String, JsValue] = {
 
-    val initialMetadataStructure = flatProperties.mapValues(JsString)
+    def toInitialEntriesWithIndexes(nodes: Map[String, JsValue]) = {
+      val previousIndex = Int.MaxValue
+      nodes.map { case (k, v) =>
+        val curIdx: Int = getIdxFromKeyIfItExistsOrPreviousIdx(k, previousIndex)
+        k -> MetadataEntry(curIdx, v)
+      }
+    }
+
+    val initialMetadataStructure = toInitialEntriesWithIndexes(flatProperties.mapValues(JsString))
 
     var aggMetadata = aggregateCurrentMetadataLevel(initialMetadataStructure)
 
@@ -83,7 +121,7 @@ object FileMetadataAggregator {
 
     while (anyKeyIsArrayKey(aggMetadata.keySet) || anyKeyIsDynamicObjectKey(aggMetadata.keySet)) aggMetadata = aggregateCurrentMetadataLevel(aggMetadata)
 
-    aggMetadata
+    aggMetadata.mapValues(_.jsValue)
   }
 
 }
