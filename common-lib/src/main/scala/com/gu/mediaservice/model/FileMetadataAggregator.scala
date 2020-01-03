@@ -38,7 +38,6 @@ object FileMetadataAggregator {
 
   private def getIdxBetweenArrayBrackets(k: String): Int = k.substring(k.lastIndexOf("[") + 1, k.lastIndexOf("]")).trim.toInt
 
-
   private def aggregateCurrentMetadataLevel(nodes: Map[String, MetadataEntry]): Map[String, MetadataEntry] = {
 
     def toEntriesWithUpdatedIndexes(nodes: Map[String, MetadataEntry]) = {
@@ -86,9 +85,9 @@ object FileMetadataAggregator {
       getIdxBetweenArrayBrackets(k)
     } else {
       /**
-       * eventually root array key will become regular key
+       * eventually any array key will become a simple value key
        * that is why we have - 1 here as we want to prioritise it every iteration
-       * such that simple values will be prioritised over custom objects
+       * such that simple values will be prioritised over custom nested objects
        * for example we want
        *
        * [ "the xmp description", ["{'xml:lang':'x-default'}"] ]

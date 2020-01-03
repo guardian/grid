@@ -15,6 +15,8 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "dc:creator[1]" -> "tmp",
       "dc:description[1]/xml:lang" -> "x-default",
       "dc:description[1]" -> "the xmp description",
+      "dc:description[1]/test:1" -> "test1",
+      "dc:description[1]/test:2" -> "test2",
       "dc:title[1]" -> "the xmp title",
       "dc:title[1]/xml:lang" -> "x-default",
       "xmp:MetadataDate" -> "2019-07-04T13:12:26.000Z",
@@ -85,7 +87,11 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "photoshop:ColorMode" -> JsString("3"),
       "dc:description" -> JsArray(Seq(
         JsString("the xmp description"),
-        JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+        JsArray(Seq(
+          "{'test:2':'test2'}",
+          "{'xml:lang':'x-default'}",
+          "{'test:1':'test1'}",
+        ).map(JsString)),
       )),
       "dc:title" -> JsArray(Seq(
         JsString("the xmp title"),
