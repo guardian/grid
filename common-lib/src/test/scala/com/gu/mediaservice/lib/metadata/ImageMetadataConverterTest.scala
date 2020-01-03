@@ -137,8 +137,8 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.country should be(Some("xmp Country"))
   }
 
-  it("should populate string fields of ImageMetadata from from xmp fileMetadata properly " +
-    "even if xmp input had wrong order of entries") {
+  it("should populate string fields of ImageMetadata from xmp fileMetadata properly " +
+    "even if xmp input had mixed order of entries") {
     val fileMetadata = FileMetadata(
       xmp = Map(
         "dc:description" -> JsArray(Seq(
@@ -146,8 +146,15 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
           JsString("the xmp description"),
         )),
         "dc:title" -> JsArray(Seq(
-          JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+          JsArray(Seq(
+            "{'test:2':'test2'}",
+            "{'xml:lang':'x-default'}",
+            "{'test:1':'test1'}",
+          ).map(JsString)),
           JsString("the xmp title"),
+          JsArray(Seq(
+            "{'test:3':'test3'}",
+          ).map(JsString)),
         )),
         "dc:creator" -> JsArray(Seq(JsString("xmp creator"))),
         "photoshop:DateCreated" -> JsString("2018-06-27T13:54:55"),
