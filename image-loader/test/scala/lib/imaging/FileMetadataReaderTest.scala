@@ -1,5 +1,6 @@
 package test.lib.imaging
 
+import com.gu.mediaservice.model.FileMetadataAggregator
 import lib.imaging.FileMetadataReader
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
@@ -127,43 +128,63 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
   }
 
   it("should read the xmp metadata as stored in the image (process image using GettyImagesGIFT prefix first)") {
-    val prefix0Xmp: Map[String, JsValue] = Map(
-      "photoshop:AuthorsPosition" -> JsString("Staff"),
-      "GettyImagesGIFT:Personality" -> JsArray(Seq(JsString("Petr Cech"))),
-      "photoshop:SupplementalCategories" -> JsArray(Seq(JsString("FOC"))),
-      "photoshop:DateCreated" -> JsString("2008-08-20T00:00:00.000Z"),
-      "Iptc4xmpCore:CountryCode" -> JsString("GBR"),
-      "photoshop:Credit" -> JsString("Getty Images"),
-      "photoshop:CaptionWriter" -> JsString("jm"),
-      "GettyImagesGIFT:CameraMakeModel" -> JsString("Canon EOS-1D Mark III"),
-      "photoshop:City" -> JsString("London"),
-      "dc:description" -> JsArray(Seq(
-        JsString("LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
-      "photoshop:Headline" -> JsString("England v Czech Republic - International Friendly"),
-      "photoshop:TransmissionReference" -> JsString("81774706"),
-      "photoshop:Source" -> JsString("Getty Images Europe"),
-      "GettyImagesGIFT:CameraFilename" -> JsString("8R8Z0144.JPG"),
-      "photoshop:Category" -> JsString("S"),
-      "dc:title" -> JsArray(Seq(
-        JsString("81774706JM148_England_v_Cze"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
-      "GettyImagesGIFT:OriginalFilename" -> JsString("2008208_81774706JM148_England_v_Cze.jpg"),
-      "GettyImagesGIFT:OriginalCreateDateTime" -> JsString("2008-08-20T20:25:49.000Z"),
-      "dc:rights" -> JsArray(Seq(
-        JsString("2008 Getty Images"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
-      "GettyImagesGIFT:TimeShot" -> JsString("212019+0200"),
-      "photoshop:Country" -> JsString("United Kingdom"),
-      "GettyImagesGIFT:Composition" -> JsString("Full Length"),
-      "GettyImagesGIFT:ImageRank" -> JsString("3"),
-      "xmpMM:InstanceID" -> JsString("uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b"),
-      "dc:creator" -> JsArray(Seq(JsString("Phil Cole"))),
-      "GettyImagesGIFT:CameraSerialNumber" -> JsString("0000571198")
+    val rawPrefix0Xmp: Map[String, String] = Map(
+      "GettyImagesGIFT:ImageRank" -> "3",
+      "GettyImagesGIFT:OriginalFilename" -> "2008208_81774706JM148_England_v_Cze.jpg",
+      "dc:subject[15]" -> "London - England",
+      "dc:creator[1]" -> "Phil Cole",
+      "dc:title[1]" -> "81774706JM148_England_v_Cze",
+      "dc:title[1]/xml:lang" -> "x-default",
+      "photoshop:SupplementalCategories[1]" -> "FOC",
+      "photoshop:Headline" -> "England v Czech Republic - International Friendly",
+      "photoshop:TransmissionReference" -> "81774706",
+      "dc:subject[6]" -> "Vertical",
+      "dc:description[1]/xml:lang" -> "x-default",
+      "photoshop:AuthorsPosition" -> "Staff",
+      "dc:subject[8]" -> "Full Length",
+      "photoshop:CaptionWriter" -> "jm",
+      "dc:subject[3]" -> "Full Body Isolated",
+      "plus:ImageSupplierImageId" -> "82486881",
+      "dc:description[1]" -> "LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)",
+      "photoshop:SupplementalCategories[2]" -> "SPO",
+      "dc:subject[16]" -> "Club Soccer",
+      "dc:subject[4]" -> "Sport",
+      "photoshop:City" -> "London",
+      "GettyImagesGIFT:ExclusiveCoverage" -> "False",
+      "dc:subject[9]" -> "Activity",
+      "photoshop:DateCreated" -> "2008-08-20T00:00:00.000Z",
+      "photoshop:Credit" -> "Getty Images",
+      "dc:subject[13]" -> "Friendly Match",
+      "dc:subject[7]" -> "Czech Republic",
+      "dc:rights[1]" -> "2008 Getty Images",
+      "GettyImagesGIFT:Composition" -> "Full Length",
+      "GettyImagesGIFT:TimeShot" -> "212019+0200",
+      "GettyImagesGIFT:Personality[1]" -> "Petr Cech",
+      "dc:subject[17]" -> "Goalie",
+      "photoshop:SupplementalCategories[3]" -> "SOC",
+      "dc:rights[1]/xml:lang" -> "x-default",
+      "GettyImagesGIFT:CameraMakeModel" -> "Canon EOS-1D Mark III",
+      "dc:Rights" -> "2008 Getty Images",
+      "GettyImagesGIFT:OriginalCreateDateTime" -> "2008-08-20T20:25:49.000Z",
+      "dc:subject[10]" -> "Wembley Stadium",
+      "dc:subject[2]" -> "Motion",
+      "dc:subject[12]" -> "Soccer",
+      "dc:subject[14]" -> "UK",
+      "GettyImagesGIFT:AssetId" -> "82486881",
+      "dc:subject[11]" -> "Stadium",
+      "Iptc4xmpCore:CountryCode" -> "GBR",
+      "dc:subject[1]" -> "England",
+      "GettyImagesGIFT:CameraFilename" -> "8R8Z0144.JPG",
+      "GettyImagesGIFT:CallForImage" -> "False",
+      "photoshop:Country" -> "United Kingdom",
+      "photoshop:Source" -> "Getty Images Europe",
+      "photoshop:Category" -> "S",
+      "GettyImagesGIFT:CameraSerialNumber" -> "0000571198",
+      "xmpMM:InstanceID" -> "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b",
+      "dc:subject[5]" -> "Petr Cech"
     )
+
+    val expected = FileMetadataAggregator.aggregateMetadataMap(rawPrefix0Xmp)
 
     // `getty.jpg` uses the `GettyImagesGIFT` prefix, processing it first will populate the `XMPSchemaRegistry` cache,
     // resulting in `cech.jpg` to be read differently from the content in the file which uses the `prefix0` prefix.
@@ -171,7 +192,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     whenReady(gettyGiftXmpFuture) { _ =>
       val prefix0MetadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
       whenReady(prefix0MetadataFuture) { metadata =>
-        sameMaps(metadata.xmp, prefix0Xmp)
+        sameMaps(metadata.xmp, expected)
       }
     }
   }
@@ -220,47 +241,67 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
   }
 
   it("should always use the GettyImagesGIFT namespace for XMP metadata using the Getty schema") {
-    val expected: Map[String, JsValue] = Map(
-      "photoshop:AuthorsPosition" -> JsString("Staff"),
-      "GettyImagesGIFT:Personality" -> JsArray(Seq(JsString("Petr Cech"))),
-      "photoshop:SupplementalCategories" -> JsArray(Seq(JsString("FOC"))),
-      "photoshop:DateCreated" -> JsString("2008-08-20T00:00:00.000Z"),
-      "Iptc4xmpCore:CountryCode" -> JsString("GBR"),
-      "photoshop:Credit" -> JsString("Getty Images"),
-      "photoshop:CaptionWriter" -> JsString("jm"),
-      "GettyImagesGIFT:CameraMakeModel" -> JsString("Canon EOS-1D Mark III"),
-      "photoshop:City" -> JsString("London"),
-      "dc:description" -> JsArray(Seq(
-        JsString("LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
-      "photoshop:Headline" -> JsString("England v Czech Republic - International Friendly"),
-      "photoshop:TransmissionReference" -> JsString("81774706"),
-      "photoshop:Source" -> JsString("Getty Images Europe"),
-      "GettyImagesGIFT:CameraFilename" -> JsString("8R8Z0144.JPG"),
-      "photoshop:Category" -> JsString("S"),
-      "dc:title" -> JsArray(Seq(
-        JsString("81774706JM148_England_v_Cze"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
-      "GettyImagesGIFT:OriginalFilename" -> JsString("2008208_81774706JM148_England_v_Cze.jpg"),
-      "GettyImagesGIFT:OriginalCreateDateTime" -> JsString("2008-08-20T20:25:49.000Z"),
-      "dc:rights" -> JsArray(Seq(
-        JsString("2008 Getty Images"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
-      "GettyImagesGIFT:TimeShot" -> JsString("212019+0200"),
-      "photoshop:Country" -> JsString("United Kingdom"),
-      "GettyImagesGIFT:Composition" -> JsString("Full Length"),
-      "GettyImagesGIFT:ImageRank" -> JsString("3"),
-      "xmpMM:InstanceID" -> JsString("uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b"),
-      "dc:creator" -> JsArray(Seq(JsString("Phil Cole"))),
-      "GettyImagesGIFT:CameraSerialNumber" -> JsString("0000571198")
+    val rawExpected: Map[String, String] = Map(
+      "GettyImagesGIFT:ImageRank" -> "3",
+      "GettyImagesGIFT:OriginalFilename" -> "2008208_81774706JM148_England_v_Cze.jpg",
+      "dc:subject[15]" -> "London - England",
+      "dc:creator[1]" -> "Phil Cole",
+      "dc:title[1]" -> "81774706JM148_England_v_Cze",
+      "dc:title[1]/xml:lang" -> "x-default",
+      "photoshop:SupplementalCategories[1]" -> "FOC",
+      "photoshop:Headline" -> "England v Czech Republic - International Friendly",
+      "photoshop:TransmissionReference" -> "81774706",
+      "dc:subject[6]" -> "Vertical",
+      "dc:description[1]/xml:lang" -> "x-default",
+      "photoshop:AuthorsPosition" -> "Staff",
+      "dc:subject[8]" -> "Full Length",
+      "photoshop:CaptionWriter" -> "jm",
+      "dc:subject[3]" -> "Full Body Isolated",
+      "plus:ImageSupplierImageId" -> "82486881",
+      "dc:description[1]" -> "LONDON - AUGUST 20:  Czech Republic goalkeeper Petr Cech in action during the international friendly match between England and the Czech Republic at Wembley Stadium on August 20, 2008 in London, England.  (Photo by Phil Cole/Getty Images)",
+      "photoshop:SupplementalCategories[2]" -> "SPO",
+      "dc:subject[16]" -> "Club Soccer",
+      "dc:subject[4]" -> "Sport",
+      "photoshop:City" -> "London",
+      "GettyImagesGIFT:ExclusiveCoverage" -> "False",
+      "dc:subject[9]" -> "Activity",
+      "photoshop:DateCreated" -> "2008-08-20T00:00:00.000Z",
+      "photoshop:Credit" -> "Getty Images",
+      "dc:subject[13]" -> "Friendly Match",
+      "dc:subject[7]" -> "Czech Republic",
+      "dc:rights[1]" -> "2008 Getty Images",
+      "GettyImagesGIFT:Composition" -> "Full Length",
+      "GettyImagesGIFT:TimeShot" -> "212019+0200",
+      "GettyImagesGIFT:Personality[1]" -> "Petr Cech",
+      "dc:subject[17]" -> "Goalie",
+      "photoshop:SupplementalCategories[3]" -> "SOC",
+      "dc:rights[1]/xml:lang" -> "x-default",
+      "GettyImagesGIFT:CameraMakeModel" -> "Canon EOS-1D Mark III",
+      "dc:Rights" -> "2008 Getty Images",
+      "GettyImagesGIFT:OriginalCreateDateTime" -> "2008-08-20T20:25:49.000Z",
+      "dc:subject[10]" -> "Wembley Stadium",
+      "dc:subject[2]" -> "Motion",
+      "dc:subject[12]" -> "Soccer",
+      "dc:subject[14]" -> "UK",
+      "GettyImagesGIFT:AssetId" -> "82486881",
+      "dc:subject[11]" -> "Stadium",
+      "Iptc4xmpCore:CountryCode" -> "GBR",
+      "dc:subject[1]" -> "England",
+      "GettyImagesGIFT:CameraFilename" -> "8R8Z0144.JPG",
+      "GettyImagesGIFT:CallForImage" -> "False",
+      "photoshop:Country" -> "United Kingdom",
+      "photoshop:Source" -> "Getty Images Europe",
+      "photoshop:Category" -> "S",
+      "GettyImagesGIFT:CameraSerialNumber" -> "0000571198",
+      "xmpMM:InstanceID" -> "uuid:faf5bdd5-ba3d-11da-ad31-d33d75182f1b",
+      "dc:subject[5]" -> "Petr Cech"
     )
+    val aggExpected = FileMetadataAggregator.aggregateMetadataMap(rawExpected)
+
     val metadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
     whenReady(metadataFuture) { metadata =>
 
-      sameMaps(metadata.xmp, expected)
+      sameMaps(metadata.xmp, aggExpected)
     }
   }
 
