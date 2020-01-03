@@ -137,6 +137,51 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.country should be(Some("xmp Country"))
   }
 
+  it("should populate string fields of ImageMetadata from from xmp fileMetadata properly " +
+    "even if xmp input had wrong order of entries") {
+    val fileMetadata = FileMetadata(
+      xmp = Map(
+        "dc:description" -> JsArray(Seq(
+          JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+          JsString("the xmp description"),
+        )),
+        "dc:title" -> JsArray(Seq(
+          JsArray(Seq("{'xml:lang':'x-default'}").map(JsString)),
+          JsString("the xmp title"),
+        )),
+        "dc:creator" -> JsArray(Seq(JsString("xmp creator"))),
+        "photoshop:DateCreated" -> JsString("2018-06-27T13:54:55"),
+        "photoshop:Credit" -> JsString("xmp credit"),
+        "photoshop:AuthorsPosition" -> JsString("xmp byline title"),
+        "photoshop:Headline" -> JsString("xmp "),
+        "dc:Rights" -> JsString("xmp copyrightNotice"),
+        "photoshop:TransmissionReference" -> JsString("xmp suppliersReference"),
+        "photoshop:Source" -> JsString("xmp source"),
+        "photoshop:Instructions" -> JsString("xmp specialInstructions"),
+        "Iptc4xmpCore:Location" -> JsString("xmp subLocation"),
+        "photoshop:City" -> JsString("xmp City"),
+        "photoshop:State" -> JsString("xmp State"),
+        "photoshop:Country" -> JsString("xmp Country"),
+      )
+    )
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+
+    imageMetadata.description should be(Some("the xmp description"))
+    imageMetadata.credit should be(Some("xmp credit"))
+    imageMetadata.byline should be(Some("xmp creator"))
+    imageMetadata.dateTaken should be(Some(parseDate("2018-06-27T13:54:55Z")))
+    imageMetadata.bylineTitle should be(Some("xmp byline title"))
+    imageMetadata.title should be(Some("xmp "))
+    imageMetadata.copyrightNotice should be(Some("xmp copyrightNotice"))
+    imageMetadata.suppliersReference should be(Some("xmp suppliersReference"))
+    imageMetadata.source should be(Some("xmp source"))
+    imageMetadata.specialInstructions should be(Some("xmp specialInstructions"))
+    imageMetadata.subLocation should be(Some("xmp subLocation"))
+    imageMetadata.city should be(Some("xmp City"))
+    imageMetadata.state should be(Some("xmp State"))
+    imageMetadata.country should be(Some("xmp Country"))
+  }
+
   it("should fallback to Copyright Notice for copyright field of ImageMetadata if Copyright is missing") {
     val fileMetadata = FileMetadata(Map("Copyright Notice" -> "the copyright notice"), Map(), Map(), Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
