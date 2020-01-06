@@ -23,6 +23,7 @@ export const filterFields = [
     'location',
     'source',
     'state',
+    'specialInstructions',
     'subject',
     'supplier',
     'uploader',
