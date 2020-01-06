@@ -1,5 +1,7 @@
 package lib.elasticsearch.impls.elasticsearch6
 
+import java.util.concurrent.TimeUnit
+
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
@@ -8,7 +10,7 @@ import com.gu.mediaservice.model.{Agencies, Agency, Image}
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.search.{Aggregations, SearchHit, SearchResponse}
-import com.sksamuel.elastic4s.searches.DateHistogramInterval
+import com.sksamuel.elastic4s.searches.{DateHistogramInterval, SearchRequest}
 import com.sksamuel.elastic4s.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.searches.queries.Query
 import lib.elasticsearch._
@@ -22,6 +24,7 @@ import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 import play.mvc.Http.Status
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config, overQuotaAgencies: () => List[Agency]) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
@@ -31,6 +34,8 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   lazy val cluster = elasticConfig.cluster
   lazy val shards = elasticConfig.shards
   lazy val replicas = elasticConfig.replicas
+
+  private val SearchQueryTimeout = FiniteDuration(5, TimeUnit.SECONDS)
 
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
@@ -137,6 +142,8 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     val searchRequest = prepareSearch(withFilter) from params.offset size params.length sortBy sort
 
+    Logger.info(s"searchRequest query:\n${searchRequest.show}")
+
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.id, i))
@@ -225,7 +232,12 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map { _.result.totalHits}
 
-  private def prepareSearch(query: Query) = ElasticDsl.search(imagesAlias) query query
+  def withSearchQueryTimeout(sr: SearchRequest): SearchRequest = sr timeout SearchQueryTimeout
+
+  private def prepareSearch(query: Query): SearchRequest = {
+    val sr = ElasticDsl.search(imagesAlias) query query
+    withSearchQueryTimeout(sr)
+  }
 
   private def mapImageFrom(sourceAsString: String, id: String) = {
     Json.parse(sourceAsString).validate[Image] match {
