@@ -10,9 +10,9 @@ import com.gu.mediaservice.model.{Agencies, Agency, Image}
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.search.{Aggregations, SearchHit, SearchResponse}
-import com.sksamuel.elastic4s.searches.{DateHistogramInterval, SearchRequest}
 import com.sksamuel.elastic4s.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.searches.queries.Query
+import com.sksamuel.elastic4s.searches.{DateHistogramInterval, SearchRequest}
 import lib.elasticsearch._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
@@ -20,14 +20,15 @@ import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
+import play.mvc.Http.Status
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
-import play.mvc.Http.Status
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config, overQuotaAgencies: () => List[Agency]) extends ElasticSearchVersion with ElasticSearchClient with ElasticSearch6Executions with ImageFields with MatchFields with FutureSyntax {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearch6Config, overQuotaAgencies: () => List[Agency]) extends ElasticSearchVersion
+  with ElasticSearchClient with ImageFields with MatchFields with FutureSyntax {
 
   lazy val imagesAlias = elasticConfig.alias
   lazy val url = elasticConfig.url
@@ -35,7 +36,16 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   lazy val shards = elasticConfig.shards
   lazy val replicas = elasticConfig.replicas
 
-  private val SearchQueryTimeout = FiniteDuration(1, TimeUnit.MICROSECONDS)
+  private val SearchQueryTimeout = FiniteDuration(10, TimeUnit.SECONDS)
+  // there is 15 seconds timeout set on cluster level as well
+
+  /**
+   * int terms of search query timeout in GRID,
+   * there is a additional config `allow_partial_search_results`
+   * which is set to true by default,
+   * which means for example if i ask ES to give me photos that have field foo=bar without timeout it can give me 6500 results
+   * if i ask the same query with 1ms timeout it may give me for example 4000 results instead
+   **/
 
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
@@ -43,12 +53,12 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
-    val search = get(imagesAlias, Mappings.dummyType, id)
-    executeAndLog(search, s"get image by id $id").map { r =>
+    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
       r.status match {
-      case Status.OK => mapImageFrom(r.result.sourceAsString, id)
-      case _ => None
-    }}
+        case Status.OK => mapImageFrom(r.result.sourceAsString, id)
+        case _ => None
+      }
+    }
   }
 
   override def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
@@ -57,23 +67,23 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
-    val uploadTimeFilter  = filters.date("uploadTime", params.since, params.until)
+    val uploadTimeFilter = filters.date("uploadTime", params.since, params.until)
     val lastModTimeFilter = filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
-    val takenTimeFilter   = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
+    val takenTimeFilter = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
     // we only inject filters if there are actual date parameters
-    val dateFilterList    = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
-    val dateFilter        = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
+    val dateFilterList = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
+    val dateFilter = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
 
-    val idsFilter         = params.ids.map(filters.ids)
-    val labelFilter       = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter    = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
-    val archivedFilter    = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
-    val hasExports        = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier     = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
+    val idsFilter = params.ids.map(filters.ids)
+    val labelFilter = params.labels.toNel.map(filters.terms("labels", _))
+    val metadataFilter = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
+    val archivedFilter = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
+    val hasExports = params.hasExports.map(filters.existsOrMissing("exports", _))
+    val hasIdentifier = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
-    val uploadedByFilter  = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
-    val simpleCostFilter  = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
-    val costFilter        = params.payType match {
+    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
+    val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
+    val costFilter = params.payType match {
       case Some(PayType.Free) => searchFilters.freeFilter
       case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter
       case Some(PayType.Pay) => searchFilters.nonFreeFilter
@@ -82,16 +92,16 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     val hasRightsCategory = params.hasRightsCategory.filter(_ == true).map(_ => searchFilters.hasRightsCategoryFilter)
 
-    val validityFilter = params.valid.flatMap(valid => if(valid) searchFilters.validFilter else searchFilters.invalidFilter)
+    val validityFilter = params.valid.flatMap(valid => if (valid) searchFilters.validFilter else searchFilters.invalidFilter)
 
     val persistFilter = params.persisted map {
-      case true   => searchFilters.persistedFilter
-      case false  => searchFilters.nonPersistedFilter
+      case true => searchFilters.persistedFilter
+      case false => searchFilters.nonPersistedFilter
     }
 
     val usageFilter =
-     params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))) ++
-       params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _))
+      params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))) ++
+        params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _))
 
     val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
@@ -134,12 +144,12 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val withFilter = filterOpt.map { f =>
-      boolQuery must(query) filter f
+      boolQuery must (query) filter f
     }.getOrElse(query)
 
     val sort = params.orderBy match {
       case Some("dateAddedToCollection") => sorts.dateAddedToCollectionDescending
-      case _  => sorts.createSort(params.orderBy)
+      case _ => sorts.createSort(params.orderBy)
     }
 
     val searchRequest = prepareSearch(withFilter) from params.offset size params.length sortBy sort
@@ -156,7 +166,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     val supplier = Agencies.get(id)
     val supplierName = supplier.supplier
 
-    val bePublished = termQuery("usages.status","published")
+    val bePublished = termQuery("usages.status", "published")
     val beInLastPeriod = rangeQuery("usages.dateAdded")
       .gte(s"now-${numDays}d/d")
       .lt("now/d")
@@ -195,7 +205,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   override def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     Logger.info("Edit aggregation requested with params.field: " + params.field)
-    val field = "labels"   // TODO was - params.field
+    val field = "labels" // TODO was - params.field
     aggregateSearch("edits", params, termsAggregation("edits").field(editsField(field)), fromTermAggregation)
   }
 
@@ -236,7 +246,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
   }
 
-  def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map { _.result.totalHits}
+  def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map {
+    _.result.totalHits
+  }
 
   def withSearchQueryTimeout(sr: SearchRequest): SearchRequest = sr timeout SearchQueryTimeout
 
@@ -254,11 +266,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
   }
 
-  private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) = {
-    if(res.isTimedOut) {
-      val tookInSec = res.took / 1000
-      println(s"SearchQuery was TimedOut after $tookInSec seconds, query: ${req.show}")
-    }
-  }
+  private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) =
+    if (res.isTimedOut) Logger.info(s"SearchQuery was TimedOut after $SearchQueryTimeout \nquery: ${req.show}")
 
 }
