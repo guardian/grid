@@ -35,7 +35,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   lazy val shards = elasticConfig.shards
   lazy val replicas = elasticConfig.replicas
 
-  private val SearchQueryTimeout = FiniteDuration(5, TimeUnit.SECONDS)
+  private val SearchQueryTimeout = FiniteDuration(1, TimeUnit.MICROSECONDS)
 
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
@@ -43,7 +43,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
 
   override def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
-    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r => r.status match {
+    val search = get(imagesAlias, Mappings.dummyType, id)
+    executeAndLog(search, s"get image by id $id").map { r =>
+      r.status match {
       case Status.OK => mapImageFrom(r.result.sourceAsString, id)
       case _ => None
     }}
@@ -142,10 +144,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     val searchRequest = prepareSearch(withFilter) from params.offset size params.length sortBy sort
 
-    Logger.info(s"searchRequest query:\n${searchRequest.show}")
-
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
+      logSearchQueryIfTimedOut(searchRequest, r.result)
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.id, i))
       SearchResults(hits = imageHits, total = r.result.totalHits)
     }
@@ -170,7 +171,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     val search = prepareSearch(query) size 0
 
     executeAndLog(search, s"$id usage search").map { r =>
-      SupplierUsageSummary(supplier, r.result.hits.total)
+      import r.result
+      logSearchQueryIfTimedOut(search, result)
+      SupplierUsageSummary(supplier, result.hits.total)
     }
   }
 
@@ -206,6 +209,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
     executeAndLog(search, s"$name aggregate search")
       .toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("aggregate")))(_.result.took).map { r =>
+      logSearchQueryIfTimedOut(search, r.result)
       searchResultToAggregateResponse(r.result, name, extract)
     }
   }
@@ -217,8 +221,10 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   override def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[CompletionSuggestionResults] = {
     val completionSuggestion = ElasticDsl.completionSuggestion(name).on(name).text(q).skipDuplicates(true)
-    executeAndLog(ElasticDsl.search(imagesAlias) suggestions completionSuggestion, "completion suggestion query").
+    val search = ElasticDsl.search(imagesAlias) suggestions completionSuggestion
+    executeAndLog(search, "completion suggestion query").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>
+      logSearchQueryIfTimedOut(search, r.result)
       val x = r.result.suggestions.get(name).map { suggestions =>
         suggestions.flatMap { s =>
           s.toCompletion.options.map { o =>
@@ -245,6 +251,13 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       case e: JsError =>
         Logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None
+    }
+  }
+
+  private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) = {
+    if(res.isTimedOut) {
+      val tookInSec = res.took / 1000
+      println(s"SearchQuery was TimedOut after $tookInSec seconds, query: ${req.show}")
     }
   }
 
