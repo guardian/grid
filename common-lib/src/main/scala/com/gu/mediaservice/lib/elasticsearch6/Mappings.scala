@@ -92,7 +92,7 @@ object Mappings {
     keywordField("source").copyTo("metadata.englishAnalysedCatchAll"),
     nonAnalysedList("keywords").copyTo("metadata.englishAnalysedCatchAll"),
     nonAnalysedList("subjects"),
-    keywordField("specialInstructions"),
+    keywordField("specialInstructions").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("subLocation").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("city").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("state").copyTo("metadata.englishAnalysedCatchAll"),
