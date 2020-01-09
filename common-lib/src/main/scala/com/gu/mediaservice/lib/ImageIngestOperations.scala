@@ -21,8 +21,8 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deleteThumbnail(id: String) = deleteImage(thumbnailBucket, fileKeyFromId(id))
   def deletePng(id: String) = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 
-  def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
+  private def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
 
-  def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
+  private def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
 
 }
