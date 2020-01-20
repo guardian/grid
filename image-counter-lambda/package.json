@@ -15,5 +15,9 @@
     "jest": "^24.9.0",
     "ts-jest": "^24.3.0",
     "typescript": "^3.7.5"
+  },
+  "dependencies": {
+    "@types/node": "^13.1.8",
+    "aws-sdk": "^2.606.0"
   }
 }
