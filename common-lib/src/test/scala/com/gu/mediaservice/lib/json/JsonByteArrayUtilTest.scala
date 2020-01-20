@@ -38,4 +38,9 @@ class JsonByteArrayUtilTest extends FunSuite with Matchers {
     JsonByteArrayUtil.fromByteArray[List[Shape]](uncompressedBytes) shouldBe Some(shapes)
     JsonByteArrayUtil.fromByteArray[List[Shape]](compressedBytes) shouldBe Some(shapes)
   }
+
+  test("An uncompressed message can be read") {
+    val uncompressedJson = Json.toBytes(Json.toJson(circle))
+    JsonByteArrayUtil.fromByteArray[Shape](uncompressedJson) shouldBe Some(circle)
+  }
 }
