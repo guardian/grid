@@ -4,9 +4,11 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
+import play.api.Logger
 import play.api.libs.json._
 
 import scala.io.Source.fromInputStream
+import scala.util.Try
 
 object JsonByteArrayUtil extends PlayJsonHelpers {
   private val compressionMarkerByte: Byte = 0x00.toByte
@@ -34,13 +36,21 @@ object JsonByteArrayUtil extends PlayJsonHelpers {
   def toByteArray[T](obj: T)(implicit writes: Writes[T]): Array[Byte] = compress(Json.toBytes(Json.toJson(obj)))
 
   def fromByteArray[T](bytes: Array[Byte])(implicit reads: Reads[T]): Option[T] = {
-    val string = new String(decompress(bytes), StandardCharsets.UTF_8)
+    val decompressedString = Try(new String(decompress(bytes), StandardCharsets.UTF_8)).toEither
 
-    Json.parse(string).validate[T] match {
-      case JsSuccess(obj, _) => Some(obj)
-      case e: JsError => {
-        logParseErrors(e)
+    decompressedString match {
+      case Left(value) => {
+        Logger.error("unable to gunzip bytes", value)
         None
+      }
+      case Right(string) => {
+        Json.parse(string).validate[T] match {
+          case JsSuccess(obj, _) => Some(obj)
+          case e: JsError => {
+            logParseErrors(e)
+            None
+          }
+        }
       }
     }
   }
