@@ -18,10 +18,10 @@ jobs:
           npm install
           npm test
       - name: Image Counter Lambda
-          working-directory: ./image-counter-lambda
-          run: |
-            npm ci
-            npm test
+        working-directory: ./image-counter-lambda
+        run: |
+          npm ci
+          npm test
       - name: S3Watcher
         working-directory: ./s3watcher/lambda
         run: |
