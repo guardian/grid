@@ -12,12 +12,14 @@
   "license": "ISC",
   "devDependencies": {
     "@types/jest": "^24.9.0",
+    "@types/node-fetch": "^2.5.4",
     "jest": "^24.9.0",
     "ts-jest": "^24.3.0",
     "typescript": "^3.7.5"
   },
   "dependencies": {
     "@types/node": "^13.1.8",
-    "aws-sdk": "^2.606.0"
+    "aws-sdk": "^2.606.0",
+    "node-fetch": "latest"
   }
 }

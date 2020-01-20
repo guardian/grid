@@ -1,14 +1,34 @@
 import getCredentials from "./getCredentials";
+import fetch from "node-fetch";
 
-const handler = async () => {
-  // get credentials
-  const credentials = await getCredentials();
-  // query media api with credentials
-  // post it to CW as metric
+interface AWSCredentials {
+  baseUrl: string;
+  "X-Gu-Media-Key": string;
+}
 
-  return true;
+const getImageCount = async (credentials: AWSCredentials): Promise<number> => {
+  const response = await fetch(credentials.baseUrl + "/images", {
+    headers: {
+      "X-Gu-Media-Key": credentials["X-Gu-Media-Key"]
+    }
+  });
+  const images: { total: number } = await response.json();
+  return images.total;
 };
 
-const fns = { getCredentials, handler };
+const handler = async (): Promise<{ statusCode: number; body: string }> => {
+  // get credentials
+  const credentials = await getCredentials();
+
+  // query media api with credentials
+  const images = await getImageCount(credentials);
+
+  // post it to CW as metric
+
+  // return happy lambda response to caller
+  return { statusCode: 200, body: "Metric sent" };
+};
+
+const fns = { getCredentials, handler, getImageCount };
 
 export default fns;
