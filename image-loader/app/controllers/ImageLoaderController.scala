@@ -1,21 +1,24 @@
 package controllers
 
-import java.io.File
+import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.util.UUID
 
+import com.amazonaws.ClientConfiguration
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
+import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.model.UploadInfo
+import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, UploadRequest}
 import net.logstash.logback.marker.Markers
+import org.apache.tika.io.IOUtils
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
@@ -23,12 +26,13 @@ import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
 case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
-  def toMarker(extraMarkers: Map[String, String] = Map.empty) =  Markers.appendEntries(
+  def toMarker(extraMarkers: Map[String, String] = Map.empty) = Markers.appendEntries(
     (extraMarkers + ("requestId" -> requestId)).asJava
   )
 }
@@ -42,13 +46,15 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
-      Link("load",   s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
+      Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
       Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
     )
     respond(indexData, indexLinks)
   }
 
-  def index = auth { indexResponse }
+  def index =  Action {
+    indexResponse
+  }
 
   private def createTempFile(prefix: String, requestContext: RequestLoggingContext) = {
     Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
@@ -67,14 +73,58 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     Logger.info("loadImage request start")(requestContext.toMarker(markers))
 
+
+    println("loadImage")
+    println("parsedBody")
     val parsedBody = DigestBodyParser.create(createTempFile("requestBody", requestContext))
+    println(parsedBody)
+
+
+
     Logger.info("body parsed")(requestContext.toMarker(markers))
 
     auth.async(parsedBody) { req =>
+      println("req.body")
+      println(req.body)
       val result = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
       result.onComplete { _ => req.body.file.delete() }
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
       result
+    }
+  }
+
+  private def buildS3Client = {
+    val clientConfig = new ClientConfiguration()
+    clientConfig.setSignerOverride("S3SignerType")
+    val builder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+    config.withAWSCredentials(builder).build()
+    builder.build()
+  }
+
+  def getImageToLoad(imageId: String) = {
+    def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
+    val requestContext = RequestLoggingContext()
+
+    println("getImageToLoad", config.imageBucket)
+
+    val s3Key = fileKeyFromId(imageId)
+    val s3 = buildS3Client
+    val s3Obj = s3.getObject(config.imageBucket, s3Key)
+
+    val uploadedFile = File.createTempFile("requestBody", "", config.tempDir)
+
+    IOUtils.copy(s3Obj.getObjectContent, new FileOutputStream(uploadedFile))
+
+    val df = DigestedFile(uploadedFile, imageId)
+
+    val fMetadata = s3Obj.getObjectMetadata
+
+    Action.async { req =>
+      println("req", req)
+      getFileToLoad(df, fMetadata, requestContext).map { r =>
+        val reprJson = Json.toJson(r)
+        Ok(reprJson).as(ArgoMediaType)
+      }
     }
   }
 
@@ -114,6 +164,36 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         Future.successful(invalidUri)
       }
     }
+  }
+
+  def getFileToLoad(digestedFile: DigestedFile, fMetadata: ObjectMetadata, requestContext: RequestLoggingContext): Future[Image] = {
+    val DigestedFile(tempFile_, id_) = digestedFile
+    // identifiers_ to rehydrate
+    val identifiers_ = Map[String, String]()
+    // filename to rehydrate
+    val uploadInfo_ = UploadInfo(filename = None)
+    // TODO: handle the error thrown by an invalid string to `DateTime`
+    // only allow uploadTime to be set by AuthenticatedService
+    val userMeta = fMetadata.getUserMetadata.asScala
+    val uploadedBy_ = userMeta.getOrElse("uploaded_by", "reingester")
+    val uploadedTimeRaw = userMeta.getOrElse("upload_time", DateTime.now().toString)
+
+    val uploadTime_ = new DateTime(uploadedTimeRaw)
+    // Abort early if unsupported mime-type
+    val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
+    val uploadRequest = UploadRequest(
+      // not usre if i need request id
+      requestId = requestContext.requestId,
+      imageId = id_,
+      tempFile = tempFile_,
+      mimeType = mimeType_,
+      uploadTime = uploadTime_,
+      uploadedBy = uploadedBy_,
+      identifiers = identifiers_,
+      uploadInfo = uploadInfo_
+    )
+
+    getFileToStoreRepresentation(uploadRequest)
   }
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
@@ -159,7 +239,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
   }
 
-  val invalidUri        = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
+  val invalidUri = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
   val failedUriDownload = respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
 
   def unsupportedTypeError(u: UploadRequest): Future[Result] = Future {
@@ -198,9 +278,20 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
+  def getFileToStoreRepresentation(uploadRequest: UploadRequest): Future[Image] = {
+    val result = for {
+      imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest)
+      image = imageUpload.image
+    } yield {
+      image
+    }
+    result
+  }
+
 
   // Find this a better home if used more widely
   implicit class NonEmpty(s: String) {
     def nonEmptyOpt: Option[String] = if (s.isEmpty) None else Some(s)
   }
+
 }
