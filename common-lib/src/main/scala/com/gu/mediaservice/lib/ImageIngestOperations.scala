@@ -10,6 +10,12 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def storeOriginal(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
     storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
 
+  def projectOrigina(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
+    projectImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
+
+  def projectThumbnail(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
+    projectImage(thumbnailBucket, fileKeyFromId(id), file, mimeType, meta)
+
   def storeThumbnail(id: String, file: File, mimeType: Option[String]) =
     storeImage(thumbnailBucket, fileKeyFromId(id), file, mimeType)
 

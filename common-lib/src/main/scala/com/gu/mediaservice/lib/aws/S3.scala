@@ -116,6 +116,27 @@ class S3(config: CommonConfig) {
       )
     }
 
+  def projectS3Object(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
+           (implicit ex: ExecutionContext): Future[S3Object] =
+    Future {
+      val metadata = new ObjectMetadata
+      mimeType.foreach(metadata.setContentType)
+      cacheControl.foreach(metadata.setCacheControl)
+      metadata.setUserMetadata(meta.asJava)
+
+      S3Object(
+        objectUrl(bucket, id),
+        file.length,
+        S3Metadata(
+          meta,
+          S3ObjectMetadata(
+            mimeType,
+            cacheControl
+          )
+        )
+      )
+    }
+
   def list(bucket: Bucket, prefixDir: String)
           (implicit ex: ExecutionContext): Future[List[S3Object]] =
     Future {

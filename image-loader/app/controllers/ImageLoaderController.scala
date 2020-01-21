@@ -6,7 +6,7 @@ import java.util.UUID
 
 import com.amazonaws.ClientConfiguration
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
-import com.amazonaws.services.s3.model.ObjectMetadata
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -73,19 +73,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     Logger.info("loadImage request start")(requestContext.toMarker(markers))
 
-
-    println("loadImage")
-    println("parsedBody")
     val parsedBody = DigestBodyParser.create(createTempFile("requestBody", requestContext))
-    println(parsedBody)
-
-
-
     Logger.info("body parsed")(requestContext.toMarker(markers))
 
     auth.async(parsedBody) { req =>
-      println("req.body")
-      println(req.body)
       val result = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
       result.onComplete { _ => req.body.file.delete() }
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
@@ -101,27 +92,22 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     builder.build()
   }
 
+  private def getSrcFileDigest(s3Src: S3Object, imageId: String) = {
+    val uploadedFile = File.createTempFile("requestBody", "", config.tempDir)
+    IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(uploadedFile))
+    DigestedFile(uploadedFile, imageId)
+  }
+
   def getImageToLoad(imageId: String) = {
     def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
     val requestContext = RequestLoggingContext()
 
-    println("getImageToLoad", config.imageBucket)
-
     val s3Key = fileKeyFromId(imageId)
     val s3 = buildS3Client
-    val s3Obj = s3.getObject(config.imageBucket, s3Key)
-
-    val uploadedFile = File.createTempFile("requestBody", "", config.tempDir)
-
-    IOUtils.copy(s3Obj.getObjectContent, new FileOutputStream(uploadedFile))
-
-    val df = DigestedFile(uploadedFile, imageId)
-
-    val fMetadata = s3Obj.getObjectMetadata
+    val s3Source = s3.getObject(config.imageBucket, s3Key)
 
     Action.async { req =>
-      println("req", req)
-      getFileToLoad(df, fMetadata, requestContext).map { r =>
+      projectFileToUpload(s3Source, imageId, requestContext).map { r =>
         val reprJson = Json.toJson(r)
         Ok(reprJson).as(ArgoMediaType)
       }
@@ -166,15 +152,15 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  def getFileToLoad(digestedFile: DigestedFile, fMetadata: ObjectMetadata, requestContext: RequestLoggingContext): Future[Image] = {
-    val DigestedFile(tempFile_, id_) = digestedFile
+  def projectFileToUpload(s3Source: S3Object, imageId: String, requestContext: RequestLoggingContext): Future[Image] = {
+    val DigestedFile(tempFile_, id_) = getSrcFileDigest(s3Source, imageId)
     // identifiers_ to rehydrate
     val identifiers_ = Map[String, String]()
     // filename to rehydrate
     val uploadInfo_ = UploadInfo(filename = None)
     // TODO: handle the error thrown by an invalid string to `DateTime`
     // only allow uploadTime to be set by AuthenticatedService
-    val userMeta = fMetadata.getUserMetadata.asScala
+    val userMeta = s3Source.getObjectMetadata.getUserMetadata.asScala
     val uploadedBy_ = userMeta.getOrElse("uploaded_by", "reingester")
     val uploadedTimeRaw = userMeta.getOrElse("upload_time", DateTime.now().toString)
 
@@ -193,7 +179,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       uploadInfo = uploadInfo_
     )
 
-    getFileToStoreRepresentation(uploadRequest)
+    imageUploadOps.projectImageFromUploadRequest(uploadRequest)
   }
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
@@ -277,17 +263,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         respondError(BadRequest, "upload-error", e.getMessage)
     }
   }
-
-  def getFileToStoreRepresentation(uploadRequest: UploadRequest): Future[Image] = {
-    val result = for {
-      imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest)
-      image = imageUpload.image
-    } yield {
-      image
-    }
-    result
-  }
-
 
   // Find this a better home if used more widely
   implicit class NonEmpty(s: String) {
