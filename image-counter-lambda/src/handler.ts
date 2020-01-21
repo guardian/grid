@@ -27,7 +27,7 @@ const metric = (value: number) => ({
       Value: value
     }
   ],
-  Namespace: "PROD/MediaApi"
+  Namespace: `${process.env.STAGE}/MediaApi`
 });
 
 const handler = async (): Promise<{ statusCode: number; body: string }> => {
