@@ -1,11 +1,12 @@
 {
   "name": "image-counter-lambda",
   "version": "1.0.0",
-  "description": "",
+  "description": "A simple lambda notifying CloudWatch of how many images are in the Grid",
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "compile": "tsc"
+    "compile": "tsc",
+    "riffraff-artefact": "npm run compile && VERBOSE=true ARTEFACT_PATH=$PWD riffraff-artefact"
   },
   "keywords": [],
   "author": "",
