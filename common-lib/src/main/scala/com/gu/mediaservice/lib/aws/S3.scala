@@ -8,14 +8,16 @@ import com.amazonaws.ClientConfiguration
 import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.model.{Image, ImageType, OptimisedPng, Source, Thumbnail}
+import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
+
 case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
+
 case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
 class S3(config: CommonConfig) {
@@ -23,9 +25,9 @@ class S3(config: CommonConfig) {
   type Key = String
   type UserMetadata = Map[String, String]
 
-  val s3Endpoint = "s3.amazonaws.com"
+  import S3Ops.objectUrl
 
-  lazy val client: AmazonS3 = buildS3Client()
+  lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
 
   private def removeExtension(filename: String): String = {
     val regex = """\.[a-zA-Z]{3,4}$""".r
@@ -42,14 +44,14 @@ class S3(config: CommonConfig) {
 
     val extension = asset.mimeType match {
       case Some("image/jpeg") => "jpg"
-      case Some("image/png")  => "png"
-      case Some("image/tiff")  => "tif"
+      case Some("image/png") => "png"
+      case Some("image/tiff") => "tif"
       case _ => throw new Exception("Unsupported mime type")
     }
 
     val baseFilename: String = image.uploadInfo.filename match {
-      case Some(f)  => s"${removeExtension(f)} (${image.id}).$extension"
-      case _        => s"${image.id}.$extension"
+      case Some(f) => s"${removeExtension(f)} (${image.id}).$extension"
+      case _ => s"${image.id}.$extension"
     }
 
     charset.displayName() match {
@@ -103,38 +105,7 @@ class S3(config: CommonConfig) {
       val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
       client.putObject(req)
 
-      S3Object(
-        objectUrl(bucket, id),
-        file.length,
-        S3Metadata(
-          meta,
-          S3ObjectMetadata(
-            mimeType,
-            cacheControl
-          )
-        )
-      )
-    }
-
-  def projectS3Object(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
-           (implicit ex: ExecutionContext): Future[S3Object] =
-    Future {
-      val metadata = new ObjectMetadata
-      mimeType.foreach(metadata.setContentType)
-      cacheControl.foreach(metadata.setCacheControl)
-      metadata.setUserMetadata(meta.asJava)
-
-      S3Object(
-        objectUrl(bucket, id),
-        file.length,
-        S3Metadata(
-          meta,
-          S3ObjectMetadata(
-            mimeType,
-            cacheControl
-          )
-        )
-      )
+      S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, cacheControl)
     }
 
   def list(bucket: Bucket, prefixDir: String)
@@ -155,7 +126,7 @@ class S3(config: CommonConfig) {
     S3Metadata(
       meta.getUserMetadata.asScala.toMap,
       S3ObjectMetadata(
-        contentType  = Option(meta.getContentType()),
+        contentType = Option(meta.getContentType()),
         cacheControl = Option(meta.getCacheControl()),
         lastModified = Option(meta.getLastModified()).map(new DateTime(_))
       )
@@ -172,12 +143,12 @@ class S3(config: CommonConfig) {
     summaries.headOption.map(_.getKey)
   }
 
-  private def objectUrl(bucket: Bucket, key: Key): URI = {
-    val bucketUrl = s"$bucket.$s3Endpoint"
-    new URI("http", bucketUrl, s"/$key", null)
-  }
+}
 
-  private def buildS3Client(): AmazonS3 = {
+object S3Ops {
+  private val s3Endpoint = "s3.amazonaws.com"
+
+  def buildS3Client(config: CommonConfig): AmazonS3 = {
     // Force v2 signatures: https://github.com/aws/aws-sdk-java/issues/372
     // imgops proxies direct to S3, passing the AWS security signature as query parameters
     // This does not work with AWS v4 signatures, presumably because the signature includes the host
@@ -187,5 +158,24 @@ class S3(config: CommonConfig) {
     val builder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
 
     config.withAWSCredentials(builder).build()
+  }
+
+  def objectUrl(bucket: String, key: String): URI = {
+    val bucketUrl = s"$bucket.$s3Endpoint"
+    new URI("http", bucketUrl, s"/$key", null)
+  }
+
+  def projectFileAsS3Object(bucket: String, id: String, file: File, mimeType: Option[String] = None, meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+    S3Object(
+      objectUrl(bucket, id),
+      file.length,
+      S3Metadata(
+        meta,
+        S3ObjectMetadata(
+          mimeType,
+          cacheControl
+        )
+      )
+    )
   }
 }

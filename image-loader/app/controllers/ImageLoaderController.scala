@@ -12,7 +12,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
@@ -40,6 +40,8 @@ case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
 class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications, config: ImageLoaderConfig, imageUploadOps: ImageUploadOps,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
+
+  private val imageUploadProjector = ImageUploadProjector(imageUploadOps)
 
   val LOG_FALLBACK = "unknown"
 
@@ -80,14 +82,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
       result
     }
-  }
-
-  private def buildS3Client = {
-    val clientConfig = new ClientConfiguration()
-    clientConfig.setSignerOverride("S3SignerType")
-    val builder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
-    config.withAWSCredentials(builder).build()
-    builder.build()
   }
 
   private def getSrcFileDigest(s3Src: S3Object, imageId: String) = {
@@ -146,7 +140,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     import ImageIngestOperations.fileKeyFromId
     val s3Key = fileKeyFromId(imageId)
-    val s3 = buildS3Client
+    val s3 = S3Ops.buildS3Client(config)
 
     if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Future(None)
 
@@ -155,36 +149,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     val digestedFile = getSrcFileDigest(s3Source, imageId)
     val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
 
-    projectImage(digestedFile, fileUserMetadata)
-  }
-
-  private def projectImage(srcFileDigest: DigestedFile, fileUserMetadata: Map[String, String]): Future[Option[Image]] = {
-    val DigestedFile(tempFile_, id_) = srcFileDigest
-    // identifiers_ to rehydrate
-    val identifiers_ = Map[String, String]()
-    // filename to rehydrate
-    val uploadInfo_ = UploadInfo(filename = None)
-    // TODO: handle the error thrown by an invalid string to `DateTime`
-    // only allow uploadTime to be set by AuthenticatedService
-    val uploadedBy_ = fileUserMetadata.getOrElse("uploaded_by", "reingester")
-    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", DateTime.now().toString)
-
-    val uploadTime_ = new DateTime(uploadedTimeRaw)
-    // Abort early if unsupported mime-type
-    val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
-    val notUsedReqID = UUID.randomUUID()
-    val uploadRequest = UploadRequest(
-      requestId = notUsedReqID,
-      imageId = id_,
-      tempFile = tempFile_,
-      mimeType = mimeType_,
-      uploadTime = uploadTime_,
-      uploadedBy = uploadedBy_,
-      identifiers = identifiers_,
-      uploadInfo = uploadInfo_
-    )
-
-    val finalImage = imageUploadOps.projectImageFromUploadRequest(uploadRequest)
+    val finalImage = imageUploadProjector.projectImage(digestedFile, fileUserMetadata)
     finalImage.map(Some(_))
   }
 

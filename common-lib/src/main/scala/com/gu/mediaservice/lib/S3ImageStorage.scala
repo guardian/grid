@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib
 
 import java.io.File
 
-import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.aws.{S3, S3Ops}
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
 
@@ -17,7 +17,7 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
     store(bucket, id, file, mimeType, meta, Some(cacheForever))
 
   def projectImage(bucket: String, id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
-    projectS3Object(bucket, id, file, mimeType, meta, Some(cacheForever))
+    S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, Some(cacheForever))
 
   def deleteImage(bucket: String, id: String) = Future {
     client.deleteObject(bucket, id)

@@ -10,12 +10,16 @@ import scala.language.postfixOps
 
 import com.gu.mediaservice.lib.aws.S3Object
 
+object ImageStorageProps {
+  val cacheDuration: Duration = 365 days
+  val cacheForever: String = s"max-age=${cacheDuration.toSeconds}"
+}
 
 trait ImageStorage {
 
   // Images can be cached "forever" as they never should change
-  val cacheDuration = 365 days
-  val cacheForever = s"max-age=${cacheDuration.toSeconds}"
+  val cacheDuration: Duration = ImageStorageProps.cacheDuration
+  val cacheForever: String = ImageStorageProps.cacheForever
 
   /** Blocking IO work involved in storing the file should be done on this thread pool,
     * assuming that the libraries used do not provide a (decent) non-blocking API.

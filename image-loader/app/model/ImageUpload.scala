@@ -4,7 +4,7 @@ import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.aws.{S3Object, S3Ops}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
@@ -12,9 +12,9 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
-import lib.ImageLoaderConfig
 import lib.imaging.FileMetadataReader
 import lib.storage.ImageLoaderStore
+import lib.ImageLoaderConfig
 import net.logstash.logback.marker.LogstashMarker
 import play.api.Logger
 
@@ -101,8 +101,13 @@ case object ImageUpload {
   }
 }
 
+object ImageUploadOps {
+
+}
+
 class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
                      imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
+
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest): Future[Image] = {
     import uploadRequest.{imageId, mimeType}
@@ -111,7 +116,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
 
     val finalImage = fileMetadataFuture.flatMap(fileMetadata => {
 
-      val sourceStoreProjectionFuture = projectOriginalImg(uploadRequest)
+      val sourceFileS3ProjectionFuture = Future(projectOriginalFileAsS3Model(uploadRequest))
 
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadRequest.tempFile, uploadRequest.mimeType)
@@ -126,12 +131,12 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
 
         bracket(thumbFuture)(_.delete) { thumb =>
 
-          val thumbProjectionFuture = projectThumbnail(uploadRequest, thumb)
+          val thumbS3FileProjectionFuture = Future(projectThumbnailFileAsS3Model(uploadRequest, thumb))
           val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
 
           toFinalImage(
-            sourceStoreProjectionFuture,
-            thumbProjectionFuture,
+            sourceFileS3ProjectionFuture,
+            thumbS3FileProjectionFuture,
             sourceDimensionsFuture,
             thumbDimensionsFuture,
             fileMetadataFuture,
@@ -144,6 +149,28 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
     })
 
     finalImage
+  }
+
+  private def projectOriginalFileAsS3Model(uploadRequest: UploadRequest) = {
+    val meta: Map[String, String] = toMetaMap(uploadRequest)
+    import com.gu.mediaservice.lib.ImageStorageProps.cacheForever
+    S3Ops.projectFileAsS3Object(
+      config.imageBucket,
+      uploadRequest.imageId,
+      uploadRequest.tempFile,
+      uploadRequest.mimeType,
+      meta,
+      Some(cacheForever)
+    )
+  }
+
+  private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File) = {
+    S3Ops.projectFileAsS3Object(
+      config.thumbnailBucket,
+      uploadRequest.imageId,
+      uploadRequest.tempFile,
+      Some("image/jpeg")
+    )
   }
 
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
@@ -194,20 +221,20 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
             uploadRequest
           )
 
-          finalImage.map(img =>  ImageUpload(uploadRequest, img))
+          finalImage.map(img => ImageUpload(uploadRequest, img))
         }
       })
     })
   }
 
   private def toFinalImage(sourceStoreFuture: Future[S3Object],
-                             thumbStoreFuture: Future[S3Object],
-                             sourceDimensionsFuture: Future[Option[Dimensions]],
-                             thumbDimensionsFuture: Future[Option[Dimensions]],
-                             fileMetadataFuture: Future[FileMetadata],
-                             colourModelFuture: Future[Option[String]],
-                             optimisedPng: OptimisedPng,
-                             uploadRequest: UploadRequest): Future[Image] = {
+                           thumbStoreFuture: Future[S3Object],
+                           sourceDimensionsFuture: Future[Option[Dimensions]],
+                           thumbDimensionsFuture: Future[Option[Dimensions]],
+                           fileMetadataFuture: Future[FileMetadata],
+                           colourModelFuture: Future[Option[String]],
+                           optimisedPng: OptimisedPng,
+                           uploadRequest: UploadRequest): Future[Image] = {
     for {
       s3Source <- sourceStoreFuture
       s3Thumb <- thumbStoreFuture
@@ -279,6 +306,22 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
     }
   }
 
+  private def storeSource(uploadRequest: UploadRequest) = {
+    val meta = toMetaMap(uploadRequest)
+    store.storeOriginal(
+      uploadRequest.imageId,
+      uploadRequest.tempFile,
+      uploadRequest.mimeType,
+      meta
+    )
+  }
+
+  private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
+    uploadRequest.imageId,
+    thumbFile,
+    Some("image/jpeg")
+  )
+
   private def toMetaMap(uploadRequest: UploadRequest): Map[String, String] = {
     val baseMeta = Map(
       "uploaded_by" -> uploadRequest.uploadedBy,
@@ -290,38 +333,7 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
       case _ => baseMeta
     }
   }
-
-  def storeSource(uploadRequest: UploadRequest) = {
-    val meta = toMetaMap(uploadRequest)
-    store.storeOriginal(
-      uploadRequest.imageId,
-      uploadRequest.tempFile,
-      uploadRequest.mimeType,
-      meta
-    )
-  }
-
-  def projectOriginalImg(uploadRequest: UploadRequest) = {
-    val meta = toMetaMap(uploadRequest)
-    store.projectOrigina(
-      uploadRequest.imageId,
-      uploadRequest.tempFile,
-      uploadRequest.mimeType,
-      meta
-    )
-  }
-
-  def projectThumbnail(uploadRequest: UploadRequest, thumbFile: File) = {
-    store.projectThumbnail(
-      uploadRequest.imageId,
-      thumbFile,
-      Some("image/jpeg")
-    )
-  }
-
-  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
-    uploadRequest.imageId,
-    thumbFile,
-    Some("image/jpeg")
-  )
 }
+
+
+
