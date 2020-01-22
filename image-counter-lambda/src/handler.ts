@@ -34,24 +34,19 @@ export const handler = async (): Promise<{
   statusCode: number;
   body: string;
 }> => {
-  try {
-    // get credentials
-    const credentials = await getCredentials();
+  // get credentials
+  const credentials = await getCredentials();
 
-    // query media api with credentials
-    const images = await getImageCount(credentials);
+  // query media api with credentials
+  const images = await getImageCount(credentials);
 
-    // post it to CW as metric
-    const client = new CloudWatch({ region: "eu-west-1" });
+  // post it to CW as metric
+  const client = new CloudWatch({ region: "eu-west-1" });
 
-    await client.putMetricData(metric(images)).promise();
+  await client.putMetricData(metric(images)).promise();
 
-    // return happy lambda response to caller
-    return { statusCode: 200, body: "Metric sent" };
-  } catch (err) {
-    console.error(err);
-    return { statusCode: 500, body: `Error sending metric: ${err.message}` };
-  }
+  // return happy lambda response to caller
+  return { statusCode: 200, body: "Metric sent" };
 };
 
 const fns = { getCredentials, handler, getImageCount };
