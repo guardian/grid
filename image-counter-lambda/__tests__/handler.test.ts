@@ -1,13 +1,24 @@
 import fetch from "node-fetch";
 
 import fns from "../src/handler";
-import getCredentials from "../src/getCredentials";
 
 jest.mock("node-fetch", () => jest.fn());
 jest.mock("../src/getCredentials");
 
 const imageCount = 99999;
 const credentials = { baseUrl: "someUrl", "X-Gu-Media-Key": "someKey" };
+
+const promiseMock = jest.fn();
+
+jest.mock("aws-sdk/clients/cloudwatch", () => {
+  return class CloudWatch {
+    putMetricData() {
+      return {
+        promise: promiseMock
+      };
+    }
+  };
+});
 
 describe("handler", () => {
   beforeEach(() => {
@@ -46,7 +57,8 @@ describe("handler", () => {
         statusCode: 200,
         body: "Metric sent"
       });
-      expect(getCredentials).toHaveBeenCalled();
+      expect(fns.getCredentials).toHaveBeenCalledTimes(1);
+      expect(promiseMock).toHaveBeenCalledTimes(1);
     });
   });
 });

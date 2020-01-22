@@ -1,6 +1,6 @@
 import getCredentials from "./getCredentials";
 import fetch from "node-fetch";
-import AWS from "aws-sdk";
+import CloudWatch from "aws-sdk/clients/cloudwatch";
 
 interface MediaAPICredentials {
   baseUrl: string;
@@ -39,10 +39,9 @@ const handler = async (): Promise<{ statusCode: number; body: string }> => {
     const images = await getImageCount(credentials);
 
     // post it to CW as metric
-    const cloudwatch = new AWS.CloudWatch({ region: "eu-west-1" });
-    await cloudwatch
-      .putMetricData(metric(images))
-      .promise()
+    const client = new CloudWatch({ region: "eu-west-1" });
+
+    await client.putMetricData(metric(images)).promise();
 
     // return happy lambda response to caller
     return { statusCode: 200, body: "Metric sent" };
