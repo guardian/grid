@@ -142,7 +142,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  def projectS3ImageById(imageId: String): Future[Option[Image]] = {
+  private def projectS3ImageById(imageId: String): Future[Option[Image]] = {
 
     import ImageIngestOperations.fileKeyFromId
     val s3Key = fileKeyFromId(imageId)
@@ -152,16 +152,22 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val s3Source = s3.getObject(config.imageBucket, s3Key)
 
-    val DigestedFile(tempFile_, id_) = getSrcFileDigest(s3Source, imageId)
+    val digestedFile = getSrcFileDigest(s3Source, imageId)
+    val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
+
+    projectImage(digestedFile, fileUserMetadata)
+  }
+
+  private def projectImage(srcFileDigest: DigestedFile, fileUserMetadata: Map[String, String]): Future[Option[Image]] = {
+    val DigestedFile(tempFile_, id_) = srcFileDigest
     // identifiers_ to rehydrate
     val identifiers_ = Map[String, String]()
     // filename to rehydrate
     val uploadInfo_ = UploadInfo(filename = None)
     // TODO: handle the error thrown by an invalid string to `DateTime`
     // only allow uploadTime to be set by AuthenticatedService
-    val userMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala
-    val uploadedBy_ = userMetadata.getOrElse("uploaded_by", "reingester")
-    val uploadedTimeRaw = userMetadata.getOrElse("upload_time", DateTime.now().toString)
+    val uploadedBy_ = fileUserMetadata.getOrElse("uploaded_by", "reingester")
+    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", DateTime.now().toString)
 
     val uploadTime_ = new DateTime(uploadedTimeRaw)
     // Abort early if unsupported mime-type
