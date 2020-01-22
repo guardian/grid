@@ -101,10 +101,6 @@ case object ImageUpload {
   }
 }
 
-object ImageUploadOps {
-
-}
-
 class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
                      imageOps: ImageOperations, optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
 
