@@ -52,9 +52,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     respond(indexData, indexLinks)
   }
 
-  def index =  Action {
-    indexResponse
-  }
+  def index = auth { indexResponse }
 
   private def createTempFile(prefix: String, requestContext: RequestLoggingContext) = {
     Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())

@@ -119,7 +119,7 @@ setupLocalKinesis() {
 
 main() {
     checkRequirements
-#    changeNodeVersion
+    changeNodeVersion
     setupImgops
     downloadApplicationConfig
     startDockerContainers
