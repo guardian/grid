@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+apt-get update
+apt-get install zip
+
 set -ex
 
 SCRIPT_DIR=$(dirname ${0})
