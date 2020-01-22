@@ -30,7 +30,10 @@ const metric = (value: number) => ({
   Namespace: `${process.env.STAGE}/MediaApi`
 });
 
-const handler = async (): Promise<{ statusCode: number; body: string }> => {
+export const handler = async (): Promise<{
+  statusCode: number;
+  body: string;
+}> => {
   try {
     // get credentials
     const credentials = await getCredentials();
