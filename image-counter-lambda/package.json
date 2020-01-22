@@ -23,5 +23,10 @@
     "@types/node": "^13.1.8",
     "aws-sdk": "^2.606.0",
     "node-fetch": "latest"
-  }
+  },
+  "isAwsLambda": true,
+  "cloudformation": false,
+  "projectName": "media-service::grid::image-counter-lambda",
+  "uploadArtefact": true,
+  "riffraffFile": "./riff-raff.yaml"
 }
