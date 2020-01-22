@@ -7,6 +7,7 @@ import java.util.UUID
 import com.amazonaws.ClientConfiguration
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
+import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -26,8 +27,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
@@ -98,22 +98,14 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     DigestedFile(uploadedFile, imageId)
   }
 
-  def getImageToLoad(imageId: String) = {
-    def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
-    val requestContext = RequestLoggingContext()
-
-    val s3Key = fileKeyFromId(imageId)
-    val s3 = buildS3Client
-    val s3Source = s3.getObject(config.imageBucket, s3Key)
-
-    Action.async { req =>
-      projectFileToUpload(s3Source, imageId, requestContext).map { r =>
-        val reprJson = Json.toJson(r)
-        Ok(reprJson).as(ArgoMediaType)
+  def projectImageBy(imageId: String) = {
+    Action.async { _ =>
+      projectS3ImageById(imageId).map {
+        case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
+        case None => respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3")
       }
     }
   }
-
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
     auth.async { request =>
@@ -152,7 +144,16 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  def projectFileToUpload(s3Source: S3Object, imageId: String, requestContext: RequestLoggingContext): Future[Image] = {
+  def projectS3ImageById(imageId: String): Future[Option[Image]] = {
+
+    import ImageIngestOperations.fileKeyFromId
+    val s3Key = fileKeyFromId(imageId)
+    val s3 = buildS3Client
+
+    if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Future(None)
+
+    val s3Source = s3.getObject(config.imageBucket, s3Key)
+
     val DigestedFile(tempFile_, id_) = getSrcFileDigest(s3Source, imageId)
     // identifiers_ to rehydrate
     val identifiers_ = Map[String, String]()
@@ -160,16 +161,16 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     val uploadInfo_ = UploadInfo(filename = None)
     // TODO: handle the error thrown by an invalid string to `DateTime`
     // only allow uploadTime to be set by AuthenticatedService
-    val userMeta = s3Source.getObjectMetadata.getUserMetadata.asScala
-    val uploadedBy_ = userMeta.getOrElse("uploaded_by", "reingester")
-    val uploadedTimeRaw = userMeta.getOrElse("upload_time", DateTime.now().toString)
+    val userMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala
+    val uploadedBy_ = userMetadata.getOrElse("uploaded_by", "reingester")
+    val uploadedTimeRaw = userMetadata.getOrElse("upload_time", DateTime.now().toString)
 
     val uploadTime_ = new DateTime(uploadedTimeRaw)
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
+    val notUsedReqID = UUID.randomUUID()
     val uploadRequest = UploadRequest(
-      // not usre if i need request id
-      requestId = requestContext.requestId,
+      requestId = notUsedReqID,
       imageId = id_,
       tempFile = tempFile_,
       mimeType = mimeType_,
@@ -179,7 +180,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       uploadInfo = uploadInfo_
     )
 
-    imageUploadOps.projectImageFromUploadRequest(uploadRequest)
+    val finalImage = imageUploadOps.projectImageFromUploadRequest(uploadRequest)
+    finalImage.map(Some(_))
   }
 
   def loadFile(digestedFile: DigestedFile, user: Principal,

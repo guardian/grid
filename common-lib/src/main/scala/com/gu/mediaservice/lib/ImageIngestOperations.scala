@@ -4,8 +4,14 @@ import java.io.File
 
 import com.gu.mediaservice.lib.config.CommonConfig
 
+object ImageIngestOperations {
+  def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
+}
+
 class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig)
   extends S3ImageStorage(config) {
+
+  import ImageIngestOperations.fileKeyFromId
 
   def storeOriginal(id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
     storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
@@ -28,7 +34,5 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePng(id: String) = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 
   def optimisedPngKeyFromId(id: String): String = "optimised/" + fileKeyFromId(id: String)
-
-  def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
 
 }
