@@ -97,7 +97,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   def projectImageBy(imageId: String) = {
-    Action.async { _ =>
+    auth.async { _ =>
       projectS3ImageById(imageId).map {
         case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
         case None => respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3")
