@@ -16,9 +16,6 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
   def storeImage(bucket: String, id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
     store(bucket, id, file, mimeType, meta, Some(cacheForever))
 
-  def projectImage(bucket: String, id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
-    S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, Some(cacheForever))
-
   def deleteImage(bucket: String, id: String) = Future {
     client.deleteObject(bucket, id)
     log.info(s"Deleted image $id from bucket $bucket")

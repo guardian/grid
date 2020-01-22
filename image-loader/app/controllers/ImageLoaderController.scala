@@ -54,7 +54,9 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     respond(indexData, indexLinks)
   }
 
-  def index = auth { indexResponse }
+  def index = auth {
+    indexResponse
+  }
 
   private def createTempFile(prefix: String, requestContext: RequestLoggingContext) = {
     Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
@@ -149,7 +151,11 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     val digestedFile = getSrcFileDigest(s3Source, imageId)
     val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
 
+    // delete tmp file
+    //    digestedFile.file.delete()
+
     val finalImage = imageUploadProjector.projectImage(digestedFile, fileUserMetadata)
+
     finalImage.map(Some(_))
   }
 

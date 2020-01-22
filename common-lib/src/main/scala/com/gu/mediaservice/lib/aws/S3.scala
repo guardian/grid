@@ -7,6 +7,7 @@ import java.nio.charset.{Charset, StandardCharsets}
 import com.amazonaws.ClientConfiguration
 import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
+import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
@@ -165,9 +166,9 @@ object S3Ops {
     new URI("http", bucketUrl, s"/$key", null)
   }
 
-  def projectFileAsS3Object(bucket: String, id: String, file: File, mimeType: Option[String] = None, meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+  def projectFileAsS3Object(bucket: String, key: String, file: File, mimeType: Option[String] = None, meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
     S3Object(
-      objectUrl(bucket, id),
+      objectUrl(bucket, key),
       file.length,
       S3Metadata(
         meta,

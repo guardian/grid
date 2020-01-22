@@ -4,6 +4,7 @@ import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
+import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.aws.{S3Object, S3Ops}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -47,14 +48,40 @@ class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implic
 
   private def isTransformedFilePath(filePath: String) = filePath.contains("transformed-")
 
+  private def toOptimisedFile(file: File, uploadRequest: UploadRequest): File = {
+    val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
+    Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+    new File(optimisedFilePath)
+  }
+
+  def project(file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata): OptimisedPng = {
+    val shouldNotOptimise = !OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)
+    if (shouldNotOptimise) return OptimisedPng(Future(None), isPng24 = false, None)
+    val optimisedFile: File = toOptimisedFile(file, uploadRequest)
+
+    val pngS3ObjectProjectionFuture = Future(Some(projectOptimisedPNGFileAsS3Model(uploadRequest, file)))
+
+    if (isTransformedFilePath(file.getAbsolutePath))
+      file.delete
+
+    OptimisedPng(pngS3ObjectProjectionFuture, isPng24 = true, Some(optimisedFile))
+  }
+
+  private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File) = {
+    val key = ImageIngestOperations.optimisedPngKeyFromId(uploadRequest.imageId)
+    S3Ops.projectFileAsS3Object(
+      config.imageBucket,
+      key,
+      uploadRequest.tempFile,
+      Some("image/png")
+    )
+  }
+
   def build(file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata): OptimisedPng = {
     if (OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
 
-      val optimisedFile = {
-        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
-        Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
-        new File(optimisedFilePath)
-      }
+      val optimisedFile: File = toOptimisedFile(file, uploadRequest)
+
       val pngStoreFuture: Future[Option[S3Object]] = Some(storeOptimisedPng(uploadRequest, optimisedFile))
         .map(result => result.map(Option(_)))
         .getOrElse(Future.successful(None))
@@ -119,11 +146,11 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
 
       val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest)
 
-      val toOptimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest)
+      val optimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest)
 
-      toOptimiseFileFuture.flatMap(toOptimiseFile => {
+      optimiseFileFuture.flatMap(toOptimiseFile => {
 
-        val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
+        val optimisedPng = optimisedPngOps.project(toOptimiseFile, uploadRequest, fileMetadata)
 
         bracket(thumbFuture)(_.delete) { thumb =>
 
@@ -149,21 +176,21 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
 
   private def projectOriginalFileAsS3Model(uploadRequest: UploadRequest) = {
     val meta: Map[String, String] = toMetaMap(uploadRequest)
-    import com.gu.mediaservice.lib.ImageStorageProps.cacheForever
+    val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
     S3Ops.projectFileAsS3Object(
       config.imageBucket,
-      uploadRequest.imageId,
+      key,
       uploadRequest.tempFile,
       uploadRequest.mimeType,
-      meta,
-      Some(cacheForever)
+      meta
     )
   }
 
   private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File) = {
+    val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
     S3Ops.projectFileAsS3Object(
       config.thumbnailBucket,
-      uploadRequest.imageId,
+      key,
       uploadRequest.tempFile,
       Some("image/jpeg")
     )
@@ -194,9 +221,9 @@ class ImageUploadOps(store: ImageLoaderStore, config: ImageLoaderConfig,
       Logger.info("thumbnail created")(uploadRequest.toLogMarker)
 
       //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
-      val toOptimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest)
+      val optimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest)
 
-      toOptimiseFileFuture.flatMap(toOptimiseFile => {
+      optimiseFileFuture.flatMap(toOptimiseFile => {
         Logger.info("optimised image created")(uploadRequest.toLogMarker)
 
         val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
