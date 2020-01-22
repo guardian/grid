@@ -16,7 +16,8 @@
     "@types/node-fetch": "^2.5.4",
     "jest": "^24.9.0",
     "ts-jest": "^24.3.0",
-    "typescript": "^3.7.5"
+    "typescript": "^3.7.5",
+    "node-riffraff-artefact": "^2.0.1"
   },
   "dependencies": {
     "@types/node": "^13.1.8",
