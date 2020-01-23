@@ -43,11 +43,14 @@ describe("handler", () => {
     it("should query the API with the correct credentials", async function() {
       const result = await fns.getImageCount(credentials);
       expect(result).toEqual(imageCount);
-      expect(fetch).toHaveBeenCalledWith(credentials.baseUrl + "/images", {
-        headers: {
-          "X-Gu-Media-Key": "someKey"
+      expect(fetch).toHaveBeenCalledWith(
+        credentials.baseUrl + "/images?length=0",
+        {
+          headers: {
+            "X-Gu-Media-Key": "someKey"
+          }
         }
-      });
+      );
     });
   });
 

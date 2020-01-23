@@ -10,7 +10,7 @@ interface MediaAPICredentials {
 const getImageCount = async (
   credentials: MediaAPICredentials
 ): Promise<number> => {
-  const response = await fetch(credentials.baseUrl + "/images", {
+  const response = await fetch(credentials.baseUrl + "/images?length=0", {
     headers: {
       "X-Gu-Media-Key": credentials["X-Gu-Media-Key"]
     }
