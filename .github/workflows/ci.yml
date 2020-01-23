@@ -20,7 +20,7 @@ jobs:
       - name: Image Counter Lambda
         working-directory: ./image-counter-lambda
         run: |
-          npm ci
+          npm install
           npm test
       - name: S3Watcher
         working-directory: ./s3watcher/lambda
