@@ -15,8 +15,8 @@ import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
-import lib._
 import lib.elasticsearch._
+import lib.{ImageRelatedData, _}
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.http.HttpEntity
@@ -34,8 +34,9 @@ class MediaApi(
                 override val config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
-                mediaApiMetrics: MediaApiMetrics
-)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
+                mediaApiMetrics: MediaApiMetrics,
+                relData: ImageRelatedData
+              )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -54,19 +55,19 @@ class MediaApi(
     )
     val indexLinks = List(
       searchLink,
-      Link("image",           s"${config.rootUri}/images/{id}"),
+      Link("image", s"${config.rootUri}/images/{id}"),
       // FIXME: credit is the only field available for now as it's the only on
       // that we are indexing as a completion suggestion
       Link("metadata-search", s"${config.rootUri}/suggest/metadata/{field}{?q}"),
-      Link("label-search",    s"${config.rootUri}/images/edits/label{?q}"),
-      Link("cropper",         config.cropperUri),
-      Link("loader",          config.loaderUri),
-      Link("edits",           config.metadataUri),
-      Link("session",         s"${config.authUri}/session"),
-      Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
-      Link("collections",     config.collectionsUri),
-      Link("permissions",     s"${config.rootUri}/permissions"),
-      Link("leases",          config.leasesUri)
+      Link("label-search", s"${config.rootUri}/images/edits/label{?q}"),
+      Link("cropper", config.cropperUri),
+      Link("loader", config.loaderUri),
+      Link("edits", config.metadataUri),
+      Link("session", s"${config.authUri}/session"),
+      Link("witness-report", s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
+      Link("collections", config.collectionsUri),
+      Link("permissions", s"${config.rootUri}/permissions"),
+      Link("leases", config.leasesUri)
     )
     respond(indexData, indexLinks)
   }
@@ -74,10 +75,22 @@ class MediaApi(
   private val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
   private val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
   private val ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
+
   private def ImageNotFound(id: String) = respondError(NotFound, "image-not-found", s"No image found with the given id $id")
+
   private val ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
 
-  def index = auth { indexResponse }
+  def index = auth {
+    indexResponse
+  }
+
+  def shoRelData(id: String) = auth.async {
+    println("shoRelData")
+    val relatedData = relData.getAllRelatedDataFor(id)
+    relatedData.map { d =>
+      respond(Json.toJson(d))
+    }
+  }
 
   def getIncludedFromParams(request: AuthenticatedRequest[AnyContent, Principal]): List[String] = {
     val includedQuery: Option[String] = request.getQueryString("include")
@@ -86,10 +99,10 @@ class MediaApi(
   }
 
   private def isUploaderOrHasPermission(
-    request: AuthenticatedRequest[AnyContent, Principal],
-    image: Image,
-    permission: PermissionDefinition
-  ) = {
+                                         request: AuthenticatedRequest[AnyContent, Principal],
+                                         image: Image,
+                                         permission: PermissionDefinition
+                                       ) = {
     request.user match {
       case user: PandaUser =>
         if (user.user.email.toLowerCase == image.uploadedBy.toLowerCase) {
@@ -270,7 +283,7 @@ class MediaApi(
 
           // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
           val finalImage = processedImage.copy(
-            originalMetadata    = processedImage.metadata,
+            originalMetadata = processedImage.metadata,
             originalUsageRights = processedImage.usageRights
           )
 
@@ -324,7 +337,7 @@ class MediaApi(
       // TODO: respondErrorCollection?
       errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
         // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
-        errors.map(_.message).list.reduce(_+ ", " +_), List(searchLink))
+        errors.map(_.message).list.reduce(_ + ", " + _), List(searchLink))
       ),
       params => respondSuccess(params)
     )
@@ -340,7 +353,7 @@ class MediaApi(
       "toDate" -> printDateTime(toDate)
     )
 
-    paramMap.foldLeft(UriTemplate()){ (acc, pair) => acc.expandAny(pair._1, pair._2)}.toString
+    paramMap.foldLeft(UriTemplate()) { (acc, pair) => acc.expandAny(pair._1, pair._2) }.toString
   }
 
   private def getPrevLink(searchParams: SearchParams): Option[Link] = {

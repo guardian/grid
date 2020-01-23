@@ -21,6 +21,7 @@ GET     /images/:imageId/downloadOptimised            controllers.MediaApi.downl
 POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
 GET     /images                                       controllers.MediaApi.imageSearch
+GET     /images/hydrated-data/:id                     controllers.MediaApi.shoRelData(id: String)
 
 # completion
 GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
