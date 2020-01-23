@@ -8,8 +8,7 @@ async function getCredentials() {
   };
 
   const data = await s3.getObject(params).promise();
-  const buffer = data.Body;
-  const body = buffer ? buffer.toString("utf8") : "";
+  const body = data.Body?.toString("utf8") || "";
 
   return JSON.parse(body);
 }
