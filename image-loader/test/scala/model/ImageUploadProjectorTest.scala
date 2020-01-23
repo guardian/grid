@@ -1,18 +1,23 @@
-package model
+package test.model
 
 import java.io.File
 
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import lib.DigestedFile
+import model.{ImageUploadOpsCfg, ImageUploadProjector}
 import org.scalatest.FunSuite
+import play.api.libs.json.Json
+import test.lib.ResourceHelpers
 
+import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 class ImageUploadProjectorTest extends FunSuite {
 
   // TODO to be completed
 
-  private val testFile = new File("image-loader/test/resources/getty.jpg")
+  val testFile = ResourceHelpers.fileAt("getty.jpg")
 
   private val imageOperations = new ImageOperations("")
 
@@ -33,6 +38,12 @@ class ImageUploadProjectorTest extends FunSuite {
     val fileDigest = DigestedFile(testFile, "id123")
 
     val f = projector.projectImage(fileDigest, userMetaGiven)
+
+//    val actual = Await.result(f, Duration.Inf)
+//
+//    val actualJson = Json.toJson(actual)
+//
+//    actualJson
 
   }
 
