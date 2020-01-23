@@ -43,7 +43,7 @@ object OptimisedPngOps {
 
   def build(file: File, uploadRequest: UploadRequest,
             fileMetadata: FileMetadata,
-            config: ImageLoaderConfig,
+            config: ImageUploadOpsCfg,
             storeOrProject: (UploadRequest, File) => Future[S3Object])(implicit ec: ExecutionContext): OptimisedPng = {
 
     val shouldNotOptimise = !OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)
@@ -62,7 +62,7 @@ object OptimisedPngOps {
 
   }
 
-  private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageLoaderConfig): File = {
+  private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg): File = {
     val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
     Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
     new File(optimisedFilePath)
@@ -107,9 +107,10 @@ class ImageUploadOps(store: ImageLoaderStore,
                      imageOps: ImageOperations)(implicit val ec: ExecutionContext) {
 
 
-  import ImageUploadOps.{fromUploadRequestShared, toMetaMap}
+  import ImageUploadOps.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg}
 
-  private val sideEffectDependencies = ImageUploadOpsDependencies(config, imageOps, storeSource, storeThumbnail, storeOptimisedPng)
+  private val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
+    storeSource, storeThumbnail, storeOptimisedPng)
 
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
     val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
@@ -140,7 +141,15 @@ class ImageUploadOps(store: ImageLoaderStore,
   }
 }
 
-case class ImageUploadOpsDependencies(config: ImageLoaderConfig,
+case class ImageUploadOpsCfg(tempDir: File,
+                             thumbWidth: Int,
+                             thumbQuality: Double,
+                             transcodedMimeTypes: List[String],
+                             originalFileBucket: String,
+                             thumbBucket: String
+                            )
+
+case class ImageUploadOpsDependencies(config: ImageUploadOpsCfg,
                                       imageOps: ImageOperations,
                                       storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
                                       storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
@@ -148,6 +157,17 @@ case class ImageUploadOpsDependencies(config: ImageLoaderConfig,
                                      )
 
 object ImageUploadOps {
+
+  def toImageUploadOpsCfg(config: ImageLoaderConfig) = {
+    ImageUploadOpsCfg(
+      config.tempDir,
+      config.thumbWidth,
+      config.thumbQuality,
+      config.transcodedMimeTypes,
+      config.imageBucket,
+      config.thumbnailBucket
+    )
+  }
 
   def fromUploadRequestShared(uploadRequest: UploadRequest,
                               deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[Image] = {

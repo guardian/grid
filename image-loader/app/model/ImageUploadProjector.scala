@@ -6,20 +6,22 @@ import java.util.UUID
 import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.resource.FutureResources.bracket
 import com.gu.mediaservice.model.{Image, UploadInfo}
-import lib.imaging.{FileMetadataReader, MimeTypeDetection}
+import lib.imaging.MimeTypeDetection
 import lib.{DigestedFile, ImageLoaderConfig}
 import org.joda.time.DateTime
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageUploadProjector {
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations)(implicit ec: ExecutionContext): ImageUploadProjector =
-    new ImageUploadProjector(config, imageOps)(ec)
+
+  import ImageUploadOps.toImageUploadOpsCfg
+
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations)(implicit ec: ExecutionContext): ImageUploadProjector
+  = new ImageUploadProjector(toImageUploadOpsCfg(config), imageOps)(ec)
 }
 
-class ImageUploadProjector(config: ImageLoaderConfig, imageOps: ImageOperations)
+class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
                           (implicit val ec: ExecutionContext) {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
@@ -56,7 +58,7 @@ class ImageUploadProjector(config: ImageLoaderConfig, imageOps: ImageOperations)
 
 }
 
-class ImageUploadProjectionOps(config: ImageLoaderConfig,
+class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations)(implicit val ec: ExecutionContext) {
 
   import ImageUploadOps.{fromUploadRequestShared, toMetaMap}
@@ -72,7 +74,7 @@ class ImageUploadProjectionOps(config: ImageLoaderConfig,
     val meta: Map[String, String] = toMetaMap(uploadRequest)
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
     S3Ops.projectFileAsS3Object(
-      config.imageBucket,
+      config.originalFileBucket,
       key,
       uploadRequest.tempFile,
       uploadRequest.mimeType,
@@ -84,7 +86,7 @@ class ImageUploadProjectionOps(config: ImageLoaderConfig,
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
     val thumbMimeType = Some("image/jpeg")
     S3Ops.projectFileAsS3Object(
-      config.thumbnailBucket,
+      config.thumbBucket,
       key,
       uploadRequest.tempFile,
       thumbMimeType
@@ -95,7 +97,7 @@ class ImageUploadProjectionOps(config: ImageLoaderConfig,
     val key = ImageIngestOperations.optimisedPngKeyFromId(uploadRequest.imageId)
     val optimisedPngMimeType = Some("image/jpeg")
     S3Ops.projectFileAsS3Object(
-      config.imageBucket,
+      config.originalFileBucket,
       key,
       uploadRequest.tempFile,
       optimisedPngMimeType
