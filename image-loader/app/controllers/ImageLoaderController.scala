@@ -17,7 +17,7 @@ import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
-import model.{ImageUploadOps, UploadRequest}
+import model.{ImageUploadOps, ImageUploadProjector, UploadRequest}
 import net.logstash.logback.marker.Markers
 import org.apache.tika.io.IOUtils
 import org.joda.time.DateTime
@@ -37,11 +37,10 @@ case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
   )
 }
 
-class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications, config: ImageLoaderConfig, imageUploadOps: ImageUploadOps,
+class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications,
+                            config: ImageLoaderConfig, imageUploadOps: ImageUploadOps, imageUploadProjector: ImageUploadProjector,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
-
-  private val imageUploadProjector = ImageUploadProjector(imageUploadOps)
 
   val LOG_FALLBACK = "unknown"
 
@@ -150,9 +149,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val digestedFile = getSrcFileDigest(s3Source, imageId)
     val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
-
-    // delete tmp file
-    //    digestedFile.file.delete()
 
     val finalImage = imageUploadProjector.projectImage(digestedFile, fileUserMetadata)
 
