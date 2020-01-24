@@ -34,16 +34,17 @@ class ImageUploadProjectorTest extends FunSuite {
 
   test("testProjectImage") {
 
-    val userMetaGiven = Map("test" -> "1")
     val fileDigest = DigestedFile(testFile, "id123")
+    val uploadedBy = "test"
+    val uploadTime = "2020-01-24T17:36:08.456Z"
 
-    val f = projector.projectImage(fileDigest, userMetaGiven)
+    val f = projector.projectImage(fileDigest, uploadedBy, uploadTime)
 
-//    val actual = Await.result(f, Duration.Inf)
-//
-//    val actualJson = Json.toJson(actual)
-//
-//    actualJson
+    //    val actual = Await.result(f, Duration.Inf)
+    //
+    //    val actualJson = Json.toJson(actual)
+    //
+    //    actualJson
 
   }
 

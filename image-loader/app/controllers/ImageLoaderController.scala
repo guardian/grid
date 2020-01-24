@@ -147,10 +147,15 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val s3Source = s3.getObject(config.imageBucket, s3Key)
 
+    val lastModified = s3Source.getObjectMetadata.getLastModified.toInstant.toString
+
     val digestedFile = getSrcFileDigest(s3Source, imageId)
     val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
 
-    val finalImage = imageUploadProjector.projectImage(digestedFile, fileUserMetadata)
+    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "reingester")
+    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
+
+    val finalImage = imageUploadProjector.projectImage(digestedFile, uploadedBy, uploadedTimeRaw)
 
     finalImage.map(Some(_))
   }
