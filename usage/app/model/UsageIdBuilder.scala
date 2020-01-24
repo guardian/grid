@@ -1,12 +1,9 @@
 package model
 
+import com.gu.mediaservice.model.usage.UsageId
 import lib.MD5
 
-
-case class UsageId(id: String) {
-  override def toString = id
-}
-object UsageId {
+object UsageIdBuilder {
   def buildId(parts: List[Option[Any]]) =
     UsageId(MD5.hash(parts.flatten.map(_.toString).mkString("_")))
 

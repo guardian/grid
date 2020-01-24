@@ -8,7 +8,8 @@ import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoA
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.lib.usage.UsageBuilder
+import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
 import lib._
 import model._
 import play.api.Logger

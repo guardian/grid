@@ -1,11 +1,9 @@
-package lib
+package com.gu.mediaservice.lib.usage
 
-import org.joda.time.DateTime
 import com.gu.mediaservice.model.usage._
-import model.{MediaUsage, UsageTableFullKey}
+import org.joda.time.DateTime
 
 object UsageBuilder {
-  import com.gu.mediaservice.lib.IntUtils._
 
   def build(usage: MediaUsage) = Usage(
     buildId(usage),

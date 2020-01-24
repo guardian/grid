@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.model.usage.UsageNotice
+import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model._
 import play.api.Logger
 import play.api.libs.json._
