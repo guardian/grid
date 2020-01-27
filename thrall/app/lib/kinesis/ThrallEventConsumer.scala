@@ -15,7 +15,7 @@ import play.api.Logger
 import play.api.libs.json.{JodaReads, Json}
 
 import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 
 class ThrallEventConsumer(es: ElasticSearch6,
                           thrallMetrics: ThrallMetrics,
@@ -58,15 +58,21 @@ class ThrallEventConsumer(es: ElasticSearch6,
                 case e: Throwable =>
                   Logger.error(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)(updateMessage.toLogMarker)
               }
-
-              Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
+              try {
+                Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
+              } catch {
+                case e: TimeoutException =>
+                  Logger.error(
+                    s"Timeout while processing ${updateMessage.subject} message; message will be ignored:",
+                    e
+                  )(updateMessage.toLogMarker)
+              }
             }
           }
         } catch {
           case e: Throwable =>
             Logger.error("Exception during process record block", e)
         }
-
       }
 
       checkpointer.checkpoint(records.asScala.last)
