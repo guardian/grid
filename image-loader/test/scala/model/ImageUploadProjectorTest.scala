@@ -39,7 +39,8 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
     val testFile = fileAt("getty.jpg")
     val fileDigest = DigestedFile(testFile, "id123")
     val uploadedBy = "test"
-    val uploadTime = "2020-01-24T17:36:08.456Z"
+    val uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)
+    val uploadFileName = Some("getty.jpg")
 
     // expected
     val iptc = Map(
@@ -115,7 +116,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
       uploadedBy = "test",
       lastModified = Some(new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)),
       identifiers = Map(),
-      uploadInfo = UploadInfo(None),
+      uploadInfo = UploadInfo(Some("getty.jpg")),
       source = Asset(new URI("http://img-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
         Some(12666),
         Some("image/jpeg"),
@@ -149,7 +150,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
       userMetadataLastModified = None
     )
 
-    val actualFuture = projector.projectImage(fileDigest, uploadedBy, uploadTime)
+    val actualFuture = projector.projectImage(fileDigest, uploadedBy, uploadTime, uploadFileName)
 
     whenReady(actualFuture) { actual =>
       actual shouldEqual expected

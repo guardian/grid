@@ -20,7 +20,7 @@ import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, ImageUploadProjector, UploadRequest}
 import net.logstash.logback.marker.Markers
 import org.apache.tika.io.IOUtils
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
@@ -148,16 +148,16 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Future(None)
 
     val s3Source = s3.getObject(config.imageBucket, s3Key)
-
     val lastModified = s3Source.getObjectMetadata.getLastModified.toInstant.toString
-
     val digestedFile = getSrcFileDigest(s3Source, imageId)
     val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
 
-    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "reingester")
+    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
     val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
+    val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
+    val uploadFileName = fileUserMetadata.get("file_name")
 
-    val finalImage = imageUploadProjector.projectImage(digestedFile, uploadedBy, uploadedTimeRaw)
+    val finalImage = imageUploadProjector.projectImage(digestedFile, uploadedBy, uploadTime, uploadFileName)
 
     finalImage.map(Some(_))
   }

@@ -26,14 +26,12 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
 
-  def projectImage(srcFileDigest: DigestedFile, uploadedBy: String, uploadedTime: String): Future[Image] = {
+  def projectImage(srcFileDigest: DigestedFile, uploadedBy: String, uploadedTime: DateTime, uploadFileName: Option[String]): Future[Image] = {
     val DigestedFile(tempFile_, id_) = srcFileDigest
     // identifiers_ to rehydrate
     val identifiers_ = Map[String, String]()
     // filename to rehydrate
-    val uploadInfo_ = UploadInfo(filename = None)
-    // TODO: handle the error thrown by an invalid string to `DateTime`
-    val uploadTime_ = new DateTime(uploadedTime).withZone(DateTimeZone.UTC)
+    val uploadInfo_ = UploadInfo(filename = uploadFileName)
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
     val notUsedReqID = UUID.randomUUID()
@@ -42,7 +40,7 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
       imageId = id_,
       tempFile = tempFile_,
       mimeType = mimeType_,
-      uploadTime = uploadTime_,
+      uploadedTime,
       uploadedBy,
       identifiers = identifiers_,
       uploadInfo = uploadInfo_
