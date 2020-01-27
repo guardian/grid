@@ -21,7 +21,8 @@ class ThrallEventConsumer(es: ElasticSearch6,
                           thrallMetrics: ThrallMetrics,
                           store: ThrallStore,
                           metadataEditorNotifications: MetadataEditorNotifications,
-                          syndicationRightsOps: SyndicationRightsOps) extends IRecordProcessor with PlayJsonHelpers {
+                          syndicationRightsOps: SyndicationRightsOps,
+                          thrallDeadLetter: ThrallDeadLetter) extends IRecordProcessor with PlayJsonHelpers {
 
   private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, syndicationRightsOps)
   private val Timeout = Duration(30, SECONDS)
@@ -56,16 +57,18 @@ class ThrallEventConsumer(es: ElasticSearch6,
                 Logger.info(s"Completed processing of ${updateMessage.subject} message")(updateMessage.toLogMarker)
               }.recover {
                 case e: Throwable =>
-                  Logger.error(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)(updateMessage.toLogMarker)
+                  Logger.error(s"Failed to process ${updateMessage.subject} message; message will be sent to dead letter stream:", e)(updateMessage.toLogMarker)
+                  thrallDeadLetter.publish(updateMessage)
               }
               try {
                 Await.ready(eventuallyAppliedUpdate, Timeout)
               } catch {
                 case e: TimeoutException =>
                   Logger.error(
-                    s"Timeout of $Timeout reached while processing ${updateMessage.subject} message; message will be ignored:",
+                    s"Timeout of $Timeout reached while processing ${updateMessage.subject} message; message will be sent to dead-letter stream:",
                     e
                   )(updateMessage.toLogMarker)
+                  thrallDeadLetter.publish(updateMessage)
               }
             }
           }

@@ -113,7 +113,9 @@ setupLocalKinesis() {
   # ignore stream already exists error
   set +e
   stream_name='media-service-DEV-ThrallMessageQueue-1N0T2UXYNUIC9'
+  deadletter_stream_name='media-service-DEV-deadletter-ThrallMessageQueue-1N0T2UXYNUIC9'
   aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
+  aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${deadletter_stream_name}"
   aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams
 }
 

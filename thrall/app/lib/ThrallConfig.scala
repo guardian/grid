@@ -9,6 +9,7 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   final override lazy val appName = "thrall"
 
   lazy val queueUrl: String = properties("sqs.queue.url")
+  lazy val thrallDeadLetterKinesisStream = properties("thrall.deadletter.kinesis.stream.name")
 
   lazy val imageBucket: String = properties("s3.image.bucket")
 
