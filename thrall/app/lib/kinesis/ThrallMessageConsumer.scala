@@ -19,8 +19,10 @@ class ThrallMessageConsumer(config: ThrallConfig,
 
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
+  private val thrallDeadLetter: ThrallDeadLetter = new ThrallDeadLetter(config)
+
   private val thrallEventProcessorFactory = new IRecordProcessorFactory {
-    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps)
+    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps, thrallDeadLetter)
   }
 
   private def createKinesisWorker(cfg: KinesisClientLibConfiguration): Worker = {
