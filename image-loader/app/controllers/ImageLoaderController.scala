@@ -140,6 +140,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   private def projectS3ImageById(imageId: String): Future[Option[Image]] = {
+    Logger.info(s"projecting image: $imageId")
 
     import ImageIngestOperations.fileKeyFromId
     val s3Key = fileKeyFromId(imageId)
