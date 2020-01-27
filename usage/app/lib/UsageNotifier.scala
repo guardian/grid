@@ -1,8 +1,9 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
-import com.gu.mediaservice.model.usage.UsageNotice
-import model.{MediaUsage, UsageTable}
+import com.gu.mediaservice.lib.usage.UsageBuilder
+import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
+import model.UsageTable
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
