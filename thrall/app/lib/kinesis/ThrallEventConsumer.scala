@@ -15,7 +15,7 @@ import play.api.Logger
 import play.api.libs.json.{JodaReads, Json}
 
 import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 
 class ThrallEventConsumer(es: ElasticSearch6,
                           thrallMetrics: ThrallMetrics,
@@ -24,6 +24,7 @@ class ThrallEventConsumer(es: ElasticSearch6,
                           syndicationRightsOps: SyndicationRightsOps) extends IRecordProcessor with PlayJsonHelpers {
 
   private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, syndicationRightsOps)
+  private val Timeout = Duration(30, SECONDS)
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
@@ -50,7 +51,6 @@ class ThrallEventConsumer(es: ElasticSearch6,
             Logger.info(s"Received ${updateMessage.subject} message at $timestamp")(updateMessage.toLogMarker)
 
             messageProcessor.chooseProcessor(updateMessage).map { p =>
-              val ThirtySeconds = Duration(30, SECONDS)
               val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
               eventuallyAppliedUpdate.map { _ =>
                 Logger.info(s"Completed processing of ${updateMessage.subject} message")(updateMessage.toLogMarker)
@@ -58,15 +58,21 @@ class ThrallEventConsumer(es: ElasticSearch6,
                 case e: Throwable =>
                   Logger.error(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)(updateMessage.toLogMarker)
               }
-
-              Await.ready(eventuallyAppliedUpdate, ThirtySeconds)
+              try {
+                Await.ready(eventuallyAppliedUpdate, Timeout)
+              } catch {
+                case e: TimeoutException =>
+                  Logger.error(
+                    s"Timeout of $Timeout reached while processing ${updateMessage.subject} message; message will be ignored:",
+                    e
+                  )(updateMessage.toLogMarker)
+              }
             }
           }
         } catch {
           case e: Throwable =>
             Logger.error("Exception during process record block", e)
         }
-
       }
 
       checkpointer.checkpoint(records.asScala.last)
