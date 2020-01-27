@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.MimeTypeDetection
 import lib.{DigestedFile, ImageLoaderConfig}
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -33,7 +33,7 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
     // filename to rehydrate
     val uploadInfo_ = UploadInfo(filename = None)
     // TODO: handle the error thrown by an invalid string to `DateTime`
-    val uploadTime_ = new DateTime(uploadedTime)
+    val uploadTime_ = new DateTime(uploadedTime).withZone(DateTimeZone.UTC)
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
     val notUsedReqID = UUID.randomUUID()
