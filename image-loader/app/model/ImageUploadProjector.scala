@@ -30,7 +30,6 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
     val DigestedFile(tempFile_, id_) = srcFileDigest
     // identifiers_ to rehydrate
     val identifiers_ = Map[String, String]()
-    // filename to rehydrate
     val uploadInfo_ = UploadInfo(filename = uploadFileName)
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
