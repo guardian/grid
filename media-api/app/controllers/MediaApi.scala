@@ -84,6 +84,8 @@ class MediaApi(
     indexResponse
   }
 
+  import ImageAdditionalData._
+
   def shoRelData(id: String) = auth.async {
     println("shoRelData")
     val relatedData = relData.getAllRelatedDataFor(id)

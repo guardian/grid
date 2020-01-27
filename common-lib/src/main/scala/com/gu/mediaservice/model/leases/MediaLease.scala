@@ -10,6 +10,12 @@ sealed trait MediaLeaseType { def name: String }
 object MediaLeaseType {
   implicit val reads: Reads[MediaLeaseType] = {
     JsPath.read[String].map {
+      case "AllowUseLease"          => AllowUseLease
+      case "DenyUseLease"           => DenyUseLease
+      case "AllowSyndicationLease"  => AllowSyndicationLease
+      case "DenySyndicationLease"   => DenySyndicationLease
+
+      // legacy values
       case "allow-use"          => AllowUseLease
       case "deny-use"           => DenyUseLease
       case "allow-syndication"  => AllowSyndicationLease
