@@ -87,7 +87,6 @@ class MediaApi(
   import ImageAdditionalData._
 
   def shoRelData(id: String) = auth.async {
-    println("shoRelData")
     val relatedData = relData.getAllRelatedDataFor(id)
     relatedData.map { d =>
       respond(Json.toJson(d))
