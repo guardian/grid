@@ -29,7 +29,6 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
 
   private val projector = new ImageUploadProjector(config, imageOperations)
 
-  // TODO to be completed
   test("projectImage") {
 
     val testFile = ResourceHelpers.fileAt("getty.jpg")
