@@ -147,6 +147,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Future(None)
 
+    Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")
+
     val s3Source = s3.getObject(config.imageBucket, s3Key)
     val lastModified = s3Source.getObjectMetadata.getLastModified.toInstant.toString
     val digestedFile = getSrcFileDigest(s3Source, imageId)
