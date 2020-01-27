@@ -19,9 +19,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures {
 
+  import ResourceHelpers.fileAt
+
   implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
-  private val ctxPath = "image-loader"
+  private val ctxPath = new File("image-loader/").getAbsolutePath
 
   private val imageOperations = new ImageOperations(ctxPath)
 
@@ -31,7 +33,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
 
   test("projectImage") {
 
-    val testFile = ResourceHelpers.fileAt("getty.jpg")
+    val testFile = fileAt("getty.jpg")
     val fileDigest = DigestedFile(testFile, "id123")
     val uploadedBy = "test"
     val uploadTime = "2020-01-24T17:36:08.456Z"
