@@ -19,11 +19,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures {
 
-  private implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
   private val ctxPath = "image-loader"
 
-  private val imageOperations = new ImageOperations("image-loader")
+  private val imageOperations = new ImageOperations(ctxPath)
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
@@ -103,7 +103,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
       "photoshop:Category" -> JsString("S")
     )
 
-    val gettyFileMetadataExpected = FileMetadata(iptc = iptc, exif = exif, xmp = xmp, getty = getty)
+    val gettyFileMetadataExpected = FileMetadata(iptc = iptc, exif = exif, xmp = xmp, getty = getty, colourModel = Some("RGB"))
 
     val expected = Image(
       id = "id123",
@@ -145,31 +145,10 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
       userMetadataLastModified = None
     )
 
-    val f = projector.projectImage(fileDigest, uploadedBy, uploadTime)
+    val actualFuture = projector.projectImage(fileDigest, uploadedBy, uploadTime)
 
-    whenReady(f) { actual =>
-      actual.id shouldEqual expected.id
-      actual.uploadTime shouldEqual expected.uploadTime
-      actual.uploadedBy shouldEqual expected.uploadedBy
-      actual.lastModified shouldEqual expected.lastModified
-      actual.identifiers shouldEqual expected.identifiers
-      actual.uploadInfo shouldEqual expected.uploadInfo
-      actual.source shouldEqual expected.source
-      actual.thumbnail shouldEqual expected.thumbnail
-      actual.optimisedPng shouldEqual expected.optimisedPng
-      // TODO fix file metadata test
-      //    actual.fileMetadata shouldEqual expected.fileMetadata
-      actual.userMetadata shouldEqual expected.userMetadata
-      actual.metadata shouldEqual expected.metadata
-      actual.originalMetadata shouldEqual expected.originalMetadata
-      actual.usageRights shouldEqual expected.usageRights
-      actual.originalUsageRights shouldEqual expected.originalUsageRights
-      actual.exports shouldEqual expected.exports
-      actual.usages shouldEqual expected.usages
-      actual.leases shouldEqual expected.leases
-      actual.collections shouldEqual expected.collections
-      actual.syndicationRights shouldEqual expected.syndicationRights
-      actual.userMetadataLastModified shouldEqual expected.userMetadataLastModified
+    whenReady(actualFuture) { actual =>
+      actual shouldEqual expected
     }
   }
 
