@@ -95,7 +95,9 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     auth.async { _ =>
       projectS3ImageById(imageId).map {
         case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
-        case None => respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3")
+        case None =>
+          val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
+          respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
       }
     }
   }
