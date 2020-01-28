@@ -1,10 +1,10 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import lib.AdminToolsConfig
+import com.gu.mediaservice.model.Image._
+import lib.{AdminToolsConfig, ImageDataMerger}
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
-
 class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents) extends BaseController with ArgoHelpers {
 
   private val indexResponse = {
@@ -18,11 +18,10 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
   def index = Action {
     indexResponse
   }
+  val merger = new ImageDataMerger(config)
 
   def project(mediaId: String) = Action {
-    indexResponse
+    val image = merger.getMergedImageData(mediaId)
+    Ok(Json.toJson(image)).as(ArgoMediaType)
   }
-
-
-
 }

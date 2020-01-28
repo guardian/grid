@@ -46,6 +46,7 @@ Global / concurrentRestrictions := Seq(
 
 val awsSdkVersion = "1.11.302"
 val elastic4sVersion = "6.4.0"
+val okHttpVersion = "3.12.1"
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -93,7 +94,7 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % "3.12.1",
+    "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
     "org.apache.tika" % "tika-core" % "1.20"
   )
 }
@@ -118,7 +119,11 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-lazy val adminTools = playProject("admin-tools", 9013)
+lazy val adminTools = playProject("admin-tools", 9013).settings {
+  libraryDependencies ++= Seq(
+    "com.squareup.okhttp3" % "okhttp" % okHttpVersion
+  )
+}
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 

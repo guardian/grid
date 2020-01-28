@@ -8,4 +8,7 @@ class AdminToolsConfig(override val configuration: Configuration) extends Common
 
   override lazy val domainRoot: String = "local.dev-gutools.co.uk"
   override lazy val properties = Map("auth.keystore.bucket" -> "not-used")
+
+  // TODO inject this value
+  val apiKey = "dev-"
 }
