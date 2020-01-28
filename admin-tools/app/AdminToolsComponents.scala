@@ -7,11 +7,11 @@ import router.Routes
 
 class AdminToolsComponents(context: Context) extends GridComponents(context) {
 
-  override def config: CommonConfig = new AdminToolsConfig(configuration)
+  final override lazy val config = new AdminToolsConfig(configuration)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new AdminToolsCtr(auth, controllerComponents)
+  val controller = new AdminToolsCtr(config, controllerComponents)
 
-  override lazy val router = new Routes(httpErrorHandler, controller, management)
+  override lazy val router = new Routes(httpErrorHandler, controller)
 }
