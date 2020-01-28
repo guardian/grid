@@ -253,46 +253,6 @@ class MediaApi(
     }
   }
 
-  def reindexImage(id: String) = auth.async { request =>
-    implicit val r = request
-
-    val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
-    elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request, image) =>
-        // TODO: apply rights to edits API too
-        // TODO: helper to abstract boilerplate
-        val canWrite = canUserWriteMetadata(request, image)
-        if (canWrite) {
-          val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
-          val cleanMetadata = metadataCleaners.clean(imageMetadata)
-          val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-          val processedImage = SupplierProcessors.process(imageCleanMetadata)
-
-          // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-          val finalImage = processedImage.copy(
-            originalMetadata    = processedImage.metadata,
-            originalUsageRights = processedImage.usageRights
-          )
-
-          val updateImage = "update-image"
-          val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
-          messageSender.publish(updateMessage)
-
-          Ok(Json.obj(
-            "id" -> id,
-            "changed" -> JsBoolean(image != finalImage),
-            "data" -> Json.obj(
-              "oldImage" -> image,
-              "updatedImage" -> finalImage
-            )
-          ))
-        } else {
-          ImageEditForbidden
-        }
-      case None => ImageNotFound(id)
-    }
-  }
-
   def imageSearch() = auth.async { request =>
     implicit val r = request
 
