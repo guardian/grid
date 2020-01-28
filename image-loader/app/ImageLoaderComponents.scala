@@ -1,14 +1,10 @@
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.play.{GridComponents, RequestLoggingFilter}
+import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
 import lib._
 import lib.storage.ImageLoaderStore
-import model.{ImageUploadOps, OptimisedPngOps}
+import model.{ImageUploadOps, ImageUploadProjector}
 import play.api.ApplicationLoader.Context
-import play.api.mvc.EssentialFilter
-import play.filters.HttpFiltersComponents
-import play.filters.cors.CORSComponents
-import play.filters.gzip.GzipFilterComponents
 import router.Routes
 
 class ImageLoaderComponents(context: Context) extends GridComponents(context) {
@@ -21,10 +17,11 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context) {
 
   val notifications = new Notifications(config)
   val downloader = new Downloader()
-  val optimisedPngOps = new OptimisedPngOps(store, config)
-  val imageUploadOps = new ImageUploadOps(store, config, imageOperations, optimisedPngOps)
+  val imageUploadOps = new ImageUploadOps(store, config, imageOperations)
 
-  val controller = new ImageLoaderController(auth, downloader, store, notifications, config, imageUploadOps, controllerComponents, wsClient)
+  val imageUploadProjector = ImageUploadProjector(config, imageOperations)
+
+  val controller = new ImageLoaderController(auth, downloader, store, notifications, config, imageUploadOps, imageUploadProjector, controllerComponents, wsClient)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }

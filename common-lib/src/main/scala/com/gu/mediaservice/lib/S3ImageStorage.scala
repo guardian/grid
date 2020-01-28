@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib
 
 import java.io.File
 
-import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.aws.{S3, S3Ops}
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
 

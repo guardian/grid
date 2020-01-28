@@ -1,22 +1,26 @@
 package controllers
 
-import java.io.File
+import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.util.UUID
 
+import com.amazonaws.ClientConfiguration
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
+import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.model.UploadInfo
+import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
+import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
-import model.{ImageUploadOps, UploadRequest}
+import model.{ImageUploadOps, ImageUploadProjector, UploadRequest}
 import net.logstash.logback.marker.Markers
-import org.joda.time.DateTime
+import org.apache.tika.io.IOUtils
+import org.joda.time.{DateTime, DateTimeZone}
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
@@ -28,12 +32,13 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
 case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
-  def toMarker(extraMarkers: Map[String, String] = Map.empty) =  Markers.appendEntries(
+  def toMarker(extraMarkers: Map[String, String] = Map.empty) = Markers.appendEntries(
     (extraMarkers + ("requestId" -> requestId)).asJava
   )
 }
 
-class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications, config: ImageLoaderConfig, imageUploadOps: ImageUploadOps,
+class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications,
+                            config: ImageLoaderConfig, imageUploadOps: ImageUploadOps, imageUploadProjector: ImageUploadProjector,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -42,13 +47,15 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
-      Link("load",   s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
+      Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
       Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
     )
     respond(indexData, indexLinks)
   }
 
-  def index = auth { indexResponse }
+  def index = auth {
+    indexResponse
+  }
 
   private def createTempFile(prefix: String, requestContext: RequestLoggingContext) = {
     Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
@@ -78,6 +85,22 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
+  private def getSrcFileDigest(s3Src: S3Object, imageId: String) = {
+    val uploadedFile = File.createTempFile("requestBody", "", config.tempDir)
+    IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(uploadedFile))
+    DigestedFile(uploadedFile, imageId)
+  }
+
+  def projectImageBy(imageId: String) = {
+    auth.async { _ =>
+      projectS3ImageById(imageId).map {
+        case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
+        case None =>
+          val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
+          respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
+      }
+    }
+  }
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
     auth.async { request =>
@@ -114,6 +137,32 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         Future.successful(invalidUri)
       }
     }
+  }
+
+  private def projectS3ImageById(imageId: String): Future[Option[Image]] = {
+    Logger.info(s"projecting image: $imageId")
+
+    import ImageIngestOperations.fileKeyFromId
+    val s3Key = fileKeyFromId(imageId)
+    val s3 = S3Ops.buildS3Client(config)
+
+    if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Future(None)
+
+    Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")
+
+    val s3Source = s3.getObject(config.imageBucket, s3Key)
+    val lastModified = s3Source.getObjectMetadata.getLastModified.toInstant.toString
+    val digestedFile = getSrcFileDigest(s3Source, imageId)
+    val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
+
+    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
+    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
+    val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
+    val uploadFileName = fileUserMetadata.get("file_name")
+
+    val finalImage = imageUploadProjector.projectImage(digestedFile, uploadedBy, uploadTime, uploadFileName)
+
+    finalImage.map(Some(_))
   }
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
@@ -159,7 +208,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
   }
 
-  val invalidUri        = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
+  val invalidUri = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
   val failedUriDownload = respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
 
   def unsupportedTypeError(u: UploadRequest): Future[Result] = Future {
@@ -198,9 +247,9 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-
   // Find this a better home if used more widely
   implicit class NonEmpty(s: String) {
     def nonEmptyOpt: Option[String] = if (s.isEmpty) None else Some(s)
   }
+
 }
