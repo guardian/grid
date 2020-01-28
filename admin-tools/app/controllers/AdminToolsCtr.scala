@@ -19,4 +19,10 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
     indexResponse
   }
 
+  def project(mediaId: String) = Action {
+    indexResponse
+  }
+
+
+
 }

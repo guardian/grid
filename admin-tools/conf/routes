@@ -1,1 +1,2 @@
 GET     /                           controllers.AdminToolsCtr.index
+GET     /images/:id/project         controllers.AdminToolsCtr.project(id: String)

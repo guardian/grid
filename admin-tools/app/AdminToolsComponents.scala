@@ -1,4 +1,3 @@
-import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.AdminToolsCtr
 import lib.AdminToolsConfig
