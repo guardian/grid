@@ -122,7 +122,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
         Some("image/jpeg"),
         Some(Dimensions(100, 60)), None),
       thumbnail = Some(Asset(new URI("http://thumb-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
-        Some(12666),
+        Some(6404),
         Some("image/jpeg"),
         Some(Dimensions(256, 154)), None)),
       optimisedPng = None,

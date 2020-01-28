@@ -80,18 +80,18 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     S3Ops.projectFileAsS3Object(
       config.thumbBucket,
       key,
-      uploadRequest.tempFile,
+      thumbFile,
       thumbMimeType
     )
   }
 
-  private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File) = Future {
+  private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, optimisedPngFile: File) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(uploadRequest.imageId)
-    val optimisedPngMimeType = Some("image/jpeg")
+    val optimisedPngMimeType = Some("image/png")
     S3Ops.projectFileAsS3Object(
       config.originalFileBucket,
       key,
-      uploadRequest.tempFile,
+      optimisedPngFile,
       optimisedPngMimeType
     )
   }
