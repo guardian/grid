@@ -23,3 +23,5 @@ mappings:
     port: 9012
   - prefix: es.media
     port: 9200
+  - prefix: admin-tools.media
+    port: 9013
