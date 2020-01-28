@@ -28,10 +28,10 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
 
   def projectImage(srcFileDigest: DigestedFile, uploadedBy: String, uploadedTime: DateTime, uploadFileName: Option[String]): Future[Image] = {
     val DigestedFile(tempFile_, id_) = srcFileDigest
-    // identifiers_ to rehydrate
+    // TODO identifiers_ to rehydrate
     val identifiers_ = Map[String, String]()
     val uploadInfo_ = UploadInfo(filename = uploadFileName)
-    // Abort early if unsupported mime-type
+    //  Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
     val notUsedReqID = UUID.randomUUID()
     val uploadRequest = UploadRequest(
