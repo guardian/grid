@@ -6,14 +6,18 @@ import com.gu.mediaservice.model.Image._
 import okhttp3.{OkHttpClient, Request}
 import play.api.libs.json.Json
 
-class ImageDataMerger(config: AdminToolsConfig) {
+import scala.concurrent.{ExecutionContext, Future}
+
+class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
   val client = new OkHttpClient
 
-  def getMergedImageData(mediaId: String): Image = {
-    getImageLoaderProjection(mediaId)
+  def getMergedImageData(mediaId: String): Future[Image] = {
+    for {
+      image <- getImageLoaderProjection(mediaId)
+    } yield image
   }
 
-  private def getImageLoaderProjection(mediaId: String): Image = {
+  private def getImageLoaderProjection(mediaId: String): Future[Image] = Future{
     val url = s"${config.services.loaderBaseUri}/images/project/${mediaId}"
     val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, config.apiKey).build
     val response = client.newCall(request).execute
