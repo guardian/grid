@@ -13,7 +13,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminTools)
   .enablePlugins(RiffRaffArtifact)
   .settings(
     riffRaffManifestProjectName := s"media-service::grid::all",
@@ -30,6 +30,7 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in metadataEditor).value -> s"${(name in metadataEditor).value}/${(name in metadataEditor).value}.deb",
       (packageBin in Debian in usage).value -> s"${(name in usage).value}/${(name in usage).value}.deb",
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
+      (packageBin in Debian in adminTools).value -> s"${(name in adminTools).value}/${(name in adminTools).value}.deb",
       file("riff-raff.yaml") -> "riff-raff.yaml"
     )
   )
@@ -116,6 +117,8 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
 )
+
+lazy val adminTools = playProject("admin-tools", 9013)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 

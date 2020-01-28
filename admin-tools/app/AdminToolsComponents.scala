@@ -3,6 +3,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers.AdminToolsCtr
 import lib.AdminToolsConfig
 import play.api.ApplicationLoader.Context
+import router.Routes
 
 class AdminToolsComponents(context: Context) extends GridComponents(context) {
 
@@ -10,7 +11,7 @@ class AdminToolsComponents(context: Context) extends GridComponents(context) {
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new AdminToolsCtr(controllerComponents)
+  val controller = new AdminToolsCtr(auth, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }
