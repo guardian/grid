@@ -43,7 +43,6 @@ class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
   }
 
   private def getEdits(mediaId: String): Future[Option[Edits]] = Future {
-    println("getEdits")
     val url = new URL(s"${config.services.metadataBaseUri}/user-metadata/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode != 200) None else Some((res.body \ "data").as[Edits])
