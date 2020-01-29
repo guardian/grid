@@ -1,6 +1,7 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.Image
 import com.gu.mediaservice.model.Image._
 import lib.{AdminToolsConfig, ImageDataMerger}
@@ -15,7 +16,9 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
     val indexData = Json.obj(
       "description" -> "This is Admin tools API"
     )
-    val indexLinks = Nil
+    val indexLinks = List(
+      Link("image-projection", s"${config.rootUri}/images/{id}/project")
+    )
     respond(indexData, indexLinks)
   }
 

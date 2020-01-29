@@ -11,4 +11,6 @@ class AdminToolsConfig(override val configuration: Configuration) extends Common
 
   // TODO inject this value
   val apiKey = "dev-"
+
+  val rootUri: String = s"admin-tools.media.$domainRoot"
 }
