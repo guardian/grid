@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model.Image._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model.{Collection, Edits, Image}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image}
 import okhttp3.{OkHttpClient, Request}
 import play.api.libs.json._
 
@@ -28,11 +28,13 @@ class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
       edits <- getEdits(mediaId)
       leases <- getLeases(mediaId)
       usages <- getUsages(mediaId)
+      crops <- getCrops(mediaId)
     } yield image.copy(
       collections = collections,
       userMetadata = edits,
       leases = leases,
-      usages = usages
+      usages = usages,
+      exports = crops
     )
   }
 
@@ -52,6 +54,12 @@ class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
     val url = new URL(s"${config.services.metadataBaseUri}/edits/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode != 200) None else Some((res.body \ "data").as[Edits])
+  }
+
+  private def getCrops(mediaId: String): Future[List[Crop]] = Future {
+    val url = new URL(s"${config.services.cropperBaseUri}/crops/$mediaId")
+    val res = makeRequest(url)
+    if (res.statusCode != 200) Nil else (res.body \ "data").as[List[Crop]]
   }
 
   private def getLeases(mediaId: String): Future[LeasesByMedia] = Future {
