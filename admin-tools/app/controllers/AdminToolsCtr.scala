@@ -10,7 +10,8 @@ import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
+class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
   private val indexResponse = {
     val indexData = Json.obj(
