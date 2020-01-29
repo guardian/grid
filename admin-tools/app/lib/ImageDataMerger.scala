@@ -4,7 +4,7 @@ import java.net.URL
 
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model.Image._
-import com.gu.mediaservice.model.{Collection, Image}
+import com.gu.mediaservice.model.{Collection, Edits, Image}
 import okhttp3.{OkHttpClient, Request}
 import play.api.libs.json._
 
@@ -23,8 +23,10 @@ class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
     val mediaId = image.id
     for {
       collections <- getCollectionsResponse(mediaId)
+      edits <- getEdits(mediaId)
     } yield image.copy(
-      collections = collections
+      collections = collections,
+      userMetadata = edits
     )
   }
 
@@ -35,9 +37,16 @@ class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
   }
 
   private def getCollectionsResponse(mediaId: String): Future[List[Collection]] = Future {
-    val url = new URL(s"${config.services.collectionsBaseUri}/images/${mediaId}")
+    val url = new URL(s"${config.services.collectionsBaseUri}/images/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode != 200) List.empty[Collection] else (res.body \ "data").as[List[Collection]]
+  }
+
+  private def getEdits(mediaId: String): Future[Option[Edits]] = Future {
+    println("getEdits")
+    val url = new URL(s"${config.services.metadataBaseUri}/user-metadata/$mediaId")
+    val res = makeRequest(url)
+    if (res.statusCode != 200) None else Some((res.body \ "data").as[Edits])
   }
 
   case class ResponseWrapper(body: JsValue, statusCode: Int)
