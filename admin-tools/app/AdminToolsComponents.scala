@@ -12,5 +12,5 @@ class AdminToolsComponents(context: Context) extends GridComponents(context) {
 
   val controller = new AdminToolsCtr(config, controllerComponents)
 
-  override lazy val router = new Routes(httpErrorHandler, controller)
+  override lazy val router = new Routes(httpErrorHandler, controller, management)
 }
