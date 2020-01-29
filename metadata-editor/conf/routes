@@ -3,6 +3,7 @@ GET     /usage-rights/categories                        controllers.EditsApi.get
 
 # Image
 GET     /metadata/:id                                   controllers.EditsController.getAllMetadata(id: String)
+GET     /edits/:id                                      controllers.EditsController.getEdits(id: String)
 
 GET     /metadata/:id/archived                          controllers.EditsController.getArchived(id: String)
 PUT     /metadata/:id/archived                          controllers.EditsController.setArchived(id: String)
