@@ -13,7 +13,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminTools)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsDev)
   .enablePlugins(RiffRaffArtifact)
   .settings(
     riffRaffManifestProjectName := s"media-service::grid::all",
@@ -30,7 +30,7 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in metadataEditor).value -> s"${(name in metadataEditor).value}/${(name in metadataEditor).value}.deb",
       (packageBin in Debian in usage).value -> s"${(name in usage).value}/${(name in usage).value}.deb",
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
-      (packageBin in Debian in adminTools).value -> s"${(name in adminTools).value}/${(name in adminTools).value}.deb",
+      (packageBin in Debian in adminToolsDev).value -> s"${(name in adminToolsDev).value}/${(name in adminToolsDev).value}.deb",
       file("riff-raff.yaml") -> "riff-raff.yaml"
     )
   )
@@ -119,7 +119,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-lazy val adminTools = playProject("admin-tools", 9013).settings {
+lazy val adminToolsDev = playProject("admin-tools", 9013, Some("admin-tools/dev")).settings {
   libraryDependencies ++= Seq(
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion
   )
@@ -177,8 +177,8 @@ val buildInfo = Seq(
   )
 )
 
-def playProject(projectName: String, port: Int): Project =
-  project(projectName, None)
+def playProject(projectName: String, port: Int, path: Option[String] = None): Project =
+  project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
     .dependsOn(commonLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
