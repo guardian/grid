@@ -26,15 +26,15 @@ case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPn
 
 case object OptimisedPng {
 
-  def shouldOptimise(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
+  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean =
     mimeType match {
-      case Some("image/png") =>
+      case Some(Png) =>
         fileMetadata.colourModelInformation.get("colorType") match {
           case Some("True Color") => true
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      case Some("image/tiff") => true
+      case Some(Tiff) => true
       case _ => false
     }
 }
@@ -130,7 +130,7 @@ class ImageUploadOps(store: ImageLoaderStore,
   private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
-    Some("image/jpeg")
+    Some(Jpeg)
   )
 
   private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = {
@@ -190,7 +190,7 @@ object ImageUploadOps {
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
       Logger.info("stored source file")(uploadRequest.toLogMarker)
       // FIXME: pass mimeType
-      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
       val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
@@ -208,7 +208,7 @@ object ImageUploadOps {
         bracket(thumbFuture)(_.delete) { thumb =>
           // Run the operations in parallel
           val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
-          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
+          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
 
           val finalImage = toFinalImage(
             sourceStoreFuture,
@@ -283,10 +283,10 @@ object ImageUploadOps {
     }
   }
 
-  private def toFileMetadata(f: File, imageId: String, mimeType: Option[String]): Future[FileMetadata] = {
+  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
     mimeType match {
-      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
-      case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Png) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Tiff) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }

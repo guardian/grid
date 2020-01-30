@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.aws.S3Object
 
 
 // FIXME: size, mimeType and dimensions not optional (must backfill first)
-case class Asset(file: URI, size: Option[Long], mimeType: Option[String], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
+case class Asset(file: URI, size: Option[Long], mimeType: Option[MimeType], dimensions: Option[Dimensions], secureUrl: Option[URL] = None)
 
 object Asset {
 
@@ -27,7 +27,7 @@ object Asset {
   implicit val assetReads: Reads[Asset] =
     ((__ \ "file").read[String].map(URI.create) ~
       (__ \ "size").readNullable[Long] ~
-      (__ \ "mimeType").readNullable[String] ~
+      (__ \ "mimeType").readNullable[MimeType] ~
       (__ \ "dimensions").readNullable[Dimensions] ~
       (__ \ "secureUrl").readNullable[String].map(_.map(new URL(_)))
       )(Asset.apply _)
@@ -35,7 +35,7 @@ object Asset {
   implicit val assetWrites: Writes[Asset] =
     ((__ \ "file").write[String].contramap((_: URI).toString) ~
       (__ \ "size").writeNullable[Long] ~
-      (__ \ "mimeType").writeNullable[String] ~
+      (__ \ "mimeType").writeNullable[MimeType] ~
       (__ \ "dimensions").writeNullable[Dimensions] ~
       (__ \ "secureUrl").writeNullable[String].contramap((_: Option[URL]).map(_.toString))
       )(unlift(Asset.unapply))
