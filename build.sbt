@@ -35,7 +35,7 @@ lazy val root = project("grid", path = Some("."))
     )
   )
 
-addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools/run")
+addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools-dev/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
@@ -119,11 +119,15 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-lazy val adminToolsDev = playProject("admin-tools", 9013, Some("admin-tools/dev")).settings {
+lazy val adminToolsLib =  project("admin-tools-lib", Some("admin-tools/lib"))
+  .dependsOn(commonLib).settings {
   libraryDependencies ++= Seq(
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion
   )
 }
+
+lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
+  .dependsOn(adminToolsLib)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 

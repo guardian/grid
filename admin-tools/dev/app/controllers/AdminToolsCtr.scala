@@ -4,7 +4,8 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.Image
 import com.gu.mediaservice.model.Image._
-import lib.{AdminToolsConfig, ImageDataMerger, ImageDataMergerConfig}
+import com.gu.mediaservice.{ImageDataMerger, ImageDataMergerConfig}
+import lib.AdminToolsConfig
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
 
