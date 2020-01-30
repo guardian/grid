@@ -2,16 +2,18 @@ package com.gu.mediaservice.lib.elasticsearch6
 
 import com.sksamuel.elastic4s.HealthStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http.cat.CatCountResponse
-import com.sksamuel.elastic4s.http.index.{CreateIndexResponse, IndexStatsResponse}
+import com.sksamuel.elastic4s.http.index.CreateIndexResponse
 import com.sksamuel.elastic4s.http.index.admin.IndexExistsResponse
-import com.sksamuel.elastic4s.http.search.SearchResponse
 import com.sksamuel.elastic4s.http.{ElasticClient, ElasticProperties, Response}
 import play.api.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+
+case class ElasticSearchImageCounts(catCount: Long,
+                                    searchResponseCount: Long,
+                                    indexStatsCount: Long)
 
 trait ElasticSearchClient extends ElasticSearch6Executions {
 
@@ -61,7 +63,7 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
   }
 
 
-  def countImages(): Future[(CatCountResponse, SearchResponse, IndexStatsResponse)] = {
+  def countImages(): Future[ElasticSearchImageCounts] = {
     val queryCatCount = catCount("images") // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
     val queryImageSearch = search("images") limit 0 // hits that match the query defined in the request
     val queryStats = indexStats("images") // total accumulated values of an index for both primary and replica shards
@@ -70,7 +72,10 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
       catCount <- executeAndLog(queryCatCount, "Images cat count")
       imageSearch <- executeAndLog(queryImageSearch, "Images search")
       stats <- executeAndLog(queryStats, "Stats aggregation")
-    } yield (catCount.result, imageSearch.result, stats.result)
+    } yield
+      ElasticSearchImageCounts(catCount.result.count,
+                               imageSearch.result.hits.total,
+                               stats.result.indices("images").total.docs.count)
   }
 
   def ensureIndexExists(index: String): Unit = {
