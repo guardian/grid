@@ -12,8 +12,9 @@ USAGE="http://localhost:9009/management/healthcheck"
 COLLECTIONS="http://localhost:9010/management/healthcheck"
 AUTH="http://localhost:9011/management/healthcheck"
 LEASES="http://localhost:9012/management/healthcheck"
+ADMIN_TOOLS="http://localhost:9013/management/healthcheck"
 
-lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $KAHUNA $API $USAGE $AUTH $LEASES"
+lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $KAHUNA $API $USAGE $AUTH $LEASES $ADMIN_TOOLS"
 
 echo "You have started the Pingler!"
 echo
