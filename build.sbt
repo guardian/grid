@@ -13,7 +13,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsDev)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
   .enablePlugins(RiffRaffArtifact)
   .settings(
     riffRaffManifestProjectName := s"media-service::grid::all",
@@ -30,7 +30,6 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in metadataEditor).value -> s"${(name in metadataEditor).value}/${(name in metadataEditor).value}.deb",
       (packageBin in Debian in usage).value -> s"${(name in usage).value}/${(name in usage).value}.deb",
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
-      (packageBin in Debian in adminToolsDev).value -> s"${(name in adminToolsDev).value}/${(name in adminToolsDev).value}.deb",
       file("riff-raff.yaml") -> "riff-raff.yaml"
     )
   )
