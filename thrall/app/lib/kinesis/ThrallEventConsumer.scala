@@ -41,19 +41,17 @@ class ThrallEventConsumer(es: ElasticSearch6,
 
     try {
       records.asScala.foreach { r =>
-      parseRecord(r).map(handleUpdateMessage)
+        parseRecord(r).map(processUpdateMessage)
       }
-
-      try{checkpointer.checkpoint(records.asScala.last)} catch {
-        case e : Throwable =>  Logger.error("Exception during checkpoint: ", e)
+      try {
+        checkpointer.checkpoint(records.asScala.last)
+      } catch {
+        case e: Throwable => Logger.error("Exception during checkpoint: ", e)
       }
-
     } catch {
       case e: Throwable =>
         Logger.error("Exception during process records: ", e)
     }
-
-
   }
 
   private def parseRecord(r: Record):Option[UpdateMessage] = {
@@ -75,26 +73,35 @@ class ThrallEventConsumer(es: ElasticSearch6,
     }
   }
 
-  private def handleUpdateMessage(updateMessage: UpdateMessage) = {
-    messageProcessor.chooseProcessor(updateMessage).map { p =>
-      val eventuallyAppliedUpdate: Future[Any] = p.apply(updateMessage)
-      eventuallyAppliedUpdate.map { _ =>
-        Logger.info(s"Completed processing of ${updateMessage.subject} message")(updateMessage.toLogMarker)
-      }.recover {
-        case e: Throwable =>
-          Logger.error(s"Failed to process ${updateMessage.subject} message; message will be ignored:", e)(updateMessage.toLogMarker)
-      }
-
-      try {
-        Await.ready(eventuallyAppliedUpdate, Timeout)
-      } catch {
-        case e: TimeoutException =>
-          Logger.error(
-            s"Timeout of $Timeout reached while processing ${updateMessage.subject} message; message will be ignored:",
-            e
-          )(updateMessage.toLogMarker)
-      }
+  private def processUpdateMessage(updateMessage: UpdateMessage) = {
+    messageProcessor.chooseProcessor(updateMessage).map { messageProcessor =>
+      val processedMessage = messageProcessor.apply(updateMessage)
+      Try(Await.ready(processedMessage, Timeout))
+    } match {
+      case Some(Success(_)) =>
+        Logger.info(
+          s"Completed processing of ${
+            updateMessage.subject
+          } message")(updateMessage.toLogMarker)
+      case Some(Failure(timeoutException: TimeoutException)) =>
+        Logger.error(
+          s"Timeout of $Timeout reached while processing ${
+            updateMessage.subject
+          } message; message will be ignored:",
+          timeoutException
+        )(updateMessage.toLogMarker)
+      case Some(Failure(e: Throwable)) =>
+        Logger.error(
+          s"Failed to process ${
+            updateMessage.subject
+          } message; message will be ignored:", e)(updateMessage.toLogMarker)
+      case None =>
+        Logger.error(
+          s"Could not find processor for ${
+            updateMessage.subject
+          } message; message will be ignored")(updateMessage.toLogMarker)
     }
+
   }
 
 
