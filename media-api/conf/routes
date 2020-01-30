@@ -34,6 +34,7 @@ GET     /usage/quotas/:id                             controllers.UsageControlle
 # Management
 GET     /management/healthcheck                       com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.ManagementWithPermissions.manifest
+GET     /management/imageCounts                       com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.imageCounts
 
 # Shoo robots away
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots

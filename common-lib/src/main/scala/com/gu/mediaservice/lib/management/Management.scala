@@ -3,6 +3,9 @@ package com.gu.mediaservice.lib.management
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.auth.PermissionsHandler
 import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
+import com.sksamuel.elastic4s.http.cat.CatCountResponse
+import com.sksamuel.elastic4s.http.index.IndexStatsResponse
+import com.sksamuel.elastic4s.http.search.SearchResponse
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
@@ -63,4 +66,20 @@ class ElasticSearchHealthCheck(override val controllerComponents: ControllerComp
       }
     }
   }
+
+  def imageCounts: Action[AnyContent] = Action.async {
+    elasticsearch.countImages().map {
+      case _ @(catCount: CatCountResponse, searchResponse: SearchResponse, indexStats: IndexStatsResponse) =>
+        val json: String =
+          s"""{
+             |  "catCount": ${catCount.count},
+             |  "searchResponseCount": ${searchResponse.hits.total},
+             |  "indexStatsCount" : ${indexStats.indices("images").total.docs.count}
+             |  }""".stripMargin
+        Ok(Json.parse(json))
+      case _ => Logger.warn(s"Can't get stats")
+        ServiceUnavailable("Can't get stats")
+    }
+  }
+
 }
