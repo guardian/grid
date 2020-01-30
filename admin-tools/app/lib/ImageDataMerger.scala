@@ -12,7 +12,17 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
+case class ImageDataMergerConfig(
+                                  apiKey: String,
+                                  imgLoaderApiBaseUri: String,
+                                  collectionsApiBaseUri: String,
+                                  metadataApiBaseUri: String,
+                                  cropperApiBaseUri: String,
+                                  leasesApiBaseUri: String,
+                                  usageBaseApiUri: String
+                                )
+
+class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionContext) {
 
   private val httpClient = new OkHttpClient
 
@@ -39,31 +49,31 @@ class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
   }
 
   private def getImageLoaderProjection(mediaId: String): Option[Image] = {
-    val url = new URL(s"${config.services.loaderBaseUri}/images/project/$mediaId")
+    val url = new URL(s"${config.imgLoaderApiBaseUri}/images/project/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode == 200) Some(res.body.as[Image]) else None
   }
 
   private def getCollectionsResponse(mediaId: String): Future[List[Collection]] = Future {
-    val url = new URL(s"${config.services.collectionsBaseUri}/images/$mediaId")
+    val url = new URL(s"${config.collectionsApiBaseUri}/images/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
   }
 
   private def getEdits(mediaId: String): Future[Option[Edits]] = Future {
-    val url = new URL(s"${config.services.metadataBaseUri}/edits/$mediaId")
+    val url = new URL(s"${config.metadataApiBaseUri}/edits/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
   }
 
   private def getCrops(mediaId: String): Future[List[Crop]] = Future {
-    val url = new URL(s"${config.services.cropperBaseUri}/crops/$mediaId")
+    val url = new URL(s"${config.cropperApiBaseUri}/crops/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
   }
 
   private def getLeases(mediaId: String): Future[LeasesByMedia] = Future {
-    val url = new URL(s"${config.services.leasesBaseUri}/leases/media/$mediaId")
+    val url = new URL(s"${config.leasesApiBaseUri}/leases/media/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
   }
@@ -74,7 +84,7 @@ class ImageDataMerger(config: AdminToolsConfig)(implicit ec: ExecutionContext) {
         .map(entity => (entity.as[JsObject] \ "data").as[JsValue]).toList
     }
 
-    val url = new URL(s"${config.services.usageBaseUri}/usages/media/$mediaId")
+    val url = new URL(s"${config.usageBaseApiUri}/usages/media/$mediaId")
     val res = makeRequest(url)
     if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
     else Nil
