@@ -119,19 +119,34 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 )
 
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
-  .dependsOn(commonLib).settings {
-  libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % okHttpVersion
-  )
-}
+  .settings(
+    excludeDependencies ++= Seq(
+      ExclusionRule("com.amazonaws", "aws-java-sdk-iam"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-s3"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-ec2"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-cloudwatch"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-cloudfront"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-sqs"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-sns"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-sts"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-dynamodb"),
+      ExclusionRule("com.amazonaws", "aws-java-sdk-kinesis"),
+      ExclusionRule("org.elasticsearch", "elasticsearch"),
+      ExclusionRule("com.sksamuel.elastic4s", "elastic4s-core"),
+      ExclusionRule("com.sksamuel.elastic4s", "elastic4s-http"),
+    ),
+    libraryDependencies ++= Seq(
+      "com.squareup.okhttp3" % "okhttp" % okHttpVersion
+    )
+  ).dependsOn(commonLib)
 
 lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
-  .dependsOn(adminToolsLib).settings {
-  assemblyMergeStrategy in assembly := {
-    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-    case x => MergeStrategy.first
-  }
-}
+  .settings {
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    }
+  }.dependsOn(adminToolsLib)
 
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
   .dependsOn(adminToolsLib)
