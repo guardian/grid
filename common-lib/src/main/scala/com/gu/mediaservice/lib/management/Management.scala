@@ -2,9 +2,12 @@ package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.auth.PermissionsHandler
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient
+import com.gu.mediaservice.lib.elasticsearch6.{
+  ElasticSearchClient,
+  ElasticSearchImageCounts
+}
 import play.api.Logger
-import play.api.libs.json.Json
+import play.api.libs.json.{Format, Json}
 import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -63,4 +66,18 @@ class ElasticSearchHealthCheck(override val controllerComponents: ControllerComp
       }
     }
   }
+
+  def imageCounts: Action[AnyContent] = Action.async {
+    implicit val imageCountsFormat: Format[ElasticSearchImageCounts] =
+      Json.format[ElasticSearchImageCounts]
+
+    elasticsearch.countImages().map {
+      case counts: ElasticSearchImageCounts =>
+        Ok(Json.toJson(counts))
+      case _ =>
+        Logger.warn(s"Can't get stats")
+        ServiceUnavailable("Can't get stats")
+    }
+  }
+
 }

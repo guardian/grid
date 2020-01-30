@@ -11,6 +11,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
+case class ElasticSearchImageCounts(catCount: Long,
+                                    searchResponseCount: Long,
+                                    indexStatsCount: Long)
+
 trait ElasticSearchClient extends ElasticSearch6Executions {
 
   private val tenSeconds = Duration(10, SECONDS)
@@ -56,6 +60,22 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
   def healthCheck(): Future[Boolean] = {
     val request = search(imagesAlias) limit 0
     executeAndLog(request, "Health check").map { _ => true}.recover { case _ => false}
+  }
+
+
+  def countImages(): Future[ElasticSearchImageCounts] = {
+    val queryCatCount = catCount("images") // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
+    val queryImageSearch = search("images") limit 0 // hits that match the query defined in the request
+    val queryStats = indexStats("images") // total accumulated values of an index for both primary and replica shards
+
+    for {
+      catCount <- executeAndLog(queryCatCount, "Images cat count")
+      imageSearch <- executeAndLog(queryImageSearch, "Images search")
+      stats <- executeAndLog(queryStats, "Stats aggregation")
+    } yield
+      ElasticSearchImageCounts(catCount.result.count,
+                               imageSearch.result.hits.total,
+                               stats.result.indices("images").total.docs.count)
   }
 
   def ensureIndexExists(index: String): Unit = {
