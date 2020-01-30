@@ -45,6 +45,7 @@ export const handler = async (): Promise<{
 
   // query media api with credentials
   const images = await getImageCount(credentials);
+  console.log("image counts", images);
 
   // post it to CW as metric
   const client = new CloudWatch({ region: "eu-west-1" });

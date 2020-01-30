@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 
 import fns from "../src/handler";
+import getCredentials from "../src/getCredentials";
 
 jest.mock("node-fetch", () => jest.fn());
 jest.mock("../src/getCredentials");
@@ -28,12 +29,10 @@ jest.mock("aws-sdk/clients/cloudwatch", () => {
 describe("handler", () => {
   beforeEach(() => {
     // @ts-ignore
-    fns.getCredentials.mockImplementationOnce(() =>
-      Promise.resolve(credentials)
-    );
+    getCredentials = jest.fn(() => Promise.resolve(credentials));
 
     // @ts-ignore
-    fetch.mockImplementationOnce(() =>
+    fetch.mockImplementation(() =>
       Promise.resolve({
         json: () => {
           return imageCount;
@@ -63,8 +62,28 @@ describe("handler", () => {
         statusCode: 200,
         body: `Metrics sent for metrics: ${JSON.stringify(imageCount)}`
       });
-      expect(fns.getCredentials).toHaveBeenCalledTimes(1);
+      expect(getCredentials).toHaveBeenCalledTimes(1);
       expect(promiseMock).toHaveBeenCalledTimes(Object.keys(imageCount).length);
+    });
+
+    it("should log out image counts", async () => {
+      // @ts-ignore
+      global.console = {
+        warn: jest.fn(),
+        log: jest.fn()
+      };
+
+      // @ts-ignore
+      fetch = jest.fn(() => "ff");
+
+      expect(await fns.handler()).toEqual({
+        statusCode: 200,
+        body: `Metrics sent for metrics: ${JSON.stringify(imageCount)}`
+      });
+      expect(global.console.log).toHaveBeenCalledWith(
+        "image counts",
+        imageCount
+      );
     });
   });
 });
