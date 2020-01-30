@@ -40,7 +40,6 @@ upload.factory('uploadManager',
         $q.all(promises).finally(() => {
           jobs.delete(job);
           job.map(jobItem => {
-            console.log(jobItem);
             $window.revokeObjectURL(jobItem.dataUrl);
           });
         });
