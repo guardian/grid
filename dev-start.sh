@@ -115,10 +115,6 @@ setupLocalKinesis() {
   aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams
 }
 
-setupEnvVarsForAdminToolsAPI(){
-  export media_service_domain_root='local.dev-gutools.co.uk'
-  export media_service_api_key='dev-'
-}
 
 main() {
     checkRequirements
@@ -128,7 +124,6 @@ main() {
     startDockerContainers
     setupLocalKinesis
     buildJs
-    setupEnvVarsForAdminToolsAPI
     startPlayApps
 }
 
