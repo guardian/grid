@@ -7,22 +7,28 @@ interface MediaAPICredentials {
   "X-Gu-Media-Key": string;
 }
 
+interface ImageCounts {
+  catCount: number;
+  searchResponseCount: number;
+  indexStatsCount: number;
+}
+
 const getImageCount = async (
   credentials: MediaAPICredentials
-): Promise<number> => {
-  const response = await fetch(credentials.baseUrl + "/images?length=0", {
-    headers: {
-      "X-Gu-Media-Key": credentials["X-Gu-Media-Key"]
-    }
-  });
-  const images: { total: number } = await response.json();
-  return images.total;
+): Promise<ImageCounts> => {
+  const endpoint = credentials.baseUrl + "/management/imageCounts";
+  const params = {
+    headers: { "X-Gu-Media-Key": credentials["X-Gu-Media-Key"] }
+  };
+  const response = await fetch(endpoint, params);
+
+  return await response.json();
 };
 
-const metric = (value: number) => ({
+const metric = (key: string, value: number) => ({
   MetricData: [
     {
-      MetricName: "ImageCount",
+      MetricName: "ImageCount-" + key,
       Unit: "Count",
       Value: value
     }
@@ -43,10 +49,16 @@ export const handler = async (): Promise<{
   // post it to CW as metric
   const client = new CloudWatch({ region: "eu-west-1" });
 
-  await client.putMetricData(metric(images)).promise();
+  for (const key of Object.keys(images)) {
+    const met = metric(key.toUpperCase(), images[key]);
+    await client.putMetricData(met).promise();
+  }
 
   // return happy lambda response to caller
-  return { statusCode: 200, body: "Metric sent" };
+  return {
+    statusCode: 200,
+    body: `Metrics sent for metrics: ${JSON.stringify(images)}`
+  };
 };
 
 const fns = { getCredentials, handler, getImageCount };

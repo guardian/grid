@@ -5,7 +5,12 @@ import fns from "../src/handler";
 jest.mock("node-fetch", () => jest.fn());
 jest.mock("../src/getCredentials");
 
-const imageCount = 99999;
+const imageCount = {
+  catCount: 11,
+  searchResponseCount: 11,
+  indexStatsCount: 11
+};
+
 const credentials = { baseUrl: "someUrl", "X-Gu-Media-Key": "someKey" };
 
 const promiseMock = jest.fn();
@@ -31,9 +36,7 @@ describe("handler", () => {
     fetch.mockImplementationOnce(() =>
       Promise.resolve({
         json: () => {
-          return {
-            total: imageCount
-          };
+          return imageCount;
         }
       })
     );
@@ -44,7 +47,7 @@ describe("handler", () => {
       const result = await fns.getImageCount(credentials);
       expect(result).toEqual(imageCount);
       expect(fetch).toHaveBeenCalledWith(
-        credentials.baseUrl + "/images?length=0",
+        credentials.baseUrl + "/management/imageCounts",
         {
           headers: {
             "X-Gu-Media-Key": "someKey"
@@ -58,10 +61,10 @@ describe("handler", () => {
     it("should get credentials from S3", async () => {
       expect(await fns.handler()).toEqual({
         statusCode: 200,
-        body: "Metric sent"
+        body: `Metrics sent for metrics: ${JSON.stringify(imageCount)}`
       });
       expect(fns.getCredentials).toHaveBeenCalledTimes(1);
-      expect(promiseMock).toHaveBeenCalledTimes(1);
+      expect(promiseMock).toHaveBeenCalledTimes(Object.keys(imageCount).length);
     });
   });
 });
