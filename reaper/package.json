@@ -5,18 +5,13 @@
   "main": "lambda.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy": "node-riffraff-artifact"
+    "riffraff-artefact": "npx @guardian/node-riffraff-artifact@0.1.5"
   },
-  "isAwsLambda": true,
-  "cloudformation": false,
   "projectName": "media-service::grid::reaper-lambda",
-  "uploadArtefact": true,
-  "riffraffFile": "./riff-raff.yaml",
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@guardian/node-riffraff-artifact": "^0.1.0",
-    "aws-sdk": "^2.127.0"
+    "aws-sdk": "^2.610.0"
   },
   "dependencies": {
     "node-fetch": "^1.7.3",
