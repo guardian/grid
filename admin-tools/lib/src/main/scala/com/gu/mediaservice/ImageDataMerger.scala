@@ -1,4 +1,4 @@
-package lib
+package com.gu.mediaservice
 
 import java.net.URL
 

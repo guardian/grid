@@ -13,7 +13,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminTools)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
   .enablePlugins(RiffRaffArtifact)
   .settings(
     riffRaffManifestProjectName := s"media-service::grid::all",
@@ -30,12 +30,11 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in metadataEditor).value -> s"${(name in metadataEditor).value}/${(name in metadataEditor).value}.deb",
       (packageBin in Debian in usage).value -> s"${(name in usage).value}/${(name in usage).value}.deb",
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
-      (packageBin in Debian in adminTools).value -> s"${(name in adminTools).value}/${(name in adminTools).value}.deb",
       file("riff-raff.yaml") -> "riff-raff.yaml"
     )
   )
 
-addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools/run")
+addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools-dev/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
@@ -119,11 +118,19 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-lazy val adminTools = playProject("admin-tools", 9013).settings {
+lazy val adminToolsLib =  project("admin-tools-lib", Some("admin-tools/lib"))
+  .dependsOn(commonLib).settings {
   libraryDependencies ++= Seq(
+    "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion
   )
 }
+
+lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
+  .dependsOn(adminToolsLib)
+
+lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
+  .dependsOn(adminToolsLib)
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
@@ -177,8 +184,8 @@ val buildInfo = Seq(
   )
 )
 
-def playProject(projectName: String, port: Int): Project =
-  project(projectName, None)
+def playProject(projectName: String, port: Int, path: Option[String] = None): Project =
+  project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
     .dependsOn(commonLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
