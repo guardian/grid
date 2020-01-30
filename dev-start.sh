@@ -115,7 +115,6 @@ setupLocalKinesis() {
   aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams
 }
 
-
 main() {
     checkRequirements
     checkNodeVersion
