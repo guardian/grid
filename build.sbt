@@ -1,4 +1,5 @@
-import PlayKeys._
+import play.sbt.PlayImport.PlayKeys._
+
 import scala.sys.process._
 
 val commonSettings = Seq(
@@ -121,22 +122,21 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
-      ExclusionRule("com.amazonaws", "aws-java-sdk-iam"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-s3"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-ec2"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-cloudwatch"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-cloudfront"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-sqs"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-sns"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-sts"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-dynamodb"),
-      ExclusionRule("com.amazonaws", "aws-java-sdk-kinesis"),
-      ExclusionRule("org.elasticsearch", "elasticsearch"),
-      ExclusionRule("com.sksamuel.elastic4s", "elastic4s-core"),
-      ExclusionRule("com.sksamuel.elastic4s", "elastic4s-http"),
+      ExclusionRule("com.amazonaws"),
+      ExclusionRule("org.elasticsearch"),
+      ExclusionRule("com.sksamuel.elastic4s"),
+      ExclusionRule("com.drewnoakes", "metadata-extractor"),
+      ExclusionRule("org.codehaus.janino"),
+      //      ExclusionRule("com.typesafe.play"),
+      ExclusionRule("org.scalaz.stream"),
+      ExclusionRule("org.im4java"),
+      ExclusionRule("org.scalacheck"),
     ),
     libraryDependencies ++= Seq(
-      "com.squareup.okhttp3" % "okhttp" % okHttpVersion
+      "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
+      //      "com.typesafe.play" %% "play-json" % "2.6.9",
+      //      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+      //      "com.typesafe.play" %% "filters-helpers" % "2.6.20",
     )
   ).dependsOn(commonLib)
 
