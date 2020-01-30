@@ -3,7 +3,7 @@ package lib.kinesis
 import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import org.joda.time.DateTime
@@ -36,7 +36,7 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     implicit val unw = Json.writes[UsageNotice]
     def asJsLookup(us: Seq[Usage]): JsLookupResult = JsDefined(Json.toJson(us))
     withId(message) { id =>
@@ -49,10 +49,10 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def indexImage(message: UpdateMessage)(implicit ec: ExecutionContext) =
+  def indexImage(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] =
     Future.sequence(withImage(message)(i => es.indexImage(i.id, Json.toJson(message.image.get))))
 
-  def updateImageExports(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def updateImageExports(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     def asJsLookup(cs: Seq[Crop]): JsLookupResult = JsDefined(Json.toJson(cs))
     withId(message) { id =>
       withCrops(message) { crops =>
@@ -61,10 +61,10 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def deleteImageExports(message: UpdateMessage)(implicit ec: ExecutionContext) =
+  def deleteImageExports(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] =
     Future.sequence(withId(message)(id => es.deleteImageExports(id)))
 
-  def updateImageUserMetadata(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def updateImageUserMetadata(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     def asJsLookup(e: Edits): JsLookupResult = JsDefined(Json.toJson(e))
     withEdits(message) { edits =>
       withLastModified(message) { lastModified =>
@@ -73,7 +73,7 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def replaceImageLeases(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def replaceImageLeases(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     def asJsLookup(ls: Seq[MediaLease]): JsLookupResult = JsDefined(Json.toJson(ls))
     withId(message) { id =>
       withLeases(message) { leases =>
@@ -82,7 +82,7 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def addImageLease(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def addImageLease(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     def asJsLookup(m: MediaLease): JsLookupResult = JsDefined(Json.toJson(m))
     withId(message) { id =>
       withLease(message) { mediaLease =>
@@ -93,7 +93,7 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def removeImageLease(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def removeImageLease(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     def asJsLookup(i: String): JsLookupResult = JsDefined(Json.toJson(i))
     withLeaseId(message) { leaseId =>
       withLastModified(message) { lastModified =>
@@ -102,7 +102,7 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def setImageCollections(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def setImageCollections(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     def asJsLookup(c: Seq[Collection]): JsLookupResult = JsDefined(Json.toJson(c))
     withCollections(message) { collections =>
       withId(message) { id =>
@@ -111,31 +111,38 @@ class MessageProcessor(es: ElasticSearch6,
     }
   }
 
-  def deleteImage(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) = {
-    Future.sequence(
-      withId(updateMessage) { id =>
-        // if we cannot delete the image as it's "protected", succeed and delete
-        // the message anyway.
-        GridLogger.info("ES6 Deleting image: " + id)
-        es.deleteImage(id).map { requests =>
-          requests.map {
-            case _: ElasticSearchDeleteResponse =>
-              store.deleteOriginal(id)
-              store.deleteThumbnail(id)
-              store.deletePng(id)
-              metadataEditorNotifications.publishImageDeletion(id)
-              EsResponse(s"Image deleted: $id")
-          } recoverWith {
-            case ImageNotDeletable =>
-              GridLogger.info("Could not delete image", id)
-              Future.successful(EsResponse(s"Image cannot be deleted: $id"))
-          }
+  def deleteImage(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Future[EsResponse] = {
+    withId(updateMessage) { id =>
+      // if we cannot delete the image as it's "protected", succeed and delete
+      // the message anyway.
+      GridLogger.info("ES6 Deleting image: " + id)
+      es.canDeleteImage(id).flatMap { _ =>
+          deleteStoredImageInformation(id)
+        } recoverWith {
+        case ImageNotDeletable =>
+          GridLogger.info("Could not delete image", id)
+          Future.successful(EsResponse(s"Image cannot be deleted: $id"))
+        case e: Exception =>
+          GridLogger.info("Failed to delete image", id)
+          Future.failed(e)
         }
       }
-    )
   }
 
-  def deleteAllUsages(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) =
+  private def deleteStoredImageInformation(id: String)(implicit executionContext: ExecutionContext): Future[EsResponse] = {
+    (for {
+      _ <- store.deleteOriginal(id)
+      _ <- store.deleteThumbnail(id)
+      _ <- store.deletePng(id)
+      _ <- es.deleteImage(id)
+      _ <- metadataEditorNotifications.publishImageDeletion(id)
+    } yield Unit) match {
+      case a if a.failed => Future.failed(ImageNotDeleted)
+      case _ => Future.successful(EsResponse(s"Image deleted: $id"))
+    }
+  }
+
+  def deleteAllUsages(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] =
     Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))
 
   def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Future[Unit] = {

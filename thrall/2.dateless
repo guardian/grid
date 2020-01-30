@@ -1,0 +1,465 @@
+[36m========= i-0f00e76f3c951fff8 =========[0m
+[36mSTDOUT:[0m
+/data//nodes/0/indices/0HMueH7WTNeT6TC7vh5nTg/0/index/:
+total 14759656
+-rw-r--r-- 1       121492 Jan 27 04:42 _1pi04_2p.liv
+-rw-r--r-- 1           87  _1pi04_completion_0.cmp
+-rw-r--r-- 1       129938  _1pi04_completion_0.doc
+-rw-r--r-- 1      1525102  _1pi04_completion_0.lkp
+-rw-r--r-- 1       593084  _1pi04_completion_0.pay
+-rw-r--r-- 1       963745  _1pi04_completion_0.pos
+-rw-r--r-- 1       229749  _1pi04_completion_0.tim
+-rw-r--r-- 1         2480  _1pi04_completion_0.tip
+-rw-r--r-- 1          321  _1pi04.dii
+-rw-r--r-- 1     52001382  _1pi04.dim
+-rw-r--r-- 1   4020032067  _1pi04.fdt
+-rw-r--r-- 1      1352348  _1pi04.fdx
+-rw-r--r-- 1     10758639  _1pi04.fnm
+-rw-r--r-- 1    178623881  _1pi04_Lucene50_0.doc
+-rw-r--r-- 1           77  _1pi04_Lucene50_0.pay
+-rw-r--r-- 1    116038337  _1pi04_Lucene50_0.pos
+-rw-r--r-- 1    183408579  _1pi04_Lucene50_0.tim
+-rw-r--r-- 1      1930243  _1pi04_Lucene50_0.tip
+-rw-r--r-- 1    861519132  _1pi04_Lucene70_0.dvd
+-rw-r--r-- 1     10908543  _1pi04_Lucene70_0.dvm
+-rw-r--r-- 1     16279651  _1pi04.nvd
+-rw-r--r-- 1         1783  _1pi04.nvm
+-rw-r--r-- 1          835  _1pi04.si
+-rw-r--r-- 1        75004 Jan 27 04:42 _1tc_7m.liv
+-rw-r--r-- 1           87  _1tc_completion_0.cmp
+-rw-r--r-- 1        93795  _1tc_completion_0.doc
+-rw-r--r-- 1      1055829  _1tc_completion_0.lkp
+-rw-r--r-- 1       489405  _1tc_completion_0.pay
+-rw-r--r-- 1       464854  _1tc_completion_0.pos
+-rw-r--r-- 1       170583  _1tc_completion_0.tim
+-rw-r--r-- 1         2010  _1tc_completion_0.tip
+-rw-r--r-- 1          313  _1tc.dii
+-rw-r--r-- 1     33372599  _1tc.dim
+-rw-r--r-- 1   4719346384  _1tc.fdt
+-rw-r--r-- 1       614503  _1tc.fdx
+-rw-r--r-- 1      3681376  _1tc.fnm
+-rw-r--r-- 1     71466854  _1tc_Lucene50_0.doc
+-rw-r--r-- 1           77  _1tc_Lucene50_0.pay
+-rw-r--r-- 1     40414686  _1tc_Lucene50_0.pos
+-rw-r--r-- 1    115318641  _1tc_Lucene50_0.tim
+-rw-r--r-- 1      1187004  _1tc_Lucene50_0.tip
+-rw-r--r-- 1    281307764  _1tc_Lucene70_0.dvd
+-rw-r--r-- 1      3858876  _1tc_Lucene70_0.dvm
+-rw-r--r-- 1      7337116  _1tc.nvd
+-rw-r--r-- 1         1684  _1tc.nvm
+-rw-r--r-- 1          791  _1tc.si
+-rw-r--r-- 1           87  _20sn9_completion_0.cmp
+-rw-r--r-- 1       106505  _20sn9_completion_0.doc
+-rw-r--r-- 1      1279736  _20sn9_completion_0.lkp
+-rw-r--r-- 1       624129  _20sn9_completion_0.pay
+-rw-r--r-- 1       608645  _20sn9_completion_0.pos
+-rw-r--r-- 1       163114  _20sn9_completion_0.tim
+-rw-r--r-- 1         1891  _20sn9_completion_0.tip
+-rw-r--r-- 1          320  _20sn9.dii
+-rw-r--r-- 1     23374626  _20sn9.dim
+-rw-r--r-- 1   2149967818  _20sn9.fdt
+-rw-r--r-- 1       697873  _20sn9.fdx
+-rw-r--r-- 1      9127196  _20sn9.fnm
+-rw-r--r-- 1     95302914  _20sn9_Lucene50_0.doc
+-rw-r--r-- 1           77  _20sn9_Lucene50_0.pay
+-rw-r--r-- 1     64463439  _20sn9_Lucene50_0.pos
+-rw-r--r-- 1     93073612  _20sn9_Lucene50_0.tim
+-rw-r--r-- 1      1053393  _20sn9_Lucene50_0.tip
+-rw-r--r-- 1    437153590  _20sn9_Lucene70_0.dvd
+-rw-r--r-- 1      8952887  _20sn9_Lucene70_0.dvm
+-rw-r--r-- 1      8760344  _20sn9.nvd
+-rw-r--r-- 1         1783  _20sn9.nvm
+-rw-r--r-- 1        63027 Jan 27 04:42 _20sn9_p.liv
+-rw-r--r-- 1          830  _20sn9.si
+-rw-r--r-- 1          675  _223qz.cfe
+-rw-r--r-- 1    327372752  _223qz.cfs
+-rw-r--r-- 1         8363 Jan 27 04:42 _223qz_e.liv
+-rw-r--r-- 1          453  _223qz.si
+-rw-r--r-- 1         2539 Jan 27 04:42 _22tjw_b.liv
+-rw-r--r-- 1          675  _22tjw.cfe
+-rw-r--r-- 1     98267966  _22tjw.cfs
+-rw-r--r-- 1          453  _22tjw.si
+-rw-r--r-- 1        10643 Jan 27 04:42 _24f8y_4.liv
+-rw-r--r-- 1          675  _24f8y.cfe
+-rw-r--r-- 1    410369550  _24f8y.cfs
+-rw-r--r-- 1          453  _24f8y.si
+-rw-r--r-- 1         1307 Jan 27 04:42 _24uh3_3.liv
+-rw-r--r-- 1          675  _24uh3.cfe
+-rw-r--r-- 1     52419409  _24uh3.cfs
+-rw-r--r-- 1          453  _24uh3.si
+-rw-r--r-- 1         2387 Jan 27 04:42 _2511q_2.liv
+-rw-r--r-- 1          675  _2511q.cfe
+-rw-r--r-- 1     96180670  _2511q.cfs
+-rw-r--r-- 1          453  _2511q.si
+-rw-r--r-- 1         3003 Jan 27 04:42 _259zg_1.liv
+-rw-r--r-- 1          675 Jan 23 04:52 _259zg.cfe
+-rw-r--r-- 1    110482206 Jan 23 04:52 _259zg.cfs
+-rw-r--r-- 1          453 Jan 23 04:52 _259zg.si
+-rw-r--r-- 1          147 Jan 27 04:42 _25oi4_1.liv
+-rw-r--r-- 1          675 Jan 24 21:03 _25oi4.cfe
+-rw-r--r-- 1      3805224 Jan 24 21:03 _25oi4.cfs
+-rw-r--r-- 1          453 Jan 24 21:03 _25oi4.si
+-rw-r--r-- 1         4435 Jan 27 04:42 _25oie_1.liv
+-rw-r--r-- 1          675 Jan 24 21:04 _25oie.cfe
+-rw-r--r-- 1    175564437 Jan 24 21:04 _25oie.cfs
+-rw-r--r-- 1          453 Jan 24 21:04 _25oie.si
+-rw-r--r-- 1          491 Jan 27 04:42 _25riw_1.liv
+-rw-r--r-- 1          675 Jan 25 09:08 _25riw.cfe
+-rw-r--r-- 1     16949872 Jan 25 09:08 _25riw.cfs
+-rw-r--r-- 1          453 Jan 25 09:08 _25riw.si
+-rw-r--r-- 1          363 Jan 27 04:42 _25tac_1.liv
+-rw-r--r-- 1          675 Jan 25 13:49 _25tac.cfe
+-rw-r--r-- 1     14945801 Jan 25 13:49 _25tac.cfs
+-rw-r--r-- 1          453 Jan 25 13:49 _25tac.si
+-rw-r--r-- 1          307 Jan 27 04:42 _25uv3_1.liv
+-rw-r--r-- 1          675 Jan 25 16:31 _25uv3.cfe
+-rw-r--r-- 1     11382522 Jan 25 16:31 _25uv3.cfs
+-rw-r--r-- 1          453 Jan 25 16:31 _25uv3.si
+-rw-r--r-- 1          171 Jan 27 04:42 _25y60_1.liv
+-rw-r--r-- 1          675 Jan 26 00:14 _25y60.cfe
+-rw-r--r-- 1      3820609 Jan 26 00:14 _25y60.cfs
+-rw-r--r-- 1          453 Jan 26 00:14 _25y60.si
+-rw-r--r-- 1         1403 Jan 27 04:42 _25y6a_1.liv
+-rw-r--r-- 1          675 Jan 26 00:15 _25y6a.cfe
+-rw-r--r-- 1     55468584 Jan 26 00:15 _25y6a.cfs
+-rw-r--r-- 1          453 Jan 26 00:15 _25y6a.si
+-rw-r--r-- 1          507 Jan 27 04:42 _2616e_1.liv
+-rw-r--r-- 1          675 Jan 26 09:59 _2616e.cfe
+-rw-r--r-- 1     17034683 Jan 26 09:59 _2616e.cfs
+-rw-r--r-- 1          453 Jan 26 09:59 _2616e.si
+-rw-r--r-- 1          403 Jan 27 04:42 _263ch_1.liv
+-rw-r--r-- 1          675 Jan 26 15:27 _263ch.cfe
+-rw-r--r-- 1     14848224 Jan 26 15:27 _263ch.cfs
+-rw-r--r-- 1          453 Jan 26 15:27 _263ch.si
+-rw-r--r-- 1          387 Jan 27 04:42 _265eb_1.liv
+-rw-r--r-- 1          675 Jan 26 21:00 _265eb.cfe
+-rw-r--r-- 1     12825660 Jan 26 21:00 _265eb.cfs
+-rw-r--r-- 1          453 Jan 26 21:00 _265eb.si
+-rw-r--r-- 1          419 Jan 27 04:42 _267al_1.liv
+-rw-r--r-- 1          675 Jan 27 01:38 _267al.cfe
+-rw-r--r-- 1     13403818 Jan 27 01:38 _267al.cfs
+-rw-r--r-- 1          453 Jan 27 01:38 _267al.si
+-rw-r--r-- 1          675 Jan 27 04:36 _268b4.cfe
+-rw-r--r-- 1      1382845 Jan 27 04:36 _268b4.cfs
+-rw-r--r-- 1          453 Jan 27 04:36 _268b4.si
+-rw-r--r-- 1          675 Jan 27 04:38 _268be.cfe
+-rw-r--r-- 1      1383034 Jan 27 04:38 _268be.cfs
+-rw-r--r-- 1          453 Jan 27 04:38 _268be.si
+-rw-r--r-- 1          675 Jan 27 04:38 _268bo.cfe
+-rw-r--r-- 1      1389685 Jan 27 04:38 _268bo.cfs
+-rw-r--r-- 1          453 Jan 27 04:38 _268bo.si
+-rw-r--r-- 1          675 Jan 27 04:40 _268by.cfe
+-rw-r--r-- 1      1404343 Jan 27 04:40 _268by.cfs
+-rw-r--r-- 1          453 Jan 27 04:40 _268by.si
+-rw-r--r-- 1          675 Jan 27 04:41 _268c8.cfe
+-rw-r--r-- 1      1431230 Jan 27 04:41 _268c8.cfs
+-rw-r--r-- 1          453 Jan 27 04:41 _268c8.si
+-rw-r--r-- 1          405 Jan 27 04:42 _268c9.cfe
+-rw-r--r-- 1        66953 Jan 27 04:42 _268c9.cfs
+-rw-r--r-- 1          415 Jan 27 04:42 _268c9.si
+-rw-r--r-- 1          675 Jan 27 07:43 _269a7.cfe
+-rw-r--r-- 1     11356795 Jan 27 07:43 _269a7.cfs
+-rw-r--r-- 1          453 Jan 27 07:43 _269a7.si
+-rw-r--r-- 1          675 Jan 27 10:52 _26anw.cfe
+-rw-r--r-- 1      9476923 Jan 27 10:52 _26anw.cfs
+-rw-r--r-- 1          453 Jan 27 10:52 _26anw.si
+-rw-r--r-- 1          675 Jan 27 12:20 _26bfm.cfe
+-rw-r--r-- 1     10473540 Jan 27 12:20 _26bfm.cfs
+-rw-r--r-- 1          453 Jan 27 12:20 _26bfm.si
+-rw-r--r-- 1          675 Jan 27 14:28 _26cbk.cfe
+-rw-r--r-- 1      2725828 Jan 27 14:28 _26cbk.cfs
+-rw-r--r-- 1          453 Jan 27 14:28 _26cbk.si
+-rw-r--r-- 1          675 Jan 27 14:30 _26cc5.cfe
+-rw-r--r-- 1      2648977 Jan 27 14:30 _26cc5.cfs
+-rw-r--r-- 1          453 Jan 27 14:30 _26cc5.si
+-rw-r--r-- 1          675 Jan 27 14:31 _26cch.cfe
+-rw-r--r-- 1      2684861 Jan 27 14:31 _26cch.cfs
+-rw-r--r-- 1          453 Jan 27 14:31 _26cch.si
+-rw-r--r-- 1          405 Jan 27 14:31 _26cci.cfe
+-rw-r--r-- 1        30232 Jan 27 14:31 _26cci.cfs
+-rw-r--r-- 1          415 Jan 27 14:31 _26cci.si
+-rw-r--r-- 1          405 Jan 27 14:31 _26ccj.cfe
+-rw-r--r-- 1        20798 Jan 27 14:31 _26ccj.cfs
+-rw-r--r-- 1          415 Jan 27 14:31 _26ccj.si
+-rw-r--r-- 1          405 Jan 27 14:31 _26cck.cfe
+-rw-r--r-- 1        20424 Jan 27 14:31 _26cck.cfs
+-rw-r--r-- 1          415 Jan 27 14:31 _26cck.si
+-rw-r--r-- 1          405 Jan 27 14:31 _26ccl.cfe
+-rw-r--r-- 1        48718 Jan 27 14:31 _26ccl.cfs
+-rw-r--r-- 1          415 Jan 27 14:31 _26ccl.si
+-rw-r--r-- 1          405 Jan 27 14:31 _26ccm.cfe
+-rw-r--r-- 1        41367 Jan 27 14:31 _26ccm.cfs
+-rw-r--r-- 1          415 Jan 27 14:31 _26ccm.si
+-rw-r--r-- 1          405 Jan 27 14:32 _26ccn.cfe
+-rw-r--r-- 1        64882 Jan 27 14:32 _26ccn.cfs
+-rw-r--r-- 1          415 Jan 27 14:32 _26ccn.si
+-rw-r--r-- 1         2040 Jan 27 04:42 segments_h0
+-rw-r--r-- 1            0  write.lock
+
+/data//nodes/0/indices/0HMueH7WTNeT6TC7vh5nTg/1/index/:
+total 10804144
+-rw-r--r-- 1       119092 Jan 27 06:56 _1myqj_2y.liv
+-rw-r--r-- 1           87  _1myqj_completion_0.cmp
+-rw-r--r-- 1        82136  _1myqj_completion_0.doc
+-rw-r--r-- 1       944668  _1myqj_completion_0.lkp
+-rw-r--r-- 1       282615  _1myqj_completion_0.pay
+-rw-r--r-- 1       723273  _1myqj_completion_0.pos
+-rw-r--r-- 1       173616  _1myqj_completion_0.tim
+-rw-r--r-- 1         2023  _1myqj_completion_0.tip
+-rw-r--r-- 1          321  _1myqj.dii
+-rw-r--r-- 1     52248304  _1myqj.dim
+-rw-r--r-- 1   4032384512  _1myqj.fdt
+-rw-r--r-- 1      1296781  _1myqj.fdx
+-rw-r--r-- 1     16286860  _1myqj.fnm
+-rw-r--r-- 1    168257817  _1myqj_Lucene50_0.doc
+-rw-r--r-- 1           77  _1myqj_Lucene50_0.pay
+-rw-r--r-- 1    108643165  _1myqj_Lucene50_0.pos
+-rw-r--r-- 1    181579215  _1myqj_Lucene50_0.tim
+-rw-r--r-- 1      1896020  _1myqj_Lucene50_0.tip
+-rw-r--r-- 1    825489686  _1myqj_Lucene70_0.dvd
+-rw-r--r-- 1     16225640  _1myqj_Lucene70_0.dvm
+-rw-r--r-- 1     15516450  _1myqj.nvd
+-rw-r--r-- 1         1783  _1myqj.nvm
+-rw-r--r-- 1          835  _1myqj.si
+-rw-r--r-- 1         4971 Jan 27 06:56 _23r23_9.liv
+-rw-r--r-- 1          675  _23r23.cfe
+-rw-r--r-- 1    191561003  _23r23.cfs
+-rw-r--r-- 1          453  _23r23.si
+-rw-r--r-- 1          259 Jan 27 06:56 _269hf_1.liv
+-rw-r--r-- 1          675 Jan 25 19:26 _269hf.cfe
+-rw-r--r-- 1      8942288 Jan 25 19:26 _269hf.cfs
+-rw-r--r-- 1          453 Jan 25 19:26 _269hf.si
+-rw-r--r-- 1          203 Jan 27 06:56 _26c3m_1.liv
+-rw-r--r-- 1          675 Jan 26 03:49 _26c3m.cfe
+-rw-r--r-- 1      5807322 Jan 26 03:49 _26c3m.cfs
+-rw-r--r-- 1          453 Jan 26 03:49 _26c3m.si
+-rw-r--r-- 1          291 Jan 27 06:56 _26cn5_1.liv
+-rw-r--r-- 1          675 Jan 26 05:22 _26cn5.cfe
+-rw-r--r-- 1      8392872 Jan 26 05:22 _26cn5.cfs
+-rw-r--r-- 1          453 Jan 26 05:22 _26cn5.si
+-rw-r--r-- 1          171 Jan 27 06:56 _26da8_1.liv
+-rw-r--r-- 1          675 Jan 26 07:58 _26da8.cfe
+-rw-r--r-- 1      4457647 Jan 26 07:58 _26da8.cfs
+-rw-r--r-- 1          453 Jan 26 07:58 _26da8.si
+-rw-r--r-- 1       109435 Jan 27 06:56 _26das_1.liv
+-rw-r--r-- 1           87 Jan 26 08:08 _26das_completion_0.cmp
+-rw-r--r-- 1        58525 Jan 26 08:08 _26das_completion_0.doc
+-rw-r--r-- 1       670992 Jan 26 08:08 _26das_completion_0.lkp
+-rw-r--r-- 1       247869 Jan 26 08:08 _26das_completion_0.pay
+-rw-r--r-- 1       435743 Jan 26 08:08 _26das_completion_0.pos
+-rw-r--r-- 1       119204 Jan 26 08:08 _26das_completion_0.tim
+-rw-r--r-- 1         1384 Jan 26 08:08 _26das_completion_0.tip
+-rw-r--r-- 1          321 Jan 26 08:10 _26das.dii
+-rw-r--r-- 1     41761247 Jan 26 08:10 _26das.dim
+-rw-r--r-- 1   3999307792 Jan 26 08:07 _26das.fdt
+-rw-r--r-- 1      1217490 Jan 26 08:07 _26das.fdx
+-rw-r--r-- 1      6128289 Jan 26 08:10 _26das.fnm
+-rw-r--r-- 1    164238251 Jan 26 08:08 _26das_Lucene50_0.doc
+-rw-r--r-- 1           77 Jan 26 08:08 _26das_Lucene50_0.pay
+-rw-r--r-- 1    109400319 Jan 26 08:08 _26das_Lucene50_0.pos
+-rw-r--r-- 1    159723629 Jan 26 08:08 _26das_Lucene50_0.tim
+-rw-r--r-- 1      1733680 Jan 26 08:08 _26das_Lucene50_0.tip
+-rw-r--r-- 1    760614210 Jan 26 08:10 _26das_Lucene70_0.dvd
+-rw-r--r-- 1      6473074 Jan 26 08:10 _26das_Lucene70_0.dvm
+-rw-r--r-- 1     14965350 Jan 26 08:10 _26das.nvd
+-rw-r--r-- 1         1783 Jan 26 08:10 _26das.nvm
+-rw-r--r-- 1          830 Jan 26 08:10 _26das.si
+-rw-r--r-- 1          115 Jan 27 06:56 _26fgr_1.liv
+-rw-r--r-- 1          675 Jan 26 13:27 _26fgr.cfe
+-rw-r--r-- 1      2730627 Jan 26 13:27 _26fgr.cfs
+-rw-r--r-- 1          453 Jan 26 13:27 _26fgr.si
+-rw-r--r-- 1          371 Jan 27 06:56 _26fip_1.liv
+-rw-r--r-- 1          675 Jan 26 13:37 _26fip.cfe
+-rw-r--r-- 1     13135734 Jan 26 13:37 _26fip.cfs
+-rw-r--r-- 1          453 Jan 26 13:37 _26fip.si
+-rw-r--r-- 1          379 Jan 27 06:56 _26hih_1.liv
+-rw-r--r-- 1          675 Jan 26 18:21 _26hih.cfe
+-rw-r--r-- 1     13228087 Jan 26 18:21 _26hih.cfs
+-rw-r--r-- 1          453 Jan 26 18:21 _26hih.si
+-rw-r--r-- 1          363 Jan 27 06:56 _26jh6_1.liv
+-rw-r--r-- 1          675 Jan 26 23:48 _26jh6.cfe
+-rw-r--r-- 1     11414734 Jan 26 23:48 _26jh6.cfs
+-rw-r--r-- 1          453 Jan 26 23:48 _26jh6.si
+-rw-r--r-- 1          323 Jan 27 06:56 _26l2j_1.liv
+-rw-r--r-- 1          675 Jan 27 03:38 _26l2j.cfe
+-rw-r--r-- 1      9559776 Jan 27 03:38 _26l2j.cfs
+-rw-r--r-- 1          453 Jan 27 03:38 _26l2j.si
+-rw-r--r-- 1          675 Jan 27 06:50 _26m1y.cfe
+-rw-r--r-- 1      2344674 Jan 27 06:50 _26m1y.cfs
+-rw-r--r-- 1          453 Jan 27 06:50 _26m1y.si
+-rw-r--r-- 1          675 Jan 27 06:51 _26m28.cfe
+-rw-r--r-- 1      2360031 Jan 27 06:51 _26m28.cfs
+-rw-r--r-- 1          453 Jan 27 06:51 _26m28.si
+-rw-r--r-- 1          675 Jan 27 06:56 _26m2i.cfe
+-rw-r--r-- 1      2371427 Jan 27 06:56 _26m2i.cfs
+-rw-r--r-- 1          453 Jan 27 06:56 _26m2i.si
+-rw-r--r-- 1          405 Jan 27 06:56 _26m2j.cfe
+-rw-r--r-- 1        47189 Jan 27 06:56 _26m2j.cfs
+-rw-r--r-- 1          415 Jan 27 06:56 _26m2j.si
+-rw-r--r-- 1          405 Jan 27 06:56 _26m2k.cfe
+-rw-r--r-- 1        65956 Jan 27 06:56 _26m2k.cfs
+-rw-r--r-- 1          415 Jan 27 06:56 _26m2k.si
+-rw-r--r-- 1          675 Jan 27 12:18 _26of4.cfe
+-rw-r--r-- 1      3378386 Jan 27 12:18 _26of4.cfs
+-rw-r--r-- 1          453 Jan 27 12:18 _26of4.si
+-rw-r--r-- 1          675 Jan 27 12:19 _26ofe.cfe
+-rw-r--r-- 1     82868682 Jan 27 12:19 _26ofe.cfs
+-rw-r--r-- 1          453 Jan 27 12:19 _26ofe.si
+-rw-r--r-- 1          675 Jan 27 12:46 _26onb.cfe
+-rw-r--r-- 1      2082382 Jan 27 12:46 _26onb.cfs
+-rw-r--r-- 1          453 Jan 27 12:46 _26onb.si
+-rw-r--r-- 1          675 Jan 27 13:01 _26orh.cfe
+-rw-r--r-- 1      1222639 Jan 27 13:01 _26orh.cfs
+-rw-r--r-- 1          453 Jan 27 13:01 _26orh.si
+-rw-r--r-- 1          675 Jan 27 13:41 _26p2e.cfe
+-rw-r--r-- 1      1301475 Jan 27 13:41 _26p2e.cfs
+-rw-r--r-- 1          453 Jan 27 13:41 _26p2e.si
+-rw-r--r-- 1          675 Jan 27 14:10 _26p9b.cfe
+-rw-r--r-- 1      1340275 Jan 27 14:10 _26p9b.cfs
+-rw-r--r-- 1          453 Jan 27 14:10 _26p9b.si
+-rw-r--r-- 1          675 Jan 27 14:27 _26pdj.cfe
+-rw-r--r-- 1       941914 Jan 27 14:27 _26pdj.cfs
+-rw-r--r-- 1          453 Jan 27 14:27 _26pdj.si
+-rw-r--r-- 1          675 Jan 27 14:28 _26pdt.cfe
+-rw-r--r-- 1       916705 Jan 27 14:28 _26pdt.cfs
+-rw-r--r-- 1          453 Jan 27 14:28 _26pdt.si
+-rw-r--r-- 1          675 Jan 27 14:29 _26pe3.cfe
+-rw-r--r-- 1       937286 Jan 27 14:29 _26pe3.cfs
+-rw-r--r-- 1          453 Jan 27 14:29 _26pe3.si
+-rw-r--r-- 1          675 Jan 27 14:30 _26ped.cfe
+-rw-r--r-- 1       951034 Jan 27 14:30 _26ped.cfs
+-rw-r--r-- 1          453 Jan 27 14:30 _26ped.si
+-rw-r--r-- 1          675 Jan 27 14:31 _26pen.cfe
+-rw-r--r-- 1       934589 Jan 27 14:31 _26pen.cfs
+-rw-r--r-- 1          453 Jan 27 14:31 _26pen.si
+-rw-r--r-- 1          405 Jan 27 14:31 _26pep.cfe
+-rw-r--r-- 1        19026 Jan 27 14:31 _26pep.cfs
+-rw-r--r-- 1          415 Jan 27 14:31 _26pep.si
+-rw-r--r-- 1          405 Jan 27 14:31 _26peq.cfe
+-rw-r--r-- 1        49235 Jan 27 14:31 _26peq.cfs
+-rw-r--r-- 1          415 Jan 27 14:31 _26peq.si
+-rw-r--r-- 1          405 Jan 27 14:32 _26pes.cfe
+-rw-r--r-- 1        48555 Jan 27 14:32 _26pes.cfs
+-rw-r--r-- 1          415 Jan 27 14:32 _26pes.si
+-rw-r--r-- 1          405 Jan 27 14:32 _26pet.cfe
+-rw-r--r-- 1         7924 Jan 27 14:32 _26pet.cfs
+-rw-r--r-- 1          415 Jan 27 14:32 _26pet.si
+-rw-r--r-- 1           67 Jan 27 14:32 _26peu_1.liv
+-rw-r--r-- 1          405 Jan 27 14:32 _26peu.cfe
+-rw-r--r-- 1        46331 Jan 27 14:32 _26peu.cfs
+-rw-r--r-- 1          415 Jan 27 14:32 _26peu.si
+-rw-r--r-- 1          405 Jan 27 14:32 _26pev.cfe
+-rw-r--r-- 1        48483 Jan 27 14:32 _26pev.cfs
+-rw-r--r-- 1          415 Jan 27 14:32 _26pev.si
+-rw-r--r-- 1          405 Jan 27 14:32 _26pew.cfe
+-rw-r--r-- 1        47302 Jan 27 14:32 _26pew.cfs
+-rw-r--r-- 1          415 Jan 27 14:32 _26pew.si
+-rw-r--r-- 1            0 Jan 27 14:32 _26pex.fdt
+-rw-r--r-- 1            0 Jan 27 14:32 _26pex.fdx
+-rw-r--r-- 1         1421 Jan 27 06:56 segments_h9
+-rw-r--r-- 1            0  write.lock
+
+/data//nodes/0/indices/0HMueH7WTNeT6TC7vh5nTg/2/index/:
+total 10685036
+-rw-r--r-- 1       124404 Jan 27 00:27 _1pvw4_2c.liv
+-rw-r--r-- 1           87  _1pvw4_completion_0.cmp
+-rw-r--r-- 1        86871  _1pvw4_completion_0.doc
+-rw-r--r-- 1       935073  _1pvw4_completion_0.lkp
+-rw-r--r-- 1       299207  _1pvw4_completion_0.pay
+-rw-r--r-- 1       757265  _1pvw4_completion_0.pos
+-rw-r--r-- 1       178982  _1pvw4_completion_0.tim
+-rw-r--r-- 1         2109  _1pvw4_completion_0.tip
+-rw-r--r-- 1          321  _1pvw4.dii
+-rw-r--r-- 1     53676354  _1pvw4.dim
+-rw-r--r-- 1   3989622492  _1pvw4.fdt
+-rw-r--r-- 1      1373878  _1pvw4.fdx
+-rw-r--r-- 1     19536756  _1pvw4.fnm
+-rw-r--r-- 1    180842711  _1pvw4_Lucene50_0.doc
+-rw-r--r-- 1           77  _1pvw4_Lucene50_0.pay
+-rw-r--r-- 1    117488649  _1pvw4_Lucene50_0.pos
+-rw-r--r-- 1    188119841  _1pvw4_Lucene50_0.tim
+-rw-r--r-- 1      1962822  _1pvw4_Lucene50_0.tip
+-rw-r--r-- 1    885052074  _1pvw4_Lucene70_0.dvd
+-rw-r--r-- 1     19545825  _1pvw4_Lucene70_0.dvm
+-rw-r--r-- 1     16618266  _1pvw4.nvd
+-rw-r--r-- 1         1783  _1pvw4.nvm
+-rw-r--r-- 1          835  _1pvw4.si
+-rw-r--r-- 1       102739 Jan 27 00:27 _259dz_1.liv
+-rw-r--r-- 1           87  _259dz_completion_0.cmp
+-rw-r--r-- 1       119344  _259dz_completion_0.doc
+-rw-r--r-- 1      1426387  _259dz_completion_0.lkp
+-rw-r--r-- 1       717508  _259dz_completion_0.pay
+-rw-r--r-- 1       676175  _259dz_completion_0.pos
+-rw-r--r-- 1       180686  _259dz_completion_0.tim
+-rw-r--r-- 1         2071  _259dz_completion_0.tip
+-rw-r--r-- 1          321  _259dz.dii
+-rw-r--r-- 1     39038342  _259dz.dim
+-rw-r--r-- 1   3912656105  _259dz.fdt
+-rw-r--r-- 1      1122848  _259dz.fdx
+-rw-r--r-- 1      5945312  _259dz.fnm
+-rw-r--r-- 1    151326215  _259dz_Lucene50_0.doc
+-rw-r--r-- 1           77  _259dz_Lucene50_0.pay
+-rw-r--r-- 1    100278576  _259dz_Lucene50_0.pos
+-rw-r--r-- 1    150141040  _259dz_Lucene50_0.tim
+-rw-r--r-- 1      1641834  _259dz_Lucene50_0.tip
+-rw-r--r-- 1    688622656  _259dz_Lucene70_0.dvd
+-rw-r--r-- 1      6201417  _259dz_Lucene70_0.dvm
+-rw-r--r-- 1     13883359  _259dz.nvd
+-rw-r--r-- 1         1783  _259dz.nvm
+-rw-r--r-- 1          830  _259dz.si
+-rw-r--r-- 1          203 Jan 27 00:27 _263bt_1.liv
+-rw-r--r-- 1          675 Jan 26 04:32 _263bt.cfe
+-rw-r--r-- 1      5176723 Jan 26 04:32 _263bt.cfs
+-rw-r--r-- 1          453 Jan 26 04:32 _263bt.si
+-rw-r--r-- 1          267 Jan 27 00:27 _263ro_1.liv
+-rw-r--r-- 1          675 Jan 26 06:10 _263ro.cfe
+-rw-r--r-- 1      7048353 Jan 26 06:10 _263ro.cfs
+-rw-r--r-- 1          453 Jan 26 06:10 _263ro.si
+-rw-r--r-- 1          171 Jan 27 00:27 _264d2_1.liv
+-rw-r--r-- 1          675 Jan 26 08:28 _264d2.cfe
+-rw-r--r-- 1      4536613 Jan 26 08:28 _264d2.cfs
+-rw-r--r-- 1          453 Jan 26 08:28 _264d2.si
+-rw-r--r-- 1         7363 Jan 27 00:27 _264dc_1.liv
+-rw-r--r-- 1          675 Jan 26 08:30 _264dc.cfe
+-rw-r--r-- 1    287027254 Jan 26 08:30 _264dc.cfs
+-rw-r--r-- 1          453 Jan 26 08:30 _264dc.si
+-rw-r--r-- 1          491 Jan 27 00:27 _2670w_1.liv
+-rw-r--r-- 1          675 Jan 26 14:56 _2670w.cfe
+-rw-r--r-- 1     18512968 Jan 26 14:56 _2670w.cfs
+-rw-r--r-- 1          453 Jan 26 14:56 _2670w.si
+-rw-r--r-- 1          147 Jan 27 00:27 _2691y_1.liv
+-rw-r--r-- 1          675 Jan 26 20:17 _2691y.cfe
+-rw-r--r-- 1      3555934 Jan 26 20:17 _2691y.cfs
+-rw-r--r-- 1          453 Jan 26 20:17 _2691y.si
+-rw-r--r-- 1          435 Jan 27 00:27 _269yq_1.liv
+-rw-r--r-- 1          675 Jan 26 22:54 _269yq.cfe
+-rw-r--r-- 1     14838335 Jan 26 22:54 _269yq.cfs
+-rw-r--r-- 1          453 Jan 26 22:54 _269yq.si
+-rw-r--r-- 1           83 Jan 27 00:27 _26ajf_1.liv
+-rw-r--r-- 1          675 Jan 27 00:13 _26ajf.cfe
+-rw-r--r-- 1       946911 Jan 27 00:13 _26ajf.cfs
+-rw-r--r-- 1          453 Jan 27 00:13 _26ajf.si
+-rw-r--r-- 1          675 Jan 27 00:13 _26ajn.cfe
+-rw-r--r-- 1      1672412 Jan 27 00:13 _26ajn.cfs
+-rw-r--r-- 1          453 Jan 27 00:13 _26ajn.si
+-rw-r--r-- 1          675 Jan 27 00:20 _26alb.cfe
+-rw-r--r-- 1       820238 Jan 27 00:20 _26alb.cfs
+-rw-r--r-- 1          453 Jan 27 00:20 _26alb.si
+-rw-r--r-- 1          675 Jan 27 00:24 _26alv.cfe
+-rw-r--r-- 1       800350 Jan 27 00:24 _26alv.cfs
+-rw-r--r-- 1          453 Jan 27 00:24 _26alv.si
+-rw-r--r-- 1          675 Jan 27 00:26 _26am5.cfe
+-rw-r--r-- 1       801048 Jan 27 00:26 _26am5.cfs
+-rw-r--r-- 1          453 Jan 27 00:26 _26am5.si
+-rw-r--r-- 1          675 Jan 27 00:27 _26amf.cfe
+-rw-r--r-- 1       826639 Jan 27 00:27 _26amf.cfs
+-rw-r--r-- 1          453 Jan 27 00:27 _26amf.si
+-rw-r--r-- 1          405 Jan 27 00:27 _26amg.cfe
+-rw-r--r-- 1        66198 Jan 27 00:27 _26amg.cfs
+-rw-r--r-- 1          415 Jan 27 00:27 _26amg.si
+-rw-r--r-- 1          675 Jan 27 00:27 _26amh.cfe
+-rw-r--r-- 1       170575 Jan 27 00:27 _26amh.cfs
+-rw-r--r-- 1          415 Jan 27 00:27 _26amh.si
+-rw-r--r-- 1          675 Jan 27 --output truncated--
+[36mSTDERR:[0m
+[33m[0m

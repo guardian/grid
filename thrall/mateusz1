@@ -1,0 +1,183 @@
+{
+data: {
+id: "cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+uploadTime: "2020-01-26T14:49:09.033Z",
+uploadedBy: "bernadette.feely@guardian.co.uk",
+lastModified: "2020-01-26T14:49:54.598Z",
+identifiers: { },
+uploadInfo: {
+filename: "Frederike Kaltheuner. Circular panelist byline. DO NOT USE FOR ANY OTHER PURPOSE!.png"
+},
+source: {
+file: "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+size: 115846,
+mimeType: "image/png",
+dimensions: {
+width: 280,
+height: 280
+},
+secureUrl: "https://media-service-prod-imagebucket-1luk2yux3owkh.s3.eu-west-1.amazonaws.com/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6?response-content-disposition=attachment%3B%20filename%3D%22%5BB%4052dd7c0a%22%3B%20filename%2A%3DUTF-8%27%27Frederike%2520Kaltheuner.%2520Circular%2520panelist%2520byline.%2520DO%2520NOT%2520USE%2520FOR%2520ANY%2520OTHER%2520PURPOSE%2521%2520%2528cc14bf07c5eb75ace190b17446719b4e39a0a1f6%2529.png&x-amz-security-token=IQoJb3JpZ2luX2VjECYaCWV1LXdlc3QtMSJGMEQCIFQdduK5cs938qULuq3M6Unjg2KZBi82GsLmc70nKB6oAiAw1lN5cSf4Spk1pd%2Fx1SKiGdpyFSjvIwSe%2F2ci7DmHFyq9Awi%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDU2MzU2MzYxMDMxMCIMlK5HjE87ck5gnoauKpEDsIyvq21OWsA8vHZTGsl2EFw7ixQin7CRWAjDhw1QBk9%2B%2FoSoH%2FrWQx9i1ELRoWAn2VP2wwDnoUUZu1kkHoOyn25769t2VdbLOskoJwyAz9VrWkpyt31raB9rgm1Fuo57ZTbvWq7P447%2B5BXir0FstoLw%2Fpd%2Fx3lBzl5FPlRiqp6HIYhr0D%2FHQMezwr4cAR60oB03IXouf9mTmiyrIh9M%2FY0qS7rVttPDLEBRkYs6Rd3rfvOChXzQ8rJsdtdXPGUF4jva%2B3894dpXbKdySwtZKh8CU7GFVKTAg48%2FBXAedwvmErVYdXwj1%2FV1uy5viaapt2no3yPZLurxceFdkqCo9GAVvddGvJ0Bk%2FaQBp6R%2BOSqjPoAlY%2BrbrOJccJ%2FIwwVnPO0MyC4wijJHC69kj%2FrPqE4Fir7NR0i%2F92S1ZFluou2pZqHy2bZ4zrrKLvz3dYu4hK3vm4En8lLiEfvaxoOCWGPTiNddDbRWdyrqBD4Xbi7aSsPep9XaWE%2BLaVUfcUW5Q%2FyCgml7KIeTm4kIAVbOaIwsoDB8QU67AEXMsjP6m0U2Indhmkk0AdY3jV6YTUCpq48c5W4bPN2J7mtHWRf3IFykaQeDi87JrEyQdyYewsMcgqIBZnieUDzuk%2B4JS5O%2BIYj82zPf6va29RjipQdy7nUYSoADpLZS0df%2FwbyNFg12R8fjekA0CjeH43OT17N27bWcKJ4G7Xzo%2FtAYRnRKeqPdMwp1Rhsrs0njGoMgM%2BhvoNL4keK3Y6BKbxaXGRXfR8gfCJsccNrEkXNJl5ZNLGUBsIcKK0Kgzqr6NVKozad0A6EeADbN2tebKs7v0oBMqEy88zjIoysHZqzzCLeymQ3sd0yFA%3D%3D&AWSAccessKeyId=ASIAYGNYCIDDDTSVYBLP&Expires=1580224200&Signature=P3oz8er57tMKnbRwh8dryMGW6A0%3D"
+},
+thumbnail: {
+file: "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+size: 17211,
+mimeType: "image/jpeg",
+dimensions: {
+width: 256,
+height: 256
+},
+secureUrl: "https://d1qpjh3m4a30cs.cloudfront.net/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6?Expires=1580224746&Signature=fYWOymYTNX1~iuVknQHoZp6pJgUxicSjmX~gBW9P-bmpoe2puBD2dzS5G4QO0omUDQNM9oJrS48gDx7hDxwo-GszvG9YS~nI8KgBhRNgLFTWlcDo2ZL0IdpE5G52rInyEvYpxKPj3j-YYh-P3LlkOyWeboIeb6dDUdlyMfziRFHuki1cekhwfsH26FBFOVSbWTl-AmEPFc6Dikl0A-fAkVnkgyfg5u6Ox4X1gqx2Wdznv2JnXM5IfI7jFZIMzleZopMi8~xVdAk8E8~cxg7wqJIlJKwMSXefvL6XGWENxPUcf9EKJ7sLtiSvM~R1FcNzxpgzBC0NOjSGxHi0hXLBKQ__&Key-Pair-Id=APKAJPTTPZNNPHQSSUAQ"
+},
+optimisedPng: {
+file: "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/optimised/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+size: 35791,
+mimeType: "image/png",
+dimensions: {
+width: 280,
+height: 280
+},
+secureUrl: "https://media-service-prod-imagebucket-1luk2yux3owkh.s3.eu-west-1.amazonaws.com/optimised/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6?response-content-disposition=attachment%3B%20filename%3D%22%5BB%401bc31419%22%3B%20filename%2A%3DUTF-8%27%27Frederike%2520Kaltheuner.%2520Circular%2520panelist%2520byline.%2520DO%2520NOT%2520USE%2520FOR%2520ANY%2520OTHER%2520PURPOSE%2521%2520%2528cc14bf07c5eb75ace190b17446719b4e39a0a1f6%2529.png&x-amz-security-token=IQoJb3JpZ2luX2VjECYaCWV1LXdlc3QtMSJGMEQCIFQdduK5cs938qULuq3M6Unjg2KZBi82GsLmc70nKB6oAiAw1lN5cSf4Spk1pd%2Fx1SKiGdpyFSjvIwSe%2F2ci7DmHFyq9Awi%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDU2MzU2MzYxMDMxMCIMlK5HjE87ck5gnoauKpEDsIyvq21OWsA8vHZTGsl2EFw7ixQin7CRWAjDhw1QBk9%2B%2FoSoH%2FrWQx9i1ELRoWAn2VP2wwDnoUUZu1kkHoOyn25769t2VdbLOskoJwyAz9VrWkpyt31raB9rgm1Fuo57ZTbvWq7P447%2B5BXir0FstoLw%2Fpd%2Fx3lBzl5FPlRiqp6HIYhr0D%2FHQMezwr4cAR60oB03IXouf9mTmiyrIh9M%2FY0qS7rVttPDLEBRkYs6Rd3rfvOChXzQ8rJsdtdXPGUF4jva%2B3894dpXbKdySwtZKh8CU7GFVKTAg48%2FBXAedwvmErVYdXwj1%2FV1uy5viaapt2no3yPZLurxceFdkqCo9GAVvddGvJ0Bk%2FaQBp6R%2BOSqjPoAlY%2BrbrOJccJ%2FIwwVnPO0MyC4wijJHC69kj%2FrPqE4Fir7NR0i%2F92S1ZFluou2pZqHy2bZ4zrrKLvz3dYu4hK3vm4En8lLiEfvaxoOCWGPTiNddDbRWdyrqBD4Xbi7aSsPep9XaWE%2BLaVUfcUW5Q%2FyCgml7KIeTm4kIAVbOaIwsoDB8QU67AEXMsjP6m0U2Indhmkk0AdY3jV6YTUCpq48c5W4bPN2J7mtHWRf3IFykaQeDi87JrEyQdyYewsMcgqIBZnieUDzuk%2B4JS5O%2BIYj82zPf6va29RjipQdy7nUYSoADpLZS0df%2FwbyNFg12R8fjekA0CjeH43OT17N27bWcKJ4G7Xzo%2FtAYRnRKeqPdMwp1Rhsrs0njGoMgM%2BhvoNL4keK3Y6BKbxaXGRXfR8gfCJsccNrEkXNJl5ZNLGUBsIcKK0Kgzqr6NVKozad0A6EeADbN2tebKs7v0oBMqEy88zjIoysHZqzzCLeymQ3sd0yFA%3D%3D&AWSAccessKeyId=ASIAYGNYCIDDDTSVYBLP&Expires=1580224200&Signature=pmWM2YcJpkiYpCPrlXcN2EzHNJg%3D"
+},
+fileMetadata: {
+uri: "https://api.media.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/fileMetadata"
+},
+userMetadata: {
+uri: "https://media-metadata.gutools.co.uk/metadata/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+data: {
+archived: {
+uri: "https://media-metadata.gutools.co.uk/metadata/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/archived",
+data: false
+},
+labels: {
+uri: "https://media-metadata.gutools.co.uk/metadata/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/labels",
+data: [ ]
+},
+metadata: {
+uri: "https://media-metadata.gutools.co.uk/metadata/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/metadata",
+data: {
+description: "Frederike Kaltheuner. Circular panelist byline. DO NOT USE FOR ANY OTHER PURPOSE!",
+credit: "Supplied for Bylines"
+},
+actions: [
+{
+name: "set-from-usage-rights",
+href: "https://media-metadata.gutools.co.uk/metadata/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/metadata/set-from-usage-rights",
+method: "POST"
+}
+]
+},
+usageRights: {
+uri: "https://media-metadata.gutools.co.uk/metadata/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/usage-rights",
+data: {
+category: "Bylines"
+}
+},
+photoshoot: {
+uri: "https://media-metadata.gutools.co.uk/metadata/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/photoshoot"
+}
+}
+},
+metadata: {
+description: "Frederike Kaltheuner. Circular panelist byline. DO NOT USE FOR ANY OTHER PURPOSE!",
+credit: "Supplied for Bylines"
+},
+originalMetadata: { },
+usageRights: {
+category: "Bylines"
+},
+originalUsageRights: { },
+exports: [ ],
+usages: {
+uri: "https://media-usage.gutools.co.uk/usages/media/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+data: [ ]
+},
+leases: {
+uri: "https://media-leases.gutools.co.uk/leases/media/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+data: {
+leases: [ ],
+lastModified: null
+}
+},
+collections: [
+{
+uri: "https://media-collections.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/Cutouts/Circular%20panelist%20bylines",
+data: {
+path: [
+"Cutouts",
+"Circular panelist bylines"
+],
+pathId: "cutouts/circular panelist bylines",
+description: "Circular panelist bylines",
+actionData: {
+author: "bernadette.feely@guardian.co.uk",
+date: "2020-01-26T14:50:32.134+00:00"
+}
+},
+actions: [
+{
+name: "remove",
+href: "https://media-collections.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/Cutouts/Circular%20panelist%20bylines",
+method: "DELETE"
+}
+]
+}
+],
+syndicationRights: null,
+usermetaDataLastModified: "2020-01-26T14:49:54.598Z",
+valid: true,
+invalidReasons: { },
+cost: "free",
+persisted: {
+value: true,
+reasons: [
+"edited"
+]
+},
+syndicationStatus: "unsuitable"
+},
+links: [
+{
+rel: "crops",
+href: "https://cropper.media.gutools.co.uk/crops/cc14bf07c5eb75ace190b17446719b4e39a0a1f6"
+},
+{
+rel: "optimisedPng",
+href: "https://media-imgops.gutools.co.uk/optimised/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6?response-content-disposition=attachment%3B%20filename%3D%22%5BB%401bc31419%22%3B%20filename%2A%3DUTF-8%27%27Frederike%2520Kaltheuner.%2520Circular%2520panelist%2520byline.%2520DO%2520NOT%2520USE%2520FOR%2520ANY%2520OTHER%2520PURPOSE%2521%2520%2528cc14bf07c5eb75ace190b17446719b4e39a0a1f6%2529.png&x-amz-security-token=IQoJb3JpZ2luX2VjECYaCWV1LXdlc3QtMSJGMEQCIFQdduK5cs938qULuq3M6Unjg2KZBi82GsLmc70nKB6oAiAw1lN5cSf4Spk1pd%2Fx1SKiGdpyFSjvIwSe%2F2ci7DmHFyq9Awi%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDU2MzU2MzYxMDMxMCIMlK5HjE87ck5gnoauKpEDsIyvq21OWsA8vHZTGsl2EFw7ixQin7CRWAjDhw1QBk9%2B%2FoSoH%2FrWQx9i1ELRoWAn2VP2wwDnoUUZu1kkHoOyn25769t2VdbLOskoJwyAz9VrWkpyt31raB9rgm1Fuo57ZTbvWq7P447%2B5BXir0FstoLw%2Fpd%2Fx3lBzl5FPlRiqp6HIYhr0D%2FHQMezwr4cAR60oB03IXouf9mTmiyrIh9M%2FY0qS7rVttPDLEBRkYs6Rd3rfvOChXzQ8rJsdtdXPGUF4jva%2B3894dpXbKdySwtZKh8CU7GFVKTAg48%2FBXAedwvmErVYdXwj1%2FV1uy5viaapt2no3yPZLurxceFdkqCo9GAVvddGvJ0Bk%2FaQBp6R%2BOSqjPoAlY%2BrbrOJccJ%2FIwwVnPO0MyC4wijJHC69kj%2FrPqE4Fir7NR0i%2F92S1ZFluou2pZqHy2bZ4zrrKLvz3dYu4hK3vm4En8lLiEfvaxoOCWGPTiNddDbRWdyrqBD4Xbi7aSsPep9XaWE%2BLaVUfcUW5Q%2FyCgml7KIeTm4kIAVbOaIwsoDB8QU67AEXMsjP6m0U2Indhmkk0AdY3jV6YTUCpq48c5W4bPN2J7mtHWRf3IFykaQeDi87JrEyQdyYewsMcgqIBZnieUDzuk%2B4JS5O%2BIYj82zPf6va29RjipQdy7nUYSoADpLZS0df%2FwbyNFg12R8fjekA0CjeH43OT17N27bWcKJ4G7Xzo%2FtAYRnRKeqPdMwp1Rhsrs0njGoMgM%2BhvoNL4keK3Y6BKbxaXGRXfR8gfCJsccNrEkXNJl5ZNLGUBsIcKK0Kgzqr6NVKozad0A6EeADbN2tebKs7v0oBMqEy88zjIoysHZqzzCLeymQ3sd0yFA%3D%3D&AWSAccessKeyId=ASIAYGNYCIDDDTSVYBLP&Expires=1580224200&Signature=pmWM2YcJpkiYpCPrlXcN2EzHNJg%3D{&w,h,q}"
+},
+{
+rel: "optimised",
+href: "https://media-imgops.gutools.co.uk/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6?response-content-disposition=attachment%3B%20filename%3D%22%5BB%4052dd7c0a%22%3B%20filename%2A%3DUTF-8%27%27Frederike%2520Kaltheuner.%2520Circular%2520panelist%2520byline.%2520DO%2520NOT%2520USE%2520FOR%2520ANY%2520OTHER%2520PURPOSE%2521%2520%2528cc14bf07c5eb75ace190b17446719b4e39a0a1f6%2529.png&x-amz-security-token=IQoJb3JpZ2luX2VjECYaCWV1LXdlc3QtMSJGMEQCIFQdduK5cs938qULuq3M6Unjg2KZBi82GsLmc70nKB6oAiAw1lN5cSf4Spk1pd%2Fx1SKiGdpyFSjvIwSe%2F2ci7DmHFyq9Awi%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F8BEAAaDDU2MzU2MzYxMDMxMCIMlK5HjE87ck5gnoauKpEDsIyvq21OWsA8vHZTGsl2EFw7ixQin7CRWAjDhw1QBk9%2B%2FoSoH%2FrWQx9i1ELRoWAn2VP2wwDnoUUZu1kkHoOyn25769t2VdbLOskoJwyAz9VrWkpyt31raB9rgm1Fuo57ZTbvWq7P447%2B5BXir0FstoLw%2Fpd%2Fx3lBzl5FPlRiqp6HIYhr0D%2FHQMezwr4cAR60oB03IXouf9mTmiyrIh9M%2FY0qS7rVttPDLEBRkYs6Rd3rfvOChXzQ8rJsdtdXPGUF4jva%2B3894dpXbKdySwtZKh8CU7GFVKTAg48%2FBXAedwvmErVYdXwj1%2FV1uy5viaapt2no3yPZLurxceFdkqCo9GAVvddGvJ0Bk%2FaQBp6R%2BOSqjPoAlY%2BrbrOJccJ%2FIwwVnPO0MyC4wijJHC69kj%2FrPqE4Fir7NR0i%2F92S1ZFluou2pZqHy2bZ4zrrKLvz3dYu4hK3vm4En8lLiEfvaxoOCWGPTiNddDbRWdyrqBD4Xbi7aSsPep9XaWE%2BLaVUfcUW5Q%2FyCgml7KIeTm4kIAVbOaIwsoDB8QU67AEXMsjP6m0U2Indhmkk0AdY3jV6YTUCpq48c5W4bPN2J7mtHWRf3IFykaQeDi87JrEyQdyYewsMcgqIBZnieUDzuk%2B4JS5O%2BIYj82zPf6va29RjipQdy7nUYSoADpLZS0df%2FwbyNFg12R8fjekA0CjeH43OT17N27bWcKJ4G7Xzo%2FtAYRnRKeqPdMwp1Rhsrs0njGoMgM%2BhvoNL4keK3Y6BKbxaXGRXfR8gfCJsccNrEkXNJl5ZNLGUBsIcKK0Kgzqr6NVKozad0A6EeADbN2tebKs7v0oBMqEy88zjIoysHZqzzCLeymQ3sd0yFA%3D%3D&AWSAccessKeyId=ASIAYGNYCIDDDTSVYBLP&Expires=1580224200&Signature=P3oz8er57tMKnbRwh8dryMGW6A0%3D{&w,h,q}"
+},
+{
+rel: "ui:image",
+href: "https://media.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6"
+},
+{
+rel: "usages",
+href: "https://media-usage.gutools.co.uk/usages/media/cc14bf07c5eb75ace190b17446719b4e39a0a1f6"
+},
+{
+rel: "leases",
+href: "https://media-leases.gutools.co.uk/leases/media/cc14bf07c5eb75ace190b17446719b4e39a0a1f6"
+},
+{
+rel: "fileMetadata",
+href: "https://api.media.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/fileMetadata"
+},
+{
+rel: "download",
+href: "https://api.media.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/download"
+},
+{
+rel: "downloadOptimised",
+href: "https://api.media.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6/downloadOptimised?{&width,height,quality}"
+}
+],
+actions: [
+{
+name: "add-collection",
+href: "https://media-collections.gutools.co.uk/images/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+method: "POST"
+}
+]
+}

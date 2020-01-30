@@ -1,0 +1,90 @@
+{
+  "id": "cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+  "uploadTime": "2020-01-26T14:49:09.033Z",
+  "uploadedBy": "bernadette.feely@guardian.co.uk",
+  "lastModified": "2020-01-26T14:49:09.033Z",
+  "identifiers": {},
+  "uploadInfo": {
+    "filename": "Frederike+Kaltheuner.+Circular+panelist+byline.+DO+NOT+USE+FOR+ANY+OTHER+PURPOSE%21.png"
+  },
+  "source": {
+    "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+    "size": 115846,
+    "mimeType": "image/png",
+    "dimensions": {
+      "width": 280,
+      "height": 280
+    }
+  },
+  "thumbnail": {
+    "file": "http://media-service-prod-thumbbucket-1pyxt0kyxzho.s3.amazonaws.com/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+    "size": 17211,
+    "mimeType": "image/jpeg",
+    "dimensions": {
+      "width": 256,
+      "height": 256
+    }
+  },
+  "optimisedPng": {
+    "file": "http://media-service-prod-imagebucket-1luk2yux3owkh.s3.amazonaws.com/optimised/c/c/1/4/b/f/cc14bf07c5eb75ace190b17446719b4e39a0a1f6",
+    "size": 35791,
+    "mimeType": "image/png",
+    "dimensions": {
+      "width": 280,
+      "height": 280
+    }
+  },
+  "fileMetadata": {
+    "iptc": {},
+    "exif": {},
+    "exifSub": {},
+    "xmp": {},
+    "icc": {
+      "Profile Size": "3144",
+      "Media White Point": "(0.9505, 1, 1.0891)",
+      "Device model": "sRGB",
+      "Red Colorant": "(0.4361, 0.2225, 0.0139)",
+      "Viewing Conditions Description": "Reference Viewing Condition in IEC61966-2.1",
+      "Luminance": "(76.0365, 80, 87.1246)",
+      "Viewing Conditions": "view (0x76696577): 36 bytes",
+      "removedFields": "Blue TRC, Green TRC, Red TRC",
+      "Version": "2.1.0",
+      "Tag Count": "17",
+      "Profile Description": "sRGB IEC61966-2.1",
+      "Copyright": "Copyright (c) 1998 Hewlett-Packard Company",
+      "Green Colorant": "(0.3851, 0.7169, 0.0971)",
+      "XYZ values": "0.964 1 0.825",
+      "Signature": "acsp",
+      "Device manufacturer": "IEC",
+      "Device Mfg Description": "IEC http://www.iec.ch",
+      "Blue Colorant": "(0.1431, 0.0606, 0.7141)",
+      "Color space": "RGB",
+      "Primary Platform": "Microsoft Corporation",
+      "Profile Connection Space": "XYZ",
+      "CMM Type": "Lino",
+      "Class": "Display Device",
+      "Measurement": "1931 2° Observer, Backing (0, 0, 0), Geometry Unknown, Flare 1%, Illuminant D65",
+      "Media Black Point": "(0, 0, 0)",
+      "Profile Date/Time": "1998:02:09 06:49:00",
+      "Device Model Description": "IEC 61966-2.1 Default RGB colour space - sRGB",
+      "Technology": "CRT"
+    },
+    "getty": {},
+    "colourModelInformation": {
+      "bitsPerSample": "8",
+      "hasAlpha": "true",
+      "colorType": "True Color with Alpha"
+    }
+  },
+  "metadata": {},
+  "originalMetadata": {},
+  "usageRights": {},
+  "originalUsageRights": {},
+  "exports": [],
+  "usages": [],
+  "leases": {
+    "leases": [],
+    "lastModified": null
+  },
+  "collections": []
+}

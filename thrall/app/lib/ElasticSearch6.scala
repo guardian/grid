@@ -17,6 +17,7 @@ import play.api.libs.json._
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
+object ImageNotDeleted extends Throwable("Image data deletion failed")
 
 class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics]) extends ElasticSearchClient with ImageFields
   with ElasticSearch6Executions with ElasticImageUpdate {
@@ -233,30 +234,27 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics
     }
   }
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchDeleteResponse]] = {
-    // search for the image first, and then only delete and succeed
-    // this is because the delete query does not respond with anything useful
-    // TODO: is there a more efficient way to do this?
-
+  // search for the image first, and then only delete and succeed
+  // this is because the delete query does not respond with anything useful
+  def canDeleteImage(id: String)(implicit ex: ExecutionContext): Future[Unit] = {
     val deletableImage = boolQuery.withMust(
       idsQuery(id)).withNot(
       existsQuery("exports"),
       nestedQuery("usages").query(existsQuery("usages"))
     )
-
-    val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id").flatMap { r =>
-      val deleteFuture = r.result.count match {
-        case 1 => executeAndLog(deleteById(imagesAlias, Mappings.dummyType, id), s"ES6 deleting image $id")
-        case _ => Future.failed(ImageNotDeletable)
-      }
-      deleteFuture
-        .incrementOnSuccess(metrics.map(_.deletedImages))
-        .incrementOnFailure(metrics.map(_.failedDeletedImages)) { case ImageNotDeletable => true }
+    executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id").map { r =>
+      if (r.result.count != 1) throw ImageNotDeletable
     }
+  }
 
-    List(eventualDeleteResponse.map { _ =>
-      ElasticSearchDeleteResponse()
-    })
+  def deleteImage(id: String)(implicit ex: ExecutionContext): Future[Unit] = {
+    val deleteFuture = executeAndLog(deleteById(imagesAlias, Mappings.dummyType, id), s"ES6 deleting image $id")
+      .incrementOnSuccess(metrics.map(_.deletedImages))
+      .incrementOnFailure(metrics.map(_.failedDeletedImages)) { case ImageNotDeletable => true }
+
+    deleteFuture.map { _ =>
+      Unit
+    }
   }
 
   def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
