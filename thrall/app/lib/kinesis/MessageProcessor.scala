@@ -51,9 +51,8 @@ class MessageProcessor(es: ElasticSearch,
     Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
-  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
-    implicit val unw: OWrites[UsageNotice] = Json.writes[UsageNotice]
-    def asJsLookup(us: Seq[Usage]): JsLookupResult = JsDefined(Json.toJson(us))
+  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+    implicit val unw = Json.writes[UsageNotice]
     withId(message) { id =>
       withUsageNotice(message) { usageNotice =>
         withLastModified(message) { lastModifed =>

@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, ManagementW
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.impls.elasticsearch.ElasticSearch
 import play.api.ApplicationLoader.Context
 import router.Routes
 

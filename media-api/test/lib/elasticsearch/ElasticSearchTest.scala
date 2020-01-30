@@ -6,9 +6,10 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearch
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http._
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s._
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
+import lib.elasticsearch.impls.elasticsearch.ElasticSearch
 import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
@@ -430,14 +431,14 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   private def saveImages(images: Seq[Image]) = {
     Future.sequence(images.map { i =>
-      executeAndLog(indexInto(index, "_doc") id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
+      executeAndLog(indexInto(index) id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
     })
   }
 
   private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
 
   private def purgeTestImages = {
-    def deleteImages = executeAndLog(deleteByQuery(index, "_doc", matchAllQuery()), s"Deleting images")
+    def deleteImages = executeAndLog(deleteByQuery(index, matchAllQuery()), s"Deleting images")
 
     Await.result(deleteImages, fiveSeconds)
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)

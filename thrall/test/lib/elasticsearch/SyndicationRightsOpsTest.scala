@@ -7,12 +7,12 @@ import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit}
 import helpers.Fixtures
-import lib.{ElasticSearch, SyndicationRightsOps}
 import org.joda.time.DateTime
+import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 import org.scalatest.time.{Millis, Seconds, Span}
 import play.api.libs.json.Json
 
-import scala.concurrent.duration._
 import scala.util.Properties
 
 trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {

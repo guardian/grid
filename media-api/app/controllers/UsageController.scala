@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.model.Agencies
 import lib._
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.impls.elasticsearch.ElasticSearch
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 

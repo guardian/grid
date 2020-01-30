@@ -5,8 +5,8 @@ import java.util.UUID
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http._
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s._
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsDefined, JsLookupResult, JsString, Json}
 
@@ -26,7 +26,6 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           val imageTwo = createImage("superman", StaffPhotographer("Clark Kent", "Kent Farm")).copy(
             usages = List(usage())
           )
-  def ES: ElasticSearch
 
           val images: List[Image] = List(imageOne, imageTwo)
 

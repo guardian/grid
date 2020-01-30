@@ -13,7 +13,8 @@ import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
-import lib.elasticsearch.{ElasticSearch, _}
+import lib.elasticsearch.impls.elasticsearch.ElasticSearch
+import lib.elasticsearch._
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.http.HttpEntity

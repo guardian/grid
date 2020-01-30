@@ -2,8 +2,8 @@ package syndication
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
-import lib._
-import play.api.Configuration
+import lib.elasticsearch.{ElasticSearch, SyndicationRightsOpsTestsBase}
+
 import scala.concurrent.duration._
 
 class SyndicationRightsOpsElasticTest extends SyndicationRightsOpsTestsBase {

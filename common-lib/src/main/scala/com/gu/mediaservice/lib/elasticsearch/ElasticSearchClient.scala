@@ -4,8 +4,6 @@ import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http.JavaClient
 import com.sksamuel.elastic4s.{ElasticClient, ElasticProperties, Response}
 import com.sksamuel.elastic4s.requests.common.HealthStatus
-import com.sksamuel.elastic4s.requests.analysis.{Analysis, AnalysisBuilder}
-import com.sksamuel.elastic4s.requests.analyzers.PatternAnalyzerDefinition
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
 import play.api.Logger

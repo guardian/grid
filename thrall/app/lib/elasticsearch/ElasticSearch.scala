@@ -1,16 +1,17 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.script.Script
-import com.sksamuel.elastic4s.searches.queries.BoolQuery
-import com.sksamuel.elastic4s.searches.sort.SortOrder
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.script.Script
+import com.sksamuel.elastic4s.requests.searches.queries.BoolQuery
+import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
+import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import lib.ThrallMetrics
 import org.joda.time.DateTime
 import play.api.libs.json._
@@ -19,23 +20,23 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient with ImageFields {
+class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient with ImageFields
+  {
 
-  lazy val imagesAlias = config.alias
-  lazy val url = config.url
-  lazy val cluster = config.cluster
-  lazy val shards = config.shards
-  lazy val replicas = config.replicas
+  lazy val imagesAlias: String = config.alias
+  lazy val url: String = config.url
+  lazy val cluster: String = config.cluster
+  lazy val shards: Int = config.shards
+  lazy val replicas: Int = config.replicas
 
   def bulkInsert(images: Seq[Image])(implicit ex: ExecutionContext): List[Future[ElasticSearchBulkUpdateResponse]] = {
     val request = bulk {
       images.map(img => {
-        indexInto(imagesAlias, Mappings.dummyType)
+        indexInto(imagesAlias)
           .id(img.id)
           .source(Json.stringify(Json.toJson(img)))
       })
     }
-
     val response = executeAndLog(request, s"Bulk inserting ${images.length} images")
 
     List(response.map(_ => ElasticSearchBulkUpdateResponse()))
@@ -71,7 +72,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val indexRequest = updateById(imagesAlias, Mappings.dummyType, id).
+    val indexRequest = updateById(imagesAlias, id).
       upsert(Json.stringify(image)).
       script(script)
 
@@ -83,7 +84,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   }
 
   def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
-    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"ES6 get image by $id").map { r =>
+    executeAndLog(get(imagesAlias, id), s"ES6 get image by $id").map { r =>
       if (r.result.found) {
         Some(Json.parse(r.result.sourceAsString).as[Image])
       } else {
@@ -92,22 +93,21 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
   }
 
-  def updateImageUsages(id: String, usages: List[Usage], lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
-    val replaceUsagesScript = """
-      | def dtf = DateTimeFormatter.ISO_DATE_TIME;
-      | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
-      | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(dtf.parse(ctx._source.usagesLastModified))) : null;
-      |
-      | if (lastUpdatedDate == null || updateDate.after(lastUpdatedDate)) {
-      |   ctx._source.usages = params.usages;
-      |   ctx._source.usagesLastModified = params.lastModified;
-      | }
+    def updateImageUsages(id: String, usages: List[Usage], lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+      val replaceUsagesScript = """
+                                  | def dtf = DateTimeFormatter.ISO_DATE_TIME;
+                                  | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
+                                  | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(dtf.parse(ctx._source.usagesLastModified))) : null;
+                                  |
+                                  | if (lastUpdatedDate == null || updateDate.after(lastUpdatedDate)) {
+                                  |   ctx._source.usages = params.usages;
+                                  |   ctx._source.usagesLastModified = params.lastModified;
+                                  | }
     """
-
     val scriptSource = loadPainless(s"""
-       |   $replaceUsagesScript
-       |   $updateLastModifiedScript
-       | """)
+                                       |   $replaceUsagesScript
+                                       |   $updateLastModifiedScript
+                                       | """)
 
     val lastModifiedParameter = lastModified.toOption.map(_.as[String])
 
@@ -118,7 +118,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating usages on image $id")
       .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
@@ -150,9 +150,10 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     List(executeAndLog(updateRequest, s"ES6 updating syndicationRights on image $id with rights $params").map(_ => ElasticSearchUpdateResponse()))
+
   }
 
   def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
@@ -189,7 +190,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id with lastModified $lastModified").map(_ => ElasticSearchUpdateResponse()))
   }
@@ -259,7 +260,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id").flatMap { r =>
       val deleteFuture = r.result.count match {
-        case 1 => executeAndLog(deleteById(imagesAlias, Mappings.dummyType, id), s"ES6 deleting image $id")
+        case 1 => executeAndLog(deleteById(imagesAlias, id), s"ES6 deleting image $id")
         case _ => Future.failed(ImageNotDeletable)
       }
       deleteFuture
@@ -277,7 +278,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = deleteUsagesScript).lang("painless")
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing all usages on image $id")
       .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
@@ -290,15 +291,16 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
         | ctx._source.remove('syndicationRights');
       """)
 
-    val script = Script(script = deleteSyndicationRightsScript).lang("painless")
-
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest: UpdateRequest = getUpdateRequest(id, deleteSyndicationRightsScript)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing syndication rights on image $id")
       .incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)){case _ => true}
-
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+
   }
+
+  private def getUpdateRequest(id: String, script: String)  = updateById(imagesAlias, id)
+      .script(Script(script = script).lang("painless"))
 
   def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceLeasesScript = loadPainless(
@@ -320,7 +322,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating all leases on image $id with: ${leases.toString}")
       .incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)){case _ => true}
@@ -354,7 +356,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 adding lease on image $id with: $leaseParameter")
       .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
@@ -389,7 +391,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing lease with id $leaseIdParameter from image $id")
       .incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _ => true }
@@ -426,7 +428,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating exports on image $id")
       .incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case _ => true }
@@ -451,7 +453,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing exports from image $id")
       .incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case _ => true }
@@ -478,7 +480,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val script = Script(script = setCollectionsScript).lang("painless").params(params)
 
-    val updateRequest = updateById(imagesAlias, Mappings.dummyType, id).script(script)
+    val updateRequest = updateById(imagesAlias, id).script(script)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 setting collections on image $id")
       .incrementOnFailure(metrics.map(_.failedCollectionsUpdates)) { case _ => true }
