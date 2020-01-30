@@ -118,16 +118,20 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-lazy val adminToolsLib =  project("admin-tools-lib", Some("admin-tools/lib"))
+lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .dependsOn(commonLib).settings {
   libraryDependencies ++= Seq(
-    "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion
   )
 }
 
 lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
-  .dependsOn(adminToolsLib)
+  .dependsOn(adminToolsLib).settings {
+  assemblyMergeStrategy in assembly := {
+    case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+    case x => MergeStrategy.first
+  }
+}
 
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
   .dependsOn(adminToolsLib)
@@ -171,7 +175,7 @@ def project(projectName: String, path: Option[String] = None): Project =
 val buildInfo = Seq(
   buildInfoKeys := Seq[BuildInfoKey](
     name,
-    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse(try {
+    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse (try {
       "git rev-parse HEAD".!!.trim
     } catch {
       case e: Exception => "unknown"

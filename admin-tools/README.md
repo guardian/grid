@@ -13,3 +13,7 @@ See the [routes file](https://github.com/guardian/media-service/blob/master/admi
 
 - this project can be run locally as Play APP
 - in PROD and TEST it si running as Lambda function
+
+### Build artifact for lambda
+
+sbt admin-tools-lambda/assembly
