@@ -77,7 +77,7 @@ trait CommonConfig {
 
   lazy val corsAllowedOrigins: Set[String] = getStringSetFromProperties("security.cors.allowedOrigins")
 
-  lazy val services = new Services(domainRoot, isProd, serviceHosts, corsAllowedOrigins)
+  lazy val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
   final def getStringSetFromProperties(key: String): Set[String] = Try(
     properties(key).split(",").map(_.trim).toSet
