@@ -121,9 +121,13 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib =  project("admin-tools-lib", Some("admin-tools/lib"))
   .dependsOn(commonLib).settings {
   libraryDependencies ++= Seq(
+    "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion
   )
 }
+
+lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
+  .dependsOn(adminToolsLib)
 
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
   .dependsOn(adminToolsLib)
