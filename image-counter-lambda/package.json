@@ -1,0 +1,32 @@
+{
+  "name": "image-counter-lambda",
+  "version": "1.0.0",
+  "description": "A simple lambda notifying CloudWatch of how many images are in the Grid",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "compile": "tsc",
+    "riffraff-artefact": "npm run compile && VERBOSE=true ARTEFACT_PATH=$PWD riffraff-artefact"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^24.9.0",
+    "@types/node-fetch": "^2.5.4",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.3.0",
+    "typescript": "^3.7.5",
+    "node-riffraff-artefact": "^2.0.1"
+  },
+  "dependencies": {
+    "@types/node": "^13.1.8",
+    "aws-sdk": "^2.606.0",
+    "node-fetch": "latest"
+  },
+  "isAwsLambda": true,
+  "cloudformation": false,
+  "projectName": "media-service::grid::image-counter-lambda",
+  "uploadArtefact": true,
+  "riffraffFile": "./riff-raff.yaml"
+}

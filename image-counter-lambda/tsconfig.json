@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "lib": ["es6", "dom"],
+    "moduleResolution": "node",
+    "rootDir": "./",
+    "sourceMap": true,
+    "allowJs": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "noImplicitReturns": true,
+    "preserveConstEnums": true,
+    "suppressImplicitAnyIndexErrors": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "node_modules/**/*", "coverage", "tests/**/*"]
+}
