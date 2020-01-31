@@ -1,5 +1,7 @@
 package com.gu.mediaservice
 
+import com.amazonaws.services.lambda.runtime.Context
+import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent}
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
 import play.api.libs.json.Json
@@ -7,14 +9,17 @@ import play.api.libs.json.Json
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.collection.JavaConverters._
 
 class LambdaHandler {
 
-  def handleImageProjection(params: java.util.Map[String, Object]) = {
+  def handleImageProjection(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
 
-    println(s"handleImageProjection input: $params")
+    println(s"handleImageProjection event: $event")
 
-    val mediaId = params.get("mediaId").asInstanceOf[String]
+    val queryParams: Map[String, String] = event.getQueryStringParameters.asScala.toMap
+
+    val mediaId = queryParams.getOrElse("media_id", "")
 
     val domainRoot = sys.env("DOMAIN_ROOT")
     // TODO consider using parameter store with KMS for API_KEY
@@ -35,11 +40,18 @@ class LambdaHandler {
     mayBeImage match {
       case Some(img) =>
         println(s"image projected \n $img")
-        Json.toJson(img)
+        val body = Json.toJson(img).toString
+        new APIGatewayProxyResponseEvent()
+          .withStatusCode(200)
+          .withHeaders(Map("content-type" -> "application/json").asJava)
+          .withBody(body)
       case _ =>
-        val emptyRes = Json.obj("message" -> s"image with id=$mediaId not-found")
+        val emptyRes = Json.obj("message" -> s"image with id=$mediaId not-found").toString
         println(s"image not projected \n $emptyRes")
-        emptyRes
+        new APIGatewayProxyResponseEvent()
+          .withStatusCode(404)
+          .withHeaders(Map("content-type" -> "application/json").asJava)
+          .withBody(emptyRes)
     }
   }
 }
