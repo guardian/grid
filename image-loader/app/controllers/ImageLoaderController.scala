@@ -12,6 +12,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.net.{URI => MediaURI}
 import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
@@ -158,7 +159,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
     val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
     val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
-    val uploadFileName = fileUserMetadata.get("file_name")
+
+    val uploadFileNameRaw = fileUserMetadata.get("file_name")
+    // The file name is URL encoded in  S3 metadata
+    val uploadFileName = uploadFileNameRaw.map(MediaURI.decode)
 
     val finalImage = imageUploadProjector.projectImage(digestedFile, uploadedBy, uploadTime, uploadFileName)
 
