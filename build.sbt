@@ -1,4 +1,5 @@
-import PlayKeys._
+import play.sbt.PlayImport.PlayKeys._
+
 import scala.sys.process._
 
 val commonSettings = Seq(
@@ -118,16 +119,34 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
   )
 )
 
-lazy val adminToolsLib =  project("admin-tools-lib", Some("admin-tools/lib"))
-  .dependsOn(commonLib).settings {
-  libraryDependencies ++= Seq(
-    "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
-    "com.squareup.okhttp3" % "okhttp" % okHttpVersion
-  )
-}
+lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
+  .settings(
+    excludeDependencies ++= Seq(
+      ExclusionRule("com.amazonaws"),
+      ExclusionRule("org.elasticsearch"),
+      ExclusionRule("com.sksamuel.elastic4s"),
+      ExclusionRule("com.drewnoakes", "metadata-extractor"),
+      ExclusionRule("org.codehaus.janino"),
+      ExclusionRule("com.typesafe.play"),
+      ExclusionRule("org.scalaz.stream"),
+      ExclusionRule("org.im4java"),
+      ExclusionRule("org.scalacheck"),
+    ),
+    libraryDependencies ++= Seq(
+      "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
+      "com.typesafe.play" %% "play-json" % "2.6.9",
+      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+      "com.typesafe.play" %% "play-functional" % "2.6.9",
+    )
+  ).dependsOn(commonLib)
 
 lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
-  .dependsOn(adminToolsLib)
+  .settings {
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case x => MergeStrategy.first
+    }
+  }.dependsOn(adminToolsLib)
 
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
   .dependsOn(adminToolsLib)
@@ -171,7 +190,7 @@ def project(projectName: String, path: Option[String] = None): Project =
 val buildInfo = Seq(
   buildInfoKeys := Seq[BuildInfoKey](
     name,
-    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse(try {
+    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse (try {
       "git rev-parse HEAD".!!.trim
     } catch {
       case e: Exception => "unknown"
