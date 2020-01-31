@@ -127,16 +127,16 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("com.sksamuel.elastic4s"),
       ExclusionRule("com.drewnoakes", "metadata-extractor"),
       ExclusionRule("org.codehaus.janino"),
-      //      ExclusionRule("com.typesafe.play"),
+      ExclusionRule("com.typesafe.play"),
       ExclusionRule("org.scalaz.stream"),
       ExclusionRule("org.im4java"),
       ExclusionRule("org.scalacheck"),
     ),
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
-      //      "com.typesafe.play" %% "play-json" % "2.6.9",
-      //      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-      //      "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+      "com.typesafe.play" %% "play-json" % "2.6.9",
+      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+      "com.typesafe.play" %% "play-functional" % "2.6.9",
     )
   ).dependsOn(commonLib)
 
