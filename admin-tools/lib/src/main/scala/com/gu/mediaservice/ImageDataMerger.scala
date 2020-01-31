@@ -35,7 +35,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
   }
 
   private def aggregate(image: Image): Future[Image] = {
-    println(s"starting to aggregate image $image")
+    println(s"starting to aggregate image")
     val mediaId = image.id
     for {
       collections <- getCollectionsResponse(mediaId)
