@@ -17,6 +17,7 @@ class LambdaHandler {
     val mediaId = params.get("mediaId").asInstanceOf[String]
 
     val domainRoot = sys.env("DOMAIN_ROOT")
+    // TODO consider using parameter store with KMS for API_KEY
     val apiKey = sys.env("API_KEY")
     val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
 
