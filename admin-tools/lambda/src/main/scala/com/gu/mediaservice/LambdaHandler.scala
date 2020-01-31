@@ -1,11 +1,12 @@
 package com.gu.mediaservice
 
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
 import play.api.libs.json.Json
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 
 class LambdaHandler {
 
@@ -15,15 +16,11 @@ class LambdaHandler {
 
     val mediaId = params.get("mediaId").asInstanceOf[String]
 
-    val cfg = ImageDataMergerConfig(
-      apiKey = sys.env("API_KEY"),
-      imgLoaderApiBaseUri = "https://loader.media.test.dev-gutools.co.uk",
-      collectionsApiBaseUri = "https://media-collections.test.dev-gutools.co.uk",
-      metadataApiBaseUri = "https://media-metadata.test.dev-gutools.co.uk",
-      cropperApiBaseUri = "https://cropper.media.test.dev-gutools.co.uk",
-      leasesApiBaseUri = "https://media-leases.test.dev-gutools.co.uk",
-      usageBaseApiUri = "https://media-usage.test.dev-gutools.co.uk"
-    )
+    val domainRoot = sys.env("DOMAIN_ROOT")
+    val apiKey = sys.env("API_KEY")
+    val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+
+    val cfg = ImageDataMergerConfig(apiKey, services)
 
     println(s"starting handleImageProjection for mediaId=$mediaId")
     println(s"with config: $cfg")
