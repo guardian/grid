@@ -1,14 +1,19 @@
 package com.gu.mediaservice
 
+import com.gu.mediaservice.model.Image
 import play.api.libs.json.Json
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 class LambdaHandler {
 
-  def handleImageProjection(mediaId: String) = {
+  def handleImageProjection(params: java.util.Map[String, Object]) = {
+
+    println(s"handleImageProjection input: $params")
+
+    val mediaId = params.get("mediaId").asInstanceOf[String]
 
     val cfg = ImageDataMergerConfig(
       apiKey = sys.env("API_KEY"),
@@ -25,18 +30,18 @@ class LambdaHandler {
 
     val merger = new ImageDataMerger(cfg)
 
-    val maybeImageFuture = merger.getMergedImageData(mediaId)
+    val maybeImageFuture: Future[Option[Image]] = merger.getMergedImageData(mediaId.asInstanceOf[String])
 
-    val maybeJson = maybeImageFuture.map { imgFuture =>
-      val img = Await.result(imgFuture, Duration.Inf)
-      Json.toJson(img)
-    }
+    val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
 
-    maybeJson match {
+    mayBeImage match {
       case Some(img) =>
         println(s"image projected \n $img")
-        img
-      case _ => Json.obj("message" -> s"image with id=$mediaId not-found")
+        Json.toJson(img)
+      case _ =>
+        val emptyRes = Json.obj("message" -> s"image with id=$mediaId not-found")
+        println(s"image not projected \n $emptyRes")
+        emptyRes
     }
   }
 }
