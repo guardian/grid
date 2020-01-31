@@ -102,7 +102,10 @@ class ImageOperations(playPath: String) {
     }
     case Jpeg => resizedFile
 
-    // TODO is this correct??
+    // This should never happen as we only ever crop as PNG or JPEG. See `Crops.cropType` and `CropsTest`
+    // TODO We should create a `CroppingMimeType` to enforce this at the type level.
+    //  However we'd need to change the `Asset` model as source image and crop use this model
+    //  and a source can legally be a `Tiff`. It's not a small change...
     case Tiff => resizedFile
   }
 
