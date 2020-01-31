@@ -107,9 +107,13 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
   private def makeRequest(url: URL): ResponseWrapper = {
     val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, config.apiKey).build
     val response = httpClient.newCall(request).execute
-    println(s"response for GET request for $url $response")
-    response.code
-    val json = Json.parse(response.body.string)
-    ResponseWrapper(json, response.code)
+    import response._
+    val resInfo = Map(
+      "status-code" -> response.code.toString,
+      "message" -> response.message
+    )
+    println(s"GET $url response: $resInfo")
+    val json = if (code == 200) Json.parse(body.string) else Json.obj()
+    ResponseWrapper(json, code)
   }
 }

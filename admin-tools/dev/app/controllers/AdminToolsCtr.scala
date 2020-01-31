@@ -41,13 +41,10 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
   }
 
   def project(mediaId: String) = Action.async {
-    val maybeImageFuture: Option[Future[Image]] = merger.getMergedImageData(mediaId)
-    maybeImageFuture match {
-      case Some(imageFuture) =>
-        imageFuture.map { image =>
-          Ok(Json.toJson(image)).as(ArgoMediaType)
-        }
-      case None => Future(NotFound)
+    val futureMaybeImage: Future[Option[Image]] = merger.getMergedImageData(mediaId)
+    futureMaybeImage.map {
+      case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
+      case None => NotFound
     }
   }
 }
