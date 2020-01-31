@@ -33,13 +33,13 @@ trait Fixtures {
       source = Asset(
         file = new URI(s"http://file/$id"),
         size = Some(292265L),
-        mimeType = Some("image/jpeg"),
+        mimeType = Some(Jpeg),
         dimensions = Some(Dimensions(width = 2800, height = 1600)),
         secureUrl = None),
       thumbnail = Some(Asset(
         file = new URI(s"http://file/thumbnail/$id"),
         size = Some(292265L),
-        mimeType = Some("image/jpeg"),
+        mimeType = Some(Jpeg),
         dimensions = Some(Dimensions(width = 800, height = 100)),
         secureUrl = None)),
       optimisedPng = None,
