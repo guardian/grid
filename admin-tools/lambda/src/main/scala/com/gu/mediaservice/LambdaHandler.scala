@@ -17,9 +17,7 @@ class LambdaHandler {
 
     println(s"handleImageProjection event: $event")
 
-    val queryParams: Map[String, String] = event.getQueryStringParameters.asScala.toMap
-
-    val mediaId = queryParams.getOrElse("media_id", "")
+    val mediaId = event.getPath.stripPrefix("/images/projection/")
 
     val domainRoot = sys.env("DOMAIN_ROOT")
     // TODO consider using parameter store with KMS for API_KEY
