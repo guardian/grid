@@ -149,7 +149,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Grzegorz Michalowski" -> "Grzegorz Michałowski",
     "Gyorgy Varga" -> "György Varga",
     "Hakan Burak Altunoz" -> "Hakan Burak Altunöz",
-    "Halil Sagirkaya" - > "Halil Sağırkaya",
+    "Halil Sagirkaya" -> "Halil Sağırkaya",
     "Hannah Mckay" -> "Hannah McKay",
     "Hasan Namli" -> "Hasan Namlı",
     "Hector Guerrero" -> "Héctor Guerrero",
