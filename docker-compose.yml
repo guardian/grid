@@ -1,9 +1,11 @@
 version: '3'
 services:
   elasticsearch6:
-    image: docker.elastic.co/elasticsearch/elasticsearch:6.5.4
+    build:
+      context: ./elasticsearch6/dev
     volumes:
       - "./elasticsearch6/dev/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
+      - "$HOME/.aws/credentials:/home/.aws/credentials:ro"
     ports:
       - "9200:9200"
   imgops:
