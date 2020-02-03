@@ -138,33 +138,6 @@ class MediaApi(
     }
   }
 
-  def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
-    implicit val r: Authentication.Request[AnyContent] = request
-
-    val include = getIncludedFromParams(request)
-
-    elasticSearch.getImageById(id) map {
-      case Some(source) if hasPermission(request, source) =>
-        val writePermission = canUserWriteMetadata(request, source)
-        val deleteImagePermission = canUserDeleteImage(request, source)
-        val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
-
-        val (imageData, imageLinks, imageActions) = imageResponse.create(
-          id,
-          source,
-          writePermission,
-          deleteImagePermission,
-          deleteCropsOrUsagePermission,
-          include,
-          request.user.apiKey.tier
-        )
-
-        Some((source, imageData, imageLinks, imageActions))
-
-      case _ => None
-    }
-  }
-
   def getImageFileMetadata(id: String) = auth.async { request =>
     implicit val r = request
 
@@ -307,6 +280,33 @@ class MediaApi(
       ),
       params => respondSuccess(params)
     )
+  }
+
+  private def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
+    implicit val r: Authentication.Request[AnyContent] = request
+
+    val include = getIncludedFromParams(request)
+
+    elasticSearch.getImageById(id) map {
+      case Some(source) if hasPermission(request, source) =>
+        val writePermission = canUserWriteMetadata(request, source)
+        val deleteImagePermission = canUserDeleteImage(request, source)
+        val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
+
+        val (imageData, imageLinks, imageActions) = imageResponse.create(
+          id,
+          source,
+          writePermission,
+          deleteImagePermission,
+          deleteCropsOrUsagePermission,
+          include,
+          request.user.apiKey.tier
+        )
+
+        Some((source, imageData, imageLinks, imageActions))
+
+      case _ => None
+    }
   }
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
