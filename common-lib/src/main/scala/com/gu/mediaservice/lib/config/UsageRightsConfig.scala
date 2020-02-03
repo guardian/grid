@@ -71,7 +71,6 @@ object UsageRightsConfig {
     "Alamy",
     "Allstar Picture Library",
     "AP",
-    "Barcroft Media",
     "EPA",
     "Getty Images",
     "PA",
