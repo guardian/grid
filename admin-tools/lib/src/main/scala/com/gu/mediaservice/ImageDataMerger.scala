@@ -13,12 +13,39 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-case class ImageDataMergerConfig(apiKey: String, services: Services)
+case class ImageDataMergerConfig(apiKey: String, services: Services) {
+  def isValidApiKey(): Boolean = {
+    // Make an API key authenticated request to the leases API as a way of validating the API key.
+    // A 200 indicates a valid key.
+    // Using leases because its a low traffic API.
+    HttpClient.makeRequest(new URL(services.leasesBaseUri))(this).statusCode == 200
+  }
+}
+
+case class ResponseWrapper(body: JsValue, statusCode: Int)
+
+object HttpClient {
+  private val httpClient = new OkHttpClient
+
+  def makeRequest(url: URL)(implicit config: ImageDataMergerConfig): ResponseWrapper = {
+    val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, config.apiKey).build
+    val response = httpClient.newCall(request).execute
+    import response._
+    val resInfo = Map(
+      "status-code" -> response.code.toString,
+      "message" -> response.message
+    )
+    println(s"GET $url response: $resInfo")
+    val json = if (code == 200) Json.parse(body.string) else Json.obj()
+    ResponseWrapper(json, code)
+  }
+}
 
 class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionContext) {
 
-  private val httpClient = new OkHttpClient
   import config.services._
+
+  implicit val cfg = config
 
   def getMergedImageData(mediaId: String): Future[Option[Image]] = {
     val maybeImage: Option[Image] = getImageLoaderProjection(mediaId)
@@ -49,7 +76,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
   private def getImageLoaderProjection(mediaId: String): Option[Image] = {
     println("attempt to get image projection from image-loader")
     val url = new URL(s"$loaderBaseUri/images/project/$mediaId")
-    val res = makeRequest(url)
+    val res = HttpClient.makeRequest(url)
     import res._
     println(s"got image projection from image-loader for $mediaId with status code $statusCode")
     if (statusCode == 200) Some(body.as[Image]) else None
@@ -58,28 +85,28 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
   private def getCollectionsResponse(mediaId: String): Future[List[Collection]] = Future {
     println("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    val res = makeRequest(url)
+    val res = HttpClient.makeRequest(url)
     if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
   }
 
   private def getEdits(mediaId: String): Future[Option[Edits]] = Future {
     println("attempt to get edits")
     val url = new URL(s"$metadataBaseUri/edits/$mediaId")
-    val res = makeRequest(url)
+    val res = HttpClient.makeRequest(url)
     if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
   }
 
   private def getCrops(mediaId: String): Future[List[Crop]] = Future {
     println("attempt to get crops")
     val url = new URL(s"$cropperBaseUri/crops/$mediaId")
-    val res = makeRequest(url)
+    val res = HttpClient.makeRequest(url)
     if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
   }
 
   private def getLeases(mediaId: String): Future[LeasesByMedia] = Future {
     println("attempt to get leases")
     val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
-    val res = makeRequest(url)
+    val res = HttpClient.makeRequest(url)
     if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
   }
 
@@ -91,23 +118,8 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
     }
 
     val url = new URL(s"$usageBaseUri/usages/media/$mediaId")
-    val res = makeRequest(url)
+    val res = HttpClient.makeRequest(url)
     if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
     else Nil
-  }
-
-  case class ResponseWrapper(body: JsValue, statusCode: Int)
-
-  private def makeRequest(url: URL): ResponseWrapper = {
-    val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, config.apiKey).build
-    val response = httpClient.newCall(request).execute
-    import response._
-    val resInfo = Map(
-      "status-code" -> response.code.toString,
-      "message" -> response.message
-    )
-    println(s"GET $url response: $resInfo")
-    val json = if (code == 200) Json.parse(body.string) else Json.obj()
-    ResponseWrapper(json, code)
   }
 }
