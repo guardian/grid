@@ -3,6 +3,7 @@ package lib.kinesis
 import java.util
 import java.util.concurrent.Executors
 
+import akka.actor.ActorSystem
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
@@ -12,11 +13,11 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json.{JodaReads, Json, Reads}
+import play.api.{Logger, MarkerContext}
 
-import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{Await, ExecutionContext, TimeoutException}
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 class ThrallEventConsumer(es: ElasticSearch,
@@ -24,10 +25,17 @@ class ThrallEventConsumer(es: ElasticSearch,
                           store: ThrallStore,
                           metadataEditorNotifications: MetadataEditorNotifications,
                           syndicationRightsOps: SyndicationRightsOps,
-                          bulkIndexS3Client: BulkIndexS3Client) extends IRecordProcessor with PlayJsonHelpers {
+                          bulkIndexS3Client: BulkIndexS3Client,
+                          actorSystem: ActorSystem) extends IRecordProcessor with PlayJsonHelpers {
+
+  private val attemptTimeout = FiniteDuration(30, SECONDS)
+  private val delay = FiniteDuration(5, SECONDS)
+  private val attempts = 2
+  private val timeout = attemptTimeout * attempts + delay * (attempts - 1)
 
   private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, syndicationRightsOps, bulkIndexS3Client)
-  private val Timeout = Duration(30, SECONDS)
+
+  private implicit val implicitActorSystem: ActorSystem = actorSystem
 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
@@ -41,9 +49,10 @@ class ThrallEventConsumer(es: ElasticSearch,
     Logger.info("Processing kinesis record batch of size: " + records.size)
 
     try {
-      records.asScala.foreach { r =>
-        parseRecord(r).map(processUpdateMessage)
-      }
+      val messages = records.asScala.toList.flatMap(parseRecord)
+
+      OrderedFutureRunner.run(processUpdateMessage,timeout)(messages)
+
       try {
         checkpointer.checkpoint(records.asScala.last)
       } catch {
@@ -66,7 +75,10 @@ class ThrallEventConsumer(es: ElasticSearch,
         Logger.info(s"Received ${updateMessage.subject} message at $timestamp")(updateMessage.toLogMarker)
         Some(updateMessage)
       }
-      case Success(None)=> None //No message received
+      case Success(None)=> {
+        Logger.error(s"No message present in record at $timestamp")
+        None //No message received
+      }
       case Failure(e) => {
         Logger.error(s"Exception during process record block at $timestamp", e)
         None
@@ -74,34 +86,54 @@ class ThrallEventConsumer(es: ElasticSearch,
     }
   }
 
-  private def processUpdateMessage(updateMessage: UpdateMessage) = {
-    messageProcessor.chooseProcessor(updateMessage).map { messageProcessor =>
-      Try(Await.ready(messageProcessor.apply(updateMessage), Timeout))
-    } match {
-      case Some(Success(_)) =>
-        Logger.info(
-          s"Completed processing of ${
-            updateMessage.subject
-          } message")(updateMessage.toLogMarker)
-      case Some(Failure(timeoutException: TimeoutException)) =>
-        Logger.error(
-          s"Timeout of $Timeout reached while processing ${
-            updateMessage.subject
-          } message; message will be ignored:",
-          timeoutException
-        )(updateMessage.toLogMarker)
-      case Some(Failure(e: Throwable)) =>
-        Logger.error(
-          s"Failed to process ${
-            updateMessage.subject
-          } message; message will be ignored:", e)(updateMessage.toLogMarker)
-      case None =>
+  private def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
+    implicit val mc: MarkerContext = updateMessage.toLogMarker
+
+    //Try to process the update message twice, and give them both 30 seconds to run.
+    messageProcessor.chooseProcessor(updateMessage) match {
+      case None => {
         Logger.error(
           s"Could not find processor for ${
             updateMessage.subject
           } message; message will be ignored")(updateMessage.toLogMarker)
+        Future.failed(new Exception("Could not find processor for ${updateMessage.subject} message"))
+      }
+      case Some(messageProcessor) => {
+        RetryHandler.handleWithRetryAndTimeout(
+          /*
+          * Brief note on retry strategy:
+          * Trying a second time might be dangerous, hopefully waiting a reasonable length of time should mitigate this.
+          * From the logs, trying again after 30 seconds should only affect 1/300,000 messages.
+          *
+           */
+          () => messageProcessor.apply(updateMessage), attempts, attemptTimeout, delay
+        ).apply().transform {
+          case Success(_) => {
+            Logger.info(
+              s"Completed processing of ${
+                updateMessage.subject
+              } message")(updateMessage.toLogMarker)
+            Success(updateMessage)
+          }
+          case Failure(timeoutException: TimeoutException) => {
+            Logger.error(
+              s"Timeout of $timeout reached while processing ${
+                updateMessage.subject
+              } message; message will be ignored:",
+              timeoutException
+            )(updateMessage.toLogMarker)
+            Failure(timeoutException)
+          }
+          case Failure(e: Throwable) => {
+            Logger.error(
+              s"Failed to process ${
+                updateMessage.subject
+              } message; message will be ignored:", e)(updateMessage.toLogMarker)
+            Failure(e)
+          }
+        }
+      }
     }
-
   }
 
 
