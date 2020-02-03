@@ -4,7 +4,7 @@ import java.net.URI
 
 import akka.stream.scaladsl.StreamConverters
 import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
@@ -120,7 +120,26 @@ class MediaApi(
   }
 
   def getImage(id: String) = auth.async { request =>
-    implicit val r = request
+    getImageResponseFromES(id, request) map {
+      case Some((_, imageData, imageLinks, imageActions)) =>
+        respond(imageData, imageLinks, imageActions)
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  /**
+    * Get the raw response from ElasticSearch.
+    */
+  def getImageRaw(id: String) = auth.async { request =>
+    getImageResponseFromES(id, request) map {
+      case Some((source, _, imageLinks, imageActions)) =>
+        respond(source, imageLinks, imageActions)
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
+    implicit val r: Authentication.Request[AnyContent] = request
 
     val include = getIncludedFromParams(request)
 
@@ -140,9 +159,9 @@ class MediaApi(
           request.user.apiKey.tier
         )
 
-        respond(imageData, imageLinks, imageActions)
+        Some((source, imageData, imageLinks, imageActions))
 
-      case _ => ImageNotFound(id)
+      case _ => None
     }
   }
 
