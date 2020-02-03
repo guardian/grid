@@ -1,5 +1,5 @@
 GET     /                           controllers.AdminToolsCtr.index
-GET     /images/:id/project         controllers.AdminToolsCtr.project(id: String)
+GET     /images/projection/:id      controllers.AdminToolsCtr.project(id: String)
 
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck

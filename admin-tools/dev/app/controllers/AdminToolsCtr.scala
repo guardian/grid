@@ -23,7 +23,7 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
       "description" -> "This is Admin tools API"
     )
     val indexLinks = List(
-      Link("image-projection", s"${config.rootUri}/images/{id}/project")
+      Link("image-projection", s"${config.rootUri}/images/projection/{id}")
     )
     respond(indexData, indexLinks)
   }

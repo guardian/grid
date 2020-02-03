@@ -146,6 +146,10 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
       case PathList("META-INF", xs@_*) => MergeStrategy.discard
       case x => MergeStrategy.first
     }
+    libraryDependencies ++= Seq(
+      "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
+      "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
+    )
   }.dependsOn(adminToolsLib)
 
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
