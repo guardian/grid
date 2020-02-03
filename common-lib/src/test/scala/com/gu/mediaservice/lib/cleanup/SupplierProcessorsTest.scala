@@ -169,40 +169,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     }
   }
 
-
-  describe("Barcroft Media") {
-    it("should match Barcroft Media credit") {
-      val image = createImageFromMetadata("credit" -> "Barcroft Media")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("Barcroft Media"))
-
-      processedImage.metadata.credit should be(Some("Barcroft Media"))
-    }
-
-    it("should match other Barcroft offices credit") {
-      val image = createImageFromMetadata("credit" -> "Barcroft India")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("Barcroft Media"))
-      processedImage.metadata.credit should be(Some("Barcroft India"))
-    }
-
-    it("should match Barcroft Media source") {
-      val image = createImageFromMetadata("source" -> "Barcroft Media")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("Barcroft Media"))
-
-      processedImage.metadata.source should be(Some("Barcroft Media"))
-    }
-
-    it("should match other Barcroft offices source") {
-      val image = createImageFromMetadata("source" -> "Barcroft India")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("Barcroft Media"))
-      processedImage.metadata.source should be(Some("Barcroft India"))
-    }
-  }
-
-
+  
   describe("Corbis") {
     it("should match Corbis source") {
       val image = createImageFromMetadata("credit" -> "Demotix/Corbis", "source" -> "Corbis")
