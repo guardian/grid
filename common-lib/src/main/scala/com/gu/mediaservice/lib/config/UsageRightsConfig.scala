@@ -10,9 +10,6 @@ object UsageRightsConfig {
     "Alinari",
     "Arnold Newman Collection",
     "ASAblanca",
-    // Note: Even though we have a deal directly with Barcroft, it
-    // does not apply to images sourced through Getty. Silly, I know.
-    "Barcroft Media",
     "Bob Thomas Sports Photography",
     "Carnegie Museum of Art",
     "Catwalking",
