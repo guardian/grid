@@ -22,6 +22,18 @@ object MimeType {
     case "image/jpeg" => Jpeg
     case "image/png" => Png
     case "image/tiff" => Tiff
+
+    // Support crops created in the early years of Grid (~2016) which state mime type w/out an 'image/' prefix
+    // TODO correct these values in a reindex
+    case "jpg" => {
+      Logger.info("Encountered legacy mime type representation")
+      Jpeg
+    }
+    case "png" => {
+      Logger.info("Encountered legacy mime type representation")
+      Png
+    }
+
     case _ => {
       Logger.warn(s"Unsupported mime type $value")
       throw new UnsupportedMimeTypeException
