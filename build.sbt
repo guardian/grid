@@ -150,7 +150,9 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
       "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
     )
-  }.dependsOn(adminToolsLib)
+  }.dependsOn(adminToolsLib).settings(
+  assemblyJarName in assembly := "admin-tools-lambda.jar"
+)
 
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
   .dependsOn(adminToolsLib)
