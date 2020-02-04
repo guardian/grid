@@ -1,6 +1,6 @@
 package test.lib.imaging
 
-import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.FileMetadataAggregator
 import lib.imaging.FileMetadataReader
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
@@ -22,7 +22,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct dimensions for a JPG image") {
     val image = fileAt("getty.jpg")
-    val dimsFuture = FileMetadataReader.dimensions(image, Some(Jpeg))
+    val dimsFuture = FileMetadataReader.dimensions(image, Some("image/jpeg"))
     whenReady(dimsFuture) { dimOpt =>
       dimOpt should be('defined)
       dimOpt.get.width should be(100)
@@ -32,7 +32,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct dimensions for a tiff image") {
     val image = fileAt("flower.tif")
-    val dimsFuture = FileMetadataReader.dimensions(image, Some(Tiff))
+    val dimsFuture = FileMetadataReader.dimensions(image, Some("image/tiff"))
     whenReady(dimsFuture) { dimOpt =>
       dimOpt should be('defined)
       dimOpt.get.width should be(73)
@@ -42,7 +42,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct dimensions for a png image") {
     val image = fileAt("schaik.com_pngsuite/basn0g08.png")
-    val dimsFuture = FileMetadataReader.dimensions(image, Some(Png))
+    val dimsFuture = FileMetadataReader.dimensions(image, Some("image/png"))
     whenReady(dimsFuture) { dimOpt =>
       dimOpt should be('defined)
       dimOpt.get.width should be(32)
@@ -596,7 +596,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a grayscale png") {
     val image = fileAt("schaik.com_pngsuite/basn0g08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "Greyscale"
@@ -606,7 +606,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a colour 8bit paletted png") {
     val image = fileAt("schaik.com_pngsuite/basn3p08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "Indexed Color"
@@ -616,7 +616,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a truecolour png without alpha channel") {
     val image = fileAt("schaik.com_pngsuite/basn2c08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "True Color"
@@ -626,7 +626,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a truecolour pnd with alpha channel") {
     val image = fileAt("schaik.com_pngsuite/basn6a08.png")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/png")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "True Color with Alpha"
@@ -636,7 +636,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct colour metadata for a greyscale tiff") {
     val image = fileAt("flower.tif")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", Tiff)
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/tiff")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "photometricInterpretation" -> "BlackIsZero"
@@ -646,7 +646,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct colour metadata for an alpha tiff") {
     val image = fileAt("lighthouse.tif")
-    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", Tiff)
+    val metadataFuture = FileMetadataReader.fromICPTCHeadersWithColorInfo(image, "dummy", "image/tiff")
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "photometricInterpretation" -> "RGB"
