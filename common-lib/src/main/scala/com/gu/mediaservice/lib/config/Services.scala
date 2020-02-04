@@ -5,6 +5,7 @@ case class ServiceHosts(
   apiPrefix: String,
   loaderPrefix: String,
   cropperPrefix: String,
+  adminToolsPrefix: String,
   metadataPrefix: String,
   imgopsPrefix: String,
   usagePrefix: String,
@@ -24,6 +25,7 @@ object ServiceHosts {
       apiPrefix = s"api.$rootAppName.",
       loaderPrefix = s"loader.$rootAppName.",
       cropperPrefix = s"cropper.$rootAppName.",
+      adminToolsPrefix = s"admin-tools.$rootAppName.",
       metadataPrefix = s"$rootAppName-metadata.",
       imgopsPrefix = s"$rootAppName-imgops.",
       usagePrefix = s"$rootAppName-usage.",
@@ -45,6 +47,7 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val collectionsHost: String = s"${hosts.collectionsPrefix}$domainRoot"
   val leasesHost: String      = s"${hosts.leasesPrefix}$domainRoot"
   val authHost: String        = s"${hosts.authPrefix}$domainRoot"
+  val adminToolsHost: String  = s"${hosts.adminToolsPrefix}$domainRoot"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)
@@ -56,6 +59,7 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val collectionsBaseUri = baseUri(collectionsHost)
   val leasesBaseUri      = baseUri(leasesHost)
   val authBaseUri        = baseUri(authHost)
+  val adminToolsBaseUri  = baseUri(adminToolsHost)
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 

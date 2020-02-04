@@ -59,6 +59,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   lazy val authUri: String = services.authBaseUri
   lazy val loginUriTemplate: String = services.loginUriTemplate
   lazy val collectionsUri: String = services.collectionsBaseUri
+  lazy val adminToolsUri: String = services.adminToolsBaseUri
 
   lazy val requiredMetadata = List("credit", "description", "usageRights")
 

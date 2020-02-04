@@ -66,7 +66,8 @@ class MediaApi(
       Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
-      Link("leases",          config.leasesUri)
+      Link("leases",          config.leasesUri),
+      Link("admin-tools",     config.adminToolsUri)
     )
     respond(indexData, indexLinks)
   }

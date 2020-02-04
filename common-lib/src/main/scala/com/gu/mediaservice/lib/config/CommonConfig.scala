@@ -67,6 +67,7 @@ trait CommonConfig {
     stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
     stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
     stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
+    stringDefault("hosts.adminToolsPrefix", s"admin-tools.$rootAppName."),
     stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
     stringDefault("hosts.imgopsPrefix", s"$rootAppName-imgops."),
     stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
