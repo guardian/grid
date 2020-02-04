@@ -7,12 +7,14 @@ import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.model._
+import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
+class UnsupportedCropOutputTypeException extends Exception
 
 class ImageOperations(playPath: String) {
   import ExifTool._
@@ -106,7 +108,10 @@ class ImageOperations(playPath: String) {
     // TODO We should create a `CroppingMimeType` to enforce this at the type level.
     //  However we'd need to change the `Asset` model as source image and crop use this model
     //  and a source can legally be a `Tiff`. It's not a small change...
-    case Tiff => resizedFile
+    case Tiff => {
+      Logger.error("Attempting to optimize a Tiff crop. Cropping as Tiff is not supported.")
+      throw new UnsupportedCropOutputTypeException
+    }
   }
 
   val thumbUnsharpRadius = 0.5d
