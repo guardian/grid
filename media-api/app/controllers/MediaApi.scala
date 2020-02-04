@@ -4,7 +4,7 @@ import java.net.URI
 
 import akka.stream.scaladsl.StreamConverters
 import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
@@ -121,28 +121,20 @@ class MediaApi(
   }
 
   def getImage(id: String) = auth.async { request =>
-    implicit val r = request
-
-    val include = getIncludedFromParams(request)
-
-    elasticSearch.getImageById(id) map {
-      case Some(source) if hasPermission(request, source) =>
-        val writePermission = canUserWriteMetadata(request, source)
-        val deleteImagePermission = canUserDeleteImage(request, source)
-        val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
-
-        val (imageData, imageLinks, imageActions) = imageResponse.create(
-          id,
-          source,
-          writePermission,
-          deleteImagePermission,
-          deleteCropsOrUsagePermission,
-          include,
-          request.user.apiKey.tier
-        )
-
+    getImageResponseFromES(id, request) map {
+      case Some((_, imageData, imageLinks, imageActions)) =>
         respond(imageData, imageLinks, imageActions)
+      case _ => ImageNotFound(id)
+    }
+  }
 
+  /**
+    * Get the raw response from ElasticSearch.
+    */
+  def getImageFromElasticSearch(id: String) = auth.async { request =>
+    getImageResponseFromES(id, request) map {
+      case Some((source, _, imageLinks, imageActions)) =>
+        respond(source, imageLinks, imageActions)
       case _ => ImageNotFound(id)
     }
   }
@@ -289,6 +281,33 @@ class MediaApi(
       ),
       params => respondSuccess(params)
     )
+  }
+
+  private def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
+    implicit val r: Authentication.Request[AnyContent] = request
+
+    val include = getIncludedFromParams(request)
+
+    elasticSearch.getImageById(id) map {
+      case Some(source) if hasPermission(request, source) =>
+        val writePermission = canUserWriteMetadata(request, source)
+        val deleteImagePermission = canUserDeleteImage(request, source)
+        val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
+
+        val (imageData, imageLinks, imageActions) = imageResponse.create(
+          id,
+          source,
+          writePermission,
+          deleteImagePermission,
+          deleteCropsOrUsagePermission,
+          include,
+          request.user.apiKey.tier
+        )
+
+        Some((source, imageData, imageLinks, imageActions))
+
+      case _ => None
+    }
   }
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {
