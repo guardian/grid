@@ -21,7 +21,7 @@ class ImageTest extends FunSpec with Matchers {
       source = Asset(
         file = new URI(s"https://file/$id"),
         size = Some(1L),
-        mimeType = Some("image/jpeg"),
+        mimeType = Some(Jpeg),
         dimensions = Some(Dimensions(width = 1, height = 1)),
         secureUrl = None
       ),

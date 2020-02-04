@@ -2,8 +2,9 @@ package com.gu.mediaservice.lib.imaging
 
 import java.io.File
 
+import com.gu.mediaservice.model.Jpeg
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{Ignore, Matchers, FunSpec}
+import org.scalatest.{FunSpec, Ignore, Matchers}
 import org.scalatest.concurrent.ScalaFutures
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -17,7 +18,7 @@ class ImageOperationsTest extends FunSpec with Matchers with ScalaFutures {
   describe("identifyColourModel") {
     it("should return RGB for a JPG image with RGB image data and no embedded profile") {
       val image = fileAt("rgb-wo-profile.jpg")
-      val colourModelFuture = ImageOperations.identifyColourModel(image, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
       whenReady(colourModelFuture) { colourModel =>
         colourModel should be (Some("RGB"))
       }
@@ -25,7 +26,7 @@ class ImageOperationsTest extends FunSpec with Matchers with ScalaFutures {
 
     it("should return RGB for a JPG image with RGB image data and an RGB embedded profile") {
       val image = fileAt("rgb-with-rgb-profile.jpg")
-      val colourModelFuture = ImageOperations.identifyColourModel(image, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
       whenReady(colourModelFuture) { colourModel =>
         colourModel should be (Some("RGB"))
       }
@@ -33,7 +34,7 @@ class ImageOperationsTest extends FunSpec with Matchers with ScalaFutures {
 
     it("should return RGB for a JPG image with RGB image data and an incorrect CMYK embedded profile") {
       val image = fileAt("rgb-with-cmyk-profile.jpg")
-      val colourModelFuture = ImageOperations.identifyColourModel(image, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
       whenReady(colourModelFuture) { colourModel =>
         colourModel should be (Some("RGB"))
       }
@@ -41,7 +42,7 @@ class ImageOperationsTest extends FunSpec with Matchers with ScalaFutures {
 
     it("should return CMYK for a JPG image with CMYK image data") {
       val image = fileAt("cmyk.jpg")
-      val colourModelFuture = ImageOperations.identifyColourModel(image, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
       whenReady(colourModelFuture) { colourModel =>
         colourModel should be (Some("CMYK"))
       }
@@ -49,7 +50,7 @@ class ImageOperationsTest extends FunSpec with Matchers with ScalaFutures {
 
     it("should return GRAYSCALE for a JPG image with GRAYSCALE image data and no embedded profile") {
       val image = fileAt("grayscale-wo-profile.jpg")
-      val colourModelFuture = ImageOperations.identifyColourModel(image, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
       whenReady(colourModelFuture) { colourModel =>
         colourModel should be (Some("GRAYSCALE"))
       }
