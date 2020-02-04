@@ -130,7 +130,7 @@ class MediaApi(
   /**
     * Get the raw response from ElasticSearch.
     */
-  def getImageRaw(id: String) = auth.async { request =>
+  def getImageFromElasticSearch(id: String) = auth.async { request =>
     getImageResponseFromES(id, request) map {
       case Some((source, _, imageLinks, imageActions)) =>
         respond(source, imageLinks, imageActions)
