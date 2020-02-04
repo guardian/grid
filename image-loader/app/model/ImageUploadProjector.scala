@@ -6,7 +6,7 @@ import java.util.UUID
 import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.MimeTypeDetection
 import lib.{DigestedFile, ImageLoaderConfig}
 import org.joda.time.{DateTime, DateTimeZone}
@@ -76,7 +76,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File) = Future {
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
-    val thumbMimeType = Some(Jpeg)
+    val thumbMimeType = Some("image/jpeg")
     S3Ops.projectFileAsS3Object(
       config.thumbBucket,
       key,
@@ -87,7 +87,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, optimisedPngFile: File) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(uploadRequest.imageId)
-    val optimisedPngMimeType = Some(Png)
+    val optimisedPngMimeType = Some("image/png")
     S3Ops.projectFileAsS3Object(
       config.originalFileBucket,
       key,
