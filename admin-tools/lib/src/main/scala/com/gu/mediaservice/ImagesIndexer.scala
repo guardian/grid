@@ -5,7 +5,7 @@ import java.net.URL
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.bulk.BulkResponse
 import com.sksamuel.elastic4s.http.{ElasticClient, ElasticProperties, Response}
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.Json
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -19,7 +19,6 @@ object ImagesIndexer {
   private val esEndpoint = "http://localhost:9200"
   private val esIndex = "images/_doc"
   private val esClient = ElasticClient(ElasticProperties(esEndpoint))
-
 
   def prepareBlobs(mediaIds: List[String])(implicit ec: ExecutionContext) = {
     Future.traverse(mediaIds) { id =>
@@ -43,7 +42,11 @@ object ImagesIndexer {
 
     bulkRes.onComplete {
       case Success(bulkRes) =>
-        println(s"bulk insert was successful: ${bulkRes.result}")
+        println(s"bulk insert was successful, items inserted, it took: ${bulkRes.result.took}")
+        println("items: ")
+        bulkRes.result.items.foreach { item =>
+          println(item)
+        }
       case Failure(exception) =>
         println(s"bulk insert failed: ${exception.getMessage}")
     }
@@ -67,15 +70,5 @@ object ImagesIndexerLocalHandler extends App {
 
 
   ImagesIndexer.batchIndex(mediaIds)
-
-  //  val f = ImagesIndexer.prepareBlobs(mediaIds)
-  //
-  //  val blobs = Await.result(f, Duration.Inf)
-  //
-  //  blobs.foreach { json =>
-  //    println("---------------------------------------")
-  //    println(json)
-  //    println("---------------------------------------")
-  //  }
 
 }
