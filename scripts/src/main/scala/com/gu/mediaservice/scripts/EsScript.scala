@@ -3,7 +3,7 @@ package com.gu.mediaservice.scripts
 import java.util.concurrent.TimeUnit
 
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, Mappings}
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http.bulk.BulkResponse
 import com.sksamuel.elastic4s.http.search.{SearchHit, SearchResponse}
 import com.sksamuel.elastic4s.indexes.IndexRequest
@@ -366,8 +366,8 @@ object GetSettings extends EsScript {
 abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
   final val esCluster = "media-service"
-  final val esImagesAlias = "writeAlias"
-  final val esImagesReadAlias = "readAlias"
+  final val esImagesAlias = "writealias"
+  final val esImagesReadAlias = "readalias"
   final val esShards = 5
   final val esReplicas = 0
 

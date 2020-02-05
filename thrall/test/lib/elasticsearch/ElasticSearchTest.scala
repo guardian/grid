@@ -26,6 +26,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           val imageTwo = createImage("superman", StaffPhotographer("Clark Kent", "Kent Farm")).copy(
             usages = List(usage())
           )
+  def ES: ElasticSearch
 
           val images: List[Image] = List(imageOne, imageTwo)
 

@@ -3,7 +3,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, Mappings}
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.bulk.BulkRequest
 import com.sksamuel.elastic4s.http.ElasticClient
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 import org.elasticsearch.action.search.{SearchResponse, SearchType}
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders

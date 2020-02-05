@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.sksamuel.elastic4s.http._
+import com.sksamuel.elastic4s.{ElasticClient, Executor, Functor, Handler, Response}
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import play.api.{Logger, MarkerContext}
