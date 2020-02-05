@@ -5,7 +5,7 @@ import java.net.URL
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http.bulk.BulkResponse
 import com.sksamuel.elastic4s.http.{ElasticClient, ElasticProperties, Response}
-import play.api.libs.json.JsValue
+import play.api.libs.json.{JsValue, Json}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -17,7 +17,7 @@ object ImagesIndexer {
   private val apiKey = "dev-"
   private val projectionBaseEndpoint = "https://admin-tools.media.local.dev-gutools.co.uk/images/projection"
   private val esEndpoint = "http://localhost:9200"
-  private val esIndex = "images"
+  private val esIndex = "images/_doc"
   private val esClient = ElasticClient(ElasticProperties(esEndpoint))
 
 
@@ -26,7 +26,7 @@ object ImagesIndexer {
       val projectionEndpoint = s"$projectionBaseEndpoint/$id"
       val reqUrl = new URL(projectionEndpoint)
       GridClient.makeGetRequestAsync(reqUrl, apiKey)
-    }.map(l => l.filter(_.statusCode == 200).map(_.body.toString))
+    }.map(l => l.filter(_.statusCode == 200).map(res => Json.stringify(res.body)))
   }
 
   def batchIndex(mediaIds: List[String])(implicit ec: ExecutionContext) = {
