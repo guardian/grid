@@ -1,13 +1,13 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch.impls.elasticsearch
 
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http._
+import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.ElasticDsl._
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
 import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.querysyntax._
@@ -23,7 +23,7 @@ import play.api.mvc.Security.AuthenticatedRequest
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearch6Executions with MockitoSugar {
+class MediaApiElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
 
   implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
 
@@ -33,13 +33,13 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     "persistence.identifier" -> "picdarUrn")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearch6Config(alias = "readAlias", url = es6TestUrl,
+  val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
   val client = ES.client
 
-  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
+  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(
@@ -54,7 +54,6 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
 
   override def beforeAll {
     super.beforeAll()
-
     ES.ensureAliasAssigned()
     purgeTestImages
 
@@ -431,15 +430,14 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
 
   private def saveImages(images: Seq[Image]) = {
     Future.sequence(images.map { i =>
-      executeAndLog(indexInto(index, "_doc") id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
+      executeAndLog(indexInto(index) id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
     })
   }
 
   private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
 
   private def purgeTestImages = {
-    def deleteImages = executeAndLog(deleteByQuery(index, "_doc", matchAllQuery()), s"Deleting images")
-
+    def deleteImages = executeAndLog(deleteByQuery(index, matchAllQuery()), s"Deleting images")
     Await.result(deleteImages, fiveSeconds)
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)
   }

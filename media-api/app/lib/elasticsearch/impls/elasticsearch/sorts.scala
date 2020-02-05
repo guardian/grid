@@ -1,7 +1,7 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch.impls.elasticsearch
 
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.searches.sort.{FieldSort, Sort, SortOrder}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.searches.sort.{Sort, SortOrder}
 
 object sorts {
 

@@ -1,9 +1,9 @@
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, Mappings}
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.bulk.BulkRequest
 import com.sksamuel.elastic4s.http.ElasticClient
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 import org.elasticsearch.action.search.{SearchResponse, SearchType}
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
@@ -32,7 +32,7 @@ object Main extends App with JsonCleaners {
   val es6Alias= args(8)
 
   val es1Config = ElasticSearchConfig(alias = es1Alias, host = es1Host, port = es1Port, cluster = es1Cluster)
-  val es6Config = ElasticSearch6Config(alias = es6Alias, url = s"http://$es6Host:$es6Port", cluster = es6Cluster, shards = 5, replicas = 0)
+  val es6Config = ElasticSearchConfig(alias = es6Alias, url = s"http://$es6Host:$es6Port", cluster = es6Cluster, shards = 5, replicas = 0)
 
   Logger.info("Configuring ES1: " + es1Config)
   val es1 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
@@ -48,7 +48,7 @@ object Main extends App with JsonCleaners {
   println("ES1 connection is healthy")
 
   Logger.info("Configuring ES6: " + es6Config)
-  val es6 = new com.gu.mediaservice.lib.elasticsearch6.ElasticSearchClient {
+  val es6 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
     override def host = es6Config.host
     override def port = es6Config.port
     override def cluster = es6Config.cluster

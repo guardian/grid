@@ -1,14 +1,14 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch.impls.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch6.IndexSettings
+import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model.Agency
-import com.sksamuel.elastic4s.Operator
-import com.sksamuel.elastic4s.http.ElasticDsl
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.searches.queries.Query
-import com.sksamuel.elastic4s.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
+import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.common.Operator
+import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
 import play.api.Logger
 
@@ -49,22 +49,19 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     case IsField => condition.value match {
       case IsValue(value) => IsQueryFilter.apply(value, overQuotaAgencies) match {
         case Some(isQuery) => isQuery.query
-        case _ => {
+        case _ =>
           Logger.info(s"Cannot perform IS query on ${condition.value}")
           matchNoneQuery
-        }
       }
-      case _ => {
+      case _ =>
         Logger.info(s"Cannot perform IS query on ${condition.value}")
         matchNoneQuery
-      }
     }
   }
 
-  def makeQuery(conditions: List[Condition]) = conditions match {
+  def makeQuery(conditions: List[Condition]): Query = conditions match {
     case Nil => matchAllQuery
-    case condList => {
-
+    case condList =>
       val (nested: List[Nested], normal: List[Condition]) = (
         condList collect { case n: Nested => n },
         condList collect { case c: Condition => c }
@@ -79,21 +76,17 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       val nestedQueries = nested
         .groupBy(_.parentField)
         .map {
-          case (parent: SingleField, n: List[Nested]) => {
-
+          case (parent: SingleField, n: List[Nested]) =>
             val nested = n.foldLeft(boolQuery) {
               case (query, Nested(_, f, v)) => query.withMust(makeQueryBit(Match(f, v)))
               case (query, _) => query
             }
-
             nestedQuery(parent.name, nested)
-          }
 
           case _ => throw InvalidQuery("Can only accept SingleField for Nested Query parent")
 
         }.toList
 
       nestedQueries.foldLeft(query) { case (q, nestedQ) => q.withMust(nestedQ) }
-    }
   }
 }

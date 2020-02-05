@@ -1,9 +1,9 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch.impls.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
-import com.sksamuel.elastic4s.http.ElasticDsl.matchAllQuery
-import com.sksamuel.elastic4s.searches.queries.Query
+import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 import scalaz.syntax.std.list._
 
 sealed trait IsQueryFilter extends Query with ImageFields {

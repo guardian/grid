@@ -1,10 +1,13 @@
-package com.gu.mediaservice.lib.elasticsearch6
+package com.gu.mediaservice.lib.elasticsearch
 
-import com.sksamuel.elastic4s.HealthStatus
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.http.index.CreateIndexResponse
-import com.sksamuel.elastic4s.http.index.admin.IndexExistsResponse
-import com.sksamuel.elastic4s.http.{ElasticClient, ElasticProperties, Response}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.http.JavaClient
+import com.sksamuel.elastic4s.{ElasticClient, ElasticProperties, Response}
+import com.sksamuel.elastic4s.requests.common.HealthStatus
+import com.sksamuel.elastic4s.requests.analysis.{Analysis, AnalysisBuilder}
+import com.sksamuel.elastic4s.requests.analyzers.PatternAnalyzerDefinition
+import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
+import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
 import play.api.Logger
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -15,7 +18,7 @@ case class ElasticSearchImageCounts(catCount: Long,
                                     searchResponseCount: Long,
                                     indexStatsCount: Long)
 
-trait ElasticSearchClient extends ElasticSearch6Executions {
+trait ElasticSearchClient extends ElasticSearchExecutions {
 
   private val tenSeconds = Duration(10, SECONDS)
   private val thirtySeconds = Duration(30, SECONDS)
@@ -35,8 +38,9 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
   def replicas: Int
 
   lazy val client = {
-    Logger.info("Connecting to Elastic 6: " + url)
-    ElasticClient(ElasticProperties(url))
+    Logger.info("Connecting to Elastic 7: " + url)
+    val client = JavaClient(ElasticProperties(url))
+    ElasticClient(client)
   }
 
   def ensureAliasAssigned() {
@@ -74,7 +78,7 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
       stats <- executeAndLog(queryStats, "Stats aggregation")
     } yield
       ElasticSearchImageCounts(catCount.result.count,
-                               imageSearch.result.hits.total,
+                               imageSearch.result.hits.total.value,
                                stats.result.indices("images").total.docs.count)
   }
 
@@ -118,11 +122,13 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
         "to remove the need for these: " + nonRecommendenedIndexSettingOverrides)
 
       createIndex(index).
-        mappings(Mappings.imageMapping).
+        mapping(Mappings.imageMapping).
         analysis(IndexSettings.analysis).
         settings(nonRecommendenedIndexSettingOverrides).
-        shards(shards).replicas(replicas)
+        shards(shards).
+        replicas(replicas)
     }
+
 
     val createIndexResponse = Await.result(eventualCreateIndexResponse, tenSeconds)
 

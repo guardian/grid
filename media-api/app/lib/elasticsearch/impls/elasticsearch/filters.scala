@@ -1,9 +1,9 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch.impls.elasticsearch
 
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.sksamuel.elastic4s.http.ElasticDsl
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.searches.queries.{BoolQuery, NestedQuery, Query}
+import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.searches.queries.{BoolQuery, NestedQuery, Query}
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._
@@ -35,6 +35,7 @@ object filters {
   def missing(fields: NonEmptyList[String]): Query =
     fields.map(f => not(existsQuery(f)): Query).foldRight1(and(_, _))
 
+  @scala.annotation.tailrec
   def ids(idList: List[String]): Query = ids(idList)
 
   def bool() = BoolQuery()
@@ -47,9 +48,10 @@ object filters {
     termsQuery(field, terms.list)
   }
 
-  def existsOrMissing(field: String, exists: Boolean): Query = exists match {
-    case true  => existsQuery(field)
-    case false => not(existsQuery(field))
+  def existsOrMissing(field: String, exists: Boolean): Query = if (exists) {
+    existsQuery(field)
+  } else {
+    not(existsQuery(field))
   }
 
   def anyMissing(fields: NonEmptyList[String]): Query =
@@ -60,7 +62,7 @@ object filters {
   }
 
   def mustWithMustNot(mustClause: Query, mustNotClause: Query): Query = {
-    bool.must(
+    bool().must(
       mustClause
     ).withNot(
       mustNotClause

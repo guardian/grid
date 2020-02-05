@@ -10,7 +10,7 @@ import org.joda.time.DateTime
 import play.api.Logger
 
 class ThrallMessageConsumer(config: ThrallConfig,
-                            es: ElasticSearch6,
+                            es: ElasticSearch,
                             thrallMetrics: ThrallMetrics,
                             store: ThrallStore,
                             metadataEditorNotifications: MetadataEditorNotifications,

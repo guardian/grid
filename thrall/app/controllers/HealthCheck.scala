@@ -9,7 +9,7 @@ import play.api.mvc._
 
 import scala.concurrent.ExecutionContext
 
-class HealthCheck(elasticsearch: ElasticSearch6, messageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit override val ec: ExecutionContext)
+class HealthCheck(elasticsearch: ElasticSearch, messageConsumer: ThrallMessageConsumer, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit override val ec: ExecutionContext)
   extends ElasticSearchHealthCheck(controllerComponents, elasticsearch) with ArgoHelpers {
 
   override def healthCheck = Action.async {

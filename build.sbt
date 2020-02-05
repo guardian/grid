@@ -44,7 +44,7 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.11.302"
-val elastic4sVersion = "6.7.4"
+val elastic4sVersion = "7.3.5"
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -66,7 +66,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "org.elasticsearch" % "elasticsearch" % "1.7.6",
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
-    "com.sksamuel.elastic4s" %% "elastic4s-http" % elastic4sVersion,
+    "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",

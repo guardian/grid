@@ -6,7 +6,7 @@ import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SyndicationRightsOps(es: ElasticSearch6)(implicit ex: ExecutionContext) {
+class SyndicationRightsOps(val es: ElasticSearch)(implicit ex: ExecutionContext) {
 
   /**
     * Upserting syndication rights and updating photoshoots accordingly.
@@ -79,8 +79,7 @@ class SyndicationRightsOps(es: ElasticSearch6)(implicit ex: ExecutionContext) {
                                          photoshoot: Photoshoot,
                                          excludedImageId: Option[String] = None): Future[Option[SyndicationRights]] =
     excludedImageId match {
-      case Some(_) =>
-        es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
+      case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
       case None =>
         val hasInferredRights: Boolean = image.hasInferredSyndicationRightsOrNoRights
         es.getLatestSyndicationRights(photoshoot).map {

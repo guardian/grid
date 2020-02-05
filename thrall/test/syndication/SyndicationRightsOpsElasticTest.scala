@@ -1,17 +1,17 @@
 package syndication
 
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
 import lib._
 import play.api.Configuration
 import scala.concurrent.duration._
 
-class SyndicationRightsOpsElastic6Test extends SyndicationRightsOpsTestsBase {
+class SyndicationRightsOpsElasticTest extends SyndicationRightsOpsTestsBase {
 
-  val elasticSearchConfig = ElasticSearch6Config("writeAlias", es6TestUrl, "media-service-test", 1, 0)
+  val elasticSearchConfig = ElasticSearchConfig("writealias", es6TestUrl, "media-service-test", 1, 0)
 
-  val ES = new ElasticSearch6(elasticSearchConfig, None)
-  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
+  val ES = new ElasticSearch(elasticSearchConfig, None)
+  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(

@@ -17,7 +17,7 @@ import play.api.libs.json.{JodaReads, Json}
 import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
 
-class ThrallEventConsumer(es: ElasticSearch6,
+class ThrallEventConsumer(es: ElasticSearch,
                           thrallMetrics: ThrallMetrics,
                           store: ThrallStore,
                           metadataEditorNotifications: MetadataEditorNotifications,

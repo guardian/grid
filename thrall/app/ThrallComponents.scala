@@ -1,4 +1,4 @@
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
@@ -14,7 +14,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es6Config = ElasticSearch6Config(
+  val es6Config = ElasticSearchConfig(
     alias = config.writeAlias,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,
@@ -22,7 +22,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     replicas = config.elasticsearch6Replicas
   )
 
-  val es6 = new ElasticSearch6(es6Config, Some(thrallMetrics))
+  val es6 = new ElasticSearch(es6Config, Some(thrallMetrics))
   es6.ensureAliasAssigned()
 
   val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(

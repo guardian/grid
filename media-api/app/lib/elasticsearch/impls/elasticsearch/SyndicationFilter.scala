@@ -1,10 +1,10 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch.impls.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease}
 import com.gu.mediaservice.model.usage.SyndicationUsage
-import com.sksamuel.elastic4s.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
 import org.joda.time.DateTime
 
