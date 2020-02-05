@@ -13,7 +13,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = project("grid", path = Some("."))
-  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi)
+  .aggregate(commonLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminTools)
   .enablePlugins(RiffRaffArtifact)
   .settings(
     riffRaffManifestProjectName := s"media-service::grid::all",
@@ -30,11 +30,12 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in metadataEditor).value -> s"${(name in metadataEditor).value}/${(name in metadataEditor).value}.deb",
       (packageBin in Debian in usage).value -> s"${(name in usage).value}/${(name in usage).value}.deb",
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
+      (packageBin in Debian in adminTools).value -> s"${(name in adminTools).value}/${(name in adminTools).value}.deb",
       file("riff-raff.yaml") -> "riff-raff.yaml"
     )
   )
 
-addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run")
+addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
@@ -45,6 +46,7 @@ Global / concurrentRestrictions := Seq(
 
 val awsSdkVersion = "1.11.302"
 val elastic4sVersion = "7.3.5"
+val okHttpVersion = "3.12.1"
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -92,7 +94,7 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % "3.12.1",
+    "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
     "org.apache.tika" % "tika-core" % "1.20"
   )
 }
@@ -116,6 +118,12 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
 )
+
+lazy val adminTools = playProject("admin-tools", 9013).settings {
+  libraryDependencies ++= Seq(
+    "com.squareup.okhttp3" % "okhttp" % okHttpVersion
+  )
+}
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
