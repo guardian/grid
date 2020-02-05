@@ -16,4 +16,8 @@ See the [routes file](https://github.com/guardian/media-service/blob/master/admi
 
 ### Build artifact for lambda
 
-sbt admin-tools-lambda/assembly
+`sbt admin-tools-lambda/assembly`
+
+## indexer local run
+
+`sbt "project admin-tools-lambda" "runMain com.gu.mediaservice.ImagesIndexerLocalHandler"`
