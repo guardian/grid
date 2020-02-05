@@ -8,6 +8,7 @@ import helpers.Fixtures
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Properties
 
@@ -43,4 +44,13 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     esContainer.toList ++ super.dockerContainers
 
   final override val StartContainersTimeout = 1.minute
+
+  protected def reloadedImage(id: String) = {
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  protected def indexedImage(id: String) = {
+    Thread.sleep(1000) // TODO use eventually clause
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
 }
