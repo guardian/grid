@@ -124,9 +124,9 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     excludeDependencies ++= Seq(
       ExclusionRule("com.amazonaws"),
       ExclusionRule("org.elasticsearch"),
-      ExclusionRule("com.sksamuel.elastic4s"),
+      //      ExclusionRule("com.sksamuel.elastic4s"),
       ExclusionRule("com.drewnoakes", "metadata-extractor"),
-      ExclusionRule("org.codehaus.janino"),
+      //      ExclusionRule("org.codehaus.janino"),
       ExclusionRule("com.typesafe.play"),
       ExclusionRule("org.scalaz.stream"),
       ExclusionRule("org.im4java"),

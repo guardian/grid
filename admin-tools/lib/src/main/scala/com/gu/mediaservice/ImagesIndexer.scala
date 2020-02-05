@@ -2,32 +2,53 @@ package com.gu.mediaservice
 
 import java.net.URL
 
+import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.http.bulk.BulkResponse
+import com.sksamuel.elastic4s.http.{ElasticClient, ElasticProperties, Response}
 import play.api.libs.json.JsValue
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 
 object ImagesIndexer {
 
   private val apiKey = "dev-"
   private val projectionBaseEndpoint = "https://admin-tools.media.local.dev-gutools.co.uk/images/projection"
+  private val esEndpoint = "http://localhost:9200"
+  private val esIndex = "images"
+  private val esClient = ElasticClient(ElasticProperties(esEndpoint))
+
 
   def prepareBlobs(mediaIds: List[String])(implicit ec: ExecutionContext) = {
-
-    val imageJsonBlobs: Future[List[JsValue]] = Future.traverse(mediaIds) { id =>
+    Future.traverse(mediaIds) { id =>
       val projectionEndpoint = s"$projectionBaseEndpoint/$id"
       val reqUrl = new URL(projectionEndpoint)
       GridClient.makeGetRequestAsync(reqUrl, apiKey)
-    }.map(l => l.filter(_.statusCode == 200).map(_.body))
-    imageJsonBlobs
+    }.map(l => l.filter(_.statusCode == 200).map(_.body.toString))
   }
 
   def batchIndex(mediaIds: List[String])(implicit ec: ExecutionContext) = {
-    prepareBlobs(mediaIds)
+    val blobsFuture: Future[List[String]] = prepareBlobs(mediaIds)
+    val images = Await.result(blobsFuture, Duration.Inf)
+    println(s"prepared json blobs list of size: ${images.size}")
+
+    println("attempting to send bulk insert request to elasticsearch")
+    val bulkRes: Future[Response[BulkResponse]] = esClient.execute {
+      bulk(
+        images.map(img => indexInto(esIndex) source img)
+      )
+    }
+
+    bulkRes.onComplete {
+      case Success(bulkRes) =>
+        println(s"bulk insert was successful: ${bulkRes.result}")
+      case Failure(exception) =>
+        println(s"bulk insert failed: ${exception.getMessage}")
+    }
 
   }
-
 }
 
 
@@ -44,14 +65,17 @@ object ImagesIndexerLocalHandler extends App {
     "non-existent"
   )
 
-  val f = ImagesIndexer.prepareBlobs(mediaIds)
 
-  val blobs = Await.result(f, Duration.Inf)
+  ImagesIndexer.batchIndex(mediaIds)
 
-  blobs.foreach { json =>
-    println("---------------------------------------")
-    println(json)
-    println("---------------------------------------")
-  }
+  //  val f = ImagesIndexer.prepareBlobs(mediaIds)
+  //
+  //  val blobs = Await.result(f, Duration.Inf)
+  //
+  //  blobs.foreach { json =>
+  //    println("---------------------------------------")
+  //    println(json)
+  //    println("---------------------------------------")
+  //  }
 
 }
