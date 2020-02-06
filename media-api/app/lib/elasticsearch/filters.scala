@@ -1,4 +1,4 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch
 
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.http.ElasticDsl

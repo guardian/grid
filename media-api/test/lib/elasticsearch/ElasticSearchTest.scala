@@ -1,4 +1,4 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch
 
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
@@ -9,7 +9,6 @@ import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
-import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
@@ -23,7 +22,7 @@ import play.api.mvc.Security.AuthenticatedRequest
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
+class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
 
   implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
 

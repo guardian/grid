@@ -1,8 +1,7 @@
 package controllers
 
 import com.gu.mediaservice.lib.auth.Authentication
-import lib.elasticsearch.AggregateSearchParams
-import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
+import lib.elasticsearch.{AggregateSearchParams, ElasticSearch}
 import play.api.mvc._
 
 import scala.concurrent.ExecutionContext

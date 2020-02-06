@@ -1,4 +1,4 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch
 
 import java.util.concurrent.TimeUnit
 

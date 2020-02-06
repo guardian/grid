@@ -1,6 +1,5 @@
 package lib.elasticsearch
 
-import lib.elasticsearch.impls.elasticsearch6.{IsUnderQuota, IsOwnedIllustration, IsOwnedImage, IsOwnedPhotograph}
 import lib.querysyntax.{Nested, _}
 import org.joda.time.{DateTime, DateTimeZone}
 
