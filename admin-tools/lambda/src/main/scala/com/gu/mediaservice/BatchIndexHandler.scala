@@ -59,23 +59,24 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     val scanSpec = new ScanSpec().withFilterExpression("fileState = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
 
-    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => Json.parse(it.toJSON).as[IndexItemState])
-    mediaIds.map(_.fileId)
+    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => (Json.parse(it.toJSON) \ "fileId").as[Int])
+    println(s"mediaIds to index: $mediaIds")
+    mediaIds
   }
 
   def processImages(mediaIds: List[String])(implicit ec: ExecutionContext) = {
     getMediaIdsBatch
-    val blobsFuture: Future[List[String]] = prepareImageItemsBlobs(mediaIds)
-    val images: List[String] = Await.result(blobsFuture, Duration.Inf)
-    println(s"prepared json blobs list of size: ${images.size}")
-    println("attempting to store blob to s3")
-    val fileContent = images.mkString("\n")
-    val path = putToS3(fileContent)
-    val executeBulkIndexMsg = Json.obj(
-      "subject" -> "batch-index",
-      "s3Path" -> path
-    )
-    putToKinensis(executeBulkIndexMsg)
+//    val blobsFuture: Future[List[String]] = prepareImageItemsBlobs(mediaIds)
+//    val images: List[String] = Await.result(blobsFuture, Duration.Inf)
+//    println(s"prepared json blobs list of size: ${images.size}")
+//    println("attempting to store blob to s3")
+//    val fileContent = images.mkString("\n")
+//    val path = putToS3(fileContent)
+//    val executeBulkIndexMsg = Json.obj(
+//      "subject" -> "batch-index",
+//      "s3Path" -> path
+//    )
+//    putToKinensis(executeBulkIndexMsg)
   }
 
   private def putToS3(fileContent: String) = {
