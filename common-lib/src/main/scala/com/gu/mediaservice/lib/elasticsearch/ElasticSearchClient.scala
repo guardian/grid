@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.elasticsearch6
+package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.HealthStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
@@ -15,7 +15,7 @@ case class ElasticSearchImageCounts(catCount: Long,
                                     searchResponseCount: Long,
                                     indexStatsCount: Long)
 
-trait ElasticSearchClient extends ElasticSearch6Executions {
+trait ElasticSearchClient extends ElasticSearchExecutions {
 
   private val tenSeconds = Duration(10, SECONDS)
   private val thirtySeconds = Duration(30, SECONDS)

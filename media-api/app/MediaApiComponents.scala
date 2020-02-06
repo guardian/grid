@@ -1,5 +1,5 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, ManagementWithPermissions}
 import com.gu.mediaservice.lib.play.GridComponents
@@ -18,7 +18,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val messageSender = new ThrallMessageSender(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
-  val es6Config: ElasticSearch6Config = ElasticSearch6Config(
+  val es6Config: ElasticSearchConfig = ElasticSearchConfig(
     alias = config.imagesAlias,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,

@@ -1,7 +1,7 @@
-package lib
+package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
@@ -11,6 +11,7 @@ import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.script.Script
 import com.sksamuel.elastic4s.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.searches.sort.SortOrder
+import lib.ThrallMetrics
 import org.joda.time.DateTime
 import play.api.libs.json._
 
@@ -18,8 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics]) extends ElasticSearchClient with ImageFields
-  with ElasticSearch6Executions with ElasticImageUpdate {
+class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient with ImageFields {
 
   lazy val imagesAlias = config.alias
   lazy val url = config.url
@@ -518,4 +518,16 @@ class ElasticSearch6(config: ElasticSearch6Config, metrics: Option[ThrallMetrics
 
   private def currentIsoDateString = printDateTime(new DateTime())
 
+  private def asImageUpdate(image: JsValue): JsValue = {
+    def removeUploadInformation(): Reads[JsObject] =
+      (__ \ "uploadTime").json.prune andThen
+        (__ \ "userMetadata").json.prune andThen
+        (__ \ "exports").json.prune andThen
+        (__ \ "uploadedBy").json.prune andThen
+        (__ \ "collections").json.prune andThen
+        (__ \ "leases").json.prune andThen
+        (__ \ "usages").json.prune
+
+    image.transform(removeUploadInformation).get
+  }
 }

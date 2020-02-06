@@ -3,16 +3,17 @@ package lib.kinesis
 import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{MediaLease}
+import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
+import lib.elasticsearch._
 import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MessageProcessor(es: ElasticSearch6,
+class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
                        syndicationRightsOps: SyndicationRightsOps

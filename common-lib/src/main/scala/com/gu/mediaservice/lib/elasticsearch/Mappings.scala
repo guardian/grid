@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.elasticsearch6
+package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.http.ElasticDsl.{mapping, _}
 import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}

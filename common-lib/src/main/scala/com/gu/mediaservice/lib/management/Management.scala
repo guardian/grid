@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.auth.PermissionsHandler
-import com.gu.mediaservice.lib.elasticsearch6.{
+import com.gu.mediaservice.lib.elasticsearch.{
   ElasticSearchClient,
   ElasticSearchImageCounts
 }

@@ -1,6 +1,6 @@
-package lib
+package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
@@ -19,9 +19,9 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
 
-  val elasticSearchConfig = ElasticSearch6Config("writeAlias", es6TestUrl, "media-service-test", 1, 0)
+  val elasticSearchConfig = ElasticSearchConfig("writeAlias", es6TestUrl, "media-service-test", 1, 0)
 
-  val ES = new ElasticSearch6(elasticSearchConfig, None)
+  val ES = new ElasticSearch(elasticSearchConfig, None)
   val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
