@@ -57,7 +57,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val table: Table = dynamo.getTable(dynamoTableName)
 
   private def getMediaIdsBatch = {
-    println("getMediaIdsBatch")
+    println("attempt to ge mediaIds batch from dynamo")
     val scanSpec = new ScanSpec().withFilterExpression("fileState = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
     val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
