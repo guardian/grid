@@ -1,29 +1,13 @@
-package syndication
+package lib
 
 import java.util.UUID
 
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
-import com.whisk.docker.impl.spotify.DockerKitSpotify
-import com.whisk.docker.scalatest.DockerTestKit
-import com.whisk.docker.{DockerContainer, DockerKit}
-import helpers.Fixtures
-import lib.{ElasticSearch6, SyndicationRightsOps}
 import org.joda.time.DateTime
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Seconds, Span}
-import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
 import play.api.libs.json.Json
 
-import scala.concurrent.duration._
-import scala.util.Properties
-
-trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
-
-  val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
-  val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
-
-  def ES: ElasticSearch6
-  def esContainer: Option[DockerContainer]
+class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
   lazy val syndRightsOps = new SyndicationRightsOps(ES)
 
@@ -43,18 +27,9 @@ trait SyndicationRightsOpsTestsBase extends FreeSpec with Matchers with Fixtures
     test(images)
   }
 
-  override def beforeAll {
-    super.beforeAll()
-    ES.ensureAliasAssigned()
-  }
-
   private def addSyndicationRights(image: Image, someRights: Option[SyndicationRights]): Image = image.copy(syndicationRights = someRights)
 
   private def makeSyndicationRightsInferred(imageWithRights: Image): Option[SyndicationRights] = imageWithRights.syndicationRights.map(_.copy(isInferred = true))
-
-  final override def dockerContainers: List[DockerContainer] = esContainer.toList ++ super.dockerContainers
-
-  final override val StartContainersTimeout = 1.minute
 
   implicit val defaultPatience = PatienceConfig(timeout = Span(30, Seconds), interval = Span(250, Millis))
 
