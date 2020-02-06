@@ -11,7 +11,8 @@ class BatchIndexLambdaHandler {
     kinesisStreamName = sys.env("KINESIS_STREAM")
   )
 
-  def handle(mediaIds: List[String]) = {
+  def handleRequest() = {
+    val mediaIds = List("9940e402a11f2caa00777f334f5d3999af4cb679", "5220eb766f0c9527ac54808d57edc7a9a027df84")
     batchIndex.processImages(mediaIds)
   }
 

@@ -122,7 +122,7 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
-      ExclusionRule("com.amazonaws"),
+      //      ExclusionRule("com.amazonaws"),
       ExclusionRule("org.elasticsearch"),
       ExclusionRule("com.sksamuel.elastic4s"),
       ExclusionRule("com.drewnoakes", "metadata-extractor"),
@@ -131,6 +131,8 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("org.scalaz.stream"),
       ExclusionRule("org.im4java"),
       ExclusionRule("org.scalacheck"),
+      ExclusionRule("net.logstash.logback"),
+      ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
@@ -148,10 +150,7 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
     }
     libraryDependencies ++= Seq(
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
-      "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
-      "software.amazon.awssdk" % "s3" % "2.10.57",
-      "software.amazon.awssdk" % "kinesis" % "2.10.57",
-      "org.apache.commons" % "commons-lang3" % "3.9"
+      "com.amazonaws" % "aws-lambda-java-events" % "2.2.7"
     )
   }.dependsOn(adminToolsLib).settings(
   assemblyJarName in assembly := "admin-tools-lambda.jar"

@@ -20,4 +20,5 @@ See the [routes file](https://github.com/guardian/media-service/blob/master/admi
 
 ## indexer local run
 
+`export AWS_CBOR_DISABLE=true`
 `sbt "project admin-tools-lambda" "runMain com.gu.mediaservice.BatchIndexLocalHandler"`

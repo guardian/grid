@@ -1,25 +1,27 @@
 package com.gu.mediaservice
 
-import java.net.URI
+import java.io.ByteArrayInputStream
+import java.nio.ByteBuffer
 import java.util.UUID
 
+import com.amazonaws.auth.AWSCredentialsProvider
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import com.amazonaws.services.kinesis.model.PutRecordRequest
+import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
+import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import play.api.libs.json.{JsValue, Json}
-import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider
-import software.amazon.awssdk.core.SdkBytes
-import software.amazon.awssdk.core.sync.RequestBody
-import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.kinesis.KinesisClient
-import software.amazon.awssdk.services.kinesis.model.PutRecordRequest
-import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.PutObjectRequest
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object BatchIndexHandler {
-  def apply(apiKey: String, domainRoot: String, batchIndexBucket: String, kinesisStreamName: String, kinesisEndpoint: Option[URI] = None): BatchIndexHandler =
-    new BatchIndexHandler(apiKey, domainRoot, batchIndexBucket, kinesisStreamName, kinesisEndpoint)
+  def apply(apiKey: String, domainRoot: String, batchIndexBucket: String,
+            kinesisStreamName: String,
+            kinesisEndpoint: Option[String] = None,
+            awsCreds: Option[AWSCredentialsProvider] = None): BatchIndexHandler =
+    new BatchIndexHandler(apiKey, domainRoot, batchIndexBucket, kinesisStreamName, kinesisEndpoint, awsCreds)
 }
 
 class BatchIndexHandler(
@@ -27,15 +29,15 @@ class BatchIndexHandler(
                          domainRoot: String,
                          batchIndexBucket: String,
                          kinesisStreamName: String,
-                         kinesisEndpoint: Option[URI]
+                         kinesisEndpoint: Option[String],
+                         awsCreds: Option[AWSCredentialsProvider]
                        ) {
 
   private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot)
 
   import ImagesBatchProjector.prepareImageItemsBlobs
 
-  private val AwsRegion = Region.EU_WEST_1
-  private val AwsProfile = "media-service"
+  private val AwsRegion = "eu-west-1"
   private val s3client = buildS3Client
   private val kinesis = buildKinesisClient
 
@@ -53,16 +55,11 @@ class BatchIndexHandler(
     putToKinensis(executeBulkIndexMsg)
   }
 
-
-  //  private val awsInstanceCredentials = InstanceProfileCredentialsProvider.create()
-
   private def putToS3(fileContent: String) = {
     val key = s"batch-index/${UUID.randomUUID().toString}.json"
-    val putObjReq = PutObjectRequest.builder()
-      .bucket(batchIndexBucket)
-      .key(key)
-      .contentType("application/json").build()
-    val res = s3client.putObject(putObjReq, RequestBody.fromString(fileContent))
+    val metadata = new ObjectMetadata
+    metadata.setContentType("application/json")
+    val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(fileContent.getBytes), metadata)
     val path = s"s3://$batchIndexBucket/$key"
     println(s"PUT [$path] object to s3 response: $res")
     path
@@ -72,35 +69,38 @@ class BatchIndexHandler(
     println("attempting to put message to kinesis")
     val payload = JsonByteArrayUtil.toByteArray(message)
     val partitionKey = UUID.randomUUID().toString
-    val putReq = PutRecordRequest.builder()
-      .partitionKey(partitionKey)
-      .streamName(kinesisStreamName)
-      .data(SdkBytes.fromByteArray(payload))
-      .build()
+    val data = ByteBuffer.wrap(payload)
+    val putReq = new PutRecordRequest()
+      .withStreamName(kinesisStreamName)
+      .withPartitionKey(partitionKey)
+      .withData(data)
+
     val res = kinesis.putRecord(putReq)
     println(s"PUT [$message] message to kinesis stream: $kinesisStreamName response: $res")
   }
 
-  private lazy val awsProfileCredentials = ProfileCredentialsProvider.builder().profileName(AwsProfile).build()
-
-  private def buildS3Client = S3Client.builder()
-    .credentialsProvider(awsProfileCredentials)
-    .region(AwsRegion).build()
-
-  private def buildKinesisClient = {
-    val builder = KinesisClient.builder()
-      .credentialsProvider(awsProfileCredentials)
-      .region(AwsRegion)
-    kinesisEndpoint match {
-      case Some(uri) =>
-        println(s"building local kinesis client with $uri")
-        println("disabling CBOR to be able to work with localstack kinesis")
-        System.setProperty("aws.cborEnabled", "false")
-        builder.endpointOverride(uri).build()
+  private def buildS3Client = {
+    val builder = AmazonS3ClientBuilder.standard().withRegion(AwsRegion)
+    awsCreds match {
+      case Some(creds) =>
+        println(s"building local s3 client")
+        builder.withCredentials(creds).build()
       case _ =>
-        println("building remote kinesis client")
+        println("building remote s3 client")
         builder.build()
     }
   }
 
+  private def buildKinesisClient: AmazonKinesis = {
+    val builder = AmazonKinesisClientBuilder.standard()
+    (kinesisEndpoint, awsCreds) match {
+      case (Some(uri), Some(creds)) =>
+        println(s"building local kinesis client with $uri")
+        builder.withEndpointConfiguration(new EndpointConfiguration(uri, AwsRegion))
+          .withCredentials(creds).build()
+      case _ =>
+        println("building remote kinesis client")
+        builder.withRegion(AwsRegion).build()
+    }
+  }
 }
