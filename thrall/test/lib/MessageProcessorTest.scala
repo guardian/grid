@@ -5,17 +5,17 @@ import java.util.UUID
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import lib.kinesis.MessageProcessor
 import org.joda.time.DateTime
-import play.api.Configuration
+import org.scalatest.mockito.MockitoSugar
+import org.mockito.Mockito._
 
 import scala.concurrent.Await
 
 
-class MessageProcessorTest extends ElasticSearchTestBase {
-  val config = Configuration()
-  val thrallConfig = new ThrallConfig(config)
-  val thrallStore = new ThrallStore(thrallConfig)
-  val metadataEditorNotifications = new MetadataEditorNotifications(thrallConfig)
-  val syndicationRightsOps = new SyndicationRightsOps(ES)
+class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
+  val thrallConfig = mock[ThrallConfig]
+  val thrallStore = mock[ThrallStore]
+  val metadataEditorNotifications = mock[MetadataEditorNotifications]
+  val syndicationRightsOps =mock[SyndicationRightsOps]
 
   "MessageProcessor" - {
     "chooses the correct handler function given a subject" in {
