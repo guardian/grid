@@ -8,15 +8,13 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
-import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
 import lib.elasticsearch._
+import lib.elasticsearch.impls.elasticsearch6.ElasticSearch
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.http.HttpEntity
@@ -29,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class MediaApi(
                 auth: Authentication,
                 messageSender: ThrallMessageSender,
-                elasticSearch: ElasticSearchVersion,
+                elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 override val config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
