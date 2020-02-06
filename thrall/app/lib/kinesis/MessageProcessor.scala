@@ -1,9 +1,10 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
+import com.gu.mediaservice.lib.aws.ThrallMessage.ReindexImage
+import com.gu.mediaservice.lib.aws.{EsResponse, ThrallMessage, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import org.joda.time.DateTime
@@ -16,23 +17,29 @@ class MessageProcessor(es: ElasticSearch6,
                        metadataEditorNotifications: MetadataEditorNotifications,
                        syndicationRightsOps: SyndicationRightsOps
                       ) {
+  def chooseProcessor(message: ThrallMessage)(implicit ec: ExecutionContext): Option[() => Future[Any]] = {
+    PartialFunction.condOpt(message) {
+      // ADT-style message passing (preferred)
+      case reindexMessage: ReindexImage => () => reindexImage(reindexMessage)
 
-  def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Option[UpdateMessage => Future[Any]] = {
-    PartialFunction.condOpt(updateMessage.subject) {
-      case "image" => indexImage
-      case "delete-image" => deleteImage
-      case "update-image" => indexImage
-      case "delete-image-exports" => deleteImageExports
-      case "update-image-exports" => updateImageExports
-      case "update-image-user-metadata" => updateImageUserMetadata
-      case "update-image-usages" => updateImageUsages
-      case "replace-image-leases" => replaceImageLeases
-      case "add-image-lease" => addImageLease
-      case "remove-image-lease" => removeImageLease
-      case "set-image-collections" => setImageCollections
-      case "delete-usages" => deleteAllUsages
-      case "upsert-rcs-rights" => upsertSyndicationRights
-      case "update-image-photoshoot" => updateImagePhotoshoot
+      // Non-ADT-style message passing
+      case updateMessage: UpdateMessage =>
+        updateMessage.subject match {
+          case "image" => () => indexImage(updateMessage)
+          case "delete-image" => () => deleteImage(updateMessage)
+          case "update-image" => () => indexImage(updateMessage)
+          case "delete-image-exports" => () => deleteImageExports(updateMessage)
+          case "update-image-exports" => () => updateImageExports(updateMessage)
+          case "update-image-user-metadata" => () => updateImageUserMetadata(updateMessage)
+          case "update-image-usages" => () => updateImageUsages(updateMessage)
+          case "replace-image-leases" => () => replaceImageLeases(updateMessage)
+          case "add-image-lease" => () => addImageLease(updateMessage)
+          case "remove-image-lease" => () => removeImageLease(updateMessage)
+          case "set-image-collections" => () => setImageCollections(updateMessage)
+          case "delete-usages" => () => deleteAllUsages(updateMessage)
+          case "upsert-rcs-rights" => () => upsertSyndicationRights(updateMessage)
+          case "update-image-photoshoot" => () => updateImagePhotoshoot(updateMessage)
+        }
     }
   }
 
@@ -47,6 +54,10 @@ class MessageProcessor(es: ElasticSearch6,
         }
       }
     }
+  }
+
+  def reindexImage(message: ThrallMessage.ReindexImage)(implicit ec: ExecutionContext) = {
+    Future.sequence(es.indexImage(message.id, Json.toJson(message.image)))
   }
 
   def indexImage(message: UpdateMessage)(implicit ec: ExecutionContext) =

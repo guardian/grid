@@ -75,7 +75,7 @@ class ThrallEventConsumer(es: ElasticSearch6,
 
   private def processUpdateMessage(updateMessage: UpdateMessage) = {
     messageProcessor.chooseProcessor(updateMessage).map { messageProcessor =>
-      Try(Await.ready(messageProcessor.apply(updateMessage), Timeout))
+      Try(Await.ready(messageProcessor(), Timeout))
     } match {
       case Some(Success(_)) =>
         Logger.info(

@@ -29,7 +29,7 @@ class Kinesis(config: CommonConfig) {
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
-  def publish(message: UpdateMessage) {
+  def publish(message: ThrallMessage) {
     val partitionKey = UUID.randomUUID().toString
 
     implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites

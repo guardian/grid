@@ -1,14 +1,13 @@
 package com.gu.mediaservice.lib.aws
 
-import java.nio.ByteBuffer
-
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.DateTime
-import play.api.libs.json.{JodaWrites, Json}
+import play.api.libs.json._
+import play.api.libs.functional.syntax._
 
 import scala.collection.JavaConverters._
 
@@ -16,18 +15,59 @@ import scala.collection.JavaConverters._
 class ThrallMessageSender(config: CommonConfig) {
   private val kinesis = new Kinesis(config)
 
-  def publish(updateMessage: UpdateMessage): Unit = {
-    kinesis.publish(updateMessage)
+  def publish(message: ThrallMessage): Unit = kinesis.publish(message)
+}
+
+object ThrallMessage {
+  implicit val dateWrites = JodaWrites.JodaDateTimeWrites
+  implicit val dateReads = JodaReads.DefaultJodaDateTimeReads
+  implicit val usageReads = Json.reads[UsageNotice]
+  implicit val usageWrites = Json.writes[UsageNotice]
+
+  implicit val messageReads: Reads[ThrallMessage] = {
+    val updateMsg = Json.reads[UpdateMessage]
+    val reindexMsg = Json.reads[ThrallMessage.ReindexImage]
+    __.read[UpdateMessage](updateMsg).map(x => x: UpdateMessage) |
+      __.read[ThrallMessage.ReindexImage](reindexMsg).map(x => x: ThrallMessage.ReindexImage)
+  }
+
+  implicit val messageWrites: Writes[ThrallMessage] = Writes[ThrallMessage] {
+    case msg: UpdateMessage => Json.writes[UpdateMessage].writes(msg)
+    case msg: ThrallMessage.ReindexImage => Json.writes[ThrallMessage.ReindexImage].writes(msg)
+  }
+
+  final case class ReindexImage(id: String, image: String) extends ThrallMessage {
+    override def getId: String = id
+    val subject = "reindex-image"
   }
 }
 
-object UpdateMessage {
-  implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
-  implicit val unw = Json.writes[UsageNotice]
-  implicit val writes = Json.writes[UpdateMessage]
+// TODO add RequestID
+
+sealed abstract class ThrallMessage extends Product with Serializable {
+  def getId: String
+  val subject: String
+
+  def toLogMarker: LogstashMarker = {
+    val message = Json.stringify(Json.toJson(this))
+
+    val markers = Map (
+      "subject" -> subject,
+      "id" -> getId,
+      "size" -> message.getBytes.length,
+      "length" -> message.length
+    )
+
+    Markers.appendEntries(markers.asJava)
+  }
 }
 
-// TODO add RequestID
+/**
+  * @todo We'd like to translate this class, which has properties for all of the
+  *       possible messages that we can send, into case classes that represent each
+  *       message discretely -- see, for example, ThrallMessage.ReindexImage above.
+  *       This should ensure type safety at the point at which we deserialise the message.
+  */
 case class UpdateMessage(
   subject: String,
   image: Option[Image] = None,
@@ -41,8 +81,10 @@ case class UpdateMessage(
   mediaLease: Option[MediaLease] = None,
   leases: Option[Seq[MediaLease]] = None,
   syndicationRights: Option[SyndicationRights] = None
-) {
-  def toLogMarker: LogstashMarker = {
+) extends ThrallMessage {
+  override def getId: String = id.getOrElse(image.map(_.id).getOrElse("none"))
+
+  override def toLogMarker: LogstashMarker = {
     val message = Json.stringify(Json.toJson(this))
 
     val markers = Map (

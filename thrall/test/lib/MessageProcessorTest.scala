@@ -6,16 +6,14 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import lib.kinesis.MessageProcessor
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
-import org.mockito.Mockito._
 
 import scala.concurrent.Await
-
 
 class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
   val thrallConfig = mock[ThrallConfig]
   val thrallStore = mock[ThrallStore]
   val metadataEditorNotifications = mock[MetadataEditorNotifications]
-  val syndicationRightsOps =mock[SyndicationRightsOps]
+  val syndicationRightsOps = mock[SyndicationRightsOps]
 
   "MessageProcessor" - {
     "chooses the correct handler function given a subject" in {
@@ -29,7 +27,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
       val message = UpdateMessage("image", Some(image))
 
       val processor = messageProcessor.chooseProcessor(message).get
-      Await.result(processor(message), fiveSeconds)
+      Await.result(processor(), fiveSeconds)
 
       reloadedImage(image.id).get.id shouldBe image.id
     }
