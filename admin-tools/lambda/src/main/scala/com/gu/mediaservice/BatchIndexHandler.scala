@@ -7,7 +7,7 @@ import java.util.UUID
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, ScanSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.kinesis.model.PutRecordRequest
@@ -24,15 +24,15 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 case class IndexItemState(fileId: String, fileState: Int)
 
 case class BatchIndexHandlerConfig(
-                               apiKey: String,
-                               domainRoot: String,
-                               batchIndexBucket: String,
-                               kinesisStreamName: String,
-                               dynamoTableName: String,
-                               batchSize: Int,
-                               kinesisEndpoint: Option[String] = None,
-                               awsCreds: Option[AWSCredentialsProvider] = None
-                             )
+                                    apiKey: String,
+                                    domainRoot: String,
+                                    batchIndexBucket: String,
+                                    kinesisStreamName: String,
+                                    dynamoTableName: String,
+                                    batchSize: Int,
+                                    kinesisEndpoint: Option[String] = None,
+                                    awsCreds: Option[AWSCredentialsProvider] = None
+                                  )
 
 object BatchIndexHandler {
   def apply(cfg: BatchIndexHandlerConfig): BatchIndexHandler = new BatchIndexHandler(cfg)
@@ -59,24 +59,24 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     val scanSpec = new ScanSpec().withFilterExpression("fileState = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
 
-    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => (Json.parse(it.toJSON) \ "fileId").as[Int])
-    println(s"mediaIds to index: $mediaIds")
-    mediaIds
+    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => Json.parse(it.toJSON).as[IndexItemState])
+    mediaIds.map(_.fileId)
   }
 
-  def processImages(mediaIds: List[String])(implicit ec: ExecutionContext) = {
-    getMediaIdsBatch
-//    val blobsFuture: Future[List[String]] = prepareImageItemsBlobs(mediaIds)
-//    val images: List[String] = Await.result(blobsFuture, Duration.Inf)
-//    println(s"prepared json blobs list of size: ${images.size}")
-//    println("attempting to store blob to s3")
-//    val fileContent = images.mkString("\n")
-//    val path = putToS3(fileContent)
-//    val executeBulkIndexMsg = Json.obj(
-//      "subject" -> "batch-index",
-//      "s3Path" -> path
-//    )
-//    putToKinensis(executeBulkIndexMsg)
+  def processImages()(implicit ec: ExecutionContext) = {
+    val mediaIds = getMediaIdsBatch
+    println(s"mediaIDs to index: $mediaIds")
+    val blobsFuture: Future[List[String]] = prepareImageItemsBlobs(mediaIds)
+    val images: List[String] = Await.result(blobsFuture, Duration.Inf)
+    println(s"prepared json blobs list of size: ${images.size}")
+    println("attempting to store blob to s3")
+    val fileContent = images.mkString("\n")
+    val path = putToS3(fileContent)
+    val executeBulkIndexMsg = Json.obj(
+      "subject" -> "batch-index",
+      "s3Path" -> path
+    )
+    putToKinensis(executeBulkIndexMsg)
   }
 
   private def putToS3(fileContent: String) = {

@@ -22,8 +22,8 @@ object BatchIndexLocalHandler extends App {
   private val batchIndex = BatchIndexHandler(cfg)
 
 
-  def handle(mediaIds: List[String]) = {
-    batchIndex.processImages(mediaIds)
+  def handle() = {
+    batchIndex.processImages()
   }
 
   val mediaIds = List(
@@ -35,6 +35,6 @@ object BatchIndexLocalHandler extends App {
     "non-existent"
   )
 
-  handle(mediaIds)
+  handle()
 
 }
