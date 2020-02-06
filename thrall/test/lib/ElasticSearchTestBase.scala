@@ -22,7 +22,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   val elasticSearchConfig = ElasticSearch6Config("writeAlias", es6TestUrl, "media-service-test", 1, 0)
 
   val ES = new ElasticSearch6(elasticSearchConfig, None)
-  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
+  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.8.6")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(

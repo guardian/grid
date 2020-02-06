@@ -39,7 +39,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
   val client = ES.client
 
-  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
+  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.8.6")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(
