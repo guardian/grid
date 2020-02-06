@@ -10,7 +10,7 @@ object BatchIndexLocalHandler extends App {
   )
 
   def handle(mediaIds: List[String]) = {
-    batchIndex.storeImagesForBatchInsertAndNotify(mediaIds)
+    batchIndex.processImages(mediaIds)
   }
 
   val mediaIds = List(

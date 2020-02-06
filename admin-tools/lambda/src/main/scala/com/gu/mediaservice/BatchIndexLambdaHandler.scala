@@ -11,7 +11,7 @@ class BatchIndexLambdaHandler {
   )
 
   def handle(mediaIds: List[String]) = {
-    batchIndex.storeImagesForBatchInsertAndNotify(mediaIds)
+    batchIndex.processImages(mediaIds)
   }
 
 }

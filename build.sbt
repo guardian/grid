@@ -124,9 +124,9 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     excludeDependencies ++= Seq(
       ExclusionRule("com.amazonaws"),
       ExclusionRule("org.elasticsearch"),
-      //      ExclusionRule("com.sksamuel.elastic4s"),
+      ExclusionRule("com.sksamuel.elastic4s"),
       ExclusionRule("com.drewnoakes", "metadata-extractor"),
-      //      ExclusionRule("org.codehaus.janino"),
+      ExclusionRule("org.codehaus.janino"),
       ExclusionRule("com.typesafe.play"),
       ExclusionRule("org.scalaz.stream"),
       ExclusionRule("org.im4java"),
@@ -134,8 +134,6 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     ),
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
-      "com.amazonaws" % "aws-java-sdk-core" % "1.11.715",
-      "com.amazonaws" % "aws-java-sdk-s3" % "1.11.715",
       "com.typesafe.play" %% "play-json" % "2.6.9",
       "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
@@ -151,6 +149,8 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
     libraryDependencies ++= Seq(
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
       "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
+      "software.amazon.awssdk" % "s3" % "2.10.57",
+      "software.amazon.awssdk" % "kinesis" % "2.10.57"
     )
   }.dependsOn(adminToolsLib).settings(
   assemblyJarName in assembly := "admin-tools-lambda.jar"

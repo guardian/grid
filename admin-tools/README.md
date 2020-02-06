@@ -20,4 +20,4 @@ See the [routes file](https://github.com/guardian/media-service/blob/master/admi
 
 ## indexer local run
 
-`sbt "project admin-tools-lambda" "runMain com.gu.mediaservice.ImagesIndexerLocalHandler"`
+`sbt "project admin-tools-lambda" "runMain com.gu.mediaservice.BatchIndexLocalHandler"`
