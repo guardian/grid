@@ -7,7 +7,7 @@ import java.util.UUID
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
+import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.kinesis.model.PutRecordRequest
@@ -20,6 +20,7 @@ import play.api.libs.json.{JsValue, Json}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 case class IndexItemState(fileId: String, fileState: Int)
 
@@ -40,6 +41,11 @@ object BatchIndexHandler {
 
 class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
+  // have state for images that were 404
+  // nothing was processed => because of 404 2
+  // processed => 1
+  // not touched or rollback because of failure => 0
+
   private implicit val IndexItemStateFormatter = Json.format[IndexItemState]
 
   import cfg._
@@ -58,25 +64,49 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     println("getMediaIdsBatch")
     val scanSpec = new ScanSpec().withFilterExpression("fileState = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
-
     val mediaIds = table.scan(scanSpec).asScala.toList.map(it => Json.parse(it.toJSON).as[IndexItemState])
     mediaIds.map(_.fileId)
   }
 
-  def processImages()(implicit ec: ExecutionContext) = {
+  private def updateItemSate(id: String, state: Int) = {
+    val us = new UpdateItemSpec().
+      withPrimaryKey("fileId", id).
+      withUpdateExpression("set fileState = :sub")
+      .withValueMap(new ValueMap().withNumber(":sub", state))
+    table.updateItem(us)
+  }
+
+  private def updateItemsState(ids: List[String], state: Int) = {
+    ids.foreach(id => updateItemSate(id, state))
+  }
+
+  def processImages()(implicit ec: ExecutionContext): Unit = {
     val mediaIds = getMediaIdsBatch
-    println(s"mediaIDs to index: $mediaIds")
-    val blobsFuture: Future[List[String]] = prepareImageItemsBlobs(mediaIds)
-    val images: List[String] = Await.result(blobsFuture, Duration.Inf)
-    println(s"prepared json blobs list of size: ${images.size}")
-    println("attempting to store blob to s3")
-    val fileContent = images.mkString("\n")
-    val path = putToS3(fileContent)
-    val executeBulkIndexMsg = Json.obj(
-      "subject" -> "batch-index",
-      "s3Path" -> path
-    )
-    putToKinensis(executeBulkIndexMsg)
+    println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
+    updateItemsState(mediaIds, 1)
+    Try {
+      val blobsFuture: Future[List[String]] = prepareImageItemsBlobs(mediaIds)
+      val images: List[String] = Await.result(blobsFuture, Duration.Inf)
+      println(s"prepared json blobs list of size: ${images.size}")
+      if (images.isEmpty) {
+        println("all was empty terminating current batch")
+        updateItemsState(mediaIds, 2)
+        return
+      }
+      println("attempting to store blob to s3")
+      val fileContent = images.mkString("\n")
+      val path = putToS3(fileContent)
+      val executeBulkIndexMsg = Json.obj(
+        "subject" -> "batch-index",
+        "s3Path" -> path
+      )
+      putToKinensis(executeBulkIndexMsg)
+    } match {
+      case Success(value) => println("all good")
+      case Failure(exp) =>
+        println("there was a failure, resetting items state")
+        updateItemsState(mediaIds, 0)
+    }
   }
 
   private def putToS3(fileContent: String) = {

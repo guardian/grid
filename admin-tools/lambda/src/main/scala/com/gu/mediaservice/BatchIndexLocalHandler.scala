@@ -14,7 +14,7 @@ object BatchIndexLocalHandler extends App {
     batchIndexBucket = "media-service-admin-tools-dev",
     kinesisStreamName = "media-service-DEV-ThrallMessageQueue-1N0T2UXYNUIC9",
     dynamoTableName = "grid-images-to-reingest-DEV",
-    batchSize = 2,
+    batchSize = 1,
     kinesisEndpoint = Some("http://localhost:4568"),
     awsCreds = Some(awsCredentials)
   )
