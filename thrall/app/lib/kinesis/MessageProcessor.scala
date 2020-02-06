@@ -3,11 +3,12 @@ package lib.kinesis
 import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.{MediaLease}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import org.joda.time.DateTime
 import play.api.libs.json._
+import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,6 +21,7 @@ class MessageProcessor(es: ElasticSearch6,
   def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Option[UpdateMessage => Future[Any]] = {
     PartialFunction.condOpt(updateMessage.subject) {
       case "image" => indexImage
+      case "reindex-image" => indexImage
       case "delete-image" => deleteImage
       case "update-image" => indexImage
       case "delete-image-exports" => deleteImageExports
@@ -47,6 +49,11 @@ class MessageProcessor(es: ElasticSearch6,
         }
       }
     }
+  }
+
+  def reindexImage(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+    Logger.info("Reindexing image")(message.toLogMarker)
+    indexImage(message)
   }
 
   def indexImage(message: UpdateMessage)(implicit ec: ExecutionContext) =
