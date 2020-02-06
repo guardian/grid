@@ -15,14 +15,12 @@ import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{JsObject, JsValue, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
-case class IndexItemState(fileId: String, fileState: Int)
 
 case class BatchIndexHandlerConfig(
                                     apiKey: String,
@@ -46,8 +44,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   // processed => 1
   // not touched or rollback because of failure => 0
 
-  private implicit val IndexItemStateFormatter = Json.format[IndexItemState]
-
   import cfg._
 
   private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot)
@@ -64,8 +60,11 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     println("getMediaIdsBatch")
     val scanSpec = new ScanSpec().withFilterExpression("fileState = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
-    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => Json.parse(it.toJSON).as[IndexItemState])
-    mediaIds.map(_.fileId)
+    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
+      val json = Json.parse(it.toJSON).as[JsObject]
+      (json \ "fileId").as[String]
+    })
+    mediaIds
   }
 
   private def updateItemSate(id: String, state: Int) = {
@@ -102,9 +101,10 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
       )
       putToKinensis(executeBulkIndexMsg)
     } match {
-      case Success(value) => println("all good")
+      case Success(value) => println(s"all good $value")
       case Failure(exp) =>
-        println("there was a failure, resetting items state")
+        exp.printStackTrace()
+        println(s"there was a failure, resetting items state, exception: ${exp.getMessage}")
         updateItemsState(mediaIds, 0)
     }
   }
