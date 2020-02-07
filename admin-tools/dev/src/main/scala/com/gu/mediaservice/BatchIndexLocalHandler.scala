@@ -1,7 +1,6 @@
 package com.gu.mediaservice
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object BatchIndexLocalHandler extends App {

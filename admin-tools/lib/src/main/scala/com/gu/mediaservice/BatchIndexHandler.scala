@@ -45,9 +45,9 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
                         InputIdsProvider: InputIdsProvider,
                         AwsFunctions: BatchIndexHandlerAwsFunctions) {
 
-  import AwsFunctions._
   import ImagesBatchProjector.getMaybeImagesProjectionBlobs
   import InputIdsProvider._
+  import AwsFunctions._
 
   def processImages()(implicit ec: ExecutionContext): List[Int] = {
     val stateProgress = scala.collection.mutable.ArrayBuffer[Int]()
