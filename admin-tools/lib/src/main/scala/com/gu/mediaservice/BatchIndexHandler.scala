@@ -52,7 +52,7 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
   def processImages()(implicit ec: ExecutionContext): List[String] = {
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
-    val mediaIds = getMediaIdsBatch
+    val mediaIds = getUnprocessedMediaIdsBatch
     Try {
       println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
       stateProgress += updateStateToItemsInProgress(mediaIds)
@@ -94,7 +94,7 @@ class InputIdsProvider(table: Table, batchSize: Int) {
   private val PKField: String = "id"
   private val StateField: String = "progress_state"
 
-  def getMediaIdsBatch: List[String] = {
+  def getUnprocessedMediaIdsBatch: List[String] = {
     println("attempt to get mediaIds batch from dynamo")
     val scanSpec = new ScanSpec().withFilterExpression(s"$StateField = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
