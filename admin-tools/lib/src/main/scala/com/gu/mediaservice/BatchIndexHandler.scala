@@ -113,29 +113,25 @@ class InputIdsProvider(table: Table, batchSize: Int) {
   def updateStateToItemsInProgress(ids: List[String]): ProduceProgress = {
     println(s"updating items state to in progress")
     updateItemsState(ids, InProgress)
-    InProgress
   }
 
   // used to track images that were not projected successfully
   def updateStateToNotFoundImages(notFoundIds: List[String]): Option[ProduceProgress] = {
     if (notFoundIds.isEmpty) None else {
       println(s"not found images ids: $notFoundIds")
-      updateItemsState(notFoundIds, NotFound)
-      Some(NotFound)
+      Some(updateItemsState(notFoundIds, NotFound))
     }
   }
 
   def updateStateToFinished(ids: List[String]): ProduceProgress = {
     println(s"updating items state to in progress")
     updateItemsState(ids, Finished)
-    Finished
   }
 
   // used in situation if something failed
   def resetItemsState(ids: List[String]): ProduceProgress = {
     println("resetting items state")
     updateItemsState(ids, Reset)
-    Reset
   }
 
   private def updateItemSate(id: String, state: Int) = {
@@ -146,7 +142,9 @@ class InputIdsProvider(table: Table, batchSize: Int) {
     table.updateItem(us)
   }
 
-  private def updateItemsState(ids: List[String], progress: ProduceProgress) =
+  private def updateItemsState(ids: List[String], progress: ProduceProgress): ProduceProgress = {
     ids.foreach(id => updateItemSate(id, progress.stateId))
+    progress
+  }
 
 }
