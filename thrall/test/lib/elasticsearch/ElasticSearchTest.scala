@@ -5,6 +5,8 @@ import java.util.UUID
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
+import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.http._
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsDefined, JsLookupResult, JsString, Json}
 
@@ -14,6 +16,34 @@ class ElasticSearchTest extends ElasticSearchTestBase {
   "Elasticsearch" - {
 
     "images" - {
+
+      "bulk inserting" - {
+        "can bulk insert images" in {
+          val imageOne = createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")).copy(
+            userMetadata = Some(Edits(labels = List("foo", "bar"), metadata = ImageMetadata(description = Some("my description"))))
+          )
+
+          val imageTwo = createImage("superman", StaffPhotographer("Clark Kent", "Kent Farm")).copy(
+            usages = List(usage())
+          )
+
+          val images: List[Image] = List(imageOne, imageTwo)
+
+          // in a clean index, we should have 0 documents
+          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe 0
+
+          Await.result(Future.sequence(ES.bulkInsert(images)), fiveSeconds)
+
+          // force ES to refresh https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-refresh.html
+          Await.result(ES.client.execute(ElasticDsl.refreshIndex(ES.initialImagesIndex)), fiveSeconds)
+
+          // after bulk inserting, we should have 2 documents
+          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe images.length
+
+          Json.toJson(reloadedImage("batman").get) shouldBe Json.toJson(imageOne)
+          Json.toJson(reloadedImage("superman").get) shouldBe Json.toJson(imageTwo)
+        }
+      }
 
       "indexing" - {
         "can index and retrieve images by id" in {

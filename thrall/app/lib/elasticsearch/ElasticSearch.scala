@@ -27,6 +27,20 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   lazy val shards = config.shards
   lazy val replicas = config.replicas
 
+  def bulkInsert(images: Seq[Image])(implicit ex: ExecutionContext): List[Future[ElasticSearchBulkUpdateResponse]] = {
+    val request = bulk {
+      images.map(img => {
+        indexInto(imagesAlias, Mappings.dummyType)
+          .id(img.id)
+          .source(Json.stringify(Json.toJson(img)))
+      })
+    }
+
+    val response = executeAndLog(request, s"Bulk inserting ${images.length} images")
+
+    List(response.map(_ => ElasticSearchBulkUpdateResponse()))
+  }
+
   def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val painlessSource = loadPainless(
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
