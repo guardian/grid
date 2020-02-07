@@ -3,12 +3,14 @@ package com.gu.mediaservice
 import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
+import com.gu.mediaservice.indexing.{ProduceProgress, IndexInputCreation}
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import IndexInputCreation._
 
 case class BatchIndexHandlerConfig(
                                     apiKey: String,
@@ -47,9 +49,9 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
   import ImagesBatchProjector.getMaybeImagesProjectionBlobs
   import InputIdsProvider._
 
-  def processImages()(implicit ec: ExecutionContext): List[Int] = {
-    val stateProgress = scala.collection.mutable.ArrayBuffer[Int]()
-    stateProgress += 0
+  def processImages()(implicit ec: ExecutionContext): List[String] = {
+    val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
+    stateProgress += NotStarted
     val mediaIds = getMediaIdsBatch
     Try {
       println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
@@ -61,7 +63,7 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
       println(s"prepared json blobs list of size: ${imageBlobs.size}")
       if (imageBlobs.isEmpty) {
         println("all was empty terminating current batch")
-        return stateProgress.toList
+        return stateProgress.map(_.name).toList
       }
       println("attempting to store blob to s3")
       val path = putToS3(imageBlobs)
@@ -73,7 +75,7 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
       stateProgress += updateStateToFinished(foundImageBlobsEntries.map(_.id))
     } match {
       case Success(_) =>
-        val res = stateProgress.toList
+        val res = stateProgress.map(_.name).toList
         println(s"processImages function execution state progress: $res")
         res
       case Failure(exp) =>
@@ -108,36 +110,32 @@ class InputIdsProvider(table: Table, batchSize: Int) {
     */
 
   // used to synchronise situation of other lambda execution will start while previous one is still running
-  def updateStateToItemsInProgress(ids: List[String]): Int = {
-    val state = 1
+  def updateStateToItemsInProgress(ids: List[String]): ProduceProgress = {
     println(s"updating items state to in progress")
-    updateItemsState(ids, state)
-    state
+    updateItemsState(ids, InProgress)
+    InProgress
   }
 
   // used to track images that were not projected successfully
-  def updateStateToNotFoundImages(notFoundIds: List[String]): Option[Int] = {
+  def updateStateToNotFoundImages(notFoundIds: List[String]): Option[ProduceProgress] = {
     if (notFoundIds.isEmpty) None else {
-      val state = 2
       println(s"not found images ids: $notFoundIds")
-      updateItemsState(notFoundIds, state)
-      Some(state)
+      updateItemsState(notFoundIds, NotFound)
+      Some(NotFound)
     }
   }
 
-  def updateStateToFinished(ids: List[String]): Int = {
-    val state = 3
+  def updateStateToFinished(ids: List[String]): ProduceProgress = {
     println(s"updating items state to in progress")
-    updateItemsState(ids, state)
-    state
+    updateItemsState(ids, Finished)
+    Finished
   }
 
   // used in situation if something failed
-  def resetItemsState(ids: List[String]): Int = {
-    val state = 0
+  def resetItemsState(ids: List[String]): ProduceProgress = {
     println("resetting items state")
-    updateItemsState(ids, state)
-    state
+    updateItemsState(ids, Reset)
+    Reset
   }
 
   private def updateItemSate(id: String, state: Int) = {
@@ -148,7 +146,7 @@ class InputIdsProvider(table: Table, batchSize: Int) {
     table.updateItem(us)
   }
 
-  private def updateItemsState(ids: List[String], state: Int) =
-    ids.foreach(id => updateItemSate(id, state))
+  private def updateItemsState(ids: List[String], progress: ProduceProgress) =
+    ids.foreach(id => updateItemSate(id, progress.stateId))
 
 }
