@@ -100,12 +100,17 @@ class InputIdsProvider(table: Table, batchSize: Int) {
     mediaIds
   }
 
-  // state is used to synchronise multiple overlapping lambda executions, track progress and avoiding repeated operations
+  /**
+    * state is used to synchronise multiple overlapping lambda executions, track progress and avoiding repeated operations
+    */
+
+  // used to synchronise situation of other lambda execution will start while previous one is still running
   def updateStateToItemsInProgress(ids: List[String]): Unit = {
     println(s"updating items state to in progress")
     updateItemsState(ids, 1)
   }
 
+  // used to track images that were not projected successfully
   def updateStateToNotFoundImages(notFoundIds: List[String]): Unit = {
     println(s"not found images ids: $notFoundIds")
     updateItemsState(notFoundIds, 2)
@@ -116,6 +121,7 @@ class InputIdsProvider(table: Table, batchSize: Int) {
     updateItemsState(ids, 3)
   }
 
+  // used in situation if something failed
   def resetItemsState(ids: List[String]): Unit = {
     println("resetting items state")
     updateItemsState(ids, 0)
