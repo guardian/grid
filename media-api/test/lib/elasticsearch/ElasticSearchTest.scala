@@ -1,15 +1,14 @@
-package lib.elasticsearch.impls.elasticsearch6
+package lib.elasticsearch
 
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.lib.elasticsearch6.{ElasticSearch6Config, ElasticSearch6Executions}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.http.ElasticDsl._
 import com.sksamuel.elastic4s.http._
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
-import lib.elasticsearch.{AggregateSearchParams, ElasticSearchTestBase, SearchParams}
 import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
@@ -23,7 +22,7 @@ import play.api.mvc.Security.AuthenticatedRequest
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually with ElasticSearch6Executions with MockitoSugar {
+class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
 
   implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
 
@@ -33,7 +32,7 @@ class MediaApiElasticSearch6Test extends ElasticSearchTestBase with Eventually w
     "persistence.identifier" -> "picdarUrn")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearch6Config(alias = "readAlias", url = es6TestUrl,
+  val elasticConfig = ElasticSearchConfig(alias = "readAlias", url = es6TestUrl,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)

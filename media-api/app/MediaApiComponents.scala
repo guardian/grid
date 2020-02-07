@@ -1,10 +1,11 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, ManagementWithPermissions}
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
+import lib.elasticsearch.ElasticSearch
 import play.api.ApplicationLoader.Context
 import router.Routes
 
@@ -18,7 +19,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val messageSender = new ThrallMessageSender(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
-  val es6Config: ElasticSearch6Config = ElasticSearch6Config(
+  val es6Config: ElasticSearchConfig = ElasticSearchConfig(
     alias = config.imagesAlias,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,
@@ -32,7 +33,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   usageQuota.quotaStore.update()
   usageQuota.scheduleUpdates()
 
-  val elasticSearch = new lib.elasticsearch.impls.elasticsearch6.ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies)
+  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies)
   elasticSearch.ensureAliasAssigned()
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)

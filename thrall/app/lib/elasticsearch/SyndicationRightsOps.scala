@@ -1,4 +1,4 @@
-package lib
+package lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
@@ -6,7 +6,7 @@ import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SyndicationRightsOps(es: ElasticSearch6)(implicit ex: ExecutionContext) {
+class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
 
   /**
     * Upserting syndication rights and updating photoshoots accordingly.

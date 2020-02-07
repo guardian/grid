@@ -6,11 +6,12 @@ import java.util.UUID
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import lib._
+import lib.elasticsearch._
 import org.joda.time.DateTime
 import play.api.Logger
 
 class ThrallMessageConsumer(config: ThrallConfig,
-                            es: ElasticSearch6,
+                            es: ElasticSearch,
                             thrallMetrics: ThrallMetrics,
                             store: ThrallStore,
                             metadataEditorNotifications: MetadataEditorNotifications,

@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.elasticsearch6
+package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.http._
 import net.logstash.logback.marker.LogstashMarker
@@ -9,7 +9,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-trait ElasticSearch6Executions {
+trait ElasticSearchExecutions {
 
   def client: ElasticClient
 
