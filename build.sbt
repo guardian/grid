@@ -150,7 +150,7 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
     }
     libraryDependencies ++= Seq(
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
-      "com.amazonaws" % "aws-lambda-java-events" % "2.2.7"
+      "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
     )
   }.dependsOn(adminToolsLib).settings(
   assemblyJarName in assembly := "admin-tools-lambda.jar"
