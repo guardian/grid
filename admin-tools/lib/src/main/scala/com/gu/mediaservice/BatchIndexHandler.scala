@@ -18,8 +18,7 @@ case class BatchIndexHandlerConfig(
                                     kinesisStreamName: String,
                                     dynamoTableName: String,
                                     batchSize: Int,
-                                    kinesisEndpoint: Option[String] = None,
-                                    awsCreds: Option[AWSCredentialsProvider] = None
+                                    kinesisEndpoint: Option[String] = None
                                   )
 
 object BatchIndexHandler {

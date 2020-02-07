@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
 import java.util.UUID
 
+import com.amazonaws.auth.profile.ProfileCredentialsProvider
+import com.amazonaws.auth.{AWSCredentialsProviderChain, EnvironmentVariableCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.document.{Table, DynamoDB => AwsDynamoDB}
@@ -19,6 +21,11 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
   private val AwsRegion = "eu-west-1"
   private val s3client = buildS3Client
   private val kinesis = buildKinesisClient
+
+  private lazy val awsCredentials = new AWSCredentialsProviderChain(
+    new ProfileCredentialsProvider("media-service"),
+    new EnvironmentVariableCredentialsProvider()
+  )
 
   import cfg._
 
@@ -49,40 +56,28 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
 
   private def buildS3Client = {
     val builder = AmazonS3ClientBuilder.standard().withRegion(AwsRegion)
-    awsCreds match {
-      case Some(creds) =>
-        println(s"building local s3 client")
-        builder.withCredentials(creds).build()
-      case _ =>
-        println("building remote s3 client")
-        builder.build()
-    }
+    builder.withCredentials(awsCredentials).build()
   }
 
   def buildDynamoTableClient: Table = {
-    val builder = AmazonDynamoDBClient.builder().withRegion(AwsRegion)
-    val dynamoClient = awsCreds match {
-      case Some(creds) =>
-        println(s"building local dynamoDB client")
-        builder.withCredentials(creds).build()
-      case _ =>
-        println("building remote dynamoDB client")
-        builder.build()
-    }
-    val dynamo = new AwsDynamoDB(dynamoClient)
+    val builder = AmazonDynamoDBClient.builder()
+      .withRegion(AwsRegion)
+      .withCredentials(awsCredentials)
+    val dynamo = new AwsDynamoDB(builder.build())
     dynamo.getTable(dynamoTableName)
   }
 
   private def buildKinesisClient: AmazonKinesis = {
-    val builder = AmazonKinesisClientBuilder.standard()
-    kinesisEndpoint match {
+    val baseBuilder = AmazonKinesisClientBuilder.standard()
+    val builder = kinesisEndpoint match {
       case Some(uri) =>
         println(s"building local kinesis client with $uri")
-        builder.withEndpointConfiguration(new EndpointConfiguration(uri, AwsRegion)).build()
+        baseBuilder.withEndpointConfiguration(new EndpointConfiguration(uri, AwsRegion))
       case _ =>
         println("building remote kinesis client")
-        builder.withRegion(AwsRegion).build()
+        baseBuilder.withRegion(AwsRegion)
     }
+    builder.withCredentials(awsCredentials).build()
   }
 
 }
