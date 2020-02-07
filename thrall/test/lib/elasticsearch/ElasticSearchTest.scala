@@ -15,6 +15,28 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
     "images" - {
 
+      "bulk inserting" - {
+        "can bulk insert images" in {
+          val imageOne = createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")).copy(
+            userMetadata = Some(Edits(labels = List("foo", "bar"), metadata = ImageMetadata(description = Some("my description"))))
+          )
+
+          val imageTwo = createImage("superman", StaffPhotographer("Clark Kent", "Kent Farm")).copy(
+            usages = List(usage())
+          )
+
+          val images: List[Image] = List(imageOne, imageTwo)
+
+          Await.result(ES.countImages(), fiveSeconds).searchResponseCount shouldBe 0
+
+          Await.result(Future.sequence(ES.bulkInsert(images)), fiveSeconds)
+          Json.toJson(reloadedImage("batman").get) shouldBe Json.toJson(imageOne)
+          Json.toJson(reloadedImage("superman").get) shouldBe Json.toJson(imageTwo)
+
+          Await.result(ES.countImages(), fiveSeconds).searchResponseCount shouldBe 2
+        }
+      }
+
       "indexing" - {
         "can index and retrieve images by id" in {
           val id = UUID.randomUUID().toString
