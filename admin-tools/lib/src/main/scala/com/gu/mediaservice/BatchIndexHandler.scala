@@ -1,6 +1,5 @@
 package com.gu.mediaservice
 
-import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
@@ -44,9 +43,9 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
                         InputIdsProvider: InputIdsProvider,
                         AwsFunctions: BatchIndexHandlerAwsFunctions) {
 
+  import AwsFunctions._
   import ImagesBatchProjector.getMaybeImagesProjectionBlobs
   import InputIdsProvider._
-  import AwsFunctions._
 
   def processImages()(implicit ec: ExecutionContext): List[Int] = {
     val stateProgress = scala.collection.mutable.ArrayBuffer[Int]()
