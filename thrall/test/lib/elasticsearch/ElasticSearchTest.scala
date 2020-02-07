@@ -5,7 +5,11 @@ import java.util.UUID
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
+import com.sksamuel.elastic4s.http.search.SearchResponse
+//import com.sksamuel.elastic4s.http.{ElasticDsl, Response}
 import org.joda.time.{DateTime, DateTimeZone}
+import com.sksamuel.elastic4s.http._
+import com.sksamuel.elastic4s.http.ElasticDsl._
 import play.api.libs.json.{JsDefined, JsLookupResult, JsString, Json}
 
 import scala.concurrent.{Await, Future}
@@ -27,13 +31,15 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
           val images: List[Image] = List(imageOne, imageTwo)
 
-          Await.result(ES.countImages(), fiveSeconds).searchResponseCount shouldBe 0
+          def eventualMatchAllSearchResponse: Future[Response[SearchResponse]] = ES.client.execute(ElasticDsl.search(elasticSearchConfig.alias).size(images.length * 10))
+
+          Await.result(eventualMatchAllSearchResponse, fiveSeconds).result.totalHits shouldBe 0
 
           Await.result(Future.sequence(ES.bulkInsert(images)), fiveSeconds)
           Json.toJson(reloadedImage("batman").get) shouldBe Json.toJson(imageOne)
           Json.toJson(reloadedImage("superman").get) shouldBe Json.toJson(imageTwo)
 
-          Await.result(ES.countImages(), fiveSeconds).searchResponseCount shouldBe 2
+          Await.result(eventualMatchAllSearchResponse, fiveSeconds).result.totalHits shouldBe 2
         }
       }
 
