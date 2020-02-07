@@ -77,6 +77,8 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
         exp.printStackTrace()
         println(s"there was a failure, exception: ${exp.getMessage}")
         resetItemsState(mediaIds)
+        // propagating exception
+        throw exp
     }
   }
 
