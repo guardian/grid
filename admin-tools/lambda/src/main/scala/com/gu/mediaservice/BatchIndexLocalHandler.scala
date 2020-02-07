@@ -21,11 +21,7 @@ object BatchIndexLocalHandler extends App {
 
   private val batchIndex = BatchIndexHandler(cfg)
 
-
-  def handle() = {
-    batchIndex.processImages()
-  }
-
+  // ids that exists on your local grid
   val mediaIds = List(
     "011db3facffd4ef3d3e07eabbd3c07bb41cbf819",
     "011a95f670b71e4dd223f4b8eda5bfb41235ca7e",
@@ -35,6 +31,6 @@ object BatchIndexLocalHandler extends App {
     "non-existent"
   )
 
-  handle()
+  batchIndex.processImages()
 
 }
