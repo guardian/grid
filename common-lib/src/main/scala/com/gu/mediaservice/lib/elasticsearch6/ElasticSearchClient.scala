@@ -64,9 +64,9 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
 
 
   def countImages(): Future[ElasticSearchImageCounts] = {
-    val queryCatCount = catCount("images") // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
-    val queryImageSearch = search("images") limit 0 // hits that match the query defined in the request
-    val queryStats = indexStats("images") // total accumulated values of an index for both primary and replica shards
+    val queryCatCount = catCount(imagesAlias) // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
+    val queryImageSearch = search(imagesAlias) limit 0 // hits that match the query defined in the request
+    val queryStats = indexStats(imagesAlias) // total accumulated values of an index for both primary and replica shards
 
     for {
       catCount <- executeAndLog(queryCatCount, "Images cat count")
@@ -75,7 +75,7 @@ trait ElasticSearchClient extends ElasticSearch6Executions {
     } yield
       ElasticSearchImageCounts(catCount.result.count,
                                imageSearch.result.hits.total,
-                               stats.result.indices("images").total.docs.count)
+                               stats.result.indices(imagesAlias).total.docs.count)
   }
 
   def ensureIndexExists(index: String): Unit = {
