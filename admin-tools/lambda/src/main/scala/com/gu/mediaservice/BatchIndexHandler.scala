@@ -74,7 +74,10 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
       putToKinensis(executeBulkIndexMsg)
       stateProgress += updateStateToFinished(foundImageBlobsEntries.map(_.id))
     } match {
-      case Success(value) => println(s"all good $value")
+      case Success(_) =>
+        val res = stateProgress.toList
+        println(s"processImages function execution state progress: $res")
+        res
       case Failure(exp) =>
         exp.printStackTrace()
         println(s"there was a failure, exception: ${exp.getMessage}")
@@ -82,9 +85,6 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
         // propagating exception
         throw exp
     }
-    val res = stateProgress.toList
-    println(s"processImages function execution state progress: $res")
-    res
   }
 
 }
