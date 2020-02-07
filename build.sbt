@@ -122,7 +122,6 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
-      //      ExclusionRule("com.amazonaws"),
       ExclusionRule("org.elasticsearch"),
       ExclusionRule("com.sksamuel.elastic4s"),
       ExclusionRule("com.drewnoakes", "metadata-extractor"),
