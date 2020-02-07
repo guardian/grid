@@ -49,19 +49,21 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
   import ImagesBatchProjector.getMaybeImagesProjectionBlobs
   import InputIdsProvider._
 
-  def processImages()(implicit ec: ExecutionContext): Unit = {
+  def processImages()(implicit ec: ExecutionContext): List[Int] = {
+    val stateProgress = scala.collection.mutable.ArrayBuffer[Int]()
+    stateProgress += 0
     val mediaIds = getMediaIdsBatch
-    println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
-    updateStateToItemsInProgress(mediaIds)
     Try {
+      println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
+      stateProgress += updateStateToItemsInProgress(mediaIds)
       val maybeBlobsFuture: Future[List[ImageIdMaybeBlobEntry]] = getMaybeImagesProjectionBlobs(mediaIds)
       val (foundImageBlobsEntries, notFoundImagesIds) = BatchIndexHandler.partitionToSuccessAndNotFound(maybeBlobsFuture)
       val imageBlobs = foundImageBlobsEntries.map(_.blob)
-      updateStateToNotFoundImages(notFoundImagesIds)
+      updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
       println(s"prepared json blobs list of size: ${imageBlobs.size}")
       if (imageBlobs.isEmpty) {
         println("all was empty terminating current batch")
-        return
+        return stateProgress.toList
       }
       println("attempting to store blob to s3")
       val path = putToS3(imageBlobs)
@@ -70,16 +72,18 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
         "s3Path" -> path
       )
       putToKinensis(executeBulkIndexMsg)
-      updateStateToFinished(foundImageBlobsEntries.map(_.id))
+      stateProgress += updateStateToFinished(foundImageBlobsEntries.map(_.id))
     } match {
       case Success(value) => println(s"all good $value")
       case Failure(exp) =>
         exp.printStackTrace()
         println(s"there was a failure, exception: ${exp.getMessage}")
-        resetItemsState(mediaIds)
+        stateProgress += resetItemsState(mediaIds)
         // propagating exception
         throw exp
     }
+    println(s"processImages function execution state progress: $stateProgress")
+    stateProgress.toList
   }
 
 }
@@ -105,26 +109,36 @@ class InputIdsProvider(table: Table, batchSize: Int) {
     */
 
   // used to synchronise situation of other lambda execution will start while previous one is still running
-  def updateStateToItemsInProgress(ids: List[String]): Unit = {
+  def updateStateToItemsInProgress(ids: List[String]): Int = {
+    val state = 1
     println(s"updating items state to in progress")
-    updateItemsState(ids, 1)
+    updateItemsState(ids, state)
+    state
   }
 
   // used to track images that were not projected successfully
-  def updateStateToNotFoundImages(notFoundIds: List[String]): Unit = {
-    println(s"not found images ids: $notFoundIds")
-    updateItemsState(notFoundIds, 2)
+  def updateStateToNotFoundImages(notFoundIds: List[String]): Option[Int] = {
+    if (notFoundIds.isEmpty) None else {
+      val state = 2
+      println(s"not found images ids: $notFoundIds")
+      updateItemsState(notFoundIds, state)
+      Some(state)
+    }
   }
 
-  def updateStateToFinished(ids: List[String]): Unit = {
+  def updateStateToFinished(ids: List[String]): Int = {
+    val state = 3
     println(s"updating items state to in progress")
-    updateItemsState(ids, 3)
+    updateItemsState(ids, state)
+    state
   }
 
   // used in situation if something failed
-  def resetItemsState(ids: List[String]): Unit = {
+  def resetItemsState(ids: List[String]): Int = {
+    val state = 0
     println("resetting items state")
-    updateItemsState(ids, 0)
+    updateItemsState(ids, state)
+    state
   }
 
   private def updateItemSate(id: String, state: Int) = {
