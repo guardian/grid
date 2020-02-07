@@ -82,16 +82,17 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
         // propagating exception
         throw exp
     }
-    println(s"processImages function execution state progress: $stateProgress")
-    stateProgress.toList
+    val res = stateProgress.toList
+    println(s"processImages function execution state progress: $res")
+    res
   }
 
 }
 
 class InputIdsProvider(table: Table, batchSize: Int) {
 
-  private val PKField: String = "fileId"
-  private val StateField: String = "fileState"
+  private val PKField: String = "id"
+  private val StateField: String = "progress_state"
 
   def getMediaIdsBatch: List[String] = {
     println("attempt to get mediaIds batch from dynamo")
@@ -143,8 +144,8 @@ class InputIdsProvider(table: Table, batchSize: Int) {
 
   private def updateItemSate(id: String, state: Int) = {
     val us = new UpdateItemSpec().
-      withPrimaryKey("fileId", id).
-      withUpdateExpression("set fileState = :sub")
+      withPrimaryKey(PKField, id).
+      withUpdateExpression(s"set $StateField = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", state))
     table.updateItem(us)
   }
