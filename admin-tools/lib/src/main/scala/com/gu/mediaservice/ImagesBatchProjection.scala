@@ -10,9 +10,9 @@ object ImagesBatchProjection {
     new ImagesBatchProjection(apiKey, domainRoot)
 }
 
-case class ImageMaybeBlobEntry(id: String, blob: Option[String])
+case class ImageIdMaybeBlobEntry(id: String, blob: Option[String])
 
-case class ImageBlobEntry(id: String, blob: String)
+case class ImageIdBlobEntry(id: String, blob: String)
 
 class ImagesBatchProjection(apiKey: String, domainRoot: String) {
 
@@ -25,12 +25,12 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String) {
 
   private val ImageProjector = createImageProjector
 
-  def prepareImageItemsBlobs(mediaIds: List[String])(implicit ec: ExecutionContext): Future[List[ImageMaybeBlobEntry]] = {
+  def getMaybeImagesProjectionBlobs(mediaIds: List[String])(implicit ec: ExecutionContext): Future[List[ImageIdMaybeBlobEntry]] = {
     import Json.{stringify, toJson}
     Future.traverse(mediaIds) { id =>
       val maybeProjection = ImageProjector.getMergedImageData(id)
       maybeProjection.map(opt => (id, opt))
-    }.map(_.map { case (id, maybeImg) => ImageMaybeBlobEntry(id, maybeImg.map(img => stringify(toJson(img)))) })
+    }.map(_.map { case (id, maybeImg) => ImageIdMaybeBlobEntry(id, maybeImg.map(img => stringify(toJson(img)))) })
   }
 
 }

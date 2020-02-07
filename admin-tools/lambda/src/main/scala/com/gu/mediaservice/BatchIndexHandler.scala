@@ -32,11 +32,10 @@ object BatchIndexHandler {
     new BatchIndexHandler(ImagesBatchProjector, InputIdsProvider, AwsFunctions)
   }
 
-  def handleBlobsCreation(mediaIds: List[String],
-                          prepareImageItemsBlobsFunk: List[String] => Future[List[ImageMaybeBlobEntry]])(implicit ec: ExecutionContext) = {
-    val blobsFuture: Future[List[ImageMaybeBlobEntry]] = prepareImageItemsBlobsFunk(mediaIds)
-    val allImages: List[ImageMaybeBlobEntry] = Await.result(blobsFuture, Duration.Inf)
-    val foundImages = allImages.filter(_.blob.isDefined).map(i => ImageBlobEntry(i.id, i.blob.get))
+  def partitionToSuccessAndNotFound(maybeBlobsFuture: Future[List[ImageIdMaybeBlobEntry]])
+                                   (implicit ec: ExecutionContext): (List[ImageIdBlobEntry], List[String]) = {
+    val allImages: List[ImageIdMaybeBlobEntry] = Await.result(maybeBlobsFuture, Duration.Inf)
+    val foundImages = allImages.filter(_.blob.isDefined).map(i => ImageIdBlobEntry(i.id, i.blob.get))
     val notFoundImagesIds = allImages.filter(_.blob.isEmpty).map(_.id)
     (foundImages, notFoundImagesIds)
   }
@@ -47,7 +46,7 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
                         AwsFunctions: BatchIndexHandlerAwsFunctions) {
 
   import AwsFunctions._
-  import ImagesBatchProjector.prepareImageItemsBlobs
+  import ImagesBatchProjector.getMaybeImagesProjectionBlobs
   import InputIdsProvider._
 
   def processImages()(implicit ec: ExecutionContext): Unit = {
@@ -55,7 +54,8 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
     println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
     updateStateToItemsInProgress(mediaIds)
     Try {
-      val (foundImageBlobsEntries, notFoundImagesIds) = BatchIndexHandler.handleBlobsCreation(mediaIds, prepareImageItemsBlobs)
+      val maybeBlobsFuture: Future[List[ImageIdMaybeBlobEntry]] = getMaybeImagesProjectionBlobs(mediaIds)
+      val (foundImageBlobsEntries, notFoundImagesIds) = BatchIndexHandler.partitionToSuccessAndNotFound(maybeBlobsFuture)
       val imageBlobs = foundImageBlobsEntries.map(_.blob)
       updateStateToNotFoundImages(notFoundImagesIds)
       println(s"prepared json blobs list of size: ${imageBlobs.size}")
