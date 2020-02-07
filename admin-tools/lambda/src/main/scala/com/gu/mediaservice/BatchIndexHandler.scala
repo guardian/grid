@@ -23,33 +23,41 @@ case class BatchIndexHandlerConfig(
                                   )
 
 object BatchIndexHandler {
-  def apply(cfg: BatchIndexHandlerConfig): BatchIndexHandler = new BatchIndexHandler(cfg)
+  def apply(cfg: BatchIndexHandlerConfig): BatchIndexHandler = {
+    import cfg._
+    val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot)
+    val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
+    val InputIdsProvider = new InputIdsProvider(AwsFunctions.buildDynamoTableClient, batchSize)
+
+    new BatchIndexHandler(ImagesBatchProjector, InputIdsProvider, AwsFunctions)
+  }
+
+  def handleBlobsCreation(mediaIds: List[String],
+                          prepareImageItemsBlobsFunk: List[String] => Future[List[ImageMaybeBlobEntry]])(implicit ec: ExecutionContext) = {
+    val blobsFuture: Future[List[ImageMaybeBlobEntry]] = prepareImageItemsBlobsFunk(mediaIds)
+    val allImages: List[ImageMaybeBlobEntry] = Await.result(blobsFuture, Duration.Inf)
+    val foundImages = allImages.filter(_.blob.isDefined).map(i => ImageBlobEntry(i.id, i.blob.get))
+    val notFoundImagesIds = allImages.filter(_.blob.isEmpty).map(_.id)
+    (foundImages, notFoundImagesIds)
+  }
 }
 
-class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
-
-  import cfg._
-
-  private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot)
-
-  import ImagesBatchProjector.prepareImageItemsBlobs
-
-  private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
+class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
+                        InputIdsProvider: InputIdsProvider,
+                        AwsFunctions: BatchIndexHandlerAwsFunctions) {
 
   import AwsFunctions._
-
-  private val InputIdsProvider = new InputIdsProvider(buildDynamoTableClient, batchSize)
-
+  import ImagesBatchProjector.prepareImageItemsBlobs
   import InputIdsProvider._
 
   def processImages()(implicit ec: ExecutionContext): Unit = {
     val mediaIds = getMediaIdsBatch
     println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
-    updateStateForItemsInProgress(mediaIds)
+    updateStateToItemsInProgress(mediaIds)
     Try {
-      val (imageBlobsWrapper, notFoundImagesIds) = handleBlobsCreation(mediaIds)
-      val imageBlobs = imageBlobsWrapper.blobs
-      updateStateForNotFoundImages(notFoundImagesIds)
+      val (foundImageBlobsEntries, notFoundImagesIds) = BatchIndexHandler.handleBlobsCreation(mediaIds, prepareImageItemsBlobs)
+      val imageBlobs = foundImageBlobsEntries.map(_.blob)
+      updateStateToNotFoundImages(notFoundImagesIds)
       println(s"prepared json blobs list of size: ${imageBlobs.size}")
       if (imageBlobs.isEmpty) {
         println("all was empty terminating current batch")
@@ -62,6 +70,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
         "s3Path" -> path
       )
       putToKinensis(executeBulkIndexMsg)
+      updateStateToFinished(foundImageBlobsEntries.map(_.id))
     } match {
       case Success(value) => println(s"all good $value")
       case Failure(exp) =>
@@ -71,41 +80,38 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     }
   }
 
-  // using wrapper for type safety
-  case class ImageBlobsWrapper(blobs: List[String])
-
-  private def handleBlobsCreation(mediaIds: List[String])(implicit ec: ExecutionContext) = {
-    val blobsFuture: Future[List[ImageBlobEntry]] = prepareImageItemsBlobs(mediaIds)
-    val allImages: List[ImageBlobEntry] = Await.result(blobsFuture, Duration.Inf)
-    val foundImages: List[String] = allImages.flatMap(_.blob)
-    val notFoundImagesIds = allImages.filter(_.blob.isEmpty).map(_.id)
-    (ImageBlobsWrapper(foundImages), notFoundImagesIds)
-  }
-
 }
 
 class InputIdsProvider(table: Table, batchSize: Int) {
 
+  private val PKField: String = "fileId"
+  private val StateField: String = "fileState"
+
   def getMediaIdsBatch: List[String] = {
     println("attempt to get mediaIds batch from dynamo")
-    val scanSpec = new ScanSpec().withFilterExpression("fileState = :sub")
+    val scanSpec = new ScanSpec().withFilterExpression(s"$StateField = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
     val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
-      (json \ "fileId").as[String]
+      (json \ PKField).as[String]
     })
     mediaIds
   }
 
   // state is used to synchronise multiple overlapping lambda executions, track progress and avoiding repeated operations
-  def updateStateForItemsInProgress(ids: List[String]): Unit = {
+  def updateStateToItemsInProgress(ids: List[String]): Unit = {
     println(s"updating items state to in progress")
     updateItemsState(ids, 1)
   }
 
-  def updateStateForNotFoundImages(notFoundIds: List[String]): Unit = {
+  def updateStateToNotFoundImages(notFoundIds: List[String]): Unit = {
     println(s"not found images ids: $notFoundIds")
     updateItemsState(notFoundIds, 2)
+  }
+
+  def updateStateToFinished(ids: List[String]): Unit = {
+    println(s"updating items state to in progress")
+    updateItemsState(ids, 3)
   }
 
   def resetItemsState(ids: List[String]): Unit = {
