@@ -4,13 +4,13 @@ import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.indexing.IndexInputCreation._
-import com.gu.mediaservice.indexing.{IndexInputCreation, ProduceProgress}
+import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.model.Image
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 case class BatchIndexHandlerConfig(
@@ -33,12 +33,10 @@ object BatchIndexHandler {
     new BatchIndexHandler(ImagesBatchProjector, InputIdsProvider, AwsFunctions)
   }
 
-  def partitionToSuccessAndNotFound(maybeBlobsFuture: Future[List[ImageIdMaybeBlobEntry]])
-                                   (implicit ec: ExecutionContext): (List[ImageIdBlobEntry], List[String]) = {
-    val allImages: List[ImageIdMaybeBlobEntry] = Await.result(maybeBlobsFuture, Duration.Inf)
-    val foundImages = allImages.filter(_.blob.isDefined).map(i => ImageIdBlobEntry(i.id, i.blob.get))
-    val notFoundImagesIds = allImages.filter(_.blob.isEmpty).map(_.id)
-    (foundImages, notFoundImagesIds)
+  def partitionToSuccessAndNotFound(maybeBlobsFuture: List[Either[Image, String]]): (List[Image], List[String]) = {
+    val images: List[Image] = maybeBlobsFuture.flatMap(_.left.toOption)
+    val notFoundIds: List[String] = maybeBlobsFuture.flatMap(_.right.toOption)
+    (images, notFoundIds)
   }
 }
 
@@ -57,8 +55,9 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
     Try {
       println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
       stateProgress += updateStateToItemsInProgress(mediaIds)
-      val maybeBlobsFuture: Future[List[ImageIdMaybeBlobEntry]] = getMaybeImagesProjectionBlobs(mediaIds)
+      val maybeBlobsFuture: List[Either[Image, String]] = getMaybeImagesProjectionBlobs(mediaIds)
       val (foundImageBlobsEntries, notFoundImagesIds) = BatchIndexHandler.partitionToSuccessAndNotFound(maybeBlobsFuture)
+
       val imageBlobs = foundImageBlobsEntries.map(_.blob)
       updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
       println(s"prepared json blobs list of size: ${imageBlobs.size}")

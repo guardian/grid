@@ -1,18 +1,18 @@
 package com.gu.mediaservice
 
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
-import play.api.libs.json.Json
+import com.gu.mediaservice.model.Image
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+
+import scala.concurrent.duration.Duration
 
 object ImagesBatchProjection {
+
   def apply(apiKey: String, domainRoot: String): ImagesBatchProjection =
     new ImagesBatchProjection(apiKey, domainRoot)
 }
 
-case class ImageIdMaybeBlobEntry(id: String, blob: Option[String])
-
-case class ImageIdBlobEntry(id: String, blob: String)
 
 class ImagesBatchProjection(apiKey: String, domainRoot: String) {
 
@@ -25,12 +25,17 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String) {
 
   private val ImageProjector = createImageProjector
 
-  def getMaybeImagesProjectionBlobs(mediaIds: List[String])(implicit ec: ExecutionContext): Future[List[ImageIdMaybeBlobEntry]] = {
-    import Json.{stringify, toJson}
-    Future.traverse(mediaIds) { id =>
+  def getMaybeImagesProjectionBlobs(mediaIds: List[String])(implicit ec: ExecutionContext): List[Either[Image, String]] = {
+    val f = Future.traverse(mediaIds) { id =>
       val maybeProjection = ImageProjector.getMergedImageData(id)
-      maybeProjection.map(opt => (id, opt))
-    }.map(_.map { case (id, maybeImg) => ImageIdMaybeBlobEntry(id, maybeImg.map(img => stringify(toJson(img)))) })
+
+      val notFoundOrImage: Future[Either[Image, String]] = maybeProjection.map {
+        case Some(img) => Left(img)
+        case None => Right(id)
+      }
+      notFoundOrImage
+    }
+    Await.result(f, Duration.Inf)
   }
 
 }
