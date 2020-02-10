@@ -3,25 +3,15 @@ package com.gu.mediaservice
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
 
+import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-import scala.concurrent.duration.Duration
-
 object ImagesBatchProjection {
-
-  def apply(apiKey: String, domainRoot: String): ImagesBatchProjection =
-    new ImagesBatchProjection(apiKey, domainRoot)
+  def apply(apiKey: String, domainRoot: String, timeout: Duration): ImagesBatchProjection =
+    new ImagesBatchProjection(apiKey, domainRoot, timeout)
 }
 
-
-class ImagesBatchProjection(apiKey: String, domainRoot: String) {
-
-  private def createImageProjector = {
-    val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
-    val cfg = ImageDataMergerConfig(apiKey, services)
-    if (!cfg.isValidApiKey()) throw new IllegalArgumentException("provided api_key is invalid")
-    new ImageDataMerger(cfg)
-  }
+class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duration) {
 
   private val ImageProjector = createImageProjector
 
@@ -35,7 +25,14 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String) {
       }
       notFoundOrImage
     }
-    Await.result(f, Duration.Inf)
+    Await.result(f, timeout)
+  }
+
+  private def createImageProjector = {
+    val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+    val cfg = ImageDataMergerConfig(apiKey, services)
+    if (!cfg.isValidApiKey()) throw new IllegalArgumentException("provided api_key is invalid")
+    new ImageDataMerger(cfg)
   }
 
 }

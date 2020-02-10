@@ -1,5 +1,7 @@
 package com.gu.mediaservice
 
+import java.util.concurrent.TimeUnit
+
 import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
@@ -7,10 +9,12 @@ import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
+import org.scalatest.tools.Durations.Duration
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.{FiniteDuration, TimeUnit}
 import scala.util.{Failure, Success, Try}
 
 case class BatchIndexHandlerConfig(
@@ -33,7 +37,8 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
   import cfg._
 
-  private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot)
+  private val ImagesProjectionTimeout = new FiniteDuration(12, TimeUnit.MINUTES)
+  private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot, ImagesProjectionTimeout)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
   private val InputIdsProvider = new InputIdsProvider(AwsFunctions.buildDynamoTableClient, batchSize)
 
