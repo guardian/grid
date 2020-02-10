@@ -9,11 +9,10 @@ import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
-import org.scalatest.tools.Durations.Duration
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.{FiniteDuration, TimeUnit}
 import scala.util.{Failure, Success, Try}
 
@@ -37,7 +36,15 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
   import cfg._
 
-  private val ImagesProjectionTimeout = new FiniteDuration(12, TimeUnit.MINUTES)
+  private val ProjectionTimoutInMins = 11
+  private val GetIdsTimoutInMins = 1
+  private val OthersTimoutInMins = 1
+  private val GlobalTimoutInMins = ProjectionTimoutInMins + GetIdsTimoutInMins + OthersTimoutInMins
+
+  private val GetIdsTimeout =  new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
+  private val GlobalTimeout =  new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
+  private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
+
   private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot, ImagesProjectionTimeout)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
   private val InputIdsProvider = new InputIdsProvider(AwsFunctions.buildDynamoTableClient, batchSize)
@@ -51,32 +58,36 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   def processImages(): List[String] = {
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
-    val mediaIds = getUnprocessedMediaIdsBatch
+    val mediaIdsFuture = getUnprocessedMediaIdsBatch
+    val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     Try {
-      println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
-      stateProgress += updateStateToItemsInProgress(mediaIds)
-      val maybeBlobsFuture: List[Either[Image, String]] = getMaybeImagesProjectionBlobs(mediaIds)
-      val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
+      val processImagesFuture: Future[List[String]] = Future {
+        println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
+        stateProgress += updateStateToItemsInProgress(mediaIds)
+        val maybeBlobsFuture: List[Either[Image, String]] = getMaybeImagesProjectionBlobs(mediaIds)
+        val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
 
-      updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
-      println(s"prepared json blobs list of size: ${foundImages.size}")
-      if (foundImages.isEmpty) {
-        println("all was empty terminating current batch")
-        return stateProgress.map(_.name).toList
+        updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
+        println(s"prepared json blobs list of size: ${foundImages.size}")
+        if (foundImages.isEmpty) {
+          println("all was empty terminating current batch")
+          return stateProgress.map(_.name).toList
+        }
+        println("attempting to store blob to s3")
+        val bulkIndexRequest = putToS3(foundImages)
+        val indexMessage = UpdateMessage(
+          subject = "batch-index",
+          bulkIndexRequest = Some(bulkIndexRequest)
+        )
+        putToKinensis(indexMessage)
+        stateProgress += updateStateToFinished(foundImages.map(_.id))
+        stateProgress.map(_.name).toList
       }
-      println("attempting to store blob to s3")
-      val bulkIndexRequest = putToS3(foundImages)
-      val indexMessage = UpdateMessage(
-        subject = "batch-index",
-        bulkIndexRequest = Some(bulkIndexRequest)
-      )
-      putToKinensis(indexMessage)
-      stateProgress += updateStateToFinished(foundImages.map(_.id))
+      Await.result(processImagesFuture, GlobalTimeout)
     } match {
-      case Success(_) =>
-        val res = stateProgress.map(_.name).toList
-        println(s"processImages function execution state progress: $res")
-        res
+      case Success(progressList) =>
+        println(s"processImages function execution state progress: $progressList")
+        progressList
       case Failure(exp) =>
         exp.printStackTrace()
         println(s"there was a failure, exception: ${exp.getMessage}")
@@ -99,7 +110,7 @@ class InputIdsProvider(table: Table, batchSize: Int) {
   private val PKField: String = "id"
   private val StateField: String = "progress_state"
 
-  def getUnprocessedMediaIdsBatch: List[String] = {
+  def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     println("attempt to get mediaIds batch from dynamo")
     val scanSpec = new ScanSpec().withFilterExpression(s"$StateField = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
