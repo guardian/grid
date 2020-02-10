@@ -1,7 +1,5 @@
 package com.gu.mediaservice
 
-import scala.concurrent.ExecutionContext.Implicits.global
-
 class BatchIndexLambdaHandler {
 
   private val cfg = BatchIndexHandlerConfig(

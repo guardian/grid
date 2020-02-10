@@ -48,7 +48,9 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
   import ImagesBatchProjector.getMaybeImagesProjectionBlobs
   import InputIdsProvider._
 
-  def processImages()(implicit ec: ExecutionContext): List[String] = {
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
+
+  def processImages(): List[String] = {
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIds = getUnprocessedMediaIdsBatch
