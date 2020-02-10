@@ -1,6 +1,6 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{BulkIndexRequest, EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
@@ -36,7 +36,14 @@ class MessageProcessor(es: ElasticSearch,
       case "delete-usages" => deleteAllUsages
       case "upsert-rcs-rights" => upsertSyndicationRights
       case "update-image-photoshoot" => updateImagePhotoshoot
+      case "batch-index" => batchIndex
     }
+  }
+
+  def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[BulkIndexRequest] = {
+    val request = message.bulkIndexRequest.get
+    Logger.info(s"Batch Indexing from ${request.bucket}/${request.key}")
+    Future.successful(request)
   }
 
   def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
