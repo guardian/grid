@@ -75,7 +75,7 @@ async.factory('poll',
 
         function pollRecursive() {
           return func().catch(() => {
-            return withTimeout(delay(withBackoff())).then(pollRecursive);
+            return withTimeout(delay(pollEvery)).then(pollRecursive);
           });
         }
 
