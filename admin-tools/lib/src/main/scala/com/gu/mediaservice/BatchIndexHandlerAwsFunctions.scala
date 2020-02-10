@@ -15,7 +15,8 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.aws.{BulkIndexRequest, UpdateMessage}
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
-import play.api.libs.json.JsValue
+import com.gu.mediaservice.model.Image
+import play.api.libs.json.Json
 
 class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
 
@@ -30,12 +31,12 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
 
   import cfg._
 
-  def putToS3(imageBlobs: List[String]): BulkIndexRequest = {
-    val fileContent = imageBlobs.mkString("\n")
+  def putToS3(imageBlobs: List[Image]): BulkIndexRequest = {
+    val imagesJsonArray = Json.stringify(Json.toJson(imageBlobs))
     val key = s"batch-index/${UUID.randomUUID().toString}.json"
     val metadata = new ObjectMetadata
     metadata.setContentType("application/json")
-    val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(fileContent.getBytes), metadata)
+    val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(imagesJsonArray.getBytes), metadata)
     println(s"PUT [s3://$batchIndexBucket/$key] object to s3 response: $res")
     BulkIndexRequest(batchIndexBucket, key)
   }

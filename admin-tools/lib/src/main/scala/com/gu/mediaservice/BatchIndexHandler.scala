@@ -56,23 +56,22 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
       println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
       stateProgress += updateStateToItemsInProgress(mediaIds)
       val maybeBlobsFuture: List[Either[Image, String]] = getMaybeImagesProjectionBlobs(mediaIds)
-      val (foundImageBlobsEntries, notFoundImagesIds) = BatchIndexHandler.partitionToSuccessAndNotFound(maybeBlobsFuture)
+      val (foundImages, notFoundImagesIds) = BatchIndexHandler.partitionToSuccessAndNotFound(maybeBlobsFuture)
 
-      val imageBlobs = foundImageBlobsEntries.map(_.blob)
       updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
-      println(s"prepared json blobs list of size: ${imageBlobs.size}")
-      if (imageBlobs.isEmpty) {
+      println(s"prepared json blobs list of size: ${foundImages.size}")
+      if (foundImages.isEmpty) {
         println("all was empty terminating current batch")
         return stateProgress.map(_.name).toList
       }
       println("attempting to store blob to s3")
-      val bulkIndexRequest = putToS3(imageBlobs)
+      val bulkIndexRequest = putToS3(foundImages)
       val indexMessage = UpdateMessage(
         subject = "batch-index",
         bulkIndexRequest = Some(bulkIndexRequest)
       )
       putToKinensis(indexMessage)
-      stateProgress += updateStateToFinished(foundImageBlobsEntries.map(_.id))
+      stateProgress += updateStateToFinished(foundImages.map(_.id))
     } match {
       case Success(_) =>
         val res = stateProgress.map(_.name).toList
