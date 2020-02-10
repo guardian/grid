@@ -1,3 +1,5 @@
+/* eslint-disable */
+//remove this.
 import angular from 'angular';
 
 export var async = angular.module('util.async', []);
@@ -67,6 +69,7 @@ async.factory('poll',
         const BACKOFF = 2;
         let i = 0;
 
+        //
         const withBackoff = () => {
             const jitter = Math.floor(Math.random() * JITTER);
             const wait = pollEvery * BACKOFF ** (i++) + jitter;
