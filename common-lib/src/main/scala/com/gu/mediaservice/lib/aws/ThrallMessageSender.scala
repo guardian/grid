@@ -21,6 +21,16 @@ class ThrallMessageSender(config: CommonConfig) {
   }
 }
 
+case class BulkIndexRequest(
+  bucket: String,
+  key: String
+)
+
+object BulkIndexRequest {
+  implicit val reads = Json.reads[BulkIndexRequest]
+  implicit val writes = Json.writes[BulkIndexRequest]
+}
+
 object UpdateMessage {
   implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
   implicit val unw = Json.writes[UsageNotice]
@@ -40,7 +50,8 @@ case class UpdateMessage(
   crops: Option[Seq[Crop]] = None,
   mediaLease: Option[MediaLease] = None,
   leases: Option[Seq[MediaLease]] = None,
-  syndicationRights: Option[SyndicationRights] = None
+  syndicationRights: Option[SyndicationRights] = None,
+  bulkIndexRequest: Option[BulkIndexRequest] = None
 ) {
   def toLogMarker: LogstashMarker = {
     val message = Json.stringify(Json.toJson(this))
