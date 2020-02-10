@@ -47,11 +47,11 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
   private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot, ImagesProjectionTimeout)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
-  private val InputIdsProvider = new InputIdsProvider(AwsFunctions.buildDynamoTableClient, batchSize)
+  private val InputIdsStore = new InputIdsStore(AwsFunctions.buildDynamoTableClient, batchSize)
 
   import AwsFunctions._
   import ImagesBatchProjector._
-  import InputIdsProvider._
+  import InputIdsStore._
 
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
@@ -105,7 +105,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
 }
 
-class InputIdsProvider(table: Table, batchSize: Int) {
+class InputIdsStore(table: Table, batchSize: Int) {
 
   private val PKField: String = "id"
   private val StateField: String = "progress_state"
