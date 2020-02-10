@@ -13,6 +13,7 @@ import com.amazonaws.services.kinesis.model.PutRecordRequest
 import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.amazonaws.services.s3.model.ObjectMetadata
+import com.gu.mediaservice.lib.aws.{BulkIndexRequest, UpdateMessage}
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import play.api.libs.json.JsValue
 
@@ -29,18 +30,17 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
 
   import cfg._
 
-  def putToS3(imageBlobs: List[String]): String = {
+  def putToS3(imageBlobs: List[String]): BulkIndexRequest = {
     val fileContent = imageBlobs.mkString("\n")
     val key = s"batch-index/${UUID.randomUUID().toString}.json"
     val metadata = new ObjectMetadata
     metadata.setContentType("application/json")
     val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(fileContent.getBytes), metadata)
-    val path = s"s3://$batchIndexBucket/$key"
-    println(s"PUT [$path] object to s3 response: $res")
-    path
+    println(s"PUT [s3://$batchIndexBucket/$key] object to s3 response: $res")
+    BulkIndexRequest(batchIndexBucket, key)
   }
 
-  def putToKinensis(message: JsValue): Unit = {
+  def putToKinensis(message: UpdateMessage): Unit = {
     println("attempting to put message to kinesis")
     val payload = JsonByteArrayUtil.toByteArray(message)
     val partitionKey = UUID.randomUUID().toString

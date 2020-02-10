@@ -3,14 +3,15 @@ package com.gu.mediaservice
 import com.amazonaws.services.dynamodbv2.document._
 import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
-import com.gu.mediaservice.indexing.{ProduceProgress, IndexInputCreation}
+import com.gu.mediaservice.indexing.IndexInputCreation._
+import com.gu.mediaservice.indexing.{IndexInputCreation, ProduceProgress}
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import IndexInputCreation._
 
 case class BatchIndexHandlerConfig(
                                     apiKey: String,
@@ -66,12 +67,12 @@ class BatchIndexHandler(ImagesBatchProjector: ImagesBatchProjection,
         return stateProgress.map(_.name).toList
       }
       println("attempting to store blob to s3")
-      val path = putToS3(imageBlobs)
-      val executeBulkIndexMsg = Json.obj(
-        "subject" -> "batch-index",
-        "s3Path" -> path
+      val bulkIndexRequest = putToS3(imageBlobs)
+      val indexMessage = UpdateMessage(
+        subject = "batch-index",
+        bulkIndexRequest = Some(bulkIndexRequest)
       )
-      putToKinensis(executeBulkIndexMsg)
+      putToKinensis(indexMessage)
       stateProgress += updateStateToFinished(foundImageBlobsEntries.map(_.id))
     } match {
       case Success(_) =>
