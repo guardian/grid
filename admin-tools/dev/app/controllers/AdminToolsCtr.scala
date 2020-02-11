@@ -2,15 +2,16 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.model.Image._
 import com.gu.mediaservice.{FullImageProjectionFailed, FullImageProjectionSuccess, ImageDataMerger, ImageDataMergerConfig}
 import lib.AdminToolsConfig
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext}
 
-class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents, messageSender: ThrallMessageSender)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot, imageLoaderEndpointOpt = None)
@@ -46,6 +47,21 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
           "errorMessage" -> expMessage,
           "downstreamErrorMessage" -> downstreamMessage
         ).toString)
+    }
+  }
+
+  def reindex(mediaId: String) = Action {
+     merger.getMergedImageData(mediaId) match {
+      case FullImageProjectionSuccess(Some(image)) =>
+        val message = UpdateMessage(subject = "reindex-image", image = Some(image))
+        messageSender.publish(message)
+        NoContent
+      case FullImageProjectionSuccess(None) =>
+        NotFound
+      case FullImageProjectionFailed(error, downstreamError) =>
+         InternalServerError(Json.obj(
+           "error" -> s"Error projecting image: ${error} – ${downstreamError}"
+         ))
     }
   }
 }

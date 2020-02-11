@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.AdminToolsCtr
 import lib.AdminToolsConfig
@@ -10,7 +11,9 @@ class AdminToolsComponents(context: Context) extends GridComponents(context) {
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new AdminToolsCtr(config, controllerComponents)
+  val notifications = new ThrallMessageSender(config)
+
+  val controller = new AdminToolsCtr(config, controllerComponents, notifications)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }
