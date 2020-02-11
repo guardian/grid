@@ -5,7 +5,7 @@ const outFile = process.argv[3];
 const tableNamesString = process.argv[2];
 const keysString = process.argv[4];
 const title = `\nScript to scan 1 or more dynamo tables, listing the specified key.`
-const info = `\nFormat -- node scan-dyn-table-for-pk.js <table-names> <output-file> [<keys-for-each-table>] \n\nTable names should be separated by commas. \nKeys should be separated by commas, and correspond to the list of table names. Default is ’id’.\n`
+const info = `\nFormat -- node scan-dynamo-table-for-pk.js <table-names> <output-file> [<keys-for-each-table>] \n\nTable names should be separated by commas. \nKeys should be separated by commas, and correspond to the list of table names. Default is ’id’.\n`
 
 if (process.argv.length < 3) {
   console.log(title, info)
