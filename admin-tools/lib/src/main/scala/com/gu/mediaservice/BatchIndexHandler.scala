@@ -64,18 +64,18 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
         updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
         println(s"prepared json blobs list of size: ${foundImages.size}")
-        if (foundImages.isEmpty) {
+        if (foundImages.nonEmpty) {
+          println("attempting to store blob to s3")
+          val bulkIndexRequest = putToS3(foundImages)
+          val indexMessage = UpdateMessage(
+            subject = "batch-index",
+            bulkIndexRequest = Some(bulkIndexRequest)
+          )
+          putToKinensis(indexMessage)
+          stateProgress += updateStateToFinished(foundImages.map(_.id))
+        } else {
           println("all was empty terminating current batch")
-          return stateProgress.map(_.name).toList
         }
-        println("attempting to store blob to s3")
-        val bulkIndexRequest = putToS3(foundImages)
-        val indexMessage = UpdateMessage(
-          subject = "batch-index",
-          bulkIndexRequest = Some(bulkIndexRequest)
-        )
-        putToKinensis(indexMessage)
-        stateProgress += updateStateToFinished(foundImages.map(_.id))
         stateProgress.map(_.name).toList
       }
       Await.result(processImagesFuture, GlobalTimeout)
