@@ -31,35 +31,25 @@ object GridClient {
   def makeGetRequestSync(url: URL, apiKey: String): ResponseWrapper = {
     val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, apiKey).build
     val response = httpClient.newCall(request).execute
-    import response._
-    val resInfo = Map(
-      "status-code" -> response.code.toString,
-      "message" -> response.message
-    )
-    println(s"GET $url response: $resInfo")
-    val json = if (code == 200) {
-      val json = Json.parse(body.string)
-      body().close()
-      json
-    } else Json.obj()
-    ResponseWrapper(json, code)
+    processResponse(response, url)
   }
 
   def makeGetRequestAsync(url: URL, apiKey: String)(implicit ec: ExecutionContext): Future[ResponseWrapper] = {
     makeRequestAsync(url, apiKey).map { response =>
-      import response._
-      val resInfo = Map(
-        "status-code" -> code.toString,
-        "message" -> message
-      )
-      println(s"GET $url response: $resInfo")
-      val json = if (code == 200) {
-        val json = Json.parse(body.string)
-        body.close()
-        json
-      } else Json.obj()
-      ResponseWrapper(json, code)
+      processResponse(response, url)
     }
+  }
+
+  private def processResponse(response: Response, url: URL) = {
+    import response._
+    val resInfo = Map(
+      "status-code" -> code.toString,
+      "message" -> message
+    )
+    println(s"GET $url response: $resInfo")
+    val json = if (code == 200) Json.parse(body.string) else Json.obj()
+    response.close()
+    ResponseWrapper(json, code)
   }
 
   private def makeRequestAsync(url: URL, apiKey: String): Future[Response] = {
