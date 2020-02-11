@@ -11,7 +11,7 @@ class BatchIndexLambdaHandler {
     batchSize = sys.env("BATCH_SIZE").toInt
   )
 
-  private val batchIndex = BatchIndexHandler(cfg)
+  private val batchIndex = new BatchIndexHandler(cfg)
 
   def handleRequest() = {
     batchIndex.processImages()

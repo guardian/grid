@@ -12,8 +12,8 @@ import com.gu.mediaservice.model.Image
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.{FiniteDuration, TimeUnit}
 import scala.util.{Failure, Success, Try}
 
 case class BatchIndexHandlerConfig(
@@ -26,11 +26,6 @@ case class BatchIndexHandlerConfig(
                                     kinesisEndpoint: Option[String] = None
                                   )
 
-object BatchIndexHandler {
-
-  def apply(cfg: BatchIndexHandlerConfig): BatchIndexHandler = new BatchIndexHandler(cfg)
-
-}
 
 class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
@@ -41,8 +36,8 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val OthersTimoutInMins = 1
   private val GlobalTimoutInMins = ProjectionTimoutInMins + GetIdsTimoutInMins + OthersTimoutInMins
 
-  private val GetIdsTimeout =  new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
-  private val GlobalTimeout =  new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
+  private val GetIdsTimeout = new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
+  private val GlobalTimeout = new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, domainRoot, ImagesProjectionTimeout)

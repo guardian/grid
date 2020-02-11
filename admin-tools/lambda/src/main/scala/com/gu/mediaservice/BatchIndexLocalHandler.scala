@@ -1,7 +1,5 @@
 package com.gu.mediaservice
 
-import scala.concurrent.ExecutionContext.Implicits.global
-
 object BatchIndexLocalHandler extends App {
 
   private val cfg = BatchIndexHandlerConfig(
@@ -14,7 +12,7 @@ object BatchIndexLocalHandler extends App {
     kinesisEndpoint = Some("http://localhost:4568")
   )
 
-  private val batchIndex = BatchIndexHandler(cfg)
+  private val batchIndex = new BatchIndexHandler(cfg)
 
   batchIndex.processImages()
 
