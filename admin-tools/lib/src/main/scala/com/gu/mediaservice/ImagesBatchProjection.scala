@@ -6,16 +6,11 @@ import com.gu.mediaservice.model.Image
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-object ImagesBatchProjection {
-  def apply(apiKey: String, domainRoot: String, timeout: Duration): ImagesBatchProjection =
-    new ImagesBatchProjection(apiKey, domainRoot, timeout)
-}
-
 class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duration) {
 
   private val ImageProjector = createImageProjector
 
-  def getMaybeImagesProjectionBlobs(mediaIds: List[String])(implicit ec: ExecutionContext): List[Either[Image, String]] = {
+  def getImagesProjection(mediaIds: List[String])(implicit ec: ExecutionContext): List[Either[Image, String]] = {
     val f = Future.traverse(mediaIds) { id =>
       val maybeProjection = ImageProjector.getMergedImageData(id)
 

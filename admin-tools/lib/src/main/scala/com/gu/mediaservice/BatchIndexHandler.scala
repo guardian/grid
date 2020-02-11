@@ -45,7 +45,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val GlobalTimeout =  new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
 
-  private val ImagesBatchProjector = ImagesBatchProjection(apiKey, domainRoot, ImagesProjectionTimeout)
+  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, domainRoot, ImagesProjectionTimeout)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
   private val InputIdsStore = new InputIdsStore(AwsFunctions.buildDynamoTableClient, batchSize)
 
@@ -64,7 +64,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
       val processImagesFuture: Future[List[String]] = Future {
         println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
         stateProgress += updateStateToItemsInProgress(mediaIds)
-        val maybeBlobsFuture: List[Either[Image, String]] = getMaybeImagesProjectionBlobs(mediaIds)
+        val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds)
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
 
         updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
