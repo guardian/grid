@@ -16,7 +16,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
-                       syndicationRightsOps: SyndicationRightsOps
+                       syndicationRightsOps: SyndicationRightsOps,
+                       bulkIndexS3Client: BulkIndexS3Client
                       ) {
 
   def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Option[UpdateMessage => Future[Any]] = {
@@ -40,10 +41,10 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[BulkIndexRequest] = {
+  def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchBulkUpdateResponse]] = {
     val request = message.bulkIndexRequest.get
-    Logger.info(s"Batch Indexing from ${request.bucket}/${request.key}")
-    Future.successful(request)
+    val imagesToIndex = bulkIndexS3Client.getImages(request)
+    Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
   def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {

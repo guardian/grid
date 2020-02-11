@@ -1,6 +1,5 @@
 package lib.kinesis
 
-import java.nio.charset.StandardCharsets
 import java.util
 import java.util.concurrent.Executors
 
@@ -17,16 +16,17 @@ import play.api.Logger
 import play.api.libs.json.{JodaReads, Json, Reads}
 
 import scala.concurrent.duration.{Duration, SECONDS}
-import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
+import scala.concurrent.{Await, ExecutionContext, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 class ThrallEventConsumer(es: ElasticSearch,
                           thrallMetrics: ThrallMetrics,
                           store: ThrallStore,
                           metadataEditorNotifications: MetadataEditorNotifications,
-                          syndicationRightsOps: SyndicationRightsOps) extends IRecordProcessor with PlayJsonHelpers {
+                          syndicationRightsOps: SyndicationRightsOps,
+                          bulkIndexS3Client: BulkIndexS3Client) extends IRecordProcessor with PlayJsonHelpers {
 
-  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, syndicationRightsOps)
+  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, syndicationRightsOps, bulkIndexS3Client)
   private val Timeout = Duration(30, SECONDS)
 
   private implicit val ctx: ExecutionContext =

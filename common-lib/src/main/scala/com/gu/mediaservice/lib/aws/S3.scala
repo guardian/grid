@@ -4,13 +4,14 @@ import java.io.File
 import java.net.{URI, URLEncoder}
 import java.nio.charset.{Charset, StandardCharsets}
 
-import com.amazonaws.ClientConfiguration
+import com.amazonaws.{AmazonServiceException, ClientConfiguration}
 import com.amazonaws.services.s3.model._
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
-import com.gu.mediaservice.lib.ImageIngestOperations
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
+import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,6 +30,7 @@ class S3(config: CommonConfig) {
   import S3Ops.objectUrl
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
+  private val log = LoggerFactory.getLogger(getClass)
 
   private def removeExtension(filename: String): String = {
     val regex = """\.[a-zA-Z]{3,4}$""".r
@@ -89,10 +91,25 @@ class S3(config: CommonConfig) {
     client.generatePresignedUrl(request).toExternalForm
   }
 
-  def getObject(bucket: Bucket, url: URI) = {
+  def getObject(bucket: Bucket, url: URI): model.S3Object = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
     client.getObject(new GetObjectRequest(bucket, key))
+  }
+
+  def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
+    val content = client.getObject(new GetObjectRequest(bucket, key))
+    val stream = content.getObjectContent
+    try {
+      Some(IOUtils.toString(stream).trim)
+    } catch {
+      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
+        log.warn(s"Cannot find key: $key in bucket: $bucket")
+        None
+    }
+    finally {
+      stream.close()
+    }
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)

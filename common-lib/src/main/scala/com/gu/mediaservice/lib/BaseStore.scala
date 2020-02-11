@@ -2,10 +2,7 @@ package com.gu.mediaservice.lib
 
 import java.io.InputStream
 
-import _root_.play.api.Logger
 import akka.actor.Scheduler
-import com.amazonaws.AmazonServiceException
-import com.amazonaws.util.IOUtils
 import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -25,19 +22,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   protected val store: Box[Map[TStoreKey, TStoreVal]] = Box(Map.empty)
   protected val lastUpdated: Box[DateTime] = Box(DateTime.now())
 
-  protected def getS3Object(key: String): Option[String] = {
-    val content = s3.client.getObject(bucket, key)
-    val stream = content.getObjectContent
-    try
-      Some(IOUtils.toString(stream).trim)
-    catch {
-      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
-        log.warn(s"Cannot find key: $key in bucket: $bucket")
-        None
-    }
-    finally
-      stream.close()
-  }
+  protected def getS3Object(key: String): Option[String] = s3.getObjectAsString(bucket, key)
 
   protected def getLatestS3Stream: Option[InputStream] = {
     val objects = s3.client
@@ -46,12 +31,12 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
 
     if (objects.nonEmpty) {
       val obj = objects.maxBy(_.getLastModified)
-      Logger.info(s"Latest key ${obj.getKey} in bucket $bucket")
+      log.info(s"Latest key ${obj.getKey} in bucket $bucket")
 
       val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
       Some(stream)
     } else {
-      Logger.error(s"Bucket $bucket is empty")
+      log.error(s"Bucket $bucket is empty")
       None
     }
   }

@@ -16,12 +16,13 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             store: ThrallStore,
                             metadataEditorNotifications: MetadataEditorNotifications,
                             syndicationRightsOps: SyndicationRightsOps,
-                            from: Option[DateTime]) {
+                            from: Option[DateTime],
+                            bulkIndexS3Client: BulkIndexS3Client) {
 
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   private val thrallEventProcessorFactory = new IRecordProcessorFactory {
-    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps)
+    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps, bulkIndexS3Client)
   }
 
   private def createKinesisWorker(cfg: KinesisClientLibConfiguration): Worker = {

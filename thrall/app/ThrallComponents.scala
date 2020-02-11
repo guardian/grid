@@ -26,8 +26,10 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val es6 = new ElasticSearch(es6Config, Some(thrallMetrics))
   es6.ensureAliasAssigned()
 
+  val bulkIndexS3Client = new BulkIndexS3Client(config)
+
   val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(
-    config, es6, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from
+    config, es6, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from, bulkIndexS3Client
   )
   thrallKinesisMessageConsumer.start()
 
