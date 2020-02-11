@@ -37,8 +37,11 @@ object GridClient {
       "message" -> response.message
     )
     println(s"GET $url response: $resInfo")
-    val json = if (code == 200) Json.parse(body.string) else Json.obj()
-    response.close()
+    val json = if (code == 200) {
+      val json = Json.parse(body.string)
+      body().close()
+      json
+    } else Json.obj()
     ResponseWrapper(json, code)
   }
 
@@ -50,8 +53,11 @@ object GridClient {
         "message" -> message
       )
       println(s"GET $url response: $resInfo")
-      val json = if (code == 200) Json.parse(body.string) else Json.obj()
-      response.close()
+      val json = if (code == 200) {
+        val json = Json.parse(body.string)
+        body.close()
+        json
+      } else Json.obj()
       ResponseWrapper(json, code)
     }
   }
