@@ -32,11 +32,14 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
   import cfg._
 
   def putToS3(imageBlobs: List[Image]): BulkIndexRequest = {
-    val imagesJsonArray = Json.stringify(Json.toJson(imageBlobs))
+    import Json.{stringify, toJson}
+    val imagesJsonArray = stringify(toJson(imageBlobs))
+    val bArr = imagesJsonArray.getBytes
     val key = s"batch-index/${UUID.randomUUID().toString}.json"
     val metadata = new ObjectMetadata
     metadata.setContentType("application/json")
-    val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(imagesJsonArray.getBytes), metadata)
+    metadata.setContentLength(bArr.length)
+    val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(bArr), metadata)
     println(s"PUT [s3://$batchIndexBucket/$key] object to s3 response: $res")
     BulkIndexRequest(batchIndexBucket, key)
   }
@@ -45,11 +48,10 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
     println("attempting to put message to kinesis")
     val payload = JsonByteArrayUtil.toByteArray(message)
     val partitionKey = UUID.randomUUID().toString
-    val data = ByteBuffer.wrap(payload)
     val putReq = new PutRecordRequest()
       .withStreamName(kinesisStreamName)
       .withPartitionKey(partitionKey)
-      .withData(data)
+      .withData(ByteBuffer.wrap(payload))
 
     val res = kinesis.putRecord(putReq)
     println(s"PUT [$message] message to kinesis stream: $kinesisStreamName response: $res")
