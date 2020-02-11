@@ -74,24 +74,11 @@ upload.factory('fileUploader',
                 function($q, loaderApi) {
 
     function upload(file) {
-        return readFile(file).then(fileData => {
-            return uploadFile(fileData, { filename: file.name });
-        });
+      return uploadFile(file, {filename: file.name});
     }
 
-    function readFile(file) {
-        var reader = new FileReader();
-        var def = $q.defer();
-
-        reader.addEventListener('load',  event => def.resolve(event.target.result));
-        reader.addEventListener('error', def.reject);
-        reader.readAsArrayBuffer(file);
-
-        return def.promise;
-    }
-
-    function uploadFile(fileData, uploadInfo) {
-        return loaderApi.load(new Uint8Array(fileData), uploadInfo);
+    function uploadFile(file, uploadInfo) {
+        return loaderApi.load(file, uploadInfo);
     }
 
     function loadUriImage(fileUri) {
