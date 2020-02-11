@@ -66,12 +66,12 @@ object GridClient {
   }
 }
 
-class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionContext) {
+class ImageDataMerger(config: ImageDataMergerConfig) {
 
   import config._
   import services._
 
-  def getMergedImageData(mediaId: String): Future[Option[Image]] = {
+  def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
     val maybeImage: Option[Image] = getImageLoaderProjection(mediaId)
     maybeImage match {
       case Some(img) => aggregate(img).map(Some(_))
@@ -79,7 +79,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
     }
   }
 
-  private def aggregate(image: Image): Future[Image] = {
+  private def aggregate(image: Image)(implicit ec: ExecutionContext): Future[Image] = {
     println(s"starting to aggregate image")
     val mediaId = image.id
     for {
@@ -106,7 +106,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
     if (statusCode == 200) Some(body.as[Image]) else None
   }
 
-  private def getCollectionsResponse(mediaId: String): Future[List[Collection]] = {
+  private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     println("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
     GridClient.makeGetRequestAsync(url, apiKey).map { res =>
@@ -114,7 +114,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
     }
   }
 
-  private def getEdits(mediaId: String): Future[Option[Edits]] = {
+  private def getEdits(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     println("attempt to get edits")
     val url = new URL(s"$metadataBaseUri/edits/$mediaId")
     GridClient.makeGetRequestAsync(url, apiKey).map { res =>
@@ -122,7 +122,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
     }
   }
 
-  private def getCrops(mediaId: String): Future[List[Crop]] = {
+  private def getCrops(mediaId: String)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     println("attempt to get crops")
     val url = new URL(s"$cropperBaseUri/crops/$mediaId")
     GridClient.makeGetRequestAsync(url, apiKey).map { res =>
@@ -130,7 +130,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
     }
   }
 
-  private def getLeases(mediaId: String): Future[LeasesByMedia] = {
+  private def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     println("attempt to get leases")
     val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
     GridClient.makeGetRequestAsync(url, apiKey).map { res =>
@@ -138,7 +138,7 @@ class ImageDataMerger(config: ImageDataMergerConfig)(implicit ec: ExecutionConte
     }
   }
 
-  private def getUsages(mediaId: String): Future[List[Usage]] = {
+  private def getUsages(mediaId: String)(implicit ec: ExecutionContext): Future[List[Usage]] = {
     println("attempt to get usages")
 
     def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
