@@ -41,15 +41,20 @@ object GridClient {
   }
 
   private def processResponse(response: Response, url: URL) = {
-    import response._
-    val resInfo = Map(
-      "status-code" -> code.toString,
-      "message" -> message
-    )
-    println(s"GET $url response: $resInfo")
-    val json = if (code == 200) Json.parse(body.string) else Json.obj()
-    response.close()
-    ResponseWrapper(json, code)
+    val body = response.body()
+    val code = response.code()
+    try {
+      val resInfo = Map(
+        "status-code" -> code.toString,
+        "message" -> response.message()
+      )
+      println(s"GET $url response: $resInfo")
+      val json = if (code == 200) Json.parse(body.string) else Json.obj()
+      response.close()
+      ResponseWrapper(json, code)
+    } finally {
+      body.close()
+    }
   }
 
   private def makeRequestAsync(url: URL, apiKey: String): Future[Response] = {
