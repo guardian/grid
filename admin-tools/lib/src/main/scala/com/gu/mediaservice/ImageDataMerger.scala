@@ -26,7 +26,16 @@ case class ImageDataMergerConfig(apiKey: String, services: Services) {
 case class ResponseWrapper(body: JsValue, statusCode: Int)
 
 object GridClient {
-  private val httpClient = new OkHttpClient
+
+  import java.util.concurrent.TimeUnit
+
+  private val pool = new ConnectionPool(20, 5, TimeUnit.MINUTES)
+
+  private val httpClient: OkHttpClient = new OkHttpClient.Builder()
+    .connectTimeout(0, TimeUnit.MINUTES)
+    .readTimeout(0, TimeUnit.MINUTES)
+    .connectionPool(pool)
+    .build()
 
   def makeGetRequestSync(url: URL, apiKey: String): ResponseWrapper = {
     val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, apiKey).build
