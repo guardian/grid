@@ -39,8 +39,9 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val GetIdsTimeout = new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
   private val GlobalTimeout = new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
+  private val gridClient = new GridClient()
 
-  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout)
+  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
   private val InputIdsStore = new InputIdsStore(AwsFunctions.buildDynamoTableClient, batchSize)
 
