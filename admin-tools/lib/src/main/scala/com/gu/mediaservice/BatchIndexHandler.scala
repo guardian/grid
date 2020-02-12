@@ -63,14 +63,12 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
         stateProgress += updateStateToItemsInProgress(mediaIds)
         println(s"get images projection started, projectionEndpoint: $projectionEndpoint")
         val start = System.currentTimeMillis()
-        val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint)
+        val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
         println(s"foundImages size: $foundImages, notFoundImagesIds size: $notFoundImagesIds")
         val end = System.currentTimeMillis()
         val projectionTookInSec = (end - start) / 1000
         println(s"projection of ${mediaIds.length} images took: $projectionTookInSec seconds")
-        updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
-        println(s"prepared json blobs list of size: ${foundImages.size}")
         if (foundImages.nonEmpty) {
           println("attempting to store blob to s3")
           val bulkIndexRequest = putToS3(foundImages)
@@ -137,12 +135,8 @@ class InputIdsStore(table: Table, batchSize: Int) {
   }
 
   // used to track images that were not projected successfully
-  def updateStateToNotFoundImages(notFoundIds: List[String]): Option[ProduceProgress] = {
-    if (notFoundIds.isEmpty) None else {
-      println(s"not found images ids: $notFoundIds")
-      Some(updateItemsState(notFoundIds, NotFound))
-    }
-  }
+  def updateStateToNotFoundImage(notFoundId: String) =
+    updateItemSate(notFoundId, NotFound.stateId)
 
   def updateStateToFinished(ids: List[String]): ProduceProgress = {
     println(s"updating items state to in progress")
