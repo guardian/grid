@@ -23,7 +23,8 @@ case class BatchIndexHandlerConfig(
                                     kinesisStreamName: String,
                                     dynamoTableName: String,
                                     batchSize: Int,
-                                    kinesisEndpoint: Option[String] = None
+                                    kinesisEndpoint: Option[String] = None,
+                                    maxIdleConnections: Int
                                   )
 
 
@@ -39,7 +40,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val GetIdsTimeout = new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
   private val GlobalTimeout = new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
-  private val gridClient = new GridClient()
+  private val gridClient = GridClient(maxIdleConnections)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)

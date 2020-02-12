@@ -25,17 +25,19 @@ class LambdaHandler {
 
     val apiKey = getAuthKeyFrom(headers)
 
+    val gridClient = GridClient(5)
+
     apiKey match {
       case Some(key) =>
         val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
 
-        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(key, services)
+        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(key, services, gridClient)
         if (!cfg.isValidApiKey()) return getUnauthorisedResponse
 
         println(s"starting handleImageProjection for mediaId=$mediaId")
         println(s"with config: $cfg")
 
-        val merger = new ImageDataMerger(cfg)
+        val merger = new ImageDataMerger(cfg, gridClient)
         val maybeImageFuture: Future[Option[Image]] = merger.getMergedImageData(mediaId.asInstanceOf[String])
         val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
 

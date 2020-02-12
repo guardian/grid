@@ -27,9 +27,9 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
 
   private def createImageProjector = {
     val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
-    val cfg = ImageDataMergerConfig(apiKey, services)
+    val cfg = ImageDataMergerConfig(apiKey, services, gridClient)
     if (!cfg.isValidApiKey()) throw new IllegalArgumentException("provided api_key is invalid")
-    new ImageDataMerger(cfg)
+    new ImageDataMerger(cfg, gridClient)
   }
 
 }

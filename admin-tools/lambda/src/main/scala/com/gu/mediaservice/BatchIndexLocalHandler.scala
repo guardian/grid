@@ -9,7 +9,8 @@ object BatchIndexLocalHandler extends App {
     kinesisStreamName = sys.env("KINESIS_STREAM"),
     dynamoTableName = sys.env("IMAGES_TO_INDEX_DYNAMO_TABLE"),
     batchSize = 3,
-    kinesisEndpoint = Some("http://localhost:4568")
+    kinesisEndpoint = Some("http://localhost:4568"),
+    maxIdleConnections = 5,
   )
 
   private val batchIndex = new BatchIndexHandler(cfg)
