@@ -1,7 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.sksamuel.elastic4s.{ElasticClient, Executor, Functor, Handler, Response}
-
+import com.sksamuel.elastic4s.{ElasticClient, ElasticError, Executor, Functor, Handler, Response}
 import net.logstash.logback.marker.LogstashMarker
 import net.logstash.logback.marker.Markers.appendEntries
 import play.api.{Logger, MarkerContext}
@@ -26,7 +25,10 @@ trait ElasticSearchExecutions {
       case Success(r) =>
         r.isSuccess match {
           case true => Success(r)
-          case false => Failure(new RuntimeException("query response was not successful: " + r.error.reason))
+          case false => r.status match {
+            case 404 => Failure(ElasticNotFoundException)
+            case _ => Failure(ElasticException(r.error))
+          }
         }
       case Failure(f) => Failure(f)
     }
@@ -40,7 +42,12 @@ trait ElasticSearchExecutions {
     result.failed.foreach { e =>
       val elapsed = System.currentTimeMillis() - start
       val markers = MarkerContext(durationMarker(elapsed))
-      Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
+      e match {
+        case ElasticNotFoundException => Logger.error(s"$message - query failed: Document not Found")(markers)
+        case ElasticException(error) => Logger.error(s"$message - query failed after: ${error.reason} type: ${error.`type`}")(markers)
+        case _ => Logger.error(s"$message - query failed: ${e.getMessage} cs: ${e.getCause}")(markers)
+
+      }
     }
 
     result
@@ -49,3 +56,6 @@ trait ElasticSearchExecutions {
   private def durationMarker(elapsed: Long): LogstashMarker = appendEntries(Map("duration" -> elapsed).asJava)
 
 }
+
+case class ElasticException(error: ElasticError) extends Exception(s"Elastic Search Error ${error.`type`} ${error.reason}")
+case object ElasticNotFoundException  extends Exception(s"Elastic Search Document Not Found")

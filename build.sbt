@@ -9,7 +9,8 @@ val commonSettings = Seq(
   version := "0.1",
   scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings"),
   libraryDependencies ++= Seq(
-    "org.scalatest" %% "scalatest" % "3.0.5"
+    "org.scalatest" %% "scalatest" % "3.0.5",
+    "org.mockito" % "mockito-core" % "2.18.0"
   )
 )
 
@@ -83,8 +84,8 @@ lazy val commonLib = project("common-lib").settings(
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
-    "org.codehaus.janino" % "janino" % "3.0.6"
-  ),
+    "org.codehaus.janino" % "janino" % "3.0.6",
+),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 )
 
@@ -114,7 +115,6 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "org.apache.commons" % "commons-email" % "1.5",
     "org.parboiled" %% "parboiled" % "2.1.5",
     "org.http4s" %% "http4s-core" % "0.18.7",
-    "org.mockito" % "mockito-core" % "2.18.0",
     "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test

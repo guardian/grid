@@ -1,14 +1,19 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl
+
+
+// import com.sksamuel.elastic4s.ElasticDsl._  This brings in the handler. Don't optimise imports.
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import helpers.Fixtures
+import org.joda.time.DateTime
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
-import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.ElasticDsl._
+import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -58,4 +63,16 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     esContainer.toList ++ super.dockerContainers
 
   final override val StartContainersTimeout = 1.minute
+
+
+  def reloadedImage(id: String) = {
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  def indexedImage(id: String) = {
+    Thread.sleep(1000) // TODO use eventually clause
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  def asJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))
 }

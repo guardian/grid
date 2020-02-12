@@ -1,6 +1,7 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{BulkIndexRequest, EsResponse, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
+import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
@@ -9,8 +10,8 @@ import lib._
 import lib.elasticsearch._
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json._
+import play.api.{Logger, MarkerContext}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,7 +22,7 @@ class MessageProcessor(es: ElasticSearch,
                        bulkIndexS3Client: BulkIndexS3Client
                       ) {
 
-  def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Option[UpdateMessage => Future[Any]] = {
+  def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext,  mc: MarkerContext ): Option[UpdateMessage => Future[Any]] = {
     PartialFunction.condOpt(updateMessage.subject) {
       case "image" => indexImage
       case "reindex-image" => indexImage
@@ -51,13 +52,16 @@ class MessageProcessor(es: ElasticSearch,
     Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
-  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
-    implicit val unw: OWrites[UsageNotice] = Json.writes[UsageNotice]
+  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext, mc: MarkerContext): Future[List[ElasticSearchUpdateResponse]] = {
+    implicit val unw = Json.writes[UsageNotice]
     withId(message) { id =>
       withUsageNotice(message) { usageNotice =>
         withLastModified(message) { lastModifed =>
-          val usages = usageNotice.usageJson.as[List[Usage]]
-          Future.sequence(es.updateImageUsages(id, usages, dateTimeAsJsLookup(lastModifed)))
+          val usages = usageNotice.usageJson.as[Seq[Usage]]
+          Future.traverse(es.updateImageUsages(id, usages, dateTimeAsJsLookup(lastModifed)))(_.recoverWith {
+            case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
+          }
+          )
         }
       }
     }

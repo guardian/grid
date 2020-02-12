@@ -652,15 +652,5 @@ class ElasticSearchTest extends ElasticSearchTestBase {
     }
   }
 
-  private def reloadedImage(id: String) = {
-    Await.result(ES.getImage(id), fiveSeconds)
-  }
-
-  private def indexedImage(id: String) = {
-    Thread.sleep(1000) // TODO use eventually clause
-    Await.result(ES.getImage(id), fiveSeconds)
-  }
-
-  private def asJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))
 
 }
