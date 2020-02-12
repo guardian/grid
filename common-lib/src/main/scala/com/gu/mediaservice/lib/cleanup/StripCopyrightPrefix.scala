@@ -11,7 +11,6 @@ object StripCopyrightPrefix extends MetadataCleaner {
     metadata.copy(
       byline = metadata.byline.map(stripCopyrightPrefix),
       credit = metadata.credit.map(stripCopyrightPrefix),
-      copyright = metadata.copyright.map(stripCopyrightPrefix)
     )
 
   def stripCopyrightPrefix(s: String): String = s match {
