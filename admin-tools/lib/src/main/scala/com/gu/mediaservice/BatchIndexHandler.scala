@@ -40,7 +40,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val GetIdsTimeout = new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
   private val GlobalTimeout = new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
-  private val gridClient = GridClient(maxIdleConnections)
+  private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
@@ -61,9 +61,14 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
       val processImagesFuture: Future[List[String]] = Future {
         println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
         stateProgress += updateStateToItemsInProgress(mediaIds)
+        println(s"get images projection started, projectionEndpoint: $projectionEndpoint")
+        val start = System.currentTimeMillis()
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint)
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
-
+        println(s"foundImages size: $foundImages, notFoundImagesIds size: $notFoundImagesIds")
+        val end = System.currentTimeMillis()
+        val projectionTookInSec = (end - start) / 1000
+        println(s"projection of ${mediaIds.length} images took: $projectionTookInSec seconds")
         updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
         println(s"prepared json blobs list of size: ${foundImages.size}")
         if (foundImages.nonEmpty) {
