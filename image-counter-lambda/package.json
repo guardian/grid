@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest",
     "compile": "ncc build src/handler.ts -o dist -m -e aws-sdk -s",
-    "deploy": "npm run compile && node-riffraff-artifact",
+    "deploy": "npm run compile && node-riffraff-artifact"
   },
   "keywords": [],
   "author": "",
