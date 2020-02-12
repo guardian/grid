@@ -3,7 +3,7 @@ package com.gu.mediaservice
 import java.util.concurrent.TimeUnit
 
 import com.amazonaws.services.dynamodbv2.document._
-import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
@@ -109,9 +109,12 @@ class InputIdsStore(table: Table, batchSize: Int) {
 
   def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     println("attempt to get mediaIds batch from dynamo")
-    val scanSpec = new ScanSpec().withFilterExpression(s"$StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
-    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
+
+    val querySpec = new QuerySpec()
+      .withKeyConditionExpression(s"$StateField = :sub")
+      .withValueMap(new ValueMap().withNumber(":sub", 0))
+      .withMaxResultSize(batchSize)
+    val mediaIds = table.query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
     })
