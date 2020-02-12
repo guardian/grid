@@ -112,12 +112,11 @@ class InputIdsStore(table: Table, batchSize: Int) {
 
   def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     println("attempt to get mediaIds batch from dynamo")
-
     val querySpec = new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0))
       .withMaxResultSize(batchSize)
-    val mediaIds = table.query(querySpec).asScala.toList.map(it => {
+    val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
     })
