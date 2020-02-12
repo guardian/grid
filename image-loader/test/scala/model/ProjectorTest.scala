@@ -52,7 +52,6 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
       "Country/Primary Location Code" -> "AUT",
       "Country/Primary Location Name" -> "AUSTRIA",
       "Category" -> "S",
-      "Copyright Notice" -> "CHRISTOF STACHE",
       "Supplemental Category(s)" -> "SKI",
       "Coded Character Set" -> "UTF-8",
       "Application Record Version" -> "4",
