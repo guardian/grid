@@ -5,7 +5,6 @@ import java.net.URL
 
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.Image._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.model.{Collection, Crop, Edits, Image}
@@ -14,19 +13,32 @@ import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-case class ImageDataMergerConfig(apiKey: String, services: Services) {
+case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient: GridClient) {
   def isValidApiKey(): Boolean = {
     // Make an API key authenticated request to the leases API as a way of validating the API key.
     // A 200 indicates a valid key.
     // Using leases because its a low traffic API.
-    GridClient.makeGetRequestSync(new URL(services.leasesBaseUri), apiKey).statusCode == 200
+    gridClient.makeGetRequestSync(new URL(services.leasesBaseUri), apiKey).statusCode == 200
   }
 }
 
 case class ResponseWrapper(body: JsValue, statusCode: Int)
 
 object GridClient {
-  private val httpClient = new OkHttpClient
+  def apply(maxIdleConnections: Int): GridClient = new GridClient(maxIdleConnections)
+}
+
+class GridClient(maxIdleConnections: Int) {
+
+  import java.util.concurrent.TimeUnit
+
+  private val pool = new ConnectionPool(maxIdleConnections, 5, TimeUnit.MINUTES)
+
+  private val httpClient: OkHttpClient = new OkHttpClient.Builder()
+    .connectTimeout(0, TimeUnit.MINUTES)
+    .readTimeout(0, TimeUnit.MINUTES)
+    .connectionPool(pool)
+    .build()
 
   def makeGetRequestSync(url: URL, apiKey: String): ResponseWrapper = {
     val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, apiKey).build
@@ -69,7 +81,7 @@ object GridClient {
   }
 }
 
-class ImageDataMerger(config: ImageDataMergerConfig) {
+class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
 
   import config._
   import services._
@@ -103,16 +115,15 @@ class ImageDataMerger(config: ImageDataMergerConfig) {
   private def getImageLoaderProjection(mediaId: String): Option[Image] = {
     println("attempt to get image projection from image-loader")
     val url = new URL(s"$loaderBaseUri/images/project/$mediaId")
-    val res = GridClient.makeGetRequestSync(url, apiKey)
-    import res._
-    println(s"got image projection from image-loader for $mediaId with status code $statusCode")
-    if (statusCode == 200) Some(body.as[Image]) else None
+    val res = gridClient.makeGetRequestSync(url, apiKey)
+    println(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
+    if (res.statusCode == 200) Some(res.body.as[Image]) else None
   }
 
   private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     println("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    GridClient.makeGetRequestAsync(url, apiKey).map { res =>
+    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
     }
   }
@@ -120,7 +131,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) {
   private def getEdits(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     println("attempt to get edits")
     val url = new URL(s"$metadataBaseUri/edits/$mediaId")
-    GridClient.makeGetRequestAsync(url, apiKey).map { res =>
+    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
     }
   }
@@ -128,7 +139,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) {
   private def getCrops(mediaId: String)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     println("attempt to get crops")
     val url = new URL(s"$cropperBaseUri/crops/$mediaId")
-    GridClient.makeGetRequestAsync(url, apiKey).map { res =>
+    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
     }
   }
@@ -136,7 +147,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) {
   private def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     println("attempt to get leases")
     val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
-    GridClient.makeGetRequestAsync(url, apiKey).map { res =>
+    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
     }
   }
@@ -150,7 +161,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) {
     }
 
     val url = new URL(s"$usageBaseUri/usages/media/$mediaId")
-    GridClient.makeGetRequestAsync(url, apiKey).map { res =>
+    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
       else Nil
     }

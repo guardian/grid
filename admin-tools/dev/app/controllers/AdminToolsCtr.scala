@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.Image
 import com.gu.mediaservice.model.Image._
-import com.gu.mediaservice.{ImageDataMerger, ImageDataMergerConfig}
+import com.gu.mediaservice.{GridClient, ImageDataMerger, ImageDataMergerConfig}
 import lib.AdminToolsConfig
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
@@ -14,9 +14,11 @@ import scala.concurrent.{ExecutionContext, Future}
 class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  private val cfg = ImageDataMergerConfig(config.apiKey, config.services)
+  private val gridClient = GridClient(5)
 
-  private val merger = new ImageDataMerger(cfg)
+  private val cfg = ImageDataMergerConfig(config.apiKey, config.services, gridClient)
+
+  private val merger = new ImageDataMerger(cfg, gridClient)
 
   private val indexResponse = {
     val indexData = Json.obj(
