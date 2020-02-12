@@ -42,7 +42,6 @@ trait MetadataHelper {
       byline              = metadata.get("byline"),
       bylineTitle         = metadata.get("bylineTitle"),
       title               = metadata.get("title"),
-      copyrightNotice     = metadata.get("copyrightNotice"),
       copyright           = metadata.get("copyright"),
       suppliersReference  = metadata.get("suppliersReference"),
       source              = metadata.get("source"),
