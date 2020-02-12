@@ -1,0 +1,11 @@
+{
+  "projectName": "media-service::grid::image-counter-lambda",
+  "vcsURL": "your github url",
+  "actions": [
+    {
+      "action": "image-counter-lambda",
+      "path": "dist",
+      "compress": "zip"
+    }
+  ]
+}
