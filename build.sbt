@@ -143,6 +143,7 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   ).dependsOn(commonLib)
 
 lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
+  .enablePlugins(RiffRaffArtifact)
   .settings(
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", xs@_*) => MergeStrategy.discard
@@ -153,9 +154,15 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
       "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
     )
-  ).dependsOn(adminToolsLib).settings(
-  assemblyJarName in assembly := "admin-tools-lambda.jar"
-)
+  )
+  .dependsOn(adminToolsLib)
+  .settings(
+    assemblyJarName := s"${name.value}.jar",
+    riffRaffPackageType := assembly.value,
+    riffRaffUploadArtifactBucket := Some("riffraff-artifact"),
+    riffRaffUploadManifestBucket := Some("riffraff-builds"),
+    riffRaffManifestProjectName := s"media-service::grid::admin-tools-lambda"
+  )
 
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
   .dependsOn(adminToolsLib)
