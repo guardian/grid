@@ -88,7 +88,6 @@ object Mappings {
     keywordField("credit").copyTo("metadata.englishAnalysedCatchAll"),
     keywordField("creditUri"),
     standardAnalysed("copyright"),
-    standardAnalysed("copyrightNotice"),
     standardAnalysed("suppliersReference").copyTo("metadata.englishAnalysedCatchAll"),
     keywordField("source").copyTo("metadata.englishAnalysedCatchAll"),
     nonAnalysedList("keywords").copyTo("metadata.englishAnalysedCatchAll"),
