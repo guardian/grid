@@ -31,26 +31,29 @@ object GridClient {
   def makeGetRequestSync(url: URL, apiKey: String): ResponseWrapper = {
     val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, apiKey).build
     val response = httpClient.newCall(request).execute
-    import response._
-    val resInfo = Map(
-      "status-code" -> response.code.toString,
-      "message" -> response.message
-    )
-    println(s"GET $url response: $resInfo")
-    val json = if (code == 200) Json.parse(body.string) else Json.obj()
-    ResponseWrapper(json, code)
+    processResponse(response, url)
   }
 
   def makeGetRequestAsync(url: URL, apiKey: String)(implicit ec: ExecutionContext): Future[ResponseWrapper] = {
     makeRequestAsync(url, apiKey).map { response =>
-      import response._
+      processResponse(response, url)
+    }
+  }
+
+  private def processResponse(response: Response, url: URL) = {
+    val body = response.body()
+    val code = response.code()
+    try {
       val resInfo = Map(
         "status-code" -> code.toString,
-        "message" -> message
+        "message" -> response.message()
       )
       println(s"GET $url response: $resInfo")
       val json = if (code == 200) Json.parse(body.string) else Json.obj()
+      response.close()
       ResponseWrapper(json, code)
+    } finally {
+      body.close()
     }
   }
 
