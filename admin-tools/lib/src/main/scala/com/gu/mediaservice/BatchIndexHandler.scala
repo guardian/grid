@@ -65,7 +65,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
         val start = System.currentTimeMillis()
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
-        println(s"foundImages size: $foundImages, notFoundImagesIds size: $notFoundImagesIds")
+        println(s"foundImages size: ${foundImages.size}, notFoundImagesIds size: ${notFoundImagesIds.size}")
         val end = System.currentTimeMillis()
         val projectionTookInSec = (end - start) / 1000
         println(s"projection of ${mediaIds.length} images took: $projectionTookInSec seconds")
