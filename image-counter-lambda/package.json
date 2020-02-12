@@ -19,7 +19,6 @@
     "@types/node-fetch": "^2.5.4",
     "@zeit/ncc": "^0.21.0",
     "jest": "^24.9.0",
-    "node-riffraff-artefact": "^2.0.1",
     "ts-jest": "^24.3.0",
     "typescript": "^3.7.5"
   },
