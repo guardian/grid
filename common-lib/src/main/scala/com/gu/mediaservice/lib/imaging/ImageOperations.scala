@@ -33,7 +33,6 @@ class ImageOperations(playPath: String) extends GridLogging {
   private def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
       "Copyright" -> metadata.copyright,
-      "CopyrightNotice" -> metadata.copyrightNotice,
       "Credit" -> metadata.credit,
       "OriginalTransmissionReference" -> metadata.suppliersReference
     ).collect { case (key, Some(value)) => (key, value) }
