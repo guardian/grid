@@ -9,6 +9,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duration, gridClient: GridClient) {
 
+  def validApiKey(projectionEndpoint: String) = {
+    val projectionUrl = new URL(s"$projectionEndpoint/not-exists")
+    gridClient.makeGetRequestSync(projectionUrl, apiKey).statusCode == 404
+  }
+
   def getImagesProjection(mediaIds: List[String], projectionEndpoint: String,
                           InputIdsStore: InputIdsStore)(implicit ec: ExecutionContext): List[Either[Image, String]] = {
     val f = Future.traverse(mediaIds) { id =>
