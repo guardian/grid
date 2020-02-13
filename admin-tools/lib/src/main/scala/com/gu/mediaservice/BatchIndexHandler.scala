@@ -35,10 +35,10 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val ProjectionTimoutInMins = 11
   private val GetIdsTimoutInMins = 1
   private val OthersTimoutInMins = 1
-  private val GlobalTimoutInMins = ProjectionTimoutInMins + GetIdsTimoutInMins + OthersTimoutInMins
+  private val MainProcessingTimoutInMins = ProjectionTimoutInMins + OthersTimoutInMins
 
   private val GetIdsTimeout = new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
-  private val GlobalTimeout = new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
+  private val GlobalTimeout = new FiniteDuration(MainProcessingTimoutInMins, TimeUnit.MINUTES)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
   private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
 
