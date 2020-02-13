@@ -12,9 +12,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-class LambdaHandler {
+class ImageProjectionLambdaHandler {
 
-  def handleImageProjection(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
+  def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
 
     println(s"handleImageProjection event: $event")
 
