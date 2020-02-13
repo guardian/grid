@@ -64,6 +64,9 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
       val json = if (code == 200) Json.parse(body.string) else Json.obj()
       response.close()
       ResponseWrapper(json, code)
+    } catch {
+      case e: Exception =>
+        throw e
     } finally {
       body.close()
     }
