@@ -59,7 +59,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     Try {
       val processImagesFuture: Future[List[String]] = Future {
-        println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
+        println(s"number of mediaIDs to index ${mediaIds.length}")
         stateProgress += updateStateToItemsInProgress(mediaIds)
         println(s"get images projection started, projectionEndpoint: $projectionEndpoint")
         val start = System.currentTimeMillis()

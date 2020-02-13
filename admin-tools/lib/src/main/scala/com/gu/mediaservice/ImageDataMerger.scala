@@ -66,6 +66,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
       ResponseWrapper(json, code)
     } catch {
       case e: Exception =>
+        // propagating exception
         throw e
     } finally {
       body.close()
