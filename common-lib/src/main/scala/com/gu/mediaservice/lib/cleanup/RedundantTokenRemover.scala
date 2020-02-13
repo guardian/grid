@@ -35,7 +35,7 @@ object RedundantTokenRemover extends MetadataCleaner {
   def removeHandoutTokens(text: String): String = {
     text.split("/").filter { tok =>
       val trimmedToken = tok.trim
-      toRemove.contains(trimmedToken)
+      !toRemove.contains(trimmedToken)
     }.mkString("/")
   }
 }
