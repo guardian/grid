@@ -9,7 +9,7 @@ import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
-import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
@@ -30,11 +30,9 @@ case class BatchIndexHandlerConfig(
                                   )
 
 
-class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
+class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
 
   import cfg._
-
-  private lazy val logger = LoggerFactory.getLogger(this.getClass)
 
   private val ProjectionTimoutInMins = 11
   private val GetIdsTimoutInMins = 1
@@ -111,12 +109,10 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
 }
 
-class InputIdsStore(table: Table, batchSize: Int) {
+class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
   private val PKField: String = "id"
   private val StateField: String = "progress_state"
-
-  private lazy val logger = LoggerFactory.getLogger(this.getClass)
 
   def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     logger.info("attempt to get mediaIds batch from dynamo")
