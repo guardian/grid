@@ -53,6 +53,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def processImages(): List[String] = {
+    if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getUnprocessedMediaIdsBatch
