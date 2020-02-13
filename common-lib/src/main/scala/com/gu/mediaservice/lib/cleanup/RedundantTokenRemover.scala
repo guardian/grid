@@ -22,20 +22,20 @@ object RedundantTokenRemover extends MetadataCleaner {
   )
 
   override def clean(metadata: ImageMetadata): ImageMetadata = metadata.copy(
-    byline = metadata.byline.map(removeHandoutTokens).filter(_.trim.nonEmpty).map(_.trim),
+    byline = metadata.byline.map(removeHandoutTokens).filter(_.trim.nonEmpty),
     credit = metadata.credit.map(removeHandoutTokens).flatMap { c =>
       if (c.isEmpty) {
         metadata.credit.flatMap(c => c.split("/").lastOption)
       } else {
         Some(c)
       }
-    }.map(_.trim),
+    },
   )
 
   def removeHandoutTokens(text: String): String = {
     text.split("/").filter { tok =>
       val trimmedToken = tok.trim
       !toRemove.contains(trimmedToken)
-    }.mkString("/")
+    }.mkString("/").trim
   }
 }
