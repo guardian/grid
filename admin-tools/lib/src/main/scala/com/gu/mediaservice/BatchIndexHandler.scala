@@ -3,7 +3,7 @@ package com.gu.mediaservice
 import java.util.concurrent.TimeUnit
 
 import com.amazonaws.services.dynamodbv2.document._
-import com.amazonaws.services.dynamodbv2.document.spec.{ScanSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
@@ -35,12 +35,12 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
   private val ProjectionTimoutInMins = 11
   private val GetIdsTimoutInMins = 1
   private val OthersTimoutInMins = 1
-  private val GlobalTimoutInMins = ProjectionTimoutInMins + GetIdsTimoutInMins + OthersTimoutInMins
+  private val MainProcessingTimoutInMins = ProjectionTimoutInMins + OthersTimoutInMins
 
   private val GetIdsTimeout = new FiniteDuration(GetIdsTimoutInMins, TimeUnit.MINUTES)
-  private val GlobalTimeout = new FiniteDuration(GlobalTimoutInMins, TimeUnit.MINUTES)
+  private val GlobalTimeout = new FiniteDuration(MainProcessingTimoutInMins, TimeUnit.MINUTES)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInMins, TimeUnit.MINUTES)
-  private val gridClient = GridClient(maxIdleConnections)
+  private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
@@ -59,13 +59,16 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     Try {
       val processImagesFuture: Future[List[String]] = Future {
-        println(s"number of mediaIDs to index ${mediaIds.length}, $mediaIds")
+        println(s"number of mediaIDs to index ${mediaIds.length}")
         stateProgress += updateStateToItemsInProgress(mediaIds)
-        val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint)
+        println(s"get images projection started, projectionEndpoint: $projectionEndpoint")
+        val start = System.currentTimeMillis()
+        val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
-
-        updateStateToNotFoundImages(notFoundImagesIds).map(stateProgress += _)
-        println(s"prepared json blobs list of size: ${foundImages.size}")
+        println(s"foundImages size: ${foundImages.size}, notFoundImagesIds size: ${notFoundImagesIds.size}")
+        val end = System.currentTimeMillis()
+        val projectionTookInSec = (end - start) / 1000
+        println(s"projection of ${mediaIds.length} images took: $projectionTookInSec seconds")
         if (foundImages.nonEmpty) {
           println("attempting to store blob to s3")
           val bulkIndexRequest = putToS3(foundImages)
@@ -77,6 +80,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
           println("all was empty terminating current batch")
+          stateProgress += NotFound
         }
         stateProgress.map(_.name).toList
       }
@@ -109,9 +113,11 @@ class InputIdsStore(table: Table, batchSize: Int) {
 
   def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     println("attempt to get mediaIds batch from dynamo")
-    val scanSpec = new ScanSpec().withFilterExpression(s"$StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", 0)).withMaxResultSize(batchSize)
-    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
+    val querySpec = new QuerySpec()
+      .withKeyConditionExpression(s"$StateField = :sub")
+      .withValueMap(new ValueMap().withNumber(":sub", 0))
+      .withMaxResultSize(batchSize)
+    val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
     })
@@ -129,12 +135,8 @@ class InputIdsStore(table: Table, batchSize: Int) {
   }
 
   // used to track images that were not projected successfully
-  def updateStateToNotFoundImages(notFoundIds: List[String]): Option[ProduceProgress] = {
-    if (notFoundIds.isEmpty) None else {
-      println(s"not found images ids: $notFoundIds")
-      Some(updateItemsState(notFoundIds, NotFound))
-    }
-  }
+  def updateStateToNotFoundImage(notFoundId: String) =
+    updateItemSate(notFoundId, NotFound.stateId)
 
   def updateStateToFinished(ids: List[String]): ProduceProgress = {
     println(s"updating items state to in progress")

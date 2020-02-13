@@ -25,10 +25,10 @@ case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient:
 case class ResponseWrapper(body: JsValue, statusCode: Int)
 
 object GridClient {
-  def apply(maxIdleConnections: Int): GridClient = new GridClient(maxIdleConnections)
+  def apply(maxIdleConnections: Int, debugHttpResponse: Boolean = true): GridClient = new GridClient(maxIdleConnections, debugHttpResponse)
 }
 
-class GridClient(maxIdleConnections: Int) {
+class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
 
   import java.util.concurrent.TimeUnit
 
@@ -60,10 +60,14 @@ class GridClient(maxIdleConnections: Int) {
         "status-code" -> code.toString,
         "message" -> response.message()
       )
-      println(s"GET $url response: $resInfo")
+      if (debugHttpResponse) println(s"GET $url response: $resInfo")
       val json = if (code == 200) Json.parse(body.string) else Json.obj()
       response.close()
       ResponseWrapper(json, code)
+    } catch {
+      case e: Exception =>
+        // propagating exception
+        throw e
     } finally {
       body.close()
     }
