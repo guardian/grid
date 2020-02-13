@@ -34,7 +34,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
   import cfg._
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private lazy val logger = LoggerFactory.getLogger(this.getClass)
 
   private val ProjectionTimoutInMins = 11
   private val GetIdsTimoutInMins = 1
@@ -64,18 +64,18 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     Try {
       val processImagesFuture: Future[List[String]] = Future {
-        println(s"number of mediaIDs to index ${mediaIds.length}")
+        logger.info(s"number of mediaIDs to index ${mediaIds.length}")
         stateProgress += updateStateToItemsInProgress(mediaIds)
-        println(s"get images projection started, projectionEndpoint: $projectionEndpoint")
+        logger.info(s"get images projection started, projectionEndpoint: $projectionEndpoint")
         val start = System.currentTimeMillis()
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
-        println(s"foundImages size: ${foundImages.size}, notFoundImagesIds size: ${notFoundImagesIds.size}")
+        logger.info(s"foundImages size: ${foundImages.size}, notFoundImagesIds size: ${notFoundImagesIds.size}")
         val end = System.currentTimeMillis()
         val projectionTookInSec = (end - start) / 1000
-        println(s"projection of ${mediaIds.length} images took: $projectionTookInSec seconds")
+        logger.info(s"projection of ${mediaIds.length} images took: $projectionTookInSec seconds")
         if (foundImages.nonEmpty) {
-          println("attempting to store blob to s3")
+          logger.info("attempting to store blob to s3")
           val bulkIndexRequest = putToS3(foundImages)
           val indexMessage = UpdateMessage(
             subject = "batch-index",
@@ -84,7 +84,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
           putToKinensis(indexMessage)
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
-          println("all was empty terminating current batch")
+          logger.info("all was empty terminating current batch")
           stateProgress += NotFound
         }
         stateProgress.map(_.name).toList
@@ -92,11 +92,11 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
       Await.result(processImagesFuture, GlobalTimeout)
     } match {
       case Success(progressList) =>
-        println(s"processImages function execution state progress: $progressList")
+        logger.info(s"processImages function execution state progress: $progressList")
         progressList
       case Failure(exp) =>
         exp.printStackTrace()
-        println(s"there was a failure, exception: ${exp.getMessage}")
+        logger.info(s"there was a failure, exception: ${exp.getMessage}")
         stateProgress += resetItemsState(mediaIds)
         // propagating exception
         throw exp
@@ -116,8 +116,10 @@ class InputIdsStore(table: Table, batchSize: Int) {
   private val PKField: String = "id"
   private val StateField: String = "progress_state"
 
+  private lazy val logger = LoggerFactory.getLogger(this.getClass)
+
   def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
-    println("attempt to get mediaIds batch from dynamo")
+    logger.info("attempt to get mediaIds batch from dynamo")
     val querySpec = new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", 0))
@@ -135,7 +137,7 @@ class InputIdsStore(table: Table, batchSize: Int) {
 
   // used to synchronise situation of other lambda execution will start while previous one is still running
   def updateStateToItemsInProgress(ids: List[String]): ProduceProgress = {
-    println(s"updating items state to in progress")
+    logger.info(s"updating items state to in progress")
     updateItemsState(ids, InProgress)
   }
 
@@ -144,13 +146,13 @@ class InputIdsStore(table: Table, batchSize: Int) {
     updateItemSate(notFoundId, NotFound.stateId)
 
   def updateStateToFinished(ids: List[String]): ProduceProgress = {
-    println(s"updating items state to in progress")
+    logger.info(s"updating items state to in progress")
     updateItemsState(ids, Finished)
   }
 
   // used in situation if something failed
   def resetItemsState(ids: List[String]): ProduceProgress = {
-    println("resetting items state")
+    logger.info("resetting items state")
     updateItemsState(ids, Reset)
   }
 

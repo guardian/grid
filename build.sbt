@@ -146,6 +146,7 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
   .settings {
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case "logback.xml" => MergeStrategy.discard
       case x => MergeStrategy.first
     }
     libraryDependencies ++= Seq(
