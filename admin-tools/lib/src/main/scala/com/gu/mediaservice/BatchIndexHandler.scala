@@ -9,12 +9,14 @@ import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
+import org.slf4j.LoggerFactory
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+
 
 case class BatchIndexHandlerConfig(
                                     apiKey: String,
@@ -31,6 +33,8 @@ case class BatchIndexHandlerConfig(
 class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
 
   import cfg._
+
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val ProjectionTimoutInMins = 11
   private val GetIdsTimoutInMins = 1

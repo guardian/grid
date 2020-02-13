@@ -138,6 +138,7 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       "com.typesafe.play" %% "play-json" % "2.6.9",
       "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
+      "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)
 
