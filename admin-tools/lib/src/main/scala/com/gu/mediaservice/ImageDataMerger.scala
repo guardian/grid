@@ -61,6 +61,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
         "message" -> response.message()
       )
       if (debugHttpResponse) println(s"GET $url response: $resInfo")
+      if (serverErrorType(code)) throw new IllegalStateException(s"projection server error, calling $url return statusCode: $code")
       val json = if (code == 200) Json.parse(body.string) else Json.obj()
       response.close()
       ResponseWrapper(json, code)
@@ -72,6 +73,8 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
       body.close()
     }
   }
+
+  private def serverErrorType(code: Int): Boolean = (code / 100) == 5
 
   private def makeRequestAsync(url: URL, apiKey: String): Future[Response] = {
     val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, apiKey).build
