@@ -80,6 +80,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) {
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
           println("all was empty terminating current batch")
+          stateProgress += NotFound
         }
         stateProgress.map(_.name).toList
       }
