@@ -143,17 +143,17 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   ).dependsOn(commonLib)
 
 lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
-  .settings {
+  .settings(
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", xs@_*) => MergeStrategy.discard
-      case "logback.xml" => MergeStrategy.discard
+      case "logback.xml" => MergeStrategy.first
       case x => MergeStrategy.first
-    }
+    },
     libraryDependencies ++= Seq(
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
       "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
     )
-  }.dependsOn(adminToolsLib).settings(
+  ).dependsOn(adminToolsLib).settings(
   assemblyJarName in assembly := "admin-tools-lambda.jar"
 )
 
