@@ -62,7 +62,8 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       ES.client.execute(
         ElasticDsl.search(ES.initialImagesIndex).matchAllQuery()
       ), fiveSeconds
-    ).result.hits.total)
+    ).result.hits.hits.map(_.`type`))
+
     println("WHAT IS GOING ON UIG")
   }
 
