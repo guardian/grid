@@ -10,13 +10,12 @@ import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{JsObject, Json, OWrites, Writes}
-
 import scala.collection.JavaConverters._
+import play.api.libs.json.{JsObject, Json, OWrites}
+
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
 
 case class BatchIndexHandlerConfig(
                                     apiKey: String,
@@ -29,36 +28,9 @@ case class BatchIndexHandlerConfig(
                                     maxIdleConnections: Int
                                   )
 
-object ProjectionLogInfo {
-  implicit val writes: OWrites[ProjectionLogInfo] = Json.writes[ProjectionLogInfo]
-}
+case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
 
-case class ProjectionLogInfo(
-  foundImages: Int,
-  notFoundImages: Int,
-  projectionTookInSec: Int,
-  message: String
-)
-
-object SuccessLogInfo {
-  implicit val writes: OWrites[SuccessLogInfo] = Json.writes[SuccessLogInfo]
-}
-
-case class SuccessLogInfo(
-  indexedImages: Int,
-  message: String
-)
-
-object ResetLogInfo {
-  implicit val writes: OWrites[ResetLogInfo] = Json.writes[ResetLogInfo]
-}
-
-case class ResetLogInfo(
-  indexedImages: Int,
-  message: String
-)
-
-class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
+class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers {
 
   import cfg._
 
@@ -82,14 +54,14 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
 
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
-  def processImages(): List[String] = {
+  def processImages(): Unit = {
     if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getUnprocessedMediaIdsBatch
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     Try {
-      val processImagesFuture: Future[List[String]] = Future {
+      val processImagesFuture: Future[SuccessResult] = Future {
         logger.info(s"Indexing ${mediaIds.length} media ids. Getting image projections from: $projectionEndpoint")
         stateProgress += updateStateToItemsInProgress(mediaIds)
         val start = System.currentTimeMillis()
@@ -98,7 +70,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
         val end = System.currentTimeMillis()
         val projectionTookInSec = (end - start) / 1000
-        logProjectionResult(foundImages, notFoundImagesIds, projectionTookInSec)
+        logger.info(s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images")
 
         if (foundImages.nonEmpty) {
           logger.info("attempting to store blob to s3")
@@ -113,30 +85,20 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
           logger.info("all was empty terminating current batch")
           stateProgress += NotFound
         }
-        stateProgress.map(_.name).toList
+        SuccessResult(foundImages.size, notFoundImagesIds.size, stateProgress.map(_.name).mkString(","), projectionTookInSec)
       }
       Await.result(processImagesFuture, GlobalTimeout)
     } match {
-      case Success(progressList) =>
-        logger.info(s"processImages function execution state progress: $progressList")
-        progressList
+      case Success(res) =>
+        logSuccessResult(res)
       case Failure(exp) =>
         exp.printStackTrace()
-        logger.error(s"there was a failure, exception: ${exp.getMessage}")
+        val resetIdsCount = mediaIds.size
         stateProgress += resetItemsState(mediaIds)
+        logFailure(exp, resetIdsCount, stateProgress.toList)
         // propagating exception
         throw exp
     }
-  }
-
-  private def logProjectionResult(foundImages: List[Image], notFoundImagesIds: List[String], projectionTookInSec: Long): Unit = {
-    val projectionLogJson = ProjectionLogInfo(
-      foundImages.size,
-      notFoundImagesIds.size,
-      projectionTookInSec.toInt,
-      s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images"
-    )
-    logger.info(Json.toJson(projectionLogJson).toString())
   }
 
   private def partitionToSuccessAndNotFound(maybeBlobsFuture: List[Either[Image, String]]): (List[Image], List[String]) = {
