@@ -130,7 +130,6 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("org.scalaz.stream"),
       ExclusionRule("org.im4java"),
       ExclusionRule("org.scalacheck"),
-      ExclusionRule("net.logstash.logback"),
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(

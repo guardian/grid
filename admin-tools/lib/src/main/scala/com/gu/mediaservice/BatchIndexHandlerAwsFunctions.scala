@@ -45,7 +45,7 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
     BulkIndexRequest(batchIndexBucket, key)
   }
 
-  def putToKinensis(message: UpdateMessage): Unit = {
+  def putToKinesis(message: UpdateMessage): Unit = {
     logger.info("attempting to put message to kinesis")
     val payload = JsonByteArrayUtil.toByteArray(message)
     val partitionKey = UUID.randomUUID().toString

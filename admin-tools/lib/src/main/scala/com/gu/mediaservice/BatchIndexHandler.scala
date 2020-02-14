@@ -11,7 +11,9 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.{JsObject, Json}
+import net.logstash.logback.marker.Markers
 
+import scala.collection.JavaConverters._
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -62,16 +64,16 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     Try {
       val processImagesFuture: Future[List[String]] = Future {
-        logger.info(s"number of mediaIDs to index ${mediaIds.length}")
+        logger.info(s"Indexing ${mediaIds.length} media ids. Getting image projections from: $projectionEndpoint")
         stateProgress += updateStateToItemsInProgress(mediaIds)
-        logger.info(s"get images projection started, projectionEndpoint: $projectionEndpoint")
         val start = System.currentTimeMillis()
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
+
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
-        logger.info(s"foundImages size: ${foundImages.size}, notFoundImagesIds size: ${notFoundImagesIds.size}")
         val end = System.currentTimeMillis()
         val projectionTookInSec = (end - start) / 1000
-        logger.info(s"projection of ${mediaIds.length} images took: $projectionTookInSec seconds")
+        logProjectionResult(foundImages, notFoundImagesIds, projectionTookInSec)
+
         if (foundImages.nonEmpty) {
           logger.info("attempting to store blob to s3")
           val bulkIndexRequest = putToS3(foundImages)
@@ -79,7 +81,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
             subject = "batch-index",
             bulkIndexRequest = Some(bulkIndexRequest)
           )
-          putToKinensis(indexMessage)
+          putToKinesis(indexMessage)
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
           logger.info("all was empty terminating current batch")
@@ -94,11 +96,22 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
         progressList
       case Failure(exp) =>
         exp.printStackTrace()
-        logger.info(s"there was a failure, exception: ${exp.getMessage}")
+        logger.error(s"there was a failure, exception: ${exp.getMessage}")
         stateProgress += resetItemsState(mediaIds)
         // propagating exception
         throw exp
     }
+  }
+
+  private def logProjectionResult(foundImages: List[Image], notFoundImagesIds: List[String], projectionTookInSec: Long): Unit = {
+    val imageCountMarker = Markers.appendEntries(Map(
+      "foundImages" -> foundImages.size,
+      "notFoundImages" -> notFoundImagesIds.size,
+      "projectionTookInSec" -> projectionTookInSec
+    ).asJava)
+    logger.info(s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images")(
+      imageCountMarker
+    )
   }
 
   private def partitionToSuccessAndNotFound(maybeBlobsFuture: List[Either[Image, String]]): (List[Image], List[String]) = {
