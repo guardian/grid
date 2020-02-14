@@ -60,6 +60,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
     stateProgress += NotStarted
     val mediaIdsFuture = getUnprocessedMediaIdsBatch
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
+    logger.info(s"got ${mediaIds.size}, unprocessed mediaIds, $mediaIds")
     Try {
       val processImagesFuture: Future[SuccessResult] = Future {
         stateProgress += updateStateToItemsInProgress(mediaIds)
