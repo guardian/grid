@@ -5,6 +5,7 @@ import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
+import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
@@ -12,11 +13,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
-class ImageProjectionLambdaHandler {
+class ImageProjectionLambdaHandler extends LazyLogging {
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
 
-    println(s"handleImageProjection event: $event")
+    logger.info(s"handleImageProjection event: $event")
 
     val mediaId = event.getPath.stripPrefix("/images/projection/")
 
@@ -34,8 +35,8 @@ class ImageProjectionLambdaHandler {
         val cfg: ImageDataMergerConfig = ImageDataMergerConfig(key, services, gridClient)
         if (!cfg.isValidApiKey()) return getUnauthorisedResponse
 
-        println(s"starting handleImageProjection for mediaId=$mediaId")
-        println(s"with config: $cfg")
+        logger.info(s"starting handleImageProjection for mediaId=$mediaId")
+        logger.info(s"with config: $cfg")
 
         val merger = new ImageDataMerger(cfg, gridClient)
         val maybeImageFuture: Future[Option[Image]] = merger.getMergedImageData(mediaId.asInstanceOf[String])
@@ -43,7 +44,7 @@ class ImageProjectionLambdaHandler {
 
         mayBeImage match {
           case Some(img) =>
-            println(s"image projected \n $img")
+            logger.info(s"image projected \n $img")
             getSuccessResponse(img)
           case _ =>
             getNotFoundResponse(mediaId)
@@ -62,7 +63,7 @@ class ImageProjectionLambdaHandler {
 
   private def getNotFoundResponse(mediaId: String) = {
     val emptyRes = Json.obj("message" -> s"image with id=$mediaId not-found").toString
-    println(s"image not projected \n $emptyRes")
+    logger.info(s"image not projected \n $emptyRes")
     new APIGatewayProxyResponseEvent()
       .withStatusCode(404)
       .withHeaders(Map("content-type" -> "application/json").asJava)
