@@ -54,7 +54,6 @@ object RetryHandler {
       }
       retry(attempt, retries, delay)
     }
-    println("HELLO I AM DOING SOMETHING RETRY RELATED")
     handleWithRetry(handleWithTimeout(logFailures(f), timeout), retries, delay)
   }
 }
