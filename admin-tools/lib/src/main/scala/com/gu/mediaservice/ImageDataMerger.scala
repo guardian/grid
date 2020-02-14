@@ -8,6 +8,7 @@ import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.model.{Collection, Crop, Edits, Image}
+import com.typesafe.scalalogging.LazyLogging
 import okhttp3._
 import play.api.libs.json._
 
@@ -28,7 +29,7 @@ object GridClient {
   def apply(maxIdleConnections: Int, debugHttpResponse: Boolean = true): GridClient = new GridClient(maxIdleConnections, debugHttpResponse)
 }
 
-class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
+class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends LazyLogging {
 
   import java.util.concurrent.TimeUnit
 
@@ -60,7 +61,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
         "status-code" -> code.toString,
         "message" -> response.message()
       )
-      if (debugHttpResponse) println(s"GET $url response: $resInfo")
+      if (debugHttpResponse) logger.info(s"GET $url response: $resInfo")
       if (serverErrorType(code)) throw new IllegalStateException(s"projection server error, calling $url return statusCode: $code")
       val json = if (code == 200) Json.parse(body.string) else Json.obj()
       response.close()
@@ -88,7 +89,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) {
   }
 }
 
-class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
+class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) extends LazyLogging {
 
   import config._
   import services._
@@ -102,7 +103,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
   }
 
   private def aggregate(image: Image)(implicit ec: ExecutionContext): Future[Image] = {
-    println(s"starting to aggregate image")
+    logger.info(s"starting to aggregate image")
     val mediaId = image.id
     for {
       collections <- getCollectionsResponse(mediaId)
@@ -120,15 +121,15 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
   }
 
   private def getImageLoaderProjection(mediaId: String): Option[Image] = {
-    println("attempt to get image projection from image-loader")
+    logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$loaderBaseUri/images/project/$mediaId")
     val res = gridClient.makeGetRequestSync(url, apiKey)
-    println(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
+    logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
     if (res.statusCode == 200) Some(res.body.as[Image]) else None
   }
 
   private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
-    println("attempt to get collections")
+    logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
@@ -136,7 +137,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
   }
 
   private def getEdits(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
-    println("attempt to get edits")
+    logger.info("attempt to get edits")
     val url = new URL(s"$metadataBaseUri/edits/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
@@ -144,7 +145,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
   }
 
   private def getCrops(mediaId: String)(implicit ec: ExecutionContext): Future[List[Crop]] = {
-    println("attempt to get crops")
+    logger.info("attempt to get crops")
     val url = new URL(s"$cropperBaseUri/crops/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
@@ -152,7 +153,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
   }
 
   private def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
-    println("attempt to get leases")
+    logger.info("attempt to get leases")
     val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
@@ -160,7 +161,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) {
   }
 
   private def getUsages(mediaId: String)(implicit ec: ExecutionContext): Future[List[Usage]] = {
-    println("attempt to get usages")
+    logger.info("attempt to get usages")
 
     def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
       (resBody \ "data").as[JsArray].value
