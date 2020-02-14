@@ -130,7 +130,6 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("org.scalaz.stream"),
       ExclusionRule("org.im4java"),
       ExclusionRule("org.scalacheck"),
-      ExclusionRule("net.logstash.logback"),
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
@@ -138,20 +137,23 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       "com.typesafe.play" %% "play-json" % "2.6.9",
       "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)
 
 lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
-  .settings {
+  .settings(
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case "logback.xml" => MergeStrategy.first
       case x => MergeStrategy.first
-    }
+    },
     libraryDependencies ++= Seq(
       "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
       "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
     )
-  }.dependsOn(adminToolsLib).settings(
+  ).dependsOn(adminToolsLib).settings(
   assemblyJarName in assembly := "admin-tools-lambda.jar"
 )
 

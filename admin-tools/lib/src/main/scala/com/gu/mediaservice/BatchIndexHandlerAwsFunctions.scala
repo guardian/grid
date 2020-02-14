@@ -16,9 +16,10 @@ import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.aws.{BulkIndexRequest, UpdateMessage}
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.Image
+import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Json
 
-class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
+class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLogging {
 
   private val AwsRegion = "eu-west-1"
   private val s3client = buildS3Client
@@ -40,12 +41,12 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
     metadata.setContentType("application/json")
     metadata.setContentLength(bArr.length)
     val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(bArr), metadata)
-    println(s"PUT [s3://$batchIndexBucket/$key] object to s3 response: $res")
+    logger.info(s"PUT [s3://$batchIndexBucket/$key] object to s3 response: $res")
     BulkIndexRequest(batchIndexBucket, key)
   }
 
-  def putToKinensis(message: UpdateMessage): Unit = {
-    println("attempting to put message to kinesis")
+  def putToKinesis(message: UpdateMessage): Unit = {
+    logger.info("attempting to put message to kinesis")
     val payload = JsonByteArrayUtil.toByteArray(message)
     val partitionKey = UUID.randomUUID().toString
     val putReq = new PutRecordRequest()
@@ -54,7 +55,7 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
       .withData(ByteBuffer.wrap(payload))
 
     val res = kinesis.putRecord(putReq)
-    println(s"PUT [$message] message to kinesis stream: $kinesisStreamName response: $res")
+    logger.info(s"PUT [$message] message to kinesis stream: $kinesisStreamName response: $res")
   }
 
   private def buildS3Client = {
@@ -74,10 +75,10 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) {
     val baseBuilder = AmazonKinesisClientBuilder.standard()
     val builder = kinesisEndpoint match {
       case Some(uri) =>
-        println(s"building local kinesis client with $uri")
+        logger.info(s"building local kinesis client with $uri")
         baseBuilder.withEndpointConfiguration(new EndpointConfiguration(uri, AwsRegion))
       case _ =>
-        println("building remote kinesis client")
+        logger.info("building remote kinesis client")
         baseBuilder.withRegion(AwsRegion)
     }
     builder.withCredentials(awsCredentials).build()
