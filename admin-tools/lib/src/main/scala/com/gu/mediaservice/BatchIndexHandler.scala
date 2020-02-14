@@ -69,6 +69,9 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
 
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
+        val foundImagesIds = foundImages.map(_.id)
+        logger.info(s"foundImagesIds: $foundImagesIds")
+        logger.info(s"notFoundImagesIds: $notFoundImagesIds")
         val end = System.currentTimeMillis()
         val projectionTookInSec = (end - start) / 1000
         logger.info(s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images")
