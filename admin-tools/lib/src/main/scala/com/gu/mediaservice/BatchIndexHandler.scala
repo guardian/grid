@@ -10,9 +10,9 @@ import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
-import scala.collection.JavaConverters._
-import play.api.libs.json.{JsObject, Json, OWrites}
+import play.api.libs.json.{JsObject, Json}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
