@@ -70,7 +70,15 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)
         val end = System.currentTimeMillis()
         val projectionTookInSec = (end - start) / 1000
-        logger.info(s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images")
+        val message = s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images"
+        val jsonMsg = Json.obj(
+          "batchSize" -> mediaIds.size,
+          "foundImagesCount" -> foundImages.size,
+          "notFoundImagesCount" -> notFoundImagesIds.size,
+          "projectionTookInSec" -> projectionTookInSec,
+          "message" -> message
+        )
+        logger.info(jsonMsg.toString())
 
         if (foundImages.nonEmpty) {
           logger.info("attempting to store blob to s3")

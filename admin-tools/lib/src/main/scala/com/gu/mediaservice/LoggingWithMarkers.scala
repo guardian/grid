@@ -8,7 +8,7 @@ trait LoggingWithMarkers extends LazyLogging {
 
   protected def logSuccessResult(successResult: SuccessResult): Unit = {
     import successResult._
-    val message = s"processImages function execution state progress: $progressHistory"
+    val message = s"batch index records preparation was successful: $progressHistory"
 
     val jsonMsg = Json.obj(
       "foundImagesCount" -> foundImagesCount,
