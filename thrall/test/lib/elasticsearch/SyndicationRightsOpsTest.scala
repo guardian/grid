@@ -90,21 +90,32 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
         }
       }
 
-      "an image in that photoshoot receives syndication rights" in {
+      "an image in that photoshoot receives syndication rights, and the rest of the images in that shoot have their rights inferred" in {
         val photoshootTitle = Photoshoot(s"photoshoot-${UUID.randomUUID()}")
         val syndRights = someSyndRights
 
         withPhotoshoot(photoshootTitle) { images =>
           val imageWithNoRights = images.head
+          val otherImagesInShoot = images.tail
+
           val imageWithRights = addSyndicationRights(imageWithNoRights, syndRights)
-          whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-            images.tail.foreach { img =>
-              whenReady(ES.getImage(img.id)) { optImg =>
-                optImg.get.syndicationRights shouldBe makeSyndicationRightsInferred(imageWithRights)
+          whenReady(
+            syndRightsOps.upsertOrRefreshRights(
+              image = imageWithRights,
+              previousPhotoshootOpt = None,
+              currentPhotoshootOpt = Some(photoshootTitle))
+          ) { _ =>
+            whenReady(ES.getImage(imageWithNoRights.id)) { img =>
+              withClue("the original image should have syndication rights") {
+                img.get.syndicationRights shouldBe syndRights
               }
             }
-            whenReady(ES.getImage(imageWithNoRights.id)) { img =>
-              img.get.syndicationRights shouldBe syndRights
+            otherImagesInShoot.foreach { img =>
+              whenReady(ES.getImage(img.id)) { optImg =>
+                withClue("the other images in the shoot should gain inferred syndication rights") {
+                  optImg.get.syndicationRights shouldBe makeSyndicationRightsInferred(imageWithRights)
+                }
+              }
             }
           }
         }
