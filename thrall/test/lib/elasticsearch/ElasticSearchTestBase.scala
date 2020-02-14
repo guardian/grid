@@ -35,11 +35,6 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
   override def beforeAll {
     super.beforeAll()
-    ES.ensureAliasAssigned()
-  }
-
-  override protected def afterEach(): Unit = {
-    super.afterEach()
     println("We have this many before delete.")
 
     println(Await.result(
@@ -49,8 +44,12 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     ).result.hits.total)
     Await.ready(
       ES.client.execute(
-        ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
+        ElasticDsl.deleteIndex(ES.initialImagesIndex)
       ), fiveSeconds)
+
+
+
+    ES.ensureAliasAssigned()
     println("We deleted and now:")
 
     println(Await.result(
@@ -59,6 +58,11 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       ), fiveSeconds
     ).result.hits.total)
     println("WHAT IS GOING ON (preface)")
+  }
+
+  override protected def afterEach(): Unit = {
+    super.afterEach()
+
   }
 
   override def afterAll: Unit = {
