@@ -44,6 +44,12 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       ES.client.execute(
         ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
       ), fiveSeconds)
+    println(Await.result(
+      ES.client.execute(
+        ElasticDsl.search(ES.initialImagesIndex).matchAllQuery()
+      ), fiveSeconds
+    ).result.hits.total)
+    println("WHAT IS GOING ON (preface)")
   }
 
   override protected def beforeEach(): Unit = {
@@ -52,6 +58,12 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       ES.client.execute(
         ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
       ), fiveSeconds)
+    println(Await.result(
+      ES.client.execute(
+        ElasticDsl.search(ES.initialImagesIndex).matchAllQuery()
+      ), fiveSeconds
+    ).result.hits.total)
+    println("WHAT IS GOING ON UIG")
   }
 
   override def afterAll: Unit = {
