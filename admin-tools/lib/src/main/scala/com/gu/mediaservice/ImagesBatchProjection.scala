@@ -28,7 +28,7 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
           InputIdsStore.updateStateToNotFoundImage(id)
           Some(Right(id))
         } else {
-          // server temporary inaccessible
+          // for example server temporary inaccessible
           InputIdsStore.resetItemState(id)
           None
         }
