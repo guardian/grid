@@ -45,7 +45,7 @@ class MessageProcessor(es: ElasticSearch,
   def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchBulkUpdateResponse]] = {
     val request = message.bulkIndexRequest.get
     val imagesToIndex = bulkIndexS3Client.getImages(request)
-    val markers: LogstashMarker = message.toLogMarker.and(Markers.append("batch-image-count", imagesToIndex.length))
+    val markers: LogstashMarker = message.toLogMarker.and(Markers.append("batchImageCount", imagesToIndex.length))
     Logger.info("Processing a batch index")(markers)
     Future.sequence(es.bulkInsert(imagesToIndex))
   }
