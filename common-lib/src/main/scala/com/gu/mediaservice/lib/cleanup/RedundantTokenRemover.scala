@@ -17,7 +17,7 @@ object RedundantTokenRemover extends MetadataCleaner {
     "-",
     "UNCREDITED",
     "Uncredited",
-    "uncreadited",
+    "uncredited",
     "XXSTRINGERXX xxxxx"
   )
 
