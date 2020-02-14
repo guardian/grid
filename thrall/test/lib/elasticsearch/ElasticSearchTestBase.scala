@@ -40,15 +40,16 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
   override protected def afterEach(): Unit = {
     super.afterEach()
+    println(ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery()))
+//    ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
     println(Await.result(
       ES.client.execute(
         ElasticDsl.search(ES.initialImagesIndex).matchAllQuery()
       ), fiveSeconds
     ).result.hits.total)
-    Await.ready(
-      ES.client.execute(
-        ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
-      ), fiveSeconds)
+    val request = ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
+    println(request.query.prettifier)
+
     println(Await.result(
       ES.client.execute(
         ElasticDsl.search(ES.initialImagesIndex).matchAllQuery()
