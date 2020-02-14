@@ -10,10 +10,8 @@ import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{JsObject, Json}
-import net.logstash.logback.marker.Markers
+import play.api.libs.json.{JsObject, Json, OWrites, Writes}
 
-import scala.collection.JavaConverters._
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -30,6 +28,17 @@ case class BatchIndexHandlerConfig(
                                     kinesisEndpoint: Option[String] = None,
                                     maxIdleConnections: Int
                                   )
+
+object ProjectionLogInfo {
+  implicit val writes: OWrites[ProjectionLogInfo] = Json.writes[ProjectionLogInfo]
+}
+
+case class ProjectionLogInfo(
+  foundImages: Int,
+  notFoundImages: Int,
+  projectionTookInSec: Int,
+  message: String
+)
 
 
 class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
@@ -104,14 +113,13 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
   }
 
   private def logProjectionResult(foundImages: List[Image], notFoundImagesIds: List[String], projectionTookInSec: Long): Unit = {
-    val imageCountMarker = Markers.appendEntries(Map(
-      "foundImages" -> foundImages.size,
-      "notFoundImages" -> notFoundImagesIds.size,
-      "projectionTookInSec" -> projectionTookInSec
-    ).asJava)
-    logger.info(s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images")(
-      imageCountMarker
+    val projectionLogJson = ProjectionLogInfo(
+      foundImages.size,
+      notFoundImagesIds.size,
+      projectionTookInSec.toInt,
+      s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images"
     )
+    logger.info(Json.toJson(projectionLogJson).toString())
   }
 
   private def partitionToSuccessAndNotFound(maybeBlobsFuture: List[Either[Image, String]]): (List[Image], List[String]) = {
