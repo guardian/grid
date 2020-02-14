@@ -58,11 +58,12 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       ES.client.execute(
         ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
       ), fiveSeconds)
-    println(Await.result(
+    Await.result(
       ES.client.execute(
         ElasticDsl.search(ES.initialImagesIndex).matchAllQuery()
       ), fiveSeconds
-    ).result.hits.hits.map(_.`type`))
+    ).result.hits.hits.foreach(h=>{println(h.`type`)
+    println(println(h))})
 
     println("WHAT IS GOING ON UIG")
   }
