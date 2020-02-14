@@ -60,10 +60,11 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
     stateProgress += NotStarted
     val mediaIdsFuture = getUnprocessedMediaIdsBatch
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
+    logger.info(s"got ${mediaIds.size}, unprocessed mediaIds, $mediaIds")
     Try {
       val processImagesFuture: Future[SuccessResult] = Future {
-        logger.info(s"Indexing ${mediaIds.length} media ids. Getting image projections from: $projectionEndpoint")
         stateProgress += updateStateToItemsInProgress(mediaIds)
+        logger.info(s"Indexing ${mediaIds.length} media ids. Getting image projections from: $projectionEndpoint")
         val start = System.currentTimeMillis()
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
 
@@ -158,6 +159,13 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   def resetItemsState(ids: List[String]): ProduceProgress = {
     logger.info("resetting items state")
     updateItemsState(ids, Reset)
+  }
+
+  // used in situation if something failed
+  def resetItemState(id: String): ProduceProgress = {
+    logger.info("resetting items state")
+    updateItemSate(id, Reset.stateId)
+    Reset
   }
 
   private def updateItemSate(id: String, state: Int) = {
