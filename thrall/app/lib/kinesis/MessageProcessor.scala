@@ -1,15 +1,16 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{BulkIndexRequest, EsResponse, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import lib.elasticsearch._
+import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.DateTime
-import play.api.libs.json._
 import play.api.Logger
+import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -44,6 +45,8 @@ class MessageProcessor(es: ElasticSearch,
   def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchBulkUpdateResponse]] = {
     val request = message.bulkIndexRequest.get
     val imagesToIndex = bulkIndexS3Client.getImages(request)
+    val markers: LogstashMarker = message.toLogMarker.and(Markers.append("batch-image-count", imagesToIndex.length))
+    Logger.info("Processing a batch index")(markers)
     Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
