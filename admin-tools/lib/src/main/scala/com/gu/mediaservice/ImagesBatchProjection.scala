@@ -11,7 +11,7 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
 
   def validApiKey(projectionEndpoint: String) = {
     val projectionUrl = new URL(s"$projectionEndpoint/not-exists")
-    gridClient.makeGetRequestSync(projectionUrl, apiKey).statusCode == 404
+    gridClient.makeGetRequestSync(projectionUrl, apiKey).statusCode != 401
   }
 
   def getImagesProjection(mediaIds: List[String], projectionEndpoint: String,
