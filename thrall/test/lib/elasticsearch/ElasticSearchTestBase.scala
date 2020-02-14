@@ -1,17 +1,20 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, Mappings}
+import com.sksamuel.elastic4s.http.ElasticDsl
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import helpers.Fixtures
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.{BeforeAndAfterAll, FreeSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
+import com.sksamuel.elastic4s.http.ElasticDsl._
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Properties
 
-trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
+trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
 
   val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
   val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
@@ -33,6 +36,14 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   override def beforeAll {
     super.beforeAll()
     ES.ensureAliasAssigned()
+  }
+
+  override protected def afterEach(): Unit = {
+    super.afterEach()
+    Await.ready(
+      ES.client.execute(
+        ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
+      ), fiveSeconds)
   }
 
   override def afterAll: Unit = {
