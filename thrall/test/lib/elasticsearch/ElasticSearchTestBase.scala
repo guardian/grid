@@ -46,6 +46,14 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       ), fiveSeconds)
   }
 
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    Await.ready(
+      ES.client.execute(
+        ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
+      ), fiveSeconds)
+  }
+
   override def afterAll: Unit = {
     super.afterAll()
   }
