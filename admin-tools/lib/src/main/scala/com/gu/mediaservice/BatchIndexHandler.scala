@@ -40,6 +40,23 @@ case class ProjectionLogInfo(
   message: String
 )
 
+object SuccessLogInfo {
+  implicit val writes: OWrites[SuccessLogInfo] = Json.writes[SuccessLogInfo]
+}
+
+case class SuccessLogInfo(
+  indexedImages: Int,
+  message: String
+)
+
+object ResetLogInfo {
+  implicit val writes: OWrites[ResetLogInfo] = Json.writes[ResetLogInfo]
+}
+
+case class ResetLogInfo(
+  indexedImages: Int,
+  message: String
+)
 
 class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LazyLogging {
 
