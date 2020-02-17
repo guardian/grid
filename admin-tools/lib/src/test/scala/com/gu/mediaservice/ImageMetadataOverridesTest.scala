@@ -5,14 +5,13 @@ import java.util.UUID
 
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model.{Asset, Dimensions, Edits, FileMetadata, Image, ImageMetadata, StaffPhotographer, SyndicationRights, UploadInfo}
+import com.gu.mediaservice.model._
 import org.joda.time.DateTime
-import org.scalatest.{FlatSpec, FunSuite, Matchers}
+import org.scalatest.{FlatSpec, Matchers}
 
 class ImageMetadataOverridesTest extends FlatSpec with Matchers {
 
   it should "override image metadata with user edits" in {
-
     val image = createImage()
     image.metadata shouldEqual ImageMetadata(dateTaken = None, title = Some(s"test title"), keywords = List())
     image.usageRights shouldEqual StaffPhotographer("T. Hanks", "The Guardian")
