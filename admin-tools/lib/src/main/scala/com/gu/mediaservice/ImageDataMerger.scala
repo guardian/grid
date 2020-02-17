@@ -100,9 +100,11 @@ object ImageMetadataOverrides extends LazyLogging {
     val metadataEdits: Option[ImageMetadata] = img.userMetadata.map(_.metadata)
     val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
 
-    val chain = overrideWithMetadataEditsIfExists(metadataEdits) andThen overrideWithUsageEditsIfExists(usageRightsEdits)
+//    val chain = overrideWithMetadataEditsIfExists(metadataEdits) andThen overrideWithUsageEditsIfExists(usageRightsEdits)
+//
+//    chain.apply(img)
 
-    chain.apply(img)
+    overrideWithUsageEditsIfExists(usageRightsEdits)(overrideWithMetadataEditsIfExists(metadataEdits)(img))
   }
 
   private def overrideWithMetadataEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
