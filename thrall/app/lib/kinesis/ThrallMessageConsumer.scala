@@ -3,6 +3,7 @@ package lib.kinesis
 import java.net.InetAddress
 import java.util.UUID
 
+import akka.actor.ActorSystem
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import lib._
@@ -17,12 +18,14 @@ class ThrallMessageConsumer(config: ThrallConfig,
                             metadataEditorNotifications: MetadataEditorNotifications,
                             syndicationRightsOps: SyndicationRightsOps,
                             from: Option[DateTime],
-                            bulkIndexS3Client: BulkIndexS3Client) {
+                            bulkIndexS3Client: BulkIndexS3Client,
+                            actorSystem: ActorSystem
+                           ) {
 
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   private val thrallEventProcessorFactory = new IRecordProcessorFactory {
-    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps, bulkIndexS3Client)
+    override def createProcessor(): IRecordProcessor = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, syndicationRightsOps, bulkIndexS3Client, actorSystem)
   }
 
   private def createKinesisWorker(cfg: KinesisClientLibConfiguration): Worker = {
