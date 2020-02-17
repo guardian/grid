@@ -97,37 +97,20 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
 
 object ImageMetadataOverrides extends LazyLogging {
 
-  private val metaCfg = MetadataConfig.allPhotographersMap
-
-  private val metadataCleaners = new MetadataCleaners(metaCfg)
-
   def overrideMetadata(img: Image): Image = {
     logger.info(s"applying metadata overrides")
-
-    ////////// logic copied form old reindex endpoint
-
-    val imageMetadata = ImageMetadataConverter.fromFileMetadata(img.fileMetadata)
-    val cleanMetadata = metadataCleaners.clean(imageMetadata)
-    val imageCleanMetadata = img.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-    val processedImage = SupplierProcessors.process(imageCleanMetadata)
 
     val metadataEdits = img.userMetadata.map(_.metadata)
     val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
 
-    // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-    var finalImage = processedImage.copy(
-      originalMetadata = processedImage.metadata,
-      originalUsageRights = processedImage.usageRights
-    )
-
-    finalImage = metadataEdits match {
-      case Some(meta) => finalImage.copy(metadata = meta)
-      case _ => finalImage
+    val imgWithUpdatedMetadata = metadataEdits match {
+      case Some(meta) => img.copy(metadata = meta)
+      case _ => img
     }
 
-    finalImage = usageRightsEdits match {
-      case Some(usrR) => finalImage.copy(usageRights = usrR)
-      case _ => finalImage
+    val finalImage = usageRightsEdits match {
+      case Some(usrR) => imgWithUpdatedMetadata.copy(usageRights = usrR)
+      case _ => imgWithUpdatedMetadata
     }
 
     finalImage
