@@ -7,17 +7,17 @@ import play.api.libs.json._
 
 case class ImageMetadata(
   dateTaken:           Option[DateTime] = None,
-  description:         Option[String]   = None,
-  credit:              Option[String]   = None,
+  description:         Option[String]   = None, //
+  credit:              Option[String]   = None, //
   creditUri:           Option[String]   = None,
-  byline:              Option[String]   = None,
+  byline:              Option[String]   = None, //
   bylineTitle:         Option[String]   = None,
-  title:               Option[String]   = None,
+  title:               Option[String]   = None, //
   copyrightNotice:     Option[String]   = None,
-  copyright:           Option[String]   = None,
+  copyright:           Option[String]   = None, //
   suppliersReference:  Option[String]   = None,
   source:              Option[String]   = None,
-  specialInstructions: Option[String]   = None,
+  specialInstructions: Option[String]   = None, //
   keywords:            List[String]     = Nil,
   subLocation:         Option[String]   = None,
   city:                Option[String]   = None,

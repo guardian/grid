@@ -11,15 +11,36 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class ImageMetadataOverridesTest extends FlatSpec with Matchers {
 
+  private val initialImgMetadata = ImageMetadata(
+    dateTaken = Some(new DateTime("2014-01-01T00:00:00.000Z")),
+    title = Some("test title"),
+    credit = Some("test credit"),
+    keywords = List()
+  )
+
+  private val imgMetadataEdits = ImageMetadata(dateTaken = None, title = Some(s"test title edits"), description = Some("test description edits"), keywords = List())
+
+  private val initialUsageRights = StaffPhotographer("T. Hanks", "The Guardian")
+
+  private val editedUsageRights = StaffPhotographer("photographer after edits", "publication after edits")
+
   it should "override image metadata with user edits" in {
     val image = createImage()
-    image.metadata shouldEqual ImageMetadata(dateTaken = None, title = Some(s"test title"), keywords = List())
-    image.usageRights shouldEqual StaffPhotographer("T. Hanks", "The Guardian")
+    image.metadata shouldEqual initialImgMetadata
+    image.usageRights shouldEqual initialUsageRights
 
     val actual = ImageMetadataOverrides.overrideMetadata(image)
 
-    actual.metadata shouldEqual ImageMetadata(dateTaken = None, title = Some(s"test title edits"), description = Some("test description edits"), keywords = List())
-    actual.usageRights shouldEqual StaffPhotographer("photographer after edits", "publication after edits")
+    val metadataExpected = ImageMetadata(
+      dateTaken = Some(new DateTime("2014-01-01T00:00:00.000Z")),
+      title = Some(s"test title edits"),
+      description = Some("test description edits"),
+      credit = Some("test credit"),
+      keywords = List()
+    )
+
+    actual.metadata shouldEqual metadataExpected
+    actual.usageRights shouldEqual editedUsageRights
   }
 
   private def createImage(id: String = UUID.randomUUID().toString, usages: List[Usage] = List(), leases: Option[LeasesByMedia] = None, syndicationRights: Option[SyndicationRights] = None): Image = {
@@ -42,13 +63,13 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
       fileMetadata = FileMetadata(),
       userMetadata = Some(
         Edits(
-          metadata = ImageMetadata(dateTaken = None, title = Some(s"test title edits"), description = Some("test description edits"), keywords = List()),
+          metadata = imgMetadataEdits,
           usageRights = Some(StaffPhotographer("photographer after edits", "publication after edits"))
         )
       ),
-      metadata = ImageMetadata(dateTaken = None, title = Some(s"test title"), keywords = List()),
+      metadata = initialImgMetadata,
       originalMetadata = ImageMetadata(),
-      usageRights = StaffPhotographer("T. Hanks", "The Guardian"),
+      usageRights = initialUsageRights,
       originalUsageRights = StaffPhotographer("T. Hanks", "The Guardian"),
       exports = Nil,
 

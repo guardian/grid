@@ -97,6 +97,7 @@ object ImageMetadataOverrides extends LazyLogging {
 
   def overrideMetadata(img: Image): Image = {
     logger.info(s"applying metadata overrides")
+
     val metadataEdits: Option[ImageMetadata] = img.userMetadata.map(_.metadata)
     val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
 
@@ -107,7 +108,16 @@ object ImageMetadataOverrides extends LazyLogging {
 
   private def overrideWithMetadataEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
     metadataEdits match {
-      case Some(meta) => img.copy(metadata = meta)
+      case Some(meta) =>
+        import meta._
+        var finalImageMetadata = img.metadata
+        finalImageMetadata = if (description.isDefined) finalImageMetadata.copy(description = description) else finalImageMetadata
+        finalImageMetadata = if (credit.isDefined) finalImageMetadata.copy(credit = credit) else finalImageMetadata
+        finalImageMetadata = if (byline.isDefined) finalImageMetadata.copy(byline = byline) else finalImageMetadata
+        finalImageMetadata = if (title.isDefined) finalImageMetadata.copy(title = title) else finalImageMetadata
+        finalImageMetadata = if (copyright.isDefined) finalImageMetadata.copy(copyright = copyright) else finalImageMetadata
+        finalImageMetadata = if (specialInstructions.isDefined) finalImageMetadata.copy(specialInstructions = specialInstructions) else finalImageMetadata
+        img.copy(metadata = finalImageMetadata)
       case _ => img
     }
   }
