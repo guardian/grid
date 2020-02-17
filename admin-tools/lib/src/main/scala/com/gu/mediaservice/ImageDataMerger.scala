@@ -4,10 +4,12 @@ import java.io.IOException
 import java.net.URL
 
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
+import com.gu.mediaservice.lib.config.{MetadataConfig, Services}
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image}
+import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.LazyLogging
 import okhttp3._
 import play.api.libs.json._
@@ -93,15 +95,59 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
   }
 }
 
+object ImageMetadataOverrides extends LazyLogging {
+
+  private val metaCfg = MetadataConfig.allPhotographersMap
+
+  private val metadataCleaners = new MetadataCleaners(metaCfg)
+
+  def overrideMetadata(img: Image): Image = {
+    logger.info(s"applying metadata overrides")
+
+    ////////// logic copied form old reindex endpoint
+
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(img.fileMetadata)
+    val cleanMetadata = metadataCleaners.clean(imageMetadata)
+    val imageCleanMetadata = img.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
+    val processedImage = SupplierProcessors.process(imageCleanMetadata)
+
+    val metadataEdits = img.userMetadata.map(_.metadata)
+    val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
+
+    // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+    var finalImage = processedImage.copy(
+      originalMetadata = processedImage.metadata,
+      originalUsageRights = processedImage.usageRights
+    )
+
+    finalImage = metadataEdits match {
+      case Some(meta) => finalImage.copy(metadata = meta)
+      case _ => finalImage
+    }
+
+    finalImage = usageRightsEdits match {
+      case Some(usrR) => finalImage.copy(usageRights = usrR)
+      case _ => finalImage
+    }
+
+    finalImage
+  }
+
+}
+
 class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) extends LazyLogging {
 
   import config._
   import services._
 
+
   def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
     val maybeImage: Option[Image] = getImageLoaderProjection(mediaId)
     maybeImage match {
-      case Some(img) => aggregate(img).map(Some(_))
+      case Some(img) =>
+        aggregate(img).map { aggImg =>
+          Some(ImageMetadataOverrides.overrideMetadata(aggImg))
+        }
       case None => Future(None)
     }
   }
