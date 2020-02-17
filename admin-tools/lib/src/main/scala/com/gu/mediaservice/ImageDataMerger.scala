@@ -4,12 +4,10 @@ import java.io.IOException
 import java.net.URL
 
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.{MetadataConfig, Services}
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
+import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.LazyLogging
 import okhttp3._
 import play.api.libs.json._
@@ -99,21 +97,26 @@ object ImageMetadataOverrides extends LazyLogging {
 
   def overrideMetadata(img: Image): Image = {
     logger.info(s"applying metadata overrides")
-
-    val metadataEdits = img.userMetadata.map(_.metadata)
+    val metadataEdits: Option[ImageMetadata] = img.userMetadata.map(_.metadata)
     val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
 
-    val imgWithUpdatedMetadata = metadataEdits match {
+    val chain = overrideWithMetadataEditsIfExists(metadataEdits) andThen overrideWithUsageEditsIfExists(usageRightsEdits)
+
+    chain.apply(img)
+  }
+
+  private def overrideWithMetadataEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
+    metadataEdits match {
       case Some(meta) => img.copy(metadata = meta)
       case _ => img
     }
+  }
 
-    val finalImage = usageRightsEdits match {
-      case Some(usrR) => imgWithUpdatedMetadata.copy(usageRights = usrR)
-      case _ => imgWithUpdatedMetadata
+  private def overrideWithUsageEditsIfExists(usageRightsEdits: Option[UsageRights])(img: Image) = {
+    usageRightsEdits match {
+      case Some(usrR) => img.copy(usageRights = usrR)
+      case _ => img
     }
-
-    finalImage
   }
 
 }
