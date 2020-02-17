@@ -127,6 +127,7 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("com.drewnoakes", "metadata-extractor"),
       ExclusionRule("org.codehaus.janino"),
       ExclusionRule("com.typesafe.play"),
+      ExclusionRule("org.scalaz.stream"),
       ExclusionRule("org.im4java"),
       ExclusionRule("org.scalacheck"),
       ExclusionRule("com.gu", "kinesis-logback-appender")
