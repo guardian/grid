@@ -26,19 +26,15 @@ class ImageProjectionLambdaHandler extends LazyLogging {
 
     val apiKey = getAuthKeyFrom(headers)
 
-    val gridClient = GridClient(5)
-
     apiKey match {
       case Some(key) =>
-        val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
-
-        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(key, services, gridClient)
+        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot)
         if (!cfg.isValidApiKey()) return getUnauthorisedResponse
 
         logger.info(s"starting handleImageProjection for mediaId=$mediaId")
         logger.info(s"with config: $cfg")
 
-        val merger = new ImageDataMerger(cfg, gridClient)
+        val merger = new ImageDataMerger(cfg)
         val maybeImageFuture: Future[Option[Image]] = merger.getMergedImageData(mediaId.asInstanceOf[String])
         val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
 
