@@ -4,7 +4,7 @@ import java.io.IOException
 import java.net.URL
 
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
@@ -13,6 +13,15 @@ import okhttp3._
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
+
+object ImageDataMergerConfig {
+  private val gridClient = GridClient(maxIdleConnections = 5)
+
+  def apply(apiKey: String, domainRoot: String): ImageDataMergerConfig = {
+    val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+    new ImageDataMergerConfig(apiKey, services, gridClient)
+  }
+}
 
 case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient: GridClient) {
   def isValidApiKey(): Boolean = {
@@ -151,7 +160,7 @@ object ImageMetadataOverrides extends LazyLogging {
 
 }
 
-class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) extends LazyLogging {
+class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
 
   import config._
   import services._
@@ -190,6 +199,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) ext
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$loaderBaseUri/images/project/$mediaId")
     val res = gridClient.makeGetRequestSync(url, apiKey)
+    validateResponse(res.statusCode, url)
     logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
     if (res.statusCode == 200) Some(res.body.as[Image]) else None
   }
@@ -198,6 +208,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) ext
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res.statusCode, url)
       if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
     }
   }
@@ -206,6 +217,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) ext
     logger.info("attempt to get edits")
     val url = new URL(s"$metadataBaseUri/edits/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res.statusCode, url)
       if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
     }
   }
@@ -214,6 +226,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) ext
     logger.info("attempt to get crops")
     val url = new URL(s"$cropperBaseUri/crops/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res.statusCode, url)
       if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
     }
   }
@@ -222,6 +235,7 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) ext
     logger.info("attempt to get leases")
     val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res.statusCode, url)
       if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
     }
   }
@@ -236,8 +250,21 @@ class ImageDataMerger(config: ImageDataMergerConfig, gridClient: GridClient) ext
 
     val url = new URL(s"$usageBaseUri/usages/media/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res.statusCode, url)
       if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
       else Nil
+    }
+  }
+
+  private def validateResponse(statusCode: Int, url: URL): Unit = {
+    if (statusCode != 200 && statusCode != 404) {
+      val message = s"breaking the circuit, downstream API: $url is in a bad state, code: $statusCode"
+      val errorJson = Json.obj(
+        "errorStatusCode" -> statusCode,
+        "message" -> "message"
+      )
+      logger.error(errorJson.toString())
+      throw new IllegalArgumentException(message)
     }
   }
 }
