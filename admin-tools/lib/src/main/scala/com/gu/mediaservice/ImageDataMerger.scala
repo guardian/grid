@@ -140,12 +140,7 @@ object ImageMetadataOverrides extends LazyLogging {
     }
   }
 
-  private def handleEmptyString(entry: Option[String]): Option[String] = {
-    entry match {
-      case Some("") => None
-      case _ => entry
-    }
-  }
+  private def handleEmptyString(entry: Option[String]): Option[String] = entry.collect { case x if x.trim.nonEmpty => x }
 
   private def overrideWithUsageEditsIfExists(usageRightsEdits: Option[UsageRights])(img: Image) = {
     usageRightsEdits match {
