@@ -40,10 +40,14 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
   override protected def afterEach(): Unit = {
     super.afterEach()
+    // Ensure to reset the state of ES between tests by deleting all documents...
     Await.ready(
       ES.client.execute(
         ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
       ), fiveSeconds)
+
+    // ...and then forcing a refresh. These operations need to be done in serial.
+    Await.result(ES.client.execute(ElasticDsl.refreshIndex(ES.initialImagesIndex)), fiveSeconds)
   }
 
   override def afterAll: Unit = {
