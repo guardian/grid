@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
-import model.{ImageUploadOpsCfg, ImageUploadProjector}
+import model.{ImageUploadOpsCfg, ImageUploadProjector, S3FileExtractedMetadata}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
@@ -150,7 +150,14 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
       userMetadataLastModified = None
     )
 
-    val actualFuture = projector.projectImage(fileDigest, uploadedBy, uploadTime, uploadFileName)
+    val extractedS3Meta = S3FileExtractedMetadata(
+      uploadedBy = uploadedBy,
+      uploadTime = uploadTime,
+      uploadFileName = uploadFileName,
+      picdarUrn = None,
+    )
+
+    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta)
 
     whenReady(actualFuture) { actual =>
       actual shouldEqual expected

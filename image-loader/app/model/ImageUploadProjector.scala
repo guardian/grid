@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.MimeTypeDetection
 import lib.{DigestedFile, ImageLoaderConfig}
-import org.joda.time.{DateTime, DateTimeZone}
+import org.joda.time.DateTime
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,12 +21,15 @@ object ImageUploadProjector {
   = new ImageUploadProjector(toImageUploadOpsCfg(config), imageOps)(ec)
 }
 
+case class S3FileExtractedMetadata(uploadedBy: String, uploadTime: DateTime, uploadFileName: Option[String], picdarUrn: Option[String])
+
 class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
                           (implicit val ec: ExecutionContext) {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
 
-  def projectImage(srcFileDigest: DigestedFile, uploadedBy: String, uploadedTime: DateTime, uploadFileName: Option[String]): Future[Image] = {
+  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata): Future[Image] = {
+    import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
     // TODO identifiers_ to rehydrate
     val identifiers_ = Map[String, String]()
@@ -39,7 +42,7 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
       imageId = id_,
       tempFile = tempFile_,
       mimeType = mimeType_,
-      uploadedTime,
+      uploadTime = uploadTime,
       uploadedBy,
       identifiers = identifiers_,
       uploadInfo = uploadInfo_
