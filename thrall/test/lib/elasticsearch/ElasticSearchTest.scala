@@ -29,11 +29,8 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
           val images: List[Image] = List(imageOne, imageTwo)
 
-          // Ideally, before we bulk insert we would assert document count is 0 and after, it is 2.
-          // However there is a race condition in the tests (only seen in GH Actions) which results in state being shared between tests,
-          // so we're just checking the document count has increased by the correct amount.
-          val initialDocumentCount = ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count
-          val expectedDocumentCount = initialDocumentCount + images.length
+          // in a clean index, we should have 0 documents
+          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe 0
 
           Await.result(Future.sequence(ES.bulkInsert(images)), fiveSeconds)
 
@@ -41,7 +38,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           Await.result(ES.client.execute(ElasticDsl.refreshIndex(ES.initialImagesIndex)), fiveSeconds)
 
           // after bulk inserting, we should have 2 documents
-          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe expectedDocumentCount
+          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe images.length
 
           Json.toJson(reloadedImage("batman").get) shouldBe Json.toJson(imageOne)
           Json.toJson(reloadedImage("superman").get) shouldBe Json.toJson(imageTwo)
