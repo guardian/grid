@@ -29,6 +29,9 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
           val images: List[Image] = List(imageOne, imageTwo)
 
+          // in a clean index, we should have 0 documents
+          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe 0
+
           Await.result(Future.sequence(ES.bulkInsert(images)), fiveSeconds)
 
           // force ES to refresh https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-refresh.html
