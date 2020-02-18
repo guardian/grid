@@ -18,7 +18,7 @@ import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
-import model.{ImageUploadOps, ImageUploadProjector, UploadRequest}
+import model.{ImageUploadOps, ImageUploadProjector, S3FileExtractedMetadata, UploadRequest}
 import net.logstash.logback.marker.Markers
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
@@ -159,12 +159,20 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
     val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
     val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
+    val picdarUrn = fileUserMetadata.get("identifier!picdarurn")
 
     val uploadFileNameRaw = fileUserMetadata.get("file_name")
     // The file name is URL encoded in  S3 metadata
     val uploadFileName = uploadFileNameRaw.map(MediaURI.decode)
 
-    val finalImage = imageUploadProjector.projectImage(digestedFile, uploadedBy, uploadTime, uploadFileName)
+    val extractedS3Meta = S3FileExtractedMetadata(
+      uploadedBy = uploadedBy,
+      uploadTime = uploadTime,
+      uploadFileName = uploadFileName,
+      picdarUrn = picdarUrn,
+    )
+
+    val finalImage = imageUploadProjector.projectImage(digestedFile, extractedS3Meta)
 
     finalImage.map(Some(_))
   }
