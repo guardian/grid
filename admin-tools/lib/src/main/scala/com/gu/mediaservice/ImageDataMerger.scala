@@ -112,21 +112,35 @@ object ImageMetadataOverrides extends LazyLogging {
         val origMetadata = img.metadata
 
         val finalImageMetadata = origMetadata.copy(
-          description = handleEmptyStrings(metadataEdits.description.orElse(origMetadata.description)),
-          credit = handleEmptyStrings(metadataEdits.credit.orElse(origMetadata.credit)),
-          byline = handleEmptyStrings(metadataEdits.byline.orElse(origMetadata.byline)),
-          bylineTitle = handleEmptyStrings(metadataEdits.bylineTitle.orElse(origMetadata.bylineTitle)),
-          title = handleEmptyStrings(metadataEdits.title.orElse(origMetadata.title)),
-          copyright = handleEmptyStrings(metadataEdits.copyright.orElse(origMetadata.copyright)),
-          specialInstructions = handleEmptyStrings(metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions))
+          // likely to be editable in the future
+          dateTaken = metadataEdits.dateTaken.orElse(origMetadata.dateTaken),
+          // editable now
+          description = handleEmptyString(metadataEdits.description.orElse(origMetadata.description)),
+          credit = handleEmptyString(metadataEdits.credit.orElse(origMetadata.credit)),
+          byline = handleEmptyString(metadataEdits.byline.orElse(origMetadata.byline)),
+          title = handleEmptyString(metadataEdits.title.orElse(origMetadata.title)),
+          copyright = handleEmptyString(metadataEdits.copyright.orElse(origMetadata.copyright)),
+          specialInstructions = handleEmptyString(metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions)),
+          // likely to be editable in the future
+          subLocation = handleEmptyString(metadataEdits.subLocation.orElse(origMetadata.subLocation)),
+          city = handleEmptyString(metadataEdits.city.orElse(origMetadata.city)),
+          state = handleEmptyString(metadataEdits.state.orElse(origMetadata.state)),
+          country = handleEmptyString(metadataEdits.country.orElse(origMetadata.country)),
         )
+
+        /**
+          * if any additional field will be added to ImageMetadata
+          * or fields that are not reflect here will become editable
+          * that should be addressed in this code
+          * which is propagating user edits to metadata entry in elasticsearch
+          **/
 
         img.copy(metadata = finalImageMetadata)
       case _ => img
     }
   }
 
-  private def handleEmptyStrings(entry: Option[String]): Option[String] = {
+  private def handleEmptyString(entry: Option[String]): Option[String] = {
     entry match {
       case Some("") => None
       case _ => entry
