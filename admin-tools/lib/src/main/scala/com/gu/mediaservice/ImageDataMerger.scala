@@ -111,25 +111,14 @@ object ImageMetadataOverrides extends LazyLogging {
       case Some(metadataEdits) =>
         val origMetadata = img.metadata
 
-        val finalImageMetadata = ImageMetadata(
-          metadataEdits.dateTaken.orElse(origMetadata.dateTaken),
-          metadataEdits.description.orElse(origMetadata.description),
-          metadataEdits.credit.orElse(origMetadata.credit),
-          metadataEdits.creditUri.orElse(origMetadata.creditUri),
-          metadataEdits.byline.orElse(origMetadata.byline),
-          metadataEdits.bylineTitle.orElse(origMetadata.bylineTitle),
-          metadataEdits.title.orElse(origMetadata.title),
-          metadataEdits.copyrightNotice.orElse(origMetadata.copyrightNotice),
-          metadataEdits.copyright.orElse(origMetadata.copyright),
-          metadataEdits.suppliersReference.orElse(origMetadata.suppliersReference),
-          metadataEdits.source.orElse(origMetadata.source),
-          metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions),
-          metadataEdits.keywords ++ origMetadata.keywords,
-          metadataEdits.subLocation.orElse(origMetadata.subLocation),
-          metadataEdits.city.orElse(origMetadata.city),
-          metadataEdits.state.orElse(origMetadata.state),
-          metadataEdits.country.orElse(origMetadata.country),
-          metadataEdits.subjects ++ origMetadata.subjects
+        val finalImageMetadata = origMetadata.copy(
+          description = metadataEdits.description.orElse(origMetadata.description),
+          credit = metadataEdits.credit.orElse(origMetadata.credit),
+          byline = metadataEdits.byline.orElse(origMetadata.byline),
+          bylineTitle = metadataEdits.bylineTitle.orElse(origMetadata.bylineTitle),
+          title = metadataEdits.title.orElse(origMetadata.title),
+          copyright = metadataEdits.copyright.orElse(origMetadata.copyright),
+          specialInstructions = metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions)
         )
 
         img.copy(metadata = finalImageMetadata)
