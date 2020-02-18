@@ -112,17 +112,24 @@ object ImageMetadataOverrides extends LazyLogging {
         val origMetadata = img.metadata
 
         val finalImageMetadata = origMetadata.copy(
-          description = metadataEdits.description.orElse(origMetadata.description),
-          credit = metadataEdits.credit.orElse(origMetadata.credit),
-          byline = metadataEdits.byline.orElse(origMetadata.byline),
-          bylineTitle = metadataEdits.bylineTitle.orElse(origMetadata.bylineTitle),
-          title = metadataEdits.title.orElse(origMetadata.title),
-          copyright = metadataEdits.copyright.orElse(origMetadata.copyright),
-          specialInstructions = metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions)
+          description = handleEmptyStrings(metadataEdits.description.orElse(origMetadata.description)),
+          credit = handleEmptyStrings(metadataEdits.credit.orElse(origMetadata.credit)),
+          byline = handleEmptyStrings(metadataEdits.byline.orElse(origMetadata.byline)),
+          bylineTitle = handleEmptyStrings(metadataEdits.bylineTitle.orElse(origMetadata.bylineTitle)),
+          title = handleEmptyStrings(metadataEdits.title.orElse(origMetadata.title)),
+          copyright = handleEmptyStrings(metadataEdits.copyright.orElse(origMetadata.copyright)),
+          specialInstructions = handleEmptyStrings(metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions))
         )
 
         img.copy(metadata = finalImageMetadata)
       case _ => img
+    }
+  }
+
+  private def handleEmptyStrings(entry: Option[String]): Option[String] = {
+    entry match {
+      case Some("") => None
+      case _ => entry
     }
   }
 

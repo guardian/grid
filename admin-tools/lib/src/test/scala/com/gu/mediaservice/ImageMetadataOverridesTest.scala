@@ -11,6 +11,8 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class ImageMetadataOverridesTest extends FlatSpec with Matchers {
 
+  private val Deletion = Some("")
+
   private val initialImgMetadata = ImageMetadata(
     dateTaken = Some(new DateTime("2014-01-01T00:00:00.000Z")),
     title = Some("test title"),
@@ -20,7 +22,8 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
 
   private val imgMetadataEdits = ImageMetadata(
     title = Some(s"test title edits"),
-    description = Some("test description edits")
+    description = Some("test description edits"),
+    credit = Deletion
   )
 
   private val initialUsageRights = StaffPhotographer("T. Hanks", "The Guardian")
@@ -38,7 +41,7 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
       dateTaken = Some(new DateTime("2014-01-01T00:00:00.000Z")),
       title = Some(s"test title edits"),
       description = Some("test description edits"),
-      credit = Some("test credit"),
+      credit = None,
       keywords = List("a", "b", "c")
     )
 
