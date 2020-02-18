@@ -188,7 +188,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
       val message = s"breaking the circuit, downstream API: $url is in a bad state, code: $statusCode"
       val errorJson = Json.obj(
         "errorStatusCode" -> statusCode,
-        "message" -> "message"
+        "message" -> message
       )
       logger.error(errorJson.toString())
       throw new IllegalArgumentException(message)

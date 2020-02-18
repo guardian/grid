@@ -61,6 +61,10 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
       ResponseWrapper(json, code)
     } catch {
       case e: Exception =>
+        val errorJson = Json.obj(
+          "message" -> e.getMessage
+        )
+        logger.error(errorJson.toString())
         // propagating exception
         throw e
     } finally {
