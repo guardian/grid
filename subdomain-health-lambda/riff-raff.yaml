@@ -1,0 +1,11 @@
+regions: [eu-west-1]
+stacks: [media-service]
+deployments:
+  subdomain-health-lambda:
+    type: aws-lambda
+    parameters:
+      bucket: media-service-dist
+      prefixStack: false
+      fileName: subdomain-health-lambda.zip
+      functionNames:
+       - "subdomain-health-lambda-function-"
