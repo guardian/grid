@@ -1,7 +1,7 @@
 {
   "name": "scan-dynamo-tables",
   "version": "1.0.0",
-  "description": "A script to scan a series of dynamo tables in parallel for keys. Handy when extracting e.g. all image ids persisted in dynamo services.",
+  "description": "A collection of scripts to assist when reindexing images",
   "main": "scan-dynamo-table-for-keys.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
