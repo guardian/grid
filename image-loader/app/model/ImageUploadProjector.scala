@@ -31,8 +31,11 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
   def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata): Future[Image] = {
     import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
-    // TODO identifiers_ to rehydrate
-    val identifiers_ = Map[String, String]()
+    // TODO more identifiers_ to rehydrate
+    val identifiers_ = picdarUrn match {
+      case Some(value) => Map[String, String]("picdarURN" -> value)
+      case _ => Map[String, String]()
+    }
     val uploadInfo_ = UploadInfo(filename = uploadFileName)
     //  Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
