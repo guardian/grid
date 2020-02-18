@@ -15,7 +15,7 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
     dateTaken = Some(new DateTime("2014-01-01T00:00:00.000Z")),
     title = Some("test title"),
     credit = Some("test credit"),
-    keywords = List()
+    keywords = List("a", "b", "c")
   )
 
   private val imgMetadataEdits = ImageMetadata(
@@ -39,7 +39,7 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
       title = Some(s"test title edits"),
       description = Some("test description edits"),
       credit = Some("test credit"),
-      keywords = List()
+      keywords = List("a", "b", "c")
     )
 
     actual.metadata shouldEqual metadataExpected
