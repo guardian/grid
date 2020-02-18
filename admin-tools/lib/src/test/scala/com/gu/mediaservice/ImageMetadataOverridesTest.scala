@@ -18,7 +18,10 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
     keywords = List()
   )
 
-  private val imgMetadataEdits = ImageMetadata(dateTaken = None, title = Some(s"test title edits"), description = Some("test description edits"), keywords = List())
+  private val imgMetadataEdits = ImageMetadata(
+    title = Some(s"test title edits"),
+    description = Some("test description edits")
+  )
 
   private val initialUsageRights = StaffPhotographer("T. Hanks", "The Guardian")
 

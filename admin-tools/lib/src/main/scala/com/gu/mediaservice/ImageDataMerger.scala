@@ -108,15 +108,30 @@ object ImageMetadataOverrides extends LazyLogging {
 
   private def overrideWithMetadataEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
     metadataEdits match {
-      case Some(meta) =>
-        import meta._
-        var finalImageMetadata = img.metadata
-        finalImageMetadata = if (description.isDefined) finalImageMetadata.copy(description = description) else finalImageMetadata
-        finalImageMetadata = if (credit.isDefined) finalImageMetadata.copy(credit = credit) else finalImageMetadata
-        finalImageMetadata = if (byline.isDefined) finalImageMetadata.copy(byline = byline) else finalImageMetadata
-        finalImageMetadata = if (title.isDefined) finalImageMetadata.copy(title = title) else finalImageMetadata
-        finalImageMetadata = if (copyright.isDefined) finalImageMetadata.copy(copyright = copyright) else finalImageMetadata
-        finalImageMetadata = if (specialInstructions.isDefined) finalImageMetadata.copy(specialInstructions = specialInstructions) else finalImageMetadata
+      case Some(metadataEdits) =>
+        val origMetadata = img.metadata
+
+        val finalImageMetadata = ImageMetadata(
+          metadataEdits.dateTaken.orElse(origMetadata.dateTaken),
+          metadataEdits.description.orElse(origMetadata.description),
+          metadataEdits.credit.orElse(origMetadata.credit),
+          metadataEdits.creditUri.orElse(origMetadata.creditUri),
+          metadataEdits.byline.orElse(origMetadata.byline),
+          metadataEdits.bylineTitle.orElse(origMetadata.bylineTitle),
+          metadataEdits.title.orElse(origMetadata.title),
+          metadataEdits.copyrightNotice.orElse(origMetadata.copyrightNotice),
+          metadataEdits.copyright.orElse(origMetadata.copyright),
+          metadataEdits.suppliersReference.orElse(origMetadata.suppliersReference),
+          metadataEdits.source.orElse(origMetadata.source),
+          metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions),
+          metadataEdits.keywords ++ origMetadata.keywords,
+          metadataEdits.subLocation.orElse(origMetadata.subLocation),
+          metadataEdits.city.orElse(origMetadata.city),
+          metadataEdits.state.orElse(origMetadata.state),
+          metadataEdits.country.orElse(origMetadata.country),
+          metadataEdits.subjects ++ origMetadata.subjects
+        )
+
         img.copy(metadata = finalImageMetadata)
       case _ => img
     }
