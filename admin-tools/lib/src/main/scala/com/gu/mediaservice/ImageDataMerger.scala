@@ -38,13 +38,10 @@ object ImageMetadataOverrides extends LazyLogging {
     val metadataEdits: Option[ImageMetadata] = img.userMetadata.map(_.metadata)
     val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
 
-    val chain = overrideWithMetadataEditsIfExists(metadataEdits) _ compose overrideWithUsageEditsIfExists(usageRightsEdits)
+    val chain = overrideWithMetadataEditsIfExists(metadataEdits) _ compose
+      overrideWithUsageEditsIfExists(usageRightsEdits) compose overrideInferredLastModifiedDate
 
-    val lastModifiedFinal = projectFinalLastModifiedDate(img)
-    val imageOverride = chain.apply(img)
-    imageOverride.copy(
-      lastModified = lastModifiedFinal
-    )
+    chain.apply(img)
   }
 
   private def overrideWithMetadataEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
@@ -81,6 +78,13 @@ object ImageMetadataOverrides extends LazyLogging {
         )
       case _ => img
     }
+  }
+
+  private def overrideInferredLastModifiedDate(img: Image) = {
+    val lastModifiedFinal = projectFinalLastModifiedDate(img)
+    img.copy(
+      lastModified = lastModifiedFinal
+    )
   }
 
   private def projectFinalLastModifiedDate(image: Image): Option[DateTime] = {
