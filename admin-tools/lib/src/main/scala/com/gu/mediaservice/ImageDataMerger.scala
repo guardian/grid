@@ -30,9 +30,9 @@ case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient:
   }
 }
 
-object ImageMetadataOverrides extends LazyLogging {
+object ImageProjectionOverrides extends LazyLogging {
 
-  def overrideMetadata(img: Image): Image = {
+  def overrideSelectedFields(img: Image): Image = {
     logger.info(s"applying metadata overrides")
 
     val metadataEdits: Option[ImageMetadata] = img.userMetadata.map(_.metadata)
@@ -125,7 +125,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     maybeImage match {
       case Some(img) =>
         aggregate(img).map { aggImg =>
-          Some(ImageMetadataOverrides.overrideMetadata(aggImg))
+          Some(ImageProjectionOverrides.overrideSelectedFields(aggImg))
         }
       case None => Future(None)
     }

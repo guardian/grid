@@ -9,7 +9,7 @@ import com.gu.mediaservice.model._
 import org.joda.time.DateTime
 import org.scalatest.{FlatSpec, Matchers}
 
-class ImageMetadataOverridesTest extends FlatSpec with Matchers {
+class ImageProjectionOverridesTest extends FlatSpec with Matchers {
 
   private val Deletion = Some("")
 
@@ -35,7 +35,7 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
     image.metadata shouldEqual initialImgMetadata
     image.usageRights shouldEqual initialUsageRights
 
-    val actual = ImageMetadataOverrides.overrideMetadata(image)
+    val actual = ImageProjectionOverrides.overrideSelectedFields(image)
 
     val metadataExpected = ImageMetadata(
       dateTaken = Some(new DateTime("2014-01-01T00:00:00.000Z")),
@@ -50,14 +50,14 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
   }
 
   it should "override image metadata with the latest lastModified picked form sub fields" in {
-    import ImageMetadataOverrides.overrideMetadata
+    import ImageProjectionOverrides.overrideSelectedFields
     val date = new DateTime("2014-01-01T00:00:00.000Z")
 
     val imageWithNoDates = createImage()
-    overrideMetadata(imageWithNoDates).lastModified shouldEqual None
+    overrideSelectedFields(imageWithNoDates).lastModified shouldEqual None
 
     val imageWithMainLastModOnly = createImage().copy(lastModified = Some(date))
-    overrideMetadata(imageWithMainLastModOnly).lastModified.get shouldEqual date
+    overrideSelectedFields(imageWithMainLastModOnly).lastModified.get shouldEqual date
 
     val imageWithCrops = createImage().copy(
       lastModified = Some(date),
@@ -73,7 +73,7 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
       ),
     )
 
-    overrideMetadata(imageWithCrops).lastModified.get shouldEqual date.plusHours(1)
+    overrideSelectedFields(imageWithCrops).lastModified.get shouldEqual date.plusHours(1)
 
     val imageWithAllDates = createImage().copy(
       lastModified = Some(date),
@@ -96,7 +96,7 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
       ))
     )
 
-    overrideMetadata(imageWithAllDates).lastModified.get shouldEqual date.plusHours(4)
+    overrideSelectedFields(imageWithAllDates).lastModified.get shouldEqual date.plusHours(4)
   }
 
 
