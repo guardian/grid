@@ -81,13 +81,21 @@ object ImageProjectionOverrides extends LazyLogging {
   }
 
   private def overrideInferredLastModifiedDate(img: Image) = {
-    val lastModifiedFinal = projectFinalLastModifiedDate(img)
+    val lastModifiedFinal = inferLastModifiedDate(img)
     img.copy(
       lastModified = lastModifiedFinal
     )
   }
 
-  private def projectFinalLastModifiedDate(image: Image): Option[DateTime] = {
+  private def inferLastModifiedDate(image: Image): Option[DateTime] = {
+
+    /**
+      * TODO
+      * it is using userMetadataLastModified field now
+      * because it is not persisted now anywhere else then ElasticSearch
+      * and projection is initially created to be able to project records that are missing in ElasticSearch
+      * so TODO userMetadataLastModified should be stored in dynamo additionally
+      * */
 
     val dtOrdering = Ordering.by((_: DateTime).getMillis())
 
