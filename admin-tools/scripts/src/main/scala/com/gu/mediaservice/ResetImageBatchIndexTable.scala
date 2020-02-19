@@ -8,6 +8,8 @@ import scala.concurrent.duration.Duration
 
 object ResetImageBatchIndexTable extends App with LazyLogging {
 
+  if (args.isEmpty) throw new IllegalArgumentException("please provide dynamo table name")
+
   private val dynamoTable = args(0)
   private val ddbClient = BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTable)
 

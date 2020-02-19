@@ -3,7 +3,7 @@ package com.gu.mediaservice
 import java.util.concurrent.TimeUnit
 
 import com.amazonaws.services.dynamodbv2.document._
-import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
@@ -133,13 +133,15 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
   def getProcessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     logger.info("attempt to get mediaIds batch from dynamo")
-    val querySpec = new QuerySpec()
-      .withKeyConditionExpression(s"$StateField = :finished_state or $StateField = :not_found_state")
+    val scanSpec = new ScanSpec()
+      .withFilterExpression(s"$StateField in (:finished, :not_found, :in_progress)")
       .withValueMap(new ValueMap()
-        .withNumber(":finished_state", 3).withNumber(":not_found_state", 2)
+        .withNumber(":finished", 3)
+        .withNumber(":not_found", 2)
+        .withNumber(":in_progress", 1)
       )
       .withMaxResultSize(batchSize)
-    val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
+    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
     })
