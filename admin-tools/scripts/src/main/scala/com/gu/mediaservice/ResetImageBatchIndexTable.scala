@@ -17,10 +17,10 @@ object ResetImageBatchIndexTable extends App with LazyLogging {
     val InputIdsStore = new InputIdsStore(ddbClient, batchSize)
     val mediaIdsFuture = InputIdsStore.getProcessedMediaIdsBatch
     val mediaIds = Await.result(mediaIdsFuture, Duration.Inf)
-    logger.info(s"got ${mediaIds.size}, unprocessed mediaIds, $mediaIds")
+    logger.info(s"got ${mediaIds.size}, processed mediaIds")
     InputIdsStore.resetItemsState(mediaIds)
   }
 
-  execute(1000)
+  execute(10000)
 
 }
