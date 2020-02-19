@@ -7,6 +7,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
+import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,20 +30,21 @@ case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient:
   }
 }
 
-object ImageMetadataOverrides extends LazyLogging {
+object ImageProjectionOverrides extends LazyLogging {
 
-  def overrideMetadata(img: Image): Image = {
+  def overrideSelectedFields(img: Image): Image = {
     logger.info(s"applying metadata overrides")
 
     val metadataEdits: Option[ImageMetadata] = img.userMetadata.map(_.metadata)
     val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
 
-    val chain = overrideWithMetadataEditsIfExists(metadataEdits) _ compose overrideWithUsageEditsIfExists(usageRightsEdits)
+    val chain = overrideMetadataWithUserEditsIfExists(metadataEdits) _ compose
+      overrideUsageRightsWithUserEditsIfExists(usageRightsEdits) compose overrideWithInferredLastModifiedDate
 
     chain.apply(img)
   }
 
-  private def overrideWithMetadataEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
+  private def overrideMetadataWithUserEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
     metadataEdits match {
       case Some(metadataEdits) =>
         val origMetadata = img.metadata
@@ -71,14 +73,47 @@ object ImageMetadataOverrides extends LazyLogging {
           * which is propagating user edits to metadata entry in elasticsearch
           **/
 
-        img.copy(metadata = finalImageMetadata)
+        img.copy(
+          metadata = finalImageMetadata
+        )
       case _ => img
     }
   }
 
+  private def overrideWithInferredLastModifiedDate(img: Image) = {
+    val lastModifiedFinal = inferLastModifiedDate(img)
+    img.copy(
+      lastModified = lastModifiedFinal
+    )
+  }
+
+  private def inferLastModifiedDate(image: Image): Option[DateTime] = {
+
+    /**
+      * TODO
+      * it is using userMetadataLastModified field now
+      * because it is not persisted now anywhere else then ElasticSearch
+      * and projection is initially created to be able to project records that are missing in ElasticSearch
+      * so TODO userMetadataLastModified should be stored in dynamo additionally
+      * */
+
+    val dtOrdering = Ordering.by((_: DateTime).getMillis())
+
+    val exportsDates = image.exports.flatMap(_.date)
+    val collectionsDates = image.collections.map(_.actionData.date)
+    val usagesDates = image.usages.map(_.lastModified)
+
+    val lmDatesCandidates: List[DateTime] = List(
+      image.lastModified,
+      image.leases.lastModified
+    ).flatten ++ exportsDates ++ collectionsDates ++ usagesDates
+
+    Option(lmDatesCandidates).collect { case dates if dates.nonEmpty => dates.max(dtOrdering) }
+  }
+
   private def handleEmptyString(entry: Option[String]): Option[String] = entry.collect { case x if x.trim.nonEmpty => x }
 
-  private def overrideWithUsageEditsIfExists(usageRightsEdits: Option[UsageRights])(img: Image) = {
+  private def overrideUsageRightsWithUserEditsIfExists(usageRightsEdits: Option[UsageRights])(img: Image) = {
     usageRightsEdits match {
       case Some(usrR) => img.copy(usageRights = usrR)
       case _ => img
@@ -98,7 +133,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     maybeImage match {
       case Some(img) =>
         aggregate(img).map { aggImg =>
-          Some(ImageMetadataOverrides.overrideMetadata(aggImg))
+          Some(ImageProjectionOverrides.overrideSelectedFields(aggImg))
         }
       case None => Future(None)
     }
