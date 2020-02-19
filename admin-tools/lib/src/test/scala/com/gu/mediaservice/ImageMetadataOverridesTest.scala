@@ -49,6 +49,57 @@ class ImageMetadataOverridesTest extends FlatSpec with Matchers {
     actual.usageRights shouldEqual editedUsageRights
   }
 
+  it should "override image metadata with the latest lastModified picked form sub fields" in {
+    import ImageMetadataOverrides.overrideMetadata
+    val date = new DateTime("2014-01-01T00:00:00.000Z")
+
+    val imageWithNoDates = createImage()
+    overrideMetadata(imageWithNoDates).lastModified shouldEqual None
+
+    val imageWithMainLastModOnly = createImage().copy(lastModified = Some(date))
+    overrideMetadata(imageWithMainLastModOnly).lastModified.get shouldEqual date
+
+    val imageWithCrops = createImage().copy(
+      lastModified = Some(date),
+      exports = List(
+        Crop(
+          id = None,
+          author = None,
+          date = Some(date.plusHours(1)),
+          specification = null,
+          master = None,
+          assets = Nil
+        )
+      ),
+    )
+
+    overrideMetadata(imageWithCrops).lastModified.get shouldEqual date.plusHours(1)
+
+    val imageWithAllDates = createImage().copy(
+      lastModified = Some(date),
+      leases = LeasesByMedia.empty.copy(lastModified = Some(date.plusHours(1))),
+      exports = List(Crop(
+          id = None,
+          author = None,
+          date = Some(date.plusHours(2)),
+          specification = null,
+          master = None,
+          assets = Nil)),
+      collections = List(Collection(
+        path = Nil,
+        description = "",
+        actionData = ActionData(author = "", date = date.plusHours(3))
+      )),
+      usages = List(Usage(
+        id = "", references = Nil, platform = null, media = "", status = null,
+        dateAdded = None, dateRemoved = None, lastModified = date.plusHours(4)
+      ))
+    )
+
+    overrideMetadata(imageWithAllDates).lastModified.get shouldEqual date.plusHours(4)
+  }
+
+
   private def createImage(id: String = UUID.randomUUID().toString, usages: List[Usage] = List(), leases: Option[LeasesByMedia] = None, syndicationRights: Option[SyndicationRights] = None): Image = {
     Image(
       id = id,

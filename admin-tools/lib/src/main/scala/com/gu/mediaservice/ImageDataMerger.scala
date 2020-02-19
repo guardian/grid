@@ -7,6 +7,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
+import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,7 +40,11 @@ object ImageMetadataOverrides extends LazyLogging {
 
     val chain = overrideWithMetadataEditsIfExists(metadataEdits) _ compose overrideWithUsageEditsIfExists(usageRightsEdits)
 
-    chain.apply(img)
+    val lastModifiedFinal = projectFinalLastModifiedDate(img)
+    val imageOverride = chain.apply(img)
+    imageOverride.copy(
+      lastModified = lastModifiedFinal
+    )
   }
 
   private def overrideWithMetadataEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
@@ -71,9 +76,27 @@ object ImageMetadataOverrides extends LazyLogging {
           * which is propagating user edits to metadata entry in elasticsearch
           **/
 
-        img.copy(metadata = finalImageMetadata)
+        img.copy(
+          metadata = finalImageMetadata
+        )
       case _ => img
     }
+  }
+
+  private def projectFinalLastModifiedDate(image: Image): Option[DateTime] = {
+
+    val dtOrdering = Ordering.by((_: DateTime).getMillis())
+
+    val exportsDates = image.exports.flatMap(_.date)
+    val collectionsDates = image.collections.map(_.actionData.date)
+    val usagesDates = image.usages.map(_.lastModified)
+
+    val lmDatesCandidates: List[DateTime] = List(
+      image.lastModified,
+      image.leases.lastModified
+    ).flatten ++ exportsDates ++ collectionsDates ++ usagesDates
+
+    Option(lmDatesCandidates).collect { case dates if dates.nonEmpty => dates.max(dtOrdering) }
   }
 
   private def handleEmptyString(entry: Option[String]): Option[String] = entry.collect { case x if x.trim.nonEmpty => x }
