@@ -15,8 +15,8 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
   val allCleaners: List[MetadataCleaner] = List(
     CleanRubbishLocation,
     StripCopyrightPrefix,
-    BylineCreditReorganise,
     RedundantTokenRemover,
+    BylineCreditReorganise,
     UseCanonicalGuardianCredit,
     ExtractGuardianCreditFromByline
   ) ++ attrCreditFromBylineCleaners ++ List(
