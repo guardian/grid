@@ -166,6 +166,15 @@ lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lamb
     riffRaffManifestProjectName := s"media-service::grid::admin-tools-lambda"
   )
 
+lazy val adminToolsScripts = project("admin-tools-scripts", Some("admin-tools/scripts"))
+  .settings(
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case "logback.xml" => MergeStrategy.first
+      case x => MergeStrategy.first
+    }
+  ).dependsOn(adminToolsLib)
+
 lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
   .dependsOn(adminToolsLib)
 

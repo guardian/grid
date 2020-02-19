@@ -131,6 +131,21 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     mediaIds
   }
 
+  def getProcessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
+    logger.info("attempt to get mediaIds batch from dynamo")
+    val querySpec = new QuerySpec()
+      .withKeyConditionExpression(s"$StateField = :finished_state or $StateField = :not_found_state")
+      .withValueMap(new ValueMap()
+        .withNumber(":finished_state", 3).withNumber(":not_found_state", 2)
+      )
+      .withMaxResultSize(batchSize)
+    val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
+      val json = Json.parse(it.toJSON).as[JsObject]
+      (json \ PKField).as[String]
+    })
+    mediaIds
+  }
+
   /**
     * state is used to synchronise multiple overlapping lambda executions, track progress and avoiding repeated operations
     */
