@@ -132,7 +132,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   def getProcessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
-    logger.info("attempt to get mediaIds batch from dynamo")
+    logger.info(s"attempt to get mediaIds batch from dynamo: ${table.getTableName}")
     val scanSpec = new ScanSpec()
       .withFilterExpression(s"$StateField in (:finished, :not_found, :in_progress)")
       .withValueMap(new ValueMap()
