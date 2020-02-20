@@ -3,15 +3,12 @@ package com.gu.mediaservice
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
 
 class ImageProjectionLambdaHandler extends LazyLogging {
 
@@ -47,6 +44,7 @@ class ImageProjectionLambdaHandler extends LazyLogging {
           case FullImageProjectionFailed(expMessage) =>
             getErrorFoundResponse(expMessage)
         }
+      case _ => getNotFoundResponse(mediaId)
     }
   }
 
