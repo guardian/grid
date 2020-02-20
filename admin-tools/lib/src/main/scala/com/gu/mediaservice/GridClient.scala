@@ -57,7 +57,6 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
         logger.error(errorJson.toString())
       }
       val json = if (code == 200) Json.parse(body.string) else Json.obj()
-      response.close()
       ResponseWrapper(json, code)
     } catch {
       case e: Exception =>
