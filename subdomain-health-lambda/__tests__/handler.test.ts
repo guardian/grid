@@ -1,89 +1,114 @@
 import fetch from "node-fetch";
-
-import fns from "../src/handler";
-import getCredentials from "../src/getCredentials";
+import { handler, fns } from "../src/handler";
+import { SubdomainConfig } from "../src/getConfigFromS3";
 
 jest.mock("node-fetch", () => jest.fn());
-jest.mock("../src/getCredentials");
+jest.mock("../src/getConfigFromS3");
 
-const imageCount = {
-  catCount: 11,
-  searchResponseCount: 11,
-  indexStatsCount: 11
+const subdomains: SubdomainConfig = {
+  subdomains: [{ name: "someName", endpoint: "someEndpoint" }]
 };
 
-const credentials = { baseUrl: "someUrl", "X-Gu-Media-Key": "someKey" };
-
-const promiseMock = jest.fn();
+const getStatusSpy = jest.spyOn(fns, "getStatus");
+const putMetricDataMock = jest.fn(() => {
+  return { promise: () => {} };
+});
 
 jest.mock("aws-sdk/clients/cloudwatch", () => {
   return class CloudWatch {
-    putMetricData() {
-      return {
-        promise: promiseMock
-      };
+    private putMetricData: jest.Mock;
+    constructor() {
+      this.putMetricData = putMetricDataMock;
     }
   };
 });
 
+function mockFetch(status = 200): void {
+  // @ts-ignore
+  fetch.mockImplementation(() => Promise.resolve({ status }));
+}
+
+function mockGetSubdomains(subdomains: SubdomainConfig): void {
+  // @ts-ignore
+  fns.getConfigFromS3 = jest.fn(() => Promise.resolve(subdomains));
+}
+
 describe("handler", () => {
   beforeEach(() => {
-    // @ts-ignore
-    getCredentials = jest.fn(() => Promise.resolve(credentials));
-
-    // @ts-ignore
-    fetch.mockImplementation(() =>
-      Promise.resolve({
-        json: () => {
-          return imageCount;
-        }
-      })
-    );
+    mockGetSubdomains(subdomains);
+    mockFetch();
   });
 
-  describe("getImageCount", function() {
-    it("should query the API with the correct credentials", async function() {
-      const result = await fns.getImageCount(credentials);
-      expect(result).toEqual(imageCount);
-      expect(fetch).toHaveBeenCalledWith(
-        credentials.baseUrl + "/management/imageCounts",
-        {
-          headers: {
-            "X-Gu-Media-Key": "someKey"
-          }
-        }
-      );
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("getStatus", function() {
+    it("should query a domain and return the status code", async function() {
+      const statusCode = 200;
+      const someDomain = { name: "someName", endpoint: "someEndpoint" };
+      mockFetch(statusCode);
+
+      const result = await fns.getStatus(someDomain);
+      expect(result).toEqual({ domain: someDomain, response: statusCode });
+      expect(fetch).toHaveBeenCalledWith(someDomain.endpoint);
+    });
+
+    it("returns -1 if error in fetch", async function() {
+      const someDomain = subdomains.subdomains[0];
+      // @ts-ignore
+      fetch.mockImplementation(() => Promise.reject());
+      const result = await fns.getStatus(someDomain);
+      expect(result).toEqual({ domain: someDomain, response: -1 });
+      expect(fetch).toHaveBeenCalledWith(someDomain.endpoint);
     });
   });
 
   describe("handler", function() {
-    it("should get credentials from S3", async () => {
-      expect(await fns.handler()).toEqual({
+    it("should get subdomains from S3", async () => {
+      expect(await handler()).toEqual({
         statusCode: 200,
-        body: `Metrics sent for metrics: ${JSON.stringify(imageCount)}`
+        body: `Metrics sent for metrics: ${JSON.stringify(
+          subdomains.subdomains
+        )}`
       });
-      expect(getCredentials).toHaveBeenCalledTimes(1);
-      expect(promiseMock).toHaveBeenCalledTimes(Object.keys(imageCount).length);
+      expect(fns.getConfigFromS3).toHaveBeenCalledTimes(1);
+      expect(getStatusSpy).toHaveBeenCalledWith({
+        name: "someName",
+        endpoint: "someEndpoint"
+      });
+      expect(putMetricDataMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          MetricData: expect.arrayContaining([
+            expect.objectContaining({ MetricName: "StatusCode", Value: 200 })
+          ])
+        })
+      );
     });
 
-    it("should log out image counts", async () => {
-      // @ts-ignore
-      global.console = {
-        warn: jest.fn(),
-        log: jest.fn()
+    it("should work for multiple subdomains from S3", async () => {
+      const subdomains: SubdomainConfig = {
+        subdomains: [
+          { name: "subdomain1", endpoint: "endpoint1" },
+          { name: "subdomain2", endpoint: "endpoint2" }
+        ]
       };
+      mockGetSubdomains(subdomains);
 
-      // @ts-ignore
-      fetch = jest.fn(() => "ff");
-
-      expect(await fns.handler()).toEqual({
+      expect(await handler()).toEqual({
         statusCode: 200,
-        body: `Metrics sent for metrics: ${JSON.stringify(imageCount)}`
+        body: `Metrics sent for metrics: ${JSON.stringify([
+          { name: "subdomain1", endpoint: "endpoint1" },
+          { name: "subdomain2", endpoint: "endpoint2" }
+        ])}`
       });
-      expect(global.console.log).toHaveBeenCalledWith(
-        "image counts",
-        imageCount
+
+      expect(fns.getConfigFromS3).toHaveBeenCalledTimes(1);
+      getStatusSpy.mock.calls.map((call, index) =>
+        // `call` returns an array of arguments, so the first one is the first arg to getStatus
+        expect(call).toEqual([subdomains.subdomains[index]])
       );
+      expect(putMetricDataMock).toHaveBeenCalledTimes(2);
     });
   });
 });

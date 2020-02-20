@@ -1,15 +1,23 @@
-# Image Lambda
+# Subdomain Health Lambda
 
-This is a service responsible for getting the total image count from the Grid and sending them to CloudWatch.
+This is a service responsible for passing HTTP status codes from multiple media endpoints and sending them to CloudWatch.
 
-It queries the `/management/imageCounts` endpoint of the Media API to fetch the following counts:
-```typescript
-{
-  catCount: number;
-  searchResponseCount: number;
-  indexStatsCount: number;
+
+It queries the `/management/healthceck` endpoint of the provided endpoints in an S3 file and passes on the HTTP status codes to CloudWatch.
+The structure of the `conf.json` file containing the endpoints is:
+```json
+{ "subdomains": [
+    {
+      "name": "some-subdomain",
+      "endpoint": "http://some-subdomain.domain.com",
+    },
+    ...
+  ]
 }
 ```
+
+This allows us to create dashboards like so:
+![](./docs/subdomain-health.png)
 
 ### Deploying the service
 
