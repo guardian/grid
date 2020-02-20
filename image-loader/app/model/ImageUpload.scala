@@ -221,6 +221,9 @@ object ImageUploadOps {
             uploadRequest
           )
 
+          Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(uploadRequest.toLogMarker)
+          uploadedFile.delete()
+
           finalImage
         }
       })

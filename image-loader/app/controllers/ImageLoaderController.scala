@@ -80,7 +80,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     auth.async(parsedBody) { req =>
       val result = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
-      result.onComplete { _ => req.body.file.delete() }
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
       result
     }
