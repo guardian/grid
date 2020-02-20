@@ -93,8 +93,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   def projectImageBy(imageId: String) = {
     auth { _ =>
       projectS3ImageById(imageId) match {
-        case Success(maybeImageFuture) =>
-          maybeImageFuture match {
+        case Success(maybeImage) =>
+          maybeImage match {
             case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
             case None =>
               val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
