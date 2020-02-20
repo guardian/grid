@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.Image
 import com.gu.mediaservice.model.Image._
-import com.gu.mediaservice.{ImageDataMerger, ImageDataMergerConfig}
+import com.gu.mediaservice.{FullImageProjectionFailed, FullImageProjectionSuccess, ImageDataMerger, ImageDataMergerConfig}
 import lib.AdminToolsConfig
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
@@ -32,11 +32,18 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
     indexResponse
   }
 
-  def project(mediaId: String) = Action.async {
-    val futureMaybeImage: Future[Option[Image]] = merger.getMergedImageData(mediaId)
-    futureMaybeImage.map {
-      case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
-      case None => NotFound
+  def project(mediaId: String) = Action {
+    val result = merger.getMergedImageData(mediaId)
+    result match {
+      case FullImageProjectionSuccess(mayBeImage) =>
+        mayBeImage match {
+          case Some(img) =>
+            Ok(Json.toJson(img)).as(ArgoMediaType)
+          case _ =>
+            respondError(NotFound, "not-found", s"image with mediaId: $mediaId not found")
+        }
+      case FullImageProjectionFailed(expMessage) =>
+        respondError(InternalServerError, "image-projection-failed", expMessage)
     }
   }
 }

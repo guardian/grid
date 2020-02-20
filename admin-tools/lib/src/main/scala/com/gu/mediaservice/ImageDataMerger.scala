@@ -10,7 +10,8 @@ import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 import play.api.libs.json._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ImageDataMergerConfig {
   private val gridClient = GridClient(maxIdleConnections = 5)
@@ -95,7 +96,7 @@ object ImageProjectionOverrides extends LazyLogging {
       * because it is not persisted now anywhere else then ElasticSearch
       * and projection is initially created to be able to project records that are missing in ElasticSearch
       * so TODO userMetadataLastModified should be stored in dynamo additionally
-      * */
+      **/
 
     val dtOrdering = Ordering.by((_: DateTime).getMillis())
 
@@ -122,13 +123,30 @@ object ImageProjectionOverrides extends LazyLogging {
 
 }
 
+trait FullImageProjectionResult
+
+case class FullImageProjectionSuccess(image: Option[Image]) extends FullImageProjectionResult
+
+case class FullImageProjectionFailed(exception: String) extends FullImageProjectionResult
+
 class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
 
   import config._
   import services._
 
 
-  def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
+  def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
+    try {
+      val maybeImageFuture = getMergedImageDataInternal(mediaId)
+      val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
+      FullImageProjectionSuccess(mayBeImage)
+    } catch {
+      case e: DownstreamApiInBadSateException =>
+        FullImageProjectionFailed(e.getMessage)
+    }
+  }
+
+  private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
     val maybeImage: Option[Image] = getImageLoaderProjection(mediaId)
     maybeImage match {
       case Some(img) =>
@@ -221,14 +239,18 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
   private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
     import res._
     if (statusCode != 200 && statusCode != 404) {
-      val message = s"breaking the circuit of full image projection, " +
-        s"downstream API: $url is in a bad state, code: $statusCode, message: ${res.message}"
+      val message = Json.obj(
+        "errorMessage" -> s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode",
+        "downstreamErrorMessage" -> res.bodyAsString
+      )
       val errorJson = Json.obj(
         "errorStatusCode" -> statusCode,
         "message" -> message
       )
       logger.error(errorJson.toString())
-      throw new IllegalArgumentException(message)
+      throw new DownstreamApiInBadSateException(message.toString())
     }
   }
 }
+
+class DownstreamApiInBadSateException(message: String) extends IllegalStateException(message)

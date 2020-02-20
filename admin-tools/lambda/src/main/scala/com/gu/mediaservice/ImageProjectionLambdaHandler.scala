@@ -35,21 +35,23 @@ class ImageProjectionLambdaHandler extends LazyLogging {
         logger.info(s"with config: $cfg")
 
         val merger = new ImageDataMerger(cfg)
-        val maybeImageFuture: Future[Option[Image]] = merger.getMergedImageData(mediaId.asInstanceOf[String])
-        val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
-
-        mayBeImage match {
-          case Some(img) =>
-            logger.info(s"image projected \n $img")
-            getSuccessResponse(img)
-          case _ =>
-            getNotFoundResponse(mediaId)
+        val result: FullImageProjectionResult = merger.getMergedImageData(mediaId.asInstanceOf[String])
+        result match {
+          case FullImageProjectionSuccess(mayBeImage) =>
+            mayBeImage match {
+              case Some(img) =>
+                getSuccessResponse(img)
+              case _ =>
+                getNotFoundResponse(mediaId)
+            }
+          case FullImageProjectionFailed(expMessage) =>
+            getErrorFoundResponse(expMessage)
         }
-      case _ => getUnauthorisedResponse
     }
   }
 
   private def getSuccessResponse(img: Image) = {
+    logger.info(s"image projected \n $img")
     val body = Json.toJson(img).toString
     new APIGatewayProxyResponseEvent()
       .withStatusCode(200)
@@ -64,6 +66,15 @@ class ImageProjectionLambdaHandler extends LazyLogging {
       .withStatusCode(404)
       .withHeaders(Map("content-type" -> "application/json").asJava)
       .withBody(emptyRes)
+  }
+
+  private def getErrorFoundResponse(exceptionMessage: String) = {
+    val res = Json.obj("message" -> exceptionMessage).toString
+    logger.info(s"image not projected due to error \n $res")
+    new APIGatewayProxyResponseEvent()
+      .withStatusCode(500)
+      .withHeaders(Map("content-type" -> "application/json").asJava)
+      .withBody(res)
   }
 
   private def getUnauthorisedResponse = {

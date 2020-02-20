@@ -10,7 +10,7 @@ import play.api.libs.json.{JsValue, Json}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-case class ResponseWrapper(body: JsValue, statusCode: Int, message: String)
+case class ResponseWrapper(body: JsValue, statusCode: Int, bodyAsString: String)
 
 object GridClient {
   def apply(maxIdleConnections: Int, debugHttpResponse: Boolean = true): GridClient = new GridClient(maxIdleConnections, debugHttpResponse)
@@ -43,8 +43,8 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
   private def processResponse(response: Response, url: URL) = {
     val body = response.body()
     val code = response.code()
-    println(response.body().string())
     try {
+      val bodyAsString = body.string
       val resInfo = Map(
         "status-code" -> code.toString,
         "message" -> response.message()
@@ -57,8 +57,8 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
         )
         logger.error(errorJson.toString())
       }
-      val json = if (code == 200) Json.parse(body.string) else Json.obj()
-      ResponseWrapper(json, code, response.message())
+      val json = if (code == 200) Json.parse(bodyAsString) else Json.obj()
+      ResponseWrapper(json, code, bodyAsString)
     } catch {
       case e: Exception =>
         val errorJson = Json.obj(
