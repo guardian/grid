@@ -161,7 +161,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$loaderBaseUri/images/project/$mediaId")
     val res = gridClient.makeGetRequestSync(url, apiKey)
-    validateResponse(res.statusCode, url)
+    validateResponse(res, url)
     logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
     if (res.statusCode == 200) Some(res.body.as[Image]) else None
   }
@@ -170,7 +170,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res.statusCode, url)
+      validateResponse(res, url)
       if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
     }
   }
@@ -179,7 +179,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     logger.info("attempt to get edits")
     val url = new URL(s"$metadataBaseUri/edits/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res.statusCode, url)
+      validateResponse(res, url)
       if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
     }
   }
@@ -188,7 +188,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     logger.info("attempt to get crops")
     val url = new URL(s"$cropperBaseUri/crops/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res.statusCode, url)
+      validateResponse(res, url)
       if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
     }
   }
@@ -197,7 +197,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     logger.info("attempt to get leases")
     val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res.statusCode, url)
+      validateResponse(res, url)
       if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
     }
   }
@@ -212,15 +212,17 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
 
     val url = new URL(s"$usageBaseUri/usages/media/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res.statusCode, url)
+      validateResponse(res, url)
       if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
       else Nil
     }
   }
 
-  private def validateResponse(statusCode: Int, url: URL): Unit = {
+  private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
+    import res._
     if (statusCode != 200 && statusCode != 404) {
-      val message = s"breaking the circuit, downstream API: $url is in a bad state, code: $statusCode"
+      val message = s"breaking the circuit of full image projection, " +
+        s"downstream API: $url is in a bad state, code: $statusCode, message: ${res.message}"
       val errorJson = Json.obj(
         "errorStatusCode" -> statusCode,
         "message" -> message
