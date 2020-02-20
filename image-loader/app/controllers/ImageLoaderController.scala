@@ -4,16 +4,14 @@ import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.util.UUID
 
-import com.amazonaws.ClientConfiguration
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
-import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
+import com.amazonaws.services.s3.model.S3Object
 import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.net.{URI => MediaURI}
 import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
+import com.gu.mediaservice.lib.net.{URI => MediaURI}
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
@@ -28,9 +26,10 @@ import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
   def toMarker(extraMarkers: Map[String, String] = Map.empty) = Markers.appendEntries(
@@ -92,12 +91,17 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   def projectImageBy(imageId: String) = {
-    auth.async { _ =>
-      projectS3ImageById(imageId).map {
-        case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
-        case None =>
-          val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
-          respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
+    auth { _ =>
+      projectS3ImageById(imageId) match {
+        case Success(maybeImage) =>
+          maybeImage match {
+            case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
+            case None =>
+              val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
+              respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
+          }
+        case Failure(error) =>
+          respondError(InternalServerError, "image-projection-failed", error.getMessage)
       }
     }
   }
@@ -139,14 +143,14 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  private def projectS3ImageById(imageId: String): Future[Option[Image]] = {
+  private def projectS3ImageById(imageId: String): Try[Option[Image]] = {
     Logger.info(s"projecting image: $imageId")
 
     import ImageIngestOperations.fileKeyFromId
     val s3Key = fileKeyFromId(imageId)
     val s3 = S3Ops.buildS3Client(config)
 
-    if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Future(None)
+    if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Try(None)
 
     Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")
 
@@ -171,9 +175,11 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       picdarUrn = picdarUrn,
     )
 
-    val finalImage = imageUploadProjector.projectImage(digestedFile, extractedS3Meta)
-
-    finalImage.map(Some(_))
+    Try {
+      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta)
+      val finalImage = Await.result(finalImageFuture, Duration.Inf)
+      Some(finalImage)
+    }
   }
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
