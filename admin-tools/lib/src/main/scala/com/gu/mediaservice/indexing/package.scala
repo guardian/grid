@@ -11,6 +11,7 @@ package object indexing {
     val NotFound = ProduceProgress("not found", 2)
     val Finished = ProduceProgress("finished", 3)
     val Reset = ProduceProgress("reset because of failure", 0)
+    val KnownError = ProduceProgress("reset because of known failure", 4)
 
   }
 

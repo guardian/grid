@@ -163,6 +163,13 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     Reset
   }
 
+  // used in situation if something failed in a expected way and we want to ignore that file in next batch
+  def setStateToKnownError(id: String): ProduceProgress = {
+    logger.info("setting item to KnownError state to ignore it next time")
+    updateItemSate(id, KnownError.stateId)
+    KnownError
+  }
+
   private def updateItemSate(id: String, state: Int) = {
     val us = new UpdateItemSpec().
       withPrimaryKey(PKField, id).

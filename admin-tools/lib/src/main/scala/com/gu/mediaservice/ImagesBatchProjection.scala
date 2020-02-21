@@ -28,8 +28,12 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
           InputIdsStore.updateStateToNotFoundImage(id)
           Some(Right(id))
         } else {
-          // for example server temporary inaccessible
-          InputIdsStore.resetItemState(id)
+          if (isAKnownError(response)) {
+            InputIdsStore.setStateToKnownError(id)
+          } else {
+            // for example server temporary inaccessible
+            InputIdsStore.resetItemState(id)
+          }
           None
         }
       }
@@ -37,6 +41,14 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
     }
     val f = Future.sequence(apiCalls)
     Await.result(f, timeout).flatten
+  }
+
+  private val KnownErrors = List(
+    "org.im4java.core.CommandException"
+  )
+
+  private def isAKnownError(res: ResponseWrapper): Boolean = {
+    res.statusCode == 500 && KnownErrors.exists(res.bodyAsString.contains(_))
   }
 }
 
