@@ -47,7 +47,7 @@ class MessageProcessor(es: ElasticSearch,
     Logger.info(s"attempt to parse images from $request")
     val imagesToIndex = bulkIndexS3Client.getImages(request)
     val markers: LogstashMarker = message.toLogMarker.and(Markers.append("batchImageCount", imagesToIndex.length))
-    Logger.info("Processing a batch index")(markers)
+    Logger.info(s"Processing a batch index of size: ${imagesToIndex.size}")(markers)
     Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
