@@ -173,25 +173,26 @@ object ImageUploadOps {
   def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies, requestLoggingContext: RequestLoggingContext)(implicit ec: ExecutionContext): Future[Image] = {
 
     import deps._
+    import uploadRequest.imageId
 
     val UntilAvailable = Duration.Inf
 
     val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toMarker())
 
-    Logger.info("Starting image ops")(initialMarkers)
+    Logger.info(s"Starting image ops imageId=$imageId")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile
 
     // FIXME: pass mimeType
     val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), UntilAvailable)
-    Logger.info("colourModel generated successfully")
+    Logger.info(s"colourModel generated successfully imageId=$imageId")
     val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), UntilAvailable)
-    Logger.info("fileMetadata extracted")
+    Logger.info(s"fileMetadata extracted imageId=$imageId")
 
     val thumbFile = Await.result(createThumbFuture(fileMetadata, colourModel, uploadRequest, deps), UntilAvailable)
-    Logger.info("thumbFile created")
+    Logger.info(s"thumbFile created imageId=$imageId")
     val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), UntilAvailable)
     val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
-    Logger.info("optimisedPng build")
+    Logger.info(s"optimisedPng build imageId=$imageId")
 
     try {
       for {
@@ -216,11 +217,11 @@ object ImageUploadOps {
     } finally {
       val tmpFiles = if (optimisedPng.isPng24) List(uploadedFile, thumbFile, optimisedPng.optimisedTempFile.get) else List(uploadedFile, thumbFile)
       try {
-        Logger.info("attempt to delete temp files")
+        Logger.info(s"attempt to delete temp files for imageId=$imageId")
         tmpFiles.foreach(_.delete)
       } catch {
         case e: Exception =>
-          Logger.error(e.getMessage)
+          Logger.error(s" exception while deleting temp files for imageId=$imageId exception: ${e.getMessage}")
       }
     }
   }
