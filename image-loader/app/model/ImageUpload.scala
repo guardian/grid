@@ -217,7 +217,7 @@ object ImageUploadOps {
     } finally {
       val tmpFiles = if (optimisedPng.isPng24) List(uploadedFile, thumbFile, optimisedPng.optimisedTempFile.get) else List(uploadedFile, thumbFile)
       try {
-        Logger.info(s"attempt to delete temp files for imageId=$imageId")
+        Logger.info(s"attempt to delete temp files for imageId=$imageId, files: ${tmpFiles.map(_.getAbsolutePath)}")
         tmpFiles.foreach{ f =>
           val path = f.getAbsolutePath
           val deleted = f.delete
