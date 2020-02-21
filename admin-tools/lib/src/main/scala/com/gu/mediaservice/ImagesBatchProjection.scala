@@ -44,7 +44,6 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
   }
 
   private val KnownErrors = List(
-    "Premature end of JPEG file",
     "org.im4java.core.CommandException"
   )
 
