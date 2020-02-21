@@ -183,11 +183,15 @@ object ImageUploadOps {
 
     // FIXME: pass mimeType
     val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), UntilAvailable)
+    Logger.info("colourModel generated successfully")
     val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), UntilAvailable)
+    Logger.info("fileMetadata extracted")
 
     val thumbFile = Await.result(createThumbFuture(fileMetadata, colourModel, uploadRequest, deps), UntilAvailable)
+    Logger.info("thumbFile created")
     val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), UntilAvailable)
     val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
+    Logger.info("optimisedPng build")
 
     try {
       for {
