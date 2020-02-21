@@ -1,6 +1,6 @@
 {
   "projectName": "media-service::grid::image-counter-lambda",
-  "vcsURL": "your github url",
+  "vcsURL": "https://github.com/guardian/grid/",
   "actions": [
     {
       "action": "image-counter-lambda",
