@@ -17,7 +17,7 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
 
   def getImagesProjection(mediaIds: List[String], projectionEndpoint: String,
                           InputIdsStore: InputIdsStore)(implicit ec: ExecutionContext): List[Either[Image, String]] = {
-    val f = Future.traverse(mediaIds) { id =>
+    val apiCalls = mediaIds.map { id =>
       val projectionUrl = new URL(s"$projectionEndpoint/$id")
       val responseFuture: Future[ResponseWrapper] = gridClient.makeGetRequestAsync(projectionUrl, apiKey)
       val notFoundOrImage: Future[Option[Either[Image, String]]] = responseFuture.map { response =>
@@ -35,6 +35,7 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
       }
       notFoundOrImage
     }
+    val f = Future.sequence(apiCalls)
     Await.result(f, timeout).flatten
   }
 }
