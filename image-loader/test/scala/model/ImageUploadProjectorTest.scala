@@ -4,6 +4,7 @@ import java.io.File
 import java.net.URI
 
 import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
@@ -157,7 +158,9 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
       picdarUrn = None,
     )
 
-    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta)
+    val requestLoggingContext = RequestLoggingContext()
+    
+    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, requestLoggingContext)
 
     whenReady(actualFuture) { actual =>
       actual shouldEqual expected

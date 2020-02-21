@@ -2,7 +2,6 @@ package controllers
 
 import java.io.{File, FileOutputStream}
 import java.net.URI
-import java.util.UUID
 
 import com.amazonaws.services.s3.model.S3Object
 import com.gu.mediaservice.lib.ImageIngestOperations
@@ -11,31 +10,24 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
-import com.gu.mediaservice.lib.net.{URI => MediaURI}
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, ImageUploadProjector, S3FileExtractedMetadata, UploadRequest}
-import net.logstash.logback.marker.Markers
+import net.logstash.logback.marker.LogstashMarker
 import org.apache.tika.io.IOUtils
-import org.joda.time.{DateTime, DateTimeZone}
+import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
-
-case class RequestLoggingContext(requestId: UUID = UUID.randomUUID()) {
-  def toMarker(extraMarkers: Map[String, String] = Map.empty) = Markers.appendEntries(
-    (extraMarkers + ("requestId" -> requestId)).asJava
-  )
-}
 
 class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications,
                             config: ImageLoaderConfig, imageUploadOps: ImageUploadOps, imageUploadProjector: ImageUploadProjector,
@@ -63,7 +55,11 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
-    val requestContext = RequestLoggingContext()
+    val requestContext = RequestLoggingContext(
+      initialMarkers = Map(
+        "requestType" -> "load-image"
+      )
+    )
 
     val markers = Map(
       "uploadedBy" -> uploadedBy.getOrElse(LOG_FALLBACK),
@@ -84,31 +80,48 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String) = {
-    val uploadedFile = File.createTempFile(s"projection-${imageId}", "", config.tempDir)
+  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, requestLoggingContext: RequestLoggingContext) = {
+    val uploadedFile = createTempFile(s"projection-${imageId}", requestLoggingContext)
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(uploadedFile))
     DigestedFile(uploadedFile, imageId)
   }
 
   def projectImageBy(imageId: String) = {
+    val requestContext = RequestLoggingContext(
+      initialMarkers = Map(
+        "imageId" -> imageId,
+        "requestType" -> "image-projection"
+      )
+    )
+
     auth { _ =>
-      projectS3ImageById(imageId) match {
+      projectS3ImageById(imageId, requestContext) match {
         case Success(maybeImage) =>
           maybeImage match {
-            case Some(img) => Ok(Json.toJson(img)).as(ArgoMediaType)
+            case Some(img) => {
+              Logger.info("image found")(requestContext.toMarker())
+              Ok(Json.toJson(img)).as(ArgoMediaType)
+            }
             case None =>
               val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
+              Logger.info("image not found")(requestContext.toMarker())
               respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
           }
-        case Failure(error) =>
+        case Failure(error) => {
+          Logger.error("image projection failed")(requestContext.toMarker())
           respondError(InternalServerError, "image-projection-failed", error.getMessage)
+        }
       }
     }
   }
 
   def importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
     auth.async { request =>
-      val requestContext = RequestLoggingContext()
+      val requestContext = RequestLoggingContext(
+        initialMarkers = Map(
+          "requestType" -> "import-image"
+        )
+      )
       val apiKey = request.user.apiKey
 
       Logger.info("importImage request start")(requestContext.toMarker(Map(
@@ -143,8 +156,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  private def projectS3ImageById(imageId: String): Try[Option[Image]] = {
-    Logger.info(s"projecting image: $imageId")
+  private def projectS3ImageById(imageId: String, requestLoggingContext: RequestLoggingContext): Try[Option[Image]] = {
+    Logger.info(s"projecting image: $imageId")(requestLoggingContext.toMarker())
 
     import ImageIngestOperations.fileKeyFromId
     val s3Key = fileKeyFromId(imageId)
@@ -152,31 +165,14 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Try(None)
 
-    Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")
+    Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")(requestLoggingContext.toMarker())
 
     val s3Source = s3.getObject(config.imageBucket, s3Key)
-    val lastModified = s3Source.getObjectMetadata.getLastModified.toInstant.toString
-    val digestedFile = getSrcFileDigestForProjection(s3Source, imageId)
-    val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
-
-    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
-    val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
-    val picdarUrn = fileUserMetadata.get("identifier!picdarurn")
-
-    val uploadFileNameRaw = fileUserMetadata.get("file_name")
-    // The file name is URL encoded in  S3 metadata
-    val uploadFileName = uploadFileNameRaw.map(MediaURI.decode)
-
-    val extractedS3Meta = S3FileExtractedMetadata(
-      uploadedBy = uploadedBy,
-      uploadTime = uploadTime,
-      uploadFileName = uploadFileName,
-      picdarUrn = picdarUrn,
-    )
+    val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, requestLoggingContext)
+    val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
     Try {
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta)
+      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestLoggingContext)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }
@@ -184,7 +180,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
   def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
-               uploadTime: Option[String], filename: Option[String], requestContext: RequestLoggingContext): Future[Result] = {
+               uploadTime: Option[String], filename: Option[String], requestLoggingContext: RequestLoggingContext): Future[Result] = {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     val uploadedBy_ = uploadedBy match {
@@ -204,13 +200,13 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       case None => DateTime.now
     }
 
-    Logger.info("Detecting mimetype")(requestContext.toMarker())
+    Logger.info("Detecting mimetype")(requestLoggingContext.toMarker())
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
-    Logger.info(s"Detected mimetype as ${mimeType_.getOrElse(LOG_FALLBACK)}")(requestContext.toMarker())
+    Logger.info(s"Detected mimetype as ${mimeType_.getOrElse(LOG_FALLBACK)}")(requestLoggingContext.toMarker())
 
     val uploadRequest = UploadRequest(
-      requestId = requestContext.requestId,
+      requestId = requestLoggingContext.requestId,
       imageId = id_,
       tempFile = tempFile_,
       mimeType = mimeType_,
@@ -222,7 +218,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val supportedMimeType = config.supportedMimeTypes.exists(mimeType_.contains(_))
 
-    if (supportedMimeType) storeFile(uploadRequest) else unsupportedTypeError(uploadRequest)
+    if (supportedMimeType) storeFile(uploadRequest, requestLoggingContext) else unsupportedTypeError(uploadRequest)
   }
 
   val invalidUri = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
@@ -239,10 +235,12 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     )
   }
 
-  def storeFile(uploadRequest: UploadRequest): Future[Result] = {
-    Logger.info("Storing file")(uploadRequest.toLogMarker)
+  def storeFile(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext): Future[Result] = {
+    val completeMarkers: LogstashMarker = requestLoggingContext.toMarker().and(uploadRequest.toLogMarker)
+
+    Logger.info("Storing file")(completeMarkers)
     val result = for {
-      imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest)
+      imageUpload <- imageUploadOps.fromUploadRequest(uploadRequest, requestLoggingContext)
       image = imageUpload.image
     } yield {
       val updateMessage = UpdateMessage(subject = "image", image = Some(image))
@@ -254,10 +252,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     result recover {
       case e =>
-        Logger.warn(s"Failed to store file: ${e.getMessage}.", e)(uploadRequest.toLogMarker)
+        Logger.warn(s"Failed to store file: ${e.getMessage}.", e)(completeMarkers)
 
         store.deleteOriginal(uploadRequest.imageId).onComplete {
-          case Failure(err) => Logger.error(s"Failed to delete image for ${uploadRequest.imageId}: $err")
+          case Failure(err) => Logger.error(s"Failed to delete image for ${uploadRequest.imageId}: $err")(completeMarkers)
           case _ =>
         }
         respondError(BadRequest, "upload-error", e.getMessage)

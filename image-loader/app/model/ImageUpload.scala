@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
@@ -112,8 +113,8 @@ class ImageUploadOps(store: ImageLoaderStore,
   private val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
     storeSource, storeThumbnail, storeOptimisedPng)
 
-  def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
+  def fromUploadRequest(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext): Future[ImageUpload] = {
+    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, requestLoggingContext)
     finalImage.map(img => ImageUpload(uploadRequest, img))
   }
 
@@ -169,39 +170,39 @@ object ImageUploadOps {
     )
   }
 
-  def fromUploadRequestShared(uploadRequest: UploadRequest,
-                              deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[Image] = {
+  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies, requestLoggingContext: RequestLoggingContext)(implicit ec: ExecutionContext): Future[Image] = {
 
     import deps._
 
-    Logger.info("Starting image ops")(uploadRequest.toLogMarker)
+    val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toMarker())
+
+    Logger.info("Starting image ops")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile
 
     val fileMetadataFuture = toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
 
-    val uploadMarkers = uploadRequest.toLogMarker
-    Logger.info("Have read file headers")(uploadMarkers)
+    Logger.info("Have read file headers")(initialMarkers)
 
     fileMetadataFuture.flatMap(fileMetadata => {
-      val markers: LogstashMarker = fileMetadata.toLogMarker.and(uploadMarkers)
-      Logger.info("Have read file metadata")(markers)
+      val fileMetadataMarkers: LogstashMarker = initialMarkers.and(fileMetadata.toLogMarker)
+      Logger.info("Have read file metadata")(fileMetadataMarkers)
 
       // These futures are started outside the for-comprehension, otherwise they will not run in parallel
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
-      Logger.info("stored source file")(uploadRequest.toLogMarker)
+      Logger.info("stored source file")(initialMarkers)
       // FIXME: pass mimeType
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
       val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
 
-      Logger.info("thumbnail created")(uploadRequest.toLogMarker)
+      Logger.info("thumbnail created")(initialMarkers)
 
       //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
       val optimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest, deps)
 
       optimiseFileFuture.flatMap(toOptimiseFile => {
-        Logger.info("optimised image created")(uploadRequest.toLogMarker)
+        Logger.info("optimised image created")(initialMarkers)
 
         val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
 
@@ -221,7 +222,7 @@ object ImageUploadOps {
             uploadRequest
           )
 
-          Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(uploadRequest.toLogMarker)
+          Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(initialMarkers)
           uploadedFile.delete()
 
           finalImage
