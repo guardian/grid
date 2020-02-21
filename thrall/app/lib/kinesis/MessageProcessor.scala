@@ -1,6 +1,6 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{BulkIndexRequest, EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
@@ -44,9 +44,10 @@ class MessageProcessor(es: ElasticSearch,
 
   def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchBulkUpdateResponse]] = {
     val request = message.bulkIndexRequest.get
+    Logger.info(s"attempt to parse images from $request")
     val imagesToIndex = bulkIndexS3Client.getImages(request)
     val markers: LogstashMarker = message.toLogMarker.and(Markers.append("batchImageCount", imagesToIndex.length))
-    Logger.info("Processing a batch index")(markers)
+    Logger.info(s"Processing a batch index of size: ${imagesToIndex.size}")(markers)
     Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
