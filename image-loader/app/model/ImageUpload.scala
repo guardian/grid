@@ -18,7 +18,8 @@ import lib.storage.ImageLoaderStore
 import net.logstash.logback.marker.LogstashMarker
 import play.api.Logger
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.sys.process._
 
 case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean,
@@ -173,36 +174,42 @@ object ImageUploadOps {
 
     import deps._
 
+    val UntilAvailable = Duration.Inf
+
     val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toMarker())
 
     Logger.info("Starting image ops")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile
 
-    for {
-      // FIXME: pass mimeType
-      colourModel <- ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
-      sourceDimensions <- FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
-      fileMetadata <- toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
-      thumbFile <- createThumbFuture(fileMetadata, colourModel, uploadRequest, deps)
-      thumbStore <- storeOrProjectThumbFile(uploadRequest, thumbFile)
-      thumbDimensions <- FileMetadataReader.dimensions(thumbFile, Some("image/jpeg"))
-      toOptimiseFile <- createOptimisedFileFuture(uploadRequest, deps)
-      sourceStore <- storeOrProjectOriginalFile(uploadRequest)
+    // FIXME: pass mimeType
+    val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), UntilAvailable)
+    val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), UntilAvailable)
 
-      optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
+    val thumbFile = Await.result(createThumbFuture(fileMetadata, colourModel, uploadRequest, deps), UntilAvailable)
+    val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), UntilAvailable)
+    val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
 
-      finalImage <- toFinalImage(
-        sourceStore,
-        thumbStore,
-        sourceDimensions,
-        thumbDimensions,
-        fileMetadata,
-        colourModel,
-        optimisedPng,
-        uploadRequest
-      )
+    try {
+      for {
+        sourceDimensions <- FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
+        thumbStore <- storeOrProjectThumbFile(uploadRequest, thumbFile)
+        // FIXME: pass mimeType
+        thumbDimensions <- FileMetadataReader.dimensions(thumbFile, Some("image/jpeg"))
+        sourceStore <- storeOrProjectOriginalFile(uploadRequest)
 
-    } yield {
+        finalImage <- toFinalImage(
+          sourceStore,
+          thumbStore,
+          sourceDimensions,
+          thumbDimensions,
+          fileMetadata,
+          colourModel,
+          optimisedPng,
+          uploadRequest
+        )
+      } yield finalImage
+
+    } finally {
       val tmpFiles = if (optimisedPng.isPng24) List(uploadedFile, thumbFile, optimisedPng.optimisedTempFile.get) else List(uploadedFile, thumbFile)
       try {
         Logger.info("attempt to delete temp files")
@@ -211,8 +218,6 @@ object ImageUploadOps {
         case e: Exception =>
           Logger.error(e.getMessage)
       }
-
-      finalImage
     }
   }
 
