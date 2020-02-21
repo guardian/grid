@@ -9,6 +9,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duration, gridClient: GridClient) {
 
+  private implicit val ThrottledExecutionContext = ExecutionContext.fromExecutor(java.util.concurrent.Executors.newFixedThreadPool(5))
+
   def validApiKey(projectionEndpoint: String) = {
     val projectionUrl = new URL(s"$projectionEndpoint/not-exists")
     val statusCode = gridClient.makeGetRequestSync(projectionUrl, apiKey).statusCode
@@ -16,7 +18,7 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
   }
 
   def getImagesProjection(mediaIds: List[String], projectionEndpoint: String,
-                          InputIdsStore: InputIdsStore)(implicit ec: ExecutionContext): List[Either[Image, String]] = {
+                          InputIdsStore: InputIdsStore): List[Either[Image, String]] = {
     val apiCalls = mediaIds.map { id =>
       val projectionUrl = new URL(s"$projectionEndpoint/$id")
       val responseFuture: Future[ResponseWrapper] = gridClient.makeGetRequestAsync(projectionUrl, apiKey)
@@ -47,9 +49,8 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
     "org.im4java.core.CommandException"
   )
 
-  private def isAKnownError(res: ResponseWrapper): Boolean = {
+  private def isAKnownError(res: ResponseWrapper): Boolean =
     res.statusCode == 500 && KnownErrors.exists(res.bodyAsString.contains(_))
-  }
 }
 
 
