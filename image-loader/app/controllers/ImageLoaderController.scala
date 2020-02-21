@@ -84,7 +84,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  private def getSrcFileDigest(s3Src: S3Object, imageId: String) = {
+  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String) = {
     val uploadedFile = File.createTempFile(s"projection-${imageId}", "", config.tempDir)
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(uploadedFile))
     DigestedFile(uploadedFile, imageId)
@@ -156,7 +156,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val s3Source = s3.getObject(config.imageBucket, s3Key)
     val lastModified = s3Source.getObjectMetadata.getLastModified.toInstant.toString
-    val digestedFile = getSrcFileDigest(s3Source, imageId)
+    val digestedFile = getSrcFileDigestForProjection(s3Source, imageId)
     val fileUserMetadata = s3Source.getObjectMetadata.getUserMetadata.asScala.toMap
 
     val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
