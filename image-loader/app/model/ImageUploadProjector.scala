@@ -1,16 +1,19 @@
 package model
 
 import java.io.File
-import java.util.UUID
 
+import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
+import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.MimeTypeDetection
 import lib.{DigestedFile, ImageLoaderConfig}
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageUploadProjector {
@@ -21,14 +24,42 @@ object ImageUploadProjector {
   = new ImageUploadProjector(toImageUploadOpsCfg(config), imageOps)(ec)
 }
 
-case class S3FileExtractedMetadata(uploadedBy: String, uploadTime: DateTime, uploadFileName: Option[String], picdarUrn: Option[String])
+case class S3FileExtractedMetadata(
+  uploadedBy: String,
+  uploadTime: DateTime,
+  uploadFileName: Option[String],
+  picdarUrn: Option[String]
+)
+
+object S3FileExtractedMetadata {
+  def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
+    val lastModified = s3ObjectMetadata.getLastModified.toInstant.toString
+    val fileUserMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+
+    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
+    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
+    val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
+    val picdarUrn = fileUserMetadata.get("identifier!picdarurn")
+
+    val uploadFileNameRaw = fileUserMetadata.get("file_name")
+    // The file name is URL encoded in  S3 metadata
+    val uploadFileName = uploadFileNameRaw.map(URI.decode)
+
+    S3FileExtractedMetadata(
+      uploadedBy = uploadedBy,
+      uploadTime = uploadTime,
+      uploadFileName = uploadFileName,
+      picdarUrn = picdarUrn,
+    )
+  }
+}
 
 class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
                           (implicit val ec: ExecutionContext) {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
 
-  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata): Future[Image] = {
+  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestLoggingContext: RequestLoggingContext): Future[Image] = {
     import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
     // TODO more identifiers_ to rehydrate
@@ -39,9 +70,9 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
     val uploadInfo_ = UploadInfo(filename = uploadFileName)
     //  Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
-    val notUsedReqID = UUID.randomUUID()
+
     val uploadRequest = UploadRequest(
-      requestId = notUsedReqID,
+      requestId = requestLoggingContext.requestId,
       imageId = id_,
       tempFile = tempFile_,
       mimeType = mimeType_,
@@ -51,7 +82,7 @@ class ImageUploadProjector(config: ImageUploadOpsCfg, imageOps: ImageOperations)
       uploadInfo = uploadInfo_
     )
 
-    imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
+    imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest, requestLoggingContext)
   }
 
 }
@@ -64,8 +95,8 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
     projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
 
-  def projectImageFromUploadRequest(uploadRequest: UploadRequest): Future[Image] = {
-    fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly)
+  def projectImageFromUploadRequest(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext): Future[Image] = {
+    fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, requestLoggingContext)
   }
 
   private def projectOriginalFileAsS3Model(uploadRequest: UploadRequest) = Future {
