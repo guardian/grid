@@ -4,6 +4,7 @@ import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
+import com.gu.mediaservice.lib.Files.createTempFile
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -181,6 +182,7 @@ object ImageUploadOps {
 
     Logger.info(s"Starting image ops imageId=$imageId")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile
+    val thumbTempFile = Await.result(createTempFile(s"thumb-", ".jpg", config.tempDir), UntilAvailable)
 
     // FIXME: pass mimeType
     val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), UntilAvailable)
@@ -188,14 +190,13 @@ object ImageUploadOps {
     val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), UntilAvailable)
     Logger.info(s"fileMetadata extracted successfully imageId=$imageId")
 
-    val thumbFile = Await.result(createThumbFuture(fileMetadata, colourModel, uploadRequest, deps), UntilAvailable)
-    Logger.info(s"thumbFile created successfully imageId=$imageId")
     val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), UntilAvailable)
     val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
     Logger.info(s"optimisedPng build successfully imageId=$imageId")
 
     try {
       for {
+        thumbFile <- createThumbFuture(thumbTempFile, fileMetadata, colourModel, uploadRequest, deps)
         sourceDimensions <- FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
         thumbStore <- storeOrProjectThumbFile(uploadRequest, thumbFile)
         // FIXME: pass mimeType
@@ -215,7 +216,7 @@ object ImageUploadOps {
       } yield finalImage
 
     } finally {
-      val tmpFiles = if (optimisedPng.isPng24) List(uploadedFile, thumbFile, optimisedPng.optimisedTempFile.get) else List(uploadedFile, thumbFile)
+      val tmpFiles = if (optimisedPng.isPng24) List(uploadedFile, thumbTempFile, optimisedPng.optimisedTempFile.get) else List(uploadedFile, thumbTempFile)
       try {
         Logger.info(s"attempt to delete temp files for imageId=$imageId, files: ${tmpFiles.map(_.getAbsolutePath)}")
         tmpFiles.foreach{ f =>
@@ -287,14 +288,14 @@ object ImageUploadOps {
     }
   }
 
-  private def createThumbFuture(fileMetadata: FileMetadata,
+  private def createThumbFuture(thumbTmpFile: File, fileMetadata: FileMetadata,
                                 colourModel: Option[String],
                                 uploadRequest: UploadRequest,
                                 deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
     import deps._
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
     imageOps
-      .createThumbnail(uploadRequest.tempFile, uploadRequest.mimeType, config.thumbWidth,
+      .createThumbnail(uploadRequest.tempFile, thumbTmpFile, uploadRequest.mimeType, config.thumbWidth,
         config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
   }
 

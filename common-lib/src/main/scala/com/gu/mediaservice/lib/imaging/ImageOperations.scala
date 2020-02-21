@@ -110,6 +110,22 @@ class ImageOperations(playPath: String) {
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
+
+  def createThumbnail(sourceFile: File, outputFile: File, sourceMimeType: Option[String], width: Int, qual: Double = 100d,
+                      tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = Future {
+    val cropSource  = addImage(sourceFile)
+    val thumbnailed = thumbnail(cropSource)(width)
+    val corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
+    val converted   = applyOutputProfile(corrected, optimised = true)
+    val stripped    = stripMeta(converted)
+    val  profiled    = applyOutputProfile(stripped, optimised = true)
+    val unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+    val qualified   = quality(unsharpened)(qual)
+    val addOutput   = addDestImage(qualified)(outputFile)
+    runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
+    outputFile
+  }
+
   def createThumbnail(sourceFile: File, sourceMimeType: Option[String], width: Int, qual: Double = 100d,
                       tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
     for {
