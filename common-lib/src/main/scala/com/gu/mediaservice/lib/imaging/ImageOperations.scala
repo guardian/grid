@@ -126,23 +126,6 @@ class ImageOperations(playPath: String) {
     outputFile
   }
 
-  def createThumbnail(sourceFile: File, sourceMimeType: Option[String], width: Int, qual: Double = 100d,
-                      tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
-    for {
-      outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
-      cropSource  = addImage(sourceFile)
-      thumbnailed = thumbnail(cropSource)(width)
-      corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
-      converted   = applyOutputProfile(corrected, optimised = true)
-      stripped    = stripMeta(converted)
-      profiled    = applyOutputProfile(stripped, optimised = true)
-      unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-      qualified   = quality(unsharpened)(qual)
-      addOutput   = addDestImage(qualified)(outputFile)
-      _          <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
-    } yield outputFile
-  }
-
   def transformImage(sourceFile: File, sourceMimeType: Option[String], tempDir: File): Future[File] = {
     for {
       outputFile  <- createTempFile(s"transformed-", ".png", tempDir)
