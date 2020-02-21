@@ -85,7 +85,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   private def getSrcFileDigest(s3Src: S3Object, imageId: String) = {
-    val uploadedFile = File.createTempFile("requestBody", "", config.tempDir)
+    val uploadedFile = File.createTempFile(s"projection-${imageId}", "", config.tempDir)
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(uploadedFile))
     DigestedFile(uploadedFile, imageId)
   }
