@@ -186,13 +186,13 @@ object ImageUploadOps {
     val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), UntilAvailable)
     Logger.info(s"colourModel generated successfully imageId=$imageId")
     val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), UntilAvailable)
-    Logger.info(s"fileMetadata extracted imageId=$imageId")
+    Logger.info(s"fileMetadata extracted successfully imageId=$imageId")
 
     val thumbFile = Await.result(createThumbFuture(fileMetadata, colourModel, uploadRequest, deps), UntilAvailable)
-    Logger.info(s"thumbFile created imageId=$imageId")
+    Logger.info(s"thumbFile created successfully imageId=$imageId")
     val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), UntilAvailable)
     val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
-    Logger.info(s"optimisedPng build imageId=$imageId")
+    Logger.info(s"optimisedPng build successfully imageId=$imageId")
 
     try {
       for {
@@ -218,10 +218,14 @@ object ImageUploadOps {
       val tmpFiles = if (optimisedPng.isPng24) List(uploadedFile, thumbFile, optimisedPng.optimisedTempFile.get) else List(uploadedFile, thumbFile)
       try {
         Logger.info(s"attempt to delete temp files for imageId=$imageId")
-        tmpFiles.foreach(_.delete)
+        tmpFiles.foreach{ f =>
+          val path = f.getAbsolutePath
+          val deleted = f.delete
+          Logger.info(s"file: $path, deleted: $deleted for imageId=$imageId")
+        }
       } catch {
         case e: Exception =>
-          Logger.error(s" exception while deleting temp files for imageId=$imageId exception: ${e.getMessage}")
+          Logger.error(s"exception while deleting temp files for imageId=$imageId exception: ${e.getMessage}")
       }
     }
   }
