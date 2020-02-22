@@ -402,7 +402,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None)
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
 
-        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(usage()))), asJsLookup(DateTime.now))), fiveSeconds)
+        Await.result(Future.sequence(ES.updateImageUsages(id, List(usage()), asJsLookup(DateTime.now))), fiveSeconds)
 
         reloadedImage(id).get.usages.size shouldBe 1
       }
@@ -413,11 +413,11 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
 
         val existingUsage = usage(id = "existing")
-        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(existingUsage))), asJsLookup(DateTime.now))), fiveSeconds)
+        Await.result(Future.sequence(ES.updateImageUsages(id, List(existingUsage), asJsLookup(DateTime.now))), fiveSeconds)
         reloadedImage(id).get.usages.head.id shouldEqual ("existing")
 
         val moreRecentUsage = usage(id = "most-recent")
-        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(moreRecentUsage))), asJsLookup(DateTime.now))), fiveSeconds)
+        Await.result(Future.sequence(ES.updateImageUsages(id, List(moreRecentUsage), asJsLookup(DateTime.now))), fiveSeconds)
 
         reloadedImage(id).get.usages.size shouldBe 1
         reloadedImage(id).get.usages.head.id shouldEqual ("most-recent")
@@ -429,11 +429,11 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
 
         val mostRecentUsage = usage(id = "recent")
-        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(mostRecentUsage))), asJsLookup(DateTime.now))), fiveSeconds)
+        Await.result(Future.sequence(ES.updateImageUsages(id, List(mostRecentUsage), asJsLookup(DateTime.now))), fiveSeconds)
 
         val staleUsage = usage(id = "stale")
         val staleLastModified = DateTime.now.minusWeeks(1)
-        Await.result(Future.sequence(ES.updateImageUsages(id, JsDefined(Json.toJson(List(staleUsage))), asJsLookup(staleLastModified))), fiveSeconds)
+        Await.result(Future.sequence(ES.updateImageUsages(id, List(staleUsage), asJsLookup(staleLastModified))), fiveSeconds)
 
         reloadedImage(id).get.usages.head.id shouldEqual ("recent")
       }

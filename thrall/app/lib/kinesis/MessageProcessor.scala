@@ -53,12 +53,11 @@ class MessageProcessor(es: ElasticSearch,
 
   def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     implicit val unw = Json.writes[UsageNotice]
-    def asJsLookup(us: Seq[Usage]): JsLookupResult = JsDefined(Json.toJson(us))
     withId(message) { id =>
       withUsageNotice(message) { usageNotice =>
         withLastModified(message) { lastModifed =>
-          val usages = usageNotice.usageJson.as[Seq[Usage]]
-          Future.sequence(es.updateImageUsages(id, asJsLookup(usages), dateTimeAsJsLookup(lastModifed)))
+          val usages = usageNotice.usageJson.as[List[Usage]]
+          Future.sequence(es.updateImageUsages(id, usages, dateTimeAsJsLookup(lastModifed)))
         }
       }
     }
