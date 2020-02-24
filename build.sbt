@@ -238,6 +238,12 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       javaOptions in Universal ++= Seq(
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
-        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
+        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
+        "-J-XX:+PrintGCDetails",
+        "-J-XX:+PrintGCDateStamps",
+        s"-J-Xloggc:/var/log/$projectName/gc.log",
+        "-J-XX:+UseGCLogFileRotation",
+        "-J-XX:NumberOfGCLogFiles=5",
+        "-J-XX:GCLogFileSize=2M"
       )
     ))
