@@ -3,6 +3,7 @@ package model
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.TimeUnit
 
 import com.gu.mediaservice.lib.Files.createTempFile
 import com.gu.mediaservice.lib.aws.S3Object
@@ -176,21 +177,21 @@ object ImageUploadOps {
     import deps._
     import uploadRequest.imageId
 
-    val UntilAvailable = Duration.Inf
+    val ImageProcessingTimeout = Duration.apply(1, TimeUnit.MINUTES)
 
     val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toMarker())
 
     Logger.info(s"Starting image ops imageId=$imageId")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile
-    val thumbTempFile = Await.result(createTempFile(s"thumb-", ".jpg", config.tempDir), UntilAvailable)
+    val thumbTempFile = Await.result(createTempFile(s"thumb-", ".jpg", config.tempDir), ImageProcessingTimeout)
 
     // FIXME: pass mimeType
-    val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), UntilAvailable)
+    val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), ImageProcessingTimeout)
     Logger.info(s"colourModel generated successfully imageId=$imageId")
-    val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), UntilAvailable)
+    val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), ImageProcessingTimeout)
     Logger.info(s"fileMetadata extracted successfully imageId=$imageId")
 
-    val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), UntilAvailable)
+    val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), ImageProcessingTimeout)
     val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
     Logger.info(s"optimisedPng build successfully imageId=$imageId")
 
