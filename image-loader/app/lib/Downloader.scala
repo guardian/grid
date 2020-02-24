@@ -11,7 +11,7 @@ import okhttp3.{OkHttpClient, Request}
 import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 case object TruncatedDownload extends Exception
 case object InvalidDownload extends Exception
@@ -25,14 +25,14 @@ class Downloader(implicit ec: ExecutionContext) {
     val request = new Request.Builder().url(uri.toString).build()
     val response = client.newCall(request).execute()
 
-    val maybeExpectedSize = Try{response.header("Content-Length").toInt}.toOption
+    val maybeExpectedSize = Try{response.header("Content-Length").toInt}
 
     maybeExpectedSize match {
-      case None => {
-        Logger.error(s"Missing content-length header from $uri")
+      case Failure(exception) => {
+        Logger.error(s"Missing content-length header from $uri", exception)
         throw InvalidDownload
       }
-      case Some(expectedSize) => {
+      case Success(expectedSize) => {
         val input = response.body().byteStream()
 
         val output = new FileOutputStream(file)
