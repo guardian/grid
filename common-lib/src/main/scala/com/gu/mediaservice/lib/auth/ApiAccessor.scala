@@ -17,18 +17,18 @@ object Tier {
   }
 }
 
-case class ApiKey(name: String, tier: Tier)
-object ApiKey extends ArgoHelpers {
+case class ApiAccessor(identity: String, tier: Tier)
+object ApiAccessor extends ArgoHelpers {
   val unauthorizedResult: Result = respondError(Forbidden, "forbidden", "Unauthorized - the API key is not allowed to perform this operation", List.empty)
 
-  def apply(content: String): ApiKey = {
+  def apply(content: String): ApiAccessor = {
     val rows = content.split("\n")
     val name = rows.headOption.getOrElse("")
     val tier = rows.tail.headOption.map(Tier(_)).getOrElse(Internal)
-    ApiKey(name, tier)
+    ApiAccessor(name, tier)
   }
 
-  def hasAccess(apiKey: ApiKey, request: Request[Any], services: Services): Boolean = apiKey.tier match {
+  def hasAccess(apiKey: ApiAccessor, request: Request[Any], services: Services): Boolean = apiKey.tier match {
     case Internal => true
     case ReadOnly => request.method == "GET"
     case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")

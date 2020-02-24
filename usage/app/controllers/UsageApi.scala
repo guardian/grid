@@ -159,7 +159,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       sur => {
-        GridLogger.info("recording syndication usage", req.user.apiKey, sur.mediaId)
+        GridLogger.info("recording syndication usage", req.user.accessor, sur.mediaId)
         val group = usageGroup.build(sur)
         usageRecorder.usageSubject.onNext(group)
         Accepted
@@ -176,7 +176,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       fur => {
-        GridLogger.info("recording front usage", req.user.apiKey, fur.mediaId)
+        GridLogger.info("recording front usage", req.user.accessor, fur.mediaId)
         val group = usageGroup.build(fur)
         usageRecorder.usageSubject.onNext(group)
         Accepted

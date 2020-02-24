@@ -7,7 +7,7 @@ import _root_.play.api.libs.json._
 import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfService, OnBehalfOfUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfApiKey, OnBehalfOfUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
@@ -123,7 +123,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       cropSpec    = ExportRequest.toCropSpec(exportRequest, dimensions)
       _          <- verify(crops.isWithinImage(cropSpec.bounds, dimensions), InvalidCropRequest)
       crop        = Crop.createFromCropSource(
-        by            = Some(Authentication.getEmail(user)),
+        by            = Some(Authentication.getIdentity(user)),
         timeRequested = Some(new DateTime()),
         specification = cropSpec
       )
@@ -138,13 +138,14 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
+    // TODO we should proxy authentication from the original request rather than have a dedicated cropper API key
     val baseRequest = ws.url(uri)
       .withQueryStringParameters("include" -> "fileMetadata")
       .withHttpHeaders(Authentication.originalServiceHeaderName -> "cropper")
 
     val request = onBehalfOfPrincipal match {
-      case OnBehalfOfService(service) =>
-        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.apiKey.name)
+      case OnBehalfOfApiKey(service) =>
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.accessor.identity)
 
       case OnBehalfOfUser(_, cookie) =>
         baseRequest.addCookies(cookie)
