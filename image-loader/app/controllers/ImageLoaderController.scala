@@ -135,7 +135,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         } recover {
           case NonFatal(e) =>
             Logger.error(s"Unable to download image $uri", e)
-            failedUriDownload
+            FailureResponse.failedUriDownload
         }
 
         result onComplete (_ => tmpFile.delete())
@@ -150,7 +150,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
           "key-tier" -> apiKey.tier.toString,
           "key-name" -> apiKey.name
         )))
-        Future.successful(invalidUri)
+        Future.successful(FailureResponse.invalidUri)
       }
     }
   }
@@ -217,21 +217,13 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val supportedMimeType = config.supportedMimeTypes.exists(mimeType_.contains(_))
 
-    if (supportedMimeType) storeFile(uploadRequest, requestLoggingContext) else unsupportedTypeError(uploadRequest)
-  }
-
-  val invalidUri = respondError(BadRequest, "invalid-uri", s"The provided 'uri' is not valid")
-  val failedUriDownload = respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
-
-  def unsupportedTypeError(u: UploadRequest): Future[Result] = Future {
-    Logger.info(s"Rejected request to load file: mime-type is not supported")(u.toLogMarker)
-    val mimeType = u.mimeType getOrElse "none"
-
-    respondError(
-      UnsupportedMediaType,
-      "unsupported-type",
-      s"Unsupported mime-type: $mimeType. Supported: ${config.supportedMimeTypes.mkString(", ")}"
-    )
+    if (supportedMimeType) {
+      storeFile(uploadRequest, requestLoggingContext)
+    } else {
+      Future {
+        FailureResponse.unsupportedMimeType(uploadRequest, config.supportedMimeTypes)
+      }
+    }
   }
 
   def storeFile(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext): Future[Result] = {
