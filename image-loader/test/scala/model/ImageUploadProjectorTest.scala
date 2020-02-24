@@ -3,6 +3,8 @@ package test.model
 import java.io.File
 import java.net.URI
 
+import com.gu.mediaservice.lib.auth.Authentication.ApiKeyAccessor
+import com.gu.mediaservice.lib.auth.{ApiAccessor, ReadOnly, Tier}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
@@ -158,7 +160,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
       picdarUrn = None,
     )
 
-    val requestLoggingContext = RequestLoggingContext()
+    val requestLoggingContext = RequestLoggingContext(requestType = "test", principal = ApiKeyAccessor(ApiAccessor("test", ReadOnly)))
 
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, requestLoggingContext)
 

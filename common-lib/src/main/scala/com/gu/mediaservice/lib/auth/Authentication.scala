@@ -111,6 +111,7 @@ object Authentication {
   val originalServiceHeaderName = "X-Gu-Original-Service"
 
   def getIdentity(principal: Principal): String = principal.accessor.identity
+  def getTier(principal: Principal): Tier = principal.accessor.tier
 
   def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
     val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
