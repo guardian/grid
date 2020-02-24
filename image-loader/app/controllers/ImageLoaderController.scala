@@ -1,17 +1,16 @@
 package controllers
 
-import java.io.{File, FileOutputStream}
+import java.io.FileOutputStream
 import java.net.URI
 
 import com.amazonaws.services.s3.model.S3Object
-import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
-import com.gu.mediaservice.lib.logging.FALLBACK
-import com.gu.mediaservice.lib.logging.RequestLoggingContext
+import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
+import com.gu.mediaservice.lib.{Files, ImageIngestOperations}
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
@@ -48,39 +47,31 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     indexResponse
   }
 
-  private def createTempFile(prefix: String, requestContext: RequestLoggingContext) = {
-    Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
-    File.createTempFile(prefix, "", config.tempDir)
-  }
-
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]) = {
     val requestContext = RequestLoggingContext(
       initialMarkers = Map(
-        "requestType" -> "load-image"
+        "requestType" -> "load-image",
+        "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
+        "identifiers" -> identifiers.getOrElse(FALLBACK),
+        "uploadTime" -> uploadTime.getOrElse(FALLBACK),
+        "filename" -> filename.getOrElse(FALLBACK)
       )
     )
 
-    val markers = Map(
-      "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
-      "identifiers" -> identifiers.getOrElse(FALLBACK),
-      "uploadTime" -> uploadTime.getOrElse(FALLBACK),
-      "filename" -> filename.getOrElse(FALLBACK)
-    )
+    Logger.info("loadImage request start")(requestContext.toMarker())
 
-    Logger.info("loadImage request start")(requestContext.toMarker(markers))
-
-    val parsedBody = DigestBodyParser.create(createTempFile("requestBody", requestContext))
-    Logger.info("body parsed")(requestContext.toMarker(markers))
+    val parsedBody = DigestBodyParser.create(Files.createTempFileSync("requestBody", "", config.tempDir))
+    Logger.info("body parsed")(requestContext.toMarker())
 
     auth.async(parsedBody) { req =>
-      val result = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
-      Logger.info("loadImage request end")(requestContext.toMarker(markers))
+      val result: Future[Result] = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
+      Logger.info("loadImage request end")(requestContext.toMarker())
       result
     }
   }
 
   private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, requestLoggingContext: RequestLoggingContext) = {
-    val uploadedFile = createTempFile(s"projection-${imageId}", requestLoggingContext)
+    val uploadedFile = Files.createTempFileSync(s"projection-${imageId}", "", config.tempDir)
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(uploadedFile))
     DigestedFile(uploadedFile, imageId)
   }
@@ -128,7 +119,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         "key-name" -> apiKey.name
       )))
       Try(URI.create(uri)) map { validUri =>
-        val tmpFile = createTempFile("download", requestContext)
+        val tmpFile = Files.createTempFileSync("download", "", config.tempDir)
 
         val result = downloader.download(validUri, tmpFile).flatMap { digestedFile =>
           loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename, requestContext)

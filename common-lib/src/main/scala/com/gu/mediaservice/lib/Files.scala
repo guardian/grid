@@ -6,16 +6,23 @@ import java.nio.channels.Channels
 import java.util.concurrent.Executors
 
 import scala.concurrent.{ExecutionContext, Future}
-
+import _root_.play.api.Logger
 
 object Files {
 
   private implicit val ctx = ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def createTempFile(prefix: String, suffix: String, tempDir: File): Future[File] =
+  def createTempFileSync(prefix: String, suffix: String, tempDir: File): File = {
+    Logger.info(s"creating temp file in ${tempDir}")
+    File.createTempFile(prefix, prefix, tempDir)
+  }
+
+  def createTempFile(prefix: String, suffix: String, tempDir: File): Future[File] = {
+    Logger.info(s"creating temp file in ${tempDir}")
     Future {
       File.createTempFile(prefix, suffix, tempDir)
     }
+  }
 
   def transferFromURL(from: URL, to: File): Future[Unit] =
     Future {
