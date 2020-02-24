@@ -10,6 +10,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
+import com.gu.mediaservice.lib.logging.FALLBACK
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
@@ -33,8 +34,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
                             config: ImageLoaderConfig, imageUploadOps: ImageUploadOps, imageUploadProjector: ImageUploadProjector,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
-
-  val LOG_FALLBACK = "unknown"
 
   val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -62,10 +61,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     )
 
     val markers = Map(
-      "uploadedBy" -> uploadedBy.getOrElse(LOG_FALLBACK),
-      "identifiers" -> identifiers.getOrElse(LOG_FALLBACK),
-      "uploadTime" -> uploadTime.getOrElse(LOG_FALLBACK),
-      "filename" -> filename.getOrElse(LOG_FALLBACK)
+      "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
+      "identifiers" -> identifiers.getOrElse(FALLBACK),
+      "uploadTime" -> uploadTime.getOrElse(FALLBACK),
+      "filename" -> filename.getOrElse(FALLBACK)
     )
 
     Logger.info("loadImage request start")(requestContext.toMarker(markers))
@@ -203,7 +202,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     Logger.info("Detecting mimetype")(requestLoggingContext.toMarker())
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
-    Logger.info(s"Detected mimetype as ${mimeType_.getOrElse(LOG_FALLBACK)}")(requestLoggingContext.toMarker())
+    Logger.info(s"Detected mimetype as ${mimeType_.getOrElse(FALLBACK)}")(requestLoggingContext.toMarker())
 
     val uploadRequest = UploadRequest(
       requestId = requestLoggingContext.requestId,
