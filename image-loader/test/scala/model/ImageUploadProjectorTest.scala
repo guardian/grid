@@ -37,7 +37,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
   // this test is passing when running on local machine
   ignore("projectImage") {
 
-    val testFile = fileAt("getty.jpg")
+    val testFile = fileAt("resources/getty.jpg")
     val fileDigest = DigestedFile(testFile, "id123")
     val uploadedBy = "test"
     val uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)
@@ -159,7 +159,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
     )
 
     val requestLoggingContext = RequestLoggingContext()
-    
+
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, requestLoggingContext)
 
     whenReady(actualFuture) { actual =>
