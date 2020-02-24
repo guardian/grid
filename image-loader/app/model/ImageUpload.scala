@@ -5,7 +5,6 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
-import com.gu.mediaservice.lib.Files.createTempFile
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -172,31 +171,32 @@ object ImageUploadOps {
     )
   }
 
-  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies, requestLoggingContext: RequestLoggingContext)(implicit ec: ExecutionContext): Future[Image] = {
+  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies,
+                              requestLoggingContext: RequestLoggingContext)(implicit ec: ExecutionContext): Future[Image] = {
 
     import deps._
     import uploadRequest.imageId
-
-    val ImageProcessingTimeout = Duration.apply(1, TimeUnit.MINUTES)
 
     val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toMarker())
 
     Logger.info(s"Starting image ops imageId=$imageId")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile
-    val thumbTempFile = Await.result(createTempFile(s"thumb-", ".jpg", config.tempDir), ImageProcessingTimeout)
+    val thumbTempFile = File.createTempFile(s"thumb-", ".jpg", config.tempDir)
 
-    // FIXME: pass mimeType
-    val colourModel = Await.result(ImageOperations.identifyColourModel(uploadedFile, "image/jpeg"), ImageProcessingTimeout)
-    Logger.info(s"colourModel generated successfully imageId=$imageId")
-    val fileMetadata = Await.result(toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType), ImageProcessingTimeout)
+    val fileMetaAndOptimisedPngFuture = for {
+      fileMetadata <- toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
+      toOptimiseFile <- createOptimisedFileFuture(uploadRequest, deps)
+      optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
+    } yield (fileMetadata, optimisedPng)
+
+    val (fileMetadata, optimisedPng) = Await.result(fileMetaAndOptimisedPngFuture, Duration.apply(2, TimeUnit.MINUTES))
+
     Logger.info(s"fileMetadata extracted successfully imageId=$imageId")
-
-    val toOptimiseFile = Await.result(createOptimisedFileFuture(uploadRequest, deps), ImageProcessingTimeout)
-    val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
     Logger.info(s"optimisedPng build successfully imageId=$imageId")
 
     try {
       for {
+        colourModel <- ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
         thumbFile <- createThumbFuture(thumbTempFile, fileMetadata, colourModel, uploadRequest, deps)
         sourceDimensions <- FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
         thumbStore <- storeOrProjectThumbFile(uploadRequest, thumbFile)
@@ -217,17 +217,18 @@ object ImageUploadOps {
       } yield finalImage
 
     } finally {
-      val tmpFiles = if (optimisedPng.isPng24) List(uploadedFile, thumbTempFile, optimisedPng.optimisedTempFile.get) else List(uploadedFile, thumbTempFile)
-      try {
-        Logger.info(s"attempt to delete temp files for imageId=$imageId, files: ${tmpFiles.map(_.getAbsolutePath)}")
-        tmpFiles.foreach{ f =>
+      val sourceAndThumbFiles = List(uploadedFile, thumbTempFile)
+      val tmpFiles = if (optimisedPng.isPng24) sourceAndThumbFiles ++ List(optimisedPng.optimisedTempFile.get) else sourceAndThumbFiles
+      Logger.info(s"attempt to delete temp files for imageId=$imageId, files: ${tmpFiles.map(_.getAbsolutePath)}")
+      tmpFiles.foreach { f =>
+        try {
           val path = f.getAbsolutePath
           val deleted = f.delete
           Logger.info(s"file: $path, deleted: $deleted for imageId=$imageId")
+        } catch {
+          case e: Exception =>
+            Logger.error(s"exception while deleting temp files for imageId=$imageId exception: ${e.getMessage}")
         }
-      } catch {
-        case e: Exception =>
-          Logger.error(s"exception while deleting temp files for imageId=$imageId exception: ${e.getMessage}")
       }
     }
   }
