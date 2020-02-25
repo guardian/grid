@@ -19,13 +19,15 @@ class ImageProjectionLambdaHandler extends LazyLogging {
     val mediaId = event.getPath.stripPrefix("/images/projection/")
 
     val domainRoot = sys.env("DOMAIN_ROOT")
+    // if we want to release the load from main grid image-loader we can pass a dedicated endpoint
+    val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
     val headers = event.getHeaders.asScala.toMap
 
     val apiKey = getAuthKeyFrom(headers)
 
     apiKey match {
       case Some(key) =>
-        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot)
+        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot, imageLoaderEndpointOpt = imageLoaderEndpoint)
         if (!cfg.isValidApiKey()) return getUnauthorisedResponse
 
         logger.info(s"starting handleImageProjection for mediaId=$mediaId")

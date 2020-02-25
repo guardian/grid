@@ -16,13 +16,17 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 object ImageDataMergerConfig {
   private val gridClient = GridClient(maxIdleConnections = 5)
 
-  def apply(apiKey: String, domainRoot: String): ImageDataMergerConfig = {
+  def apply(apiKey: String, domainRoot: String, imageLoaderEndpointOpt: Option[String]): ImageDataMergerConfig = {
     val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
-    new ImageDataMergerConfig(apiKey, services, gridClient)
+    val imageLoaderEndpoint = imageLoaderEndpointOpt match {
+      case Some(uri) => uri
+      case None => services.loaderBaseUri
+    }
+    new ImageDataMergerConfig(apiKey, services, gridClient, imageLoaderEndpoint)
   }
 }
 
-case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient: GridClient) {
+case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient: GridClient, imageLoaderEndpoint: String) {
   def isValidApiKey(): Boolean = {
     // Make an API key authenticated request to the leases API as a way of validating the API key.
     // A 200 indicates a valid key.
@@ -177,7 +181,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
 
   private def getImageLoaderProjection(mediaId: String): Option[Image] = {
     logger.info("attempt to get image projection from image-loader")
-    val url = new URL(s"$loaderBaseUri/images/project/$mediaId")
+    val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
     val res = gridClient.makeGetRequestSync(url, apiKey)
     validateResponse(res, url)
     logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")

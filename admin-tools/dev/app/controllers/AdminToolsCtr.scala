@@ -2,19 +2,18 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.model.Image
 import com.gu.mediaservice.model.Image._
 import com.gu.mediaservice.{FullImageProjectionFailed, FullImageProjectionSuccess, ImageDataMerger, ImageDataMergerConfig}
 import lib.AdminToolsConfig
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot)
+  private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot, imageLoaderEndpointOpt = None)
 
   private val merger = new ImageDataMerger(cfg)
 
