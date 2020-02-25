@@ -30,7 +30,7 @@ class MessageProcessor(es: ElasticSearch,
       case "delete-image-exports" => deleteImageExports
       case "update-image-exports" => updateImageExports
       case "update-image-user-metadata" => updateImageUserMetadata
-      case "update-image-usages" => updateImageUsages
+      case "update-image-usages" => noop
       case "replace-image-leases" => replaceImageLeases
       case "add-image-lease" => addImageLease
       case "remove-image-lease" => removeImageLease
@@ -40,6 +40,11 @@ class MessageProcessor(es: ElasticSearch,
       case "update-image-photoshoot" => updateImagePhotoshoot
       case "batch-index" => batchIndex
     }
+  }
+
+  def noop(message: UpdateMessage) = {
+    Logger.info("Valid message, but ignoring it")(message.toLogMarker)
+    Future.successful(s"Ignoring ${message.subject} message")
   }
 
   def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchBulkUpdateResponse]] = {
