@@ -107,7 +107,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
               respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
           }
         case Failure(error) => {
-          Logger.error("image projection failed")(requestContext.toMarker())
+          Logger.error(s"image projection failed: ${error.getMessage}")(requestContext.toMarker())
           respondError(InternalServerError, "image-projection-failed", error.getMessage)
         }
       }
