@@ -181,15 +181,15 @@ object ImageUploadOps {
 
     Logger.info(s"Starting image ops imageId=$imageId")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile
-    val thumbTempFile = File.createTempFile(s"thumb-", ".jpg", config.tempDir)
 
     val fileMetaAndOptimisedPngFuture = for {
+      thumbTempFile <- Future(File.createTempFile(s"thumb-", ".jpg", config.tempDir))
       fileMetadata <- toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
       toOptimiseFile <- createOptimisedFileFuture(uploadRequest, deps)
       optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
-    } yield (fileMetadata, optimisedPng)
+    } yield (fileMetadata, thumbTempFile, optimisedPng)
 
-    val (fileMetadata, optimisedPng) = Await.result(fileMetaAndOptimisedPngFuture, Duration.Inf)
+    val (fileMetadata, thumbTempFile, optimisedPng) = Await.result(fileMetaAndOptimisedPngFuture, Duration.Inf)
 
     Logger.info(s"fileMetadata extracted successfully imageId=$imageId")
     Logger.info(s"optimisedPng build successfully imageId=$imageId")
