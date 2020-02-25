@@ -37,7 +37,7 @@ class Kinesis(config: CommonConfig) {
 
     val payload = JsonByteArrayUtil.toByteArray(message)
 
-    val markers: LogstashMarker = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
+    val markers: LogstashMarker = message.toLogMarker(Map("compressed-size" -> payload.length))
     Logger.info("Publishing message to kinesis")(markers)
 
     val data = ByteBuffer.wrap(payload)

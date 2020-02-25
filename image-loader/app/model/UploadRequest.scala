@@ -3,12 +3,11 @@ package model
 import java.io.File
 import java.util.UUID
 
+import com.gu.mediaservice.lib.logging.{FALLBACK, LoggingMarker}
 import com.gu.mediaservice.model.UploadInfo
-import net.logstash.logback.marker.{LogstashMarker, Markers}
+import net.logstash.logback.marker.LogstashMarker
 import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
-
-import scala.collection.JavaConverters._
 
 case class UploadRequest(
   requestId: UUID,
@@ -19,22 +18,18 @@ case class UploadRequest(
   uploadedBy: String,
   identifiers: Map[String, String],
   uploadInfo: UploadInfo
-) {
+) extends LoggingMarker {
   val identifiersMeta: Map[String, String] = identifiers.map { case (k, v) => (s"identifier!$k", v) }
 
-  def toLogMarker: LogstashMarker = {
-    val fallback = "none"
-
-    val markers = Map (
+  override def toLogMarker: LogstashMarker = super.toLogMarker(
+    Map (
       "requestId" -> requestId,
       "imageId" -> imageId,
-      "mimeType" -> mimeType.getOrElse(fallback),
+      "mimeType" -> mimeType.getOrElse(FALLBACK),
       "uploadTime" -> ISODateTimeFormat.dateTime.print(uploadTime.withZone(DateTimeZone.UTC)),
       "uploadedBy" -> uploadedBy,
-      "filename" -> uploadInfo.filename.getOrElse(fallback),
+      "filename" -> uploadInfo.filename.getOrElse(FALLBACK),
       "filesize" -> tempFile.length
     ) ++ identifiersMeta
-
-    Markers.appendEntries(markers.asJava)
-  }
+  )
 }

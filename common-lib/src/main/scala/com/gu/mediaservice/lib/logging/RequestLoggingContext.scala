@@ -4,16 +4,14 @@ import java.util.UUID
 
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import net.logstash.logback.marker.{LogstashMarker, Markers}
-
-import scala.collection.JavaConverters._
+import net.logstash.logback.marker.LogstashMarker
 
 case class RequestLoggingContext(
   requestId: UUID = UUID.randomUUID(),
   requestType: String,
   principal: Principal,
   initialMarkers: Map[String, String] = Map.empty
-) {
+) extends LoggingMarker {
   private val coreMarkers: Map[String, String] = Map(
     "requestId" -> requestId.toString,
     "requestType" -> requestType,
@@ -21,9 +19,9 @@ case class RequestLoggingContext(
     "authTier" -> Authentication.getTier(principal).toString
   )
 
-  def toMarker: LogstashMarker = toMarker(Map.empty)
+  override def toLogMarker: LogstashMarker = toLogMarker(Map.empty)
 
-  def toMarker(extraMarkers: Map[String, String]): LogstashMarker = Markers.appendEntries(
-    (coreMarkers ++ initialMarkers ++ extraMarkers).asJava
+  override def toLogMarker(extraMarkers: Map[String, Any]): LogstashMarker = super.toLogMarker(
+    coreMarkers ++ initialMarkers ++ extraMarkers
   )
 }

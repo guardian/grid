@@ -174,7 +174,7 @@ object ImageUploadOps {
 
     import deps._
 
-    val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toMarker)
+    val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toLogMarker)
 
     Logger.info("Starting image ops")(initialMarkers)
     val uploadedFile = uploadRequest.tempFile

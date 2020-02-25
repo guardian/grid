@@ -1,10 +1,9 @@
 package com.gu.mediaservice.model
 
-import net.logstash.logback.marker.Markers
-import play.api.libs.json._
+import com.gu.mediaservice.lib.logging.LoggingMarker
+import net.logstash.logback.marker.LogstashMarker
 import play.api.libs.functional.syntax._
-
-import scala.collection.JavaConverters._
+import play.api.libs.json._
 
 case class FileMetadata(
   iptc: Map[String, String]                     = Map(),
@@ -15,8 +14,8 @@ case class FileMetadata(
   getty: Map[String, String]                    = Map(),
   colourModel: Option[String]                   = None,
   colourModelInformation: Map[String, String]   = Map()
-) {
-  def toLogMarker = {
+) extends LoggingMarker {
+  override def toLogMarker: LogstashMarker = {
     val fieldCountMarkers = Map (
       "iptcFieldCount" -> iptc.size,
       "exifFieldCount" -> exif.size,
@@ -30,7 +29,7 @@ case class FileMetadata(
     val totalFieldCount = fieldCountMarkers.foldLeft(0)(_ + _._2)
     val markers = fieldCountMarkers + ("totalFieldCount" -> totalFieldCount)
 
-    Markers.appendEntries(markers.asJava)
+    super.toLogMarker(markers)
   }
 }
 

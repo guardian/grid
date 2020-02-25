@@ -49,7 +49,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   private def createTempFile(prefix: String, requestContext: RequestLoggingContext) = {
-    Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker)
+    Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toLogMarker)
     File.createTempFile(prefix, "", config.tempDir)
   }
 
@@ -66,9 +66,9 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         )
       )
 
-      Logger.info("loadImage request start")(requestContext.toMarker)
+      Logger.info("loadImage request start")(requestContext.toLogMarker)
       val result = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
-      Logger.info("loadImage request end")(requestContext.toMarker)
+      Logger.info("loadImage request end")(requestContext.toLogMarker)
       result
     }
   }
@@ -92,16 +92,16 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       case Success(maybeImage) =>
         maybeImage match {
           case Some(img) => {
-            Logger.info("image found")(requestContext.toMarker)
+            Logger.info("image found")(requestContext.toLogMarker)
             Ok(Json.toJson(img)).as(ArgoMediaType)
           }
           case None =>
             val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
-            Logger.info("image not found")(requestContext.toMarker)
+            Logger.info("image not found")(requestContext.toLogMarker)
             respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
         }
       case Failure(error) => {
-        Logger.error("image projection failed")(requestContext.toMarker)
+        Logger.error("image projection failed")(requestContext.toLogMarker)
         respondError(InternalServerError, "image-projection-failed", error.getMessage)
       }
     }
@@ -114,7 +114,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         principal = request.user
       )
 
-      Logger.info("importImage request start")(requestContext.toMarker)
+      Logger.info("importImage request start")(requestContext.toLogMarker)
       Try(URI.create(uri)) map { validUri =>
         val tmpFile = createTempFile("download", requestContext)
 
@@ -127,18 +127,18 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         }
 
         result onComplete (_ => tmpFile.delete())
-        Logger.info("importImage request end")(requestContext.toMarker)
+        Logger.info("importImage request end")(requestContext.toLogMarker)
         result
 
       } getOrElse {
-        Logger.info("importImage request end")(requestContext.toMarker)
+        Logger.info("importImage request end")(requestContext.toLogMarker)
         Future.successful(FailureResponse.invalidUri)
       }
     }
   }
 
   private def projectS3ImageById(imageId: String, requestLoggingContext: RequestLoggingContext): Try[Option[Image]] = {
-    Logger.info(s"projecting image: $imageId")(requestLoggingContext.toMarker)
+    Logger.info(s"projecting image: $imageId")(requestLoggingContext.toLogMarker)
 
     import ImageIngestOperations.fileKeyFromId
     val s3Key = fileKeyFromId(imageId)
@@ -146,7 +146,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     if (!s3.doesObjectExist(config.imageBucket, s3Key)) return Try(None)
 
-    Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")(requestLoggingContext.toMarker)
+    Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")(requestLoggingContext.toLogMarker)
 
     val s3Source = s3.getObject(config.imageBucket, s3Key)
     val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, requestLoggingContext)
@@ -181,10 +181,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       case None => DateTime.now
     }
 
-    Logger.info("Detecting mimetype")(requestLoggingContext.toMarker)
+    Logger.info("Detecting mimetype")(requestLoggingContext.toLogMarker)
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
-    Logger.info(s"Detected mimetype as ${mimeType_.getOrElse(FALLBACK)}")(requestLoggingContext.toMarker)
+    Logger.info(s"Detected mimetype as ${mimeType_.getOrElse(FALLBACK)}")(requestLoggingContext.toLogMarker)
 
     val uploadRequest = UploadRequest(
       requestId = requestLoggingContext.requestId,
@@ -209,7 +209,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   def storeFile(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext): Future[Result] = {
-    val completeMarkers: LogstashMarker = requestLoggingContext.toMarker.and(uploadRequest.toLogMarker)
+    val completeMarkers: LogstashMarker = requestLoggingContext.toLogMarker.and(uploadRequest.toLogMarker)
 
     Logger.info("Storing file")(completeMarkers)
     val result = for {
