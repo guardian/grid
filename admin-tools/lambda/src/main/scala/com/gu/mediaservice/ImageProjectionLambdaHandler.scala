@@ -46,7 +46,7 @@ class ImageProjectionLambdaHandler extends LazyLogging {
           case FullImageProjectionFailed(expMessage) =>
             getErrorFoundResponse(expMessage)
         }
-      case _ => getNotFoundResponse(mediaId)
+      case _ => getUnauthorisedResponse
     }
   }
 
