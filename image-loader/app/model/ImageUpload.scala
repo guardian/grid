@@ -189,7 +189,7 @@ object ImageUploadOps {
       optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
     } yield (fileMetadata, optimisedPng)
 
-    val (fileMetadata, optimisedPng) = Await.result(fileMetaAndOptimisedPngFuture, Duration.apply(2, TimeUnit.MINUTES))
+    val (fileMetadata, optimisedPng) = Await.result(fileMetaAndOptimisedPngFuture, Duration.Inf)
 
     Logger.info(s"fileMetadata extracted successfully imageId=$imageId")
     Logger.info(s"optimisedPng build successfully imageId=$imageId")
