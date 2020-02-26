@@ -6,17 +6,24 @@ import com.gu.mediaservice.lib.aws.{BulkIndexRequest, UpdateMessage}
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, SyndicationRights}
-import lib.ThrallStore
-import lib.elasticsearch.ElasticSearchTestBase
+import lib.{BulkIndexS3Client, MetadataEditorNotifications, ThrallStore}
+import lib.elasticsearch.{ElasticSearchTestBase, SyndicationRightsOps}
 import org.joda.time.DateTime
+import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.{JsArray, Json}
 
 import scala.concurrent.{Await, Future}
 
 
-class MessageProcessorTest extends ElasticSearchTestBase {
+class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
   "MessageProcessor" - {
-    val messageProcessor = new MessageProcessor(ES, new ThrallStore(???), ???, ???, ???)
+    val messageProcessor = new MessageProcessor(
+      es = ES,
+      store = mock[ThrallStore] ,
+      metadataEditorNotifications = mock[MetadataEditorNotifications],
+      syndicationRightsOps = mock[SyndicationRightsOps],
+      bulkIndexS3Client = mock[BulkIndexS3Client])
+
     "usages" - {
 
       "adds usages" - {
@@ -34,7 +41,7 @@ class MessageProcessorTest extends ElasticSearchTestBase {
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).
             copy(userMetadata = userMetadata)
 
-          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds) // TODO why is index past in? Is it different to image.id and if so why?
+          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
 
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
@@ -53,7 +60,7 @@ class MessageProcessorTest extends ElasticSearchTestBase {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-          val update = Await.result(messageProcessor.updateImageUsages(message),fiveSeconds)
+          val update = Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)
           update.length shouldBe 1
 
 
@@ -77,7 +84,7 @@ class MessageProcessorTest extends ElasticSearchTestBase {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-          val update = Await.result(messageProcessor.updateImageUsages(message),fiveSeconds)
+          val update = Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)
           update.length shouldBe 0
 
 
