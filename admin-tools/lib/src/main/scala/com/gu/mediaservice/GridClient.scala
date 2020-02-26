@@ -53,7 +53,8 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
       if (code != 200 && code != 404) {
         val errorJson = Json.obj(
           "errorStatusCode" -> code,
-          "message" -> s"http-failure: ${response.message()}"
+          "responseMessage" -> response.message(),
+          "responseBody" -> response.body().string(),
         )
         logger.error(errorJson.toString())
       }
