@@ -1,7 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, Mappings}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
@@ -16,6 +16,7 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Failure
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 

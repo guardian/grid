@@ -52,11 +52,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
 
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
-    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
-      r.status match {
-        case Status.OK => mapImageFrom(r.result.sourceAsString, id)
+    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map {
+        case Right(r) if (r.status == Status.OK ) => mapImageFrom(r.result.sourceAsString, id)
         case _ => None
-      }
     }
   }
 

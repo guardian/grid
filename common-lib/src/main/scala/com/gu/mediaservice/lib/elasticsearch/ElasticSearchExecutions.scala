@@ -18,28 +18,35 @@ trait ElasticSearchExecutions {
                                                        executor: Executor[Future],
                                                        handler: Handler[T, U],
                                                        manifest: Manifest[U],
-                                                       executionContext: ExecutionContext): Future[Response[U]] = {
+                                                       executionContext: ExecutionContext,
+  ): Future[
+    Either[
+      ElasticError, Response[U]
+    ]
+  ] = {
     val start = System.currentTimeMillis()
-
     val result = client.execute(request).transform {
       case Success(r) =>
         r.isSuccess match {
-          case true => Success(r)
-          case false => Failure(new RuntimeException("query response was not successful: " + r.error.reason))
+          case true => Success(Right(r))
+          case false => Success(Left(r.error))
         }
-      case Failure(f) => Failure(f)
+      case Failure(f) => Success(Left(ElasticError.fromThrowable(f)))
     }
 
-    result.foreach { r =>
+    result.foreach { completed =>
       val elapsed = System.currentTimeMillis() - start
       val markers = MarkerContext(durationMarker(elapsed))
-      Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
-    }
+      completed match {
+        case Right(r) => {
+          Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
+        }
 
-    result.failed.foreach { e =>
-      val elapsed = System.currentTimeMillis() - start
-      val markers = MarkerContext(durationMarker(elapsed))
-      Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
+        case Left(elasticError) => {
+          Logger.error(s"$message - query failed after $elapsed ms: ${elasticError.reason} cs: ${elasticError.`type`}")(markers)
+
+        }
+      }
     }
 
     result

@@ -29,6 +29,7 @@ trait ElasticSearchSyntax {
       (self: ActionRequestBuilder[_ <: ActionRequest[_], A, _, _]) {
 
     def executeAndLog(message: => String)(implicit ex: ExecutionContext): Future[A] = {
+      //TODO: refactor this to use same Either model as ElasticSearchExecutions Client
       val start = System.currentTimeMillis()
       val result = self.execute().asScala
 

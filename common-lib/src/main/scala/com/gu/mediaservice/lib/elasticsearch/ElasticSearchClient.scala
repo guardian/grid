@@ -59,7 +59,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
 
   def healthCheck(): Future[Boolean] = {
     val request = search(imagesAlias) limit 0
-    executeAndLog(request, "Health check").map { _ => true}.recover { case _ => false}
+    executeAndLog(request, "Health check").map {
+      case Left(_) => false
+      case Right(_) => true
+    }.recover { case _ => false }
   }
 
 
@@ -69,13 +72,18 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
     val queryStats = indexStats("images") // total accumulated values of an index for both primary and replica shards
 
     for {
-      catCount <- executeAndLog(queryCatCount, "Images cat count")
-      imageSearch <- executeAndLog(queryImageSearch, "Images search")
-      stats <- executeAndLog(queryStats, "Stats aggregation")
-    } yield
+      catCountEither <- executeAndLog(queryCatCount, "Images cat count")
+      imageSearchEither <- executeAndLog(queryImageSearch, "Images search")
+      statsEither <- executeAndLog(queryStats, "Stats aggregation")
+    } yield (for {
+      catCount <- catCountEither.right.toOption
+      imageSearch <- imageSearchEither.right.toOption
+      stats <- statsEither.right.toOption
+    } yield {
       ElasticSearchImageCounts(catCount.result.count,
-                               imageSearch.result.hits.total,
-                               stats.result.indices("images").total.docs.count)
+        imageSearch.result.hits.total,
+        stats.result.indices("images").total.docs.count)
+    }).get
   }
 
   def ensureIndexExists(index: String): Unit = {
