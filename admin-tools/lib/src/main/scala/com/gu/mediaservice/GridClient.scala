@@ -45,17 +45,18 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
     val code = response.code()
     try {
       val bodyAsString = body.string
+      val message = response.message()
       val resInfo = Map(
-        "status-code" -> code.toString,
-        "message" -> response.message()
+        "statusCode" -> code.toString,
+        "message" -> message
       )
       if (debugHttpResponse) logger.info(s"GET $url response: $resInfo")
       if (code != 200 && code != 404) {
         val errorJson = Json.obj(
-          "url" -> url.toString,
           "errorStatusCode" -> code,
-          "responseMessage" -> response.message(),
-          "responseBody" -> response.body().string(),
+          "responseMessage" -> message,
+          "responseBody" -> bodyAsString,
+          "url" -> url.toString,
         )
         logger.error(errorJson.toString())
       }
