@@ -66,15 +66,18 @@ object FileMetadataAggregator {
         }
     }
 
-    val mapWithSortedValuesAtCurrentLevel = mutableMap.mapValues { v =>
-      v match {
-        case scala.util.Left(value) => value
-        case scala.util.Right(value) => {
-          val sortedList = value.sortBy(_.index)
-          val sorted: JsArray = sortedList.map(_.jsValue.as[JsArray]).foldLeft(JsArray.empty)((acc, item) => acc ++ item)
-          println()
-          MetadataEntry(sortedList.head.index, sorted)
-        }
+    val mapWithSortedValuesAtCurrentLevel = mutableMap.mapValues {
+      case scala.util.Left(value) => value
+      case scala.util.Right(value) => {
+        val sortedList = value.sortBy(_.index)
+
+        val (jsArrays, jsStrings) = sortedList.map(_.jsValue).partition(_.isInstanceOf[JsArray])
+
+        val aggJsArrays: JsArray = jsArrays.map(_.as[JsArray]).foldLeft(JsArray.empty)((acc, arrayItem) => acc ++ arrayItem)
+        val aggJsStrings: JsArray = jsStrings.map(_.as[JsString]).foldLeft(JsArray.empty)((acc, item) => acc.append(item))
+
+        val sorted: JsArray =  aggJsArrays ++ aggJsStrings
+        MetadataEntry(sortedList.head.index, sorted)
       }
     }
     mapWithSortedValuesAtCurrentLevel.toMap
@@ -85,17 +88,17 @@ object FileMetadataAggregator {
       getIdxBetweenArrayBrackets(k)
     } else {
       /**
-       * eventually any array key will become a simple value key
-       * that is why we have - 1 here as we want to prioritise it every iteration
-       * such that simple values will be prioritised over custom nested objects
-       * for example we want
-       *
-       * [ "the xmp description", ["{'xml:lang':'x-default'}"] ]
-       *
-       * not
-       *
-       * [ ["{'xml:lang':'x-default'}"],"the xmp description" ]
-       */
+        * eventually any array key will become a simple value key
+        * that is why we have - 1 here as we want to prioritise it every iteration
+        * such that simple values will be prioritised over custom nested objects
+        * for example we want
+        *
+        * [ "the xmp description", ["{'xml:lang':'x-default'}"] ]
+        *
+        * not
+        *
+        * [ ["{'xml:lang':'x-default'}"],"the xmp description" ]
+        */
       other - 1
     }
   }
