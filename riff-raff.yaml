@@ -39,6 +39,9 @@ deployments:
   image-loader:
     template: autoscaling
 
+  image-loader-projection:
+    template: autoscaling
+
   kahuna:
     template: autoscaling
 
