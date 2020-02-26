@@ -1,7 +1,7 @@
 package com.gu.mediaservice.model
 
 import org.scalatest.{FlatSpec, Matchers}
-import play.api.libs.json.{JsArray, JsString}
+import play.api.libs.json.{JsArray, JsString, Json}
 
 class FileMetadataAggregatorTest extends FlatSpec with Matchers {
 
@@ -77,12 +77,18 @@ class FileMetadataAggregatorTest extends FlatSpec with Matchers {
       "tiff:ResolutionUnit" -> "3",
       "tiff:XResolution" -> "1181100/10000",
       "xmpMM:History[2]/stEvt:action" -> "saved",
-      "xmpMM:InstanceID" -> "xmp.iid:d9500a13-3c27-401c-a2cc-1fd027b0424f"
+      "xmpMM:InstanceID" -> "xmp.iid:d9500a13-3c27-401c-a2cc-1fd027b0424f",
+      "schema:imageHasSubject" -> "http://id.ukpds.org/Cz0WNho9",
+      "schema:imageHasSubject/rdf:type" -> "http://id.ukpds.org/schema/Person",
     )
 
     val actual = FileMetadataAggregator.aggregateMetadataMap(testInput)
 
     val expected = Map(
+      "schema:imageHasSubject" -> JsArray(Seq(
+        "{'rdf:type':'http://id.ukpds.org/schema/Person'}",
+        "http://id.ukpds.org/Cz0WNho9"
+      ).map(JsString)),
       "dc:format" -> JsString("image/png"),
       "photoshop:ColorMode" -> JsString("3"),
       "dc:description" -> JsArray(Seq(
