@@ -9,7 +9,7 @@ import lib._
 import lib.elasticsearch._
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.DateTime
-import play.api.Logger
+import play.api.{Logger, MarkerContext}
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,7 +21,7 @@ class MessageProcessor(es: ElasticSearch,
                        bulkIndexS3Client: BulkIndexS3Client
                       ) {
 
-  def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Option[UpdateMessage => Future[Any]] = {
+  def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext,  mc: MarkerContext ): Option[UpdateMessage => Future[Any]] = {
     PartialFunction.condOpt(updateMessage.subject) {
       case "image" => indexImage
       case "reindex-image" => indexImage
@@ -51,14 +51,25 @@ class MessageProcessor(es: ElasticSearch,
     Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
-  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext, mc: MarkerContext): Future[List[ElasticSearchUpdateResponse]] = {
     implicit val unw = Json.writes[UsageNotice]
+
     def asJsLookup(us: Seq[Usage]): JsLookupResult = JsDefined(Json.toJson(us))
+
     withId(message) { id =>
-      withUsageNotice(message) { usageNotice =>
-        withLastModified(message) { lastModifed =>
-          val usages = usageNotice.usageJson.as[Seq[Usage]]
-          Future.sequence(es.updateImageUsages(id, asJsLookup(usages), dateTimeAsJsLookup(lastModifed)))
+      es.getImage(id).flatMap {
+        //Look for the image
+        case Some(_) => { //If it exists, update its usages. Pre grid images are in use on old articles.
+          withUsageNotice(message) { usageNotice =>
+            withLastModified(message) { lastModifed =>
+              val usages = usageNotice.usageJson.as[Seq[Usage]]
+              Future.sequence(es.updateImageUsages(id, asJsLookup(usages), dateTimeAsJsLookup(lastModifed)))
+            }
+          }
+        }
+        case None => {
+          Logger.info(s"Dropping usage update for ${id} as it doesn't appear to exist.")
+          Future.successful(List())
         }
       }
     }
