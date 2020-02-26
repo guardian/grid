@@ -70,9 +70,13 @@ object FileMetadataAggregator {
       case scala.util.Left(value) => value
       case scala.util.Right(value) => {
         val sortedList = value.sortBy(_.index)
-        val strItem: JsArray = sortedList.filter(_.jsValue.isInstanceOf[JsString]).map(_.jsValue.as[JsString]).foldLeft(JsArray.empty)((acc, item) => acc.append(item))
-        val aggJSArrays: JsArray = sortedList.filter(_.jsValue.isInstanceOf[JsArray]).map(_.jsValue.as[JsArray]).foldLeft(JsArray.empty)((acc, item) => acc ++ item)
-        val sorted: JsArray = aggJSArrays ++ strItem
+
+        val (jsArrays, jsStrings) = sortedList.map(_.jsValue).partition(_.isInstanceOf[JsArray])
+
+        val aggJsArrays: JsArray = jsArrays.map(_.as[JsArray]).foldLeft(JsArray.empty)((acc, arrayItem) => acc ++ arrayItem)
+        val aggJsStrings: JsArray = jsStrings.map(_.as[JsString]).foldLeft(JsArray.empty)((acc, item) => acc.append(item))
+
+        val sorted: JsArray =  aggJsArrays ++ aggJsStrings
         MetadataEntry(sortedList.head.index, sorted)
       }
     }
