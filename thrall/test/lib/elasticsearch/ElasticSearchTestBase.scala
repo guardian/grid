@@ -9,6 +9,8 @@ import helpers.Fixtures
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
 import com.sksamuel.elastic4s.http.ElasticDsl._
+import org.joda.time.DateTime
+import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -58,4 +60,16 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     esContainer.toList ++ super.dockerContainers
 
   final override val StartContainersTimeout = 1.minute
+
+
+  def reloadedImage(id: String) = {
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  def indexedImage(id: String) = {
+    Thread.sleep(1000) // TODO use eventually clause
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  def asJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))
 }
