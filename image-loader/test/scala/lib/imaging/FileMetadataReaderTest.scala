@@ -558,7 +558,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       "Custom Rendered" -> "Normal process",
       "Exif Image Height" -> "3840 pixels",
       "Lens Serial Number" -> "000043c4bb",
-      "Flash" -> "Flash did not fire, auto",
+      "Flash" -> "Flash did not fire",
       "Focal Length" -> "88 mm",
       "Date/Time Original" -> "2015:04:15 01:08:44",
       "Date/Time Original Composite" -> "2015-04-15T01:08:44.880Z",

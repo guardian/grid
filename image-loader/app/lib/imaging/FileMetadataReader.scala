@@ -3,7 +3,7 @@ package lib.imaging
 import java.io.File
 import java.util.concurrent.Executors
 
-import com.adobe.xmp.XMPMetaFactory
+import com.adobe.internal.xmp.XMPMetaFactory
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.{ExifDirectoryBase, ExifIFD0Directory, ExifSubIFDDirectory}
 import com.drew.metadata.icc.IccDirectory
