@@ -25,6 +25,8 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in collections).value -> s"${(name in collections).value}/${(name in collections).value}.deb",
       (packageBin in Debian in cropper).value -> s"${(name in cropper).value}/${(name in cropper).value}.deb",
       (packageBin in Debian in imageLoader).value -> s"${(name in imageLoader).value}/${(name in imageLoader).value}.deb",
+      // image-loader-projection uses the same deb as image-loader, we're running it for isolation of traffic in batch reindexing
+      (packageBin in Debian in imageLoader).value -> s"${(name in imageLoader).value}-projection/${(name in imageLoader).value}-projection.deb",
       (packageBin in Debian in leases).value -> s"${(name in leases).value}/${(name in leases).value}.deb",
       (packageBin in Debian in thrall).value -> s"${(name in thrall).value}/${(name in thrall).value}.deb",
       (packageBin in Debian in kahuna).value -> s"${(name in kahuna).value}/${(name in kahuna).value}.deb",
