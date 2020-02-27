@@ -113,10 +113,20 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
 }
 
+object InputIdsStore {
+  val PKField: String = "id"
+  val StateField: String = "progress_state"
+
+  def getAllMediaIdsWithinState(state: Int) = {
+    new ScanSpec()
+      .withFilterExpression(s"$StateField = :sub")
+      .withValueMap(new ValueMap().withNumber(":sub", state))
+  }
+}
+
 class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
-  private val PKField: String = "id"
-  private val StateField: String = "progress_state"
+  import InputIdsStore._
 
   def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     logger.info("attempt to get mediaIds batch from dynamo")
