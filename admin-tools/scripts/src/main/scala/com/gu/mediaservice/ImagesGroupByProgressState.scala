@@ -52,7 +52,6 @@ object ImagesGroupByProgressState extends App with LazyLogging {
     logger.info(result)
 
     writeResult(result)
-
   }
 
   execute()
