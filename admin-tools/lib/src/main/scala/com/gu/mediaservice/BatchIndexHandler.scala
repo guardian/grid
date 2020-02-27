@@ -117,12 +117,6 @@ object InputIdsStore {
   val PKField: String = "id"
   val StateField: String = "progress_state"
 
-  def getAllMediaIdsWithinStateScan(state: Int) = {
-    new ScanSpec()
-      .withFilterExpression(s"$StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", state))
-  }
-
   def getAllMediaIdsWithinStateQuery(state: Int) = {
     new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
