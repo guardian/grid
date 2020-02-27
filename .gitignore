@@ -19,3 +19,4 @@ imgops/dev/nginx.conf
 /stress-test/test-files/
 
 LOGS_LOCATION_IS_UNDEFINED
+re_ingestion_stats.txt

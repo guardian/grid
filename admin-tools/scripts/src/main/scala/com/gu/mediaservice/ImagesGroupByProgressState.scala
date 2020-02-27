@@ -31,7 +31,7 @@ object ImagesGroupByProgressState extends App with LazyLogging {
 
     def writeResult(content: String) = {
       import java.io.PrintWriter
-      new PrintWriter("stats.txt") {
+      new PrintWriter("re_ingestion_stats.txt") {
         write(content);
         close
       }
