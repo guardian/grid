@@ -34,13 +34,13 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
   import cfg._
 
-  private val ProjectionTimoutInSec = 740
-  private val OthersTimoutInSec = 90
-  private val MainProcessingTimoutInSec = ProjectionTimoutInSec + OthersTimoutInSec
+  private val ProjectionTimeoutInSec = 740
+  private val OthersTimeoutInSec = 90
+  private val MainProcessingTimeoutInSec = ProjectionTimeoutInSec + OthersTimeoutInSec
 
   private val GetIdsTimeout = new FiniteDuration(20, TimeUnit.SECONDS)
-  private val GlobalTimeout = new FiniteDuration(MainProcessingTimoutInSec, TimeUnit.SECONDS)
-  private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimoutInSec, TimeUnit.MINUTES)
+  private val GlobalTimeout = new FiniteDuration(MainProcessingTimeoutInSec, TimeUnit.SECONDS)
+  private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.MINUTES)
   private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient)
