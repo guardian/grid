@@ -4,7 +4,7 @@ import java.io.{File, FileOutputStream}
 import java.net.URI
 
 import com.amazonaws.services.s3.model.S3Object
-import com.gu.mediaservice.lib.ImageIngestOperations
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -72,7 +72,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     Logger.info("body parsed")(requestContext.toMarker(markers))
 
     auth.async(parsedBody) { req =>
-      val result = loadFile(req.body, req.user, uploadedBy, identifiers, dateTimeFromValueOrNow(uploadTime), filename, requestContext)
+      val result = loadFile(req.body, req.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename, requestContext)
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
       result
     }
@@ -130,7 +130,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         val tmpFile = createTempFile("download", requestContext)
 
         val result = downloader.download(validUri, tmpFile).flatMap { digestedFile =>
-          loadFile(digestedFile, request.user, uploadedBy, identifiers, dateTimeFromValueOrNow(uploadTime), filename, requestContext)
+          loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename, requestContext)
         } recover {
           case NonFatal(e) =>
             Logger.error(s"Unable to download image $uri", e)
@@ -175,8 +175,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       Some(finalImage)
     }
   }
-
-  private def dateTimeFromValueOrNow(value: Option[String]): DateTime = Try{new DateTime(value)}.getOrElse(DateTime.now)
 
   private def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
