@@ -2,11 +2,11 @@
 
 ## indexed Image projection
 
-    GET /images/:id/project
+    GET /images/projection/:id
 
 ### Example
 
-https://admin-tools.media.local.dev-gutools.co.uk/images/7b749a7acbd19590af928243f701e3929adef11e/project
+https://admin-tools.media.local.dev-gutools.co.uk/images/projection/7b749a7acbd19590af928243f701e3929adef11e
 
 See the [routes file](https://github.com/guardian/media-service/blob/master/admin-tools/conf/routes) for more API
 "documentation".
