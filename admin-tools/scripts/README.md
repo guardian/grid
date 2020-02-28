@@ -9,6 +9,6 @@
 
 `sbt "project admin-tools-scripts" "runMain com.gu.mediaservice.ImagesGroupByProgressState <table name>"`
 
-## reset known errors
+## reset known errors state
 
 `sbt "project admin-tools-scripts" "runMain com.gu.mediaservice.ResetKnownErrors <table name>"`
