@@ -92,7 +92,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
   }
 
-  def updateImageUsages(id: String, usages: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def updateImageUsages(id: String, usages: List[Usage], lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceUsagesScript = """
       | def dtf = DateTimeFormatter.ISO_DATE_TIME;
       | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
@@ -109,12 +109,11 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
        |   $updateLastModifiedScript
        | """)
 
-    val usagesParameter = usages.toOption.map(_.as[List[Usage]]).getOrElse(List.empty)
     val lastModifiedParameter = lastModified.toOption.map(_.as[String])
 
     val params = Map(
-      "usages" -> usagesParameter.map(i => asNestedMap(Json.toJson(i))),
-      "lastModified" -> lastModifiedParameter.getOrElse(null)
+      "usages" -> usages.map(i => asNestedMap(Json.toJson(i))),
+      "lastModified" -> lastModifiedParameter.orNull
     )
 
     val script = Script(script = scriptSource).lang("painless").params(params)
