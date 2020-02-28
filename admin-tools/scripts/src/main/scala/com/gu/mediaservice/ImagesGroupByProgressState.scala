@@ -42,6 +42,7 @@ object ImagesGroupByProgressState extends App with LazyLogging {
       stateNameToCount(NotFound),
       stateNameToCount(KnownError),
       stateNameToCount(NotStarted),
+      stateNameToCount(InProgress),
     ).mkString("\n")
 
     logger.info(s"results from dynamoTable=$dynamoTable")
