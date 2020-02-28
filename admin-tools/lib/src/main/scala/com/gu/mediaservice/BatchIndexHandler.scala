@@ -3,7 +3,7 @@ package com.gu.mediaservice
 import java.util.concurrent.TimeUnit
 
 import com.amazonaws.services.dynamodbv2.document._
-import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{QuerySpec, ScanSpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
@@ -113,10 +113,20 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
 }
 
+object InputIdsStore {
+  val PKField: String = "id"
+  val StateField: String = "progress_state"
+
+  def getAllMediaIdsWithinStateQuery(state: Int) = {
+    new QuerySpec()
+      .withKeyConditionExpression(s"$StateField = :sub")
+      .withValueMap(new ValueMap().withNumber(":sub", state))
+  }
+}
+
 class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
-  private val PKField: String = "id"
-  private val StateField: String = "progress_state"
+  import InputIdsStore._
 
   def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
     logger.info("attempt to get mediaIds batch from dynamo")
@@ -125,6 +135,23 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
       .withValueMap(new ValueMap().withNumber(":sub", 0))
       .withMaxResultSize(batchSize)
     val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
+      val json = Json.parse(it.toJSON).as[JsObject]
+      (json \ PKField).as[String]
+    })
+    mediaIds
+  }
+
+  def getProcessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
+    logger.info(s"attempt to get mediaIds batch from dynamo: ${table.getTableName}")
+    val scanSpec = new ScanSpec()
+      .withFilterExpression(s"$StateField in (:finished, :not_found, :in_progress)")
+      .withValueMap(new ValueMap()
+        .withNumber(":finished", 3)
+        .withNumber(":not_found", 2)
+        .withNumber(":in_progress", 1)
+      )
+      .withMaxResultSize(batchSize)
+    val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
     })

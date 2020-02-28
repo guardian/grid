@@ -19,17 +19,31 @@ import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Json
 
-class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLogging {
+object BatchIndexHandlerAwsFunctions {
 
-  private val AwsRegion = "eu-west-1"
-  private val s3client = buildS3Client
-  private val kinesis = buildKinesisClient
+  val AwsRegion: String = "eu-west-1"
 
-  private lazy val awsCredentials = new AWSCredentialsProviderChain(
+  lazy val awsCredentials = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
     new EnvironmentVariableCredentialsProvider()
   )
 
+  def buildDynamoTableClient(dynamoTableName: String): Table = {
+    val builder = AmazonDynamoDBClient.builder()
+      .withRegion(AwsRegion)
+      .withCredentials(awsCredentials)
+    val dynamo = new AwsDynamoDB(builder.build())
+    dynamo.getTable(dynamoTableName)
+  }
+
+}
+
+class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLogging {
+
+  private val s3client = buildS3Client
+  private val kinesis = buildKinesisClient
+
+  import BatchIndexHandlerAwsFunctions.{awsCredentials, AwsRegion}
   import cfg._
 
   def putToS3(imageBlobs: List[Image]): BulkIndexRequest = {
@@ -64,11 +78,7 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
   }
 
   def buildDynamoTableClient: Table = {
-    val builder = AmazonDynamoDBClient.builder()
-      .withRegion(AwsRegion)
-      .withCredentials(awsCredentials)
-    val dynamo = new AwsDynamoDB(builder.build())
-    dynamo.getTable(dynamoTableName)
+    BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTableName)
   }
 
   private def buildKinesisClient: AmazonKinesis = {

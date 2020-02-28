@@ -10,8 +10,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Ops, UpdateMessage}
-import com.gu.mediaservice.lib.logging.FALLBACK
-import com.gu.mediaservice.lib.logging.RequestLoggingContext
+import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib._
 import lib.imaging.MimeTypeDetection
@@ -102,7 +101,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
               Ok(Json.toJson(img)).as(ArgoMediaType)
             }
             case None =>
-              val s3Path = "s3://" + config.imageBucket + ImageIngestOperations.fileKeyFromId(imageId)
+              val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
               Logger.info("image not found")(requestContext.toMarker())
               respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
           }
