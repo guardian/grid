@@ -121,11 +121,11 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
           "requestType" -> "import-image"
         )
       )
-      val apiKey = request.user.apiKey
+      val apiKey = request.user.accessor
 
       Logger.info("importImage request start")(requestContext.toMarker(Map(
         "key-tier" -> apiKey.tier.toString,
-        "key-name" -> apiKey.name
+        "key-name" -> apiKey.identity
       )))
       Try(URI.create(uri)) map { validUri =>
         val tmpFile = createTempFile("download", requestContext)
@@ -141,14 +141,14 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         result onComplete (_ => tmpFile.delete())
         Logger.info("importImage request end")(requestContext.toMarker(Map(
           "key-tier" -> apiKey.tier.toString,
-          "key-name" -> apiKey.name
+          "key-name" -> apiKey.identity
         )))
         result
 
       } getOrElse {
         Logger.info("importImage request end")(requestContext.toMarker(Map(
           "key-tier" -> apiKey.tier.toString,
-          "key-name" -> apiKey.name
+          "key-name" -> apiKey.identity
         )))
         Future.successful(FailureResponse.invalidUri)
       }
@@ -184,7 +184,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val uploadedBy_ = uploadedBy match {
       case Some(by) => by
-      case None => Authentication.getEmail(user)
+      case None => Authentication.getIdentity(user)
     }
 
     // TODO: should error if the JSON parsing failed

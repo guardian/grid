@@ -5,7 +5,7 @@ import java.net.URI
 import akka.stream.scaladsl.StreamConverters
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
-import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -95,7 +95,7 @@ class MediaApi(
         } else {
           hasPermission(user, permission)
         }
-      case service: AuthenticatedService if service.apiKey.tier == Internal => true
+      case service: ApiKeyAccessor if service.accessor.tier == Internal => true
       case _ => false
     }
   }
@@ -112,7 +112,7 @@ class MediaApi(
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
-  private def hasPermission(request: Authentication.Request[Any], image: Image): Boolean = request.user.apiKey.tier match {
+  private def hasPermission(request: Authentication.Request[Any], image: Image): Boolean = request.user.accessor.tier match {
     case Syndication => isAvailableForSyndication(image)
     case _ => true
   }
@@ -205,8 +205,8 @@ class MediaApi(
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
-        val apiKey = request.user.apiKey
-        GridLogger.info(s"Download original image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        val apiKey = request.user.accessor
+        GridLogger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
@@ -225,8 +225,8 @@ class MediaApi(
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
-        val apiKey = request.user.apiKey
-        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        val apiKey = request.user.accessor
+        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
         val sourceImageUri =
@@ -254,7 +254,7 @@ class MediaApi(
       val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
-        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.apiKey.tier)
+        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
       val id = (imageData \ "id").as[String]
       val imageUri = URI.create(s"${config.rootUri}/images/$id")
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
@@ -298,7 +298,7 @@ class MediaApi(
           deleteImagePermission,
           deleteCropsOrUsagePermission,
           include,
-          request.user.apiKey.tier
+          request.user.accessor.tier
         )
 
         Some((source, imageData, imageLinks, imageActions))

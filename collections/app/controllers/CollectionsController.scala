@@ -5,7 +5,7 @@ import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EmbeddedEntity, Link}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.getEmail
+import com.gu.mediaservice.lib.auth.Authentication.getIdentity
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.{ActionData, Collection}
 import lib.CollectionsConfig
@@ -119,7 +119,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
     (req.body \ "data").asOpt[String] map { child =>
       if (isValidPathBit(child)) {
         val path = collectionPathId.map(uriToPath).getOrElse(Nil) :+ child
-        val collection = Collection.build(path, ActionData(getEmail(req.user), DateTime.now))
+        val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now))
 
         store.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
