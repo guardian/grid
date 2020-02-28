@@ -176,7 +176,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  def loadFile(digestedFile: DigestedFile, user: Principal,
+  private def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
                uploadTime: Option[String], filename: Option[String], requestLoggingContext: RequestLoggingContext): Future[Result] = {
     val DigestedFile(tempFile_, id_) = digestedFile
