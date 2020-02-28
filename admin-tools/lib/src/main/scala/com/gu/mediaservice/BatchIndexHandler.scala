@@ -36,7 +36,8 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
   private val ProjectionTimeoutInSec = 740
   private val OthersTimeoutInSec = 90
-  private val MainProcessingTimeoutInSec = ProjectionTimeoutInSec + OthersTimeoutInSec
+  private val TimeNeededToResetIfTimeoutInSec = 60
+  private val MainProcessingTimeoutInSec = (ProjectionTimeoutInSec + OthersTimeoutInSec) - TimeNeededToResetIfTimeoutInSec
 
   private val GetIdsTimeout = new FiniteDuration(20, TimeUnit.SECONDS)
   private val GlobalTimeout = new FiniteDuration(MainProcessingTimeoutInSec, TimeUnit.SECONDS)
