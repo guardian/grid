@@ -36,6 +36,8 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
   private val ProjectionTimeoutInSec = 740
   private val OthersTimeoutInSec = 90
+  // lambda max timeout is 15 minuets
+  // we need some time to be able to do reset if timeout happen before lambda max timeout will come to place
   private val TimeNeededToResetIfTimeoutInSec = 60
   private val MainProcessingTimeoutInSec = (ProjectionTimeoutInSec + OthersTimeoutInSec) - TimeNeededToResetIfTimeoutInSec
 
