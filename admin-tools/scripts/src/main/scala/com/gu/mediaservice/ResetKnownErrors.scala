@@ -17,8 +17,9 @@ object ResetKnownErrors extends App with LazyLogging {
   private val ddbClient = BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTable)
   private val stateIndex = ddbClient.getIndex(StateField)
 
-  def execute(batchSize: Int) = {
-    val InputIdsStore = new InputIdsStore(ddbClient, batchSize)
+  def execute() = {
+    val ignoredAtThisScript = 100
+    val InputIdsStore = new InputIdsStore(ddbClient, ignoredAtThisScript)
 
     val mediaIDsWithKnownErrors = stateIndex.query(getAllMediaIdsWithinStateQuery(KnownError.stateId))
       .asScala.toList.map { it =>
@@ -30,5 +31,5 @@ object ResetKnownErrors extends App with LazyLogging {
     InputIdsStore.resetItemsState(mediaIDsWithKnownErrors)
   }
 
-  execute(10000)
+  execute()
 }

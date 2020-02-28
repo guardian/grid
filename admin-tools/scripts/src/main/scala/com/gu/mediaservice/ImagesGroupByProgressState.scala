@@ -3,6 +3,8 @@ package com.gu.mediaservice
 import com.gu.mediaservice.indexing.{IndexInputCreation, ProduceProgress}
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.collection.JavaConverters._
+
 object ImagesGroupByProgressState extends App with LazyLogging {
 
   if (args.isEmpty) throw new IllegalArgumentException("please provide dynamo table name")
@@ -15,18 +17,12 @@ object ImagesGroupByProgressState extends App with LazyLogging {
 
   def execute() = {
 
-    def stateNameToCount(progressType: ProduceProgress) = {
+    def stateNameToCount(progressType: ProduceProgress): (String, Int) = {
       logger.info(s"calculating stateNameToCount for $progressType")
-      val result = stateIndex.query(getAllMediaIdsWithinStateQuery(progressType.stateId))
-      val iterator = result.iterator()
-      var count: Long = 0
-      while (iterator.hasNext) {
-        count += 1
-        iterator.next()
-      }
-      val ans = progressType.name -> count
-      logger.info(s"result=$ans")
-      ans
+      val queryRes = stateIndex.query(getAllMediaIdsWithinStateQuery(progressType.stateId))
+      val result = progressType.name -> queryRes.iterator.asScala.length
+      logger.info(s"result=$result")
+      result
     }
 
     def writeResult(content: String) = {
