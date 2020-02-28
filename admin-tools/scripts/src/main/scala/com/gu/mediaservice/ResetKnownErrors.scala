@@ -20,10 +20,11 @@ object ResetKnownErrors extends App with LazyLogging {
   def execute(batchSize: Int) = {
     val InputIdsStore = new InputIdsStore(ddbClient, batchSize)
 
-    val mediaIDsWithKnownErrors = stateIndex.query(getAllMediaIdsWithinStateQuery(KnownError.stateId)).asScala.toList.map(it => {
+    val mediaIDsWithKnownErrors = stateIndex.query(getAllMediaIdsWithinStateQuery(KnownError.stateId))
+      .asScala.toList.map { it =>
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
-    })
+    }
 
     logger.info(s"got ${mediaIDsWithKnownErrors.size}, mediaIds blacklisted as KnownError")
     InputIdsStore.resetItemsState(mediaIDsWithKnownErrors)
