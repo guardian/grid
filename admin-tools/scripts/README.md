@@ -6,3 +6,7 @@
 ## get stats
 
 `sbt "project admin-tools-scripts" "runMain com.gu.mediaservice.ImagesGroupByProgressState <table name>"`
+
+## reset known errors
+
+`sbt "project admin-tools-scripts" "runMain com.gu.mediaservice.ResetKnownErrors <table name>"`
