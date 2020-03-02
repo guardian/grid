@@ -4,7 +4,7 @@ import java.io.{File, FileOutputStream}
 import java.net.URI
 
 import com.amazonaws.services.s3.model.S3Object
-import com.gu.mediaservice.lib.ImageIngestOperations
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -72,7 +72,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     Logger.info("body parsed")(requestContext.toMarker(markers))
 
     auth.async(parsedBody) { req =>
-      val result = loadFile(req.body, req.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
+      val result = loadFile(req.body, req.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename, requestContext)
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
       result
     }
@@ -130,7 +130,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         val tmpFile = createTempFile("download", requestContext)
 
         val result = downloader.download(validUri, tmpFile).flatMap { digestedFile =>
-          loadFile(digestedFile, request.user, uploadedBy, identifiers, uploadTime, filename, requestContext)
+          loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename, requestContext)
         } recover {
           case NonFatal(e) =>
             Logger.error(s"Unable to download image $uri", e)
@@ -176,9 +176,9 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     }
   }
 
-  def loadFile(digestedFile: DigestedFile, user: Principal,
+  private def loadFile(digestedFile: DigestedFile, user: Principal,
                uploadedBy: Option[String], identifiers: Option[String],
-               uploadTime: Option[String], filename: Option[String], requestLoggingContext: RequestLoggingContext): Future[Result] = {
+               uploadTime: DateTime, filename: Option[String], requestLoggingContext: RequestLoggingContext): Future[Result] = {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     val uploadedBy_ = uploadedBy match {
@@ -191,13 +191,6 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val uploadInfo_ = UploadInfo(filename.flatMap(_.trim.nonEmptyOpt))
 
-    // TODO: handle the error thrown by an invalid string to `DateTime`
-    // only allow uploadTime to be set by AuthenticatedService
-    val uploadTime_ = uploadTime match {
-      case Some(time) => new DateTime(time)
-      case None => DateTime.now
-    }
-
     Logger.info("Detecting mimetype")(requestLoggingContext.toMarker())
     // Abort early if unsupported mime-type
     val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
@@ -208,7 +201,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       imageId = id_,
       tempFile = tempFile_,
       mimeType = mimeType_,
-      uploadTime = uploadTime_,
+      uploadTime = uploadTime,
       uploadedBy = uploadedBy_,
       identifiers = identifiers_,
       uploadInfo = uploadInfo_
