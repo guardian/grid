@@ -52,7 +52,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
 
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
-    executeAndLog(get(imagesAlias, Mappings.dummyType, id), s"get image by id $id").map { r =>
+    executeAndLog(get(imagesAlias, id), s"get image by id $id").map { r =>
       r.status match {
         case Status.OK => mapImageFrom(r.result.sourceAsString, id)
         case _ => None
@@ -182,20 +182,21 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     executeAndLog(search, s"$id usage search").map { r =>
       import r.result
       logSearchQueryIfTimedOut(search, result)
-      SupplierUsageSummary(supplier, result.hits.total)
+      SupplierUsageSummary(supplier, result.hits.total.value)
     }
   }
 
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
 
-    def fromDateHistrogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.dateHistogram(name).
+    def fromDateHistogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.dateHistogram(name).
       buckets.map(b => BucketResult(b.date, b.docCount))
 
-    aggregateSearch(params.field, params,
-      dateHistogramAggregation(params.field).
-        field(params.field).
-        interval(DateHistogramInterval.Month).
-        minDocCount(0), fromDateHistrogramAggregation)
+    val aggregation = dateHistogramAggregation(params.field).
+      field(params.field).
+      calendarInterval(DateHistogramInterval.Month).
+      minDocCount(0)
+    aggregateSearch(params.field, params, aggregation, fromDateHistogramAggregation)
+
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
@@ -229,7 +230,8 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   def completionSuggestion(name: String, q: String, size: Int)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[CompletionSuggestionResults] = {
-    val completionSuggestion = ElasticDsl.completionSuggestion(name).on(name).text(q).skipDuplicates(true)
+    val completionSuggestion =
+      ElasticDsl.completionSuggestion(name, name).text(q).skipDuplicates(true)
     val search = ElasticDsl.search(imagesAlias) suggestions completionSuggestion
     executeAndLog(search, "completion suggestion query").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>

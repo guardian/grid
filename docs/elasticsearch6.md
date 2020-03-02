@@ -10,10 +10,9 @@ The move to version 6 also involves a move from the TCP to HTTP interface.
 This should allow the Grid to be used with managed instances of Elasticsearch.
 
 
-## Effected components
+## Affected components
 
 The media-api and thrall components have dependencies on Elasticsearch.
-
 
 ## Opting in
 

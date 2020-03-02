@@ -32,13 +32,13 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     "persistence.identifier" -> "picdarUrn")))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
-  val elasticConfig = ElasticSearchConfig(alias = "readAlias", url = es6TestUrl,
+  val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,
     cluster = "media-service-test", shards = 1, replicas = 0)
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
   val client = ES.client
 
-  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
+  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(
@@ -430,14 +430,14 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   private def saveImages(images: Seq[Image]) = {
     Future.sequence(images.map { i =>
-      executeAndLog(indexInto(index, "_doc") id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
+      executeAndLog(indexInto(index) id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
     })
   }
 
   private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
 
   private def purgeTestImages = {
-    def deleteImages = executeAndLog(deleteByQuery(index, "_doc", matchAllQuery()), s"Deleting images")
+    def deleteImages = executeAndLog(deleteByQuery(index, matchAllQuery()), s"Deleting images")
 
     Await.result(deleteImages, fiveSeconds)
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe 0)

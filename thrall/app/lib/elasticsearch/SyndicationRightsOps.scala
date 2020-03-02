@@ -79,8 +79,7 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
                                          photoshoot: Photoshoot,
                                          excludedImageId: Option[String] = None): Future[Option[SyndicationRights]] =
     excludedImageId match {
-      case Some(_) =>
-        es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
+      case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
       case None =>
         val hasInferredRights: Boolean = image.hasInferredSyndicationRightsOrNoRights
         es.getLatestSyndicationRights(photoshoot).map {

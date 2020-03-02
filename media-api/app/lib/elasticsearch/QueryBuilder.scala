@@ -4,9 +4,9 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model.Agency
-import com.sksamuel.elastic4s.Operator
-import com.sksamuel.elastic4s.http.ElasticDsl
+import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._

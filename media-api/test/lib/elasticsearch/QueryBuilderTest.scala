@@ -1,9 +1,9 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.model.{Agency, UsageRights}
-import com.sksamuel.elastic4s.Operator
-import com.sksamuel.elastic4s.http.ElasticDsl
-import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
+import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.requests.common.Operator
+import com.sksamuel.elastic4s.requests.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhrase, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
 import com.sksamuel.elastic4s.requests.searches.queries.term.{TermQuery, TermsQuery}

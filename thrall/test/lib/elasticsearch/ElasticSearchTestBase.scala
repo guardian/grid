@@ -17,15 +17,15 @@ import scala.util.Properties
 trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
 
   val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
-  val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
+  val esTestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
 
-  val elasticSearchConfig = ElasticSearchConfig("writeAlias", es6TestUrl, "media-service-test", 1, 0)
+  val elasticSearchConfig = ElasticSearchConfig("writealias", esTestUrl, "media-service-test", 1, 0)
 
   val ES = new ElasticSearch(elasticSearchConfig, None)
-  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:6.6.0")
+  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(

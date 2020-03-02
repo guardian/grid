@@ -15,7 +15,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es6Config = ElasticSearchConfig(
+  val esConfig = ElasticSearchConfig(
     alias = config.writeAlias,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,
@@ -23,8 +23,8 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     replicas = config.elasticsearch6Replicas
   )
 
-  val es6 = new ElasticSearch(es6Config, Some(thrallMetrics))
-  es6.ensureAliasAssigned()
+  val es = new ElasticSearch(esConfig, Some(thrallMetrics))
+  es.ensureAliasAssigned()
 
   val bulkIndexS3Client = new BulkIndexS3Client(config)
 
