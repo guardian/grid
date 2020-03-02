@@ -9,7 +9,6 @@ import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.{Aggregations, DateHistogramInterval, SearchHit, SearchRequest, SearchResponse}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.elasticsearch._
@@ -25,6 +24,7 @@ import scalaz.syntax.std.list._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency]) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax {
 

@@ -1,13 +1,13 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, Mappings}
-import com.sksamuel.elastic4s.http.ElasticDsl
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import helpers.Fixtures
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
+import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 
 import scala.concurrent.Await
@@ -43,7 +43,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     // Ensure to reset the state of ES between tests by deleting all documents...
     Await.ready(
       ES.client.execute(
-        ElasticDsl.deleteByQuery(ES.initialImagesIndex, Mappings.dummyType, ElasticDsl.matchAllQuery())
+        ElasticDsl.deleteByQuery(ES.initialImagesIndex, ElasticDsl.matchAllQuery())
       ), fiveSeconds)
 
     // ...and then forcing a refresh. These operations need to be done in serial.

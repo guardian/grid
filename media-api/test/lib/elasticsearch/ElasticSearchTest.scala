@@ -7,6 +7,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.http._
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
 import lib.querysyntax._
