@@ -4,15 +4,14 @@ import java.util.concurrent.TimeUnit
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions, ElasticSearchClient, Mappings}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
-import com.sksamuel.elastic4s.http.ElasticDsl
+import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.http.search.{Aggregations, SearchHit, SearchResponse}
 import com.sksamuel.elastic4s.searches.aggs.Aggregation
+import com.sksamuel.elastic4s.requests.searches.{Aggregations, DateHistogramInterval, SearchHit, SearchRequest, SearchResponse}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import com.sksamuel.elastic4s.searches.{DateHistogramInterval, SearchRequest}
 import lib.elasticsearch._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
