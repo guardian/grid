@@ -5,7 +5,7 @@ import java.util.UUID
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http._
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json.{JsDefined, JsLookupResult, JsString, Json}

@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
 import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
-import com.sksamuel.elastic4s.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._

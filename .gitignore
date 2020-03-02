@@ -16,6 +16,7 @@ imgops/dev/nginx.conf
 
 .bloop
 .metals
+project/metals.sbt
 /stress-test/test-files/
 
 LOGS_LOCATION_IS_UNDEFINED

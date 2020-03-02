@@ -8,7 +8,7 @@ import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import helpers.Fixtures
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 
 import scala.concurrent.Await
 import scala.concurrent.duration._

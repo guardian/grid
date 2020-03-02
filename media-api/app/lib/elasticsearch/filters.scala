@@ -2,8 +2,8 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.sksamuel.elastic4s.http.ElasticDsl
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.searches.queries.{BoolQuery, NestedQuery, Query}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.searches.queries.{BoolQuery, NestedQuery, Query}
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._

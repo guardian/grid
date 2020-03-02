@@ -3,7 +3,7 @@ package com.gu.mediaservice.scripts
 import java.util.concurrent.TimeUnit
 
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, Mappings}
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http.bulk.BulkResponse
 import com.sksamuel.elastic4s.http.search.{SearchHit, SearchResponse}
 import com.sksamuel.elastic4s.indexes.IndexRequest

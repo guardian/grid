@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.HealthStatus
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http.index.CreateIndexResponse
 import com.sksamuel.elastic4s.http.index.admin.IndexExistsResponse
 import com.sksamuel.elastic4s.http.{ElasticClient, ElasticProperties, Response}

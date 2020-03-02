@@ -7,9 +7,9 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
-import com.sksamuel.elastic4s.http.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.script.Script
-import com.sksamuel.elastic4s.searches.queries.BoolQuery
+import com.sksamuel.elastic4s.requests.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.searches.sort.SortOrder
 import lib.ThrallMetrics
 import org.joda.time.DateTime

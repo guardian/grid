@@ -6,9 +6,9 @@ import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model.Agency
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
-import com.sksamuel.elastic4s.http.ElasticDsl._
-import com.sksamuel.elastic4s.searches.queries.Query
-import com.sksamuel.elastic4s.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
 import play.api.Logger
 

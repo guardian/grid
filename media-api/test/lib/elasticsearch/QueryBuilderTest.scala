@@ -4,9 +4,9 @@ import com.gu.mediaservice.model.{Agency, UsageRights}
 import com.sksamuel.elastic4s.Operator
 import com.sksamuel.elastic4s.http.ElasticDsl
 import com.sksamuel.elastic4s.http.search.queries.QueryBuilderFn
-import com.sksamuel.elastic4s.searches.queries._
-import com.sksamuel.elastic4s.searches.queries.matches.{MatchPhrase, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import com.sksamuel.elastic4s.searches.queries.term.{TermQuery, TermsQuery}
+import com.sksamuel.elastic4s.requests.searches.queries._
+import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhrase, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
+import com.sksamuel.elastic4s.requests.searches.queries.term.{TermQuery, TermsQuery}
 import lib.querysyntax.Negation
 import org.scalatest.{FunSpec, Matchers}
 
