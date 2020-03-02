@@ -8,8 +8,6 @@ import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
 
-  // val dummyType = "_doc" // see https://www.elastic.co/blog/removal-of-mapping-types-elasticsearch
-
   val imageMapping: MappingDefinition = {
 
     // Non indexed fields stored as keywords can still participate in exists / has queries
