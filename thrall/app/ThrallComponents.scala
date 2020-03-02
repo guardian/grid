@@ -29,12 +29,12 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val bulkIndexS3Client = new BulkIndexS3Client(config)
 
   val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(
-    config, es6, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from, bulkIndexS3Client, actorSystem
+    config, es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), config.from, bulkIndexS3Client, actorSystem
   )
   thrallKinesisMessageConsumer.start()
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es6, thrallKinesisMessageConsumer, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es, thrallKinesisMessageConsumer, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }

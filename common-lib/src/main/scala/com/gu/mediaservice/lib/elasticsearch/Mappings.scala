@@ -1,9 +1,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
 import com.sksamuel.elastic4s.requests.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
-import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField}
 import com.sksamuel.elastic4s.requests.mappings.{FieldDefinition, MappingDefinition, NestedField, ObjectField}
 import org.yaml.snakeyaml.introspector.FieldProperty
 import play.api.libs.json.{JsObject, Json}
@@ -37,9 +35,6 @@ object Mappings {
     }
 
     MappingDefinition(
-      dynamic(DynamicMapping.Strict).
-      //      `type` = Some("_doc"),
-      dateDetection(false).
       dynamic = Some(DynamicMapping.Strict),
       dateDetection = Some(false),
       templates = Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate),

@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
 class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient
-  with ImageFieldswith with ElasticSearchExecutions with ElasticImageUpdate {
+  with ImageFields with ElasticSearchExecutions with ElasticImageUpdate {
 
   lazy val imagesAlias = config.alias
   lazy val url = config.url

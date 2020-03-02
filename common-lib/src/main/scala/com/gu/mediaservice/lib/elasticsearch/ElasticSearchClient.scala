@@ -41,7 +41,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
 
   lazy val client = {
     Logger.info("Connecting to Elastic 7: " + url)
-    ElasticClient(ElasticProperties(url))	    val client = JavaClient(ElasticProperties(url))
+    val client = JavaClient(ElasticProperties(url))
     ElasticClient(client)
   }
 
