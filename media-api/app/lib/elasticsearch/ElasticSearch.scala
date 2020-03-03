@@ -150,7 +150,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
       case _ => sorts.createSort(params.orderBy)
     }
 
-    val searchRequest = prepareSearch(withFilter) from params.offset size params.length sortBy sort
+    // We need to set trackHits to ensure that the total number of hits we return to users is accurate.
+    // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
+    val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) from params.offset size params.length sortBy sort
 
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
