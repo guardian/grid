@@ -1,13 +1,12 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.sksamuel.elastic4s.http.ElasticDsl.{mapping, _}
-import com.sksamuel.elastic4s.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
-import com.sksamuel.elastic4s.mappings.{MappingDefinition, NestedField, ObjectField}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
+import com.sksamuel.elastic4s.requests.mappings.{FieldDefinition, MappingDefinition, NestedField, ObjectField}
+import org.yaml.snakeyaml.introspector.FieldProperty
 import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
-
-  val dummyType = "_doc" // see https://www.elastic.co/blog/removal-of-mapping-types-elasticsearch
 
   val imageMapping: MappingDefinition = {
 
@@ -33,10 +32,11 @@ object Mappings {
         pathMatch("fileMetadata.*")
     }
 
-    mapping(dummyType).
-      dynamic(DynamicMapping.Strict).
-      dateDetection(false).
-      fields(
+    MappingDefinition(
+      dynamic = Some(DynamicMapping.Strict),
+      dateDetection = Some(false),
+      templates = Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate),
+      fields = List(
         keywordField("id"),
         metadataMapping("metadata"),
         metadataMapping("originalMetadata"),
@@ -62,7 +62,8 @@ object Mappings {
         dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
         collectionMapping("collections")
-      ).dynamicTemplates(Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate))
+      )
+    )
   }
 
   def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(

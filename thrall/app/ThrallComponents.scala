@@ -15,7 +15,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es6Config = ElasticSearchConfig(
+  val esConfig = ElasticSearchConfig(
     alias = config.writeAlias,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,
@@ -23,18 +23,18 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     replicas = config.elasticsearch6Replicas
   )
 
-  val es6 = new ElasticSearch(es6Config, Some(thrallMetrics))
-  es6.ensureAliasAssigned()
+  val es = new ElasticSearch(esConfig, Some(thrallMetrics))
+  es.ensureAliasAssigned()
 
   val bulkIndexS3Client = new BulkIndexS3Client(config)
 
   val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(
-    config, es6, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from, bulkIndexS3Client, actorSystem
+    config, es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), config.from, bulkIndexS3Client, actorSystem
   )
   thrallKinesisMessageConsumer.start()
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es6, thrallKinesisMessageConsumer, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es, thrallKinesisMessageConsumer, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }
