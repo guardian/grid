@@ -45,6 +45,38 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
     Await.result(f, timeout).flatten
   }
 
+  private trait GetImageStatus
+  private case object Found extends GetImageStatus
+  private case object NotFound extends GetImageStatus
+  private case object Failed extends GetImageStatus
+  case class ImagesWithStatus(found: List[String], notFound: List[String], failed: List[String])
+
+  def getImages(mediaIds: List[String], imagesEndpoint: String,
+                          InputIdsStore: InputIdsStore): ImagesWithStatus = {
+    val apiCalls = mediaIds.map { id =>
+      val imagesUrl = new URL(s"$imagesEndpoint/$id")
+      val responseFuture: Future[ResponseWrapper] = gridClient.makeGetRequestAsync(imagesUrl, apiKey)
+      val futureImageWithStatus: Future[(String, GetImageStatus)] = responseFuture.map { response =>
+        if (response.statusCode == 200) {
+           (id, Found)
+        } else if (response.statusCode == 404) {
+           (id, NotFound)
+        } else {
+          (id, Failed)
+        }
+      }
+      futureImageWithStatus
+    }
+    val futureResults = Future.sequence(apiCalls)
+    val futureImagesWithStatus = futureResults.map{results =>
+      val found = results.collect{case (id, Found)=> id}
+      val notFound = results.collect{case (id, NotFound) => id}
+      val failed = results.collect{case (id, Failed) => id}
+      ImagesWithStatus(found,notFound,failed)
+    }
+    Await.result(futureImagesWithStatus, timeout)
+  }
+
   private val KnownErrors = List(
     "org.im4java.core.CommandException"
   )
