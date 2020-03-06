@@ -88,7 +88,7 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
 
             logger.info("Checking kinesis is nice and fast")
 
-            val dimensionValue = s"media-service-thrall-$actualStage"
+            val dimensionValue = s"media-service-thrall-${actualStage.toLowerCase}"
             val endTime: Date = new Date() // now!
             val startTime: Date = new Date(endTime.getTime - 5 * 60 * 1000L) // five minutes ago
 
@@ -115,7 +115,7 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
             logger.info(s"Got ${dataPoints.size} data points")
 
             val fastEnough = dataPoints.nonEmpty && ! dataPoints.exists(d => d.getMaximum > actualThreshold)
-            logger.info(s"Kinesis stream is fast enough: ${fastEnough}")
+            logger.info(s"Kinesis stream is fast enough: $fastEnough")
             fastEnough
         }
     }
