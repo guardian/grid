@@ -101,7 +101,7 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
               .withEndTime(endTime)
               .withMetricName("GetRecords.IteratorAgeMilliseconds")
               .withNamespace("AWS/Kinesis")
-              .withPeriod(3)
+              .withPeriod(300)
               .withStartTime(startTime)
               .withStatistics("Maximum")
               .withUnit("Milliseconds")
