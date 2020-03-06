@@ -88,7 +88,7 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
 
             logger.info("Checking kinesis is nice and fast")
 
-            val dimensionValue = s"media-service-thrall-${actualStage.toLowerCase}"
+            val dimensionValue = s"media-service-thrall-${actualStage.toUpperCase}"
             val endTime: Date = new Date() // now!
             val startTime: Date = new Date(endTime.getTime - 5 * 60 * 1000L) // five minutes ago
 
