@@ -11,6 +11,28 @@ import scala.util.{Try, Success, Failure}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
+object ClientResponse {
+  case class Message(errorMessage: String, downstreamErrorMessage: String)
+
+  object Message {
+    implicit val reads = Json.reads[Message]
+  }
+
+  case class DownstreamMessage(errorKey: String, errorMessage: String)
+
+  object DownstreamMessage {
+    implicit val reads = Json.reads[DownstreamMessage]
+  }
+
+  case class Root(message: Message)
+
+  object Root {
+    implicit val reads = Json.reads[Root]
+  }
+}
+
+case class ClientErrorMessages(errorMessage: String, downstreamErrorMessage: String)
+
 case class ResponseWrapper(body: JsValue, statusCode: Int, bodyAsString: String)
 
 object GridClient {
@@ -51,30 +73,18 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
         "statusCode" -> code.toString,
         "message" -> message
       )
+
       if (debugHttpResponse) logger.info(s"GET $url response: $resInfo")
       if (code != 200 && code != 404) {
         // Parse error messages from the response body JSON, if there are any
-        val errorMessage = Try(Json.parse(bodyAsString)) match {
-          case Success(bodyAsJson) => {
-            val errorMessage = (bodyAsJson \ "message" \ "errorMessage").asOpt[String].getOrElse("No error message found")
-            val maybeDownstreamErrorAsString = (bodyAsJson \ "message" \ "downstreamErrorMessage").asOpt[String]
-            val downstreamErrorMessage = maybeDownstreamErrorAsString.flatMap(downstreamError => {
-              val errorAsJson = Json.parse(downstreamError)
-              (errorAsJson \ "errorMessage").asOpt[String]
-            }).getOrElse("No downstream error message found")
-            (errorMessage, downstreamErrorMessage)
-          }
-          case Failure(_) =>
-            val jsonError = "Could not parse JSON body"
-            (jsonError, jsonError)
-        }
+        val errorMessages = getErrorMessagesFromResponse(bodyAsString)
 
         val errorJson = Json.obj(
           "errorStatusCode" -> code,
           "responseMessage" -> message,
           "responseBody" -> bodyAsString,
-          "errorMessage" -> errorMessage._1,
-          "downstreamErrorMessage" -> errorMessage._2,
+          "message" -> errorMessages.errorMessage,
+          "downstreamErrorMessage" -> errorMessages.downstreamErrorMessage,
           "url" -> url.toString,
         )
         logger.error(errorJson.toString())
@@ -91,6 +101,29 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
         throw e
     } finally {
       body.close()
+    }
+  }
+
+  private def getErrorMessagesFromResponse(responseStr: String): ClientErrorMessages = {
+    Try(Json.parse(responseStr)) match {
+      case Success(json) => {
+        val response = json.asOpt[ClientResponse.Root]
+        val errorMessage = response.map(_.message.errorMessage).getOrElse("No error message found")
+        val maybeDownstrErr = response.map(_.message.downstreamErrorMessage)
+        val downstreamErrorMessage = maybeDownstrErr.flatMap(getErrorMessageFromDownstreamResponse).getOrElse("No downstream error message found")
+        ClientErrorMessages(errorMessage, downstreamErrorMessage)
+      }
+      case Failure(_) =>
+        val jsonError = "Could not parse JSON body"
+        ClientErrorMessages(jsonError, jsonError)
+    }
+  }
+
+  private def getErrorMessageFromDownstreamResponse(downstreamResponseStr: String): Option[String] = {
+    Try(Json.parse(downstreamResponseStr)) match {
+      case Success(downstreamBodyAsJson) =>
+        downstreamBodyAsJson.asOpt[ClientResponse.DownstreamMessage].map(_.errorMessage)
+      case Failure(_) => None
     }
   }
 
