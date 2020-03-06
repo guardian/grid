@@ -2,11 +2,13 @@ package com.gu.mediaservice
 
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
-import java.util.UUID
+import java.util.{Date, UUID}
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProviderChain, EnvironmentVariableCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import com.amazonaws.services.cloudwatch.model.{Dimension, GetMetricStatisticsRequest}
+import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchAsyncClientBuilder}
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.document.{Table, DynamoDB => AwsDynamoDB}
 import com.amazonaws.services.kinesis.model.PutRecordRequest
@@ -18,6 +20,7 @@ import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Json
+import scala.collection.JavaConverters._
 
 object BatchIndexHandlerAwsFunctions {
 
@@ -72,6 +75,52 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
     logger.info(s"PUT [$message] message to kinesis stream: $kinesisStreamName response: $res")
   }
 
+  def checkKinesisIsNiceAndFast: Boolean = {
+    stage match {
+      case None => true // did not get a stage. presume it's not prod and go ahead.
+      case Some(actualStage) =>
+        threshold match {
+          case None =>
+            logger.error("Got a stage but no threshold; unable to work out if Kinesis is fast or not")
+            false
+
+          case Some(actualThreshold) =>
+
+            logger.info("Checking kinesis is nice and fast")
+
+            val dimensionValue = s"media-service-thrall-$actualStage"
+            val endTime: Date = new Date() // now!
+            val startTime: Date = new Date(endTime.getTime - 5 * 60 * 1000L) // five minutes ago
+
+            val dimension = new Dimension()
+              .withName("StreamName")
+              .withValue(dimensionValue)
+
+            val request: GetMetricStatisticsRequest = new GetMetricStatisticsRequest()
+              .withDimensions(Set(dimension).asJava)
+              .withEndTime(endTime)
+              .withMetricName("GetRecords.IteratorAgeMilliseconds")
+              .withNamespace("AWS/Kinesis")
+              .withPeriod(3)
+              .withStartTime(startTime)
+              .withStatistics("Maximum")
+              .withUnit("Milliseconds")
+
+
+            val dataPoints = buildCloudWatchClient
+              .getMetricStatistics(request)
+              .getDatapoints
+              .asScala
+
+            logger.info(s"Got ${dataPoints.size} data points")
+
+            val fastEnough = dataPoints.nonEmpty && ! dataPoints.exists(d => d.getMaximum > actualThreshold)
+            logger.info(s"Kinesis stream is fast enough: ${fastEnough}")
+            fastEnough
+        }
+    }
+  }
+
   private def buildS3Client = {
     val builder = AmazonS3ClientBuilder.standard().withRegion(AwsRegion)
     builder.withCredentials(awsCredentials).build()
@@ -94,4 +143,9 @@ class BatchIndexHandlerAwsFunctions(cfg: BatchIndexHandlerConfig) extends LazyLo
     builder.withCredentials(awsCredentials).build()
   }
 
+  private def buildCloudWatchClient: AmazonCloudWatch = AmazonCloudWatchAsyncClientBuilder
+    .standard()
+    .withRegion(AwsRegion)
+    .withCredentials(awsCredentials)
+    .build()
 }
