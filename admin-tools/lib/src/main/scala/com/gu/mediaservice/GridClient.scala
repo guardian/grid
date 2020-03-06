@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.typesafe.scalalogging.LazyLogging
 import okhttp3._
 import play.api.libs.json.{JsValue, Json}
+import scala.util.{Try, Success, Failure}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -53,20 +54,27 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
       if (debugHttpResponse) logger.info(s"GET $url response: $resInfo")
       if (code != 200 && code != 404) {
         // Parse error messages from the response body JSON, if there are any
-        val bodyAsJson = Json.parse(bodyAsString)
-        val errorMessage = (bodyAsJson \ "message" \ "errorMessage").asOpt[String].getOrElse("No error message found")
-        val maybeDownstreamErrorAsString = (bodyAsJson \ "message" \ "downstreamErrorMessage").asOpt[String]
-        val downstreamErrorMessage = maybeDownstreamErrorAsString.flatMap(downstreamError => {
-          val errorAsJson = Json.parse(downstreamError)
-          (errorAsJson \ "errorMessage").asOpt[String]
-        }).getOrElse("No downstream error message found")
+        val errorMessage = Try(Json.parse(bodyAsString)) match {
+          case Success(bodyAsJson) => {
+            val errorMessage = (bodyAsJson \ "message" \ "errorMessage").asOpt[String].getOrElse("No error message found")
+            val maybeDownstreamErrorAsString = (bodyAsJson \ "message" \ "downstreamErrorMessage").asOpt[String]
+            val downstreamErrorMessage = maybeDownstreamErrorAsString.flatMap(downstreamError => {
+              val errorAsJson = Json.parse(downstreamError)
+              (errorAsJson \ "errorMessage").asOpt[String]
+            }).getOrElse("No downstream error message found")
+            (errorMessage, downstreamErrorMessage)
+          }
+          case Failure(_) =>
+            val jsonError = "Could not parse JSON body"
+            (jsonError, jsonError)
+        }
 
         val errorJson = Json.obj(
           "errorStatusCode" -> code,
           "responseMessage" -> message,
           "responseBody" -> bodyAsString,
-          "errorMessage" -> errorMessage,
-          "downstreamErrorMessage" -> downstreamErrorMessage,
+          "errorMessage" -> errorMessage._1,
+          "downstreamErrorMessage" -> errorMessage._2,
           "url" -> url.toString,
         )
         logger.error(errorJson.toString())
