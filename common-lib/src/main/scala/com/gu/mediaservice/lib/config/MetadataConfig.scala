@@ -87,7 +87,6 @@ object MetadataConfig {
   val internalStaffPhotographers = List(
     "E Hamilton West"       -> "The Guardian",
     "Harriet St Johnston"   -> "The Guardian",
-    "Lorna Roach"           -> "The Guardian",
     "Rachel Vere"           -> "The Guardian",
     "Ken Saunders"          -> "The Guardian"
   )
