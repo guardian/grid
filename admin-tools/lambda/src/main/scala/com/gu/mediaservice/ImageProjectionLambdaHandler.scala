@@ -5,7 +5,7 @@ import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.Json
+import play.api.libs.json.{JsString, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -43,8 +43,8 @@ class ImageProjectionLambdaHandler extends LazyLogging {
               case _ =>
                 getNotFoundResponse(mediaId)
             }
-          case FullImageProjectionFailed(expMessage) =>
-            getErrorFoundResponse(expMessage)
+          case FullImageProjectionFailed(message, downstreamMessage) =>
+            getErrorFoundResponse(message, downstreamMessage)
         }
       case _ => getUnauthorisedResponse
     }
@@ -68,9 +68,14 @@ class ImageProjectionLambdaHandler extends LazyLogging {
       .withBody(emptyRes)
   }
 
-  private def getErrorFoundResponse(exceptionMessage: String) = {
-    val res = Json.obj("message" -> exceptionMessage).toString
+  private def getErrorFoundResponse(message: String, downstreamMessage: String) = {
+    val res = Json.obj("message" -> Json.obj(
+      "errorMessage" -> message,
+      "downstreamErrorMessage" -> downstreamMessage
+    )).toString
+
     logger.info(s"image not projected due to error \n $res")
+
     new APIGatewayProxyResponseEvent()
       .withStatusCode(500)
       .withHeaders(Map("content-type" -> "application/json").asJava)

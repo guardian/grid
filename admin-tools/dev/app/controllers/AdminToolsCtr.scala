@@ -41,8 +41,11 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
           case _ =>
             respondError(NotFound, "not-found", s"image with mediaId: $mediaId not found")
         }
-      case FullImageProjectionFailed(expMessage) =>
-        respondError(InternalServerError, "image-projection-failed", expMessage)
+      case FullImageProjectionFailed(expMessage, downstreamMessage) =>
+        respondError(InternalServerError, "image-projection-failed", Json.obj(
+          "errorMessage" -> expMessage,
+          "downstreamErrorMessage" -> downstreamMessage
+        ).toString)
     }
   }
 }
