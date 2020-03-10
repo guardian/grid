@@ -136,6 +136,7 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     ),
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
+      "com.squareup.okhttp3" % "mockwebserver" % okHttpVersion,
       "com.typesafe.play" %% "play-json" % "2.6.9",
       "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
