@@ -26,7 +26,7 @@ trait ElasticSearchExecutions {
       case Success(r) =>
         r.isSuccess match {
           case true => Success(r)
-          case false => Failure(new RuntimeException("query response was not successful: " + r.error.reason))
+          case false => Failure(new RuntimeException(s"'$message' query (${request.toString}) was not successful: ${r.error.reason} (${r.error.rootCause}"))
         }
       case Failure(f) => Failure(f)
     }
@@ -34,13 +34,13 @@ trait ElasticSearchExecutions {
     result.foreach { r =>
       val elapsed = System.currentTimeMillis() - start
       val markers = MarkerContext(durationMarker(elapsed))
-      Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
+      Logger.info(s"'$message' query returned successfully in $elapsed ms")(markers)
     }
 
     result.failed.foreach { e =>
       val elapsed = System.currentTimeMillis() - start
       val markers = MarkerContext(durationMarker(elapsed))
-      Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
+      Logger.error(s"'$message' query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
     }
 
     result
