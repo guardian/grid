@@ -25,7 +25,10 @@ case class BatchIndexHandlerConfig(
                                     dynamoTableName: String,
                                     batchSize: Int,
                                     kinesisEndpoint: Option[String] = None,
-                                    maxIdleConnections: Int
+                                    kinesisMaximumMetric: Option[(String, Integer)] = None,
+                                    maxIdleConnections: Int,
+                                    stage: Option[String],
+                                    threshold: Option[Integer]
                                   )
 
 case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
@@ -57,6 +60,14 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def processImages(): Unit = {
+
+    if (checkKinesisIsNiceAndFast)
+      processImagesOnlyIfKinesisIsNiceAndFast()
+    else
+      logger.info("Kinesis is too busy; leaving it for now")
+  }
+
+  def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
     if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
