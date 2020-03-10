@@ -500,7 +500,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   private val refreshUsageRightsScript = """
                                    | if (ctx._source.userMetadata != null && ctx._source.userMetadata.usageRights != null) {
                                    |   ctx._source.usageRights = ctx._source.userMetadata.usageRights.clone();
-                                   | } else if ctx._source.originalUsageRights != null {
+                                   | } else if (ctx._source.originalUsageRights != null) {
                                    |   ctx._source.usageRights = ctx._source.originalUsageRights.clone();
                                    | }
                                  """.stripMargin
