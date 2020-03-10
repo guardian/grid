@@ -247,6 +247,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
       val downstreamErrorMessage = res.bodyAsString
 
       val errorJson = Json.obj(
+        "level" -> "ERROR",
         "errorStatusCode" -> statusCode,
         "message" -> Json.obj(
           "errorMessage" -> errorMessage,
