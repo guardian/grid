@@ -131,7 +131,7 @@ trait FullImageProjectionResult
 
 case class FullImageProjectionSuccess(image: Option[Image]) extends FullImageProjectionResult
 
-case class FullImageProjectionFailed(exception: String) extends FullImageProjectionResult
+case class FullImageProjectionFailed(message: String, downstreamErrorMessage: String) extends FullImageProjectionResult
 
 class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
 
@@ -145,8 +145,8 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
       val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
       FullImageProjectionSuccess(mayBeImage)
     } catch {
-      case e: DownstreamApiInBadSateException =>
-        FullImageProjectionFailed(e.getMessage)
+      case e: DownstreamApiInBadStateException =>
+        FullImageProjectionFailed(e.getMessage, e.getDownstreamMessage)
     }
   }
 
@@ -243,18 +243,23 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
   private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
     import res._
     if (statusCode != 200 && statusCode != 404) {
-      val message = Json.obj(
-        "errorMessage" -> s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode",
-        "downstreamErrorMessage" -> res.bodyAsString
-      )
+      val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode"
+      val downstreamErrorMessage = res.bodyAsString
+
       val errorJson = Json.obj(
+        "level" -> "ERROR",
         "errorStatusCode" -> statusCode,
-        "message" -> message
+        "message" -> Json.obj(
+          "errorMessage" -> errorMessage,
+          "downstreamErrorMessage" -> downstreamErrorMessage
+        )
       )
       logger.error(errorJson.toString())
-      throw new DownstreamApiInBadSateException(message.toString())
+      throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
     }
   }
 }
 
-class DownstreamApiInBadSateException(message: String) extends IllegalStateException(message)
+class DownstreamApiInBadStateException(message: String, downstreamMessage: String) extends IllegalStateException(message) {
+  def getDownstreamMessage = downstreamMessage
+}
