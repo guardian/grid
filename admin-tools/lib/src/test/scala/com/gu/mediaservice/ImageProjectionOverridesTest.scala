@@ -50,7 +50,7 @@ class ImageProjectionOverridesTest extends FlatSpec with Matchers {
   }
 
   it should "override image metadata with the latest lastModified picked form sub fields" in {
-    import ImageProjectionOverrides.overrideSelectedFields
+      import ImageProjectionOverrides.overrideSelectedFields
     val date = new DateTime("2014-01-01T00:00:00.000Z")
 
     val imageWithNoDates = createImage()
