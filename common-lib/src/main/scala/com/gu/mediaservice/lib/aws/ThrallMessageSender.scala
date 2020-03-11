@@ -50,14 +50,16 @@ case class UpdateMessage(
   syndicationRights: Option[SyndicationRights] = None,
   bulkIndexRequest: Option[BulkIndexRequest] = None
 ) extends LogMarker {
-  override def toLogMarker: LogstashMarker = {
+  override def markerContents = {
     val message = Json.stringify(Json.toJson(this))
-
-    MarkerMap(Map (
+    Map (
       "subject" -> subject,
       "id" -> id.getOrElse(image.map(_.id).getOrElse("none")),
       "size" -> message.getBytes.length,
       "length" -> message.length
-    )).toLogMarker
+    )
+  }
+  override def toLogMarker: LogstashMarker = {
+    MarkerMap(markerContents).toLogMarker
   }
 }

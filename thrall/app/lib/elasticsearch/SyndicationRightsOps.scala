@@ -1,13 +1,13 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
+import play.api.Logger
 import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
-
   /**
     * Upserting syndication rights and updating photoshoots accordingly.
     * @param image - image that has been updated. Should include any new rights.
@@ -17,49 +17,74 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
     */
   def upsertOrRefreshRights(image: Image,
                             currentPhotoshootOpt: Option[Photoshoot] = None,
-                            previousPhotoshootOpt: Option[Photoshoot] = None): Future[Unit] = for {
+                            previousPhotoshootOpt: Option[Photoshoot] = None)(
+                             implicit logMarker: LogMarker
+                           ): Future[Unit] = for {
     _ <- refreshPreviousPhotoshoot(image, previousPhotoshootOpt)
     _ <- newRightsUpsert(image, currentPhotoshootOpt)
   } yield ()
 
   private def newRightsUpsert(image: Image,
-                              currentPhotoshootOpt: Option[Photoshoot]): Future[Unit] =
+                              currentPhotoshootOpt: Option[Photoshoot])(
+                               implicit logMarker: LogMarker
+                             ): Future[Unit] =
     image.syndicationRights match {
       case Some(_) => for {
-          _ <- Future.sequence(es.updateImageSyndicationRights(image.id, image.syndicationRights))
-          _ <- refreshCurrentPhotoshoot(image, currentPhotoshootOpt)
-        } yield ()
+        _ <- Future.sequence(es.updateImageSyndicationRights(image.id, image.syndicationRights))
+        _ <- refreshCurrentPhotoshoot(image, currentPhotoshootOpt)
+      } yield ()
       case None =>
         refreshCurrentPhotoshoot(image, currentPhotoshootOpt)
     }
 
-  private def refreshPreviousPhotoshoot(image: Image, previousPhotoshootOpt: Option[Photoshoot]): Future[Unit] = previousPhotoshootOpt match {
-    case Some(photoshoot) => refreshPhotoshoot(image, photoshoot, Some(image.id))
-    case None => Future.successful(())
-  }
+  private def refreshPreviousPhotoshoot(image: Image,
+                                        previousPhotoshootOpt: Option[Photoshoot])(
+                                         implicit logMarker: LogMarker
+                                       ): Future[Unit] =
+    previousPhotoshootOpt match {
+      case Some(photoshoot) => refreshPhotoshoot(image, photoshoot, Some(image.id))
+      case None => Future.successful(())
+    }
 
-  private def refreshCurrentPhotoshoot(image: Image, currentPhotoshootOpt: Option[Photoshoot]): Future[Unit] = currentPhotoshootOpt match {
-    case Some(photoshoot) => refreshPhotoshoot(image, photoshoot)
-    case None =>
-      if (image.hasInferredSyndicationRightsOrNoRights) Future.sequence(es.deleteSyndicationRights(image.id)).map(_ => ())
-      else Future.successful(())
-  }
+  private def refreshCurrentPhotoshoot(image: Image,
+                                       currentPhotoshootOpt: Option[Photoshoot])(
+                                        implicit logMarker: LogMarker
+                                      ): Future[Unit] =
+    currentPhotoshootOpt match {
+      case Some(photoshoot) => refreshPhotoshoot(image, photoshoot)
+      case None =>
+        if (image.hasInferredSyndicationRightsOrNoRights) Future.sequence(es.deleteSyndicationRights(image.id)).map(_ => ())
+        else Future.successful(())
+    }
 
-  private def refreshPhotoshoot(image: Image, photoshoot: Photoshoot, excludedImageId: Option[String] = None): Future[Unit] = for {
-    latestRights <- getLatestSyndicationRights(image, photoshoot, excludedImageId)
-    inferredImages <- getInferredSyndicationRightsImages(image, photoshoot, excludedImageId)
-  } yield updateRights(image, photoshoot, latestRights, inferredImages)
+  private def refreshPhotoshoot(image: Image,
+                                photoshoot: Photoshoot,
+                                excludedImageId: Option[String] = None
+                               )(
+                                 implicit logMarker: LogMarker
+                               ): Future[Unit] =
+    for {
+      latestRights <- getLatestSyndicationRights(image, photoshoot, excludedImageId)
+      inferredImages <- getInferredSyndicationRightsImages(image, photoshoot, excludedImageId)
+    } yield updateRights(image, photoshoot, latestRights, inferredImages)
 
-  private def updateRights(image: Image, photoshoot: Photoshoot, latestRights: Option[SyndicationRights], inferredImages: List[Image]): Unit = latestRights match {
-    case updatedRights@Some(rights) if updateRequired(image, inferredImages) =>
-      GridLogger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for ${inferredImages.length} image id(s) in photoshoot $photoshoot: ${inferredImages.map(_.id)}")
-      inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights.map(_.copy(isInferred = true))))
-    case None if image.hasNonInferredRights =>
-      GridLogger.info(s"Removing rights from images (photoshoot $photoshoot): ${inferredImages.map(_.id)} (total = ${inferredImages.length}).")
-      inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, None))
-    case _ =>
-      GridLogger.info(s"No rights to refresh in photoshoot $photoshoot")
-  }
+  private def updateRights(image: Image,
+                           photoshoot: Photoshoot,
+                           latestRights: Option[SyndicationRights],
+                           inferredImages: List[Image]
+                          )(
+                            implicit logMarker: LogMarker
+                          ): Unit =
+    latestRights match {
+      case updatedRights@Some(rights) if updateRequired(image, inferredImages) =>
+        Logger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for ${inferredImages.length} image id(s) in photoshoot $photoshoot: ${inferredImages.map(_.id)}")
+        inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights.map(_.copy(isInferred = true))))
+      case None if image.hasNonInferredRights =>
+        Logger.info(s"Removing rights from images (photoshoot $photoshoot): ${inferredImages.map(_.id)} (total = ${inferredImages.length}).")
+        inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, None))
+      case _ =>
+        Logger.info(s"No rights to refresh in photoshoot $photoshoot")
+    }
 
   /* Only replace rights if at least one of the following is true:
    * - the image that triggered the action has syndication rights that are not inferred
@@ -77,7 +102,10 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
    */
   private def getLatestSyndicationRights(image: Image,
                                          photoshoot: Photoshoot,
-                                         excludedImageId: Option[String] = None): Future[Option[SyndicationRights]] =
+                                         excludedImageId: Option[String] = None
+                                        )(
+                                          implicit logMarker: LogMarker
+                                        ): Future[Option[SyndicationRights]] =
     excludedImageId match {
       case Some(_) => es.getLatestSyndicationRights(photoshoot, excludedImageId).map(_.flatMap(_.syndicationRights))
       case None =>
@@ -99,7 +127,10 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
 
   private def getInferredSyndicationRightsImages(image: Image,
                                                  photoshoot: Photoshoot,
-                                                 excludedImageId: Option[String] = None): Future[List[Image]] =
+                                                 excludedImageId: Option[String] = None
+                                                )(
+                                                  implicit logMarker: LogMarker
+                                                ): Future[List[Image]] =
     excludedImageId match {
       case Some(_) => es.getInferredSyndicationRightsImages(photoshoot, excludedImageId)
       case None =>

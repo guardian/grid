@@ -5,8 +5,8 @@ import scala.concurrent.duration._
 
 case class DurationForLogging(duration: Duration) extends LogMarker {
   def toMillis: Long = duration.toMillis
-
-  override def toLogMarker: LogstashMarker = MarkerMap(Map("duration" -> toMillis)).toLogMarker
+  def markerContents = Map("duration" -> toMillis)
+  override def toLogMarker: LogstashMarker = MarkerMap(markerContents).toLogMarker
 }
 
 class Stopwatch {

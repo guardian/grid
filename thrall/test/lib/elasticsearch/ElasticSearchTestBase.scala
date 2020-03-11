@@ -1,10 +1,9 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.ElasticDsl
-
-
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
@@ -65,10 +64,12 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
 
   def reloadedImage(id: String) = {
+    implicit val logMarker: LogMarker = MarkerMap()
     Await.result(ES.getImage(id), fiveSeconds)
   }
 
   def indexedImage(id: String) = {
+    implicit val logMarker: LogMarker = MarkerMap()
     Thread.sleep(1000) // TODO use eventually clause
     Await.result(ES.getImage(id), fiveSeconds)
   }
