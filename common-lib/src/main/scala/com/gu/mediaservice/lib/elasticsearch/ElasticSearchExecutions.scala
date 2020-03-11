@@ -44,7 +44,7 @@ trait ElasticSearchExecutions {
       val markers = MarkerContext(durationMarker(elapsed))
       e match {
         case ElasticNotFoundException => Logger.error(s"$message - query failed: Document not Found")(markers)
-        case ElasticException(error) => Logger.error(s"$message - query failed after: ${error.reason} type: ${error.`type`}")(markers)
+        case ElasticException(error) => Logger.error(s"$message - query failed because: ${error.reason} type: ${error.`type`}")(markers)
         case _ => Logger.error(s"$message - query failed: ${e.getMessage} cs: ${e.getCause}")(markers)
 
       }
