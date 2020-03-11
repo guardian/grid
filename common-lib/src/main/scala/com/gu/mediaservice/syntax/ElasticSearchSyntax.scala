@@ -44,7 +44,8 @@ trait ElasticSearchSyntax {
       result.failed.foreach { e =>
         val elapsed = System.currentTimeMillis() - start
         val markers = MarkerContext(appendEntries(Map(
-          "duration" -> elapsed
+          "duration" -> elapsed,
+          "reason" -> e.getClass.getName
         ).asJava))
 
         Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
