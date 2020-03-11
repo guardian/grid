@@ -5,7 +5,6 @@ import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.ElasticDsl
 
 
-// import com.sksamuel.elastic4s.ElasticDsl._  This brings in the handler. Don't optimise imports.
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
