@@ -9,6 +9,6 @@ class StopwatchTest extends FunSpec with Matchers {
 
     val stopwatch = Stopwatch.start
     doWork
-    stopwatch.elapsed.toMillis should be > fiveSeconds // >= as time is needed to call the function
+    stopwatch.elapsed.toMillis should be >= fiveSeconds // >= as time is needed to call the function
   }
 }

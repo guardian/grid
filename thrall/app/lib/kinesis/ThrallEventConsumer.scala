@@ -9,6 +9,7 @@ import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
+import com.gu.mediaservice.lib.logging.Stopwatch
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
@@ -88,14 +89,14 @@ class ThrallEventConsumer(es: ElasticSearch,
 
   private def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
     implicit val mc: MarkerContext = updateMessage.toLogMarker
-
+    val stopwatch = Stopwatch.start
     //Try to process the update message twice, and give them both 30 seconds to run.
     messageProcessor.chooseProcessor(updateMessage) match {
       case None => {
         Logger.error(
           s"Could not find processor for ${
             updateMessage.subject
-          } message; message will be ignored")(updateMessage.toLogMarker)
+          } message; message will be ignored")(updateMessage.toLogMarker.and(stopwatch.elapsedAsMarker))
         Future.failed(new Exception("Could not find processor for ${updateMessage.subject} message"))
       }
       case Some(messageProcessor) => {
@@ -112,7 +113,7 @@ class ThrallEventConsumer(es: ElasticSearch,
             Logger.info(
               s"Completed processing of ${
                 updateMessage.subject
-              } message")(updateMessage.toLogMarker)
+              } message")(updateMessage.toLogMarker.and(stopwatch.elapsedAsMarker))
             Success(updateMessage)
           }
           case Failure(timeoutException: TimeoutException) => {
@@ -121,14 +122,14 @@ class ThrallEventConsumer(es: ElasticSearch,
                 updateMessage.subject
               } message; message will be ignored:",
               timeoutException
-            )(updateMessage.toLogMarker)
+            )(updateMessage.toLogMarker.and(stopwatch.elapsedAsMarker))
             Failure(timeoutException)
           }
           case Failure(e: Throwable) => {
             Logger.error(
               s"Failed to process ${
                 updateMessage.subject
-              } message; message will be ignored:", e)(updateMessage.toLogMarker)
+              } message; message will be ignored:", e)(updateMessage.toLogMarker.and(stopwatch.elapsedAsMarker))
             Failure(e)
           }
         }
