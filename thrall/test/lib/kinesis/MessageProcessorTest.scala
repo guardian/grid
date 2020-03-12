@@ -7,13 +7,13 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, SyndicationRights}
 import lib.{BulkIndexS3Client, MetadataEditorNotifications, ThrallStore}
-import lib.elasticsearch.{ElasticSearchTestBase, SyndicationRightsOps}
+import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.{JsArray, Json}
 
 import scala.concurrent.{Await, Future}
-import scala.util.{Try, Success}
+import scala.util.{Success, Try}
 
 
 class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
@@ -29,6 +29,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
 
       "adds usages" - {
         "for an image that exists" in {
+          val expected: Success[List[ElasticSearchUpdateResponse]] = Success(List(ElasticSearchUpdateResponse()))
 
           val id = UUID.randomUUID().toString
 
@@ -61,13 +62,10 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-          (Try(Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)) match {
-            case Success(responses) if responses.length == 1 => true
-            case _ => false
-          }) shouldBe true
+          (Try(Await.result(messageProcessor.updateImageUsages(message), fiveSeconds))  ) shouldBe expected
         }
         "not crash for an image that doesn't exist 👻🖼" in {
-
+          val expected: Success[List[ElasticSearchUpdateResponse]] = Success(List(ElasticSearchUpdateResponse()))
           val id = UUID.randomUUID().toString
 
           val message = UpdateMessage(
@@ -85,11 +83,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-         val result=  (Try(Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)) match {
-            case Success(responses) if responses.length == 0 => true
-            case _ => false
-          })
-         result shouldBe true
+         Try(Await.result(messageProcessor.updateImageUsages(message), fiveSeconds))  shouldBe expected
         }
       }
     }
