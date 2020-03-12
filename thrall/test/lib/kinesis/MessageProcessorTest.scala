@@ -13,6 +13,7 @@ import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.{JsArray, Json}
 
 import scala.concurrent.{Await, Future}
+import scala.util.{Try, Success}
 
 
 class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
@@ -60,7 +61,10 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-          noException should be thrownBy Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)
+          (Try(Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)) match {
+            case Success(responses) if responses.length == 1 => true
+            case _ => false
+          }) shouldBe true
         }
         "not crash for an image that doesn't exist 👻🖼" in {
 
@@ -81,7 +85,11 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-          noException should be thrownBy Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)
+         val result=  (Try(Await.result(messageProcessor.updateImageUsages(message), fiveSeconds)) match {
+            case Success(responses) if responses.length == 0 => true
+            case _ => false
+          })
+         result shouldBe true
         }
       }
     }
