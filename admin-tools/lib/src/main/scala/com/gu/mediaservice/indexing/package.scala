@@ -12,7 +12,9 @@ package object indexing {
     val Finished = ProduceProgress("finished", 3)
     val Reset = ProduceProgress("reset because of failure", 0)
     val KnownError = ProduceProgress("blacklisted because of known failure", 4)
-
+    val Locating = ProduceProgress("looking for image",5)
+    val Found = ProduceProgress("image found", 6)
+    val Inconsistent = ProduceProgress("re-ingested image not found in media-api", 7)
   }
 
 }

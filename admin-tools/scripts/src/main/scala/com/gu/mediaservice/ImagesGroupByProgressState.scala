@@ -19,7 +19,7 @@ object ImagesGroupByProgressState extends App with LazyLogging {
 
     def stateNameToCount(progressType: ProduceProgress): (String, Int) = {
       logger.info(s"calculating stateNameToCount for $progressType")
-      val queryRes = stateIndex.query(getAllMediaIdsWithinStateQuery(progressType.stateId))
+      val queryRes = stateIndex.query(getAllMediaIdsWithinProgressQuery(progressType))
       val result = progressType.name -> queryRes.iterator.asScala.length
       logger.info(s"result=$result")
       result
