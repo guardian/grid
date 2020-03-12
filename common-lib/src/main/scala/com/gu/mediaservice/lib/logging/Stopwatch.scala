@@ -2,14 +2,17 @@ package com.gu.mediaservice.lib.logging
 
 import scala.concurrent.duration._
 import net.logstash.logback.marker.{LogstashMarker, Markers}
-import scala.collection.JavaConverters._
+
+case class DurationForLogging(duration: Duration) {
+  def toMillis: Long = duration.toMillis
+
+  def toLogMarker: LogstashMarker = Markers.append("duration", toMillis)
+}
 
 class Stopwatch {
   private val startedAt = System.nanoTime()
 
-  def elapsed: Duration = (System.nanoTime() - startedAt).nanos
-
-  def elapsedAsMarker: LogstashMarker = Markers.appendEntries(Map("duration" -> elapsed.toMillis).asJava)
+  def elapsed: DurationForLogging = DurationForLogging((System.nanoTime() - startedAt).nanos)
 }
 
 object Stopwatch {
