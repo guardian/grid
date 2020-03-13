@@ -9,8 +9,9 @@ val commonSettings = Seq(
   version := "0.1",
   scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings"),
   libraryDependencies ++= Seq(
-    "org.scalatest" %% "scalatest" % "3.0.5",
-    "org.mockito" % "mockito-core" % "2.18.0"
+    "org.scalatest" %% "scalatest" % "3.1.1"  ,
+    "org.mockito" % "mockito-core" % "2.18.0"  ,
+    "com.typesafe.akka" %% "akka-actor-testkit-typed" % "2.6.3"
   )
 )
 
