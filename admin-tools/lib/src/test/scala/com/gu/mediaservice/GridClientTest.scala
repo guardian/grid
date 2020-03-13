@@ -1,17 +1,14 @@
 package com.gu.mediaservice
 
+import okhttp3.mockwebserver.{MockResponse, MockWebServer}
 import org.scalatest.{FlatSpec, Matchers}
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.MockResponse
-import java.net.URL
-import play.api.libs.json.Json
-import play.api.libs.json.JsString
+import play.api.libs.json.{JsString, Json}
 
 class GridClientTest extends FlatSpec with Matchers {
-  it should "parse error messages correctly" in {
+  it should "return nothing & the body as string if error code is not 200" in {
     val downstreamMessage = Json.obj(
-      "errorKey"-> "Example key",
-      "errorMessage" ->"Example message"
+      "errorKey" -> "Example key",
+      "errorMessage" -> "Example message"
     )
     val responseBodyJson = Json.obj(
       "message" -> Json.obj(
@@ -22,14 +19,37 @@ class GridClientTest extends FlatSpec with Matchers {
     val responseBody = responseBodyJson.toString
 
     val server = new MockWebServer()
-    server.enqueue(new MockResponse().setBody(responseBody).setResponseCode(500));
+    server.enqueue(
+      new MockResponse().setBody(responseBody).setResponseCode(500));
+    server.start();
+    val serverUrl = server.url("")
+    val javaUrl = serverUrl.url()
+    val emptyJson = Json.obj()
+
+    val client = new GridClient(1, true)
+    val response = client.makeGetRequestSync(javaUrl, "exampleKey")
+    val expectedResponse = ResponseWrapper(emptyJson, 500, responseBody)
+
+    expectedResponse shouldEqual response
+  }
+
+  it should "respond with parsed body if error code is 200" in {
+    val responseBodyJson = Json.obj(
+      "message" -> Json.obj("errorMessage" -> "An error occurred")
+    )
+
+    val responseBody = responseBodyJson.toString
+    val server = new MockWebServer()
+    server.enqueue(
+      new MockResponse().setBody(responseBody).setResponseCode(200));
     server.start();
     val serverUrl = server.url("")
     val javaUrl = serverUrl.url()
 
     val client = new GridClient(1, true)
     val response = client.makeGetRequestSync(javaUrl, "exampleKey")
-    val expectedResponse = ResponseWrapper(Json.obj(), 500, responseBody)
+    val expectedResponse =
+      ResponseWrapper(responseBodyJson, 200, responseBody.toString)
 
     expectedResponse shouldEqual response
   }
