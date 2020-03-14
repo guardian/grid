@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.aws
 import java.nio.ByteBuffer
 
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
@@ -52,8 +53,8 @@ case class UpdateMessage(
   leases: Option[Seq[MediaLease]] = None,
   syndicationRights: Option[SyndicationRights] = None,
   bulkIndexRequest: Option[BulkIndexRequest] = None
-) {
-  def toLogMarker: LogstashMarker = {
+) extends LogMarker {
+  override def toLogMarker: LogstashMarker = {
     val message = Json.stringify(Json.toJson(this))
 
     val markers = Map (

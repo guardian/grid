@@ -9,7 +9,7 @@ import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
-import com.gu.mediaservice.lib.logging.{LoggingUtils, Stopwatch}
+import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
@@ -96,7 +96,7 @@ class ThrallEventConsumer(es: ElasticSearch,
         Logger.error(
           s"Could not find processor for ${
             updateMessage.subject
-          } message; message will be ignored")(LoggingUtils.combineMarkers(List(updateMessage.toLogMarker, stopwatch.elapsed.toLogMarker)))
+          } message; message will be ignored")(combineMarkers(updateMessage, stopwatch.elapsed))
         Future.failed(new Exception("Could not find processor for ${updateMessage.subject} message"))
       }
       case Some(messageProcessor) => {
@@ -110,18 +110,18 @@ class ThrallEventConsumer(es: ElasticSearch,
           () => messageProcessor.apply(updateMessage), attempts, attemptTimeout, delay
         ).apply().transform {
           case Success(_) => {
-            Logger.info(s"Completed processing of ${updateMessage.subject} message")(LoggingUtils.combineMarkers(List(updateMessage.toLogMarker, stopwatch.elapsed.toLogMarker)))
+            Logger.info(s"Completed processing of ${updateMessage.subject} message")(combineMarkers(updateMessage, stopwatch.elapsed))
             Success(updateMessage)
           }
           case Failure(timeoutException: TimeoutException) => {
-            Logger.error(s"Timeout of $timeout reached while processing ${updateMessage.subject} message; message will be ignored:", timeoutException)(LoggingUtils.combineMarkers(List(updateMessage.toLogMarker, stopwatch.elapsed.toLogMarker)))
+            Logger.error(s"Timeout of $timeout reached while processing ${updateMessage.subject} message; message will be ignored:", timeoutException)(combineMarkers(updateMessage, stopwatch.elapsed))
             Failure(timeoutException)
           }
           case Failure(e: Throwable) => {
             Logger.error(
               s"Failed to process ${
                 updateMessage.subject
-              } message; message will be ignored:", e)(LoggingUtils.combineMarkers(List(updateMessage.toLogMarker, stopwatch.elapsed.toLogMarker)))
+              } message; message will be ignored:", e)(combineMarkers(updateMessage, stopwatch.elapsed))
             Failure(e)
           }
         }

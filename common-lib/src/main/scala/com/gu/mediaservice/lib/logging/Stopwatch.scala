@@ -3,10 +3,10 @@ package com.gu.mediaservice.lib.logging
 import scala.concurrent.duration._
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 
-case class DurationForLogging(duration: Duration) {
+case class DurationForLogging(duration: Duration) extends LogMarker {
   def toMillis: Long = duration.toMillis
 
-  def toLogMarker: LogstashMarker = Markers.append("duration", toMillis)
+  override def toLogMarker: LogstashMarker = Markers.append("duration", toMillis)
 }
 
 class Stopwatch {
