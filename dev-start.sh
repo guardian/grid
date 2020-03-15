@@ -13,6 +13,11 @@ do
         IS_DEBUG=true
         shift
     fi
+
+    if [ "$arg" == "--ship-logs" ]; then
+        export LOCAL_LOG_SHIPPING=true
+        shift
+    fi
 done
 
 isInstalled() {

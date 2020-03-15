@@ -10,6 +10,7 @@ abstract class GridAppLoader(loadFn: Context => GridComponents) extends Applicat
 
     val gridApp = loadFn(context)
     LogConfig.initKinesisLogging(gridApp.config)
+    LogConfig.initLocalLogShipping(gridApp.config)
 
     gridApp.application
   }
