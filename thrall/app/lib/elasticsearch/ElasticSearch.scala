@@ -1,13 +1,14 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Mappings}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
@@ -30,15 +31,23 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   lazy val replicas = config.replicas
 
   def bulkInsert(images: Seq[Image])(implicit ex: ExecutionContext): List[Future[ElasticSearchBulkUpdateResponse]] = {
-    val request = bulk {
-      images.map(img => {
+    val (requests, totalSize) =
+      images.foldLeft[(Seq[IndexRequest], Int)](List(), 0)
+      { (collector: (Seq[IndexRequest], Int), img) =>
+      val (requestsSoFar, sizeSoFar) = collector
+      val document = Json.stringify(Json.toJson(img))
+      (
+        requestsSoFar :+
         indexInto(imagesAlias)
           .id(img.id)
-          .source(Json.stringify(Json.toJson(img)))
-      })
+          .source(document),
+        sizeSoFar + document.length()
+      )
     }
 
-    val response = executeAndLog(request, s"Bulk inserting ${images.length} images")
+    val request = bulk { requests }
+
+    val response = executeAndLog(request, s"Bulk inserting ${images.length} images, total size $totalSize")
 
     List(response.map(_ => ElasticSearchBulkUpdateResponse()))
   }
