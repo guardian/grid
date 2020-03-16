@@ -1,6 +1,5 @@
 package controllers
 
-import lib.imaging.Projecter.createTempFile
 import java.net.URI
 
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
@@ -56,7 +55,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     Logger.info("loadImage request start")(requestContext.toMarker(markers))
 
-    val parsedBody = DigestBodyParser.create(createTempFile(config, "requestBody", requestContext))
+    val tempFile = imageProjecter.createTempFile("requestBody", requestContext)
+    val parsedBody = DigestBodyParser.create(tempFile)
     Logger.info("body parsed")(requestContext.toMarker(markers))
 
     auth.async(parsedBody) { req =>

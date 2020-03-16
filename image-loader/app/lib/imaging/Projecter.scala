@@ -16,16 +16,12 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
-object Projecter {
+class Projecter(val config: ImageLoaderConfig) {
 
-  def createTempFile(config: ImageLoaderConfig, prefix: String, requestContext: RequestLoggingContext): File = {
+  def createTempFile(prefix: String, requestContext: RequestLoggingContext): File = {
     Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
     File.createTempFile(prefix, "", config.tempDir)
   }
-
-}
-
-class Projecter(val config: ImageLoaderConfig) {
 
   def projectS3ImageById(imageUploadProjector: ImageUploadProjector, imageId: String, requestLoggingContext: RequestLoggingContext): Try[Option[Image]] = {
     Logger.info(s"projecting image: $imageId")(requestLoggingContext.toMarker())
