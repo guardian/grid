@@ -94,7 +94,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
   }
 
-  def updateImageUsages(id: String, usages: List[Usage], lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def updateImageUsages(id: String, usages: Seq[Usage], lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceUsagesScript = """
       | def dtf = DateTimeFormatter.ISO_DATE_TIME;
       | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));

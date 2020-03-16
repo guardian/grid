@@ -20,6 +20,7 @@ import scala.util.{Failure, Success, Try}
 case class BatchIndexHandlerConfig(
                                     apiKey: String,
                                     projectionEndpoint: String,
+                                    imagesEndpoint: String,
                                     batchIndexBucket: String,
                                     kinesisStreamName: String,
                                     dynamoTableName: String,
@@ -58,6 +59,56 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   import InputIdsStore._
 
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
+
+  def checkImages(): Unit = {
+    if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
+    val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
+    stateProgress += NotStarted
+    val mediaIdsFuture = getCompletedMediaIdsBatch
+    val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
+    logger.info(s"got ${mediaIds.size}, completed mediaIds, $mediaIds")
+    Try {
+      val processImagesFuture: Future[SuccessResult] = Future {
+        stateProgress += updateStateToItemsLocating(mediaIds)
+        logger.info(s"Indexing ${mediaIds.length} media ids. Getting images from: $imagesEndpoint")
+        val start = System.currentTimeMillis()
+        val result = getImages(mediaIds, imagesEndpoint, InputIdsStore)
+
+
+
+        logger.info(s"foundImagesIds: ${result.found}")
+        logger.info(s"notFoundImagesIds: ${result.notFound}")
+        logger.info(s"failedImageIds: ${result.failed}")
+
+        val end = System.currentTimeMillis()
+        val imageExistenceCheckTookInSecs = (end - start) / 1000
+        logger.info(s"Images received in $imageExistenceCheckTookInSecs seconds. Found ${result.found.size} images, could not find ${result.notFound.size} images, ${result.failed} failed")
+
+        //Mark failed images as "finished" because we couldn't double check them
+        updateStateToFinished(result.failed)
+
+        //Mark not found images as not found
+        updateStateToInconsistent(result.notFound)
+
+        //Mark found as found
+        updateStateToFound(result.found)
+
+
+        SuccessResult(result.found.size, result.notFound.size, stateProgress.map(_.name).mkString(","), imageExistenceCheckTookInSecs)
+      }
+      Await.result(processImagesFuture, GlobalTimeout)
+    } match {
+      case Success(res) =>
+        logSuccessResult(res)
+      case Failure(exp) =>
+        exp.printStackTrace()
+        val resetIdsCount = mediaIds.size
+        stateProgress += updateStateToFinished(mediaIds)
+        logFailure(exp, resetIdsCount, stateProgress.toList)
+        // propagating exception
+        throw exp
+    }
+  }
 
   def processImages(): Unit = {
 
@@ -130,10 +181,10 @@ object InputIdsStore {
   val PKField: String = "id"
   val StateField: String = "progress_state"
 
-  def getAllMediaIdsWithinStateQuery(state: Int) = {
+  def getAllMediaIdsWithinProgressQuery(progress: ProduceProgress) = {
     new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", state))
+      .withValueMap(new ValueMap().withNumber(":sub", progress.stateId))
   }
 }
 
@@ -145,7 +196,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     logger.info("attempt to get mediaIds batch from dynamo")
     val querySpec = new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", 0))
+      .withValueMap(new ValueMap().withNumber(":sub", NotStarted.stateId))
       .withMaxResultSize(batchSize)
     val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
@@ -159,9 +210,9 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     val scanSpec = new ScanSpec()
       .withFilterExpression(s"$StateField in (:finished, :not_found, :in_progress)")
       .withValueMap(new ValueMap()
-        .withNumber(":finished", 3)
-        .withNumber(":not_found", 2)
-        .withNumber(":in_progress", 1)
+        .withNumber(":finished", Finished.stateId)
+        .withNumber(":not_found", NotFound.stateId)
+        .withNumber(":in_progress", InProgress.stateId)
       )
       .withMaxResultSize(batchSize)
     val mediaIds = table.scan(scanSpec).asScala.toList.map(it => {
@@ -171,9 +222,37 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     mediaIds
   }
 
+  def getCompletedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] =Future {
+    logger.info("attempt to get mediaIds batch from dynamo")
+    val querySpec = new QuerySpec()
+      .withKeyConditionExpression(s"$StateField = :sub")
+      .withValueMap(new ValueMap().withNumber(":sub", Finished.stateId))
+      .withMaxResultSize(batchSize)
+    val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
+      val json = Json.parse(it.toJSON).as[JsObject]
+      (json \ PKField).as[String]
+    })
+    mediaIds
+  }
   /**
     * state is used to synchronise multiple overlapping lambda executions, track progress and avoiding repeated operations
     */
+
+  def updateStateToItemsFound(ids: List[String]): ProduceProgress = {
+    logger.info(s"updating items state to found")
+    updateItemsState(ids, Found)
+  }
+
+  def updateStateToInconsistent(ids: List[String]): ProduceProgress = {
+    logger.info(s"updating items state to inconsistent")
+    updateItemsState(ids, Inconsistent)
+  }
+
+  // used to synchronise situation of other lambda execution will start while previous one is still running
+  def updateStateToItemsLocating(ids: List[String]): ProduceProgress = {
+    logger.info(s"updating items state to locating")
+    updateItemsState(ids, Locating)
+  }
 
   // used to synchronise situation of other lambda execution will start while previous one is still running
   def updateStateToItemsInProgress(ids: List[String]): ProduceProgress = {
@@ -185,8 +264,13 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   def updateStateToNotFoundImage(notFoundId: String) =
     updateItemSate(notFoundId, NotFound.stateId)
 
+  def updateStateToFound(ids: List[String]): ProduceProgress = {
+    logger.info(s"updating items state to found")
+    updateItemsState(ids, Found)
+  }
+
   def updateStateToFinished(ids: List[String]): ProduceProgress = {
-    logger.info(s"updating items state to in progress")
+    logger.info(s"updating items state to finished")
     updateItemsState(ids, Finished)
   }
 

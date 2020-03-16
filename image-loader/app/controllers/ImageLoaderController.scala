@@ -125,6 +125,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         } recover {
           case NonFatal(e) =>
             Logger.error(s"Unable to download image $uri", e)
+            // Need to delete this here as a failure response will never have its onComplete method called.
+            tmpFile.delete()
             FailureResponse.failedUriDownload
         }
 

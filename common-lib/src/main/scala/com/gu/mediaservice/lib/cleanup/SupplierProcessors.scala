@@ -170,7 +170,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
       "S&G and Barratts/EMPICS Sport", "EMPICS Sport", "EMPICS SPORT", "EMPICS Sports Photo Agency",
       "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
       "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS",
-      "Athena Pictures"
+      "Athena Pictures", "Flick.digital"
     )
 
     val excludedSource = List(
