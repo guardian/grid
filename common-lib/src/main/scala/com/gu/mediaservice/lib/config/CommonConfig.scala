@@ -53,6 +53,8 @@ trait CommonConfig {
   val isProd: Boolean = stage == "PROD"
   val isDev: Boolean = stage == "DEV"
 
+  val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
+
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
 
   lazy val thrallKinesisEndpoint: String = properties.getOrElse("thrall.local.kinesis.url", kinesisAWSEndpoint)
