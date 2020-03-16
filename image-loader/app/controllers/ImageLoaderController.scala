@@ -6,17 +6,12 @@ import java.net.URI
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
-import com.gu.mediaservice.model.UploadInfo
 import lib._
-import lib.imaging.{Importer, MimeTypeDetection, Projecter}
+import lib.imaging.{Importer, Projecter}
 import lib.storage.ImageLoaderStore
-import model.{ImageUploadOps, ImageUploadProjector, UploadRequest}
-import net.logstash.logback.marker.LogstashMarker
-import org.joda.time.DateTime
+import model.{ImageUploadOps, ImageUploadProjector}
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
