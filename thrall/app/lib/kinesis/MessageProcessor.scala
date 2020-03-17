@@ -139,7 +139,7 @@ class MessageProcessor(es: ElasticSearch,
       withId(updateMessage) { id =>
         // if we cannot delete the image as it's "protected", succeed and delete
         // the message anyway.
-        GridLogger.info("ES6 Deleting image: " + id)
+        GridLogger.info("ES Deleting image: " + id)
         es.deleteImage(id).map { requests =>
           requests.map {
             case _: ElasticSearchDeleteResponse =>

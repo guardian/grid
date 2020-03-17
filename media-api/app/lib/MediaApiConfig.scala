@@ -32,6 +32,7 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val imagesAlias: String = properties.getOrElse("es.index.aliases.read", configuration.get[String]("es.index.aliases.read"))
 
+  // TODO rename this to `es.property`. Requires updating config in S3.
   lazy val elasticsearch6Url: String =  properties("es6.url")
   lazy val elasticsearch6Cluster: String = properties("es6.cluster")
   lazy val elasticsearch6Shards: Int = properties("es6.shards").toInt

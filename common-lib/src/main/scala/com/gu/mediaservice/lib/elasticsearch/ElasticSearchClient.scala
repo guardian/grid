@@ -39,8 +39,11 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
   def shards: Int
   def replicas: Int
 
+  // TODO retrieve this value from the ES cluster
+  final val esVersion = 7
+
   lazy val client = {
-    Logger.info("Connecting to Elastic 7: " + url)
+    Logger.info(s"Connecting to Elastic ${esVersion}: " + url)
     val client = JavaClient(ElasticProperties(url))
     ElasticClient(client)
   }

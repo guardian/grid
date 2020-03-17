@@ -19,7 +19,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   val messageSender = new ThrallMessageSender(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
-  val es6Config: ElasticSearchConfig = ElasticSearchConfig(
+  val elasticSearchConfig: ElasticSearchConfig = ElasticSearchConfig(
     alias = config.imagesAlias,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,
@@ -33,7 +33,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   usageQuota.quotaStore.update()
   usageQuota.scheduleUpdates()
 
-  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies)
+  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, elasticSearchConfig, () => usageQuota.usageStore.overQuotaAgencies)
   elasticSearch.ensureAliasAssigned()
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
