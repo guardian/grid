@@ -29,7 +29,9 @@ case class BatchIndexHandlerConfig(
                                     kinesisMaximumMetric: Option[(String, Integer)] = None,
                                     maxIdleConnections: Int,
                                     stage: Option[String],
-                                    threshold: Option[Integer]
+                                    threshold: Option[Integer],
+                                    startState: ProduceProgress,
+                                    maxSize: Int
                                   )
 
 case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
@@ -50,7 +52,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.MINUTES)
   private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
 
-  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient)
+  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient, maxSize)
   private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
   private val InputIdsStore = new InputIdsStore(AwsFunctions.buildDynamoTableClient, batchSize)
 
@@ -122,7 +124,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
     if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
-    val mediaIdsFuture = getUnprocessedMediaIdsBatch
+    val mediaIdsFuture = getUnprocessedMediaIdsBatch(startState)
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     logger.info(s"got ${mediaIds.size}, unprocessed mediaIds, $mediaIds")
     Try {
@@ -192,11 +194,11 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
   import InputIdsStore._
 
-  def getUnprocessedMediaIdsBatch(implicit ec: ExecutionContext): Future[List[String]] = Future {
+  def getUnprocessedMediaIdsBatch(unprocessedState: ProduceProgress)(implicit ec: ExecutionContext): Future[List[String]] = Future {
     logger.info("attempt to get mediaIds batch from dynamo")
     val querySpec = new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", NotStarted.stateId))
+      .withValueMap(new ValueMap().withNumber(":sub", unprocessedState.stateId))
       .withMaxResultSize(batchSize)
     val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
@@ -288,10 +290,22 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   // used in situation if something failed in a expected way and we want to ignore that file in next batch
-  def setStateToKnownError(id: String): ProduceProgress = {
+   def setStateToKnownError(id: String): ProduceProgress = {
     logger.info("setting item to KnownError state to ignore it next time")
     updateItemSate(id, KnownError.stateId)
     KnownError
+  }
+
+  def setStateToUnknownError(id: String): ProduceProgress = {
+    logger.info("setting item to UnknownError state to ignore it next time")
+    updateItemSate(id, UnknownError.stateId)
+    UnknownError
+  }
+
+  def setStateToTooBig(id: String): ProduceProgress = {
+    logger.info("setting item to TooBig state to ignore it next time")
+    updateItemSate(id, TooBig.stateId)
+    TooBig
   }
 
   private def updateItemSate(id: String, state: Int) = {

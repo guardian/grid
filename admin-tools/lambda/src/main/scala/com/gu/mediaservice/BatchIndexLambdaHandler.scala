@@ -1,5 +1,7 @@
 package com.gu.mediaservice
 
+import com.gu.mediaservice.indexing.IndexInputCreation
+
 class BatchIndexLambdaHandler {
 
   private val cfg = BatchIndexHandlerConfig(
@@ -12,17 +14,20 @@ class BatchIndexLambdaHandler {
     batchSize = sys.env("BATCH_SIZE").toInt,
     maxIdleConnections = sys.env("MAX_IDLE_CONNECTIONS").toInt,
     stage = sys.env.get("STAGE"),
-    threshold = sys.env.get("LATENCY_THRESHOLD").map(t => Integer.parseInt(t))
+    threshold = sys.env.get("LATENCY_THRESHOLD").map(t => Integer.parseInt(t)),
+    maxSize = sys.env("MAX_SIZE").toInt,
+    startState = IndexInputCreation.get(sys.env("START_STATE").toInt)
   )
 
   private val batchIndex = new BatchIndexHandler(cfg)
+
 
   def handleRequest() = {
     batchIndex.processImages()
   }
 
   def handleCheckRequest() = {
-    batchIndex.processImages()
+    batchIndex.checkImages()
   }
 
 }

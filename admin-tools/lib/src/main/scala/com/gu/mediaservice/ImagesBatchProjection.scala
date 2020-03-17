@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.Image
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duration, gridClient: GridClient) {
+class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duration, gridClient: GridClient, maxSize: Int) {
 
   private implicit val ThrottledExecutionContext = ExecutionContext.fromExecutor(java.util.concurrent.Executors.newFixedThreadPool(5))
 
@@ -23,20 +23,27 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
       val projectionUrl = new URL(s"$projectionEndpoint/$id")
       val responseFuture: Future[ResponseWrapper] = gridClient.makeGetRequestAsync(projectionUrl, apiKey)
       val notFoundOrImage: Future[Option[Either[Image, String]]] = responseFuture.map { response =>
-        if (response.statusCode == 200) {
-          val img = response.body.as[Image]
-          Some(Left(img))
-        } else if (response.statusCode == 404) {
-          InputIdsStore.updateStateToNotFoundImage(id)
-          Some(Right(id))
-        } else {
-          if (isAKnownError(response)) {
-            InputIdsStore.setStateToKnownError(id)
-          } else {
-            // for example server temporary inaccessible
-            InputIdsStore.resetItemState(id)
+        response.statusCode match {
+          case 200 if response.bodyAsString.size > maxSize => {
+            InputIdsStore.setStateToTooBig(id)
+            None
           }
-          None
+          case 200 => {
+            val img = response.body.as[Image]
+            Some(Left(img))
+          }
+          case 404 => {
+            InputIdsStore.updateStateToNotFoundImage(id)
+            Some(Right(id))
+          }
+          case _ if (isAKnownError(response)) => {
+            InputIdsStore.setStateToKnownError(id)
+            None
+          }
+          case _ => {
+            InputIdsStore.setStateToUnknownError(id)
+            None
+          }
         }
       }
       notFoundOrImage
@@ -78,7 +85,8 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
   }
 
   private val KnownErrors = List(
-    "org.im4java.core.CommandException"
+    "org.im4java.core.CommandException",
+    "End of data reached."
   )
 
   private def isAKnownError(res: ResponseWrapper): Boolean =
