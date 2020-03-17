@@ -15,8 +15,8 @@ class BatchIndexLambdaHandler {
     maxIdleConnections = sys.env("MAX_IDLE_CONNECTIONS").toInt,
     stage = sys.env.get("STAGE"),
     threshold = sys.env.get("LATENCY_THRESHOLD").map(t => Integer.parseInt(t)),
-    maxSize = 5000,
-    startState = IndexInputCreation.NotStarted
+    maxSize = sys.env("MAX_SIZE").toInt,
+    startState = IndexInputCreation.get(sys.env("START_STATE").toInt)
   )
 
   private val batchIndex = new BatchIndexHandler(cfg)

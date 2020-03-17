@@ -18,6 +18,22 @@ package object indexing {
     val UnknownError = ProduceProgress("blacklisted because of unknown failure", 8)
     val TooBig = ProduceProgress("too big, putting back down", 9001)
 
+    val all = List(
+      NotStarted,
+      InProgress,
+      NotFound,
+      Finished,
+      Reset,
+      KnownError,
+      Locating,
+      Found,
+      Inconsistent,
+      UnknownError,
+      TooBig
+    )
+
+    def get(id: Int) = all.find(_.stateId == id).getOrElse(NotStarted)
+
   }
 
 }
