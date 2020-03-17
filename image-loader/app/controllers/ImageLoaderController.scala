@@ -12,6 +12,7 @@ import lib._
 import lib.imaging.{Importer, Projecter}
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, ImageUploadProjector}
+import net.logstash.logback.marker.LogstashMarker
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
@@ -63,7 +64,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     auth.async(parsedBody) { req =>
       val result = imageImporter.loadFile(req.body, req.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
-      result.onComplete(_ => tempFile.delete())
+      result.onComplete(_ => deleteTempFile(tempFile, requestContext))
       result
     }
   }
@@ -83,17 +84,17 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
           maybeImage match {
             case Some(img) =>
               Logger.info("image found")(requestContext.toMarker())
-              tempFile.delete()
+              deleteTempFile(tempFile, requestContext)
               Ok(Json.toJson(img)).as(ArgoMediaType)
             case None =>
               val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
               Logger.info("image not found")(requestContext.toMarker())
-              tempFile.delete()
+              deleteTempFile(tempFile, requestContext)
               respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
           }
         case Failure(error) =>
           Logger.error(s"image projection failed", error)(requestContext.toMarker())
-          tempFile.delete()
+          deleteTempFile(tempFile, requestContext)
           respondError(InternalServerError, "image-projection-failed", error.getMessage)
       }
     }
@@ -127,11 +128,11 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
           case NonFatal(e) =>
             Logger.error(s"Unable to download image $uri", e)
             // Need to delete this here as a failure response will never have its onComplete method called.
-            tempFile.delete()
+            deleteTempFile(tempFile, requestContext)
             FailureResponse.failedUriDownload
         }
 
-        result onComplete (_ => tempFile.delete())
+        result onComplete (_ => deleteTempFile(tempFile, requestContext))
         Logger.info("importImage request end")(requestContext.toMarker(Map(
           "key-tier" -> apiKey.tier.toString,
           "key-name" -> apiKey.identity
@@ -154,12 +155,20 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     def nonEmptyOpt: Option[String] = if (s.isEmpty) None else Some(s)
   }
 
-  // To avoid Future _madness_, it is better to make tempfiles at the controller and pass them down,
+  // To avoid Future _madness_, it is better to make temp files at the controller and pass them down,
   // then clear them up again at the end.
   def createTempFile(prefix: String, requestContext: RequestLoggingContext): File = {
     Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
     File.createTempFile(prefix, "", config.tempDir)
   }
+  def deleteTempFile(uploadedFile: File, requestContext: RequestLoggingContext) = {
+    uploadedFile.delete() match {
+      case true => Logger.info(s"Deleted temp file ${uploadedFile.getAbsolutePath}")(requestContext.toMarker())
+      case false => Logger.warn(s"Could not delete temp file ${uploadedFile.getAbsolutePath} as it did not exist")(requestContext.toMarker())
+    }
+  }
+
+
 
 
 }
