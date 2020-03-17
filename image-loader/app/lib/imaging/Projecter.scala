@@ -47,7 +47,7 @@ class Projecter(val config: ImageLoaderConfig) {
   }
 
   private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, requestLoggingContext: RequestLoggingContext) = {
-    val tempFile = createTempFile(config, s"projection-$imageId", requestLoggingContext)
+    val tempFile = createTempFile(s"projection-$imageId", requestLoggingContext)
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
     DigestedFile(tempFile, imageId)
   }
