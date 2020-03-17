@@ -41,14 +41,15 @@ class Projecter(val config: ImageLoaderConfig) {
     Try {
       val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestLoggingContext)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
+      digestedFile.file.delete()
       Some(finalImage)
     }
   }
 
   private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, requestLoggingContext: RequestLoggingContext) = {
-    val uploadedFile = Projecter.createTempFile(config, s"projection-$imageId", requestLoggingContext)
-    IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(uploadedFile))
-    DigestedFile(uploadedFile, imageId)
+    val tempFile = createTempFile(config, s"projection-$imageId", requestLoggingContext)
+    IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
+    DigestedFile(tempFile, imageId)
   }
 }
 
