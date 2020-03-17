@@ -29,7 +29,9 @@ case class BatchIndexHandlerConfig(
                                     kinesisMaximumMetric: Option[(String, Integer)] = None,
                                     maxIdleConnections: Int,
                                     stage: Option[String],
-                                    threshold: Option[Integer]
+                                    threshold: Option[Integer],
+                                    startState: ProduceProgress,
+                                    maxSize: Int
                                   )
 
 case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
@@ -288,10 +290,22 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   // used in situation if something failed in a expected way and we want to ignore that file in next batch
-  def setStateToKnownError(id: String): ProduceProgress = {
+   def setStateToKnownError(id: String): ProduceProgress = {
     logger.info("setting item to KnownError state to ignore it next time")
     updateItemSate(id, KnownError.stateId)
     KnownError
+  }
+
+  def setStateToUnknownError(id: String): ProduceProgress = {
+    logger.info("setting item to UnknownError state to ignore it next time")
+    updateItemSate(id, UnknownError.stateId)
+    UnknownError
+  }
+
+  def setStateToTooBig(id: String): ProduceProgress = {
+    logger.info("setting item to TooBig state to ignore it next time")
+    updateItemSate(id, TooBig.stateId)
+    TooBig
   }
 
   private def updateItemSate(id: String, state: Int) = {

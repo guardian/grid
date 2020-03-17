@@ -15,6 +15,9 @@ package object indexing {
     val Locating = ProduceProgress("looking for image",5)
     val Found = ProduceProgress("image found", 6)
     val Inconsistent = ProduceProgress("re-ingested image not found in media-api", 7)
+    val UnknownError = ProduceProgress("blacklisted because of unknown failure", 8)
+    val TooBig = ProduceProgress("too big, putting back down", 9001)
+
   }
 
 }
