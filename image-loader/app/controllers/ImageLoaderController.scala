@@ -62,6 +62,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     auth.async(parsedBody) { req =>
       val result = imageImporter.loadFile(req.body, req.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
+      tempFile.delete()
       result
     }
   }
@@ -113,19 +114,19 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         "key-name" -> apiKey.identity
       )))
       Try(URI.create(uri)) map { validUri =>
-        val tmpFile = imageProjecter.createTempFile("download", requestContext)
+        val tempFile = imageProjecter.createTempFile("download", requestContext)
 
-        val result = downloader.download(validUri, tmpFile).flatMap { digestedFile =>
+        val result = downloader.download(validUri, tempFile).flatMap { digestedFile =>
           imageImporter.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
         } recover {
           case NonFatal(e) =>
             Logger.error(s"Unable to download image $uri", e)
             // Need to delete this here as a failure response will never have its onComplete method called.
-            tmpFile.delete()
+            tempFile.delete()
             FailureResponse.failedUriDownload
         }
 
-        result onComplete (_ => tmpFile.delete())
+        result onComplete (_ => tempFile.delete())
         Logger.info("importImage request end")(requestContext.toMarker(Map(
           "key-tier" -> apiKey.tier.toString,
           "key-name" -> apiKey.identity
