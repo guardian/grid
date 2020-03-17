@@ -113,7 +113,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         "key-name" -> apiKey.identity
       )))
       Try(URI.create(uri)) map { validUri =>
-        val tmpFile = createTempFile(config, "download", requestContext)
+        val tmpFile = imageProjecter.createTempFile("download", requestContext)
 
         val result = downloader.download(validUri, tmpFile).flatMap { digestedFile =>
           imageImporter.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
