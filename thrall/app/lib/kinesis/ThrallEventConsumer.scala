@@ -29,7 +29,7 @@ class ThrallEventConsumer(es: ElasticSearch,
                           bulkIndexS3Client: BulkIndexS3Client,
                           actorSystem: ActorSystem) extends IRecordProcessor with PlayJsonHelpers {
 
-  private val attemptTimeout = FiniteDuration(30, SECONDS)
+  private val attemptTimeout = FiniteDuration(20, SECONDS)
   private val delay = FiniteDuration(5, SECONDS)
   private val attempts = 2
   private val timeout = attemptTimeout * attempts + delay * (attempts - 1)
