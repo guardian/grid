@@ -1,5 +1,6 @@
 package controllers
 
+import java.io.File
 import java.net.URI
 
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
@@ -55,14 +56,14 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     Logger.info("loadImage request start")(requestContext.toMarker(markers))
 
-    val tempFile = imageProjecter.createTempFile("requestBody", requestContext)
+    val tempFile = createTempFile("requestBody", requestContext)
     val parsedBody = DigestBodyParser.create(tempFile)
     Logger.info("body parsed")(requestContext.toMarker(markers))
 
     auth.async(parsedBody) { req =>
       val result = imageImporter.loadFile(req.body, req.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
       Logger.info("loadImage request end")(requestContext.toMarker(markers))
-      tempFile.delete()
+      result.onComplete(_ => tempFile.delete())
       result
     }
   }
@@ -76,19 +77,23 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     )
 
     auth { _ =>
-      imageProjecter.projectS3ImageById(imageUploadProjector, imageId, requestContext) match {
+      val tempFile = createTempFile(s"projection-$imageId", requestContext)
+      imageProjecter.projectS3ImageById(imageUploadProjector, imageId, requestContext, tempFile) match {
         case Success(maybeImage) =>
           maybeImage match {
             case Some(img) =>
               Logger.info("image found")(requestContext.toMarker())
+              tempFile.delete()
               Ok(Json.toJson(img)).as(ArgoMediaType)
             case None =>
               val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
               Logger.info("image not found")(requestContext.toMarker())
+              tempFile.delete()
               respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
           }
         case Failure(error) =>
           Logger.error(s"image projection failed", error)(requestContext.toMarker())
+          tempFile.delete()
           respondError(InternalServerError, "image-projection-failed", error.getMessage)
       }
     }
@@ -114,7 +119,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         "key-name" -> apiKey.identity
       )))
       Try(URI.create(uri)) map { validUri =>
-        val tempFile = imageProjecter.createTempFile("download", requestContext)
+        val tempFile = createTempFile("download", requestContext)
 
         val result = downloader.download(validUri, tempFile).flatMap { digestedFile =>
           imageImporter.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
@@ -148,5 +153,13 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   implicit class NonEmpty(s: String) {
     def nonEmptyOpt: Option[String] = if (s.isEmpty) None else Some(s)
   }
+
+  // To avoid Future _madness_, it is better to make tempfiles at the controller and pass them down,
+  // then clear them up again at the end.
+  def createTempFile(prefix: String, requestContext: RequestLoggingContext): File = {
+    Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
+    File.createTempFile(prefix, "", config.tempDir)
+  }
+
 
 }

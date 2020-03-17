@@ -18,12 +18,7 @@ import scala.util.Try
 
 class Projecter(val config: ImageLoaderConfig) {
 
-  def createTempFile(prefix: String, requestContext: RequestLoggingContext): File = {
-    Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
-    File.createTempFile(prefix, "", config.tempDir)
-  }
-
-  def projectS3ImageById(imageUploadProjector: ImageUploadProjector, imageId: String, requestLoggingContext: RequestLoggingContext): Try[Option[Image]] = {
+  def projectS3ImageById(imageUploadProjector: ImageUploadProjector, imageId: String, requestLoggingContext: RequestLoggingContext, tempFile: File): Try[Option[Image]] = {
     Logger.info(s"projecting image: $imageId")(requestLoggingContext.toMarker())
 
     import ImageIngestOperations.fileKeyFromId
@@ -35,7 +30,7 @@ class Projecter(val config: ImageLoaderConfig) {
     Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")(requestLoggingContext.toMarker())
 
     val s3Source = s3.getObject(config.imageBucket, s3Key)
-    val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, requestLoggingContext)
+    val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, requestLoggingContext, tempFile)
     val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
     Try {
@@ -46,8 +41,7 @@ class Projecter(val config: ImageLoaderConfig) {
     }
   }
 
-  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, requestLoggingContext: RequestLoggingContext) = {
-    val tempFile = createTempFile(s"projection-$imageId", requestLoggingContext)
+  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, requestLoggingContext: RequestLoggingContext, tempFile: File) = {
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
     DigestedFile(tempFile, imageId)
   }
