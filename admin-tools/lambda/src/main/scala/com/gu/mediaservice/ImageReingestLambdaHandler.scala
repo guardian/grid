@@ -17,20 +17,12 @@ class ImageReingestLambdaHandler extends LazyLogging {
   // if we want to release the load from main grid image-loader we can pass a dedicated endpoint
   private val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
 
-  def handleProjectionRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
+  def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
+    val shouldReingest = event.getPathParameters.getOrDefault("reingest", "false").asInstanceOf[Boolean]
     val mediaId = event.getPath.stripPrefix("/images/projection/")
 
     getConfigFromRequestEvent(event) match {
-      case Some(config) => reingestImage(mediaId, config)
-      case None => getUnauthorisedResponse
-    }
-  }
-
-  def handleReingestRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
-    val mediaId = event.getPath.stripPrefix("/images/reingest/")
-
-    getConfigFromRequestEvent(event) match {
-      case Some(config) => reingestImage(mediaId, config, dryRun = false)
+      case Some(config) => projectImage(mediaId, config, reingest = shouldReingest)
       case None => getUnauthorisedResponse
     }
   }
@@ -45,8 +37,8 @@ class ImageReingestLambdaHandler extends LazyLogging {
     }
   }
 
-  private def reingestImage(mediaId: String, config: ImageDataMergerConfig, dryRun: Boolean = true) = {
-    logger.info(s"starting handleImageProjection for mediaId=$mediaId, dryRun=$dryRun")
+  private def projectImage(mediaId: String, config: ImageDataMergerConfig, reingest: Boolean) = {
+    logger.info(s"starting handleImageProjection for mediaId=$mediaId, reingest=$reingest")
     logger.info(s"with config: $config")
 
     val merger = new ImageDataMerger(config)
@@ -55,7 +47,7 @@ class ImageReingestLambdaHandler extends LazyLogging {
       case FullImageProjectionSuccess(mayBeImage) =>
         mayBeImage match {
           case Some(img) =>
-            if (!dryRun) { putToKinesis(img, streamName) }
+            if (reingest) { putToKinesis(img, streamName) }
             getSuccessResponse(img)
           case _ =>
             getNotFoundResponse(mediaId)
