@@ -53,10 +53,8 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient, maxSize)
-  private val AwsFunctions = new BatchIndexHandlerAwsFunctions(cfg)
-  private val InputIdsStore = new InputIdsStore(AwsFunctions.buildDynamoTableClient, batchSize)
+  private val InputIdsStore = new InputIdsStore(BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTableName), batchSize)
 
-  import AwsFunctions._
   import ImagesBatchProjector._
   import InputIdsStore._
 
@@ -114,7 +112,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
   def processImages(): Unit = {
 
-    if (checkKinesisIsNiceAndFast)
+    if (BatchIndexHandlerAwsFunctions.checkKinesisIsNiceAndFast(stage, threshold))
       processImagesOnlyIfKinesisIsNiceAndFast()
     else
       logger.info("Kinesis is too busy; leaving it for now")
@@ -144,12 +142,13 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
         if (foundImages.nonEmpty) {
           logger.info("attempting to store blob to s3")
-          val bulkIndexRequest = putToS3(foundImages)
+          val bulkIndexRequest = BatchIndexHandlerAwsFunctions.putToS3(foundImages, batchIndexBucket)
           val indexMessage = UpdateMessage(
             subject = "batch-index",
             bulkIndexRequest = Some(bulkIndexRequest)
           )
-          putToKinesis(indexMessage)
+          val kinesisClient = BatchIndexHandlerAwsFunctions.buildKinesisClient(kinesisEndpoint)
+          BatchIndexHandlerAwsFunctions.putToKinesis(indexMessage, kinesisStreamName, kinesisClient)
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
           logger.info("all was empty terminating current batch")
