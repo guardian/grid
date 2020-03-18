@@ -3,6 +3,7 @@ package com.gu.mediaservice
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent}
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.{JsString, Json}
@@ -16,9 +17,12 @@ class ImageProjectionLambdaHandler extends LazyLogging {
 
     logger.info(s"handleImageProjection event: $event")
 
-    val mediaId = event.getPath.stripPrefix("/images/projection/")
+    val mediaId = event.getPath.stripPrefix("/images/reingest/")
+    val params = event.getPathParameters
+    val dryRun = params.getOrDefault("dryRun", "false").asInstanceOf[Boolean]
 
     val domainRoot = sys.env("DOMAIN_ROOT")
+    val streamName = sys.env("KINESIS_STREAM")
     // if we want to release the load from main grid image-loader we can pass a dedicated endpoint
     val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
     val headers = event.getHeaders.asScala.toMap
@@ -39,6 +43,7 @@ class ImageProjectionLambdaHandler extends LazyLogging {
           case FullImageProjectionSuccess(mayBeImage) =>
             mayBeImage match {
               case Some(img) =>
+                if (!dryRun) { putToKinesis(img) }
                 getSuccessResponse(img)
               case _ =>
                 getNotFoundResponse(mediaId)
@@ -47,6 +52,12 @@ class ImageProjectionLambdaHandler extends LazyLogging {
             getErrorFoundResponse(message, downstreamMessage)
         }
       case _ => getUnauthorisedResponse
+    }
+
+    def putToKinesis(image: Image): Unit = {
+      val kinesisClient = AwsHelpers.buildKinesisClient()
+      val message = UpdateMessage(subject = "reindex-image", image = Some(image))
+      AwsHelpers.putToKinesis(message, streamName, kinesisClient)
     }
   }
 
