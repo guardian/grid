@@ -53,7 +53,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient, maxSize)
-  private val InputIdsStore = new InputIdsStore(BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTableName), batchSize)
+  private val InputIdsStore = new InputIdsStore(AwsHelpers.buildDynamoTableClient(dynamoTableName), batchSize)
 
   import ImagesBatchProjector._
   import InputIdsStore._
@@ -112,7 +112,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
   def processImages(): Unit = {
 
-    if (BatchIndexHandlerAwsFunctions.checkKinesisIsNiceAndFast(stage, threshold))
+    if (AwsHelpers.checkKinesisIsNiceAndFast(stage, threshold))
       processImagesOnlyIfKinesisIsNiceAndFast()
     else
       logger.info("Kinesis is too busy; leaving it for now")
@@ -142,13 +142,13 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 
         if (foundImages.nonEmpty) {
           logger.info("attempting to store blob to s3")
-          val bulkIndexRequest = BatchIndexHandlerAwsFunctions.putToS3(foundImages, batchIndexBucket)
+          val bulkIndexRequest = AwsHelpers.putToS3(foundImages, batchIndexBucket)
           val indexMessage = UpdateMessage(
             subject = "batch-index",
             bulkIndexRequest = Some(bulkIndexRequest)
           )
-          val kinesisClient = BatchIndexHandlerAwsFunctions.buildKinesisClient(kinesisEndpoint)
-          BatchIndexHandlerAwsFunctions.putToKinesis(indexMessage, kinesisStreamName, kinesisClient)
+          val kinesisClient = AwsHelpers.buildKinesisClient(kinesisEndpoint)
+          AwsHelpers.putToKinesis(indexMessage, kinesisStreamName, kinesisClient)
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
           logger.info("all was empty terminating current batch")

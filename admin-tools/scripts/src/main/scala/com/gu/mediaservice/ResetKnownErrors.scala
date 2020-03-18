@@ -14,7 +14,7 @@ object ResetKnownErrors extends App with LazyLogging {
   import InputIdsStore._
 
   private val dynamoTable = args(0)
-  private val ddbClient = BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTable)
+  private val ddbClient = AwsHelpers.buildDynamoTableClient(dynamoTable)
   private val stateIndex = ddbClient.getIndex(StateField)
 
   def execute() = {

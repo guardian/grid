@@ -22,7 +22,7 @@ import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Json
 import scala.collection.JavaConverters._
 
-object BatchIndexHandlerAwsFunctions extends LazyLogging {
+object AwsHelpers extends LazyLogging {
   val AwsRegion: String = "eu-west-1"
 
   lazy val awsCredentials = new AWSCredentialsProviderChain(
