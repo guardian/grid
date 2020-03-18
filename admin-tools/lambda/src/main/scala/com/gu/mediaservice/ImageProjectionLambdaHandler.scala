@@ -6,10 +6,11 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{Json}
+import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
 class ImageProjectionLambdaHandler extends LazyLogging {
   private val domainRoot = sys.env("DOMAIN_ROOT")
@@ -18,7 +19,8 @@ class ImageProjectionLambdaHandler extends LazyLogging {
   private val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
-    val shouldReingest = event.getPathParameters.getOrDefault("reingest", "false").asInstanceOf[Boolean]
+    val shouldReingestStr = event.getPathParameters.getOrDefault("reingest", "false")
+    val shouldReingest = Try(shouldReingestStr.toBoolean).getOrElse(false)
     val mediaId = event.getPath.stripPrefix("/images/projection/")
 
     getConfigFromRequestEvent(event) match {
