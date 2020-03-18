@@ -90,7 +90,7 @@ async.factory('poll',
 async.factory('apiPoll', ['poll', function(poll) {
 
   const pollFrequency = 500; // ms
-  const pollTimeout   = 20 * 1000; // ms
+  const pollTimeout   = 30 * 1000; // ms
 
   return func => poll(func, pollFrequency, pollTimeout);
 }]);
