@@ -78,8 +78,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
         val start = System.currentTimeMillis()
         val result = getImages(mediaIds, imagesEndpoint, InputIdsStore)
 
-
-
         logger.info(s"foundImagesIds: ${result.found}")
         logger.info(s"notFoundImagesIds: ${result.notFound}")
         logger.info(s"failedImageIds: ${result.failed}")

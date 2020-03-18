@@ -12,46 +12,56 @@ import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ImageReingestLambdaHandler extends LazyLogging {
+  private val domainRoot = sys.env("DOMAIN_ROOT")
+  private val streamName = sys.env("KINESIS_STREAM")
+  // if we want to release the load from main grid image-loader we can pass a dedicated endpoint
+  private val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
 
-  def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
+  def handleProjectionRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
+    val mediaId = event.getPath.stripPrefix("/images/projection/")
 
-    logger.info(s"handleImageProjection event: $event")
+    getConfigFromRequestEvent(event) match {
+      case Some(config) => reingestImage(mediaId, config)
+      case None => getUnauthorisedResponse
+    }
+  }
 
+  def handleReingestRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
     val mediaId = event.getPath.stripPrefix("/images/reingest/")
-    val params = event.getPathParameters
-    val dryRun = params.getOrDefault("dryRun", "false").asInstanceOf[Boolean]
 
-    val domainRoot = sys.env("DOMAIN_ROOT")
-    val streamName = sys.env("KINESIS_STREAM")
-    // if we want to release the load from main grid image-loader we can pass a dedicated endpoint
-    val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
+    getConfigFromRequestEvent(event) match {
+      case Some(config) => reingestImage(mediaId, config, dryRun = false)
+      case None => getUnauthorisedResponse
+    }
+  }
+
+  private def getConfigFromRequestEvent(event: APIGatewayProxyRequestEvent): Option[ImageDataMergerConfig] = {
     val headers = event.getHeaders.asScala.toMap
+    val maybeApiKey = getAuthKeyFrom(headers)
 
-    val apiKey = getAuthKeyFrom(headers)
+    maybeApiKey.flatMap { apiKey =>
+      val config = ImageDataMergerConfig(apiKey, domainRoot, imageLoaderEndpoint)
+      if (config.isValidApiKey()) Some(config) else None
+    }
+  }
 
-    apiKey match {
-      case Some(key) =>
-        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot, imageLoaderEndpointOpt = imageLoaderEndpoint)
-        if (!cfg.isValidApiKey()) return getUnauthorisedResponse
+  private def reingestImage(mediaId: String, config: ImageDataMergerConfig, dryRun: Boolean = true) = {
+    logger.info(s"starting handleImageProjection for mediaId=$mediaId, dryRun=$dryRun")
+    logger.info(s"with config: $config")
 
-        logger.info(s"starting handleImageProjection for mediaId=$mediaId")
-        logger.info(s"with config: $cfg")
-
-        val merger = new ImageDataMerger(cfg)
-        val result: FullImageProjectionResult = merger.getMergedImageData(mediaId.asInstanceOf[String])
-        result match {
-          case FullImageProjectionSuccess(mayBeImage) =>
-            mayBeImage match {
-              case Some(img) =>
-                if (!dryRun) { putToKinesis(img, streamName) }
-                getSuccessResponse(img)
-              case _ =>
-                getNotFoundResponse(mediaId)
-            }
-          case FullImageProjectionFailed(message, downstreamMessage) =>
-            getErrorFoundResponse(message, downstreamMessage)
+    val merger = new ImageDataMerger(config)
+    val result: FullImageProjectionResult = merger.getMergedImageData(mediaId.asInstanceOf[String])
+    result match {
+      case FullImageProjectionSuccess(mayBeImage) =>
+        mayBeImage match {
+          case Some(img) =>
+            if (!dryRun) { putToKinesis(img, streamName) }
+            getSuccessResponse(img)
+          case _ =>
+            getNotFoundResponse(mediaId)
         }
-      case _ => getUnauthorisedResponse
+      case FullImageProjectionFailed(message, downstreamMessage) =>
+        getErrorFoundResponse(message, downstreamMessage)
     }
   }
 
