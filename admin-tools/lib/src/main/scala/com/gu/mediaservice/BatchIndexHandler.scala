@@ -122,6 +122,10 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
       logger.info("Kinesis is too busy; leaving it for now")
   }
 
+  def processSingleImage(id: string) = {
+
+  }
+
   def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
     if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
