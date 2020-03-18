@@ -6,12 +6,12 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{JsString, Json}
+import play.api.libs.json.{Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ImageProjectionLambdaHandler extends LazyLogging {
+class ImageReingestLambdaHandler extends LazyLogging {
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
 
@@ -43,7 +43,7 @@ class ImageProjectionLambdaHandler extends LazyLogging {
           case FullImageProjectionSuccess(mayBeImage) =>
             mayBeImage match {
               case Some(img) =>
-                if (!dryRun) { putToKinesis(img) }
+                if (!dryRun) { putToKinesis(img, streamName) }
                 getSuccessResponse(img)
               case _ =>
                 getNotFoundResponse(mediaId)
@@ -53,12 +53,13 @@ class ImageProjectionLambdaHandler extends LazyLogging {
         }
       case _ => getUnauthorisedResponse
     }
+  }
 
-    def putToKinesis(image: Image): Unit = {
-      val kinesisClient = AwsHelpers.buildKinesisClient()
-      val message = UpdateMessage(subject = "reindex-image", image = Some(image))
-      AwsHelpers.putToKinesis(message, streamName, kinesisClient)
-    }
+
+  private def putToKinesis(image: Image, streamName: String): Unit = {
+    val kinesisClient = AwsHelpers.buildKinesisClient()
+    val message = UpdateMessage(subject = "reindex-image", image = Some(image))
+    AwsHelpers.putToKinesis(message, streamName, kinesisClient)
   }
 
   private def getSuccessResponse(img: Image) = {

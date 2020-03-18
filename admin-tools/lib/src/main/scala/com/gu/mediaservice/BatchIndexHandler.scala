@@ -115,15 +115,10 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   }
 
   def processImages(): Unit = {
-
     if (AwsHelpers.checkKinesisIsNiceAndFast(stage, threshold))
       processImagesOnlyIfKinesisIsNiceAndFast()
     else
       logger.info("Kinesis is too busy; leaving it for now")
-  }
-
-  def processSingleImage(id: string) = {
-
   }
 
   def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
