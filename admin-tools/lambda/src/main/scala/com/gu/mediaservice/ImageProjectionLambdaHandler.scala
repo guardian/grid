@@ -11,7 +11,7 @@ import play.api.libs.json.{Json}
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ImageReingestLambdaHandler extends LazyLogging {
+class ImageProjectionLambdaHandler extends LazyLogging {
   private val domainRoot = sys.env("DOMAIN_ROOT")
   private val streamName = sys.env("KINESIS_STREAM")
   // if we want to release the load from main grid image-loader we can pass a dedicated endpoint
