@@ -19,7 +19,7 @@ class ImageProjectionLambdaHandler extends LazyLogging {
   private val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
-    val shouldReingestStr = event.getPathParameters.getOrDefault("reingest", "false")
+    val shouldReingestStr = event.getQueryStringParameters.getOrDefault("reingest", "false")
     val shouldReingest = Try(shouldReingestStr.toBoolean).getOrElse(false)
     val mediaId = event.getPath.stripPrefix("/images/projection/")
 
@@ -59,11 +59,12 @@ class ImageProjectionLambdaHandler extends LazyLogging {
     }
   }
 
-
   private def putToKinesis(image: Image, streamName: String): Unit = {
+    logger.info(s"Enqueueing reingest message for image ${image.id}")
     val kinesisClient = AwsHelpers.buildKinesisClient()
-    val message = UpdateMessage(subject = "reindex-image", image = Some(image))
+    val message = UpdateMessage(subject = "reingest-image", image = Some(image))
     AwsHelpers.putToKinesis(message, streamName, kinesisClient)
+    logger.info(s"Reingest message for image ${image.id} enqueued")
   }
 
   private def getSuccessResponse(img: Image) = {
