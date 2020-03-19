@@ -50,7 +50,7 @@
     "test": "npm run lint && jest --coverage",
     "lint": "eslint public/js && htmllint public/js/**/*.html",
     "lint-fix": "eslint public/js --fix && htmllint public/js/**/*.html",
-    "dist": "webpack --progress --config webpack.config.prod.js",
+    "dist": "webpack --config webpack.config.prod.js",
     "build-dev": "npm run undist && webpack --progress --config webpack.config.dev.js",
     "watch": "npm run undist && webpack --watch --config webpack.config.dev.js",
     "undist": "rm -f public/dist/build.js*"

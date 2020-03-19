@@ -13,6 +13,8 @@ setupNvm() {
 }
 
 buildJs() {
+  echo "##teamcity[compilationStarted compiler='webpack']"
+
   setupNvm
   pushd ${SCRIPT_DIR}/../../kahuna
 
@@ -23,12 +25,15 @@ buildJs() {
   npm run undist
   npm test
   npm run dist
-
+  echo "##teamcity[compilationFinished compiler='webpack']"
   popd
 }
 
 buildSbt() {
+  echo "##teamcity[compilationStarted compiler='sbt']"
   sbt clean test riffRaffUpload
+  echo "##teamcity[compilationFinished compiler='sbt']"
+
 }
 
 buildJs
