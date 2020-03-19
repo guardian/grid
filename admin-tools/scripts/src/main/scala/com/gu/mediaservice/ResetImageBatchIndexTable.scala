@@ -11,7 +11,7 @@ object ResetImageBatchIndexTable extends App with LazyLogging {
   if (args.isEmpty) throw new IllegalArgumentException("please provide dynamo table name")
 
   private val dynamoTable = args(0)
-  private val ddbClient = BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTable)
+  private val ddbClient = AwsHelpers.buildDynamoTableClient(dynamoTable)
 
   def execute(batchSize: Int) = {
     val InputIdsStore = new InputIdsStore(ddbClient, batchSize)
