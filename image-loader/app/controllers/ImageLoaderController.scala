@@ -9,28 +9,27 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
 import lib._
-import lib.imaging.{Importer, Projecter}
+import lib.imaging.{ImageLoaderException, Importer, NoSuchImageExistsInS3, Projector, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, ImageUploadProjector}
-import net.logstash.logback.marker.LogstashMarker
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
 
 class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications,
                             config: ImageLoaderConfig, imageUploadOps: ImageUploadOps, imageUploadProjector: ImageUploadProjector,
                             override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  private val imageProjecter = new Projecter(config)
+  private val imageProjector = new Projector(config)
   private val imageImporter = new Importer(config, imageUploadOps, notifications, store)
 
-  val indexResponse: Result = {
+  private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
       Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
@@ -42,61 +41,78 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   def index: Action[AnyContent] = auth { indexResponse }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] = {
-    val requestContext = RequestLoggingContext(
+    implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
-        "requestType" -> "load-image"
-      )
-    )
-
-    val markers = Map(
+        "requestType" -> "load-image",
       "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
       "identifiers" -> identifiers.getOrElse(FALLBACK),
       "uploadTime" -> uploadTime.getOrElse(FALLBACK),
       "filename" -> filename.getOrElse(FALLBACK)
+      )
     )
 
-    Logger.info("loadImage request start")(requestContext.toMarker(markers))
+    Logger.info("loadImage request start")
 
-    val tempFile = createTempFile("requestBody", requestContext)
+    // synchronous write to file
+    val tempFile = createTempFile("requestBody")
+    Logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
-    Logger.info("body parsed")(requestContext.toMarker(markers))
 
+    // asynchronous load, store and delete
     auth.async(parsedBody) { req =>
-      val result = imageImporter.loadFile(req.body, req.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
-      Logger.info("loadImage request end")(requestContext.toMarker(markers))
-      result.onComplete(_ => deleteTempFile(tempFile, requestContext))
-      result
+      val result = for {
+        uploadRequest <- imageImporter.loadFile(
+          req.body,
+          req.user,
+          uploadedBy,
+          identifiers,
+          DateTimeUtils.fromValueOrNow(uploadTime),
+          filename.flatMap(_.trim.nonEmptyOpt),
+          context)
+        result <- imageImporter.storeFile(uploadRequest)
+      } yield result
+
+      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+
+      result map { r =>
+        Ok(r)
+      } recover {
+        case e: ImageLoaderException => InternalServerError(Json.obj("error" -> e.getMessage))
+      }
     }
   }
 
+  // Fetch
   def projectImageBy(imageId: String): Action[AnyContent] = {
-    val requestContext = RequestLoggingContext(
+    implicit val requestContext: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "imageId" -> imageId,
         "requestType" -> "image-projection"
       )
     )
 
-    auth { _ =>
-      val tempFile = createTempFile(s"projection-$imageId", requestContext)
-      imageProjecter.projectS3ImageById(imageUploadProjector, imageId, requestContext, tempFile) match {
-        case Success(maybeImage) =>
-          maybeImage match {
-            case Some(img) =>
-              Logger.info("image found")(requestContext.toMarker())
-              deleteTempFile(tempFile, requestContext)
-              Ok(Json.toJson(img)).as(ArgoMediaType)
-            case None =>
-              val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
-              Logger.info("image not found")(requestContext.toMarker())
-              deleteTempFile(tempFile, requestContext)
-              respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
-          }
-        case Failure(error) =>
-          Logger.error(s"image projection failed", error)(requestContext.toMarker())
-          deleteTempFile(tempFile, requestContext)
-          respondError(InternalServerError, "image-projection-failed", error.getMessage)
+    val tempFile = createTempFile(s"projection-$imageId")
+    Logger.info("XXX" )
+    auth.async { _ =>
+      val result = for {
+        result <- imageProjector.projectS3ImageById(imageUploadProjector, imageId, requestContext, tempFile)
+      } yield result
+
+      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+
+      result.map {
+        case Some(img) =>
+          Logger.info("image found")
+          Ok(Json.toJson(img)).as(ArgoMediaType)
+        case None =>
+          val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
+          Logger.info("image not found")
+          respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
+      } recover {
+        case _: NoSuchImageExistsInS3 => NotFound(Json.obj("imageId" -> imageId))
+        case _ => InternalServerError(Json.obj("imageId" -> imageId))
       }
+
     }
   }
 
@@ -108,47 +124,46 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
                    filename: Option[String]
                  ): Action[AnyContent] = {
     auth.async { request =>
-      val requestContext = RequestLoggingContext(
+      implicit val requestContext: RequestLoggingContext = RequestLoggingContext(
         initialMarkers = Map(
-          "requestType" -> "import-image"
+          "requestType" -> "import-image",
+          "key-tier" -> request.user.accessor.tier.toString,
+          "key-name" -> request.user.accessor.identity
         )
       )
-      val apiKey = request.user.accessor
 
-      Logger.info("importImage request start")(requestContext.toMarker(Map(
-        "key-tier" -> apiKey.tier.toString,
-        "key-name" -> apiKey.identity
-      )))
-      Try(URI.create(uri)) map { validUri =>
-        val tempFile = createTempFile("download", requestContext)
+      Logger.info("importImage request start")
 
-        val result = downloader.download(validUri, tempFile).flatMap { digestedFile =>
-          imageImporter.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
-        } recover {
-          case NonFatal(e) =>
-            Logger.error(s"Unable to download image $uri", e)
-            // Need to delete this here as a failure response will never have its onComplete method called.
-            deleteTempFile(tempFile, requestContext)
-            FailureResponse.failedUriDownload
+      val tempFile = createTempFile("download")
+      val result = for {
+        validUri <- Future { URI.create(uri) }
+        digestedFile <- downloader.download(validUri, tempFile)
+        uploadRequest <- imageImporter.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
+        result <- imageImporter.storeFile(uploadRequest)
+      } yield result
+
+      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+
+      result
+        .map {
+          r => {
+            Logger.info("importImage request end")
+            Ok(r)
+          }
         }
-
-        result onComplete (_ => deleteTempFile(tempFile, requestContext))
-        Logger.info("importImage request end")(requestContext.toMarker(Map(
-          "key-tier" -> apiKey.tier.toString,
-          "key-name" -> apiKey.identity
-        )))
-        result
-
-      } getOrElse {
-        Logger.info("importImage request end")(requestContext.toMarker(Map(
-          "key-tier" -> apiKey.tier.toString,
-          "key-name" -> apiKey.identity
-        )))
-        Future.successful(FailureResponse.invalidUri)
+        .recover {
+        case _: IllegalArgumentException =>
+          Logger.warn("importImage request failed; invalid uri")
+          FailureResponse.invalidUri
+        case e: UserImageLoaderException =>
+          Logger.warn("importImage request failed; bad user input")
+          BadRequest(e.getMessage)
+        case NonFatal(_) =>
+          Logger.warn("importImage request failed")
+          FailureResponse.failedUriDownload
       }
     }
   }
-
 
   // Find this a better home if used more widely
   implicit class NonEmpty(s: String) {
@@ -156,19 +171,19 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
   }
 
   // To avoid Future _madness_, it is better to make temp files at the controller and pass them down,
-  // then clear them up again at the end.
-  def createTempFile(prefix: String, requestContext: RequestLoggingContext): File = {
-    Logger.info(s"creating temp file in ${config.tempDir}")(requestContext.toMarker())
-    File.createTempFile(prefix, "", config.tempDir)
+  // then clear them up again at the end.  This avoids leaks.
+  def createTempFile(prefix: String)(implicit requestContext: RequestLoggingContext): File = {
+    val tempFile = File.createTempFile(prefix, "", config.tempDir)
+    Logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")(requestContext.toMarker())
+    tempFile
   }
-  def deleteTempFile(uploadedFile: File, requestContext: RequestLoggingContext) = {
-    uploadedFile.delete() match {
-      case true => Logger.info(s"Deleted temp file ${uploadedFile.getAbsolutePath}")(requestContext.toMarker())
-      case false => Logger.warn(s"Could not delete temp file ${uploadedFile.getAbsolutePath} as it did not exist")(requestContext.toMarker())
+
+  def deleteTempFile(tempFile: File)(implicit requestContext: RequestLoggingContext): Future[Unit] = Future {
+    if (tempFile.delete()) {
+      Logger.info(s"Deleted temp file $tempFile")
+    } else {
+      Logger.warn(s"Unable to delete temp file $tempFile in ${config.tempDir}")
     }
   }
-
-
-
 
 }
