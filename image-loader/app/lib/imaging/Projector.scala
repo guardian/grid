@@ -25,7 +25,7 @@ class Projector(val config: ImageLoaderConfig) {
       val s3 = S3Ops.buildS3Client(config)
 
       if (!s3.doesObjectExist(config.imageBucket, s3Key))
-        throw new NoSuchImageExistsInS3(config, s3Key)
+        throw new NoSuchImageExistsInS3(config.imageBucket, s3Key)
 
       Logger.info(s"object exists, getting s3 object at s3://${config.imageBucket}/$s3Key to perform Image projection")(requestLoggingContext.toMarker())
 
