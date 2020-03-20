@@ -68,8 +68,15 @@ class MessageProcessor(es: ElasticSearch,
   }
 
   def reindexImage(message: UpdateMessage)(implicit ec: ExecutionContext) = {
-    Logger.info("Reindexing image")(message.toLogMarker)
-    indexImage(message)
+    Logger.info("Reingesting image")(message.toLogMarker)
+    withImage(message) { image =>
+      es.getImage(image.id) map {
+        case Some(_) =>
+          Logger.error(s"Refusing to reingest image with id ${image.id}, as it already exists in Elasticsearch")
+          Future.successful(ElasticSearchUpdateResponse())
+        case None => indexImage(message)
+      }
+    }
   }
 
   private def indexImage(message: UpdateMessage)(implicit ec: ExecutionContext) =
