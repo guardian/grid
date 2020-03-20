@@ -18,7 +18,7 @@ import scala.concurrent.duration.Duration
 class Projector(val config: ImageLoaderConfig) {
 
   def projectS3ImageById(imageUploadProjector: ImageUploadProjector, imageId: String, requestLoggingContext: RequestLoggingContext, tempFile: File)(implicit ex: ExecutionContext): Future[Option[Image]] = {
-    Logger.info(s"XXX projecting image: $imageId")(requestLoggingContext.toMarker())
+    Logger.info(s"Projecting image: $imageId")(requestLoggingContext.toMarker())
     Future {
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
