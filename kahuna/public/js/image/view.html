@@ -34,7 +34,8 @@
                         <div class="image-crop"
                              ng:class="{'image-crop--selected': !ctrl.crop}">
                             <a draggable="true"
-                                ui:sref="{ crop: null }">
+                                ui:sref="{ crop: null }"
+                                ui:drag-data="ctrl.image | asImageDragData">
                                 <img class="image-crop__image"
                                      alt="original image thumbnail"
                                      ng:src="{{:: ctrl.image.data.thumbnail | assetFile }}" />
