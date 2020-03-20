@@ -44,10 +44,10 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "requestType" -> "load-image",
-      "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
-      "identifiers" -> identifiers.getOrElse(FALLBACK),
-      "uploadTime" -> uploadTime.getOrElse(FALLBACK),
-      "filename" -> filename.getOrElse(FALLBACK)
+        "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
+        "identifiers" -> identifiers.getOrElse(FALLBACK),
+        "uploadTime" -> uploadTime.getOrElse(FALLBACK),
+        "filename" -> filename.getOrElse(FALLBACK)
       )
     )
 
