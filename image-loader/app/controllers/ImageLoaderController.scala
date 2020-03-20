@@ -3,7 +3,7 @@ package controllers
 import java.io.File
 import java.net.URI
 
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
+import com.gu.mediaservice.lib.{DateTimeUtils , ImageIngestOperations}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
@@ -92,11 +92,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     )
 
     val tempFile = createTempFile(s"projection-$imageId")
-    Logger.info("XXX" )
     auth.async { _ =>
-      val result = for {
-        result <- imageProjector.projectS3ImageById(imageUploadProjector, imageId, requestContext, tempFile)
-      } yield result
+      val result= imageProjector.projectS3ImageById(imageUploadProjector, imageId, requestContext, tempFile)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
