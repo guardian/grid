@@ -19,9 +19,11 @@ class ImageProjectionLambdaHandler extends LazyLogging {
   private val imageLoaderEndpoint = sys.env.get("IMAGE_LOADER_ENDPOINT")
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
-    val shouldReingestStr = event.getQueryStringParameters.getOrDefault("reingest", "false")
-    val shouldReingest = Try(shouldReingestStr.toBoolean).getOrElse(false)
     val mediaId = event.getPath.stripPrefix("/images/projection/")
+    val shouldReingest = if (event.getQueryStringParameters != null) {
+      val shouldReingestStr = event.getQueryStringParameters.getOrDefault("reingest", "false")
+      Try(shouldReingestStr.toBoolean).getOrElse(false)
+    } else false
 
     getConfigFromRequestEvent(event) match {
       case Some(config) => projectImage(mediaId, config, reingest = shouldReingest)
