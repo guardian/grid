@@ -48,14 +48,11 @@ class ImageProjectionLambdaHandler extends LazyLogging {
     val merger = new ImageDataMerger(config)
     val result: FullImageProjectionResult = merger.getMergedImageData(mediaId.asInstanceOf[String])
     result match {
-      case FullImageProjectionSuccess(mayBeImage) =>
-        mayBeImage match {
-          case Some(img) =>
-            if (reingest) { putToKinesis(img, streamName) }
-            getSuccessResponse(img)
-          case _ =>
-            getNotFoundResponse(mediaId)
-        }
+      case FullImageProjectionSuccess(Some(image)) =>
+        if (reingest) { putToKinesis(image, streamName) }
+        getSuccessResponse(image)
+      case FullImageProjectionSuccess(None) =>
+        getNotFoundResponse(mediaId)
       case FullImageProjectionFailed(message, downstreamMessage) =>
         getErrorFoundResponse(message, downstreamMessage)
     }
@@ -66,7 +63,7 @@ class ImageProjectionLambdaHandler extends LazyLogging {
     val kinesisClient = AwsHelpers.buildKinesisClient()
     val message = UpdateMessage(subject = "reingest-image", image = Some(image))
     AwsHelpers.putToKinesis(message, streamName, kinesisClient)
-    logger.info(s"Reingest message for image ${image.id} enqueued")
+    logger.info(s"Reingest message for image ${image.id} queued")
   }
 
   private def getSuccessResponse(img: Image) = {
