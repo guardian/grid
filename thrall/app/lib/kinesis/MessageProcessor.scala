@@ -25,7 +25,7 @@ class MessageProcessor(es: ElasticSearch,
   def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext,  mc: MarkerContext ): Option[UpdateMessage => Future[Any]] = {
     PartialFunction.condOpt(updateMessage.subject) {
       case "image" => indexImage
-      case "reingest-image" => indexImage
+      case "reingest-image" => reingestImage
       case "delete-image" => deleteImage
       case "update-image" => indexImage
       case "delete-image-exports" => deleteImageExports
@@ -67,13 +67,13 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  def reindexImage(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def reingestImage(message: UpdateMessage)(implicit ec: ExecutionContext) = {
     Logger.info("Reingesting image")(message.toLogMarker)
     withImage(message) { image =>
-      es.getImage(image.id) map {
+      es.getImage(image.id) flatMap {
         case Some(_) =>
           Logger.error(s"Refusing to reingest image with id ${image.id}, as it already exists in Elasticsearch")
-          Future.successful(ElasticSearchUpdateResponse())
+          Future.successful(ElasticSearchNoopResponse())
         case None => indexImage(message)
       }
     }

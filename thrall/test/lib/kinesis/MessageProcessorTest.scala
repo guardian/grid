@@ -2,12 +2,11 @@ package lib.kinesis
 
 import java.util.UUID
 
-import com.gu.mediaservice.lib.aws.{BulkIndexRequest, UpdateMessage}
-import com.gu.mediaservice.model.leases.MediaLease
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.usage.UsageNotice
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, SyndicationRights}
+import com.gu.mediaservice.model._
 import lib.{BulkIndexS3Client, MetadataEditorNotifications, ThrallStore}
-import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
+import lib.elasticsearch.{ElasticSearchNoopResponse, ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.{JsArray, Json}
@@ -24,6 +23,35 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
       metadataEditorNotifications = mock[MetadataEditorNotifications],
       syndicationRightsOps = mock[SyndicationRightsOps],
       bulkIndexS3Client = mock[BulkIndexS3Client])
+
+    "reingest-image" - {
+
+      "adds an image as usual" in {
+        val image = createImage("example-image", StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+        val expected = Success(List(ElasticSearchUpdateResponse()))
+        val message = UpdateMessage(
+          "reingest-image",
+          image = Some(image)
+        )
+
+        Try(Await.result(messageProcessor.reingestImage(message), fiveSeconds)) shouldBe expected
+
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(image.id).map(_.id) shouldBe Some(image.id))
+      }
+
+      "does not add an image if it is already present in ElasticSearch" in {
+        val image = createImage("example-image-2", StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+        Await.result(Future.sequence(ES.indexImage(image.id, Json.toJson(image))), fiveSeconds)
+        val expected = Success(ElasticSearchNoopResponse())
+
+        val message = UpdateMessage(
+          "reingest-image",
+          image = Some(image)
+        )
+
+        Try(Await.result(messageProcessor.reingestImage(message), fiveSeconds)) shouldBe expected
+      }
+    }
 
     "usages" - {
 
