@@ -248,7 +248,7 @@ results.controller('SearchResultsCtrl', [
             // FIXME: should ideally be able to just call $state.reload(),
             // but there seems to be a bug (alluded to in the docs) when
             // notify is false, so forcing to true explicitly instead:
-            window.scrollTo(0,0);
+            $window.scrollTo(0,0);
             $state.transitionTo($state.current, $stateParams, {
                 reload: true, inherit: false, notify: true
             });
