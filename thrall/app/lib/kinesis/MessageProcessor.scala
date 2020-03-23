@@ -25,7 +25,7 @@ class MessageProcessor(es: ElasticSearch,
   def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext,  mc: MarkerContext ): Option[UpdateMessage => Future[Any]] = {
     PartialFunction.condOpt(updateMessage.subject) {
       case "image" => indexImage
-      case "reindex-image" => indexImage
+      case "reingest-image" => indexImage
       case "delete-image" => deleteImage
       case "update-image" => indexImage
       case "delete-image-exports" => deleteImageExports
