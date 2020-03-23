@@ -4,20 +4,26 @@ import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
+import com.gu.mediaservice.lib.logging.FALLBACK
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
-import lib.ImageLoaderConfig
-import lib.imaging.FileMetadataReader
+import lib.{DigestedFile, ImageLoaderConfig, Notifications}
+import lib.imaging.{FileMetadataReader, MimeTypeDetection, UnsupportedMimeTypeException}
 import lib.storage.ImageLoaderStore
 import net.logstash.logback.marker.LogstashMarker
+import org.joda.time.DateTime
 import play.api.Logger
+import play.api.libs.json.{JsObject, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
@@ -103,12 +109,14 @@ case object ImageUpload {
   }
 }
 
-class ImageUploadOps(store: ImageLoaderStore,
-                     config: ImageLoaderConfig,
-                     imageOps: ImageOperations)(implicit val ec: ExecutionContext) {
+class Uploader(val store: ImageLoaderStore,
+               val config: ImageLoaderConfig,
+               val imageOps: ImageOperations,
+               val notifications: Notifications)
+              (implicit val ec: ExecutionContext) extends ArgoHelpers {
 
 
-  import ImageUploadOps.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg}
+  import Uploader.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg}
 
   private val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
     storeSource, storeThumbnail, storeOptimisedPng)
@@ -140,6 +148,61 @@ class ImageUploadOps(store: ImageLoaderStore,
       optimisedPngFile
     )
   }
+
+  def loadFile(digestedFile: DigestedFile,
+               user: Principal,
+               uploadedBy: Option[String],
+               identifiers: Option[String],
+               uploadTime: DateTime,
+               filename: Option[String],
+               requestLoggingContext: RequestLoggingContext)
+              (implicit ec:ExecutionContext): Future[UploadRequest] = {
+    val DigestedFile(tempFile_, id_) = digestedFile
+
+    // Abort early if unsupported mime-type
+    val guessedMimeType = MimeTypeDetection.guessMimeType(tempFile_)
+    Logger.info(s"Detected mimetype as ${guessedMimeType.getOrElse(FALLBACK)}")(requestLoggingContext.toMarker())
+    val supportedMimeType = config.supportedMimeTypes.exists(guessedMimeType.contains(_))
+    if (!supportedMimeType)
+      throw new UnsupportedMimeTypeException(guessedMimeType.getOrElse("Not Provided"))
+
+    val uploadedBy_ = uploadedBy match {
+      case Some(by) => by
+      case None => Authentication.getIdentity(user)
+    }
+
+    // TODO: should error if the JSON parsing failed
+    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
+
+    Future.successful(UploadRequest(
+      requestId = requestLoggingContext.requestId,
+      imageId = id_,
+      tempFile = tempFile_,
+      mimeType = guessedMimeType,
+      uploadTime = uploadTime,
+      uploadedBy = uploadedBy_,
+      identifiers = identifiersMap,
+      uploadInfo = UploadInfo(filename)
+    ))
+
+  }
+
+  def storeFile(uploadRequest: UploadRequest)(implicit requestLoggingContext: RequestLoggingContext, ec:ExecutionContext): Future[JsObject] = {
+    val completeMarkers: LogstashMarker = requestLoggingContext.toMarker().and(uploadRequest.toLogMarker)
+
+    Logger.info("Storing file")(completeMarkers)
+    for {
+      imageUpload <- fromUploadRequest(uploadRequest, requestLoggingContext)
+      updateMessage = UpdateMessage(subject = "image", image = Some(imageUpload.image))
+      _ <- Future { notifications.publish(updateMessage) }
+      // TODO: centralise where all these URLs are constructed
+      uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
+    } yield {
+      Json.obj("uri" -> uri)
+    }
+
+  }
+
 }
 
 case class ImageUploadOpsCfg(tempDir: File,
@@ -157,9 +220,9 @@ case class ImageUploadOpsDependencies(config: ImageUploadOpsCfg,
                                       storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
                                      )
 
-object ImageUploadOps {
+object Uploader {
 
-  def toImageUploadOpsCfg(config: ImageLoaderConfig) = {
+  def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
     ImageUploadOpsCfg(
       config.tempDir,
       config.thumbWidth,
@@ -313,7 +376,7 @@ object ImageUploadOps {
     val uploadedFile = uploadRequest.tempFile
     uploadRequest.mimeType match {
       case Some(mime) => mime match {
-        case transcodedMime if config.transcodedMimeTypes.contains(mime) =>
+        case _ if config.transcodedMimeTypes.contains(mime) =>
           for {
             transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir)
           } yield transformedImage
@@ -324,6 +387,7 @@ object ImageUploadOps {
         Future.apply(uploadedFile)
     }
   }
+
 
 }
 

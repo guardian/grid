@@ -22,7 +22,7 @@ class ImageLoaderConfig(override val configuration: Configuration) extends Commo
   val apiUri: String = services.apiBaseUri
   val loginUriTemplate: String = services.loginUriTemplate
 
-  val transcodedMimeTypes = properties.getOrElse("transcoded.mime.types", "").split(",").toList
+  val transcodedMimeTypes: List[String] = properties.getOrElse("transcoded.mime.types", "").split(",").toList
   val supportedMimeTypes: List[String] = List("image/jpeg", "image/png") ::: transcodedMimeTypes
 
 }

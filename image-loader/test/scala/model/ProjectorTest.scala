@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
-import model.{ImageUploadOpsCfg, ImageUploadProjector, S3FileExtractedMetadata}
+import model.{ImageUploadOpsCfg, Projector, S3FileExtractedMetadata}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
@@ -18,7 +18,7 @@ import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures {
+class ProjectorTest extends FunSuite with Matchers with ScalaFutures {
 
   import ResourceHelpers.fileAt
 
@@ -30,7 +30,7 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
-  private val projector = new ImageUploadProjector(config, imageOperations)
+  private val projector = new Projector(config, imageOperations)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources

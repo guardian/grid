@@ -3,15 +3,16 @@ package controllers
 import java.io.File
 import java.net.URI
 
-import com.gu.mediaservice.lib.{DateTimeUtils , ImageIngestOperations}
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
 import lib._
-import lib.imaging.{ImageLoaderException, Importer, NoSuchImageExistsInS3, Projector, UserImageLoaderException}
+import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{ImageUploadOps, ImageUploadProjector}
+import model.Uploader
+import model.Projector
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
@@ -21,13 +22,19 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-class ImageLoaderController(auth: Authentication, downloader: Downloader, store: ImageLoaderStore, notifications: Notifications,
-                            config: ImageLoaderConfig, imageUploadOps: ImageUploadOps, imageUploadProjector: ImageUploadProjector,
-                            override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
+class ImageLoaderController(auth: Authentication,
+                            downloader: Downloader,
+                            store: ImageLoaderStore,
+                            notifications: Notifications,
+                            config: ImageLoaderConfig,
+                            uploader: Uploader,
+                            projector: Projector,
+                            override val controllerComponents: ControllerComponents,
+                            wSClient: WSClient)
+                           (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  private val imageProjector = new Projector(config)
-  private val imageImporter = new Importer(config, imageUploadOps, notifications, store)
+//  private val imageImporter = new Importer(config, imageUploadOps, notifications, store)
 
   private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -61,7 +68,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
     // asynchronous load, store and delete
     auth.async(parsedBody) { req =>
       val result = for {
-        uploadRequest <- imageImporter.loadFile(
+        uploadRequest <- uploader.loadFile(
           req.body,
           req.user,
           uploadedBy,
@@ -69,7 +76,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context)
-        result <- imageImporter.storeFile(uploadRequest)
+        result <- uploader.storeFile(uploadRequest)
       } yield result
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
@@ -93,7 +100,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
 
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { _ =>
-      val result= imageProjector.projectS3ImageById(imageUploadProjector, imageId, requestContext, tempFile)
+      val result= projector.projectS3ImageById(projector, imageId, requestContext, tempFile)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
@@ -135,8 +142,8 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
       val result = for {
         validUri <- Future { URI.create(uri) }
         digestedFile <- downloader.download(validUri, tempFile)
-        uploadRequest <- imageImporter.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
-        result <- imageImporter.storeFile(uploadRequest)
+        uploadRequest <- uploader.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
+        result <- uploader.storeFile(uploadRequest)
       } yield result
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
