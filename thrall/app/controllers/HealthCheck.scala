@@ -18,7 +18,7 @@ class HealthCheck(elasticsearch: ElasticSearch, messageConsumer: ThrallMessageCo
       val problems = Seq(esHealth, actorSystemHealth).flatten
       if (problems.nonEmpty) {
         val problemsMessage = problems.mkString(",")
-        Logger.warn("Health check failed with problems: " + problemsMessage)
+        Logger.warn("Healthcheck failed with problems: " + problemsMessage)
         ServiceUnavailable(problemsMessage)
       } else {
         Ok("Ok")
