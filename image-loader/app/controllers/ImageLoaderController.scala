@@ -145,7 +145,7 @@ class ImageLoaderController(auth: Authentication, downloader: Downloader, store:
         .map {
           r => {
             Logger.info("importImage request end")
-            Ok(r)
+            Accepted(r)
           }
         }
         .recover {
