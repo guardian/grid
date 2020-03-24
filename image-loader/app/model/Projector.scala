@@ -119,7 +119,7 @@ class Projector(config: ImageUploadOpsCfg,
 }
 
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
-                               imageOps: ImageOperations)(implicit val ec: ExecutionContext) {
+                               imageOps: ImageOperations) {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
 
