@@ -13,7 +13,8 @@ import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UserImageLoader
 import lib.storage.ImageLoaderStore
 import model.Uploader
 import model.Projector
-import play.api.Logger
+import play.api
+import play.api.{Logger, mvc}
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -152,6 +153,8 @@ class ImageLoaderController(auth: Authentication,
         .map {
           r => {
             Logger.info("importImage request end")
+            // NB This return code (202) is explicitly required by s3-watcher
+            // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
             Accepted(r)
           }
         }
