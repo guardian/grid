@@ -60,12 +60,11 @@ object S3FileExtractedMetadata {
 
 class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
-                imageOps: ImageOperations)
-               (implicit val ec: ExecutionContext) {
+                imageOps: ImageOperations) {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, requestLoggingContext: RequestLoggingContext, tempFile: File)(implicit ex: ExecutionContext): Future[Option[Image]] = {
+  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, requestLoggingContext: RequestLoggingContext, tempFile: File)(implicit ec: ExecutionContext): Future[Option[Image]] = {
     Logger.info(s"Projecting image: $imageId")(requestLoggingContext.toMarker())
     Future {
       import ImageIngestOperations.fileKeyFromId
