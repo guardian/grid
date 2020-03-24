@@ -1,29 +1,22 @@
-package test.model
+package model
 
-import java.io.{File, InputStream}
-import java.net.{URI, URL}
-import java.util
-import java.util.Date
+import java.io.File
+import java.net.URI
 
-import com.amazonaws.{AmazonWebServiceRequest, HttpMethod}
-import com.amazonaws.regions.Region
-import com.amazonaws.services.s3.model.analytics.AnalyticsConfiguration
-import com.amazonaws.services.s3.model.inventory.InventoryConfiguration
-import com.amazonaws.services.s3.{AmazonS3, S3ClientOptions, S3ResponseMetadata}
-import com.amazonaws.services.s3.model.metrics.MetricsConfiguration
-import com.amazonaws.services.s3.model.{AbortMultipartUploadRequest, AccessControlList, Bucket, BucketAccelerateConfiguration, BucketCrossOriginConfiguration, BucketLifecycleConfiguration, BucketLoggingConfiguration, BucketNotificationConfiguration, BucketPolicy, BucketReplicationConfiguration, BucketTaggingConfiguration, BucketVersioningConfiguration, BucketWebsiteConfiguration, CannedAccessControlList, CompleteMultipartUploadRequest, CompleteMultipartUploadResult, CopyObjectRequest, CopyObjectResult, CopyPartRequest, CopyPartResult, CreateBucketRequest, DeleteBucketAnalyticsConfigurationRequest, DeleteBucketAnalyticsConfigurationResult, DeleteBucketCrossOriginConfigurationRequest, DeleteBucketEncryptionRequest, DeleteBucketEncryptionResult, DeleteBucketInventoryConfigurationRequest, DeleteBucketInventoryConfigurationResult, DeleteBucketLifecycleConfigurationRequest, DeleteBucketMetricsConfigurationRequest, DeleteBucketMetricsConfigurationResult, DeleteBucketPolicyRequest, DeleteBucketReplicationConfigurationRequest, DeleteBucketRequest, DeleteBucketTaggingConfigurationRequest, DeleteBucketWebsiteConfigurationRequest, DeleteObjectRequest, DeleteObjectTaggingRequest, DeleteObjectTaggingResult, DeleteObjectsRequest, DeleteObjectsResult, DeletePublicAccessBlockRequest, DeletePublicAccessBlockResult, DeleteVersionRequest, GeneratePresignedUrlRequest, GetBucketAccelerateConfigurationRequest, GetBucketAclRequest, GetBucketAnalyticsConfigurationRequest, GetBucketAnalyticsConfigurationResult, GetBucketCrossOriginConfigurationRequest, GetBucketEncryptionRequest, GetBucketEncryptionResult, GetBucketInventoryConfigurationRequest, GetBucketInventoryConfigurationResult, GetBucketLifecycleConfigurationRequest, GetBucketLocationRequest, GetBucketLoggingConfigurationRequest, GetBucketMetricsConfigurationRequest, GetBucketMetricsConfigurationResult, GetBucketNotificationConfigurationRequest, GetBucketPolicyRequest, GetBucketPolicyStatusRequest, GetBucketPolicyStatusResult, GetBucketReplicationConfigurationRequest, GetBucketTaggingConfigurationRequest, GetBucketVersioningConfigurationRequest, GetBucketWebsiteConfigurationRequest, GetObjectAclRequest, GetObjectLegalHoldRequest, GetObjectLegalHoldResult, GetObjectLockConfigurationRequest, GetObjectLockConfigurationResult, GetObjectMetadataRequest, GetObjectRequest, GetObjectRetentionRequest, GetObjectRetentionResult, GetObjectTaggingRequest, GetObjectTaggingResult, GetPublicAccessBlockRequest, GetPublicAccessBlockResult, GetS3AccountOwnerRequest, HeadBucketRequest, HeadBucketResult, InitiateMultipartUploadRequest, InitiateMultipartUploadResult, ListBucketAnalyticsConfigurationsRequest, ListBucketAnalyticsConfigurationsResult, ListBucketInventoryConfigurationsRequest, ListBucketInventoryConfigurationsResult, ListBucketMetricsConfigurationsRequest, ListBucketMetricsConfigurationsResult, ListBucketsRequest, ListMultipartUploadsRequest, ListNextBatchOfObjectsRequest, ListNextBatchOfVersionsRequest, ListObjectsRequest, ListObjectsV2Request, ListObjectsV2Result, ListPartsRequest, ListVersionsRequest, MultipartUploadListing, ObjectListing, ObjectMetadata, Owner, PartListing, PutObjectRequest, PutObjectResult, Region, RestoreObjectRequest, RestoreObjectResult, S3Object, SelectObjectContentRequest, SelectObjectContentResult, SetBucketAccelerateConfigurationRequest, SetBucketAclRequest, SetBucketAnalyticsConfigurationRequest, SetBucketAnalyticsConfigurationResult, SetBucketCrossOriginConfigurationRequest, SetBucketEncryptionRequest, SetBucketEncryptionResult, SetBucketInventoryConfigurationRequest, SetBucketInventoryConfigurationResult, SetBucketLifecycleConfigurationRequest, SetBucketLoggingConfigurationRequest, SetBucketMetricsConfigurationRequest, SetBucketMetricsConfigurationResult, SetBucketNotificationConfigurationRequest, SetBucketPolicyRequest, SetBucketReplicationConfigurationRequest, SetBucketTaggingConfigurationRequest, SetBucketVersioningConfigurationRequest, SetBucketWebsiteConfigurationRequest, SetObjectAclRequest, SetObjectLegalHoldRequest, SetObjectLegalHoldResult, SetObjectLockConfigurationRequest, SetObjectLockConfigurationResult, SetObjectRetentionRequest, SetObjectRetentionResult, SetObjectTaggingRequest, SetObjectTaggingResult, SetPublicAccessBlockRequest, SetPublicAccessBlockResult, StorageClass, UploadPartRequest, UploadPartResult, VersionListing}
-import com.amazonaws.services.s3.waiters.AmazonS3Waiters
+import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
+import com.sksamuel.elastic4s.requests.searches.queries.RegexpFlag.AnyString
 import lib.DigestedFile
 import model.{ImageUploadOpsCfg, Projector, S3FileExtractedMetadata}
 import org.joda.time.{DateTime, DateTimeZone}
+import org.mockito.internal.matchers.Any
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{FunSuite, Matchers, mock}
+import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsArray, JsString}
 import test.lib.ResourceHelpers
 
@@ -33,7 +26,7 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
 
   import ResourceHelpers.fileAt
 
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
   private val ctxPath = new File("image-loader/").getAbsolutePath
 
@@ -41,8 +34,10 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
-  private val s3 = mock[AmazonS3]
+  import org.mockito.Mockito.when
 
+  private val s3 = mock[AmazonS3]
+  when(s3.doesObjectExist(Any[String], Any[String])) thenReturn true
   private val projector = new Projector(config, s3, imageOperations)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
