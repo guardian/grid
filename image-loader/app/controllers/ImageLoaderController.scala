@@ -155,7 +155,7 @@ class ImageLoaderController(auth: Authentication,
             Logger.info("importImage request end")
             // NB This return code (202) is explicitly required by s3-watcher
             // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
-            Accepted(r)
+            Accepted(r).as(ArgoMediaType)
           }
         }
         .recover {
