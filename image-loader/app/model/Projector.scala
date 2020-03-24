@@ -25,7 +25,7 @@ object Projector {
   import Uploader.toImageUploadOpsCfg
 
   def apply(config: ImageLoaderConfig, imageOps: ImageOperations)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps)(ec)
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps)
 }
 
 case class S3FileExtractedMetadata(
@@ -90,7 +90,7 @@ class Projector(config: ImageUploadOpsCfg,
     DigestedFile(tempFile, imageId)
   }
 
-  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestLoggingContext: RequestLoggingContext): Future[Image] = {
+  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestLoggingContext: RequestLoggingContext)(implicit ec: ExecutionContext): Future[Image] = {
     import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
     // TODO more identifiers_ to rehydrate
@@ -123,14 +123,16 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
 
-  private val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
-    projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
 
-  def projectImageFromUploadRequest(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext): Future[Image] = {
+  def projectImageFromUploadRequest(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext)
+                                   (implicit ec: ExecutionContext): Future[Image] = {
+    val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
+    projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, requestLoggingContext)
   }
 
-  private def projectOriginalFileAsS3Model(uploadRequest: UploadRequest) = Future {
+  private def projectOriginalFileAsS3Model(uploadRequest: UploadRequest)
+                                          (implicit ec: ExecutionContext)= Future {
     val meta: Map[String, String] = toMetaMap(uploadRequest)
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
     S3Ops.projectFileAsS3Object(
@@ -142,7 +144,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     )
   }
 
-  private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File) = Future {
+  private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
     val thumbMimeType = Some("image/jpeg")
     S3Ops.projectFileAsS3Object(
@@ -153,7 +155,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     )
   }
 
-  private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, optimisedPngFile: File) = Future {
+  private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, optimisedPngFile: File)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(uploadRequest.imageId)
     val optimisedPngMimeType = Some("image/png")
     S3Ops.projectFileAsS3Object(
