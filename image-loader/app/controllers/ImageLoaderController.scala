@@ -83,7 +83,7 @@ class ImageLoaderController(auth: Authentication,
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
       result map { r =>
-        Ok(r)
+        Accepted(r)
       } recover {
         case e: ImageLoaderException => InternalServerError(Json.obj("error" -> e.getMessage))
       }
