@@ -1,6 +1,6 @@
 import throat from "throat";
 
-const limiter = throat(60);
+const limiter = throat(30);
 
 // TODO MRB: invoke function lazily, does it improve UI jank?
 export function trackAll($rootScope, key, input, fn) {
