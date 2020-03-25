@@ -65,7 +65,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
 
   def healthCheck(): Future[Boolean] = {
     val request = search(imagesAlias) limit 0
-    executeAndLog(request, "Health check").map { _ => true}.recover { case _ => false}
+    executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
   }
 
 

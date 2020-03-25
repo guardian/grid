@@ -13,8 +13,7 @@ import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UserImageLoader
 import lib.storage.ImageLoaderStore
 import model.Uploader
 import model.Projector
-import play.api
-import play.api.{Logger, mvc}
+import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -34,8 +33,6 @@ class ImageLoaderController(auth: Authentication,
                             wSClient: WSClient)
                            (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
-
-//  private val imageImporter = new Importer(config, imageUploadOps, notifications, store)
 
   private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
@@ -66,7 +63,6 @@ class ImageLoaderController(auth: Authentication,
     Logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
-    // asynchronous load, store and delete
     auth.async(parsedBody) { req =>
       val result = for {
         uploadRequest <- uploader.loadFile(
@@ -82,11 +78,13 @@ class ImageLoaderController(auth: Authentication,
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
-      result map { r =>
+      val response = result map { r =>
         Accepted(r).as(ArgoMediaType)
       } recover {
         case e: ImageLoaderException => InternalServerError(Json.obj("error" -> e.getMessage))
       }
+      Logger.info("loadImage request end")
+      response
     }
   }
 

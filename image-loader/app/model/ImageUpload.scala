@@ -285,6 +285,9 @@ object Uploader {
             uploadRequest
           )
 
+          Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(initialMarkers)
+          uploadedFile.delete()
+
           finalImage
         }
       })
