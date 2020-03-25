@@ -83,7 +83,7 @@ class ImageLoaderController(auth: Authentication,
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
       result map { r =>
-        Accepted(r)
+        Accepted(r).as(ArgoMediaType)
       } recover {
         case e: ImageLoaderException => InternalServerError(Json.obj("error" -> e.getMessage))
       }
