@@ -59,7 +59,4 @@ case class UpdateMessage(
       "length" -> message.length
     )
   }
-  override def toLogMarker: LogstashMarker = {
-    MarkerMap(markerContents).toLogMarker
-  }
 }

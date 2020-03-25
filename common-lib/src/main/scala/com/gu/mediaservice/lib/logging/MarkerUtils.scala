@@ -8,15 +8,11 @@ import scala.language.implicitConversions
 import scala.collection.JavaConverters._
 
 trait LogMarker {
-  def toLogMarker: LogstashMarker
+  def toLogMarker: LogstashMarker = appendEntries(markerContents.asJava)
   def markerContents: Map[String, Any]
 }
 
-
-
-case class MarkerMap(markerContents: Map[String, Any]) extends LogMarker {
-  override def toLogMarker: LogstashMarker = appendEntries(markerContents.asJava)
-}
+case class MarkerMap(markerContents: Map[String, Any]) extends LogMarker
 
 object MarkerMap {
   def apply(entries: (String, Any)*):MarkerMap = MarkerMap(entries.toMap)
