@@ -1,17 +1,18 @@
 package com.gu.mediaservice.lib.elasticsearch
 
+import com.gu.mediaservice.lib.logging.MarkerMap
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http.JavaClient
 import com.sksamuel.elastic4s.{ElasticClient, ElasticProperties, Response}
 import com.sksamuel.elastic4s.requests.common.HealthStatus
 import com.sksamuel.elastic4s.requests.analysis.{Analysis, AnalysisBuilder}
-
 import com.sksamuel.elastic4s.requests.analyzers.PatternAnalyzerDefinition
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
-
+import net.logstash.logback.marker.Markers.appendEntries
 import play.api.Logger
 
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -64,12 +65,14 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
   }
 
   def healthCheck(): Future[Boolean] = {
+    implicit val logMarker = MarkerMap()
     val request = search(imagesAlias) limit 0
     executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
   }
 
 
   def countImages(): Future[ElasticSearchImageCounts] = {
+    implicit val logMarker = MarkerMap()
     val queryCatCount = catCount("images") // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
     val queryImageSearch = search("images") limit 0 // hits that match the query defined in the request
     val queryStats = indexStats("images") // total accumulated values of an index for both primary and replica shards
@@ -147,9 +150,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
   // Elastic only allows one index in an alias set to be the write index.
   // To mirror index updates to all indexes in the alias group, the grid queries the alias set and explicitly executes
   // each update on every aliased index.
-  def getCurrentIndices: List[String] = {
-    ???
-  }
+  def getCurrentIndices: List[String] = ???
 
   def assignAliasTo(index: String): Unit = {
     Logger.info(s"Assigning alias $imagesAlias to $index")
@@ -172,8 +173,6 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
     Logger.info("Got alias action response: " + aliasActionResponse)
   }
 
-  def removeAliasFrom(index: String) = {
-    ???
-  }
+ def removeAliasFrom(index: String) = ???
 
 }

@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
@@ -15,6 +16,8 @@ import scala.concurrent.{Await, Future}
 
 class ElasticSearchTest extends ElasticSearchTestBase {
   "Elasticsearch" - {
+   implicit val logMarker: LogMarker = MarkerMap()
+
 
     "images" - {
 
@@ -290,7 +293,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(imageWithExports))), fiveSeconds)
         reloadedImage(id).get.exports.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.deleteImageExports(id)), fiveSeconds)
+        Await.result(Future.sequence(ES.deleteImageExports(id, logMarker)), fiveSeconds)
 
         reloadedImage(id).get.exports.isEmpty shouldBe true
       }
