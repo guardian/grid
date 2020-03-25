@@ -1,28 +1,31 @@
-package test.model
+package model
 
 import java.io.File
 import java.net.URI
 
+import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
-import model.{ImageUploadOpsCfg, ImageUploadProjector, S3FileExtractedMetadata}
 import org.joda.time.{DateTime, DateTimeZone}
+import org.mockito.internal.matchers.Any
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsArray, JsString}
+import scalaz.std.anyVal
 import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures {
+class ProjectorTest extends FunSuite with Matchers with ScalaFutures with MockitoSugar {
 
   import ResourceHelpers.fileAt
 
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
   private val ctxPath = new File("image-loader/").getAbsolutePath
 
@@ -30,7 +33,10 @@ class ImageUploadProjectorTest extends FunSuite with Matchers with ScalaFutures 
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
-  private val projector = new ImageUploadProjector(config, imageOperations)
+  import org.mockito.Mockito.when
+
+  private val s3 = mock[AmazonS3]
+  private val projector = new Projector(config, s3, imageOperations)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources
