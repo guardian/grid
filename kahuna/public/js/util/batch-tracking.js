@@ -21,7 +21,7 @@ export function trackAll($rootScope, key, input, fn) {
 
     const withItems = results.map((result,i)=>({
       item: input[i],
-      ...result
+      result: result
     }));
 
     const failures = withItems.filter(_=>_.status === "rejected");
