@@ -77,14 +77,25 @@ async.factory('poll',
         };
 
         function pollRecursive() {
+          let isRunning = true;
           if (concurrentPolls > maxConcurrentPolls) {
             console.warn("Too many concurrent polls.", concurrentPolls, func);
             return withTimeout(delay(withBackoff())).then(pollRecursive);
           }
-          return func().catch((error) => {
+          concurrentPolls += 1;
+          return func().then(result => {
+            if(!isRunning){
+              console.error("THEN AFTER CANCEL!", func, result)
+              return result
+            }
+            concurrentPolls -= 1;
+            return result;
+          }).catch((error) => {
+            isRunning = false;
             if (error !== timeoutError){
               console.error("Something blew up while polling",error, func);
             }
+            concurrentPolls -= 1;
             return withTimeout(delay(withBackoff())).then(pollRecursive);
           });
         }
