@@ -2,6 +2,9 @@ import angular from 'angular';
 
 export var async = angular.module('util.async', []);
 
+let concurrentPolls = 0 ;
+const maxConcurrentPolls = 1;
+const timeoutError = new Error('timeout');
 /**
  * Return a lazy function that will yield before calling the input `func`.
  */
@@ -74,7 +77,14 @@ async.factory('poll',
         };
 
         function pollRecursive() {
-          return func().catch(() => {
+          if (concurrentPolls > maxConcurrentPolls) {
+            console.warn("Too many concurrent polls.", concurrentPolls, func);
+            return withTimeout(delay(withBackoff())).then(pollRecursive);
+          }
+          return func().catch((error) => {
+            if (error !== timeoutError){
+              console.error("Something blew up while polling",error, func);
+            }
             return withTimeout(delay(withBackoff())).then(pollRecursive);
           });
         }
