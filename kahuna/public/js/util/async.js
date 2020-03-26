@@ -84,9 +84,9 @@ async.factory('poll',
           }
           concurrentPolls += 1;
           return func().then(result => {
-            if(!isRunning){
-              console.error("THEN AFTER CANCEL!", func, result)
-              return result
+            if (!isRunning){
+              console.error("THEN AFTER CANCEL!", func, result);
+              return result;
             }
             concurrentPolls -= 1;
             return result;
