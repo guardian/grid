@@ -3,7 +3,7 @@ import angular from 'angular';
 export var async = angular.module('util.async', []);
 
 let concurrentPolls = 0 ;
-const maxConcurrentPolls = 1;
+const maxConcurrentPolls = 20;
 const timeoutError = new Error('timeout');
 /**
  * Return a lazy function that will yield before calling the input `func`.
