@@ -8,7 +8,7 @@ export function trackAll($rootScope, key, input, fn) {
   $rootScope.$broadcast("events:batch-operations:start",
     {key, completed: 0, total: input.size ? input.size : input.length});
 
-  const results = input.map(item => limiter(() =>
+  const promises = input.map(item => limiter(() =>
       fn(item).then(result => {
         completed++;
         $rootScope.$broadcast("events:batch-operations:progress", {key, completed});
@@ -17,7 +17,17 @@ export function trackAll($rootScope, key, input, fn) {
     )
   );
 
-  return Promise.all(results).finally(() => {
+  return Promise.allSettled(promises).then((results) => {
+
+    const withItems = results.map((result,i)=>({
+      item: input[i],
+      ...result
+    }));
+
+    const failures = withItems.filter(_=>_.status === "rejected");
+
+    failures.map(console.error);
+
     $rootScope.$broadcast("events:batch-operations:complete", {key});
   });
 }
