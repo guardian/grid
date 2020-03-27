@@ -80,7 +80,7 @@ async.factory('poll',
           let isRunning = true;
           if (concurrentPolls > maxConcurrentPolls) {
             console.warn("Too many concurrent polls.", concurrentPolls, func);
-            return withTimeout(delay(withBackoff())).then(pollRecursive);
+            return withTimeout(delay(pollEvery)).then(pollRecursive);
           }
           concurrentPolls += 1;
           return func().then(result => {
