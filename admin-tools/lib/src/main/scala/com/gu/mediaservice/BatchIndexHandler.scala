@@ -225,7 +225,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   def getMediaIdsBatchByState(state: ProduceProgress)(implicit ec: ExecutionContext): Future[List[String]] =Future {
-    logger.info("attempt to get mediaIds batch from dynamo")
+    logger.info(s"attempt to get mediaIds batch from dynamo with state ${state.stateId}")
     val querySpec = new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
       .withValueMap(new ValueMap().withNumber(":sub", state.stateId))
