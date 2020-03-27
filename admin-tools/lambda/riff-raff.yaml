@@ -10,4 +10,4 @@ deployments:
       functionNames:
         - "admin-tools-image-projection-lambda-"
         - "admin-tools-image-batch-index-lambda-"
-        - "admin-tools-image-batch-index-checker-lambda-"
+        - "admin-tools-image-batch-check-lambda-"
