@@ -1,10 +1,14 @@
+import akka.Done
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
 import lib.elasticsearch._
+import lib.kinesis.ThrallEventConsumer
 import play.api.ApplicationLoader.Context
 import router.Routes
+
+import scala.concurrent.Future
 
 class ThrallComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ThrallConfig(configuration)
@@ -28,13 +32,12 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
 
   val bulkIndexS3Client = new BulkIndexS3Client(config)
 
-  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(
-    config, es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), config.from, bulkIndexS3Client, actorSystem
-  )
-  thrallKinesisMessageConsumer.start()
+  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), bulkIndexS3Client, actorSystem)
+  val thrallStreamProcessor = new ThrallStreamProcessor(config, thrallEventConsumer, actorSystem, materializer)
+  val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es, thrallKinesisMessageConsumer, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es, streamRunning, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }

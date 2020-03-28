@@ -1,5 +1,6 @@
 package lib.kinesis
 
+import java.time.Instant
 import java.util
 import java.util.concurrent.Executors
 
@@ -17,7 +18,7 @@ import org.joda.time.DateTime
 import play.api.libs.json.{JodaReads, Json, Reads}
 import play.api.{Logger, MarkerContext}
 
-import scala.concurrent.duration.{FiniteDuration, SECONDS, MILLISECONDS}
+import scala.concurrent.duration.{FiniteDuration, MILLISECONDS, SECONDS}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
@@ -50,7 +51,7 @@ class ThrallEventConsumer(es: ElasticSearch,
     Logger.info("Processing kinesis record batch of size: " + records.size)
 
     try {
-      val messages = records.asScala.toList.flatMap(parseRecord)
+      val messages = records.asScala.toList.flatMap(r => parseRecord(r))
 
       OrderedFutureRunner.run(processUpdateMessage,timeout)(messages)
 
@@ -65,13 +66,14 @@ class ThrallEventConsumer(es: ElasticSearch,
     }
   }
 
-  private def parseRecord(r: Record):Option[UpdateMessage] = {
+  def parseRecord(r: Record):Option[UpdateMessage] = parseRecord(r.getData.array, r.getApproximateArrivalTimestamp.toInstant)
+
+  def parseRecord(r: Array[Byte], timestamp: Instant):Option[UpdateMessage] = {
     implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads
     implicit val unr = Json.reads[UsageNotice]
     implicit val umr = Json.reads[UpdateMessage]
-    val timestamp = r.getApproximateArrivalTimestamp
 
-    Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r.getData.array)) match {
+    Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
       case Success(Some(updateMessage: UpdateMessage)) => {
         Logger.info(s"Received ${updateMessage.subject} message at $timestamp")(updateMessage.toLogMarker)
         Some(updateMessage)
@@ -87,7 +89,7 @@ class ThrallEventConsumer(es: ElasticSearch,
     }
   }
 
-  private def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
+  def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
     val marker = updateMessage
 
     val stopwatch = Stopwatch.start
