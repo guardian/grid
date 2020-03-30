@@ -3,13 +3,14 @@ package controllers
 import java.io.File
 import java.net.URI
 
+import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
 import lib._
-import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UserImageLoaderException}
+import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UnsupportedMimeTypeException, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
 import model.Uploader
 import model.Projector
@@ -81,7 +82,9 @@ class ImageLoaderController(auth: Authentication,
       val response = result map { r =>
         Accepted(r).as(ArgoMediaType)
       } recover {
-        case e: ImageLoaderException => InternalServerError(Json.obj("error" -> e.getMessage))
+        case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e.uploadRequest, config.supportedMimeTypes).as(ArgoMediaType)
+        case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
+        case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
       }
       Logger.info("loadImage request end")
       response

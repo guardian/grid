@@ -159,22 +159,15 @@ class Uploader(val store: ImageLoaderStore,
               (implicit ec:ExecutionContext): Future[UploadRequest] = {
     val DigestedFile(tempFile_, id_) = digestedFile
 
-    // Abort early if unsupported mime-type
+    // TODO: should error if the JSON parsing failed
+    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
     val guessedMimeType = MimeTypeDetection.guessMimeType(tempFile_)
     Logger.info(s"Detected mimetype as ${guessedMimeType.getOrElse(FALLBACK)}")(requestLoggingContext.toMarker())
-    val supportedMimeType = config.supportedMimeTypes.exists(guessedMimeType.contains(_))
-    if (!supportedMimeType)
-      throw new UnsupportedMimeTypeException(guessedMimeType.getOrElse("Not Provided"))
-
     val uploadedBy_ = uploadedBy match {
       case Some(by) => by
       case None => Authentication.getIdentity(user)
     }
-
-    // TODO: should error if the JSON parsing failed
-    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
-
-    Future.successful(UploadRequest(
+    val uploadRequest = UploadRequest(
       requestId = requestLoggingContext.requestId,
       imageId = id_,
       tempFile = tempFile_,
@@ -183,7 +176,14 @@ class Uploader(val store: ImageLoaderStore,
       uploadedBy = uploadedBy_,
       identifiers = identifiersMap,
       uploadInfo = UploadInfo(filename)
-    ))
+    )
+
+    // Abort early if unsupported mime-type
+    val supportedMimeType = config.supportedMimeTypes.exists(guessedMimeType.contains(_))
+    if (!supportedMimeType)
+      Future.failed(new UnsupportedMimeTypeException(uploadRequest, guessedMimeType.getOrElse("Not Provided")))
+
+    Future.successful(uploadRequest)
 
   }
 
