@@ -108,17 +108,22 @@ checkNodeVersion() {
 }
 
 setupLocalKinesis() {
-  sleep 3s
+  echo "Waiting localstack kinesis to launch on 4568..."
+  while ! curl -s http://localhost:4568 >/dev/null; do
+    sleep 1 # wait for 1 second before check again
+  done
+  echo "localstack kinesis launched"
+
   # java sdk use CBOR protocol
   # which does not work with localstack kinesis which use kinesislite
   export AWS_CBOR_DISABLE=true
   echo 'creating local kinesis streams'
-  # ignore stream already exists error
-  set +e
   stream_name='media-service-DEV-ThrallMessageQueue-1N0T2UXYNUIC9'
-  export AWS_PAGER=""
-  aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
-  aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams
+  stream_count=$(aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams | jq -r .StreamNames[] | grep -c "${stream_name}" || true)
+  if [ "$stream_count" -eq 0 ]; then
+    export AWS_PAGER=""
+    aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
+  fi
 }
 
 main() {
