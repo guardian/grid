@@ -29,4 +29,13 @@ object FailureResponse extends ArgoHelpers {
       s"Unsupported file type: not an image type. Supported: ${supportedMimeTypes.mkString(", ")}"
     )
   }
+  def badImage(supportedMimeTypes: List[String]): Result = {
+    Logger.info(s"Rejected request to load file: image file is not good")
+
+    respondError(
+      UnsupportedMediaType,
+      "bad-file",
+      s"Bad file: not a valid image file. Supported: ${supportedMimeTypes.mkString(", ")}"
+    )
+  }
 }

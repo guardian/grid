@@ -156,7 +156,7 @@ class Uploader(val store: ImageLoaderStore,
                uploadTime: DateTime,
                filename: Option[String],
                requestLoggingContext: RequestLoggingContext)
-              (implicit ec:ExecutionContext): Future[UploadRequest] = {
+              (implicit ec:ExecutionContext): Future[UploadRequest] = Future {
     val DigestedFile(tempFile_, id_) = digestedFile
 
     // TODO: should error if the JSON parsing failed
@@ -181,10 +181,9 @@ class Uploader(val store: ImageLoaderStore,
     // Abort early if unsupported mime-type
     val supportedMimeType = config.supportedMimeTypes.exists(guessedMimeType.contains(_))
     if (!supportedMimeType)
-      Future.failed(new UnsupportedMimeTypeException(uploadRequest, guessedMimeType.getOrElse("Not Provided")))
+      throw new UnsupportedMimeTypeException(uploadRequest, guessedMimeType.getOrElse("Not Provided"))
 
-    Future.successful(uploadRequest)
-
+    uploadRequest
   }
 
   def storeFile(uploadRequest: UploadRequest)(implicit requestLoggingContext: RequestLoggingContext, ec:ExecutionContext): Future[JsObject] = {
