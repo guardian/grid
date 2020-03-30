@@ -181,7 +181,7 @@ class Uploader(val store: ImageLoaderStore,
     // Abort early if unsupported mime-type
     val supportedMimeType = config.supportedMimeTypes.exists(guessedMimeType.contains(_))
     if (!supportedMimeType)
-      throw new UnsupportedMimeTypeException(uploadRequest, guessedMimeType.getOrElse("Not Provided"))
+      Future.failed(new UnsupportedMimeTypeException(uploadRequest, guessedMimeType.getOrElse("Not Provided")))
 
     Future.successful(uploadRequest)
 
