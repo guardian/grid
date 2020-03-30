@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia}
 import com.gu.mediaservice.model.usage.{SyndicationUsage, Usage}
 import org.joda.time.DateTime
@@ -28,7 +29,7 @@ case class Image(
   leases:              LeasesByMedia    = LeasesByMedia.empty,
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None,
-  userMetadataLastModified: Option[DateTime] = None) {
+  userMetadataLastModified: Option[DateTime] = None) extends LogMarker {
 
   def hasExports = exports.nonEmpty
 
@@ -64,6 +65,11 @@ case class Image(
       }
     }
   }
+
+  override def markerContents: Map[String, Any] = Map(
+    "imageId" -> id,
+    "mimeType" -> source.mimeType.getOrElse(FALLBACK)
+  )
 }
 
 object Image {
