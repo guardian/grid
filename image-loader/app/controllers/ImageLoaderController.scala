@@ -85,7 +85,9 @@ class ImageLoaderController(auth: Authentication,
         case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e.uploadRequest, config.supportedMimeTypes).as(ArgoMediaType)
         case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
         case _: java.io.IOException => FailureResponse.badImage(config.supportedMimeTypes).as(ArgoMediaType)
-        case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
+        case e =>
+          Logger.error("Failed upload", e)
+          InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
       }
       Logger.info("loadImage request end")
       response
