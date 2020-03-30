@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
 import lib._
-import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UserImageLoaderException}
+import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UnsupportedMimeTypeException, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
 import model.Uploader
 import model.Projector
@@ -81,6 +81,7 @@ class ImageLoaderController(auth: Authentication,
       val response = result map { r =>
         Accepted(r).as(ArgoMediaType)
       } recover {
+        case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e.uploadRequest, config.supportedMimeTypes)
         case e: ImageLoaderException => InternalServerError(Json.obj("error" -> e.getMessage))
       }
       Logger.info("loadImage request end")
