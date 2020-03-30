@@ -18,7 +18,7 @@ services:
     ports:
       - "9090:9000"
   localstack:
-    image: localstack/localstack:0.8.6
+    image: localstack/localstack:0.10.8
     ports:
       - "4567-4584:4567-4584"
       - "8081:8080"
