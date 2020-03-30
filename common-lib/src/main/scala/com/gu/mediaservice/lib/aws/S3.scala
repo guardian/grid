@@ -12,6 +12,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
 import org.slf4j.LoggerFactory
+import play.api.Logger
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,7 +50,10 @@ class S3(config: CommonConfig) {
       case Some("image/jpeg") => "jpg"
       case Some("image/png") => "png"
       case Some("image/tiff") => "tif"
-      case _ => throw new Exception("Unsupported mime type")
+      case _ => {
+        Logger.error("Unsupported mime type")(image.toLogMarker)
+        throw new Exception("Unsupported mime type")
+      }
     }
 
     val baseFilename: String = image.uploadInfo.filename match {
