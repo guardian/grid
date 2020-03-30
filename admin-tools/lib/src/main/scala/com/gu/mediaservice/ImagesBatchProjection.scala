@@ -25,7 +25,7 @@ class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duratio
       val notFoundOrImage: Future[Option[Either[Image, String]]] = responseFuture.map { response =>
         response.statusCode match {
           case 200 if response.bodyAsString.size > maxSize => {
-            InputIdsStore.setStateToTooBig(id)
+            InputIdsStore.setStateToTooBig(id, response.bodyAsString.size)
             None
           }
           case 200 => {
