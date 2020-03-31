@@ -53,6 +53,37 @@ async.factory('race',
     }]);
 
 
+async.factory('pollQ', ['$q', 'delay'],
+  ($q, delay) => {
+    let queue = [];
+    let running = false;
+    const run = () => {
+      running = true;
+      if (queue.length === 0 ){
+        running = false;
+        return;
+      }
+      const {promise, func} = queue.shift();
+      func().then(resolved => promise.resolve(resolved)).catch(()=>{
+        queue.push({promise, func})
+      }).finally(()=>{
+        delay().then(()=>{
+        setTimeout(()=>run(),0)
+        })
+      });
+    };
+
+    return (func) => {
+      let deferred = $q.defer();
+      queue.push({promise: deferred, func});
+      if(!running) {
+        setTimeout(()=> run(),0)
+      }
+      return deferred
+    }
+  });
+
+
 async.factory('poll',
   ['$q', 'delay', 'race',
     function($q, delay, race) {
@@ -108,12 +139,12 @@ async.factory('poll',
 
 
 // Polling with sensible defaults for API polling
-async.factory('apiPoll', ['poll', function(poll) {
+async.factory('apiPoll', ['pollQ', function(pollQ) {
 
   const pollFrequency = 500; // ms
   const pollTimeout   = 30 * 1000; // ms
 
-  return func => poll(func, pollFrequency, pollTimeout);
+  return func => pollQ(func);
 }]);
 
 
