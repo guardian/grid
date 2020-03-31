@@ -32,10 +32,11 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
 
   val bulkIndexS3Client = new BulkIndexS3Client(config)
 
-  val kinesisConfig = KinesisConfig.kinesisConfig(config)
+  val highPriortyKinesisConfig = KinesisConfig.kinesisConfig(config.kinesisConfig)
+  val lowPriorityKinesisConfig = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
 
   val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), bulkIndexS3Client, actorSystem)
-  val thrallStreamProcessor = new ThrallStreamProcessor(kinesisConfig, thrallEventConsumer, actorSystem, materializer)
+  val thrallStreamProcessor = new ThrallStreamProcessor(highPriortyKinesisConfig, lowPriorityKinesisConfig, thrallEventConsumer, actorSystem, materializer)
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   val thrallController = new ThrallController(controllerComponents)
