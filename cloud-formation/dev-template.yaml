@@ -109,15 +109,6 @@ Resources:
         ProvisionedThroughput:
           ReadCapacityUnits: '1'
           WriteCapacityUnits: '1'
-
-  ThrallMessageQueue:
-    Type: AWS::Kinesis::Stream
-    Properties:
-      ShardCount: 1
-      RetentionPeriodHours: 168
-      Tags:
-      - { Key: Stack, Value: media-service }
-      - { Key: Stage, Value: DEV }
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -278,5 +269,3 @@ Outputs:
     Value: !Ref 'LiveContentPollTable'
   PreviewContentPollTable:
     Value: !Ref 'PreviewContentPollTable'
-  ThrallMessageQueue:
-    Value: !Ref 'ThrallMessageQueue'

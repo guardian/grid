@@ -117,13 +117,19 @@ setupLocalKinesis() {
   # java sdk use CBOR protocol
   # which does not work with localstack kinesis which use kinesislite
   export AWS_CBOR_DISABLE=true
-  echo 'creating local kinesis streams'
-  stream_name='media-service-DEV-ThrallMessageQueue-1N0T2UXYNUIC9'
-  stream_count=$(aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams | jq -r .StreamNames[] | grep -c "${stream_name}" || true)
-  if [ "$stream_count" -eq 0 ]; then
-    export AWS_PAGER=""
-    aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
-  fi
+  export AWS_PAGER=""
+
+  streams=(
+    'media-service-DEV-thrall'
+  )
+
+  for stream_name in "${streams[@]}"; do
+    stream_count=$(aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams | jq -r '.StreamNames[]' | grep -c "${stream_name}" || true)
+    if [ "$stream_count" -eq 0 ]; then
+      echo "creating local kinesis stream ${stream_name}"
+      aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
+    fi
+  done
 }
 
 main() {
