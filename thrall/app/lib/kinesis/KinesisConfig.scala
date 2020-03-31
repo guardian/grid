@@ -15,8 +15,8 @@ object KinesisConfig {
 
     Logger.info(s"creating kinesis consumer with endpoint=${config.thrallKinesisEndpoint}, region=${config.awsRegion}")
     kinesisClientLibConfig(
-      kinesisAppName = config.thrallKinesisStream,
-      streamName = config.thrallKinesisStream,
+      kinesisAppName = config.streamName,
+      streamName = config.streamName,
       config,
       from = config.rewindFrom
     ).withKinesisEndpoint(config.thrallKinesisEndpoint)
