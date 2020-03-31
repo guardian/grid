@@ -9,5 +9,4 @@ module.exports = {
   devServer: {
     publicPath: '/public/dist/',
   },
-  devtool: "source-map",
 };
