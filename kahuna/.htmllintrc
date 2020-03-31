@@ -35,6 +35,5 @@
     "tag-name-lowercase": true,
     "tag-name-match": true,
     "tag-self-close": false,
-    "title-no-dup": true,
-    "link-req-noopener": false
+    "title-no-dup": true
 }
