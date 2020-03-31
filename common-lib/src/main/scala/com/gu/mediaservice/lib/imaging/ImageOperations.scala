@@ -129,13 +129,33 @@ class ImageOperations(playPath: String) {
 
   def transformImage(sourceFile: File, sourceMimeType: Option[String], tempDir: File): Future[File] = {
     for {
-      outputFile  <- createTempFile(s"transformed-", ".png", tempDir)
-      transformSource = addImage(sourceFile)
-      addOutput    = addDestImage(transformSource)(outputFile)
-      _           <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
+      outputFile       <- createTempFile(s"transformed-", ".png", tempDir)
+      transformSource   = addImage(sourceFile)
+      addOutput         = addDestImage(transformSource)(outputFile)
+      _                <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
+      actualOutputFile <- checkForOutputFileChange(outputFile)
     }
-      yield outputFile
+      yield actualOutputFile
   }
+
+  private def checkForOutputFileChange(f: File): Future[File] = Future {
+    val f2 = new File(f.getAbsolutePath, f.getName)
+    if (f2.exists()) {
+      f2
+    } else {
+      val fileBits = f.getAbsolutePath.split("\\.").toList
+      val mainPart = fileBits.dropRight(1).mkString(".")
+      val extension = fileBits.last
+      val newFile = List(s"${mainPart}-0", extension).mkString(".")
+      val f3 = new File(newFile)
+      if (f3.exists()) {
+        f3
+      } else {
+        throw new FileNotFoundException(f.getName)
+      }
+    }
+  }
+
 
 }
 

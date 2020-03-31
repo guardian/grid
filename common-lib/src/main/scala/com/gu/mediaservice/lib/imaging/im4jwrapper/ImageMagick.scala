@@ -34,7 +34,9 @@ object ImageMagick {
   def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = {
     Logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging operation $op")
 
-    Future((new ConvertCmd(!useImageMagick)).run(op))
+    val cmd = new ConvertCmd(!useImageMagick)
+    cmd.setAsyncMode(false)
+    Future(cmd.run(op))
   }
 
   def runIdentifyCmd(op: IMOperation): Future[List[String]] = Future {

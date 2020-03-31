@@ -1,6 +1,6 @@
 package model
 
-import java.io.File
+import java.io.{File, FileNotFoundException}
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -48,7 +48,8 @@ case object OptimisedPng {
 
 object OptimisedPngOps {
 
-  def build(file: File, uploadRequest: UploadRequest,
+  def build(file: File,
+            uploadRequest: UploadRequest,
             fileMetadata: FileMetadata,
             config: ImageUploadOpsCfg,
             storeOrProject: (UploadRequest, File) => Future[S3Object])(implicit ec: ExecutionContext): OptimisedPng = {
@@ -264,7 +265,7 @@ object Uploader {
       val optimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest, deps)
 
       optimiseFileFuture.flatMap(toOptimiseFile => {
-        Logger.info("optimised image created")(initialMarkers)
+        Logger.info(s"optimised image ($toOptimiseFile) created")(initialMarkers)
 
         val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
 
@@ -389,7 +390,6 @@ object Uploader {
         Future.apply(uploadedFile)
     }
   }
-
 
 }
 
