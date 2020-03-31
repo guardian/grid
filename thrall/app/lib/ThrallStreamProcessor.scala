@@ -39,10 +39,10 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
         TaggedRecord(r, LowPriority)
       }
 
-    val mergePreferred = g.add(MergePreferred.create[TaggedRecord[KinesisRecord]](2))
+    val mergePreferred = g.add(MergePreferred.create[TaggedRecord[KinesisRecord]](1))
 
-    highPriorityKinesisSource ~> mergePreferred.in(0)
-    lowPriorityKinesisSource  ~> mergePreferred.in(1)
+    highPriorityKinesisSource ~> mergePreferred.preferred
+    lowPriorityKinesisSource  ~> mergePreferred.in(0)
 
     SourceShape(mergePreferred.out)
   })
