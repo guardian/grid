@@ -10,12 +10,15 @@ import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
+import net.logstash.logback.marker.Markers
 import play.api.libs.json.{JsObject, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+
+import scala.collection.JavaConverters._
 
 case class BatchIndexHandlerConfig(
                                     apiKey: String,
@@ -264,7 +267,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
   // used to track images that were not projected successfully
   def updateStateToNotFoundImage(notFoundId: String) =
-    updateItemSate(notFoundId, NotFound.stateId)
+    updateItemState(notFoundId, NotFound.stateId)
 
   def updateStateToFound(ids: List[String]): ProduceProgress = {
     logger.info(s"updating items state to found")
@@ -285,30 +288,30 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   // used in situation if something failed
   def resetItemState(id: String): ProduceProgress = {
     logger.info("resetting items state")
-    updateItemSate(id, Reset.stateId)
+    updateItemState(id, Reset.stateId)
     Reset
   }
 
   // used in situation if something failed in a expected way and we want to ignore that file in next batch
    def setStateToKnownError(id: String): ProduceProgress = {
     logger.info("setting item to KnownError state to ignore it next time")
-    updateItemSate(id, KnownError.stateId)
+    updateItemState(id, KnownError.stateId)
     KnownError
   }
 
   def setStateToUnknownError(id: String): ProduceProgress = {
     logger.info("setting item to UnknownError state to ignore it next time")
-    updateItemSate(id, UnknownError.stateId)
+    updateItemState(id, UnknownError.stateId)
     UnknownError
   }
 
-  def setStateToTooBig(id: String): ProduceProgress = {
-    logger.info("setting item to TooBig state to ignore it next time")
-    updateItemSate(id, TooBig.stateId)
+  def setStateToTooBig(id: String, size: Int): ProduceProgress = {
+    logger.info(Markers.appendEntries(Map("tooBigSize" -> size).asJava),"setting item to TooBig state to ignore it next time")
+    updateItemState(id, TooBig.stateId)
     TooBig
   }
 
-  private def updateItemSate(id: String, state: Int) = {
+  private def updateItemState(id: String, state: Int) = {
     val us = new UpdateItemSpec().
       withPrimaryKey(PKField, id).
       withUpdateExpression(s"set $StateField = :sub")
@@ -317,7 +320,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   private def updateItemsState(ids: List[String], progress: ProduceProgress): ProduceProgress = {
-    ids.foreach(id => updateItemSate(id, progress.stateId))
+    ids.foreach(id => updateItemState(id, progress.stateId))
     progress
   }
 
