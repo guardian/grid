@@ -83,7 +83,7 @@ class ImageLoaderController(auth: Authentication,
         Accepted(r).as(ArgoMediaType)
       } recover {
         case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e.uploadRequest, config.supportedMimeTypes).as(ArgoMediaType)
-        case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
+        case e: ImageProcessingException => e.printStackTrace(System.out); FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
         case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
       }
       Logger.info("loadImage request end")

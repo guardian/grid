@@ -250,21 +250,22 @@ object Uploader {
       val fileMetadataMarkers: LogstashMarker = initialMarkers.and(fileMetadata.toLogMarker)
       Logger.info("Have read file metadata")(fileMetadataMarkers)
 
-      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-      val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
       Logger.info("stored source file")(initialMarkers)
       // FIXME: pass mimeType
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
-      val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
+      //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
+      val newUploadRequest = createOptimisedFileFuture(uploadRequest, deps)
+
+      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+      val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
 
       Logger.info("thumbnail created")(initialMarkers)
 
-      //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
-      val optimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest, deps)
-
-      optimiseFileFuture.flatMap(toOptimiseFile => {
+      newUploadRequest.flatMap(uploadRequest => {
+        val toOptimiseFile = uploadRequest.tempFile
+        val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
         Logger.info("optimised image created")(initialMarkers)
 
         val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
@@ -276,7 +277,7 @@ object Uploader {
 
           val finalImage = toFinalImage(
             sourceStoreFuture,
-            thumbStoreFuture,
+            thumbStoreFuture,ImageOperations
             sourceDimensionsFuture,
             thumbDimensionsFuture,
             fileMetadataFuture,
@@ -287,6 +288,7 @@ object Uploader {
 
           Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(initialMarkers)
           uploadedFile.delete()
+          toOptimiseFile.delete()
 
           finalImage
         }
@@ -374,20 +376,22 @@ object Uploader {
   }
 
   private def createOptimisedFileFuture(uploadRequest: UploadRequest,
-                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
+                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[UploadRequest] = {
     import deps._
-    val uploadedFile = uploadRequest.tempFile
     uploadRequest.mimeType match {
       case Some(mime) => mime match {
         case _ if config.transcodedMimeTypes.contains(mime) =>
           for {
-            transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir)
-          } yield transformedImage
+            transformedImage <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, config.tempDir)
+          } yield (uploadRequest
+            // This file has been converted.
+            .copy(mimeType = Some("image/jpg"))
+            .copy(tempFile = transformedImage))
         case _ =>
-          Future.apply(uploadedFile)
+          Future.successful(uploadRequest)
       }
       case _ =>
-        Future.apply(uploadedFile)
+        Future.successful(uploadRequest)
     }
   }
 

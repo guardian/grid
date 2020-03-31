@@ -233,8 +233,9 @@ object FileMetadataReader {
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
 
-  private def readMetadata(file: File): Future[Metadata] =
-    Future(ImageMetadataReader.readMetadata(file))
+  private def readMetadata(file: File): Future[Metadata] = Future {
+    ImageMetadataReader.readMetadata(file)
+  }
 
   // Helper to flatten maps of options
   implicit class MapFlattener[K, V](val map: Map[K, Option[V]]) {
