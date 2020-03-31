@@ -12,7 +12,7 @@ sealed trait MimeType {
     case Tiff => "image/tiff"
   }
 
-  def fileExtension: String = name.split('/').reverse.head
+  def fileExtension: String = s".${name.split('/').reverse.head}"
 
   override def toString: String = this.name
 }
@@ -46,7 +46,7 @@ object MimeType {
 }
 
 object Jpeg extends MimeType {
-  override def fileExtension: String = "jpg"
+  override def fileExtension: String = ".jpg"
 }
 
 object Png extends MimeType

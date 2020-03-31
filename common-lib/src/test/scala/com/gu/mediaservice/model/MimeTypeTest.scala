@@ -27,9 +27,9 @@ class MimeTypeTest extends FunSpec with Matchers {
   }
 
   it("should have a file extension") {
-    Jpeg.fileExtension should be ("jpg")
-    Png.fileExtension should be ("png")
-    Tiff.fileExtension should be ("tiff")
+    Jpeg.fileExtension should be (".jpg")
+    Png.fileExtension should be (".png")
+    Tiff.fileExtension should be (".tiff")
   }
 
   it("should serialise to json") {

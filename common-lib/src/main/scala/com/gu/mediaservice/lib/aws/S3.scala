@@ -46,7 +46,13 @@ class S3(config: CommonConfig) {
       case OptimisedPng => image.optimisedPng.getOrElse(image.source)
     }
 
-    val extension: String = asset.mimeType.getOrElse(throw new Exception("Unsupported mime type")).fileExtension
+    val extension: String = asset.mimeType match {
+      case Some(mimeType) => mimeType.fileExtension
+      case _ => {
+        Logger.warn("Unrecognised mime type")(image.toLogMarker)
+        ""
+      }
+    }
 
     val baseFilename: String = image.uploadInfo.filename match {
       case Some(f) => s"${removeExtension(f)} (${image.id})$extension"
