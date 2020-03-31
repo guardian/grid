@@ -9,7 +9,7 @@ import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HealthCheck(elasticsearch: ElasticSearch, streamRunning: Future[_], config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit override val ec: ExecutionContext)
+class HealthCheck(elasticsearch: ElasticSearch, streamRunning: => Boolean, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit override val ec: ExecutionContext)
   extends ElasticSearchHealthCheck(controllerComponents, elasticsearch) with ArgoHelpers {
 
   override def healthCheck = Action.async {
@@ -27,7 +27,7 @@ class HealthCheck(elasticsearch: ElasticSearch, streamRunning: Future[_], config
 
   private def streamRunningHealth: Option[String] = {
     // A completed actor system whenTerminated Future is a sign that the actor system has terminated and is no longer running
-    if (streamRunning.isCompleted)
+    if (streamRunning)
       Some("Thrall stream appears to have stopped")
     else
       None
