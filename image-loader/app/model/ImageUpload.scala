@@ -352,8 +352,7 @@ object Uploader {
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[String]): Future[FileMetadata] = {
     mimeType match {
-      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
-      case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some("image/png" | "image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }
