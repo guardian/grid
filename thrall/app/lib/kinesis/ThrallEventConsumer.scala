@@ -1,12 +1,9 @@
 package lib.kinesis
 
-import java.util
+import java.time.Instant
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
-import com.amazonaws.services.kinesis.model.Record
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
@@ -14,10 +11,10 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
 import org.joda.time.DateTime
+import play.api.Logger
 import play.api.libs.json.{JodaReads, Json, Reads}
-import play.api.{Logger, MarkerContext}
 
-import scala.concurrent.duration.{FiniteDuration, SECONDS, MILLISECONDS}
+import scala.concurrent.duration.{FiniteDuration, MILLISECONDS, SECONDS}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
@@ -27,7 +24,7 @@ class ThrallEventConsumer(es: ElasticSearch,
                           metadataEditorNotifications: MetadataEditorNotifications,
                           syndicationRightsOps: SyndicationRightsOps,
                           bulkIndexS3Client: BulkIndexS3Client,
-                          actorSystem: ActorSystem) extends IRecordProcessor with PlayJsonHelpers {
+                          actorSystem: ActorSystem) extends PlayJsonHelpers {
 
   private val attemptTimeout = FiniteDuration(20, SECONDS)
   private val delay = FiniteDuration(1, MILLISECONDS)
@@ -41,37 +38,12 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  override def initialize(shardId: String): Unit = {
-    Logger.info(s"Initialized an event processor for shard $shardId")
-  }
-
-  override def processRecords(records: util.List[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
-    import scala.collection.JavaConverters._
-    Logger.info("Processing kinesis record batch of size: " + records.size)
-
-    try {
-      val messages = records.asScala.toList.flatMap(parseRecord)
-
-      OrderedFutureRunner.run(processUpdateMessage,timeout)(messages)
-
-      try {
-        checkpointer.checkpoint(records.asScala.last)
-      } catch {
-        case e: Throwable => Logger.error("Exception during checkpoint: ", e)
-      }
-    } catch {
-      case e: Throwable =>
-        Logger.error("Exception during process records: ", e)
-    }
-  }
-
-  private def parseRecord(r: Record):Option[UpdateMessage] = {
+  def parseRecord(r: Array[Byte], timestamp: Instant):Option[UpdateMessage] = {
     implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads
     implicit val unr = Json.reads[UsageNotice]
     implicit val umr = Json.reads[UpdateMessage]
-    val timestamp = r.getApproximateArrivalTimestamp
 
-    Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r.getData.array)) match {
+    Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
       case Success(Some(updateMessage: UpdateMessage)) => {
         Logger.info(s"Received ${updateMessage.subject} message at $timestamp")(updateMessage.toLogMarker)
         Some(updateMessage)
@@ -87,7 +59,7 @@ class ThrallEventConsumer(es: ElasticSearch,
     }
   }
 
-  private def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
+  def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
     val marker = updateMessage
 
     val stopwatch = Stopwatch.start
@@ -135,11 +107,5 @@ class ThrallEventConsumer(es: ElasticSearch,
           }
         }
       }
-
-  override def shutdown(checkpointer: IRecordProcessorCheckpointer, reason: ShutdownReason): Unit = {
-    if (reason == ShutdownReason.TERMINATE) {
-      checkpointer.checkpoint()
-    }
-  }
 
 }
