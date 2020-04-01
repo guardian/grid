@@ -49,22 +49,32 @@ async.factory("race", [
 ]);
 
 async.service("queue", [
-  "$q",
-  "delay",
-  ($q, delay) => {
+  () => {
+    const JITTER = 100;
+    const BACKOFF_BASE = 2;
+    const INITIAL_BACKOFF_WAIT = 500;
+    const MAX_WORKERS = 5;
+
+    const getBackoffTimeFromRetries = noOfRetries => {
+      const jitter = Math.floor(Math.random() * JITTER);
+      const wait = INITIAL_BACKOFF_WAIT * BACKOFF_BASE ** noOfRetries + jitter;
+      return wait;
+    };
+
     let queue = [];
     let running = false;
     console.log("instantiating queue");
-    const add = ({ promise, func }) => {
+    const add = ({ promise, func, backoff = 0 }) => {
       console.log("adding to queue", func);
-      queue.push({ promise, func });
+      queue.push({ promise, func, backoff });
       console.log(queue.length, JSON.stringify(queue));
       if (!running) {
-        setTimeout(() => run(), 0);
+        run();
       }
     };
+
     let thingsDone = 0;
-    const run = () => {
+    const startWorker = () => {
       running = true;
       if (queue.length === 0) {
         console.log("We did ", thingsDone, "things");
@@ -73,21 +83,32 @@ async.service("queue", [
         return;
       }
       thingsDone++;
-      const { promise, func } = queue.shift();
+      const { promise, func, retries } = queue.shift();
       console.log(`Shifted task off queue, queue now ${queue.length} long`);
       func()
-        .then(resolved => promise.resolve(resolved))
+        .then(resolved => {
+          promise.resolve(resolved);
+        })
         .catch(() => {
           console.log("poll failed");
-          add({ promise, func });
+          setTimeout(() => {
+            add({ promise, func, retries: retries + 1 });
+          }, getBackoffTimeFromRetries(retries));
         })
         .finally(() => {
           console.log("task complete");
-          delay(500).then(() => {
-            setTimeout(() => run(), 0);
-          });
+          // This adds the subsequent run call to the next tick,
+          // ensuring it is run in a new call stack.
+          setTimeout(() => startWorker(), 0);
         });
     };
+
+    const run = () => {
+      for (let i = 0; i < MAX_WORKERS; i++) {
+        setTimeout(startWorker(), 0);
+      }
+    };
+
     return { add };
   }
 ]);
