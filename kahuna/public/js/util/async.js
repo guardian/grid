@@ -113,7 +113,7 @@ async.service("queue", [
   }
 ]);
 
-async.factory("pollQ", [
+async.factory("apiPoll", [
   "$q",
   "queue",
   ($q, queue) => {
@@ -123,57 +123,6 @@ async.factory("pollQ", [
       console.log("adding in pollQ", func);
       queue.add({ promise: deferred, func });
       return deferred.promise;
-    };
-  }
-]);
-
-async.factory("poll", [
-  "$q",
-  "delay",
-  "race",
-  function($q, delay, race) {
-    function poll(func, pollEvery, maxWait) {
-      var timeout = delay(maxWait).then(() => $q.reject(new Error("timeout")));
-
-      // Returns the result of promise or a rejected timeout
-      // promise, whichever happens first
-      function withTimeout(promise) {
-        return race([promise, timeout]);
-      }
-
-      const JITTER = 100;
-      const BACKOFF = 2;
-      let i = 0;
-
-      const withBackoff = () => {
-        const jitter = Math.floor(Math.random() * JITTER);
-        const wait = pollEvery * BACKOFF ** i++ + jitter;
-        return wait;
-      };
-
-      function pollRecursive() {
-        return func().catch(() => {
-          return withTimeout(delay(withBackoff())).then(pollRecursive);
-        });
-      }
-
-      return withTimeout(pollRecursive());
-    }
-
-    return poll;
-  }
-]);
-
-// Polling with sensible defaults for API polling
-async.factory("apiPoll", [
-  "pollQ",
-  function(pollQ) {
-    // const pollFrequency = 500; // ms
-    // const pollTimeout   = 30 * 1000; // ms
-    return func => {
-      const p = pollQ(func);
-      console.log(p);
-      return p;
     };
   }
 ]);
