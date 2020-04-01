@@ -67,7 +67,7 @@ async.factory('pollQ', ['$q', 'delay'],
       func().then(resolved => promise.resolve(resolved)).catch(()=>{
         queue.push({promise, func});
       }).finally(()=>{
-        delay().then(()=>{
+        delay(500).then(()=>{
         setTimeout(()=>run(),0);
         });
       });
