@@ -30,7 +30,7 @@ describe('queue', () => {
   it("should run functions one after the other with one worker", async () => {
     const q = createQueue({ maxWorkers: 1 });
     let executions = [];
-    const runner = (timeout, value)=>() => new Promise((resolve) => {
+    const runner = (timeout, value) => () => new Promise((resolve) => {
       setTimeout(() => {
         executions.push(value);
         resolve(executions);
