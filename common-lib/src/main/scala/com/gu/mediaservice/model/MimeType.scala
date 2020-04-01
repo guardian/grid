@@ -26,11 +26,11 @@ object MimeType {
     // Support crops created in the early years of Grid (~2016) which state mime type w/out an 'image/' prefix
     // TODO correct these values in a reindex
     case "jpg" => {
-      Logger.info("Encountered legacy mime type representation")
+      Logger.info("Encountered legacy mime type representation (jpg)")
       Jpeg
     }
     case "png" => {
-      Logger.info("Encountered legacy mime type representation")
+      Logger.info("Encountered legacy mime type representation (png)")
       Png
     }
 
