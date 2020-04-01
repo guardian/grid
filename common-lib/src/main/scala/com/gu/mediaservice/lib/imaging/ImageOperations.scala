@@ -147,7 +147,7 @@ class ImageOperations(playPath: String) {
     if (f2.exists()) {
       // f HAS been renamed to blah-0.  Rename it right back!
       f2.renameTo(f)
-      // Tidy up any other files (blah-1 etc will be created for each subsequent layer)
+      // Tidy up any other files (blah-1,2,3com.gu.mediaservice.lib.imaging.ImageOperations etc will be created for each subsequent layer)
       cleanUpLayerFiles(mainPart, extension, 1)
     }
   }
