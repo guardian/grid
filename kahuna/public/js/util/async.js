@@ -1,4 +1,5 @@
 import angular from "angular";
+import { createQueue } from "./queue";
 
 export var async = angular.module("util.async", []);
 
@@ -48,84 +49,16 @@ async.factory("race", [
   }
 ]);
 
-async.service("queue", [
-  () => {
-    const JITTER = 100;
-    const BACKOFF_BASE = 2;
-    const INITIAL_BACKOFF_WAIT = 500;
-    const MAX_WORKERS = 5;
-    const MAX_RETRIES = 30;
-
-    const getBackoffTimeFromRetries = noOfRetries => {
-      const jitter = Math.floor(Math.random() * JITTER);
-      const wait = INITIAL_BACKOFF_WAIT * BACKOFF_BASE ** noOfRetries + jitter;
-      return wait;
-    };
-
-    let queue = [];
-    let running = false;
-    console.log("instantiating queue");
-    const add = ({ promise, func, backoff = 0 }) => {
-      console.log("adding to queue", func);
-      queue.push({ promise, func, backoff });
-      console.log(queue.length, JSON.stringify(queue));
-      if (!running) {
-        run();
-      }
-    };
-
-    let thingsDone = 0;
-    const startWorker = () => {
-      running = true;
-      if (queue.length === 0) {
-        console.log("We did ", thingsDone, "things");
-        thingsDone = 0;
-        running = false;
-        return;
-      }
-      thingsDone++;
-      const { resolve, reject, func, retries } = queue.shift();
-      console.log(`Shifted task off queue, queue now ${queue.length} long`);
-      func()
-        .then(resolved => {
-          resolve(resolved);
-        })
-        .catch(() => {
-          console.log("poll failed");
-          if (retries >= MAX_RETRIES){
-            console.error("MAX RETRIES EXCEEDED");
-            reject(new Error("Max retries exceeded."));
-          }
-          setTimeout(() => {
-            add({ resolve, reject, func, retries: retries + 1 });
-          }, getBackoffTimeFromRetries(retries));
-        })
-        .finally(() => {
-          console.log("task complete");
-          // This adds the subsequent run call to the next tick,
-          // ensuring it is run in a new call stack.
-          setTimeout(() => startWorker(), 0);
-        });
-    };
-
-    const run = () => {
-      for (let i = 0; i < MAX_WORKERS; i++) {
-        setTimeout(startWorker(), 0);
-      }
-    };
-
-    return { add };
-  }
-]);
+async.service("queue", [() => {
+  return createQueue();
+}]);
 
 async.factory("apiPoll", [
   "$q",
   "queue",
   ($q, queue) => {
-    console.log("instantiating pollQ with ", queue);
     return func => {
       let {promise, resolve, reject} = $q.defer();
-      console.log("adding in pollQ", func);
       queue.add({ resolve, reject, func });
       return promise;
     };
