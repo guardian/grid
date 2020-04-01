@@ -10,6 +10,11 @@ class MimeTypeTest extends FunSpec with Matchers {
     MimeType("image/tiff") should be (Tiff)
   }
 
+  it("should construct a mime type from a legacy string") {
+    MimeType("jpg") should be (Jpeg)
+    MimeType("png") should be (Png)
+  }
+
   it("should raise an UnsupportedMimeTypeException with an unsupported mime type") {
     an [UnsupportedMimeTypeException] should be thrownBy MimeType("audio/mp3")
   }
