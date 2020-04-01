@@ -49,8 +49,10 @@ async.factory("race", [
   }
 ]);
 
-async.service("queue", [() => {
-  return createQueue();
+async.service("queue", ['$timeout', ($timeout) => {
+  return createQueue({
+    timeout: $timeout
+  });
 }]);
 
 async.factory("apiPoll", [
