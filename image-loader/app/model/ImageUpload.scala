@@ -255,20 +255,15 @@ object Uploader {
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
-      //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
-      val newUploadRequest = createOptimisedFileFuture(uploadRequest, deps)
-
-      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+      // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
+      createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
-
-      Logger.info("thumbnail created")(initialMarkers)
-
-      newUploadRequest.flatMap(uploadRequest => {
         val toOptimiseFile = uploadRequest.tempFile
         val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
-        Logger.info("optimised image created")(initialMarkers)
+        Logger.info("thumbnail created")(initialMarkers)
 
         val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
+        Logger.info("optimised image created")(initialMarkers)
 
         bracket(thumbFuture)(_.delete) { thumb =>
           // Run the operations in parallel
@@ -277,7 +272,7 @@ object Uploader {
 
           val finalImage = toFinalImage(
             sourceStoreFuture,
-            thumbStoreFuture,ImageOperations
+            thumbStoreFuture,
             sourceDimensionsFuture,
             thumbDimensionsFuture,
             fileMetadataFuture,
