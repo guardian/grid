@@ -54,6 +54,7 @@ async.service("queue", [
     const BACKOFF_BASE = 2;
     const INITIAL_BACKOFF_WAIT = 500;
     const MAX_WORKERS = 5;
+    const MAX_RETRIES = 30;
 
     const getBackoffTimeFromRetries = noOfRetries => {
       const jitter = Math.floor(Math.random() * JITTER);
@@ -91,7 +92,10 @@ async.service("queue", [
         })
         .catch(() => {
           console.log("poll failed");
-
+          if (retries >= MAX_RETRIES){
+            console.error("MAX RETRIES EXCEEDED");
+            reject(new Error("Max retries exceeded."));
+          }
           setTimeout(() => {
             add({ resolve, reject, func, retries: retries + 1 });
           }, getBackoffTimeFromRetries(retries));
@@ -120,10 +124,10 @@ async.factory("apiPoll", [
   ($q, queue) => {
     console.log("instantiating pollQ with ", queue);
     return func => {
-      let deferred = $q.defer();
+      let {promise, resolve, reject} = $q.defer();
       console.log("adding in pollQ", func);
-      queue.add({ promise: deferred, func });
-      return deferred.promise;
+      queue.add({ resolve, reject, func });
+      return promise;
     };
   }
 ]);
