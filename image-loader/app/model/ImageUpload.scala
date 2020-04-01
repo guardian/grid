@@ -18,7 +18,7 @@ import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConver
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
 import lib.{DigestedFile, ImageLoaderConfig, Notifications}
-import lib.imaging.{FileMetadataReader, MimeTypeDetection, UnsupportedMimeTypeException}
+import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
 import net.logstash.logback.marker.LogstashMarker
 import org.joda.time.DateTime
@@ -161,30 +161,29 @@ class Uploader(val store: ImageLoaderStore,
 
     // TODO: should error if the JSON parsing failed
     val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
-    val guessedMimeType = MimeTypeDetection.guessMimeType(tempFile_)
-    Logger.info(s"Detected mimetype as ${guessedMimeType.getOrElse(FALLBACK)}")(requestLoggingContext.toMarker())
-    val uploadedBy_ = uploadedBy match {
-      case Some(by) => by
-      case None => Authentication.getIdentity(user)
+
+    MimeTypeDetection.guessMimeType(tempFile_) match {
+      case util.Left(unsupported) => Future.failed(unsupported)
+      case util.Right(mimeType) => {
+        Logger.info(s"Detected mimetype as $mimeType")(requestLoggingContext.toMarker())
+        val uploadedBy_ = uploadedBy match {
+          case Some(by) => by
+          case None => Authentication.getIdentity(user)
+        }
+        val uploadRequest = UploadRequest(
+          requestId = requestLoggingContext.requestId,
+          imageId = id_,
+          tempFile = tempFile_,
+          mimeType = Some(mimeType),
+          uploadTime = uploadTime,
+          uploadedBy = uploadedBy_,
+          identifiers = identifiersMap,
+          uploadInfo = UploadInfo(filename)
+        )
+
+        Future.successful(uploadRequest)
+      }
     }
-    val uploadRequest = UploadRequest(
-      requestId = requestLoggingContext.requestId,
-      imageId = id_,
-      tempFile = tempFile_,
-      mimeType = guessedMimeType,
-      uploadTime = uploadTime,
-      uploadedBy = uploadedBy_,
-      identifiers = identifiersMap,
-      uploadInfo = UploadInfo(filename)
-    )
-
-    // Abort early if unsupported mime-type
-    val supportedMimeType = config.supportedMimeTypes.exists(guessedMimeType.contains(_))
-    if (!supportedMimeType)
-      Future.failed(new UnsupportedMimeTypeException(uploadRequest, guessedMimeType.getOrElse("Not Provided")))
-
-    Future.successful(uploadRequest)
-
   }
 
   def storeFile(uploadRequest: UploadRequest)(implicit requestLoggingContext: RequestLoggingContext, ec:ExecutionContext): Future[JsObject] = {
@@ -205,20 +204,22 @@ class Uploader(val store: ImageLoaderStore,
 
 }
 
-case class ImageUploadOpsCfg(tempDir: File,
-                             thumbWidth: Int,
-                             thumbQuality: Double,
-                             transcodedMimeTypes: List[String],
-                             originalFileBucket: String,
-                             thumbBucket: String
-                            )
+case class ImageUploadOpsCfg(
+  tempDir: File,
+  thumbWidth: Int,
+  thumbQuality: Double,
+  transcodedMimeTypes: List[MimeType],
+  originalFileBucket: String,
+  thumbBucket: String
+)
 
-case class ImageUploadOpsDependencies(config: ImageUploadOpsCfg,
-                                      imageOps: ImageOperations,
-                                      storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
-                                      storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
-                                      storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
-                                     )
+case class ImageUploadOpsDependencies(
+  config: ImageUploadOpsCfg,
+  imageOps: ImageOperations,
+  storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
+  storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
+  storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
+)
 
 object Uploader {
 

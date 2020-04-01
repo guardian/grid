@@ -3,7 +3,7 @@ package com.gu.mediaservice.model
 import play.api.Logger
 import play.api.libs.json._
 
-class UnsupportedMimeTypeException extends Exception
+class UnsupportedMimeTypeException(val mimeType: String) extends Exception
 
 sealed trait MimeType {
   def name: String = this match {
@@ -36,7 +36,7 @@ object MimeType {
 
     case _ => {
       Logger.warn(s"Unsupported mime type $value")
-      throw new UnsupportedMimeTypeException
+      throw new UnsupportedMimeTypeException(value)
     }
   }
 
