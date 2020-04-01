@@ -83,16 +83,17 @@ async.service("queue", [
         return;
       }
       thingsDone++;
-      const { promise, func, retries } = queue.shift();
+      const { resolve, reject, func, retries } = queue.shift();
       console.log(`Shifted task off queue, queue now ${queue.length} long`);
       func()
         .then(resolved => {
-          promise.resolve(resolved);
+          resolve(resolved);
         })
         .catch(() => {
           console.log("poll failed");
+
           setTimeout(() => {
-            add({ promise, func, retries: retries + 1 });
+            add({ resolve, reject, func, retries: retries + 1 });
           }, getBackoffTimeFromRetries(retries));
         })
         .finally(() => {
