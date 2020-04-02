@@ -1,15 +1,15 @@
-<div ng:click="ctrl.callBatchCrop(); $event.stopPropagation();"
-     gr:track-click="Full frame button"
+<div ng-click="ctrl.callBatchCrop(); $event.stopPropagation();"
+     gr-track-click="Full frame button"
      confirmed="false"
      needsConfirmation="false"
      ng-if="!ctrl.allHaveFullCrops"
      class="inner-clickable clickable">
-        <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}" ng:hide="ctrl.needsConfirmation">Crop<span ng:if="ctrl.cropping">ping</span> full frame<span ng:if="ctrl.cropping">…</span></gr-icon-label>
-        <gr-icon-label gr-icon="check_circle" ng:show="ctrl.needsConfirmation">Confirm full frame</gr-icon-label>
+        <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}" ng-hide="ctrl.needsConfirmation">Crop<span ng-if="ctrl.cropping">ping</span> full frame<span ng-if="ctrl.cropping">…</span></gr-icon-label>
+        <gr-icon-label gr-icon="check_circle" ng-show="ctrl.needsConfirmation">Confirm full frame</gr-icon-label>
 </div>
 <div
-     gr:tooltip="Selected images have full frames"
-     gr:tooltip-position="bottom"
+     gr-tooltip="Selected images have full frames"
+     gr-tooltip-position="bottom"
      ng-if="ctrl.allHaveFullCrops"
      class="inner-clickable inner-clickable--disabled">
         <gr-icon-label gr-icon="crop">Crop full frame</gr-icon-label>

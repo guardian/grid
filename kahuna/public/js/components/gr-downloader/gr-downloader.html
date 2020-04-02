@@ -1,25 +1,25 @@
 <span class="download">
     <button type="button"
             title="Download images"
-            ng:disabled="ctrl.downloading"
-            ng:if="ctrl.imageCount() > 1"
-            ng:click="ctrl.download('downloadUri')">
+            ng-disabled="ctrl.downloading"
+            ng-if="ctrl.imageCount() > 1"
+            ng-click="ctrl.download('downloadUri')">
         <gr-icon-label gr-icon="file_download">
-            Download<span ng:show="ctrl.downloading">ing</span>
+            Download<span ng-show="ctrl.downloading">ing</span>
         </gr-icon-label>
     </button>
 
-    <a ng:if="ctrl.imageCount() == 1"
+    <a ng-if="ctrl.imageCount() == 1"
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank">
         <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
     </a>
 
-    <button ng:if="ctrl.imageCount() == 1"
+    <button ng-if="ctrl.imageCount() == 1"
             class="drop-menu clickable inner-clickable side-padded button-right-side"
-            ng:click="showExpandedDownload = !showExpandedDownload">
+            ng-click="showExpandedDownload = !showExpandedDownload">
         <span>▾</span>
-        <a ng:if="showExpandedDownload"
-            ng:href="{{:: ctrl.firstImageUris.uris.lowResDownloadUri }}"
+        <a ng-if="showExpandedDownload"
+            ng-href="{{:: ctrl.firstImageUris.uris.lowResDownloadUri }}"
             class="drop-menu__items drop-menu__items--nopad"
             download
             rel="noopener"
@@ -28,12 +28,12 @@
         </a>
     </button>
 
-    <button ng:if="ctrl.imageCount() > 1"
+    <button ng-if="ctrl.imageCount() > 1"
             class="drop-menu clickable inner-clickable side-padded button-right-side"
-            ng:click="showExpandedDownload = !showExpandedDownload">
+            ng-click="showExpandedDownload = !showExpandedDownload">
         <span>▾</span>
-        <a ng:if="showExpandedDownload"
-            ng:click="ctrl.download('lowResDownloadUri')"
+        <a ng-if="showExpandedDownload"
+            ng-click="ctrl.download('lowResDownloadUri')"
             class="drop-menu__items drop-menu__items--nopad">
             <gr-icon-label gr-icon="file_download">Download low-res</gr-icon-label>
         </a>

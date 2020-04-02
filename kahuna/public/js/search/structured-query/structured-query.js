@@ -51,7 +51,7 @@ grStructuredQuery.directive('grStructuredQuery', ['subscribe$', function(subscri
         require: ['grStructuredQuery', 'ngModel'],
         template: `
 <gr-chips autofocus="autofocus"
-          ng:model="ctrl.structuredQuery"
+          ng-model="ctrl.structuredQuery"
           gr:valid-keys="ctrl.filterFields"
           gr:on-change="ctrl.structuredQueryChanged($chips)"
           gr:autocomplete="ctrl.getSuggestions($chip)">

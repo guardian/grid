@@ -4,34 +4,34 @@
     <div class="result-editor__result">
 
         <!-- only give the image link if the image is valid -->
-        <div ng:switch="ctrl.status === 'ready'" class="image-actions-container">
+        <div ng-switch="ctrl.status === 'ready'" class="image-actions-container">
             <a class="result-editor__img-link"
-               ng:switch-when="true"
-               ui:sref="image({imageId: ctrl.image.data.id})"
-               ui:drag-data="ctrl.image | asImageDragData">
+               ng-switch-when="true"
+               ui-sref="image({imageId: ctrl.image.data.id})"
+               ui-drag-data="ctrl.image | asImageDragData">
 
                 <img class="result-editor__img"
                      alt="original image thumbnail"
-                     ng:src="{{:: ctrl.image.data.thumbnail | assetFile}}"
-                     gr:image-fade-on-load
+                     ng-src="{{:: ctrl.image.data.thumbnail | assetFile}}"
+                     gr-image-fade-on-load
                  />
             </a>
 
             <img class="result-editor__img"
                  alt="original image thumbnail"
-                 ng:switch-default
-                 ng:src="{{:: ctrl.image.data.thumbnail | assetFile}}"
-                 gr:image-fade-on-load
+                 ng-switch-default
+                 ng-src="{{:: ctrl.image.data.thumbnail | assetFile}}"
+                 gr-image-fade-on-load
              />
 
             <ul class="image-actions"
-                ng:if="ctrl.image.data.valid">
+                ng-if="ctrl.image.data.valid">
                 <li>
                     <a class="image-action image-action--first"
                        rel="noopener"
                        target="_blank"
                        title="Pop out"
-                       ng:href="/images/{{:: ctrl.image.data.id}}">
+                       ng-href="/images/{{:: ctrl.image.data.id}}">
                         <gr-icon>open_in_new</gr-icon>
                     </a>
                 </li>
@@ -39,7 +39,7 @@
                 <li>
                     <a class="image-action"
                        title="crop"
-                       ui:sref="crop({ imageId: ctrl.image.data.id })">
+                       ui-sref="crop({ imageId: ctrl.image.data.id })">
                         <gr-icon>crop</gr-icon>
                     </a>
                 </li>
@@ -48,29 +48,29 @@
 
         <div class="result-editor__info">
             <div class="result-editor__info-item result-editor__info-item--first"
-                 ng:switch="ctrl.image.data.cost">
+                 ng-switch="ctrl.image.data.cost">
                 <span class="result-editor__status status status--invalid"
-                      ng:switch-when="pay">Pay to use</span>
+                      ng-switch-when="pay">Pay to use</span>
 
                 <span class="result-editor__status status status--invalid"
-                      ng:switch-when="overquota">Quota exceeded for this supplier</span>
+                      ng-switch-when="overquota">Quota exceeded for this supplier</span>
 
                 <span class="result-editor__status status status--valid"
-                      ng:switch-when="free">Free to use</span>
+                      ng-switch-when="free">Free to use</span>
 
                 <span class="result-editor__status status"
-                      ng:switch-when="conditional">Restricted use</span>
+                      ng-switch-when="conditional">Restricted use</span>
             </div>
 
             <div class="result-editor__info-item"
-                 ng:switch="ctrl.status">
+                 ng-switch="ctrl.status">
                 <a class="result-editor__status status status--valid"
-                   ng:switch-when="ready"
-                   ui:sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
+                   ng-switch-when="ready"
+                   ui-sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
 
                 <a class="result-editor__status status status--invalid"
-                   ng:switch-when="invalid"
-                   ui:sref="image({imageId: ctrl.image.data.id})">
+                   ng-switch-when="invalid"
+                   ui-sref="image({imageId: ctrl.image.data.id})">
                         Unusable
                    <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon>
                 </a>
@@ -82,13 +82,13 @@
         </div>
         <span class="result-editor__save-status-container">
             <span class="result-editor__save-status"
-                  ng:show="ctrl.saving">Saving… <span class="saving">⧖</span>
+                  ng-show="ctrl.saving">Saving… <span class="saving">⧖</span>
             </span>
             <span class="result-editor__save-status"
-                  ng:show="ctrl.saved">Saved</span>
+                  ng-show="ctrl.saved">Saved</span>
 
             <span class="result-editor__save-status result-editor__save-status--error"
-                  ng:show="ctrl.error">Something went wrong… try again?</span>
+                  ng-show="ctrl.error">Something went wrong… try again?</span>
         </span>
     </div>
 
@@ -101,26 +101,26 @@
                 </span>
 
                 <div class="result-editor__usage-rights-container">
-                    <div ng:hide="ctrl.showUsageRights" class="result-editor__field-value">
+                    <div ng-hide="ctrl.showUsageRights" class="result-editor__field-value">
                         <span>{{ctrl.usageRightsCategory || 'None'}}</span>
-                        <button class="image-info__edit" ng:click="ctrl.showUsageRights = !ctrl.showUsageRights">
+                        <button class="image-info__edit" ng-click="ctrl.showUsageRights = !ctrl.showUsageRights">
                             <gr-icon>edit</gr-icon>
                         </button>
                         <button
                             class="job-editor__apply-to-all"
                             title="Apply these rights &amp; restrictions to all your current uploads"
                             type="button"
-                            ng:if="ctrl.withBatch"
-                            ng:click="ctrl.batchApplyUsageRights()"
+                            ng-if="ctrl.withBatch"
+                            ng-click="ctrl.batchApplyUsageRights()"
                             >⇔</button>
                     </div>
 
                     <gr-usage-rights-editor
-                        ng:if="ctrl.showUsageRights"
+                        ng-if="ctrl.showUsageRights"
                         class="result-editor__usage-rights"
-                        gr:usage-rights="[ctrl.usageRights]"
-                        gr:on-save="ctrl.showUsageRights = false"
-                        gr:on-cancel="ctrl.showUsageRights = false">
+                        gr-usage-rights="[ctrl.usageRights]"
+                        gr-on-save="ctrl.showUsageRights = false"
+                        gr-on-cancel="ctrl.showUsageRights = false">
                     </gr-usage-rights-editor>
                 </div>
             </div>
@@ -130,10 +130,10 @@
                     Leases
                 </span>
                 <div class="result-editor__field-container__leases flex-spacer">
-                    <gr-leases gr:images="[ctrl.image]"
+                    <gr-leases gr-images="[ctrl.image]"
                         with-batch="ctrl.withBatch"
                         class="leases-flex"
-                        gr:user-can-edit="true">
+                        gr-user-can-edit="true">
                     </gr-leases>
                 </div>
             </div>
@@ -158,34 +158,34 @@
                     Collections
                 </span>
                <gr-collection-overlay image="ctrl.image"></gr-collection-overlay>
-               <span class="preview__collections__collection__apply-all" ng:if="ctrl.withBatch">
-                    <button ng:if="! ctrl.confirmDelete"
+               <span class="preview__collections__collection__apply-all" ng-if="ctrl.withBatch">
+                    <button ng-if="! ctrl.confirmDelete"
                             title="Apply these collections to all your current uploads"
-                            ng:click="ctrl.batchApplyCollections()"
+                            ng-click="ctrl.batchApplyCollections()"
                     >⇔</button>
                     <button title="Remove ALL collections"
                             class="button button--confirm-delete"
-                            ng:if="ctrl.confirmDelete"
-                            ng:click="ctrl.batchRemoveCollections()">
+                            ng-if="ctrl.confirmDelete"
+                            ng-click="ctrl.batchRemoveCollections()">
                         <gr-icon>warning</gr-icon>Remove ALL collections in job?
                     </button>
                 </span>
                 <div class="result-editor__field-container__collections">
                     <ul class="preview__collections">
                         <li class="preview__collections__collection"
-                            ng:repeat="collection in ctrl.image.data.collections track by collection.data.pathId">
+                            ng-repeat="collection in ctrl.image.data.collections track by collection.data.pathId">
                             <a gr-tooltip="Click to open collection: {{::collection.data.path.join(' ▸ ')}}"
                                gr-tooltip-position="top"
-                               ui:sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
-                               ng:attr-style="{{::ctrl.getCollectionStyle(collection)}}"
+                               ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
+                               ng-attr-style="{{::ctrl.getCollectionStyle(collection)}}"
                                class="preview__collections__collection__value">
                                 {{::collection.data.description}}
                             </a>
                             <button gr-tooltip="Click to remove image from this collection"
                                     gr-tooltip-position="top"
                                     class="preview__collections__collection__remove"
-                                    ng:attr-style="{{::ctrl.getCollectionStyle(collection)}}"
-                                    ng:click="ctrl.removeImageFromCollection(collection)">
+                                    ng-attr-style="{{::ctrl.getCollectionStyle(collection)}}"
+                                    ng-click="ctrl.removeImageFromCollection(collection)">
                                 <gr-icon>close</gr-icon>
                             </button>
                         </li>
@@ -197,7 +197,7 @@
                 <span class="result-editor__field-label  flex-no-shrink text-small">
                     Labels
                 </span>
-                <div class="result-editor__field-container__labels" ng:class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">
+                <div class="result-editor__field-container__labels" ng-class="{'result-editor__field-container__labels--hidden' : ctrl.inputtingLabel}">
                     <gr-add-label
                         images="[ctrl.image]"
                         active="ctrl.inputtingLabel"
@@ -224,7 +224,7 @@
 
         <section>
             <h1>File information</h1>
-            <div class="result-editor__field-container" ng:if=":: ctrl.image.data.uploadInfo.filename">
+            <div class="result-editor__field-container" ng-if=":: ctrl.image.data.uploadInfo.filename">
                 <div class="result-editor__field-label text-small">File name</div>
                 <div class="result-editor__field-value">{{:: ctrl.image.data.uploadInfo.filename}}</div>
             </div>
