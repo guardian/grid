@@ -68,7 +68,6 @@ results.controller('SearchResultsCtrl', [
     'selectedImages$',
     'results',
     'panels',
-    'range',
     'isReloadingPreviousSearch',
 
     function($rootScope,
@@ -88,7 +87,6 @@ results.controller('SearchResultsCtrl', [
              selectedImages$,
              results,
              panels,
-             range,
              isReloadingPreviousSearch) {
 
         const ctrl = this;
@@ -396,10 +394,11 @@ results.controller('SearchResultsCtrl', [
 
                     var end = Math.max(imageIndex, lastSelectedIndex) + 1;
 
-                    const imageURIs = ctrl.images.slice(start,end).map(image => image.uri);
-                    console.log(selection);
+                    const imageURIs = ctrl.images
+                      .slice(start, end)
+                      .map(image => image.uri);
                     selection.union(imageURIs);
-                    console.log(selection);
+
                     $window.getSelection().removeAllRanges();
                 }
                 else {
