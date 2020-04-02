@@ -137,6 +137,12 @@ class ImageOperations(playPath: String) {
     } yield outputFile
   }
 
+  // When a layered tiff is unpacked, the temp file (blah.something) is moved 
+  // to blah-0.something and contains the composite layer (which is what we want).
+  // Other layers are then saved as blah-1.something etc.
+  // As the file has been renamed, the file object still exists, but has the wrong name
+  // We will need to put it back where it is expected to be found, and clean up the other
+  // files. 
   private def checkForOutputFileChange(f: File): Future[Unit] = Future {
     val fileBits = f.getAbsolutePath.split("\\.").toList
     val mainPart = fileBits.dropRight(1).mkString(".")
