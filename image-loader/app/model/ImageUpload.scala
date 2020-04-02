@@ -18,7 +18,7 @@ import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConver
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
 import lib.{DigestedFile, ImageLoaderConfig, Notifications}
-import lib.imaging.{FileMetadataReader, MimeTypeDetection, UnsupportedMimeTypeException}
+import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
 import net.logstash.logback.marker.LogstashMarker
 import org.joda.time.DateTime
@@ -33,15 +33,15 @@ case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPn
 
 case object OptimisedPng {
 
-  def shouldOptimise(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
+  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean =
     mimeType match {
-      case Some("image/png") =>
+      case Some(Png) =>
         fileMetadata.colourModelInformation.get("colorType") match {
           case Some("True Color") => true
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      case Some("image/tiff") => true
+      case Some(Tiff) => true
       case _ => false
     }
 }
@@ -139,7 +139,7 @@ class Uploader(val store: ImageLoaderStore,
   private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
-    Some("image/jpeg")
+    Some(Jpeg)
   )
 
   private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = {
@@ -161,30 +161,29 @@ class Uploader(val store: ImageLoaderStore,
 
     // TODO: should error if the JSON parsing failed
     val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
-    val guessedMimeType = MimeTypeDetection.guessMimeType(tempFile_)
-    Logger.info(s"Detected mimetype as ${guessedMimeType.getOrElse(FALLBACK)}")(requestLoggingContext.toMarker())
-    val uploadedBy_ = uploadedBy match {
-      case Some(by) => by
-      case None => Authentication.getIdentity(user)
+
+    MimeTypeDetection.guessMimeType(tempFile_) match {
+      case util.Left(unsupported) => Future.failed(unsupported)
+      case util.Right(mimeType) => {
+        Logger.info(s"Detected mimetype as $mimeType")(requestLoggingContext.toMarker())
+        val uploadedBy_ = uploadedBy match {
+          case Some(by) => by
+          case None => Authentication.getIdentity(user)
+        }
+        val uploadRequest = UploadRequest(
+          requestId = requestLoggingContext.requestId,
+          imageId = id_,
+          tempFile = tempFile_,
+          mimeType = Some(mimeType),
+          uploadTime = uploadTime,
+          uploadedBy = uploadedBy_,
+          identifiers = identifiersMap,
+          uploadInfo = UploadInfo(filename)
+        )
+
+        Future.successful(uploadRequest)
+      }
     }
-    val uploadRequest = UploadRequest(
-      requestId = requestLoggingContext.requestId,
-      imageId = id_,
-      tempFile = tempFile_,
-      mimeType = guessedMimeType,
-      uploadTime = uploadTime,
-      uploadedBy = uploadedBy_,
-      identifiers = identifiersMap,
-      uploadInfo = UploadInfo(filename)
-    )
-
-    // Abort early if unsupported mime-type
-    val supportedMimeType = config.supportedMimeTypes.exists(guessedMimeType.contains(_))
-    if (!supportedMimeType)
-      Future.failed(new UnsupportedMimeTypeException(uploadRequest, guessedMimeType.getOrElse("Not Provided")))
-
-    Future.successful(uploadRequest)
-
   }
 
   def storeFile(uploadRequest: UploadRequest)(implicit requestLoggingContext: RequestLoggingContext, ec:ExecutionContext): Future[JsObject] = {
@@ -205,20 +204,22 @@ class Uploader(val store: ImageLoaderStore,
 
 }
 
-case class ImageUploadOpsCfg(tempDir: File,
-                             thumbWidth: Int,
-                             thumbQuality: Double,
-                             transcodedMimeTypes: List[String],
-                             originalFileBucket: String,
-                             thumbBucket: String
-                            )
+case class ImageUploadOpsCfg(
+  tempDir: File,
+  thumbWidth: Int,
+  thumbQuality: Double,
+  transcodedMimeTypes: List[MimeType],
+  originalFileBucket: String,
+  thumbBucket: String
+)
 
-case class ImageUploadOpsDependencies(config: ImageUploadOpsCfg,
-                                      imageOps: ImageOperations,
-                                      storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
-                                      storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
-                                      storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
-                                     )
+case class ImageUploadOpsDependencies(
+  config: ImageUploadOpsCfg,
+  imageOps: ImageOperations,
+  storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
+  storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
+  storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
+)
 
 object Uploader {
 
@@ -254,7 +255,7 @@ object Uploader {
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
       Logger.info("stored source file")(initialMarkers)
       // FIXME: pass mimeType
-      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
+      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
       val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
@@ -272,7 +273,7 @@ object Uploader {
         bracket(thumbFuture)(_.delete) { thumb =>
           // Run the operations in parallel
           val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
-          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
+          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
 
           val finalImage = toFinalImage(
             sourceStoreFuture,
@@ -350,10 +351,10 @@ object Uploader {
     }
   }
 
-  private def toFileMetadata(f: File, imageId: String, mimeType: Option[String]): Future[FileMetadata] = {
+  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
     mimeType match {
-      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
-      case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Png) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Tiff) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }

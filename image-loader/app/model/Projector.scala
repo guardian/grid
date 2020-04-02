@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.lib.net.URI
-import com.gu.mediaservice.model.{Image, UploadInfo}
+import com.gu.mediaservice.model.{Image, Jpeg, Png, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import org.apache.tika.io.IOUtils
@@ -99,23 +99,25 @@ class Projector(config: ImageUploadOpsCfg,
       case _ => Map[String, String]()
     }
     val uploadInfo_ = UploadInfo(filename = uploadFileName)
-    //  Abort early if unsupported mime-type
-    val mimeType_ = MimeTypeDetection.guessMimeType(tempFile_)
 
-    val uploadRequest = UploadRequest(
-      requestId = requestLoggingContext.requestId,
-      imageId = id_,
-      tempFile = tempFile_,
-      mimeType = mimeType_,
-      uploadTime = uploadTime,
-      uploadedBy,
-      identifiers = identifiers_,
-      uploadInfo = uploadInfo_
-    )
+    MimeTypeDetection.guessMimeType(tempFile_) match {
+      case util.Left(unsupported) => Future.failed(unsupported)
+      case util.Right(mimeType) => {
+        val uploadRequest = UploadRequest(
+          requestId = requestLoggingContext.requestId,
+          imageId = id_,
+          tempFile = tempFile_,
+          mimeType = Some(mimeType),
+          uploadTime = uploadTime,
+          uploadedBy,
+          identifiers = identifiers_,
+          uploadInfo = uploadInfo_
+        )
 
-    imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest, requestLoggingContext)
+        imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest, requestLoggingContext)
+      }
+    }
   }
-
 }
 
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
@@ -146,7 +148,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
-    val thumbMimeType = Some("image/jpeg")
+    val thumbMimeType = Some(Jpeg)
     S3Ops.projectFileAsS3Object(
       config.thumbBucket,
       key,
@@ -157,7 +159,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, optimisedPngFile: File)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(uploadRequest.imageId)
-    val optimisedPngMimeType = Some("image/png")
+    val optimisedPngMimeType = Some(Png)
     S3Ops.projectFileAsS3Object(
       config.originalFileBucket,
       key,

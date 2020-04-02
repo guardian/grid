@@ -3,6 +3,7 @@ package lib
 import java.io.File
 
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.model._
 import play.api.Configuration
 
 class ImageLoaderConfig(override val configuration: Configuration) extends CommonConfig {
@@ -22,7 +23,7 @@ class ImageLoaderConfig(override val configuration: Configuration) extends Commo
   val apiUri: String = services.apiBaseUri
   val loginUriTemplate: String = services.loginUriTemplate
 
-  val transcodedMimeTypes: List[String] = properties.getOrElse("transcoded.mime.types", "").split(",").toList
-  val supportedMimeTypes: List[String] = List("image/jpeg", "image/png") ::: transcodedMimeTypes
+  val transcodedMimeTypes: List[MimeType] = getStringSetFromProperties("transcoded.mime.types").toList.map(MimeType(_))
+  val supportedMimeTypes: List[MimeType] = List(Jpeg, Png) ::: transcodedMimeTypes
 
 }

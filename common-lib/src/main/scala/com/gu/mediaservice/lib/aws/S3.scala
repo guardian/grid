@@ -21,7 +21,7 @@ case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 
 case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
 
-case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
+case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
 class S3(config: CommonConfig) {
   type Bucket = String
@@ -47,9 +47,7 @@ class S3(config: CommonConfig) {
     }
 
     val extension: String = asset.mimeType match {
-      case Some("image/jpeg") => ".jpg"
-      case Some("image/png") => ".png"
-      case Some("image/tiff") => ".tif"
+      case Some(mimeType) => mimeType.fileExtension
       case _ => {
         Logger.warn("Unrecognised mime type")(image.toLogMarker)
         ""
@@ -116,11 +114,11 @@ class S3(config: CommonConfig) {
     }
   }
 
-  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
+  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
            (implicit ex: ExecutionContext): Future[S3Object] =
     Future {
       val metadata = new ObjectMetadata
-      mimeType.foreach(metadata.setContentType)
+      mimeType.foreach(m => metadata.setContentType(m.name))
       cacheControl.foreach(metadata.setCacheControl)
       metadata.setUserMetadata(meta.asJava)
 
@@ -148,9 +146,9 @@ class S3(config: CommonConfig) {
     S3Metadata(
       meta.getUserMetadata.asScala.toMap,
       S3ObjectMetadata(
-        contentType = Option(meta.getContentType()),
-        cacheControl = Option(meta.getCacheControl()),
-        lastModified = Option(meta.getLastModified()).map(new DateTime(_))
+        contentType = Option(MimeType(meta.getContentType)),
+        cacheControl = Option(meta.getCacheControl),
+        lastModified = Option(meta.getLastModified).map(new DateTime(_))
       )
     )
   }
@@ -187,7 +185,7 @@ object S3Ops {
     new URI("http", bucketUrl, s"/$key", null)
   }
 
-  def projectFileAsS3Object(bucket: String, key: String, file: File, mimeType: Option[String] = None, meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+  def projectFileAsS3Object(bucket: String, key: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
     S3Object(
       objectUrl(bucket, key),
       file.length,

@@ -4,6 +4,7 @@ import java.io.File
 
 import com.gu.mediaservice.lib.aws.{S3, S3Ops}
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.model.MimeType
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -13,7 +14,7 @@ import scala.concurrent.Future
 class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage {
   private val log = LoggerFactory.getLogger(getClass)
 
-  def storeImage(bucket: String, id: String, file: File, mimeType: Option[String], meta: Map[String, String] = Map.empty) =
+  def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty) =
     store(bucket, id, file, mimeType, meta, Some(cacheForever))
 
   def deleteImage(bucket: String, id: String) = Future {
