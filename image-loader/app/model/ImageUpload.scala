@@ -251,24 +251,20 @@ object Uploader {
       val fileMetadataMarkers: LogstashMarker = initialMarkers.and(fileMetadata.toLogMarker)
       Logger.info("Have read file metadata")(fileMetadataMarkers)
 
-      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-      val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
       Logger.info("stored source file")(initialMarkers)
       // FIXME: pass mimeType
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
       val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
-      val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
-
-      Logger.info("thumbnail created")(initialMarkers)
-
-      //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
-      val optimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest, deps)
-
-      optimiseFileFuture.flatMap(toOptimiseFile => {
-        Logger.info("optimised image created")(initialMarkers)
+      // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
+      createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
+      val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
+        val toOptimiseFile = uploadRequest.tempFile
+        val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
+        Logger.info("thumbnail created")(initialMarkers)
 
         val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
+        Logger.info("optimised image created")(initialMarkers)
 
         bracket(thumbFuture)(_.delete) { thumb =>
           // Run the operations in parallel
@@ -288,6 +284,7 @@ object Uploader {
 
           Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(initialMarkers)
           uploadedFile.delete()
+          toOptimiseFile.delete()
 
           finalImage
         }
@@ -375,20 +372,22 @@ object Uploader {
   }
 
   private def createOptimisedFileFuture(uploadRequest: UploadRequest,
-                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
+                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[UploadRequest] = {
     import deps._
-    val uploadedFile = uploadRequest.tempFile
     uploadRequest.mimeType match {
       case Some(mime) => mime match {
         case _ if config.transcodedMimeTypes.contains(mime) =>
           for {
-            transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir)
-          } yield transformedImage
+            transformedImage <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, config.tempDir)
+          } yield (uploadRequest
+            // This file has been converted.
+            .copy(mimeType = Some(Jpeg))
+            .copy(tempFile = transformedImage))
         case _ =>
-          Future.apply(uploadedFile)
+          Future.successful(uploadRequest)
       }
       case _ =>
-        Future.apply(uploadedFile)
+        Future.successful(uploadRequest)
     }
   }
 
