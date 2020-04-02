@@ -7,6 +7,7 @@ import akka.stream.{Materializer, SourceShape}
 import akka.{Done, NotUsed}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.gu.mediaservice.lib.DateTimeUtils
 import lib.kinesis.ThrallEventConsumer
 import play.api.Logger
 import com.gu.mediaservice.lib.logging._
@@ -21,9 +22,10 @@ case object LowPriority extends Priority {
 case object HighPriority extends Priority {
   override def toString = "high"
 }
-case class TaggedRecord[T](record: T, priority: Priority) extends LogMarker {
-  def markerContents = Map(
-    "priority" -> priority
+case class TaggedRecord(record: KinesisRecord, priority: Priority) extends LogMarker {
+  override def markerContents = Map(
+    "recordPriority" -> priority.toString,
+    "recordArrivalTime" -> DateTimeUtils.toString(record.approximateArrivalTimestamp)
   )
 }
 
@@ -32,13 +34,13 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
   implicit val mat = materializer
   implicit val dispatcher = actorSystem.getDispatcher
 
-  val mergedKinesisSource: Source[TaggedRecord[KinesisRecord], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit g =>
+  val mergedKinesisSource: Source[TaggedRecord, NotUsed] = Source.fromGraph(GraphDSL.create() { implicit g =>
     import GraphDSL.Implicits._
 
     val highPriorityKinesisSource = KinesisSource(highPriorityKinesisConfig).map(TaggedRecord(_, HighPriority))
     val lowPriorityKinesisSource = KinesisSource(lowPriorityKinesisConfig).map(TaggedRecord(_, LowPriority))
 
-    val mergePreferred = g.add(MergePreferred.create[TaggedRecord[KinesisRecord]](1))
+    val mergePreferred = g.add(MergePreferred.create[TaggedRecord](1))
 
     highPriorityKinesisSource ~> mergePreferred.preferred
     lowPriorityKinesisSource  ~> mergePreferred.in(0)
@@ -48,23 +50,24 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
 
 
   def run(): Future[Done] = {
-    val streamRunning = mergedKinesisSource.map{ record =>
-      record -> consumer.parseRecord(record.record.data.toArray, record.record.approximateArrivalTimestamp)
+    val streamRunning = mergedKinesisSource.map{ taggedRecord =>
+      taggedRecord -> consumer.parseRecord(taggedRecord.record.data.toArray, taggedRecord.record.approximateArrivalTimestamp)
     }.mapAsync(1) { result =>
       val stopwatch = Stopwatch.start
       result match {
         case (record, Some(updateMessage)) =>
           consumer.processUpdateMessage(updateMessage)
             .recover { case _ => () }
-            .map(_ => (record, stopwatch))
-        case (record, None) =>
-          Future.successful((record, stopwatch))
+            .map(_ => (record, stopwatch, Some(updateMessage)))
+        case (record, None) => Future.successful((record, stopwatch, None))
       }
     }.runForeach {
-      case ((record, stopwatch)) =>
-        record.record.markProcessed()
-        val arrivalMarkers = MarkerMap(("kinesisArrivalTime" -> record.record.approximateArrivalTimestamp.getEpochSecond()))
-        Logger.info("Record processed")(combineMarkers(record, stopwatch.elapsed, arrivalMarkers))
+      case (taggedRecord, stopwatch, maybeUpdateMessage) =>
+        val basicMakers = combineMarkers(taggedRecord, stopwatch.elapsed)
+        val markers = maybeUpdateMessage.map(combineMarkers(basicMakers, _)).getOrElse(basicMakers)
+
+        Logger.info("Record processed")(markers)
+        taggedRecord.record.markProcessed()
     }
 
     streamRunning.onComplete {
