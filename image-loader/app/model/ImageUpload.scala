@@ -381,7 +381,7 @@ object Uploader {
             transformedImage <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, config.tempDir)
           } yield (uploadRequest
             // This file has been converted.
-            .copy(mimeType = Some("image/jpg"))
+            .copy(mimeType = Some(Jpeg))
             .copy(tempFile = transformedImage))
         case _ =>
           Future.successful(uploadRequest)
