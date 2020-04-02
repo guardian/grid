@@ -9,6 +9,7 @@ module.exports = merge(shared, {
       minimizer: [new TerserPlugin({
         sourceMap: true
       })]
+
     }
   }
 );

@@ -46,8 +46,7 @@ addLabel.controller('GrAddLabelCtrl', [
 
         }
 
-        function saveFailed(e) {
-          console.error(e);
+        function saveFailed() {
             $window.alert('Something went wrong when saving, please try again!');
             ctrl.active = true;
         }
