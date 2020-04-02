@@ -1,7 +1,6 @@
 /**
- * Creates a queue designed to limit the number of concurrent asynchronous operations,
- *
- * Calling `createQueue` returns an object that exposes an `add` function.
+ * Creates a queue designed to limit the number of concurrent asynchronous operations, and returns
+ * an object that exposes an `add` method to enqueue functions.
  *
  * Enqueued functions are called concurrently up to the worker limit, and retried with an
  * exponential backoff.
