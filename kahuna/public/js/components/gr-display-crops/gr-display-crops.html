@@ -1,10 +1,10 @@
 <div class="image-info">
-    <dl class="image-info__group image-info__wrap" ng:if="ctrl.crops.length > 0">
+    <dl class="image-info__group image-info__wrap" ng-if="ctrl.crops.length > 0">
         <div class="gr-display-crops">
             <button class="gr-display-crops"
-                    ng:click="ctrl.showCrops = !ctrl.showCrops">
-                <span ng:hide="ctrl.showCrops">▸ Show</span>
-                <span ng:show="ctrl.showCrops">▾ Hide</span>
+                    ng-click="ctrl.showCrops = !ctrl.showCrops">
+                <span ng-hide="ctrl.showCrops">▸ Show</span>
+                <span ng-show="ctrl.showCrops">▾ Hide</span>
                 crops
             </button>
         </div>
@@ -12,13 +12,13 @@
         <dd ng-show="ctrl.showCrops">
             <ul>
                 <li class="image-info__group--dl gr-display-crops__crop"
-                    ng:repeat="crop in ctrl.crops">
+                    ng-repeat="crop in ctrl.crops">
                     <div class="gr-display-crops__crop__list image-info__group--dl__key image-info__heading">
                         <div>{{crop.specification.aspectRatio | asCropType}}</div>
                         <div>{{crop.master.dimensions.width}} x {{crop.master.dimensions.height}}</div>
                     </div>
                     <ul>
-                        <li ng:repeat="asset in crop.assets">
+                        <li ng-repeat="asset in crop.assets">
                             <a href="{{asset.file}}">{{asset.dimensions.width}} x {{asset.dimensions.height}}</a>
                         </li>
                     </ul>

@@ -1,14 +1,14 @@
 <form class="file-uploader">
-    <!-- you cannot bind ng:model="files" nor use ng:change:
+    <!-- you cannot bind ng-model="files" nor use ng-change:
     https://github.com/angular/angular.js/issues/1375 -->
     <input class="file-uploader__file"
            name="files" type="file"
            multiple
-           gr:file-change="ctrl.uploadFiles($files)" />
+           gr-file-change="ctrl.uploadFiles($files)" />
 
     <button class="file-uploader__select-files button"
-            gr:track-click="Upload action"
-            gr:track-click-data="{ 'Action': 'Button click' }">
+            gr-track-click="Upload action"
+            gr-track-click-data="{ 'Action': 'Button click' }">
         <gr-icon-label gr-icon="file_upload">Upload</gr-icon-label>
     </button>
 </form>

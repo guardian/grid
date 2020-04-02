@@ -1,8 +1,8 @@
 <form class="usage-rights-editor ure"
       novalidate
       name="usageRights"
-      ng:class="{'ure__category-invalid': ctrl.categoryInvalid}"
-      ng:submit="usageRights.$valid && ctrl.save()">
+      ng-class="{'ure__category-invalid': ctrl.categoryInvalid}"
+      ng-submit="usageRights.$valid && ctrl.save()">
 
     <div class="ure__description">
         <a rel="noopener" target="_blank" href="{{ctrl.usageRightsHelpLink}}">
@@ -17,14 +17,14 @@
         model, even though they don't exist in the form -->
         <select
             class="full-width"
-            ng:model="ctrl.category"
-            ng:disabled="ctrl.saving"
-            ng:options="category as category.name for category in ctrl.categories track by category.value"
-            ng:change="ctrl.reset()">
+            ng-model="ctrl.category"
+            ng-disabled="ctrl.saving"
+            ng-options="category as category.name for category in ctrl.categories track by category.value"
+            ng-change="ctrl.reset()">
         </select>
     </label>
 
-    <div class="ure__caution warning warning--small" ng:if="ctrl.category.caution">
+    <div class="ure__caution warning warning--small" ng-if="ctrl.category.caution">
         {{ctrl.category.caution}}
     </div>
 
@@ -32,9 +32,9 @@
         {{ctrl.category.description}}
     </div>
 
-    <div class="ure__properties" ng:if="ctrl.category">
+    <div class="ure__properties" ng-if="ctrl.category">
         <div class="ure__multiple-rights-warning"
-            ng:if="ctrl.usageRights.length > 1">
+            ng-if="ctrl.usageRights.length > 1">
             Multiple rights & restrictions
             <gr-icon
                 title="Some specific information about the usage rights of these images might be missing below and will be overridden.">
@@ -44,78 +44,78 @@
 
         <div
             class="form-property"
-            ng:repeat="property in ctrl.category.properties"
-            ng:class="{ 'form-property--last': $last }">
+            ng-repeat="property in ctrl.category.properties"
+            ng-class="{ 'form-property--last': $last }">
 
             <!-- TODO: potentially pull restrictions out from the
             server request and add it to all properties -->
-            <div ng:if="property.name === 'restrictions'">
+            <div ng-if="property.name === 'restrictions'">
                 <label>
                     <input type="checkbox"
-                           ng:model="ctrl.showRestrictions"
-                           ng:disabled="ctrl.forceRestrictions" />
+                           ng-model="ctrl.showRestrictions"
+                           ng-disabled="ctrl.forceRestrictions" />
                     Restricted
                 </label>
 
-                <div ng:if="ctrl.showRestrictions"
-                     ng:switch="ctrl.category.defaultRestrictions === undefined">
+                <div ng-if="ctrl.showRestrictions"
+                     ng-switch="ctrl.category.defaultRestrictions === undefined">
                     <!-- We don't allow you to set the restrictions if there are defaults.
                     This might not be the behaviour we want in the future, but works for now. -->
                     <textarea
                         class="text-input form-input-text"
                         name="{{ property.name }}"
                         placeholder="What restrictions apply to this image? e.g. 'Use in relation to the Windsor Triathlon only'"
-                        ng:switch-when="true"
-                        ng:model="ctrl.model[property.name]"
-                        ng:required="ctrl.showRestrictions"></textarea>
+                        ng-switch-when="true"
+                        ng-model="ctrl.model[property.name]"
+                        ng-required="ctrl.showRestrictions"></textarea>
 
                     <textarea
                         class="text-input form-input-text"
                         disabled="disabled"
-                        ng:switch-default>{{ctrl.category.defaultRestrictions}}</textarea>
+                        ng-switch-default>{{ctrl.category.defaultRestrictions}}</textarea>
 
                 </div>
             </div>
 
-            <div ng:if="property.name !== 'restrictions'"
-                 ng:init="fieldUniqueId = $id">
+            <div ng-if="property.name !== 'restrictions'"
+                 ng-init="fieldUniqueId = $id">
                 <label class="form-label" for="ure-field-{{::fieldUniqueId}}">
                     <div class="form-label__text">{{ property.label }}</div>
                     <!-- TODO: Show errors here -->
                     <!--<div class="form-label__error">Error</div>-->
                 </label>
 
-                <div ng:switch="property.type">
-                    <div ng:switch-when="string">
+                <div ng-switch="property.type">
+                    <div ng-switch-when="string">
                         <input
                             id="ure-field-{{::fieldUniqueId}}"
                             class="text-input form-input-text"
                             type="text"
                             name="{{ property.name }}"
                             placeholder="e.g. {{ property.examples }}"
-                            ng:if="!property.options && !property.optionsMap"
-                            ng:model="ctrl.model[property.name]"
-                            ng:required="property.required" />
+                            ng-if="!property.options && !property.optionsMap"
+                            ng-model="ctrl.model[property.name]"
+                            ng-required="property.required" />
 
-                        <div ng:if="property.options"
-                             ng:switch="property.options.length > 3"
-                             ng:init="options = ctrl.getOptionsFor(property)">
-                                <div class="radio-list" ng:switch-when="false">
+                        <div ng-if="property.options"
+                             ng-switch="property.options.length > 3"
+                             ng-init="options = ctrl.getOptionsFor(property)">
+                                <div class="radio-list" ng-switch-when="false">
                                     <div class="radio-list__item"
-                                         ng:repeat="o in options">
+                                         ng-repeat="o in options">
 
                                         <input type="radio"
                                             id="id-{{::$id}}-{{o.key}}-{{property.name}}-radio-list__item"
                                             class="radio-list__circle"
                                             name="{{property.name}}-radio-list"
                                             placeholder="e.g. {{ property.examples }}"
-                                            ng:value="o.value"
-                                            ng:required="property.required"
-                                            ng:model="ctrl.model[property.name]" />
+                                            ng-value="o.value"
+                                            ng-required="property.required"
+                                            ng-model="ctrl.model[property.name]" />
                                         <label
                                             for="id-{{::$id}}-{{o.key}}-{{property.name}}-radio-list__item"
                                             class="radio-list__label"
-                                            ng:class="{'radio-list--selected': ctrl.model[property.name] === o.value || (!ctrl.model[property.name] && o.value === null)}">
+                                            ng-class="{'radio-list--selected': ctrl.model[property.name] === o.value || (!ctrl.model[property.name] && o.value === null)}">
                                             <div class="radio-list__selection-state"></div>
                                             <div class="radio-list__label-value">{{ o.key }}</div>
                                         </label>
@@ -127,25 +127,25 @@
                                     class="full-width"
                                     id="ure-field-{{::fieldUniqueId}}"
                                     name="{{ property.name }}"
-                                    ng:switch-when="true"
-                                    ng:model="ctrl.model[property.name]"
-                                    ng:required="property.required"
-                                    ng:options="o.value as o.key for o in options">
+                                    ng-switch-when="true"
+                                    ng-model="ctrl.model[property.name]"
+                                    ng-required="property.required"
+                                    ng-options="o.value as o.key for o in options">
                                 </select>
                         </div>
 
                         <div class="flex-container"
-                             ng:if="property.optionsMap"
-                             ng:init="otherValue = ctrl.isOtherValue(property)">
+                             ng-if="property.optionsMap"
+                             ng-init="otherValue = ctrl.isOtherValue(property)">
 
                             <select
                                 class="full-width"
                                 id="ure-field-{{::fieldUniqueId}}"
                                 name="{{ property.name }}"
-                                ng:model="ctrl.model[property.name]"
-                                ng:required="property.required"
-                                ng:options="o for o in ctrl.getOptionsMapFor(property)"
-                                ng:if="!otherValue">
+                                ng-model="ctrl.model[property.name]"
+                                ng-required="property.required"
+                                ng-options="o for o in ctrl.getOptionsMapFor(property)"
+                                ng-if="!otherValue">
                                 <option value="">None</option>
                             </select>
 
@@ -153,12 +153,12 @@
                                 class="text-input full-width"
                                 id="ure-field-{{::fieldUniqueId}}"
                                 placeholder="e.g. {{ property.examples }}"
-                                ng:model="ctrl.model[property.name]"
-                                ng:required="property.required"
-                                ng:if="otherValue" />
+                                ng-model="ctrl.model[property.name]"
+                                ng-required="property.required"
+                                ng-if="otherValue" />
 
                             <label class="flex-no-shrink">
-                                <input type="checkbox" ng:model="otherValue" />
+                                <input type="checkbox" ng-model="otherValue" />
                                 Other
                             </label>
                         </div>
@@ -169,16 +169,16 @@
                         id="ure-field-{{::fieldUniqueId}}"
                         name="{{ property.name }}"
                         placeholder="e.g. {{ property.examples }}"
-                        ng:model="ctrl.model[property.name]"
-                        ng:switch-when="text"
-                        ng:required="property.required">
+                        ng-model="ctrl.model[property.name]"
+                        ng-switch-when="text"
+                        ng-required="property.required">
                     </textarea>
                 </div>
             </div>
         </div>
     </div>
     <div class="ure__bar">
-        <button class="ure__action button-ico button-cancel" type="button" ng:click="ctrl.cancel()"
+        <button class="ure__action button-ico button-cancel" type="button" ng-click="ctrl.cancel()"
                 title="close usage rights overrides">
             <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
         </button>
@@ -186,9 +186,9 @@
         <button class="ure__action button-ico button-save"
             type="submit"
             title="save usage rights overrides"
-            ng:disabled="ctrl.savingDisabled || !usageRights.$valid">
-            <gr-icon-label ng:if="!ctrl.saving" gr-icon="check">Save</gr-icon-label>
-            <gr-icon ng:if="ctrl.saving">timelapse</gr-icon>
+            ng-disabled="ctrl.savingDisabled || !usageRights.$valid">
+            <gr-icon-label ng-if="!ctrl.saving" gr-icon="check">Save</gr-icon-label>
+            <gr-icon ng-if="ctrl.saving">timelapse</gr-icon>
         </button>
     </div>
 </form>

@@ -1,37 +1,37 @@
 <button class="collection-overlay__button"
-        ng:click="ctrl.openCollectionTree()"
+        ng-click="ctrl.openCollectionTree()"
         gr-tooltip="Click to add image to a collection"
         gr-tooltip-position="left">
     <gr-icon>add_box</gr-icon>
 </button>
-<div ng:if="ctrl.addCollection" class="collection-overlay"
-         ng:init="editing = false">
+<div ng-if="ctrl.addCollection" class="collection-overlay"
+         ng-init="editing = false">
     <button class="collection-overlay__cancel"
-            ng:click="ctrl.addCollection = false">
+            ng-click="ctrl.addCollection = false">
         <gr-icon>close</gr-icon>
     </button>
     <div class="collection-overlay__collections"
-         gr:remember-scroll-top="true">
-        <div class="error" ng:if="ctrl.collectionError">
+         gr-remember-scroll-top="true">
+        <div class="error" ng-if="ctrl.collectionError">
             There was an error loading the collections.
             Please try again later.
         </div>
           <div class="collection-overlay__collections__heading">
             <p class="collection-overlay__collections__heading-text">Select a collection to add image to</p>
-            <button ng:class="{'button-edit': ! editing, 'button-save': editing}"
-              ng:click="editing = !editing;">
-              <gr-icon-label ng:if="! editing"
-                              gr:icon="edit">Edit</gr-icon-label>
-              <gr-icon-label ng:if="editing"
-                              gr:icon="check">Finished</gr-icon-label>
+            <button ng-class="{'button-edit': ! editing, 'button-save': editing}"
+              ng-click="editing = !editing;">
+              <gr-icon-label ng-if="! editing"
+                              gr-icon="edit">Edit</gr-icon-label>
+              <gr-icon-label ng-if="editing"
+                              gr-icon="check">Finished</gr-icon-label>
             </button>
           </div>
 
         <gr-collection-tree
-            gr:nodes="ctrl.collections"
-            gr:selection-mode="true"
-            gr:on-select="ctrl.addToCollection($collection)"
-            gr:editing="editing"
+            gr-nodes="ctrl.collections"
+            gr-selection-mode="true"
+            gr-on-select="ctrl.addToCollection($collection)"
+            gr-editing="editing"
         ></gr-collection-tree>
     </div>
 </div>
