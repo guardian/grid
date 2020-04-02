@@ -4,16 +4,16 @@ import java.io.File
 import java.net.URI
 
 import com.drew.imaging.ImageProcessingException
-import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
+import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
+import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
-import lib.imaging.{ImageLoaderException, NoSuchImageExistsInS3, UnsupportedMimeTypeException, UserImageLoaderException}
+import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.Uploader
-import model.Projector
+import model.{Projector, Uploader}
 import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
@@ -82,7 +82,7 @@ class ImageLoaderController(auth: Authentication,
       val response = result map { r =>
         Accepted(r).as(ArgoMediaType)
       } recover {
-        case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e.uploadRequest, config.supportedMimeTypes).as(ArgoMediaType)
+        case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
         case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
         case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
       }

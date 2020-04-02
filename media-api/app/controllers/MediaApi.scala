@@ -210,7 +210,7 @@ class MediaApi(
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
+        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
         Future.successful(
           Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))

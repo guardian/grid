@@ -21,6 +21,10 @@
     replicas: 0
   },
 
+  thrall: {
+    streamName: 'media-service-DEV-thrall',
+  },
+
   // Guardian specific properties for the Usage service
   capi: {
     poll:  5,

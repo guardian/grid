@@ -25,7 +25,7 @@ function getCollectionsConfig(config) {
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
         |dynamo.table.collections=${config.stackProps.CollectionsDynamoTable}
         |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
@@ -39,7 +39,7 @@ function getCropperConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
         |publishing.image.host=${config.stackProps.ImageOriginBucket}.s3.amazonaws.com
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
@@ -54,7 +54,7 @@ function getImageLoaderConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
@@ -86,7 +86,7 @@ function getLeasesConfig(config) {
         |domain.root=${config.domainRoot}
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |dynamo.tablename.leasesTable=${config.stackProps.LeasesDynamoTable}
@@ -101,7 +101,7 @@ function getMediaApiConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
@@ -123,7 +123,7 @@ function getMetadataEditorConfig(config) {
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
@@ -157,7 +157,7 @@ function getThrallConfig(config) {
         |es6.cluster=${config.es6.cluster}
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |`;
@@ -172,7 +172,7 @@ function getUsageConfig(config) {
         |capi.apiKey=${config.capi.live.key}
         |dynamo.tablename.usageRecordTable=${config.stackProps.UsageRecordTable}
         |composer.baseUrl=${config.composer.url}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.thrall.streamName}
         |thrall.local.kinesis.url=${localKinesisURL}
         |thrall.local.dynamodb.url=${localDynamoURL}
         |crier.live.arn=${config.crier.live.roleArn}

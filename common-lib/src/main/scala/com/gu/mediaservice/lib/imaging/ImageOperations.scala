@@ -4,16 +4,17 @@ import java.io._
 
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
-import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
-import com.gu.mediaservice.model.{Asset, Bounds, Dimensions, ImageMetadata}
+import com.gu.mediaservice.model._
+import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
+class UnsupportedCropOutputTypeException extends Exception
 
 class ImageOperations(playPath: String) {
   import ExifTool._
@@ -54,10 +55,10 @@ class ImageOperations(playPath: String) {
     }
   }
 
-  def cropImage(sourceFile: File, sourceMimeType: Option[String], bounds: Bounds, qual: Double = 100d, tempDir: File,
-                iccColourSpace: Option[String], colourModel: Option[String], fileType: String): Future[File] = {
+  def cropImage(sourceFile: File, sourceMimeType: Option[MimeType], bounds: Bounds, qual: Double = 100d, tempDir: File,
+                iccColourSpace: Option[String], colourModel: Option[String], fileType: MimeType): Future[File] = {
     for {
-      outputFile <- createTempFile(s"crop-", s".${fileType}", tempDir)
+      outputFile <- createTempFile(s"crop-", s".${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
       qualified     = quality(cropSource)(qual)
       corrected     = correctColour(qualified)(iccColourSpace, colourModel)
@@ -67,7 +68,7 @@ class ImageOperations(playPath: String) {
       cropped       = crop(profiled)(bounds)
       depthAdjusted = depth(cropped)(8)
       addOutput     = addDestImage(depthAdjusted)(outputFile)
-      _             <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
+      _             <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
     }
     yield outputFile
   }
@@ -79,38 +80,44 @@ class ImageOperations(playPath: String) {
       ).map(_ => sourceFile)
   }
 
-  def resizeImage(sourceFile: File, sourceMimeType: Option[String], dimensions: Dimensions,
-                  qual: Double = 100d, tempDir: File, fileType: String): Future[File] = {
+  def resizeImage(sourceFile: File, sourceMimeType: Option[MimeType], dimensions: Dimensions,
+                  qual: Double = 100d, tempDir: File, fileType: MimeType): Future[File] = {
     for {
-      outputFile  <- createTempFile(s"resize-", s".${fileType}", tempDir)
+      outputFile  <- createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir)
       resizeSource = addImage(sourceFile)
       qualified    = quality(resizeSource)(qual)
       resized      = scale(qualified)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
-      _           <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
+      _           <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
     }
     yield outputFile
   }
 
-  def optimiseImage(resizedFile: File, mediaType: MimeType): File =
+  def optimiseImage(resizedFile: File, mediaType: MimeType): File = mediaType match {
+    case Png => {
+      val fileName: String = resizedFile.getAbsolutePath()
 
-    mediaType.name match {
-      case "image/png" => {
-        val fileName: String = resizedFile.getAbsolutePath()
+      val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
+      Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
 
-        val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-        Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
-
-        new File(optimisedImageName)
-
-      }
-      case "image/jpeg" => resizedFile
+      new File(optimisedImageName)
     }
+    case Jpeg => resizedFile
+
+    // This should never happen as we only ever crop as PNG or JPEG. See `Crops.cropType` and `CropsTest`
+    // TODO We should create a `CroppingMimeType` to enforce this at the type level.
+    //  However we'd need to change the `Asset` model as source image and crop use this model
+    //  and a source can legally be a `Tiff`. It's not a small change...
+    case Tiff => {
+      Logger.error("Attempting to optimize a Tiff crop. Cropping as Tiff is not supported.")
+      throw new UnsupportedCropOutputTypeException
+    }
+  }
 
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
-  def createThumbnail(sourceFile: File, sourceMimeType: Option[String], width: Int, qual: Double = 100d,
+  def createThumbnail(sourceFile: File, sourceMimeType: Option[MimeType], width: Int, qual: Double = 100d,
                       tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
     for {
       outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
@@ -123,16 +130,16 @@ class ImageOperations(playPath: String) {
       unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
       qualified   = quality(unsharpened)(qual)
       addOutput   = addDestImage(qualified)(outputFile)
-      _          <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
+      _          <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
     } yield outputFile
   }
 
-  def transformImage(sourceFile: File, sourceMimeType: Option[String], tempDir: File): Future[File] = {
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[File] = {
     for {
       outputFile  <- createTempFile(s"transformed-", ".png", tempDir)
       transformSource = addImage(sourceFile)
       addOutput    = addDestImage(transformSource)(outputFile)
-      _           <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains("image/tiff"))
+      _           <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       _           <- checkForOutputFileChange(outputFile)
     } yield outputFile
   }
@@ -169,26 +176,11 @@ class ImageOperations(playPath: String) {
 }
 
 object ImageOperations {
-  sealed trait MimeType {
-    def name: String
-    def extension: String
-  }
-
-  case object Png extends MimeType {
-    val name  = "image/png"
-    val extension = "png"
-  }
-
-  case object Jpeg extends MimeType {
-    val name = "image/jpeg"
-    val extension = "jpg"
-  }
-
-  def identifyColourModel(sourceFile: File, mimeType: String)(implicit ec: ExecutionContext): Future[Option[String]] = {
+  def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext): Future[Option[String]] = {
     // TODO: use mimeType to lookup other properties once we support other formats
 
     mimeType match {
-      case "image/jpeg" =>
+      case Jpeg =>
         val source = addImage(sourceFile)
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
 

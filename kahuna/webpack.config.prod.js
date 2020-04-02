@@ -1,12 +1,15 @@
-const UglifyJSPlugin = require('uglifyjs-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
 const shared = require('./webpack.config.shared');
+const merge = require('webpack-merge');
 
-module.exports = {
-  entry: shared.entry,
-  output: shared.output,
-  module: shared.module,
-  resolve: shared.resolve,
-  plugins: [
-    new UglifyJSPlugin(),
-  ],
-};
+module.exports = merge(shared, {
+    mode: 'production',
+    optimization: {
+      minimize: true,
+      minimizer: [new TerserPlugin({
+        sourceMap: true
+      })],
+
+    },
+  }
+);
