@@ -79,15 +79,19 @@ class ImageLoaderController(auth: Authentication,
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
-      val response = result map { r =>
-        Accepted(r).as(ArgoMediaType)
+      result map { r =>
+        val result = Accepted(r).as(ArgoMediaType)
+        Logger.info("loadImage request end")
+        result
       } recover {
-        case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
-        case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
-        case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
+        case e =>
+          Logger.error("loadImage request ended with a failure", e)
+          e match {
+            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
+            case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
+            case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
+          }
       }
-      Logger.info("loadImage request end")
-      response
     }
   }
 
@@ -102,7 +106,7 @@ class ImageLoaderController(auth: Authentication,
 
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { _ =>
-      val result= projector.projectS3ImageById(projector, imageId, requestContext, tempFile)
+      val result= projector.projectS3ImageById(projector, imageId, tempFile)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 

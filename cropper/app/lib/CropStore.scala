@@ -1,11 +1,11 @@
 package lib
 
 import java.io.File
-import java.net.{URI,URL}
+import java.net.{URI, URL}
 
 import scala.concurrent.Future
-
 import com.gu.mediaservice.lib.S3ImageStorage
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 
 class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
@@ -14,7 +14,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   def getSecureCropUri(uri: URI): Option[URL] =
     config.imgPublishingSecureHost.map(new URI("https", _, uri.getPath, uri.getFragment).toURL)
 
-  def storeCropSizing(file: File, filename: String, mimeType: MimeType, crop: Crop, dimensions: Dimensions): Future[Asset] = {
+  def storeCropSizing(file: File, filename: String, mimeType: MimeType, crop: Crop, dimensions: Dimensions)(implicit requestContext: RequestLoggingContext) : Future[Asset] = {
     val CropSpec(sourceUri, Bounds(x, y, w, h), r, t) = crop.specification
     val metadata = Map("source" -> sourceUri,
                        "bounds_x" -> x,

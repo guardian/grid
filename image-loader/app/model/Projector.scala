@@ -64,7 +64,7 @@ class Projector(config: ImageUploadOpsCfg,
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, requestLoggingContext: RequestLoggingContext, tempFile: File)(implicit ec: ExecutionContext): Future[Option[Image]] = {
+  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File)(implicit ec: ExecutionContext, requestLoggingContext: RequestLoggingContext): Future[Option[Image]] = {
     Logger.info(s"Projecting image: $imageId")(requestLoggingContext.toMarker())
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -79,7 +79,7 @@ class Projector(config: ImageUploadOpsCfg,
       val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, requestLoggingContext, tempFile)
       val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestLoggingContext)
+      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }
@@ -90,7 +90,7 @@ class Projector(config: ImageUploadOpsCfg,
     DigestedFile(tempFile, imageId)
   }
 
-  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestLoggingContext: RequestLoggingContext)(implicit ec: ExecutionContext): Future[Image] = {
+  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata)(implicit ec: ExecutionContext, requestLoggingContext: RequestLoggingContext): Future[Image] = {
     import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
     // TODO more identifiers_ to rehydrate
@@ -102,7 +102,7 @@ class Projector(config: ImageUploadOpsCfg,
 
     MimeTypeDetection.guessMimeType(tempFile_) match {
       case util.Left(unsupported) => Future.failed(unsupported)
-      case util.Right(mimeType) => {
+      case util.Right(mimeType) =>
         val uploadRequest = UploadRequest(
           requestId = requestLoggingContext.requestId,
           imageId = id_,
@@ -113,9 +113,7 @@ class Projector(config: ImageUploadOpsCfg,
           identifiers = identifiers_,
           uploadInfo = uploadInfo_
         )
-
         imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest, requestLoggingContext)
-      }
     }
   }
 }
@@ -127,7 +125,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext)
-                                   (implicit ec: ExecutionContext): Future[Image] = {
+                                   (implicit ec: ExecutionContext, requestContext: RequestLoggingContext): Future[Image] = {
     val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
     projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, requestLoggingContext)

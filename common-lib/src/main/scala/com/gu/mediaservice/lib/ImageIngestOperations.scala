@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib
 import java.io.File
 
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model.{MimeType, Png}
 
 object ImageIngestOperations {
@@ -16,13 +17,13 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   import ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 
-  def storeOriginal(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty) =
+  def storeOriginal(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)(implicit requestContext: RequestLoggingContext) =
     storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
 
-  def storeThumbnail(id: String, file: File, mimeType: Option[MimeType]) =
+  def storeThumbnail(id: String, file: File, mimeType: Option[MimeType])(implicit requestContext: RequestLoggingContext) =
     storeImage(thumbnailBucket, fileKeyFromId(id), file, mimeType)
 
-  def storeOptimisedPng(id: String, file: File) = {
+  def storeOptimisedPng(id: String, file: File)(implicit requestContext: RequestLoggingContext) = {
     storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some(Png))
   }
 
