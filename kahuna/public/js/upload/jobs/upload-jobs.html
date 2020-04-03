@@ -1,45 +1,45 @@
 <ul>
-    <li ng:repeat="job in ctrl.jobs | orderBy: 'name'"  class="upload-result">
+    <li ng-repeat="job in ctrl.jobs | orderBy: 'name'"  class="upload-result">
 
-        <div ng:if="!job.image"
+        <div ng-if="!job.image"
              class="job-uploading">
 
             <div class="result-editor__result">
                 <div>
-                    <img ng:src="{{job.dataUrl}}" class="preview__image" />
+                    <img ng-src="{{job.dataUrl}}" class="preview__image" />
 
                     <div class="preview__bottom-bar bottom-bar">
                         <div class="bottom-bar__meta">
-                            {{job.name}}<span ng:if="job.size">, {{job.size | asFileSize}}</span>
+                            {{job.name}}<span ng-if="job.size">, {{job.size | asFileSize}}</span>
                         </div>
 
                         <div class="bottom-bar__actions"></div>
                     </div>
                 </div>
                 <div class="job-status status"
-                     ng:class="{
+                     ng-class="{
                          'status--invalid': job.status === 'upload error',
                          'status--valid':   job.status === 'uploaded'
                      }">
 
                      {{job.status}}
-                     <span ng:if="job.status === 'upload error'">({{job.error}})</span>
+                     <span ng-if="job.status === 'upload error'">({{job.error}})</span>
                 </div>
             </div>
 
             <gr-confirm-delete class="flex-right"
-                               ng:if="job.status === 'upload error'"
-                               gr:on-confirm="ctrl.removeJob(job)">
+                               ng-if="job.status === 'upload error'"
+                               gr-on-confirm="ctrl.removeJob(job)">
             </gr-confirm-delete>
         </div>
 
-        <ui-image-editor ng:if="job.image"
+        <ui-image-editor ng-if="job.image"
                          image="job.image"
                          with-batch="ctrl.jobs.length > 1">
         </ui-image-editor>
 
         <gr-delete-image class="flex-right"
-                         ng:if="job.canBeDeleted"
+                         ng-if="job.canBeDeleted"
                          images="[job.image]">
         </gr-delete-image>
     </li>

@@ -5,9 +5,9 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <a ui:sref="upload"
-           gr:track-click="Your recent uploads button"
-           gr:track-click-data="{'Location': 'Search navigation'}"
+        <a ui-sref="upload"
+           gr-track-click="Your recent uploads button"
+           gr-track-click-data="{'Location': 'Search navigation'}"
            class="top-bar-item clickable side-padded"
            title="my recent uploads">
             <gr-icon-label gr-icon="photo_library">My recent uploads</gr-icon-label>
@@ -17,8 +17,8 @@
 </gr-top-bar>
 
 <gr-panels class="search-panels">
-    <gr-panel gr:left="true" gr:panel="ctrl.collectionsPanel" gr:icon="collections"
-              gr:remember-scroll="true">
+    <gr-panel gr-left="true" gr-panel="ctrl.collectionsPanel" gr-icon="collections"
+              gr-remember-scroll="true">
         <ui-view name="collectionPanel"></ui-view>
     </gr-panel>
 
@@ -26,7 +26,7 @@
         <ui-view name="results"></ui-view>
     </gr-panel-content>
 
-    <gr-panel gr:right="true" gr:panel="ctrl.metadataPanel" gr:icon="collections">
+    <gr-panel gr-right="true" gr-panel="ctrl.metadataPanel" gr-icon="collections">
         <ui-view name="infoPanel"></ui-view>
     </gr-panel>
 </gr-panels>

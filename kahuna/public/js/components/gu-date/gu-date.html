@@ -1,22 +1,22 @@
-<div class="gu-date" ng:init="showingOverlay = false">
+<div class="gu-date" ng-init="showingOverlay = false">
     <span class="flex-container">
-        <button type="button" ng:click="showingOverlay = !showingOverlay">
+        <button type="button" ng-click="showingOverlay = !showingOverlay">
             <gr-icon-label gr-icon="event">{{label}}</gr-icon-label>
             {{displayValue}}
-            <gr-icon ng:show="showingOverlay">expand_less</gr-icon>
-            <gr-icon ng:show="!showingOverlay">expand_more</gr-icon>
+            <gr-icon ng-show="showingOverlay">expand_less</gr-icon>
+            <gr-icon ng-show="!showingOverlay">expand_more</gr-icon>
         </button>
         <span class="flex-spacer"></span>
         <button type="button"
-                ng:click="clear()"
-                gr:tooltip="clear {{label}}"
-                gr:tooltip-position="left">
+                ng-click="clear()"
+                gr-tooltip="clear {{label}}"
+                gr-tooltip-position="left">
             <gr-icon>close</gr-icon>
         </button>
     </span>
 
-    <div ng:show="showingOverlay" class="gu-date__container"></div>
+    <div ng-show="showingOverlay" class="gu-date__container"></div>
 
-    <input hidden type="text" class="gu-date__value--hidden" ng:model="pikaValue">
+    <input hidden type="text" class="gu-date__value--hidden" ng-model="pikaValue">
 </div>
 

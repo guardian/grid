@@ -1,26 +1,26 @@
-<div ng:init="editing = false">
-    <div class="error" ng:if="ctrl.error">
+<div ng-init="editing = false">
+    <div class="error" ng-if="ctrl.error">
         There was an error loading the collections.
         Please try again later.
     </div>
 
     <!-- TODO: we'll probably move this out to another template once we have something more
     final -->
-    <!-- We use $parent.editing here as ng:if creates it's own child scope -->
-    <div class="flex-container collections-panel-heading text-small" ng:if="! ctrl.error">
+    <!-- We use $parent.editing here as ng-if creates it's own child scope -->
+    <div class="flex-container collections-panel-heading text-small" ng-if="! ctrl.error">
         <div class="flex-spacer">Collections</div>
 
-        <button ng:class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
-                ng:click="$parent.editing = !$parent.editing">
-            <gr-icon-label ng:if="! $parent.editing"
-                           gr:icon="edit">Edit</gr-icon-label>
-            <gr-icon-label ng:if="$parent.editing"
-                           gr:icon="check">Finished</gr-icon-label>
+        <button ng-class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
+                ng-click="$parent.editing = !$parent.editing">
+            <gr-icon-label ng-if="! $parent.editing"
+                           gr-icon="edit">Edit</gr-icon-label>
+            <gr-icon-label ng-if="$parent.editing"
+                           gr-icon="check">Finished</gr-icon-label>
         </button>
     </div>
-    <gr-collection-tree gr:nodes="ctrl.collections"
-              gr:editing="editing"
-              gr:selected-images="ctrl.selectedImages$"
-              gr:selected-collections="ctrl.selectedCollections">
+    <gr-collection-tree gr-nodes="ctrl.collections"
+              gr-editing="editing"
+              gr-selected-images="ctrl.selectedImages$"
+              gr-selected-collections="ctrl.selectedCollections">
     </gr-collection-tree>
 </div>

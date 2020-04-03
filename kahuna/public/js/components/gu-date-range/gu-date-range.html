@@ -1,38 +1,38 @@
-<div class="gu-date-range" ng:init="ctrl.showOverlay = false">
+<div class="gu-date-range" ng-init="ctrl.showOverlay = false">
     <button type="button"
             class="gu-date-range__display"
-            ng:click="ctrl.showOverlay = !ctrl.showOverlay"
-            gr:track-click="{{ctrl.trackingName}}"
-            gr:track-click-data="{ 'Action': 'Show Hide' }">
+            ng-click="ctrl.showOverlay = !ctrl.showOverlay"
+            gr-track-click="{{ctrl.trackingName}}"
+            gr-track-click-data="{ 'Action': 'Show Hide' }">
         <gr-icon>event</gr-icon>
         <div class="gu-date-range__display--value">
             {{ctrl.guSelectedField}}
-            <span ng:if="ctrl.guDisplayStartDate !== ctrl.guAnyTimeText && !ctrl.guDisplayEndDate">from </span>
+            <span ng-if="ctrl.guDisplayStartDate !== ctrl.guAnyTimeText && !ctrl.guDisplayEndDate">from </span>
             {{ctrl.guDisplayStartDate}}
-            <span ng:if="ctrl.guDisplayEndDate">to {{ctrl.guDisplayEndDate}}</span>
+            <span ng-if="ctrl.guDisplayEndDate">to {{ctrl.guDisplayEndDate}}</span>
         </div>
 
         <div class="gu-date-range__display__icon gu-date-range__display__icon__toggle">
-            <span ng:hide="ctrl.showOverlay">▸</span>
-            <span ng:show="ctrl.showOverlay">▾</span>
+            <span ng-hide="ctrl.showOverlay">▸</span>
+            <span ng-show="ctrl.showOverlay">▾</span>
         </div>
     </button>
 
-    <div class="gu-date-range__overlay search__overlay" ng:show="ctrl.showOverlay">
-        <div ng:show="ctrl.guShowExtras">
+    <div class="gu-date-range__overlay search__overlay" ng-show="ctrl.showOverlay">
+        <div ng-show="ctrl.guShowExtras">
             <h2 class="gu-date-range__overlay__title search__overlay__title">Field</h2>
             <div class="gu-date-range__overlay__fieldset">
                 <div class="radio-list">
-                    <div ng:repeat="field in ctrl.guFields track by field.name"
+                    <div ng-repeat="field in ctrl.guFields track by field.name"
                          class="radio-list__item">
                         <input type="radio"
                                id="gu-date-range__field__{{:: field.name}}"
                                class="radio-list__circle"
                                name="field-uploaded"
-                               ng:value=":: field.value"
-                               ng:model="ctrl.guDisplayField">
+                               ng-value=":: field.value"
+                               ng-model="ctrl.guDisplayField">
                         <label for="gu-date-range__field__{{:: field.name}}" class="radio-list__label"
-                               ng:class="{'radio-list--selected': ctrl.guDisplayField === field.value}">
+                               ng-class="{'radio-list--selected': ctrl.guDisplayField === field.value}">
                             <div class="radio-list__selection-state"></div>
                             <div class="radio-list__label-value">{{:: field.label}}</div>
                         </label>
@@ -44,10 +44,10 @@
             <div class="gu-date-range__overlay__fieldset">
                 <button type="button"
                         class="gu-date-range__overlay__preset__button button"
-                        ng:repeat="presetDate in ctrl.guPresetDates"
-                        ng:click="setPresetDate(presetDate.value)"
-                        gr:track-click="{{ctrl.trackingName}}"
-                        gr:track-click-data="{ 'Action': 'Preset Date', 'Preset Date': presetDate.label }">
+                        ng-repeat="presetDate in ctrl.guPresetDates"
+                        ng-click="setPresetDate(presetDate.value)"
+                        gr-track-click="{{ctrl.trackingName}}"
+                        gr-track-click-data="{ 'Action': 'Preset Date', 'Preset Date': presetDate.label }">
                     {{presetDate.label}}
                 </button>
             </div>
@@ -59,7 +59,7 @@
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--start"/>
                 <button type="button"
                         class="gu-date-range__overlay__pikaday__clear button-shy"
-                        ng:click="clearStart()">
+                        ng-click="clearStart()">
                     Clear
                 </button>
             </span>
@@ -69,7 +69,7 @@
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--end"/>
                 <button type="button"
                         class="gu-date-range__overlay__pikaday__clear button-shy"
-                        ng:click="clearEnd()">
+                        ng-click="clearEnd()">
                     Clear
                 </button>
             </span>
@@ -78,19 +78,19 @@
         <div class="gu-date-range__overlay__buttons">
             <button type="button"
                     class="gu-date-range__overlay__button__cancel button-shy"
-                    ng:click="cancel()">
+                    ng-click="cancel()">
                 Cancel
             </button>
             <button type="button"
                     class="gu-date-range__overlay__button__ok button"
-                    ng:click="save()"
-                    gr:track-click="{{ctrl.trackingName}}"
-                    gr:track-click-data="{ 'Action': 'Set Filter' }">
+                    ng-click="save()"
+                    gr-track-click="{{ctrl.trackingName}}"
+                    gr-track-click-data="{ 'Action': 'Set Filter' }">
                 Filter
             </button>
         </div>
     </div>
 
-    <input hidden type="text" class="gu-date-range__input__start--hidden" ng:model="pikaStartValue">
-    <input hidden type="text" class="gu-date-range__input__end--hidden" ng:model="pikaEndValue">
+    <input hidden type="text" class="gu-date-range__input__start--hidden" ng-model="pikaStartValue">
+    <input hidden type="text" class="gu-date-range__input__end--hidden" ng-model="pikaEndValue">
 </div>

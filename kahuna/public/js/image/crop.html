@@ -1,13 +1,13 @@
 <img class="image-crop__image"
-     ng:class="{'image-crop__image--disabled': !ctrl.allowCropSelection(crop) }"
+     ng-class="{'image-crop__image--disabled': !ctrl.allowCropSelection(crop) }"
      alt="cropped image thumbnail"
-     ng:src="{{:: extremeAssets.smallest | assetFile}}" />
+     ng-src="{{:: extremeAssets.smallest | assetFile}}" />
 <div class="image-crop__info"
-     ng:class="{'image-crop__info--selected': crop == ctrl.crop}">
+     ng-class="{'image-crop__info--selected': crop == ctrl.crop}">
   <div class="flex-container">
     {{:: crop.specification.aspectRatio | asCropType}}
     <span class="flex-spacer"></span>
-    <span ng:if="crop.specification.aspectRatio">({{:: crop.specification.aspectRatio}})</span>
+    <span ng-if="crop.specification.aspectRatio">({{:: crop.specification.aspectRatio}})</span>
   </div>
 
   <div class="flex-container image-crop__more-info">

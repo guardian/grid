@@ -245,8 +245,6 @@ object Uploader {
       val fileMetadataMarkers: LogstashMarker = initialMarkers.and(fileMetadata.toLogMarker)
       Logger.info("Have read file metadata")(fileMetadataMarkers)
 
-      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
-      val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
       Logger.info("stored source file")(initialMarkers)
       // FIXME: pass mimeType
       val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
@@ -279,6 +277,7 @@ object Uploader {
           )
           Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(initialMarkers)
           uploadedFile.delete()
+          toOptimiseFile.delete()
 
           finalImage
         }
@@ -366,9 +365,8 @@ object Uploader {
   }
 
   private def createOptimisedFileFuture(uploadRequest: UploadRequest,
-                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
+                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[UploadRequest] = {
     import deps._
-    val uploadedFile = uploadRequest.tempFile
     uploadRequest.mimeType match {
       case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
         for {
@@ -378,7 +376,7 @@ object Uploader {
           .copy(mimeType = Some(Jpeg))
           .copy(tempFile = transformedImage)
       case _ =>
-        Future.apply(uploadRequest)
+        Future.successful(uploadRequest)
     }
   }
 

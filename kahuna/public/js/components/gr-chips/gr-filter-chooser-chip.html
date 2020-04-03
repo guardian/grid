@@ -7,10 +7,10 @@
             class="gr-filter-chooser-chip__value"
             gr-datalist-input
             gr-auto-width
-            ng:trim="false"
+            ng-trim="false"
             gr-chip-input
             gr-chip-input-on-enter="$grFilterChooserChipCtrl.apply($chip.value)"
             gr-chip-input-backspace-at-start="$grFilterChooserChipCtrl.removeSelf()"
-            ng:model="$chip.value"
+            ng-model="$chip.value"
     />
 </gr-datalist>

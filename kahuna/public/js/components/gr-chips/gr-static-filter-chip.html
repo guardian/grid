@@ -1,10 +1,10 @@
 <button type="button"
         class="gr-static-filter-chip__type"
-        ng:click="$grStaticFilterChipCtrl.toggleFilterType()"
+        ng-click="$grStaticFilterChipCtrl.toggleFilterType()"
 >{{$chip.filterType === 'inclusion' ? '+' : '−' }}</button
 ><span class="gr-static-filter-chip__key">{{$chip.key}}:</span
 ><span class="gr-static-filter-chip__value">{{$chip.value}}</span
 ><button type="button"
          class="gr-static-filter-chip__remove"
-         ng:click="$grChipsCtrl.removeChip($chip)"
+         ng-click="$grChipsCtrl.removeChip($chip)"
 >✕</button>
