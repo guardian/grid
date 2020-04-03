@@ -4,6 +4,7 @@ import com.gu.mediaservice.model.ImageMetadata
 
 object PhotographerRenamer extends MetadataCleaner {
   val names = Map(
+    "WPA Pool" -> "WPA",
     "Abdullah Coskun" -> "Abdullah Coşkun",
     "Adam Warzawa" -> "Adam Warżawa",
     "Ahmet Izgi" -> "Ahmet İzgi",
@@ -32,6 +33,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Andreea Campeanu" -> "Andreea Câmpeanu",
     "Andrej Isakovic" -> "Andrej Isaković",
     "Andres Kudacki" -> "Andrés Kudacki",
+    "Antonio Guillem Fernandez" -> "Antonio Guillem Fernández",
     "Andres Martinez Casares" -> "Andrés Martínez Casares",
     "Angel Martinez" -> "Ángel Martínez",
     "Antonio Bronic" -> "Antonio Bronić",
@@ -111,6 +113,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Elin Hoyland" -> "Elin Høyland",
     "Emin Menguarslan" -> "Emin Mengüarslan",
     "Emrah Gurel" -> "Emrah Gürel",
+    "Enrique Garcia Medina" -> "Enrique García Medina",
     "Esra Hacioglu" -> "Esra Hacıoğlu",
     "Ercin Top" -> "Erçin Top",
     "Erdem Sahin" -> "Erdem Şahin",
@@ -193,6 +196,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Joao Laet" -> "João Laet",
     "Joao Relvas" -> "João Relvas",
     "Joaquin Sarmiento" -> "Joaquín Sarmiento",
+    "Joebeth Terriquez" -> "Joebeth Terríquez",
     "Joedson Alves" -> "Joédson Alves",
     "Johan Ordonez" -> "Johan Ordóñez",
     "John Macdougall" -> "John MacDougall",
@@ -318,6 +322,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Peter Dejong" -> "Peter de Jong",
     "Peter Komka" -> "Péter Komka",
     "Pietro D’aprano" -> "Pietro D’Aprano",
+    "Piotr Hukalo" -> "Piotr Hukało",
     "Piotr Molecki" -> "Piotr Molęcki",
     "Quique Garcia" -> "Quique García",
     "Rade Prelic" -> "Rade Prelić",
