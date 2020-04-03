@@ -14,7 +14,7 @@ import '../../util/seq';
 import {
     combine$,
     add$, sub$, mult$, div$, mod$,
-    floor$, ceil$, max$, min$
+    floor$, ceil$, max$, min$, round$
 } from './observable-utils';
 
 
@@ -64,8 +64,8 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
 
         const viewportBottom$ = add$(viewportTop$, viewportHeight$);
 
-        const currentRowTop$    = floor$(div$(viewportTop$,    cellHeight$));
-        const currentRowBottom$ = floor$(div$(viewportBottom$, cellHeight$));
+        const currentRowTop$    = round$(div$(viewportTop$,    cellHeight$));
+        const currentRowBottom$ = round$(div$(viewportBottom$, cellHeight$));
 
         const loadedRowTop$ = max$(sub$(currentRowTop$, preloadedRows$), 0).
             distinctUntilChanged();
