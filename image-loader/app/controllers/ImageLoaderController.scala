@@ -106,7 +106,7 @@ class ImageLoaderController(auth: Authentication,
 
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { _ =>
-      val result= projector.projectS3ImageById(projector, imageId, tempFile)
+      val result= projector.projectS3ImageById(projector, imageId, tempFile, requestContext.requestId)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
@@ -148,7 +148,14 @@ class ImageLoaderController(auth: Authentication,
       val result = for {
         validUri <- Future { URI.create(uri) }
         digestedFile <- downloader.download(validUri, tempFile)
-        uploadRequest <- uploader.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
+        uploadRequest <- uploader.loadFile(
+          digestedFile,
+          request.user,
+          uploadedBy,
+          identifiers,
+          DateTimeUtils.fromValueOrNow(uploadTime),
+          filename.flatMap(_.trim.nonEmptyOpt),
+          requestContext.requestId)
         result <- uploader.storeFile(uploadRequest)
       } yield result
 
