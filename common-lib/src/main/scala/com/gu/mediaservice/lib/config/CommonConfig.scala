@@ -10,6 +10,7 @@ import play.api.Configuration
 
 import scala.io.Source._
 import scala.util.Try
+import com.gu.mediaservice.lib.aws.KinesisConfig
 
 
 trait CommonConfig {
@@ -58,8 +59,10 @@ trait CommonConfig {
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
   lazy val thrallKinesisLowPriorityStream = properties("thrall.kinesis.lowPriorityStream.name")
 
-  lazy val thrallKinesisEndpoint: String = properties.getOrElse("thrall.local.kinesis.url", kinesisAWSEndpoint)
+  lazy val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
+  lazy val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
 
+  lazy val thrallKinesisEndpoint: String = properties.getOrElse("thrall.local.kinesis.url", kinesisAWSEndpoint)
   lazy val thrallKinesisDynamoEndpoint: String = properties.getOrElse("thrall.local.dynamodb.url", dynamodbAWSEndpoint)
 
   // Note: had to make these lazy to avoid init order problems ;_;
@@ -82,6 +85,8 @@ trait CommonConfig {
   lazy val corsAllowedOrigins: Set[String] = getStringSetFromProperties("security.cors.allowedOrigins")
 
   lazy val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
+
+  private def getKinesisConfigForStream(streamName: String) = KinesisConfig(awsRegion, awsCredentials, thrallKinesisEndpoint, streamName)
 
   final def getStringSetFromProperties(key: String): Set[String] = Try(
     properties(key).split(",").map(_.trim).toSet
