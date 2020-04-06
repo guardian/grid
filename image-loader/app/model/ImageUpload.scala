@@ -256,7 +256,12 @@ object Uploader {
         val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
         Logger.info("thumbnail created")(fileMetadataMarkers)
 
-        val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)(fileMetadataMarkers)
+        val optimisedPng = OptimisedPngOps.build(
+          toOptimiseFile,
+          uploadRequest,
+          fileMetadata,
+          config,
+          storeOrProjectOptimisedPNG)(ec, fileMetadataMarkers)
         Logger.info("optimised image created")(fileMetadataMarkers)
 
         bracket(thumbFuture)(_.delete) { thumb =>
