@@ -241,7 +241,7 @@ object Uploader {
 
     fileMetadataFuture.flatMap(fileMetadata => {
       import com.gu.mediaservice.lib.logging.LogMarker.addLogstashMarker
-      implicit val fileMetadataMarkers: MarkerContext = addLogstashMarker(fileMetadata.toLogMarker)
+      val fileMetadataMarkers: MarkerContext = addLogstashMarker(fileMetadata.toLogMarker)
       Logger.info("Have read file metadata")(fileMetadataMarkers)
 
       Logger.info("stored source file")(fileMetadataMarkers)
@@ -256,7 +256,7 @@ object Uploader {
         val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
         Logger.info("thumbnail created")(fileMetadataMarkers)
 
-        val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
+        val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)(fileMetadataMarkers)
         Logger.info("optimised image created")(fileMetadataMarkers)
 
         bracket(thumbFuture)(_.delete) { thumb =>
