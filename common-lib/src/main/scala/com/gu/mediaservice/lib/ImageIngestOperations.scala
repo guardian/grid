@@ -3,8 +3,8 @@ package com.gu.mediaservice.lib
 import java.io.File
 
 import com.gu.mediaservice.lib.config.CommonConfig
-import _root_.play.api.MarkerContext
 import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
 
 import scala.concurrent.Future
@@ -21,15 +21,15 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   import ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 
   def storeOriginal(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
-                   (implicit markerContext: MarkerContext): Future[S3Object] =
+                   (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
 
   def storeThumbnail(id: String, file: File, mimeType: Option[MimeType])
-                    (implicit markerContext: MarkerContext): Future[S3Object] =
+                    (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(thumbnailBucket, fileKeyFromId(id), file, mimeType)
 
   def storeOptimisedPng(id: String, file: File)
-                       (implicit markerContext: MarkerContext): Future[S3Object] =
+                       (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some(Png))
 
   def deleteOriginal(id: String): Future[Unit] = deleteImage(imageBucket, fileKeyFromId(id))

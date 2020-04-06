@@ -7,14 +7,14 @@ import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
+import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, RequestLoggingContext}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
 import model.{Projector, Uploader}
-import play.api.{Logger, MarkerContext}
+import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -47,7 +47,7 @@ class ImageLoaderController(auth: Authentication,
   def index: Action[AnyContent] = auth { indexResponse }
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] = {
-    val context: RequestLoggingContext = RequestLoggingContext(
+    implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "requestType" -> "load-image",
         "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
@@ -56,8 +56,6 @@ class ImageLoaderController(auth: Authentication,
         "filename" -> filename.getOrElse(FALLBACK)
       )
     )
-    implicit val markerContext: MarkerContext = MarkerContext(context.toMarker())
-
     Logger.info("loadImage request start")
 
     // synchronous write to file
@@ -98,14 +96,12 @@ class ImageLoaderController(auth: Authentication,
 
   // Fetch
   def projectImageBy(imageId: String): Action[AnyContent] = {
-    val context: RequestLoggingContext = RequestLoggingContext(
+    implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "imageId" -> imageId,
         "requestType" -> "image-projection"
       )
     )
-    implicit val markerContext: MarkerContext = MarkerContext(context.toMarker())
-
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { _ =>
       val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId)
@@ -136,14 +132,13 @@ class ImageLoaderController(auth: Authentication,
                    filename: Option[String]
                  ): Action[AnyContent] = {
     auth.async { request =>
-      val context: RequestLoggingContext = RequestLoggingContext(
+      implicit val context: RequestLoggingContext = RequestLoggingContext(
         initialMarkers = Map(
           "requestType" -> "import-image",
           "key-tier" -> request.user.accessor.tier.toString,
           "key-name" -> request.user.accessor.identity
         )
       )
-      implicit val markerContext: MarkerContext = MarkerContext(context.toMarker())
 
       Logger.info("importImage request start")
 
@@ -194,13 +189,13 @@ class ImageLoaderController(auth: Authentication,
 
   // To avoid Future _madness_, it is better to make temp files at the controller and pass them down,
   // then clear them up again at the end.  This avoids leaks.
-  def createTempFile(prefix: String)(implicit markerContext: MarkerContext): File = {
+  def createTempFile(prefix: String)(implicit logMarker: LogMarker): File = {
     val tempFile = File.createTempFile(prefix, "", config.tempDir)
     Logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")
     tempFile
   }
 
-  def deleteTempFile(tempFile: File)(implicit markerContext: MarkerContext): Future[Unit] = Future {
+  def deleteTempFile(tempFile: File)(implicit logMarker: LogMarker): Future[Unit] = Future {
     if (tempFile.delete()) {
       Logger.info(s"Deleted temp file $tempFile")
     } else {

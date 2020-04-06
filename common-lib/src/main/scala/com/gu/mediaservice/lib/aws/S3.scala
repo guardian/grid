@@ -9,11 +9,11 @@ import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
 import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.Stopwatch
+import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
 import org.slf4j.LoggerFactory
-import play.api.{Logger, MarkerContext}
+import play.api.Logger
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -115,7 +115,7 @@ class S3(config: CommonConfig) {
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
-           (implicit ex: ExecutionContext, markerContext: MarkerContext): Future[S3Object] =
+           (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] =
     Future {
       val metadata = new ObjectMetadata
       mimeType.foreach(m => metadata.setContentType(m.name))

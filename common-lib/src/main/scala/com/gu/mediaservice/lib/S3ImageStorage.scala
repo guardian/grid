@@ -1,11 +1,10 @@
 package com.gu.mediaservice.lib
 
-import _root_.play.api.MarkerContext
-
 import java.io.File
 
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.MimeType
 import org.slf4j.LoggerFactory
 
@@ -17,7 +16,7 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
   private val log = LoggerFactory.getLogger(getClass)
 
   def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
-                (implicit markerContext: MarkerContext) =
+                (implicit logMarker: LogMarker) =
     store(bucket, id, file, mimeType, meta, Some(cacheForever))
 
   def deleteImage(bucket: String, id: String) = Future {

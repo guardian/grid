@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, Jpeg, Png, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
@@ -64,7 +65,8 @@ class Projector(config: ImageUploadOpsCfg,
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID)(implicit ec: ExecutionContext, markerContext: MarkerContext): Future[Option[Image]] = {
+  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID)
+                        (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
       val s3Key = fileKeyFromId(imageId)
@@ -89,7 +91,8 @@ class Projector(config: ImageUploadOpsCfg,
     DigestedFile(tempFile, imageId)
   }
 
-  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestId: UUID)(implicit ec: ExecutionContext, markerContext: MarkerContext): Future[Image] = {
+  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestId: UUID)
+                  (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
     // TODO more identifiers_ to rehydrate
@@ -124,7 +127,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
-                                   (implicit ec: ExecutionContext, markerContext: MarkerContext): Future[Image] = {
+                                   (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
     projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly)

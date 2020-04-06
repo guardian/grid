@@ -5,7 +5,6 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
-import _root_.play.api.MarkerContext
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -14,7 +13,7 @@ import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.Stopwatch
+import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
@@ -51,7 +50,8 @@ object OptimisedPngOps {
   def build(file: File, uploadRequest: UploadRequest,
             fileMetadata: FileMetadata,
             config: ImageUploadOpsCfg,
-            storeOrProject: (UploadRequest, File) => Future[S3Object])(implicit ec: ExecutionContext, markerContext: MarkerContext): OptimisedPng = {
+            storeOrProject: (UploadRequest, File) => Future[S3Object])
+           (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
 
     val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
       OptimisedPng(Future(None), isPng24 = false, None)
@@ -67,7 +67,8 @@ object OptimisedPngOps {
     result
   }
 
-  private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg)(implicit markerContext: MarkerContext): File = {
+  private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg)
+                             (implicit logMarker: LogMarker): File = {
     val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
     Stopwatch("pngquant") {
       Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
@@ -119,14 +120,16 @@ class Uploader(val store: ImageLoaderStore,
   import Uploader.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg}
 
 
-  def fromUploadRequest(uploadRequest: UploadRequest)(implicit markerContext: MarkerContext): Future[ImageUpload] = {
+  def fromUploadRequest(uploadRequest: UploadRequest)
+                       (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedPng)
     val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 
-  private def storeSource(uploadRequest: UploadRequest)(implicit markerContext: MarkerContext) = {
+  private def storeSource(uploadRequest: UploadRequest)
+                         (implicit logMarker: LogMarker) = {
     val meta = toMetaMap(uploadRequest)
     store.storeOriginal(
       uploadRequest.imageId,
@@ -136,13 +139,15 @@ class Uploader(val store: ImageLoaderStore,
     )
   }
 
-  private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File)(implicit markerContext: MarkerContext) = store.storeThumbnail(
+  private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File)
+                            (implicit logMarker: LogMarker) = store.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
     Some(Jpeg)
   )
 
-  private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File)(implicit markerContext: MarkerContext) = {
+  private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File)
+                               (implicit logMarker: LogMarker) = {
     store.storeOptimisedPng(
       uploadRequest.imageId,
       optimisedPngFile
@@ -156,7 +161,8 @@ class Uploader(val store: ImageLoaderStore,
                uploadTime: DateTime,
                filename: Option[String],
                requestId: UUID)
-              (implicit ec:ExecutionContext, markerContext: MarkerContext): Future[UploadRequest] = Future {
+              (implicit ec:ExecutionContext,
+               logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
 
     // TODO: should error if the JSON parsing failed
@@ -181,9 +187,12 @@ class Uploader(val store: ImageLoaderStore,
     }
   }
 
-  def storeFile(uploadRequest: UploadRequest)(implicit ec:ExecutionContext, markerContext: MarkerContext): Future[JsObject] = {
+  def storeFile(uploadRequest: UploadRequest)
+               (implicit ec:ExecutionContext,
+                logMarker: LogMarker): Future[JsObject] = {
 
     Logger.info("Storing file")
+
     for {
       imageUpload <- fromUploadRequest(uploadRequest)
       updateMessage = UpdateMessage(subject = "image", image = Some(imageUpload.image))
@@ -228,7 +237,8 @@ object Uploader {
     )
   }
 
-  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext, markerContext: MarkerContext): Future[Image] = {
+  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies)
+                             (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
 
     import deps._
 
@@ -240,8 +250,7 @@ object Uploader {
     Logger.info("Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
-      import com.gu.mediaservice.lib.logging.LogMarker.addLogstashMarker
-      val fileMetadataMarkers: MarkerContext = addLogstashMarker(fileMetadata.toLogMarker)
+      implicit val fileMetadataMarkers: LogMarker = fileMetadata.toLogMarker
       Logger.info("Have read file metadata")(fileMetadataMarkers)
 
       Logger.info("stored source file")(fileMetadataMarkers)
@@ -309,6 +318,7 @@ object Uploader {
                            colourModelFuture: Future[Option[String]],
                            optimisedPng: OptimisedPng,
                            uploadRequest: UploadRequest)(implicit ec: ExecutionContext): Future[Image] = {
+    Logger.info("Starting image ops")
     for {
       s3Source <- sourceStoreFuture
       s3Thumb <- thumbStoreFuture

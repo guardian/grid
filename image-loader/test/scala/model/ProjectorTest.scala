@@ -161,7 +161,7 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
       picdarUrn = None,
     )
 
-    val requestLoggingContext = RequestLoggingContext()
+    implicit val requestLoggingContext = RequestLoggingContext()
 
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID())
 
