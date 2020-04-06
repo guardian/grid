@@ -9,11 +9,11 @@ import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
 import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.{RequestLoggingContext, Stopwatch}
+import com.gu.mediaservice.lib.logging.Stopwatch
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
 import org.slf4j.LoggerFactory
-import play.api.Logger
+import play.api.{Logger, MarkerContext}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,10 +49,9 @@ class S3(config: CommonConfig) {
 
     val extension: String = asset.mimeType match {
       case Some(mimeType) => mimeType.fileExtension
-      case _ => {
+      case _ =>
         Logger.warn("Unrecognised mime type")(image.toLogMarker)
         ""
-      }
     }
 
     val baseFilename: String = image.uploadInfo.filename match {
@@ -116,7 +115,7 @@ class S3(config: CommonConfig) {
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
-           (implicit ex: ExecutionContext, requestContext: RequestLoggingContext): Future[S3Object] =
+           (implicit ex: ExecutionContext, markerContext: MarkerContext): Future[S3Object] =
     Future {
       val metadata = new ObjectMetadata
       mimeType.foreach(m => metadata.setContentType(m.name))
@@ -139,11 +138,11 @@ class S3(config: CommonConfig) {
       val summaries = listing.getObjectSummaries.asScala
       summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
         case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(objectUrl(bucket, key), summary.getSize(), getMetadata(bucket, key)) :: memo
+          S3Object(objectUrl(bucket, key), summary.getSize, getMetadata(bucket, key)) :: memo
       }
     }
 
-  def getMetadata(bucket: Bucket, key: Key) = {
+  def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
     val meta = client.getObjectMetadata(bucket, key)
 
     S3Metadata(
@@ -156,7 +155,7 @@ class S3(config: CommonConfig) {
     )
   }
 
-  def getUserMetadata(bucket: Bucket, key: Key) =
+  def getUserMetadata(bucket: Bucket, key: Key): Map[Bucket, Bucket] =
     client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
 
   def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {

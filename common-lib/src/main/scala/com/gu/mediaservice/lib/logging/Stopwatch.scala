@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.logging
 
-import net.logstash.logback.marker.LogstashMarker
-import play.api.Logger
+import play.api.{Logger, MarkerContext}
 import java.time.ZonedDateTime
-
+import com.gu.mediaservice.lib.logging.LogMarker.addMark
 import com.gu.mediaservice.lib.DateTimeUtils
 
 import scala.concurrent.duration._
@@ -33,17 +32,17 @@ class Stopwatch  {
 object Stopwatch {
   def start: Stopwatch = new Stopwatch
 
-  def apply[T](label: String)(body: => T)(implicit requestContext: RequestLoggingContext): T = {
+  def apply[T](label: String)(body: => T)(implicit mc: MarkerContext): T = {
+
     val stopwatch = new Stopwatch
     try {
       val result = body
-      implicit val markerContext: LogstashMarker =
-        RequestLoggingContext(initialMarkers = requestContext.initialMarkers + ("duration" -> stopwatch.elapsed.toString)).toMarker()
-      Logger.info(s"Stopwatch: $label ${stopwatch.elapsed} ns")
+      Logger.info(s"Stopwatch: $label ${stopwatch.elapsed} ns")(addMark("duration", stopwatch.elapsed))
       result
     } catch {
       case e: Exception => Logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e
     }
   }
+
 }
 

@@ -73,7 +73,7 @@ class ImageLoaderController(auth: Authentication,
           identifiers,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
-          context)
+          context.requestId)
         result <- uploader.storeFile(uploadRequest)
       } yield result
 
