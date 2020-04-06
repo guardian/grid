@@ -340,7 +340,7 @@ object Uploader {
       )
     } yield {
       if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
-      Logger.info("Ending image ops")(uploadRequest.toLogMarker)
+      Logger.info("Ending image ops")
       finalImage
     }
   }
