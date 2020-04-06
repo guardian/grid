@@ -4,14 +4,14 @@ import java.net.InetAddress
 import java.util.UUID
 
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration}
-import lib.{ThrallConfig, ThrallKinesisConfig}
+import lib.{ThrallConfig, KinesisReceiverConfig}
 import org.joda.time.DateTime
 import play.api.Logger
 
 object KinesisConfig {
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
-  def kinesisConfig(config: ThrallKinesisConfig) = {
+  def kinesisConfig(config: KinesisReceiverConfig) = {
 
     Logger.info(s"creating kinesis consumer with endpoint=${config.thrallKinesisEndpoint}, region=${config.awsRegion}")
     kinesisClientLibConfig(
@@ -23,7 +23,7 @@ object KinesisConfig {
       .withDynamoDBEndpoint(config.thrallKinesisDynamoEndpoint)
   }
 
-  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: ThrallKinesisConfig, from: Option[DateTime]): KinesisClientLibConfiguration = {
+  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: KinesisReceiverConfig, from: Option[DateTime]): KinesisClientLibConfiguration = {
     val credentialsProvider = config.awsCredentials
 
     val kinesisConfig = new KinesisClientLibConfiguration(

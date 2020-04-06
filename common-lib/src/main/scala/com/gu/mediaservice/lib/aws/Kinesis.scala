@@ -14,14 +14,14 @@ import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
 import com.amazonaws.auth.AWSCredentialsProvider
 
-case class KinesisConfig(
+case class KinesisSenderConfig(
   awsRegion: String,
   awsCredentials: AWSCredentialsProvider,
   kinesisEndpoint: String,
   streamName: String
 )
 
-class Kinesis(config: KinesisConfig) {
+class Kinesis(config: KinesisSenderConfig) {
 
   private val builder = AmazonKinesisClientBuilder.standard()
 

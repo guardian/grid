@@ -7,10 +7,10 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
 import play.api.Configuration
+import com.gu.mediaservice.lib.aws.KinesisSenderConfig
 
 import scala.io.Source._
 import scala.util.Try
-import com.gu.mediaservice.lib.aws.KinesisConfig
 
 
 trait CommonConfig {
@@ -86,7 +86,7 @@ trait CommonConfig {
 
   lazy val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
-  private def getKinesisConfigForStream(streamName: String) = KinesisConfig(awsRegion, awsCredentials, thrallKinesisEndpoint, streamName)
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, thrallKinesisEndpoint, streamName)
 
   final def getStringSetFromProperties(key: String): Set[String] = Try(
     properties(key).split(",").map(_.trim).toSet

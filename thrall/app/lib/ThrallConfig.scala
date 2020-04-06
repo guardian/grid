@@ -6,7 +6,7 @@ import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.Configuration
 
-case class ThrallKinesisConfig(
+case class KinesisReceiverConfig(
   streamName: String,
   rewindFrom: Option[DateTime],
   thrallKinesisEndpoint: String,
@@ -15,8 +15,8 @@ case class ThrallKinesisConfig(
   awsCredentials: AWSCredentialsProvider
 )
 
-object ThrallKinesisConfig {
-  def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): ThrallKinesisConfig = ThrallKinesisConfig(
+object KinesisReceiverConfig {
+  def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
     streamName,
     rewindFrom,
     thrallConfig.thrallKinesisEndpoint,
@@ -47,6 +47,6 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val rewindFrom: Option[DateTime] = properties.get("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
   lazy val lowPriorityRewindFrom: Option[DateTime] = properties.get("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
 
-  def kinesisConfig: ThrallKinesisConfig = ThrallKinesisConfig(thrallKinesisStream, rewindFrom, this)
-  def kinesisLowPriorityConfig: ThrallKinesisConfig = ThrallKinesisConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
+  def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
+  def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
 }

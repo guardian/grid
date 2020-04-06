@@ -10,7 +10,7 @@ import org.scalatest.time.{Second, Seconds, Span}
 import scala.concurrent.duration._
 import scala.util.Properties
 import scala.concurrent.{Await, Future}
-import lib.ThrallKinesisConfig
+import lib.KinesisReceiverConfig
 import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
 import com.amazonaws.auth.AWSCredentialsProvider
@@ -30,12 +30,16 @@ import com.amazonaws.services.dynamodbv2.model.ListStreamsRequest
 import scala.collection.JavaConverters._
 
 trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar {
+  val highPriorityStreamName = "thrall-test-stream-high-priority"
+  val lowPriorityStreamName = "thrall-test-stream-low-priority"
   val kinesisTestUrl = Properties.envOrElse("KINESIS_TEST_URL", "http://localhost:4568/")
-  val kinesisPort = 4568
-  val webUiPort = 5050
   val region = "eu-west-1"
-  val kinesisImage = "localstack/localstack:0.10.8"
-  val kinesisContainer = DockerContainer(kinesisImage)
+  val staticCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials("stub", "creds"))
+
+  private val kinesisPort = 4568
+  private val webUiPort = 5050
+  private val kinesisImage = "localstack/localstack:0.10.8"
+  private val kinesisContainer = DockerContainer(kinesisImage)
     .withPorts(kinesisPort -> Some(kinesisPort), webUiPort -> Some(webUiPort))
     .withEnv(
       "SERVICES=kinesis",
@@ -51,12 +55,8 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
   final override def dockerContainers: List[DockerContainer] =
     kinesisContainer :: super.dockerContainers
 
-  val highPriorityStreamName = "thrall-test-stream-high-priority"
-  val lowPriorityStreamName = "thrall-test-stream-low-priority"
-
-  def createKinesisClient(): AmazonKinesis = {
+  private def createKinesisClient(): AmazonKinesis = {
     val clientBuilder = AmazonKinesisClientBuilder.standard()
-    val staticCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials("stub", "creds"))
     clientBuilder.setCredentials(staticCredentials)
     clientBuilder.setEndpointConfiguration(new EndpointConfiguration(kinesisTestUrl, region))
     clientBuilder.build()
@@ -81,6 +81,6 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
     assert(streamNames.contains(highPriorityStreamName))
     assert(streamNames.contains(lowPriorityStreamName))
 
-    println("Local kinesis image is ready")
+    println("Local kinesis streams are ready")
   }
 }
