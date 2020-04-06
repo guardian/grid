@@ -2,6 +2,7 @@ package model
 
 import java.io.File
 import java.net.URI
+import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -10,13 +11,11 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
-import org.mockito.internal.matchers.Any
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsArray, JsString}
-import scalaz.std.anyVal
 import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -32,8 +31,6 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
   private val imageOperations = new ImageOperations(ctxPath)
 
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
-
-  import org.mockito.Mockito.when
 
   private val s3 = mock[AmazonS3]
   private val projector = new Projector(config, s3, imageOperations)
@@ -166,7 +163,7 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
 
     val requestLoggingContext = RequestLoggingContext()
 
-    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, requestLoggingContext)
+    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID())
 
     whenReady(actualFuture) { actual =>
       actual shouldEqual expected
