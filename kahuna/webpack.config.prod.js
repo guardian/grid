@@ -8,8 +8,8 @@ module.exports = merge(shared, {
       minimize: true,
       minimizer: [new TerserPlugin({
         sourceMap: true
-      })],
+      })]
 
-    },
+    }
   }
 );
