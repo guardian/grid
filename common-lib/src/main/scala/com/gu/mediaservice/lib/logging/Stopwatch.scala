@@ -14,6 +14,8 @@ case class DurationForLogging(startTime: ZonedDateTime, duration: Duration) exte
     "duration" -> toMillis
   )
 
+  override def toString: String = s"${toMillis} ms"
+
 }
 
 class Stopwatch  {
@@ -36,7 +38,7 @@ object Stopwatch {
     val stopwatch = new Stopwatch
     try {
       val result = body
-      Logger.info(s"Stopwatch: $label ${stopwatch.elapsed} ns")(addMarkers("elapsed" -> stopwatch.elapsed))
+      Logger.info(s"Stopwatch: $label")(addMarkers("elapsed" -> stopwatch.elapsed.duration.toString))
       result
     } catch {
       case e: Exception => Logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e

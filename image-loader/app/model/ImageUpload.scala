@@ -13,7 +13,7 @@ import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
+import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
@@ -165,6 +165,8 @@ class Uploader(val store: ImageLoaderStore,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
 
+    println(logMarker)
+
     // TODO: should error if the JSON parsing failed
     val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
@@ -250,51 +252,70 @@ object Uploader {
     Logger.info("Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
-      implicit val fileMetadataMarkers: LogMarker = fileMetadata.toLogMarker
-      Logger.info("Have read file metadata")(fileMetadataMarkers)
+      uploadAndStoreImage(config,
+        storeOrProjectOriginalFile,
+        storeOrProjectThumbFile,
+        storeOrProjectOptimisedPNG,
+        uploadRequest,
+        deps,
+        uploadedFile,
+        fileMetadataFuture,
+        fileMetadata)(ec, addLogMarkers(fileMetadata.toLogMarker))
+    })
+  }
 
-      Logger.info("stored source file")(fileMetadataMarkers)
-      // FIXME: pass mimeType
-      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
-      val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
+  private def uploadAndStoreImage(config: ImageUploadOpsCfg,
+                   storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
+                   storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
+                   storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object],
+                   uploadRequest: UploadRequest,
+                   deps: ImageUploadOpsDependencies,
+                   uploadedFile: File,
+                   fileMetadataFuture: Future[FileMetadata],
+                   fileMetadata: FileMetadata)
+                  (implicit ec: ExecutionContext, logMarker: LogMarker) = {
+    Logger.info("Have read file metadata")
+    Logger.info("stored source file")
+    // FIXME: pass mimeType
+    val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
-      // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
-      createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
-        val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
-        val toOptimiseFile = uploadRequest.tempFile
-        val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
-        Logger.info("thumbnail created")(fileMetadataMarkers)
+    // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
+    createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
+      val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
+      val toOptimiseFile = uploadRequest.tempFile
+      val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
+      Logger.info("thumbnail created")
 
-        val optimisedPng = OptimisedPngOps.build(
-          toOptimiseFile,
-          uploadRequest,
-          fileMetadata,
-          config,
-          storeOrProjectOptimisedPNG)(ec, fileMetadataMarkers)
-        Logger.info("optimised image created")(fileMetadataMarkers)
+      val optimisedPng = OptimisedPngOps.build(
+        toOptimiseFile,
+        uploadRequest,
+        fileMetadata,
+        config,
+        storeOrProjectOptimisedPNG)(ec, logMarker)
+      Logger.info("optimised image created")
 
-        bracket(thumbFuture)(_.delete) { thumb =>
-          // Run the operations in parallel
-          val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
-          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
+      bracket(thumbFuture)(_.delete) { thumb =>
+        // Run the operations in parallel
+        val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
+        val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
 
-          val finalImage = toFinalImage(
-            sourceStoreFuture,
-            thumbStoreFuture,
-            sourceDimensionsFuture,
-            thumbDimensionsFuture,
-            fileMetadataFuture,
-            colourModelFuture,
-            optimisedPng,
-            uploadRequest
-          )
-          Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(fileMetadataMarkers)
-          uploadedFile.delete()
-          toOptimiseFile.delete()
+        val finalImage = toFinalImage(
+          sourceStoreFuture,
+          thumbStoreFuture,
+          sourceDimensionsFuture,
+          thumbDimensionsFuture,
+          fileMetadataFuture,
+          colourModelFuture,
+          optimisedPng,
+          uploadRequest
+        )
+        Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
+        uploadedFile.delete()
+        toOptimiseFile.delete()
 
-          finalImage
-        }
-      })
+        finalImage
+      }
     })
   }
 
@@ -317,7 +338,8 @@ object Uploader {
                            fileMetadataFuture: Future[FileMetadata],
                            colourModelFuture: Future[Option[String]],
                            optimisedPng: OptimisedPng,
-                           uploadRequest: UploadRequest)(implicit ec: ExecutionContext): Future[Image] = {
+                           uploadRequest: UploadRequest)
+                          (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     Logger.info("Starting image ops")
     for {
       s3Source <- sourceStoreFuture

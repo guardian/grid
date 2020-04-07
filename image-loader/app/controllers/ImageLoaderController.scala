@@ -88,7 +88,7 @@ class ImageLoaderController(auth: Authentication,
           e match {
             case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
             case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
-            case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
+            case e => println(e.getMessage); InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
           }
       }
     }
