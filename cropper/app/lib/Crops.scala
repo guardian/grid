@@ -27,7 +27,8 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   private val masterCropQuality = 95d
 
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false): String = {
-    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.${fileType.fileExtension}"
+    val masterString: String = if (isMaster) "master/" else ""
+    s"${source.id}/${Crop.getCropId(bounds)}/${masterString}$outputWidth${fileType.fileExtension}"
   }
 
   def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: MimeType, colourModel: Option[String],
