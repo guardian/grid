@@ -7,7 +7,7 @@ import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.logging.{FALLBACK, RequestLoggingContext}
+import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, RequestLoggingContext}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
@@ -56,7 +56,6 @@ class ImageLoaderController(auth: Authentication,
         "filename" -> filename.getOrElse(FALLBACK)
       )
     )
-
     Logger.info("loadImage request start")
 
     // synchronous write to file
@@ -73,36 +72,39 @@ class ImageLoaderController(auth: Authentication,
           identifiers,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
-          context)
+          context.requestId)
         result <- uploader.storeFile(uploadRequest)
       } yield result
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
-      val response = result map { r =>
-        Accepted(r).as(ArgoMediaType)
+      result map { r =>
+        val result = Accepted(r).as(ArgoMediaType)
+        Logger.info("loadImage request end")
+        result
       } recover {
-        case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
-        case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
-        case e => InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
+        case e =>
+          Logger.error("loadImage request ended with a failure", e)
+          e match {
+            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
+            case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
+            case e => println(e.getMessage); InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
+          }
       }
-      Logger.info("loadImage request end")
-      response
     }
   }
 
   // Fetch
   def projectImageBy(imageId: String): Action[AnyContent] = {
-    implicit val requestContext: RequestLoggingContext = RequestLoggingContext(
+    implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
         "imageId" -> imageId,
         "requestType" -> "image-projection"
       )
     )
-
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { _ =>
-      val result= projector.projectS3ImageById(projector, imageId, requestContext, tempFile)
+      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
@@ -130,7 +132,7 @@ class ImageLoaderController(auth: Authentication,
                    filename: Option[String]
                  ): Action[AnyContent] = {
     auth.async { request =>
-      implicit val requestContext: RequestLoggingContext = RequestLoggingContext(
+      implicit val context: RequestLoggingContext = RequestLoggingContext(
         initialMarkers = Map(
           "requestType" -> "import-image",
           "key-tier" -> request.user.accessor.tier.toString,
@@ -144,7 +146,14 @@ class ImageLoaderController(auth: Authentication,
       val result = for {
         validUri <- Future { URI.create(uri) }
         digestedFile <- downloader.download(validUri, tempFile)
-        uploadRequest <- uploader.loadFile(digestedFile, request.user, uploadedBy, identifiers, DateTimeUtils.fromValueOrNow(uploadTime), filename.flatMap(_.trim.nonEmptyOpt), requestContext)
+        uploadRequest <- uploader.loadFile(
+          digestedFile,
+          request.user,
+          uploadedBy,
+          identifiers,
+          DateTimeUtils.fromValueOrNow(uploadTime),
+          filename.flatMap(_.trim.nonEmptyOpt),
+          context.requestId)
         result <- uploader.storeFile(uploadRequest)
       } yield result
 
@@ -180,13 +189,13 @@ class ImageLoaderController(auth: Authentication,
 
   // To avoid Future _madness_, it is better to make temp files at the controller and pass them down,
   // then clear them up again at the end.  This avoids leaks.
-  def createTempFile(prefix: String)(implicit requestContext: RequestLoggingContext): File = {
+  def createTempFile(prefix: String)(implicit logMarker: LogMarker): File = {
     val tempFile = File.createTempFile(prefix, "", config.tempDir)
-    Logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")(requestContext.toMarker())
+    Logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")
     tempFile
   }
 
-  def deleteTempFile(tempFile: File)(implicit requestContext: RequestLoggingContext): Future[Unit] = Future {
+  def deleteTempFile(tempFile: File)(implicit logMarker: LogMarker): Future[Unit] = Future {
     if (tempFile.delete()) {
       Logger.info(s"Deleted temp file $tempFile")
     } else {

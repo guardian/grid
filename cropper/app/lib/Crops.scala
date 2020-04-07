@@ -5,6 +5,7 @@ import java.io.File
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 
 import scala.concurrent.Future
@@ -30,7 +31,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   }
 
   def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: MimeType, colourModel: Option[String],
-                      colourType: String): Future[MasterCrop] = {
+                      colourType: String)(implicit requestContext: RequestLoggingContext): Future[MasterCrop] = {
 
     val source   = crop.specification
     val metadata = apiImage.metadata
@@ -40,7 +41,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       strip <- imageOperations.cropImage(sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType)
       file: File <- imageOperations.appendMetadata(strip, metadata)
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
-      filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, true)
+      filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
       sizing      = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
       dirtyAspect = source.bounds.width.toFloat / source.bounds.height
       aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
@@ -48,7 +49,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
-  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType): Future[List[Asset]] = {
+  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit requestContext: RequestLoggingContext): Future[List[Asset]] = {
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
@@ -63,7 +64,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     })
   }
 
-  def deleteCrops(id: String) = store.deleteCrops(id)
+  def deleteCrops(id: String): Future[Unit] = store.deleteCrops(id)
 
   def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
       config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
@@ -79,7 +80,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     positiveCoords && strictlyPositiveSize && withinBounds
   }
 
-  def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
+  def export(apiImage: SourceImage, crop: Crop)(implicit requestContext: RequestLoggingContext): Future[ExportResult] = {
     val source    = crop.specification
     val mimeType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)

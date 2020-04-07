@@ -6,8 +6,6 @@ import net.logstash.logback.marker.{LogstashMarker, Markers}
 
 import scala.collection.JavaConverters._
 
-case class RequestLoggingContext(requestId: UUID = UUID.randomUUID(), initialMarkers: Map[String, String] = Map.empty) {
-  def toMarker(extraMarkers: Map[String, String] = Map.empty): LogstashMarker = Markers.appendEntries(
-    (initialMarkers ++ extraMarkers + ("requestId" -> requestId)).asJava
-  )
+case class RequestLoggingContext(requestId: UUID = UUID.randomUUID(), initialMarkers: Map[String, String] = Map.empty) extends LogMarker {
+  override def markerContents: Map[String, Any] = (initialMarkers + ("requestId" -> requestId))
 }

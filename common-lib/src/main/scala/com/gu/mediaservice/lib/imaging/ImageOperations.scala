@@ -94,24 +94,22 @@ class ImageOperations(playPath: String) {
   }
 
   def optimiseImage(resizedFile: File, mediaType: MimeType): File = mediaType match {
-    case Png => {
-      val fileName: String = resizedFile.getAbsolutePath()
+    case Png =>
+      val fileName: String = resizedFile.getAbsolutePath
 
       val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
       Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
 
       new File(optimisedImageName)
-    }
     case Jpeg => resizedFile
 
     // This should never happen as we only ever crop as PNG or JPEG. See `Crops.cropType` and `CropsTest`
     // TODO We should create a `CroppingMimeType` to enforce this at the type level.
     //  However we'd need to change the `Asset` model as source image and crop use this model
     //  and a source can legally be a `Tiff`. It's not a small change...
-    case Tiff => {
+    case Tiff =>
       Logger.error("Attempting to optimize a Tiff crop. Cropping as Tiff is not supported.")
       throw new UnsupportedCropOutputTypeException
-    }
   }
 
   val thumbUnsharpRadius = 0.5d
@@ -144,19 +142,19 @@ class ImageOperations(playPath: String) {
     } yield outputFile
   }
 
-  // When a layered tiff is unpacked, the temp file (blah.something) is moved 
+  // When a layered tiff is unpacked, the temp file (blah.something) is moved
   // to blah-0.something and contains the composite layer (which is what we want).
   // Other layers are then saved as blah-1.something etc.
   // As the file has been renamed, the file object still exists, but has the wrong name
   // We will need to put it back where it is expected to be found, and clean up the other
-  // files. 
+  // files.
   private def checkForOutputFileChange(f: File): Future[Unit] = Future {
     val fileBits = f.getAbsolutePath.split("\\.").toList
     val mainPart = fileBits.dropRight(1).mkString(".")
     val extension = fileBits.last
 
     // f2 is the blah-0 name that gets created from a layered tiff.
-    val f2 = new File(List(s"${mainPart}-0", extension).mkString("."))
+    val f2 = new File(List(s"$mainPart-0", extension).mkString("."))
     if (f2.exists()) {
       // f HAS been renamed to blah-0.  Rename it right back!
       f2.renameTo(f)
@@ -165,14 +163,16 @@ class ImageOperations(playPath: String) {
     }
   }
 
+  @scala.annotation.tailrec
   private def cleanUpLayerFiles(mainPart: String, extension: String, index: Int):Unit = {
-    val newFile = List(s"${mainPart}-$index", extension).mkString(".")
-    val f3 = new File(newFile)
-    if (f3.exists()) {
-      f3.delete()
-      cleanUpLayerFiles(mainPart, extension, index+1)
-    }
+     val newFile = List(s"$mainPart-$index", extension).mkString(".")
+     val f3 = new File(newFile)
+     if (f3.exists()) {
+       f3.delete()
+       cleanUpLayerFiles(mainPart, extension, index+1)
+     }
   }
+
 }
 
 object ImageOperations {
