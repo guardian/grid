@@ -25,7 +25,6 @@
     "rx-dom": "^6.0.0",
     "theseus": "0.5.2",
     "theseus-angular": "^0.3.1",
-    "throat": "^5.0.0",
     "titip": "guardian/titip#1.0.0",
     "ua-parser-js": "0.7.18",
     "ui-router-extras": "^0.1.3",
