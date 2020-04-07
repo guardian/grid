@@ -35,7 +35,11 @@ case class Image(
 
   def hasUsages = usages.nonEmpty
 
-  def canBeDeleted = !hasExports && !hasUsages
+  def hasLeases = leases.leases.nonEmpty
+
+  def hasCollections = collections.nonEmpty
+
+  def canBeDeleted = !hasExports && !hasUsages && !hasLeases && !hasCollections
 
   def rcsPublishDate: Option[DateTime] = syndicationRights.flatMap(_.published)
 
