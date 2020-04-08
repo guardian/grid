@@ -5,14 +5,28 @@
  * Enqueued functions are called concurrently up to the worker limit, and retried with an
  * exponential backoff.
  *
- * @param {object} options
- * @param {number} options.jitterFactor The jitter factor in ms. Multiplied by 0-1 to jitter outgoing requests
- * @param {number} options.backoffBase The initial backoff factor to apply to retries
- * @param {number} options.initialBackoffWait The initial backoff wait to apply to retries
- * @param {number} options.maxWorkers The maximum number of concurrent operations to allow
- * @param {number} options.maxRetries The maximum number of retries for a single item in the queue before failure
- * @param {number} options.timeout The implementation of the timeout function to use. Defaults to window.setTimeout
- * @returns {{ add: Function }} See `add` below for the function signature.
+ * @typedef Options
+ * @type {object}
+ * @property {number} jitterFactor - The jitter factor in ms. Multiplied by 0-1 to jitter outgoing requests
+ * @property {number} backoffBase - The initial backoff factor to apply to retries
+ * @property {number} initialBackoffWait - The initial backoff wait to apply to retries
+ * @property {number} maxWorkers - The maximum number of concurrent operations to allow
+ * @property {number} maxRetries - The maximum number of retries for a single item in the queue before failure
+ * @property {number} timeout - The implementation of the timeout function to use. Defaults to window.setTimeout
+ *
+ * @typedef Add
+ * @type {object}
+ * @property {(result: T) => void} resolve - the resolve function from a Promise
+ * @property {(error: Error)=> void} reject - the reject function from a Promise
+ * @property {()=> Promise<T>} func - the function to enqueue
+ * @property {number} retries
+ *
+ * @typedef Queue
+ * @type {object}
+ * @property {(add: Add) => void} add - Add an item to the queue.
+
+ * @param {Options} options
+ * @returns {Queue}
  */
 export const createQueue = ({
   jitterFactor = 100,
@@ -31,16 +45,10 @@ export const createQueue = ({
   let queue = [];
   let running = 0;
 
-  /**
-   * Add an item to the queue.
-   *
-   * @param {object} options
-   * @param {(result: T) => void} options.resolve The resolve function to call if func completes
-   * @param {(error: Error) => void} options.reject The reject function to call if func fails
-   * @param {() => Promise<T>} options.func The function to enqueue
-   * @param {number} retries
-   */
-  const add = ({ resolve, reject, func, retries = 0 }) => {
+
+
+
+   const add = ({ resolve, reject, func, retries = 0 }) => {
     queue.push({ resolve, reject, func, retries });
     if (running < maxWorkers) {
       run();
@@ -81,5 +89,6 @@ export const createQueue = ({
     }
   };
 
-  return { add };
+  const x = { add };
+  return x;
 };
