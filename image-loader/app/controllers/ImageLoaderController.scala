@@ -169,15 +169,10 @@ class ImageLoaderController(auth: Authentication,
           }
         }
         .recover {
-        case _: IllegalArgumentException =>
-          Logger.warn("importImage request failed; invalid uri")
-          FailureResponse.invalidUri
-        case e: UserImageLoaderException =>
-          Logger.warn("importImage request failed; bad user input")
-          BadRequest(e.getMessage)
-        case NonFatal(_) =>
-          Logger.warn("importImage request failed")
-          FailureResponse.failedUriDownload
+          case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+          case _: IllegalArgumentException => FailureResponse.invalidUri
+          case e: UserImageLoaderException => FailureResponse.badUserInput(e)
+          case NonFatal(_) => FailureResponse.failedUriDownload
       }
     }
   }
