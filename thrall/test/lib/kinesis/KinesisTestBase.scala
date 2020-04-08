@@ -36,19 +36,24 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
   val highPriorityStreamName = "thrall-test-stream-high-priority"
   val lowPriorityStreamName = "thrall-test-stream-low-priority"
   val streamNames = List(highPriorityStreamName, lowPriorityStreamName)
-  val kinesisTestUrl = Properties.envOrElse("KINESIS_TEST_URL", "http://localhost:4568/")
   val region = "eu-west-1"
   val staticCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials("stub", "creds"))
 
   private val kinesisPort = 4568
+  private val dynamoDbPort = 4569
   private val webUiPort = 5050
-  private val kinesisImage = "localstack/localstack:0.10.8"
-  private val kinesisContainer = DockerContainer(kinesisImage)
-    .withPorts(kinesisPort -> Some(kinesisPort), webUiPort -> Some(webUiPort))
+
+  private val kinesisEndpoint = s"http://localhost:$kinesisPort"
+  private val dynamoDbEndpoint = s"http://localhost:$dynamoDbPort"
+
+  private val localstackVersion = "0.10.8"
+  private val localstackContainer = DockerContainer(s"localstack/localstack:$localstackVersion")
+    .withPorts(kinesisPort -> Some(kinesisPort), dynamoDbPort -> Some(dynamoDbPort), webUiPort -> Some(webUiPort))
     .withEnv(
-      "SERVICES=kinesis",
+      s"SERVICES=kinesis:$kinesisPort,dynamodb:$dynamoDbPort",
       s"PORT_WEB_UI=$webUiPort",
-      "KINESIS_ERROR_PROBABILITY=0"
+      s"DEFAULT_REGION=$region",
+      "KINESIS_ERROR_PROBABILITY=0.0"
     )
     .withReadyChecker(
       DockerReadyChecker.HttpResponseCode(webUiPort, "health").within(1.minutes).looped(40, 1250.millis)
@@ -56,13 +61,12 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
 
   final override val StartContainersTimeout = 1.minute
 
-  final override def dockerContainers: List[DockerContainer] =
-    kinesisContainer :: super.dockerContainers
+  final override def dockerContainers: List[DockerContainer] = localstackContainer :: super.dockerContainers
 
   private def createKinesisClient(): AmazonKinesis = {
     val clientBuilder = AmazonKinesisClientBuilder.standard()
     clientBuilder.setCredentials(staticCredentials)
-    clientBuilder.setEndpointConfiguration(new EndpointConfiguration(kinesisTestUrl, region))
+    clientBuilder.setEndpointConfiguration(new EndpointConfiguration(kinesisEndpoint, region))
     clientBuilder.build()
   }
 
@@ -77,7 +81,7 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
     val streamListResult = client.listStreams()
     streamNames.forall(streamName =>
       streamListResult.getStreamNames.contains(streamName) &&
-        client.describeStream(highPriorityStreamName).getStreamDescription().getStreamStatus() == "ACTIVE")
+        client.describeStream(streamName).getStreamDescription.getStreamStatus == "ACTIVE")
   }
 
   private def checkStreams(client: AmazonKinesis): Boolean = {
@@ -91,34 +95,33 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
 
   override def beforeAll {
     super.beforeAll()
-    Await.ready(kinesisContainer.isReady(), 1.minute)
+    Await.ready(localstackContainer.isReady(), 1.minute)
 
     val client = createKinesisClient()
     createStream(client, highPriorityStreamName)
     createStream(client, lowPriorityStreamName)
 
-    val streamNames = client.listStreams().getStreamNames().asScala
+    val streamNames = client.listStreams().getStreamNames.asScala
     assert(streamNames.contains(highPriorityStreamName))
     assert(streamNames.contains(lowPriorityStreamName))
 
     // We must wait for the stream to be ready – see https://github.com/localstack/localstack/issues/231
     Await.result(Future { checkStreams(client) }, 10.seconds)
 
-    println(s"Local kinesis streams are ready: ${streamNames}")
+    println(s"Local kinesis streams are ready: ${streamNames.mkString(",")}")
   }
 
-  def getSenderConfig(streamName: String): ThrallMessageSender = {
-    val config = new KinesisSenderConfig(region, staticCredentials, kinesisTestUrl, streamName)
-    new ThrallMessageSender(config)
-  }
+  def getSenderConfig(streamName: String): ThrallMessageSender = new ThrallMessageSender(
+    KinesisSenderConfig(region, staticCredentials, kinesisEndpoint, streamName)
+  )
 
   def getReceiverConfig(streamName: String): KinesisClientLibConfiguration  = {
     val config = new KinesisReceiverConfig(
       streamName,
       None,
-      "eu-west-1",
-      "stream-endpoint",
-      "dynamo-endpoint",
+      kinesisEndpoint,
+      dynamoDbEndpoint,
+      region,
       staticCredentials
     )
     KinesisConfig.kinesisConfig(config)

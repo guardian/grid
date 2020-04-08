@@ -8,6 +8,7 @@ import akka.{Done, NotUsed}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
 import com.gu.mediaservice.lib.DateTimeUtils
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import lib.kinesis.ThrallEventConsumer
 import play.api.Logger
 import com.gu.mediaservice.lib.logging._
@@ -49,19 +50,26 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
   })
 
 
-  def run(): Future[Done] = {
-    val streamRunning = mergedKinesisSource.map{ taggedRecord =>
+  // Test prioritisation
+  def createStream(): Source[(TaggedRecord, Stopwatch, Option[UpdateMessage]), NotUsed] = {
+    mergedKinesisSource.map{ taggedRecord =>
       taggedRecord -> consumer.parseRecord(taggedRecord.record.data.toArray, taggedRecord.record.approximateArrivalTimestamp)
     }.mapAsync(1) { result =>
       val stopwatch = Stopwatch.start
       result match {
         case (record, Some(updateMessage)) =>
+          println(updateMessage)
           consumer.processUpdateMessage(updateMessage)
             .recover { case _ => () }
             .map(_ => (record, stopwatch, Some(updateMessage)))
         case (record, None) => Future.successful((record, stopwatch, None))
       }
-    }.runForeach {
+    }
+  }
+
+  // Run the thing
+  def run(): Future[Done] = {
+    val stream = this.createStream().runForeach {
       case (taggedRecord, stopwatch, maybeUpdateMessage) =>
         val basicMakers = combineMarkers(taggedRecord, stopwatch.elapsed)
         val markers = maybeUpdateMessage.map(combineMarkers(basicMakers, _)).getOrElse(basicMakers)
@@ -70,11 +78,11 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
         taggedRecord.record.markProcessed()
     }
 
-    streamRunning.onComplete {
+    stream.onComplete {
       case Failure(exception) => Logger.error("stream completed with failure", exception)
       case Success(_) => Logger.info("Stream completed with done, probably shutting down")
     }
 
-    streamRunning
+    stream
   }
 }

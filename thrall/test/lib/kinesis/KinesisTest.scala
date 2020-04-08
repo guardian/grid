@@ -38,10 +38,10 @@ class KinesisTest extends KinesisTestBase {
       val stream = streamProcessor.createStream()
       val future = stream.runWith(Sink.seq)
       for (i <- 1 to 10) {
-        highPrioritySender.publish(UpdateMessage("image"))
+        highPrioritySender.publish(UpdateMessage("image", id = Some(s"image-id-$i")))
       }
       for (i <- 1 to 10) {
-        lowPrioritySender.publish(UpdateMessage("update-image-usages"))
+        lowPrioritySender.publish(UpdateMessage("update-image-usages", id = Some(s"image-id-$i")))
       }
       val result = Await.result(future, 5.seconds)
       println(result)
