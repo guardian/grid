@@ -85,11 +85,11 @@ class ImageLoaderController(auth: Authentication,
       } recover {
         case e =>
           Logger.error("loadImage request ended with a failure", e)
-          e match {
-            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
-            case e => println(e.getMessage); InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
-          }
+          (e match {
+            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+            case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes)
+            case e => println(e.getMessage); InternalServerError(Json.obj("error" -> e.getMessage))
+          }).as(ArgoMediaType)
       }
     }
   }
