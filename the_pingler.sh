@@ -2,17 +2,17 @@
 
 set -o shwordsplit
 
-API="http://localhost:9001/management/healthcheck"
-THRALL="http://localhost:9002/management/healthcheck"
-IMAGE_LOADER="http://localhost:9003/management/healthcheck"
-KAHUNA="http://localhost:9005/management/healthcheck"
-CROPPER="http://localhost:9006/management/healthcheck"
-METADATA="http://localhost:9007/management/healthcheck"
-USAGE="http://localhost:9009/management/healthcheck"
-COLLECTIONS="http://localhost:9010/management/healthcheck"
-AUTH="http://localhost:9011/management/healthcheck"
-LEASES="http://localhost:9012/management/healthcheck"
-ADMIN_TOOLS="http://localhost:9013/management/healthcheck"
+API="https://api.media.local.dev-gutools.co.uk/management/healthcheck"
+THRALL="https://thrall.media.local.dev-gutools.co.uk/management/healthcheck"
+IMAGE_LOADER="https://loader.media.local.dev-gutools.co.uk/management/healthcheck"
+KAHUNA="https://media.local.dev-gutools.co.uk/management/healthcheck"
+CROPPER="https://cropper.media.local.dev-gutools.co.uk/management/healthcheck"
+METADATA="https://media-metadata.local.dev-gutools.co.uk/management/healthcheck"
+USAGE="https://media-usage.local.dev-gutools.co.uk/management/healthcheck"
+COLLECTIONS="https://media-collections.local.dev-gutools.co.uk/management/healthcheck"
+AUTH="https://media-auth.local.dev-gutools.co.uk/management/healthcheck"
+LEASES="https://media-leases.local.dev-gutools.co.uk/management/healthcheck"
+ADMIN_TOOLS="https://admin-tools.media.local.dev-gutools.co.uk/management/healthcheck"
 
 lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $KAHUNA $API $USAGE $AUTH $LEASES $ADMIN_TOOLS"
 

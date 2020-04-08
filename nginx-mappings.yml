@@ -25,3 +25,5 @@ mappings:
     port: 9200
   - prefix: admin-tools.media
     port: 9013
+  - prefix: thrall.media
+    port: 9002
