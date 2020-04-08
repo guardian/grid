@@ -22,14 +22,14 @@ export const createQueue = ({
   maxRetries = 30,
   timeout = setTimeout
 } = {}) => {
-  const getBackoffTimeFromRetries = noOfRetries => {
+    const getBackoffTimeFromRetries = noOfRetries => {
     const jitter = Math.floor(Math.random() * jitterFactor);
     const wait = initialBackoffWait * backoffBase ** noOfRetries + jitter;
     return wait;
   };
 
   let queue = [];
-  let running = false;
+  let running = 0;
 
   /**
    * Add an item to the queue.
@@ -42,15 +42,14 @@ export const createQueue = ({
    */
   const add = ({ resolve, reject, func, retries = 0 }) => {
     queue.push({ resolve, reject, func, retries });
-    if (!running) {
+    if (running < maxWorkers) {
       run();
     }
   };
 
   const startWorker = () => {
-    running = true;
     if (queue.length === 0) {
-      running = false;
+      running--;
       return;
     }
     const { resolve, reject, func, retries } = queue.shift();
@@ -69,13 +68,16 @@ export const createQueue = ({
       .finally(() => {
         // This adds the subsequent run call to the next tick,
         // ensuring it is run in a new call stack.
-        timeout(() => startWorker(), 0);
+        setTimeout(() => {
+          startWorker();
+        }, 0);
       });
   };
 
   const run = () => {
-    for (let i = 0; i < maxWorkers; i++) {
-      timeout(startWorker(), 0);
+    const max = Math.min(maxWorkers, queue.length);
+    for (; running < max; running++) {
+      setTimeout(startWorker);
     }
   };
 
