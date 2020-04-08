@@ -1,36 +1,22 @@
 package lib.kinesis
 
-import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import com.amazonaws.auth.{AWSStaticCredentialsProvider, BasicAWSCredentials}
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
+import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
+import com.amazonaws.services.kinesis.model.CreateStreamRequest
+import com.gu.mediaservice.lib.aws.{KinesisSenderConfig, ThrallMessageSender}
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
-import com.gu.mediaservice.model._
-import org.scalatest.time.{Second, Seconds, Span}
-
 import lib.KinesisReceiverConfig
-import org.mockito.Mockito
 import org.scalatest.mockito.MockitoSugar
-import com.amazonaws.auth.AWSCredentialsProvider
-import com.amazonaws.services.kinesis.AmazonKinesis
-import com.amazonaws.services.kinesis.AmazonKinesisClientBuilder
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import com.amazonaws.services.kinesis.model.CreateStreamRequest
-import com.amazonaws.ClientConfiguration
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.internal.StaticCredentialsProvider
-import org.apache.http.impl.client.BasicCredentialsProvider
-import com.amazonaws.auth.AWSStaticCredentialsProvider
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.services.dynamodbv2.model.ListStreamsRequest
+import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scala.util.Properties
 import scala.concurrent.{Await, Future}
-import com.gu.mediaservice.lib.aws.ThrallMessageSender
-import com.gu.mediaservice.lib.aws.KinesisSenderConfig
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 
 trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar {
   val highPriorityStreamName = "thrall-test-stream-high-priority"
@@ -70,12 +56,11 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
     clientBuilder.build()
   }
 
-  private def createStream(client: AmazonKinesis, name: String) = {
-    val createStreamRequest = new CreateStreamRequest()
-    createStreamRequest.setStreamName(name)
-    createStreamRequest.setShardCount(1)
-    client.createStream(createStreamRequest)
-  }
+  private def createStream(client: AmazonKinesis, name: String) = client.createStream(
+    new CreateStreamRequest()
+      .withStreamName(name)
+      .withShardCount(1)
+  )
 
   private def ensureStreamExistsAndIsActive(client: AmazonKinesis, streamNames: List[String]) = {
     val streamListResult = client.listStreams()
@@ -107,8 +92,6 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
 
     // We must wait for the stream to be ready – see https://github.com/localstack/localstack/issues/231
     Await.result(Future { checkStreams(client) }, 10.seconds)
-
-    println(s"Local kinesis streams are ready: ${streamNames.mkString(",")}")
   }
 
   def getSenderConfig(streamName: String): ThrallMessageSender = new ThrallMessageSender(
@@ -122,7 +105,8 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
       kinesisEndpoint,
       dynamoDbEndpoint,
       region,
-      staticCredentials
+      staticCredentials,
+      MetricsLevel.NONE
     )
     KinesisConfig.kinesisConfig(config)
   }

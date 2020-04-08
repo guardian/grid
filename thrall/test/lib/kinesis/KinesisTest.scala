@@ -1,50 +1,56 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.ThrallMessageSender
-import com.gu.mediaservice.lib.aws.Kinesis
-import com.gu.mediaservice.lib.aws.KinesisSenderConfig
-import lib.ThrallStreamProcessor
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import lib.KinesisReceiverConfig
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import akka.stream.scaladsl.Sink
-import akka.pattern.pipe
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
+import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
+import lib.{HighPriority, LowPriority, ThrallStreamProcessor}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import com.gu.mediaservice.lib.aws.UpdateMessage
 
 class KinesisTest extends KinesisTestBase {
-  private implicit val actorSystem = ActorSystem()
-  private implicit val materializer = ActorMaterializer()
+  private implicit val actorSystem: ActorSystem = ActorSystem()
+  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   // These are lazy to ensure that the stream is instantiated
   // via the base trait before we try to connect.
-  lazy val lowPrioritySender = getSenderConfig(lowPriorityStreamName)
-  lazy val highPrioritySender = getSenderConfig(highPriorityStreamName)
-  lazy val highPriorityKinesisConfig = getReceiverConfig(highPriorityStreamName)
-  lazy val lowPriorityKinesisConfig = getReceiverConfig(lowPriorityStreamName)
-  lazy val mockConsumer = mock[ThrallEventConsumer]
+  lazy val lowPrioritySender: ThrallMessageSender = getSenderConfig(lowPriorityStreamName)
+  lazy val highPrioritySender: ThrallMessageSender = getSenderConfig(highPriorityStreamName)
+  lazy val highPriorityKinesisConfig: KinesisClientLibConfiguration = getReceiverConfig(highPriorityStreamName)
+  lazy val lowPriorityKinesisConfig: KinesisClientLibConfiguration = getReceiverConfig(lowPriorityStreamName)
+  lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
   lazy val streamProcessor = new ThrallStreamProcessor(highPriorityKinesisConfig, lowPriorityKinesisConfig, mockConsumer, actorSystem, materializer)
 
-  describe("Example test") {
-
-    it("is a test") {
-      true shouldBe true
+  private def publishFiveMessages(sender: ThrallMessageSender, message: UpdateMessage) = {
+    for (i <- 1 to 5) {
+      sender.publish(message.copy(id = Some(s"image-id-$i")))
     }
+  }
 
+  describe("Example test") {
     it("should take high-priority events from the stream") {
       val stream = streamProcessor.createStream()
-      val future = stream.runWith(Sink.seq)
-      for (i <- 1 to 10) {
-        highPrioritySender.publish(UpdateMessage("image", id = Some(s"image-id-$i")))
-      }
-      for (i <- 1 to 10) {
-        lowPrioritySender.publish(UpdateMessage("update-image-usages", id = Some(s"image-id-$i")))
-      }
-      val result = Await.result(future, 5.seconds)
-      println(result)
+      val future = stream.take(20).runWith(Sink.seq)
+
+      publishFiveMessages(highPrioritySender, UpdateMessage("image", id = Some(s"image-id")))
+      publishFiveMessages(lowPrioritySender, UpdateMessage("update-image-usages", id = Some(s"image-id")))
+      publishFiveMessages(highPrioritySender, UpdateMessage("image", id = Some(s"image-id")))
+      publishFiveMessages(lowPrioritySender, UpdateMessage("update-image-usages", id = Some(s"image-id")))
+
+      val result = Await.result(future, 2.minutes).map { case (record, _, _) => record.priority }
+
+      result.length shouldBe 20
+
+      val firstHalf = result.take(10)
+      val secondHalf = result.takeRight(10)
+
+      firstHalf.distinct.length shouldBe 1
+      firstHalf.distinct.head shouldBe HighPriority
+
+      secondHalf.distinct.length shouldBe 1
+      secondHalf.distinct.head shouldBe LowPriority
     }
   }
 }

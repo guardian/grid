@@ -4,7 +4,8 @@ import java.net.InetAddress
 import java.util.UUID
 
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration}
-import lib.{ThrallConfig, KinesisReceiverConfig}
+import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
+import lib.KinesisReceiverConfig
 import org.joda.time.DateTime
 import play.api.Logger
 
@@ -18,12 +19,13 @@ object KinesisConfig {
       kinesisAppName = config.streamName,
       streamName = config.streamName,
       config,
-      from = config.rewindFrom
+      from = config.rewindFrom,
+      config.metricsLevel
     ).withKinesisEndpoint(config.thrallKinesisEndpoint)
       .withDynamoDBEndpoint(config.thrallKinesisDynamoEndpoint)
   }
 
-  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: KinesisReceiverConfig, from: Option[DateTime]): KinesisClientLibConfiguration = {
+  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: KinesisReceiverConfig, from: Option[DateTime], metricsLevel: MetricsLevel): KinesisClientLibConfiguration = {
     val credentialsProvider = config.awsCredentials
 
     val kinesisConfig = new KinesisClientLibConfiguration(
@@ -37,7 +39,8 @@ object KinesisConfig {
       withMaxRecords(100).
       withIdleMillisBetweenCalls(1000).
       withIdleTimeBetweenReadsInMillis(250).
-      withCallProcessRecordsEvenForEmptyRecordList(true)
+      withCallProcessRecordsEvenForEmptyRecordList(true).
+      withMetricsLevel(metricsLevel)
 
     from.fold(
       kinesisConfig.withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON)

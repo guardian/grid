@@ -58,11 +58,10 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
       val stopwatch = Stopwatch.start
       result match {
         case (record, Some(updateMessage)) =>
-          println(updateMessage)
           consumer.processUpdateMessage(updateMessage)
             .recover { case _ => () }
             .map(_ => (record, stopwatch, Some(updateMessage)))
-        case (record, None) => Future.successful((record, stopwatch, None))
+        case (record, _) => Future.successful((record, stopwatch, None))
       }
     }
   }

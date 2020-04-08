@@ -1,6 +1,7 @@
 package lib
 
 import com.amazonaws.auth.AWSCredentialsProvider
+import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
@@ -12,7 +13,8 @@ case class KinesisReceiverConfig(
   thrallKinesisEndpoint: String,
   thrallKinesisDynamoEndpoint: String,
   awsRegion: String,
-  awsCredentials: AWSCredentialsProvider
+  awsCredentials: AWSCredentialsProvider,
+  metricsLevel: MetricsLevel = MetricsLevel.DETAILED
 )
 
 object KinesisReceiverConfig {
