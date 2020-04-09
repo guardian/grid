@@ -85,11 +85,11 @@ class ImageLoaderController(auth: Authentication,
       } recover {
         case e =>
           Logger.error("loadImage request ended with a failure", e)
-          e match {
-            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes).as(ArgoMediaType)
-            case e => println(e.getMessage); InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
-          }
+          (e match {
+            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+            case _: ImageProcessingException => FailureResponse.notAnImage(config.supportedMimeTypes)
+            case e => println(e.getMessage); InternalServerError(Json.obj("error" -> e.getMessage))
+          }).as(ArgoMediaType)
       }
     }
   }
@@ -169,15 +169,10 @@ class ImageLoaderController(auth: Authentication,
           }
         }
         .recover {
-        case _: IllegalArgumentException =>
-          Logger.warn("importImage request failed; invalid uri")
-          FailureResponse.invalidUri
-        case e: UserImageLoaderException =>
-          Logger.warn("importImage request failed; bad user input")
-          BadRequest(e.getMessage)
-        case NonFatal(_) =>
-          Logger.warn("importImage request failed")
-          FailureResponse.failedUriDownload
+          case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+          case _: IllegalArgumentException => FailureResponse.invalidUri
+          case e: UserImageLoaderException => FailureResponse.badUserInput(e)
+          case NonFatal(_) => FailureResponse.failedUriDownload
       }
     }
   }
