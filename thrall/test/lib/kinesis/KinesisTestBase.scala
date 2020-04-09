@@ -17,6 +17,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.util.Properties
 
 trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar {
   val highPriorityStreamName = "thrall-test-stream-high-priority"
@@ -29,11 +30,12 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
   private val dynamoDbPort = 4569
   private val webUiPort = 5050
 
-  private val kinesisEndpoint = s"http://localhost:$kinesisPort"
-  private val dynamoDbEndpoint = s"http://localhost:$dynamoDbPort"
+  private val useDockerForTests = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
+  private val kinesisEndpoint = Properties.envOrElse("KINESIS_ENDPOINT", s"http://localhost:$kinesisPort")
+  private val dynamoDbEndpoint = Properties.envOrElse("DYNAMODB_ENDPOINT", s"http://localhost:$dynamoDbPort")
 
   private val localstackVersion = "0.10.8"
-  private val localstackContainer = DockerContainer(s"localstack/localstack:$localstackVersion")
+  private val localstackContainer = if (useDockerForTests) Some(DockerContainer(s"localstack/localstack:$localstackVersion")
     .withPorts(kinesisPort -> Some(kinesisPort), dynamoDbPort -> Some(dynamoDbPort), webUiPort -> Some(webUiPort))
     .withEnv(
       s"SERVICES=kinesis:$kinesisPort,dynamodb:$dynamoDbPort",
@@ -43,11 +45,11 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
     )
     .withReadyChecker(
       DockerReadyChecker.HttpResponseCode(webUiPort, "health").within(1.minutes).looped(40, 1250.millis)
-    )
+    )) else None
 
   final override val StartContainersTimeout = 1.minute
 
-  final override def dockerContainers: List[DockerContainer] = localstackContainer :: super.dockerContainers
+  final override def dockerContainers: List[DockerContainer] = localstackContainer.toList ++ super.dockerContainers
 
   private def createKinesisClient(): AmazonKinesis = {
     val clientBuilder = AmazonKinesisClientBuilder.standard()
@@ -80,7 +82,6 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
 
   override def beforeAll {
     super.beforeAll()
-    Await.ready(localstackContainer.isReady(), 1.minute)
 
     val client = createKinesisClient()
     createStream(client, highPriorityStreamName)
