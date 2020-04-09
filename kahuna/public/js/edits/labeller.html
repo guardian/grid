@@ -22,7 +22,8 @@
             <a ui-sref="search.results({query: (label.data | queryLabelFilter)})"
                class="label__value label__link">{{label.data}}</a>
 
-            <button class="label__remove"
+            <button id="it-remove-label-button"
+                    class="label__remove"
                     title="Remove label"
                     ng-click="ctrl.removeLabel(label.data)">
                 <gr-icon>close</gr-icon>
