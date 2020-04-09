@@ -112,14 +112,14 @@ Resources:
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
-      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-${Stage}"
+      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-DEV"
       Subscription:
       - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
         Protocol: sqs
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
     Properties:
-      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-${Stage}"
+      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-DEV"
   IndexedImageMetadataQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
@@ -168,12 +168,12 @@ Resources:
               - kms:Decrypt
             Resource: "*"
 
-    KmsKeySqsQueueFromSnsAlias:
-      Type: AWS::KMS::Alias
-      Properties:
-        AliasName: !Sub "alias/media-service/sns-to-sqs-${Stage}"
-        TargetKeyId:
-          Ref: KmsKeySqsQueueFromSns
+  KmsKeySqsQueueFromSnsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/media-service/sns-to-sqs-DEV"
+      TargetKeyId:
+        Ref: KmsKeySqsQueueFromSns
 
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
