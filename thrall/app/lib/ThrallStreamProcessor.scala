@@ -49,8 +49,6 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
     SourceShape(mergePreferred.out)
   })
 
-
-  // Test prioritisation
   def createStream(): Source[(TaggedRecord, Stopwatch, Option[UpdateMessage]), NotUsed] = {
     mergedKinesisSource.map{ taggedRecord =>
       taggedRecord -> consumer.parseRecord(taggedRecord.record.data.toArray, taggedRecord.record.approximateArrivalTimestamp)
@@ -66,7 +64,6 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
     }
   }
 
-  // Run the thing
   def run(): Future[Done] = {
     val stream = this.createStream().runForeach {
       case (taggedRecord, stopwatch, maybeUpdateMessage) =>
