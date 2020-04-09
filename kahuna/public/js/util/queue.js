@@ -89,6 +89,7 @@ export const createQueue = ({
     }
   };
 
-  const x = { add };
-  return x;
+  //JSDOC is much happier about types with this intermediary variable.
+  const q = { add };
+  return q;
 };
