@@ -29,7 +29,7 @@ class KinesisTest extends KinesisTestBase {
     }
   }
 
-  describe("Example test") {
+  describe("Stream merging strategy") {
     it("should process high priority events first") {
       val stream = streamProcessor.createStream()
       val future = stream.take(20).runWith(Sink.seq)
@@ -39,7 +39,7 @@ class KinesisTest extends KinesisTestBase {
       publishFiveMessages(highPrioritySender, UpdateMessage("image", id = Some(s"image-id")))
       publishFiveMessages(lowPrioritySender, UpdateMessage("update-image-usages", id = Some(s"image-id")))
 
-      val result = Await.result(future, 5.minutes).map { case (record, _, _) => record.priority }
+      val result = Await.result(future, 10.minutes).map { case (record, _, _) => record.priority }
 
       result.length shouldBe 20
 
