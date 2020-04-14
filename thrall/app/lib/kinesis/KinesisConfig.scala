@@ -17,7 +17,8 @@ object KinesisConfig {
       kinesisAppName = config.streamName,
       streamName = config.streamName,
       config,
-      from = config.rewindFrom
+      from = config.rewindFrom,
+      config.metricsLevel
     )
 
     config.awsLocalEndpoint.map(endpoint => {

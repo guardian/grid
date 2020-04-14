@@ -6,7 +6,7 @@ import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
 import com.amazonaws.services.kinesis.model.CreateStreamRequest
-import com.gu.mediaservice.lib.aws.{KinesisSenderConfig, ThrallMessageSender}
+import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig, ThrallMessageSender}
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
@@ -19,28 +19,28 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Properties
 
-trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar {
+trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar with AwsClientBuilderUtils {
+  private val localstackPort = 4566
+  private val webUiPort = 5050
+
+  override val awsLocalEndpoint: Option[String] = Some(Properties.envOrElse("LOCALSTACK_ENDPOINT", s"http://localhost:$localstackPort"))
+  override val awsRegion = "eu-west-1"
+  override val awsCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials("stub", "creds"))
+
   val highPriorityStreamName = "thrall-test-stream-high-priority"
   val lowPriorityStreamName = "thrall-test-stream-low-priority"
   val streamNames = List(highPriorityStreamName, lowPriorityStreamName)
-  val region = "eu-west-1"
-  val staticCredentials = new AWSStaticCredentialsProvider(new BasicAWSCredentials("stub", "creds"))
-
-  private val kinesisPort = 4568
-  private val dynamoDbPort = 4569
-  private val webUiPort = 5050
 
   private val useDockerForTests = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
-  private val kinesisEndpoint = Properties.envOrElse("KINESIS_ENDPOINT", s"http://localhost:$kinesisPort")
-  private val dynamoDbEndpoint = Properties.envOrElse("DYNAMODB_ENDPOINT", s"http://localhost:$dynamoDbPort")
 
-  private val localstackVersion = "0.10.8"
+  private val localstackVersion = "0.11.0"
+
   private val localstackContainer = if (useDockerForTests) Some(DockerContainer(s"localstack/localstack:$localstackVersion")
-    .withPorts(kinesisPort -> Some(kinesisPort), dynamoDbPort -> Some(dynamoDbPort), webUiPort -> Some(webUiPort))
+    .withPorts(localstackPort -> Some(localstackPort), webUiPort -> Some(webUiPort))
     .withEnv(
-      s"SERVICES=kinesis:$kinesisPort,dynamodb:$dynamoDbPort",
+      s"SERVICES=kinesis,dynamodb",
       s"PORT_WEB_UI=$webUiPort",
-      s"DEFAULT_REGION=$region",
+      s"DEFAULT_REGION=$webUiPort",
       "KINESIS_ERROR_PROBABILITY=0.0"
     )
     .withReadyChecker(
@@ -51,12 +51,7 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
 
   final override def dockerContainers: List[DockerContainer] = localstackContainer.toList ++ super.dockerContainers
 
-  private def createKinesisClient(): AmazonKinesis = {
-    val clientBuilder = AmazonKinesisClientBuilder.standard()
-    clientBuilder.setCredentials(staticCredentials)
-    clientBuilder.setEndpointConfiguration(new EndpointConfiguration(kinesisEndpoint, region))
-    clientBuilder.build()
-  }
+  private def createKinesisClient(): AmazonKinesis = withLocalAWSCredentials(AmazonKinesisClientBuilder.standard()).build()
 
   private def createStream(client: AmazonKinesis, name: String) = client.createStream(
     new CreateStreamRequest()
@@ -96,17 +91,16 @@ trait KinesisTestBase extends FunSpec with BeforeAndAfterAll with Matchers with 
   }
 
   def getSenderConfig(streamName: String): ThrallMessageSender = new ThrallMessageSender(
-    KinesisSenderConfig(region, staticCredentials, kinesisEndpoint, streamName)
+    KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, streamName)
   )
 
   def getReceiverConfig(streamName: String): KinesisClientLibConfiguration  = {
     val config = new KinesisReceiverConfig(
+      awsRegion,
+      awsCredentials,
+      awsLocalEndpoint,
       streamName,
       None,
-      kinesisEndpoint,
-      dynamoDbEndpoint,
-      region,
-      staticCredentials,
       MetricsLevel.NONE
     )
     KinesisConfig.kinesisConfig(config)

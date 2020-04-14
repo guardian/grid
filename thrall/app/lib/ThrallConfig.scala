@@ -2,29 +2,28 @@ package lib
 
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
+import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.Configuration
 
 case class KinesisReceiverConfig(
+  override val awsRegion: String,
+  override val awsCredentials: AWSCredentialsProvider,
+  override val awsLocalEndpoint: Option[String],
   streamName: String,
   rewindFrom: Option[DateTime],
-  thrallKinesisEndpoint: String,
-  thrallKinesisDynamoEndpoint: String,
-  awsRegion: String,
-  awsCredentials: AWSCredentialsProvider,
   metricsLevel: MetricsLevel = MetricsLevel.DETAILED
-)
+) extends AwsClientBuilderUtils
 
 object KinesisReceiverConfig {
   def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
-    streamName,
-    rewindFrom,
-    thrallConfig.thrallKinesisEndpoint,
-    thrallConfig.thrallKinesisDynamoEndpoint,
     thrallConfig.awsRegion,
-    thrallConfig.awsCredentials
+    thrallConfig.awsCredentials,
+    thrallConfig.awsLocalEndpoint,
+    streamName,
+    rewindFrom
   )
 }
 

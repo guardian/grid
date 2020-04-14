@@ -14,11 +14,11 @@ import play.api.libs.json.{JodaWrites, Json}
 import com.amazonaws.auth.AWSCredentialsProvider
 
 case class KinesisSenderConfig(
-  awsRegion: String,
-  awsCredentials: AWSCredentialsProvider,
-  kinesisEndpoint: String,
+  override val awsRegion: String,
+  override val awsCredentials: AWSCredentialsProvider,
+  override val awsLocalEndpoint: Option[String],
   streamName: String
-)
+) extends AwsClientBuilderUtils
 
 class Kinesis(config: KinesisSenderConfig) {
 
