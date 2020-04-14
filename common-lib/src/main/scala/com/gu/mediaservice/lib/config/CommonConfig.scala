@@ -8,6 +8,7 @@ import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentia
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import play.api.{Configuration, Logger}
+import com.gu.mediaservice.lib.aws.KinesisSenderConfig
 
 import scala.io.Source._
 import scala.util.Try
@@ -69,6 +70,10 @@ trait CommonConfig {
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
+  lazy val thrallKinesisLowPriorityStream = properties("thrall.kinesis.lowPriorityStream.name")
+
+  lazy val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
+  lazy val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
@@ -90,6 +95,8 @@ trait CommonConfig {
   lazy val corsAllowedOrigins: Set[String] = getStringSetFromProperties("security.cors.allowedOrigins")
 
   lazy val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
+
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, thrallKinesisEndpoint, streamName)
 
   final def getStringSetFromProperties(key: String): Set[String] = Try(
     properties(key).split(",").map(_.trim).toSet

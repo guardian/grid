@@ -10,7 +10,7 @@ import org.joda.time.DateTime
 import play.api.libs.json.{JodaWrites, Json}
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
-class ThrallMessageSender(config: CommonConfig) {
+class ThrallMessageSender(config: KinesisSenderConfig) {
   private val kinesis = new Kinesis(config)
 
   def publish(updateMessage: UpdateMessage): Unit = {
