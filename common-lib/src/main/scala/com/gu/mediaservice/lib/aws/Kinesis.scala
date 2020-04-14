@@ -12,18 +12,24 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
+import com.amazonaws.auth.AWSCredentialsProvider
 
-class Kinesis(config: CommonConfig) {
+case class KinesisSenderConfig(
+  awsRegion: String,
+  awsCredentials: AWSCredentialsProvider,
+  kinesisEndpoint: String,
+  streamName: String
+)
+
+class Kinesis(config: KinesisSenderConfig) {
 
   private val builder = AmazonKinesisClientBuilder.standard()
 
-  import config.{awsRegion, awsCredentials, thrallKinesisEndpoint, thrallKinesisStream}
-
   private def getKinesisClient: AmazonKinesis = {
-    Logger.info(s"creating kinesis publisher with endpoint=$thrallKinesisEndpoint , region=$awsRegion")
+    Logger.info(s"creating kinesis publisher with endpoint=${config.kinesisEndpoint}, region=${config.awsRegion}")
    builder
-     .withEndpointConfiguration(new EndpointConfiguration(thrallKinesisEndpoint, awsRegion))
-     .withCredentials(awsCredentials)
+     .withEndpointConfiguration(new EndpointConfiguration(config.kinesisEndpoint, config.awsRegion))
+     .withCredentials(config.awsCredentials)
      .build()
   }
 
@@ -42,7 +48,7 @@ class Kinesis(config: CommonConfig) {
 
     val data = ByteBuffer.wrap(payload)
     val request = new PutRecordRequest()
-      .withStreamName(thrallKinesisStream)
+      .withStreamName(config.streamName)
       .withPartitionKey(partitionKey)
       .withData(data)
 
