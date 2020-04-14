@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class SqsMessageConsumer(queueUrl: String, awsEndpoint: String, config: CommonConfig, metric: Metric[Long]) extends ImageId {
+abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric: Metric[Long]) extends ImageId {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
