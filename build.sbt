@@ -8,6 +8,7 @@ val commonSettings = Seq(
   organization := "com.gu",
   version := "0.1",
   scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings"),
+  testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "3.0.5",
     "org.mockito" % "mockito-core" % "2.18.0"
