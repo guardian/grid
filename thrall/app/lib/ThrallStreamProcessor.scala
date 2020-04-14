@@ -1,9 +1,8 @@
 package lib
 
 import akka.actor.ActorSystem
-import akka.stream.javadsl.MergePreferred
-import akka.stream.scaladsl.{GraphDSL, Source}
-import akka.stream.{Materializer, SourceShape}
+import akka.stream.scaladsl.{GraphDSL, MergePreferred, Source}
+import akka.stream.{ClosedShape, Materializer, SourceShape}
 import akka.{Done, NotUsed}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
@@ -41,7 +40,7 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
     val highPriorityKinesisSource = KinesisSource(highPriorityKinesisConfig).map(TaggedRecord(_, HighPriority))
     val lowPriorityKinesisSource = KinesisSource(lowPriorityKinesisConfig).map(TaggedRecord(_, LowPriority))
 
-    val mergePreferred = g.add(MergePreferred.create[TaggedRecord](1))
+    val mergePreferred = g.add(MergePreferred[TaggedRecord](1))
 
     highPriorityKinesisSource ~> mergePreferred.preferred
     lowPriorityKinesisSource  ~> mergePreferred.in(0)

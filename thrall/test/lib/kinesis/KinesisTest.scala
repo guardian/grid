@@ -5,7 +5,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
-import lib.{HighPriority, LowPriority, ThrallStreamProcessor}
+import lib.{HighPriority, LowPriority, Priority, ThrallStreamProcessor}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -29,28 +29,35 @@ class KinesisTest extends KinesisTestBase {
     }
   }
 
-  describe("Example test") {
+  describe("Stream merging strategy") {
     it("should process high priority events first") {
       val stream = streamProcessor.createStream()
-      val future = stream.take(20).runWith(Sink.seq)
 
-      publishFiveMessages(highPrioritySender, UpdateMessage("image", id = Some(s"image-id")))
-      publishFiveMessages(lowPrioritySender, UpdateMessage("update-image-usages", id = Some(s"image-id")))
-      publishFiveMessages(highPrioritySender, UpdateMessage("image", id = Some(s"image-id")))
-      publishFiveMessages(lowPrioritySender, UpdateMessage("update-image-usages", id = Some(s"image-id")))
+      val imageMessage = UpdateMessage("image")
+      val updateUsageMessage = UpdateMessage("update-image-usages")
 
-      val result = Await.result(future, 5.minutes).map { case (record, _, _) => record.priority }
+      publishFiveMessages(highPrioritySender, imageMessage)
+      publishFiveMessages(lowPrioritySender, updateUsageMessage)
+      publishFiveMessages(lowPrioritySender, updateUsageMessage)
+      publishFiveMessages(highPrioritySender, imageMessage)
 
-      result.length shouldBe 20
+      val prioritiesFromMessages = Await.result(stream.take(20).runWith(Sink.seq), 5.minutes).map {
+        case (record, _, _) => record.priority
+      }
 
-      val firstHalf = result.take(10)
-      val secondHalf = result.takeRight(10)
+      prioritiesFromMessages.length shouldBe 20
 
+      val split: List[Seq[Priority]] = prioritiesFromMessages.grouped(10).toList
+      split.length shouldBe 2
+
+      val firstHalf: Seq[Priority] = split.head
+      val secondHalf: Seq[Priority] = split(1)
+
+      firstHalf.head shouldBe HighPriority
       firstHalf.distinct.length shouldBe 1
-      firstHalf.distinct.head shouldBe HighPriority
 
+      secondHalf.head shouldBe LowPriority
       secondHalf.distinct.length shouldBe 1
-      secondHalf.distinct.head shouldBe LowPriority
     }
   }
 }
