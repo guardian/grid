@@ -11,16 +11,18 @@ import play.api.Logger
 object KinesisConfig {
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
-  def kinesisConfig(config: ThrallConfig) = {
-    import config.{thrallKinesisEndpoint, thrallKinesisDynamoEndpoint, awsRegion}
-    Logger.info(s"creating kinesis consumer with endpoint=$thrallKinesisEndpoint, region=$awsRegion")
-    kinesisClientLibConfig(
+  def kinesisConfig(config: ThrallConfig): KinesisClientLibConfiguration = {
+    val clientConfig = kinesisClientLibConfig(
       kinesisAppName = config.thrallKinesisStream,
       streamName = config.thrallKinesisStream,
       config,
       from = config.from
-    ).withKinesisEndpoint(thrallKinesisEndpoint)
-      .withDynamoDBEndpoint(thrallKinesisDynamoEndpoint)
+    )
+
+    config.awsLocalEndpoint.map(endpoint => {
+      Logger.info(s"creating kinesis consumer with endpoint=$endpoint")
+      clientConfig.withKinesisEndpoint(endpoint).withDynamoDBEndpoint(endpoint)
+    }).getOrElse(clientConfig)
   }
 
   private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: ThrallConfig, from: Option[DateTime]): KinesisClientLibConfiguration = {

@@ -119,8 +119,8 @@ checkNodeVersion() {
 }
 
 setupLocalKinesis() {
-  echo "Waiting localstack kinesis to launch on 4568..."
-  while ! curl -s http://localhost:4568 >/dev/null; do
+  echo "Waiting localstack kinesis to launch on 4566..."
+  while ! curl -s http://localhost:4566 >/dev/null; do
     sleep 1 # wait for 1 second before check again
   done
   echo "localstack kinesis launched"
@@ -135,10 +135,10 @@ setupLocalKinesis() {
   )
 
   for stream_name in "${streams[@]}"; do
-    stream_count=$(aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis list-streams | jq -r '.StreamNames[]' | grep -c "${stream_name}" || true)
+    stream_count=$(aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4566 kinesis list-streams | jq -r '.StreamNames[]' | grep -c "${stream_name}" || true)
     if [ "$stream_count" -eq 0 ]; then
       echo "creating local kinesis stream ${stream_name}"
-      aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4568 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
+      aws --profile media-service --region=eu-west-1 --endpoint-url=http://localhost:4566 kinesis create-stream --shard-count 1 --stream-name "${stream_name}"
     fi
   done
 }

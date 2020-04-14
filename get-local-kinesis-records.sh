@@ -6,7 +6,7 @@ STREAM_NAME=${1:-media-service-DEV-thrall}
 LIMIT=${2:-100}
 
 ITERATOR=$(aws kinesis get-shard-iterator \
-  --endpoint-url=http://localhost:4568 \
+  --endpoint-url=http://localhost:4566 \
   --profile media-service \
   --region=eu-west-1 \
   --shard-id shardId-000000000000 \
@@ -16,7 +16,7 @@ ITERATOR=$(aws kinesis get-shard-iterator \
   --output text)
 
 DATA=$(aws kinesis get-records \
-  --endpoint-url=http://localhost:4568 \
+  --endpoint-url=http://localhost:4566 \
   --profile media-service \
   --region=eu-west-1 \
   --limit "$LIMIT" \
