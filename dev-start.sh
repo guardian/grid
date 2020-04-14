@@ -24,6 +24,17 @@ isInstalled() {
   hash "$1" 2>/dev/null
 }
 
+hasCredentials() {
+  STATUS=$(aws sts get-caller-identity --profile media-service 2>&1 || true)
+  if [[ ${STATUS} =~ (ExpiredToken) ]]; then
+    echo -e "${red}Credentials for the media-service profile are expired. Please fetch new credentials and run this again.${plain}"
+    exit 1
+  elif [[ ${STATUS} =~ ("could not be found") ]]; then
+    echo -e "${red}Credentials for the media-service profile are missing. Please ensure you have the right credentials.${plain}"
+    exit 1
+  fi
+}
+
 checkRequirement() {
     if ! isInstalled $1; then
         echo -e "${red}[MISSING DEPENDENCY] $1 not found. Please install $1${plain}"
@@ -133,6 +144,7 @@ setupLocalKinesis() {
 }
 
 main() {
+    hasCredentials
     checkRequirements
     checkNodeVersion
     setupImgops
