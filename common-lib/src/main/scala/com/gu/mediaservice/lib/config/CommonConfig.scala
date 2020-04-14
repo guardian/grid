@@ -6,7 +6,8 @@ import java.util.UUID
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
-import play.api.Configuration
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import play.api.{Configuration, Logger}
 
 import scala.io.Source._
 import scala.util.Try
@@ -16,8 +17,13 @@ trait CommonConfig {
   def appName: String
   def configuration: Configuration
 
+  final val stage: String = stageFromFile getOrElse "DEV"
+
+  val isProd: Boolean = stage == "PROD"
+  val isDev: Boolean = stage == "DEV"
+
   lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
-  
+
   final val elasticsearchStack = "media-service"
 
   final val elasticsearchApp = "elasticsearch"
@@ -29,35 +35,40 @@ trait CommonConfig {
 
   final val awsRegion = properties.getOrElse("aws.region", "eu-west-1")
 
-  final val kinesisAWSEndpoint = s"kinesis.$awsRegion.amazonaws.com"
-
-  final val dynamodbAWSEndpoint = s"dynamodb.$awsRegion.amazonaws.com"
-
   lazy val awsCredentials = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
     InstanceProfileCredentialsProvider.getInstance()
   )
 
+  lazy val awsLocalEndpoint: Option[String] = if(isDev) properties.get("aws.local.endpoint") else None
+
+  final val awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
+    case Some(endpoint) if isDev => Some(new EndpointConfiguration(endpoint, awsRegion))
+    case _ => None
+  }
+
   lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
 
   lazy val permissionsBucket = properties.getOrElse("permissions.bucket", "permissions-cache")
 
+  // TODO consolidate `withAWSCredentials` with `withLocalAWSCredentials`. Requires use of localstack everywhere (Dynamo, S3, Kinesis)
   def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
     .withRegion(awsRegion)
     .withCredentials(awsCredentials)
 
-  final val stage: String = stageFromFile getOrElse "DEV"
-
-  val isProd: Boolean = stage == "PROD"
-  val isDev: Boolean = stage == "DEV"
+  def withLocalAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = {
+    awsEndpointConfiguration match {
+      case Some(endpointConfiguration) if isDev => {
+        Logger.info(s"creating aws client with local endpoint $endpointConfiguration")
+        builder.withCredentials(awsCredentials).withEndpointConfiguration(endpointConfiguration)
+      }
+      case _ => withAWSCredentials(builder)
+    }
+  }
 
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
-
-  lazy val thrallKinesisEndpoint: String = properties.getOrElse("thrall.local.kinesis.url", kinesisAWSEndpoint)
-
-  lazy val thrallKinesisDynamoEndpoint: String = properties.getOrElse("thrall.local.dynamodb.url", dynamodbAWSEndpoint)
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")

@@ -3,9 +3,7 @@ function stripMargin(template, ...args) {
     return result.replace(/\r?(\n)\s*\|/g, '$1');
 }
 
-const localKinesisURL='http://localhost:4568'
-
-const localDynamoURL='http://localhost:4569'
+const localstackURL ='http://localhost:4566'
 
 function getAuthConfig(config) {
     return stripMargin`
@@ -26,8 +24,7 @@ function getCollectionsConfig(config) {
         |dynamo.table.collections=${config.stackProps.CollectionsDynamoTable}
         |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
@@ -40,8 +37,7 @@ function getCropperConfig(config) {
         |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
         |publishing.image.host=${config.stackProps.ImageOriginBucket}.s3.amazonaws.com
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
@@ -55,8 +51,7 @@ function getImageLoaderConfig(config) {
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
@@ -87,8 +82,7 @@ function getLeasesConfig(config) {
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |dynamo.tablename.leasesTable=${config.stackProps.LeasesDynamoTable}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
@@ -102,8 +96,7 @@ function getMediaApiConfig(config) {
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
@@ -124,8 +117,7 @@ function getMetadataEditorConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
         |indexed.images.sqs.queue.url=${config.stackProps.IndexedImageMetadataQueueUrl}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
@@ -158,8 +150,7 @@ function getThrallConfig(config) {
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |`;
 }
 
@@ -173,8 +164,7 @@ function getUsageConfig(config) {
         |dynamo.tablename.usageRecordTable=${config.stackProps.UsageRecordTable}
         |composer.baseUrl=${config.composer.url}
         |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |thrall.local.kinesis.url=${localKinesisURL}
-        |thrall.local.dynamodb.url=${localDynamoURL}
+        |aws.local.endpoint=${localstackURL}
         |crier.live.arn=${config.crier.live.roleArn}
         |crier.preview.arn=${config.crier.preview.roleArn}
         |crier.preview.name=${config.crier.preview.streamName}

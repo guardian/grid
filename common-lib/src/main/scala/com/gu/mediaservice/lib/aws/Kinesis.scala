@@ -3,7 +3,6 @@ package com.gu.mediaservice.lib.aws
 import java.nio.ByteBuffer
 import java.util.UUID
 
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -17,15 +16,9 @@ class Kinesis(config: CommonConfig) {
 
   private val builder = AmazonKinesisClientBuilder.standard()
 
-  import config.{awsRegion, awsCredentials, thrallKinesisEndpoint, thrallKinesisStream}
+  import config.thrallKinesisStream
 
-  private def getKinesisClient: AmazonKinesis = {
-    Logger.info(s"creating kinesis publisher with endpoint=$thrallKinesisEndpoint , region=$awsRegion")
-   builder
-     .withEndpointConfiguration(new EndpointConfiguration(thrallKinesisEndpoint, awsRegion))
-     .withCredentials(awsCredentials)
-     .build()
-  }
+  private def getKinesisClient: AmazonKinesis = config.withLocalAWSCredentials(builder).build()
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
