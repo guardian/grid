@@ -132,7 +132,6 @@ setupLocalKinesis() {
 
   streams=(
     'media-service-DEV-thrall'
-    'media-service-DEV-thrall-low-priority'
   )
 
   for stream_name in "${streams[@]}"; do

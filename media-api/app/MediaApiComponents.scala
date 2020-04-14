@@ -16,7 +16,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
 
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
-  val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
+  val messageSender = new ThrallMessageSender(config)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
   val es6Config: ElasticSearchConfig = ElasticSearchConfig(

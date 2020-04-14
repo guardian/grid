@@ -19,7 +19,7 @@ import scala.util.Properties
 
 trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
 
-  val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
+  val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
   val esTestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)

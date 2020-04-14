@@ -4,10 +4,6 @@ set -e
 
 SCRIPT_DIR=$(dirname ${0})
 
-# The Java SDK uses CBOR protocol
-# Kinesis in localstack uses kinesislite which requires CBOR to be disabled
-export AWS_CBOR_DISABLE=true
-
 setupNvm() {
     export NVM_DIR="$HOME/.nvm"
     [[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"  # This loads nvm

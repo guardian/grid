@@ -40,31 +40,12 @@ jobs:
         # Wait for elasticsearch to report healthy before continuing.
         # see https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml#L28
         options: -e "discovery.type=single-node" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
-      localstack:
-        image: localstack/localstack:0.10.8
-        env:
-          SERVICES: kinesis:4568,dynamodb:4569
-          DEFAULT_REGION: eu-west-1
-          KINESIS_ERROR_PROBABILITY: 0.0
-          PORT_WEB_UI: 5050
-        ports:
-          - 5050:5050
-          - 4568:4568
-          - 4569:4569
-        options: >-
-          --health-cmd "curl localhost:5050/health"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
     steps:
     - uses: actions/checkout@v1
     - name: SBT
       uses: ./.github/actions/sbt
       env:
-        USE_DOCKER_FOR_TESTS: false
+        ES6_USE_DOCKER: false
         ES6_TEST_URL: http://elasticsearch:9200
-        AWS_CBOR_DISABLE: true
-        KINESIS_ENDPOINT: http://localstack:4568
-        DYNAMODB_ENDPOINT: http://localstack:4569
       with:
         args: clean compile test

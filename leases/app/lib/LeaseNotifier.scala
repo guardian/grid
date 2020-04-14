@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.model.leases.MediaLease
 import org.joda.time.DateTime
 
-class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessageSender(config.thrallKinesisStreamConfig) {
+class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessageSender(config) {
   def sendReindexLeases(mediaId: String) = {
     val replaceImageLeases = "replace-image-leases"
     val leases = store.getForMedia(mediaId)
