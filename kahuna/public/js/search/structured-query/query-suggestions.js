@@ -139,8 +139,8 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
     }
 
     function suggestLabels(prefix) {
-        return mediaApi.labelsSuggest({q: prefix}).
-            then(labels => labels.data);
+        return mediaApi.labelSearch({q: prefix}).
+        then(results => results.data.map(res => res.key));
     }
 
     function suggestPhotoshoot(prefix) {
