@@ -205,8 +205,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
       .withNumber(":size", maxImageSize)
 
     val querySpec = new QuerySpec()
-      .withKeyConditionExpression(s"$StateField = :sub")
-      .withFilterExpression(s"$SizeField < :size")
+      .withKeyConditionExpression(s"$StateField = :sub and $SizeField < :size")
       .withValueMap(valueMap)
       .withMaxResultSize(batchSize)
     val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
@@ -312,17 +311,20 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   def setStateToTooBig(id: String, size: Int): ProduceProgress = {
-    logger.info(Markers.appendEntries(Map("tooBigSize" -> size).asJava),"setting item to TooBig state to ignore it next time")
+    logger.info(Markers.appendEntries(Map("tooBigSize" -> size).asJava),s"setting item $id to TooBig state (size $size) to ignore it next time")
     updateItemState(id, TooBig.stateId, Some(size))
     TooBig
   }
 
   private def updateItemState(id: String, state: Int, imageSize: Option[Int] = None) = {
     val initialExpression = s"set $StateField = :sub"
-    val expression = imageSize.fold(initialExpression)(_ => initialExpression + s"set $SizeField = :size")
+    val expression = imageSize.fold(initialExpression)(_ => initialExpression + s", $SizeField = :size")
 
     val initialValueMap = new ValueMap().withNumber(":sub", state);
     val valueMap = imageSize.fold(initialValueMap)(size => initialValueMap.withNumber(":size", size))
+
+    logger.info(expression)
+    logger.info(valueMap.toString)
 
     val us = new UpdateItemSpec()
       .withPrimaryKey(PKField, id)
