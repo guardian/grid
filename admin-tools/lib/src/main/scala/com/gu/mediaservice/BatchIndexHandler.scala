@@ -115,14 +115,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   }
 
   def processImages(): Unit = {
-
-    if (AwsHelpers.checkKinesisIsNiceAndFast(stage, threshold))
-      processImagesOnlyIfKinesisIsNiceAndFast()
-    else
-      logger.info("Kinesis is too busy; leaving it for now")
-  }
-
-  def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
     if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
@@ -145,14 +137,14 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
         logger.info(s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images")
 
         if (foundImages.nonEmpty) {
-          logger.info("attempting to store blob to s3")
-          val bulkIndexRequest = AwsHelpers.putToS3(foundImages, batchIndexBucket)
-          val indexMessage = UpdateMessage(
-            subject = "batch-index",
-            bulkIndexRequest = Some(bulkIndexRequest)
-          )
           val kinesisClient = AwsHelpers.buildKinesisClient(kinesisEndpoint)
-          AwsHelpers.putToKinesis(indexMessage, kinesisStreamName, kinesisClient)
+          foundImages.foreach { image =>
+            val message = UpdateMessage(
+              subject = "reingest-image",
+              image = Some(image)
+            )
+            AwsHelpers.putToKinesis(message, kinesisStreamName, kinesisClient)
+          }
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
           logger.info("all was empty terminating current batch")
