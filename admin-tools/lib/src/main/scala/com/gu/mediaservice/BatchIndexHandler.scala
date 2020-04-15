@@ -186,6 +186,7 @@ object InputIdsStore {
   val PKField: String = "id"
   val StateField: String = "progress_state"
   val SizeField: String = "image_size_bytes"
+  val StateAndSizeIndex: String = "progress_state_image_size_bytes"
 
   def getAllMediaIdsWithinProgressQuery(progress: ProduceProgress) = {
     new QuerySpec()
@@ -208,7 +209,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
       .withKeyConditionExpression(s"$StateField = :sub and $SizeField < :size")
       .withValueMap(valueMap)
       .withMaxResultSize(batchSize)
-    val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
+    val mediaIds = table.getIndex(StateAndSizeIndex).query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
     })
