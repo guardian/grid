@@ -8,12 +8,13 @@ import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentia
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import play.api.{Configuration, Logger}
+import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
 
 import scala.io.Source._
 import scala.util.Try
 
 
-trait CommonConfig {
+trait CommonConfig extends AwsClientBuilderUtils {
   def appName: String
   def configuration: Configuration
 
@@ -33,16 +34,11 @@ trait CommonConfig {
 
   final val sessionId = UUID.randomUUID().toString
 
-  final val awsRegion = properties.getOrElse("aws.region", "eu-west-1")
+  override val awsRegion: String = properties.getOrElse("aws.region", "eu-west-1")
 
-  lazy val awsCredentials = new AWSCredentialsProviderChain(
-    new ProfileCredentialsProvider("media-service"),
-    InstanceProfileCredentialsProvider.getInstance()
-  )
+  override val awsLocalEndpoint: Option[String] = if(isDev) properties.get("aws.local.endpoint") else None
 
-  lazy val awsLocalEndpoint: Option[String] = if(isDev) properties.get("aws.local.endpoint") else None
-
-  final val awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
+  override val awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
     case Some(endpoint) if isDev => Some(new EndpointConfiguration(endpoint, awsRegion))
     case _ => None
   }
@@ -51,24 +47,13 @@ trait CommonConfig {
 
   lazy val permissionsBucket = properties.getOrElse("permissions.bucket", "permissions-cache")
 
-  // TODO consolidate `withAWSCredentials` with `withLocalAWSCredentials`. Requires use of localstack everywhere (Dynamo, S3, Kinesis)
-  def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
-    .withRegion(awsRegion)
-    .withCredentials(awsCredentials)
-
-  def withLocalAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = {
-    awsEndpointConfiguration match {
-      case Some(endpointConfiguration) if isDev => {
-        Logger.info(s"creating aws client with local endpoint $endpointConfiguration")
-        builder.withCredentials(awsCredentials).withEndpointConfiguration(endpointConfiguration)
-      }
-      case _ => withAWSCredentials(builder)
-    }
-  }
-
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
+  lazy val thrallKinesisLowPriorityStream = properties("thrall.kinesis.lowPriorityStream.name")
+
+  lazy val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
+  lazy val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
@@ -90,6 +75,8 @@ trait CommonConfig {
   lazy val corsAllowedOrigins: Set[String] = getStringSetFromProperties("security.cors.allowedOrigins")
 
   lazy val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
+
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, streamName)
 
   final def getStringSetFromProperties(key: String): Set[String] = Try(
     properties(key).split(",").map(_.trim).toSet

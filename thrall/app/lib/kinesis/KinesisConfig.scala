@@ -4,19 +4,21 @@ import java.net.InetAddress
 import java.util.UUID
 
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration}
-import lib.ThrallConfig
+import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
+import lib.KinesisReceiverConfig
 import org.joda.time.DateTime
 import play.api.Logger
 
 object KinesisConfig {
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
-  def kinesisConfig(config: ThrallConfig): KinesisClientLibConfiguration = {
+  def kinesisConfig(config: KinesisReceiverConfig): KinesisClientLibConfiguration = {
     val clientConfig = kinesisClientLibConfig(
-      kinesisAppName = config.thrallKinesisStream,
-      streamName = config.thrallKinesisStream,
+      kinesisAppName = config.streamName,
+      streamName = config.streamName,
       config,
-      from = config.from
+      from = config.rewindFrom,
+      config.metricsLevel
     )
 
     config.awsLocalEndpoint.map(endpoint => {
@@ -25,7 +27,7 @@ object KinesisConfig {
     }).getOrElse(clientConfig)
   }
 
-  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: ThrallConfig, from: Option[DateTime]): KinesisClientLibConfiguration = {
+  private def kinesisClientLibConfig(kinesisAppName: String, streamName: String, config: KinesisReceiverConfig, from: Option[DateTime], metricsLevel: MetricsLevel): KinesisClientLibConfiguration = {
     val credentialsProvider = config.awsCredentials
 
     val kinesisConfig = new KinesisClientLibConfiguration(
@@ -39,7 +41,8 @@ object KinesisConfig {
       withMaxRecords(100).
       withIdleMillisBetweenCalls(1000).
       withIdleTimeBetweenReadsInMillis(250).
-      withCallProcessRecordsEvenForEmptyRecordList(true)
+      withCallProcessRecordsEvenForEmptyRecordList(true).
+      withMetricsLevel(metricsLevel)
 
     from.fold(
       kinesisConfig.withInitialPositionInStream(InitialPositionInStream.TRIM_HORIZON)
