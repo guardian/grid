@@ -118,7 +118,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
     if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
-    val mediaIdsFuture = getUnprocessedMediaIdsBatch(startState, maxSize)
+    val mediaIdsFuture = getUnprocessedMediaIdsBatch(startState)
     val mediaIds = Await.result(mediaIdsFuture, GetIdsTimeout)
     logger.info(s"got ${mediaIds.size}, unprocessed mediaIds, $mediaIds")
     Try {
@@ -177,8 +177,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
 object InputIdsStore {
   val PKField: String = "id"
   val StateField: String = "progress_state"
-  val SizeField: String = "image_size_bytes"
-  val StateAndSizeIndex: String = "progress_state_image_size_bytes"
 
   def getAllMediaIdsWithinProgressQuery(progress: ProduceProgress) = {
     new QuerySpec()
@@ -191,17 +189,16 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
   import InputIdsStore._
 
-  def getUnprocessedMediaIdsBatch(unprocessedState: ProduceProgress, maxImageSize: Int)(implicit ec: ExecutionContext): Future[List[String]] = Future {
+  def getUnprocessedMediaIdsBatch(unprocessedState: ProduceProgress)(implicit ec: ExecutionContext): Future[List[String]] = Future {
     logger.info("attempt to get mediaIds batch from dynamo")
     val valueMap = new ValueMap()
       .withNumber(":sub", unprocessedState.stateId)
-      .withNumber(":size", maxImageSize)
 
     val querySpec = new QuerySpec()
-      .withKeyConditionExpression(s"$StateField = :sub and $SizeField < :size")
+      .withKeyConditionExpression(s"$StateField = :sub")
       .withValueMap(valueMap)
       .withMaxResultSize(batchSize)
-    val mediaIds = table.getIndex(StateAndSizeIndex).query(querySpec).asScala.toList.map(it => {
+    val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
       (json \ PKField).as[String]
     })
@@ -305,24 +302,15 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
   def setStateToTooBig(id: String, size: Int): ProduceProgress = {
     logger.info(Markers.appendEntries(Map("tooBigSize" -> size).asJava),s"setting item $id to TooBig state (size $size) to ignore it next time")
-    updateItemState(id, TooBig.stateId, Some(size))
+    updateItemState(id, TooBig.stateId)
     TooBig
   }
 
-  private def updateItemState(id: String, state: Int, imageSize: Option[Int] = None) = {
-    val initialExpression = s"set $StateField = :sub"
-    val expression = imageSize.fold(initialExpression)(_ => initialExpression + s", $SizeField = :size")
-
-    val initialValueMap = new ValueMap().withNumber(":sub", state);
-    val valueMap = imageSize.fold(initialValueMap)(size => initialValueMap.withNumber(":size", size))
-
-    logger.info(expression)
-    logger.info(valueMap.toString)
-
-    val us = new UpdateItemSpec()
-      .withPrimaryKey(PKField, id)
-      .withUpdateExpression(expression)
-      .withValueMap(valueMap)
+  private def updateItemState(id: String, state: Int) = {
+    val us = new UpdateItemSpec().
+      withPrimaryKey(PKField, id).
+      withUpdateExpression(s"set $StateField = :sub")
+      .withValueMap(new ValueMap().withNumber(":sub", state))
     table.updateItem(us)
   }
 

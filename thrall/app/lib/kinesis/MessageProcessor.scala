@@ -9,7 +9,7 @@ import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import lib.elasticsearch._
 import org.joda.time.DateTime
-import play.api.{Logger, MarkerContext}
+import play.api.Logger
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -18,8 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
-                       syndicationRightsOps: SyndicationRightsOps,
-                       bulkIndexS3Client: BulkIndexS3Client
+                       syndicationRightsOps: SyndicationRightsOps
                       ) {
 
   def process(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -39,21 +38,10 @@ class MessageProcessor(es: ElasticSearch,
       case "delete-usages" => deleteAllUsages(updateMessage, logMarker)
       case "upsert-rcs-rights" => upsertSyndicationRights(updateMessage, logMarker)
       case "update-image-photoshoot" => updateImagePhotoshoot(updateMessage, logMarker)
-      case "batch-index" => batchIndex(updateMessage, logMarker)
       case unknownSubject => {
         Future.failed(ProcessorNotFoundException(unknownSubject))
       }
      }
-  }
-
-  def batchIndex(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchBulkUpdateResponse]] = {
-
-    val request = message.bulkIndexRequest.get
-    Logger.info(s"attempt to parse images from $request")
-    val imagesToIndex = bulkIndexS3Client.getImages(request)
-    implicit val newMarker = combineMarkers(logMarker, MarkerMap("batchImageCount" -> imagesToIndex.length))
-    Logger.info(s"Processing a batch index of size: ${imagesToIndex.size}")
-    Future.sequence(es.bulkInsert(imagesToIndex))
   }
 
   def updateImageUsages(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
@@ -73,7 +61,7 @@ class MessageProcessor(es: ElasticSearch,
   }
 
   def reindexImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
-    Logger.info("Reindexing image")
+    Logger.info(s"Reindexing image: ${message.image.map(_.id).getOrElse("image not found")}")
     indexImage(message, logMarker)
   }
 

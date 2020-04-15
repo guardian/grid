@@ -30,21 +30,6 @@ object AwsHelpers extends LazyLogging {
     new EnvironmentVariableCredentialsProvider()
   )
 
-  private val s3client = buildS3Client
-
-  def putToS3(imageBlobs: List[Image], batchIndexBucket: String): BulkIndexRequest = {
-    import Json.{stringify, toJson}
-    val imagesJsonArray = stringify(toJson(imageBlobs))
-    val bArr = imagesJsonArray.getBytes
-    val key = s"batch-index/${UUID.randomUUID().toString}.json"
-    val metadata = new ObjectMetadata
-    metadata.setContentType("application/json")
-    metadata.setContentLength(bArr.length)
-    val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(bArr), metadata)
-    logger.info(s"PUT [s3://$batchIndexBucket/$key] object to s3 response: $res")
-    BulkIndexRequest(batchIndexBucket, key)
-  }
-
   def putToKinesis(message: UpdateMessage, streamName: String, client: AmazonKinesis): Unit = {
     logger.info("attempting to put message to kinesis")
     val payload = JsonByteArrayUtil.toByteArray(message)
@@ -56,52 +41,6 @@ object AwsHelpers extends LazyLogging {
 
     val res = client.putRecord(putReq)
     logger.info(s"PUT [$message] message to kinesis stream: $streamName response: $res")
-  }
-
-  def checkKinesisIsNiceAndFast(stage: Option[String], threshold: Option[Integer]): Boolean = {
-    stage match {
-      case None => true // did not get a stage. presume it's not prod and go ahead.
-      case Some(actualStage) =>
-        threshold match {
-          case None =>
-            logger.error("Got a stage but no threshold; unable to work out if Kinesis is fast or not")
-            false
-
-          case Some(actualThreshold) =>
-
-            logger.info("Checking kinesis is nice and fast")
-
-            val dimensionValue = s"media-service-thrall-${actualStage.toUpperCase}"
-            val endTime: Date = new Date() // now!
-          val startTime: Date = new Date(endTime.getTime - 5 * 60 * 1000L) // five minutes ago
-
-            val dimension = new Dimension()
-              .withName("StreamName")
-              .withValue(dimensionValue)
-
-            val request: GetMetricStatisticsRequest = new GetMetricStatisticsRequest()
-              .withDimensions(Set(dimension).asJava)
-              .withEndTime(endTime)
-              .withMetricName("GetRecords.IteratorAgeMilliseconds")
-              .withNamespace("AWS/Kinesis")
-              .withPeriod(300)
-              .withStartTime(startTime)
-              .withStatistics("Maximum")
-              .withUnit("Milliseconds")
-
-
-            val dataPoints = buildCloudWatchClient
-              .getMetricStatistics(request)
-              .getDatapoints
-              .asScala
-
-            logger.info(s"Got ${dataPoints.size} data points")
-
-            val fastEnough = dataPoints.nonEmpty && ! dataPoints.exists(d => d.getMaximum > actualThreshold)
-            logger.info(s"Kinesis stream is fast enough: $fastEnough")
-            fastEnough
-        }
-    }
   }
 
   def buildKinesisClient(kinesisEndpoint: Option[String] = None): AmazonKinesis = {
@@ -130,10 +69,4 @@ object AwsHelpers extends LazyLogging {
     .withRegion(AwsRegion)
     .withCredentials(awsCredentials)
     .build()
-
-
-  private def buildS3Client = {
-    val builder = AmazonS3ClientBuilder.standard().withRegion(AwsRegion)
-    builder.withCredentials(awsCredentials).build()
-  }
 }

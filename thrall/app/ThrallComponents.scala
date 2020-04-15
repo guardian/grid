@@ -31,13 +31,12 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val es = new ElasticSearch(esConfig, Some(thrallMetrics))
   es.ensureAliasAssigned()
 
-  val bulkIndexS3Client = new BulkIndexS3Client(config)
-
   val highPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisConfig)
   val lowPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
 
-  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), bulkIndexS3Client, actorSystem)
+  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
   val thrallStreamProcessor = new ThrallStreamProcessor(highPriorityKinesisConfig, lowPriorityKinesisConfig, thrallEventConsumer, actorSystem, materializer)
+
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   val thrallController = new ThrallController(controllerComponents)

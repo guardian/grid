@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, SyndicationRights}
-import lib.{BulkIndexS3Client, MetadataEditorNotifications, ThrallStore}
+import lib.{MetadataEditorNotifications, ThrallStore}
 import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
@@ -24,8 +24,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
       es = ES,
       store = mock[ThrallStore],
       metadataEditorNotifications = mock[MetadataEditorNotifications],
-      syndicationRightsOps = mock[SyndicationRightsOps],
-      bulkIndexS3Client = mock[BulkIndexS3Client])
+      syndicationRightsOps = mock[SyndicationRightsOps])
 
     "usages" - {
 
