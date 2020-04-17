@@ -145,14 +145,14 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
         logger.info(s"Projections received in $projectionTookInSec seconds. Found ${foundImages.size} images, could not find ${notFoundImagesIds.size} images")
 
         if (foundImages.nonEmpty) {
-          logger.info("attempting to store blob to s3")
-          val bulkIndexRequest = AwsHelpers.putToS3(foundImages, batchIndexBucket)
-          val indexMessage = UpdateMessage(
-            subject = "batch-index",
-            bulkIndexRequest = Some(bulkIndexRequest)
-          )
           val kinesisClient = AwsHelpers.buildKinesisClient(kinesisEndpoint)
-          AwsHelpers.putToKinesis(indexMessage, kinesisStreamName, kinesisClient)
+          foundImages.foreach { image =>
+            val message = UpdateMessage(
+              subject = "reingest-image",
+              image = Some(image)
+            )
+            AwsHelpers.putToKinesis(message, kinesisStreamName, kinesisClient)
+          }
           stateProgress += updateStateToFinished(foundImages.map(_.id))
         } else {
           logger.info("all was empty terminating current batch")
@@ -199,9 +199,12 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
 
   def getUnprocessedMediaIdsBatch(unprocessedState: ProduceProgress)(implicit ec: ExecutionContext): Future[List[String]] = Future {
     logger.info("attempt to get mediaIds batch from dynamo")
+    val valueMap = new ValueMap()
+      .withNumber(":sub", unprocessedState.stateId)
+
     val querySpec = new QuerySpec()
       .withKeyConditionExpression(s"$StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", unprocessedState.stateId))
+      .withValueMap(valueMap)
       .withMaxResultSize(batchSize)
     val mediaIds = table.getIndex(StateField).query(querySpec).asScala.toList.map(it => {
       val json = Json.parse(it.toJSON).as[JsObject]
@@ -306,7 +309,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   def setStateToTooBig(id: String, size: Int): ProduceProgress = {
-    logger.info(Markers.appendEntries(Map("tooBigSize" -> size).asJava),"setting item to TooBig state to ignore it next time")
+    logger.info(Markers.appendEntries(Map("tooBigSize" -> size).asJava),s"setting item $id to TooBig state (size $size) to ignore it next time")
     updateItemState(id, TooBig.stateId)
     TooBig
   }
@@ -319,7 +322,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     table.updateItem(us)
   }
 
-  private def updateItemsState(ids: List[String], progress: ProduceProgress): ProduceProgress = {
+  private def updateItemsState(ids: List[String], progress: ProduceProgress, imageSize: Option[Int] = None): ProduceProgress = {
     ids.foreach(id => updateItemState(id, progress.stateId))
     progress
   }

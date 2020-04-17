@@ -30,21 +30,6 @@ object AwsHelpers extends LazyLogging {
     new EnvironmentVariableCredentialsProvider()
   )
 
-  private val s3client = buildS3Client
-
-  def putToS3(imageBlobs: List[Image], batchIndexBucket: String): BulkIndexRequest = {
-    import Json.{stringify, toJson}
-    val imagesJsonArray = stringify(toJson(imageBlobs))
-    val bArr = imagesJsonArray.getBytes
-    val key = s"batch-index/${UUID.randomUUID().toString}.json"
-    val metadata = new ObjectMetadata
-    metadata.setContentType("application/json")
-    metadata.setContentLength(bArr.length)
-    val res = s3client.putObject(batchIndexBucket, key, new ByteArrayInputStream(bArr), metadata)
-    logger.info(s"PUT [s3://$batchIndexBucket/$key] object to s3 response: $res")
-    BulkIndexRequest(batchIndexBucket, key)
-  }
-
   def putToKinesis(message: UpdateMessage, streamName: String, client: AmazonKinesis): Unit = {
     logger.info("attempting to put message to kinesis")
     val payload = JsonByteArrayUtil.toByteArray(message)
@@ -57,6 +42,7 @@ object AwsHelpers extends LazyLogging {
     val res = client.putRecord(putReq)
     logger.info(s"PUT [$message] message to kinesis stream: $streamName response: $res")
   }
+
 
   def checkKinesisIsNiceAndFast(stage: Option[String], threshold: Option[Integer]): Boolean = {
     stage match {
@@ -130,10 +116,4 @@ object AwsHelpers extends LazyLogging {
     .withRegion(AwsRegion)
     .withCredentials(awsCredentials)
     .build()
-
-
-  private def buildS3Client = {
-    val builder = AmazonS3ClientBuilder.standard().withRegion(AwsRegion)
-    builder.withCredentials(awsCredentials).build()
-  }
 }
