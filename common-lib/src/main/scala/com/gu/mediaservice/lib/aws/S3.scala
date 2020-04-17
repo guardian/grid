@@ -179,10 +179,10 @@ object S3Ops {
     clientConfig.setSignerOverride("S3SignerType")
 
     val builder = config.awsLocalEndpoint match {
-      case Some(_) => {
-        // `withPathStyleAccessEnabled` for localstack
-        // see https://github.com/localstack/localstack/issues/1512
+      case Some(_) if config.isDev => {
         // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
+        //  `withPathStyleAccessEnabled` for localstack
+        //  see https://github.com/localstack/localstack/issues/1512
         AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
       }
       case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)

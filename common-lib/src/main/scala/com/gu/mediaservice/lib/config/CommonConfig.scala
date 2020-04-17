@@ -18,11 +18,6 @@ trait CommonConfig extends AwsClientBuilderUtils {
   def appName: String
   def configuration: Configuration
 
-  final val stage: String = stageFromFile getOrElse "DEV"
-
-  val isProd: Boolean = stage == "PROD"
-  val isDev: Boolean = stage == "DEV"
-
   lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
 
   final val elasticsearchStack = "media-service"
@@ -37,11 +32,6 @@ trait CommonConfig extends AwsClientBuilderUtils {
   override val awsRegion: String = properties.getOrElse("aws.region", "eu-west-1")
 
   override val awsLocalEndpoint: Option[String] = if(isDev) properties.get("aws.local.endpoint") else None
-
-  override val awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
-    case Some(endpoint) if isDev => Some(new EndpointConfiguration(endpoint, awsRegion))
-    case _ => None
-  }
 
   lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
 
@@ -98,9 +88,4 @@ trait CommonConfig extends AwsClientBuilderUtils {
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
-
-  private def stageFromFile: Option[String] = {
-    val file = new File("/etc/gu/stage")
-    if (file.exists) Some(fromFile(file).mkString.trim) else None
-  }
 }
