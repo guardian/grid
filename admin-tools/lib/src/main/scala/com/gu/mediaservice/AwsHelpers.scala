@@ -43,6 +43,53 @@ object AwsHelpers extends LazyLogging {
     logger.info(s"PUT [$message] message to kinesis stream: $streamName response: $res")
   }
 
+
+  def checkKinesisIsNiceAndFast(stage: Option[String], threshold: Option[Integer]): Boolean = {
+    stage match {
+      case None => true // did not get a stage. presume it's not prod and go ahead.
+      case Some(actualStage) =>
+        threshold match {
+          case None =>
+            logger.error("Got a stage but no threshold; unable to work out if Kinesis is fast or not")
+            false
+
+          case Some(actualThreshold) =>
+
+            logger.info("Checking kinesis is nice and fast")
+
+            val dimensionValue = s"media-service-thrall-${actualStage.toUpperCase}"
+            val endTime: Date = new Date() // now!
+          val startTime: Date = new Date(endTime.getTime - 5 * 60 * 1000L) // five minutes ago
+
+            val dimension = new Dimension()
+              .withName("StreamName")
+              .withValue(dimensionValue)
+
+            val request: GetMetricStatisticsRequest = new GetMetricStatisticsRequest()
+              .withDimensions(Set(dimension).asJava)
+              .withEndTime(endTime)
+              .withMetricName("GetRecords.IteratorAgeMilliseconds")
+              .withNamespace("AWS/Kinesis")
+              .withPeriod(300)
+              .withStartTime(startTime)
+              .withStatistics("Maximum")
+              .withUnit("Milliseconds")
+
+
+            val dataPoints = buildCloudWatchClient
+              .getMetricStatistics(request)
+              .getDatapoints
+              .asScala
+
+            logger.info(s"Got ${dataPoints.size} data points")
+
+            val fastEnough = dataPoints.nonEmpty && ! dataPoints.exists(d => d.getMaximum > actualThreshold)
+            logger.info(s"Kinesis stream is fast enough: $fastEnough")
+            fastEnough
+        }
+    }
+  }
+
   def buildKinesisClient(kinesisEndpoint: Option[String] = None): AmazonKinesis = {
     val baseBuilder = AmazonKinesisClientBuilder.standard()
     val builder = kinesisEndpoint match {

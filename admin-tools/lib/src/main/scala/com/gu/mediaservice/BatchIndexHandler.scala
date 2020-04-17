@@ -115,6 +115,14 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   }
 
   def processImages(): Unit = {
+
+    if (AwsHelpers.checkKinesisIsNiceAndFast(stage, threshold))
+      processImagesOnlyIfKinesisIsNiceAndFast()
+    else
+      logger.info("Kinesis is too busy; leaving it for now")
+  }
+
+  def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
     if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
