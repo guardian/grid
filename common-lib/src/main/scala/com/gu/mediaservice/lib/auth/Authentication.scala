@@ -87,7 +87,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
       system = config.stringOpt("panda.system").getOrElse("media-service"),
       bucketName = config.stringOpt("panda.bucketName").getOrElse("pan-domain-auth-settings"),
       settingsFileKey = config.stringOpt("panda.settingsFileKey").getOrElse(s"${config.services.domainRoot}.settings"),
-      s3Client = config.withAWSCredentials(AmazonS3ClientBuilder.standard()).build()
+      s3Client = config.withAWSCredentials__DEPRECATED(AmazonS3ClientBuilder.standard()).build()
     )
   }
 }

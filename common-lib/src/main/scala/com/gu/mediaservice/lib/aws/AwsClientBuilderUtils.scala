@@ -22,17 +22,17 @@ trait AwsClientBuilderUtils {
   }
 
   // TODO consolidate `withAWSCredentials` with `withLocalAWSCredentials`. Requires use of localstack everywhere (Dynamo, S3, Kinesis)
-  def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
+  def withAWSCredentials__DEPRECATED[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
     .withRegion(awsRegion)
     .withCredentials(awsCredentials)
 
-  def withLocalAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = {
+  def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = {
     awsEndpointConfiguration match {
       case Some(endpointConfiguration) => {
         Logger.info(s"creating aws client with local endpoint $endpointConfiguration")
         builder.withCredentials(awsCredentials).withEndpointConfiguration(endpointConfiguration)
       }
-      case _ => withAWSCredentials(builder)
+      case _ => builder.withCredentials(awsCredentials).withRegion(awsRegion)
     }
   }
 }
