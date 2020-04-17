@@ -1,0 +1,6 @@
+{
+  "Bucket": "thumb-bucket",
+  "CreateBucketConfiguration": {
+    "LocationConstraint": "eu-west-1"
+  }
+}

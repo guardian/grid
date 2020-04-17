@@ -1,0 +1,49 @@
+{
+  "TableName": "UsageRecordTable",
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "usage_id",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "grouping",
+      "AttributeType": "S"
+    },
+    {
+      "AttributeName": "media_id",
+      "AttributeType": "S"
+    }
+  ],
+  "KeySchema": [
+    {
+      "AttributeName": "grouping",
+      "KeyType": "HASH"
+    },
+    {
+      "AttributeName": "usage_id",
+      "KeyType": "RANGE"
+    }
+  ],
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "media_id",
+      "KeySchema": [
+        {
+          "AttributeName": "media_id",
+          "KeyType": "HASH"
+        }
+      ],
+      "Projection": {
+        "ProjectionType": "ALL"
+      },
+      "ProvisionedThroughput": {
+        "WriteCapacityUnits": 1,
+        "ReadCapacityUnits": 1
+      }
+    }
+  ],
+  "ProvisionedThroughput": {
+    "ReadCapacityUnits": 1,
+    "WriteCapacityUnits": 1
+  }
+}

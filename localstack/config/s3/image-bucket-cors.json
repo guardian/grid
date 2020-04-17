@@ -1,0 +1,19 @@
+{
+  "Bucket": "image-bucket",
+  "CORSConfiguration": {
+    "CORSRules": [
+      {
+        "AllowedMethods": [
+          "GET"
+        ],
+        "AllowedOrigins": [
+          "*"
+        ],
+        "ExposeHeaders": [
+          "Date"
+        ],
+        "MaxAgeSeconds": 3600
+      }
+    ]
+  }
+}

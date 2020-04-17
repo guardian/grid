@@ -1,0 +1,7 @@
+{
+  "Bucket": "image-origin-bucket",
+  "CreateBucketConfiguration": {
+    "LocationConstraint": "eu-west-1"
+  },
+  "ACL": "public-read"
+}

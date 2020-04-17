@@ -1,0 +1,5 @@
+{
+  "TopicArn": "arn:aws:sns:eu-west-1:000000000000:indexed-image",
+  "Protocol": "sqs",
+  "Endpoint": "http://localhost:4566/queue/indexed-image-metadata"
+}

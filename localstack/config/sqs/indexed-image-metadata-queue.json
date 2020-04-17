@@ -1,0 +1,6 @@
+{
+  "QueueName": "indexed-image-metadata",
+  "Attributes": {
+    "Policy": "{\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"*\"},\"Action\":\"sqs:SendMessage\",\"Resource\":\"*\"}]}"
+  }
+}

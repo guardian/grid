@@ -1,0 +1,11 @@
+{
+  "Bucket": "image-origin-bucket",
+  "WebsiteConfiguration": {
+    "ErrorDocument": {
+      "Key": "error.html"
+    },
+    "IndexDocument": {
+      "Suffix": "index.html"
+    }
+  }
+}

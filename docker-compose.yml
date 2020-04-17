@@ -1,7 +1,7 @@
-version: '3'
+version: '3.7'
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.2
+    image: elasticsearch:7.5.2
     volumes:
       - "./dev/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
     ports:
@@ -20,8 +20,14 @@ services:
   localstack:
     image: localstack/localstack:0.11.0
     ports:
-      - "4566:4566"
+      - "4566:4566" # localstack's service proxy endpoint
+      - "4572:4572" # localstack's direct S3 endpoint, needed for image and image-origin buckets (see nginx-mappings.yml)
+    expose:
+      - 4572 # provide the imgops container with access to localstack's direct S3 endpoint
     environment:
-      - SERVICES=kinesis,dynamodb
+      - SERVICES=kinesis,dynamodb,s3,sns,sqs,kms,cloudwatch
       - DEFAULT_REGION=eu-west-1
       - KINESIS_ERROR_PROBABILITY=0.0
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - './localstack/.data:/tmp/localstack'
