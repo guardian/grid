@@ -90,11 +90,12 @@ buildJs() {
 }
 
 startPlayApps() {
-    if [ "$IS_DEBUG" = true ] ; then
-        sbt -jvm-debug 5005 runAll
-    else
-        sbt runAll
-    fi
+  export AWS_CBOR_DISABLE=true
+  if [ "$IS_DEBUG" = true ] ; then
+    sbt -jvm-debug 5005 runAll
+  else
+    sbt runAll
+  fi
 }
 
 # We use auth.properties as a proxy for whether all the configuration files have been downloaded given the implementation of `fetchConfig.sh`.
@@ -148,10 +149,10 @@ main() {
     hasCredentials
     checkRequirements
     checkNodeVersion
-    setupImgops
-    downloadApplicationConfig
+#    setupImgops
+#    downloadApplicationConfig
     startDockerContainers
-    setupLocalKinesis
+#    setupLocalKinesis
     buildJs
     startPlayApps
 }
