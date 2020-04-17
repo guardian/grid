@@ -4,6 +4,14 @@ set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+for arg in "$@"
+do
+    if [ "$arg" == "--clean" ]; then
+        CLEAN=true
+        shift
+    fi
+done
+
 export AWS_PAGER=""
 export AWS_CBOR_DISABLE=true
 export AWS_PROFILE=media-service
@@ -11,6 +19,18 @@ export AWS_DEFAULT_REGION=eu-west-1
 
 LOCALSTACK_ENDPOINT=http://localhost:4566
 LOCALSTACK_CONFIG_DIR=$DIR/localstack/config
+
+DOMAIN=local.dev-gutools.co.uk
+
+if [[ $CLEAN == true ]]; then
+  echo "removing all previous local infrastructure"
+
+  rm -rf "$DIR"/localstack/.data
+  echo "  removed historical localstack data"
+
+  docker-compose down -v
+  echo "  removed docker containers"
+fi
 
 createS3Buckets() {
   echo "creating buckets"
@@ -143,15 +163,74 @@ setupImgOps() {
   fi
 }
 
-setupDevNginx
-startDocker
-setupImgOps
-createS3Buckets
-putS3BucketCors
-putS3BucketVersioning
-putS3BucketWebsite
-createDynamoDbTables
-createSNSTopics
-createSQSQueues
-createSNSSubscriptions
-createKinesisStreams
+generatePanda() {
+  PANDA_SETTINGS_BUCKET=panda-settings-bucket
+  PANDA_COOKIE_NAME=gutoolsAuth-assym
+  PANDA_CLIENT_ID=grid-local-id
+  PANDA_CLIENT_SECRET=grid-local-secret
+
+  OUTPUT_DIR=/tmp
+
+  PANDA_PRIVATE_SETTINGS_FILE="$OUTPUT_DIR/$DOMAIN.settings"
+  PANDA_PUBLIC_SETTINGS_FILE="$OUTPUT_DIR/$DOMAIN.settings.public"
+
+  PRIVATE_KEY_FILE=$(mktemp "$OUTPUT_DIR/private-key.XXXXXX")
+  PUBLIC_KEY_FILE=$(mktemp "$OUTPUT_DIR/public-key.XXXXXX")
+
+  openssl genrsa -out "$PRIVATE_KEY_FILE" 4096
+  openssl rsa -pubout -in "$PRIVATE_KEY_FILE" -out "$PUBLIC_KEY_FILE"
+
+  privateKey=$(sed -e '1d' -e '$d' < "$PRIVATE_KEY_FILE" | tr -d '\n')
+  publicKey=$(sed -e '1d' -e '$d'  < "$PUBLIC_KEY_FILE" | tr -d '\n')
+
+  privateSettings=$(cat <<END
+privateKey=${privateKey}
+publicKey=${publicKey}
+cookieName=${PANDA_COOKIE_NAME}
+clientId=${PANDA_CLIENT_ID}
+clientSecret=${PANDA_CLIENT_SECRET}
+discoveryDocumentUrl=http://localhost:9000/.well-known/openid-configuration
+END
+)
+
+  publicSettings=$(cat <<END
+publicKey=${publicKey}
+END
+)
+
+  echo "$privateSettings" > "$PANDA_PRIVATE_SETTINGS_FILE"
+  echo "$publicSettings" > "$PANDA_PUBLIC_SETTINGS_FILE"
+
+  aws s3 cp "$PANDA_PRIVATE_SETTINGS_FILE" \
+    "s3://$PANDA_SETTINGS_BUCKET/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  aws s3 cp "$PANDA_PUBLIC_SETTINGS_FILE" \
+    "s3://$PANDA_SETTINGS_BUCKET/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  rm -f "$PUBLIC_KEY_FILE"
+  rm -f "$PRIVATE_KEY_FILE"
+  rm -f "$PANDA_PRIVATE_SETTINGS_FILE"
+  rm -f "$PANDA_PUBLIC_SETTINGS_FILE"
+}
+
+main() {
+  setupDevNginx
+  startDocker
+  setupImgOps
+
+  createS3Buckets
+  putS3BucketCors
+  putS3BucketVersioning
+  putS3BucketWebsite
+  createDynamoDbTables
+  createSNSTopics
+  createSQSQueues
+  createSNSSubscriptions
+  createKinesisStreams
+
+  generatePanda
+}
+
+main
