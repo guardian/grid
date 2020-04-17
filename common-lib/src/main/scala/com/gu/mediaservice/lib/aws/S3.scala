@@ -168,6 +168,7 @@ class S3(config: CommonConfig) {
 }
 
 object S3Ops {
+  // TODO make this localstack friendly
   private val s3Endpoint = "s3.amazonaws.com"
 
   def buildS3Client(config: CommonConfig): AmazonS3 = {
@@ -177,7 +178,15 @@ object S3Ops {
     val clientConfig = new ClientConfiguration()
     clientConfig.setSignerOverride("S3SignerType")
 
-    val builder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+    val builder = config.awsLocalEndpoint match {
+      case Some(_) => {
+        // `withPathStyleAccessEnabled` for localstack
+        // see https://github.com/localstack/localstack/issues/1512
+        // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
+        AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
+      }
+      case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+    }
 
     config.withAWSCredentials(builder).build()
   }
