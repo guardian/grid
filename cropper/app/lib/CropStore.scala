@@ -8,6 +8,8 @@ import com.gu.mediaservice.lib.S3ImageStorage
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 
+import scala.util.Try
+
 class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   import com.gu.mediaservice.lib.formatting._
 
@@ -17,16 +19,16 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
   def storeCropSizing(file: File, filename: String, mimeType: MimeType, crop: Crop, dimensions: Dimensions)(implicit requestContext: RequestLoggingContext) : Future[Asset] = {
     val CropSpec(sourceUri, Bounds(x, y, w, h), r, t) = crop.specification
     val metadata = Map("source" -> sourceUri,
-                       "bounds_x" -> x,
-                       "bounds_y" -> y,
-                       "bounds_w" -> w,
-                       "bounds_h" -> h,
+                       "bounds-x" -> x,
+                       "bounds-y" -> y,
+                       "bounds-width" -> w,
+                       "bounds-height" -> h,
                        "type" -> t.name,
                        "author" -> crop.author,
                        "date" -> crop.date.map(printDateTime),
                        "width" -> dimensions.width,
                        "height" -> dimensions.height
-                   ) ++ r.map("aspect_ratio" -> _)
+                   ) ++ r.map("aspect-ratio" -> _)
 
     val filteredMetadata = metadata.collect {
       case (key, Some(value)) => key -> value
@@ -44,6 +46,11 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
     }
   }
 
+  private def getOrElseOrNone(theMap: Map[String, String], preferredKey: String, fallbackKey: String): Option[String] = {
+    // Return the `preferredKey` value in `theMap` or the `fallbackKey` or `None`
+    theMap.get(preferredKey).orElse(theMap.get(fallbackKey))
+  }
+
   def listCrops(id: String): Future[List[Crop]] = {
     list(config.imgPublishingBucket, id).map { crops =>
       crops.foldLeft(Map[String, Crop]()) {
@@ -56,15 +63,19 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
           val updatedCrop = for {
             // Note: if any is missing, the entry won't be registered
             source <- userMetadata.get("source")
-            x      <- userMetadata.get("bounds_x").map(_.toInt)
-            y      <- userMetadata.get("bounds_y").map(_.toInt)
-            w      <- userMetadata.get("bounds_w").map(_.toInt)
-            h      <- userMetadata.get("bounds_h").map(_.toInt)
+
+            // we've moved to kebab-case as localstack doesn't like `_`
+            // fallback to reading old values for older crops
+            // see https://github.com/localstack/localstack/issues/459
+            x      <- getOrElseOrNone(userMetadata, "bounds-x", "bounds_x").map(_.toInt)
+            y      <- getOrElseOrNone(userMetadata, "bounds-y", "bounds_y").map(_.toInt)
+            w      <- getOrElseOrNone(userMetadata, "bounds-width", "bounds_w").map(_.toInt)
+            h      <- getOrElseOrNone(userMetadata, "bounds-height", "bounds_h").map(_.toInt)
             width  <- userMetadata.get("width").map(_.toInt)
             height <- userMetadata.get("height").map(_.toInt)
 
             cid            = s"$id-$x-$y-$w-$h"
-            ratio          = userMetadata.get("aspect_ratio")
+            ratio          = getOrElseOrNone(userMetadata, "aspect-ratio", "aspect_ratio")
             author         = userMetadata.get("author")
             date           = userMetadata.get("date").flatMap(parseDateTime)
             exportType     = userMetadata.get("type").map(ExportType.valueOf).getOrElse(ExportType.default)
