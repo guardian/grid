@@ -7,6 +7,7 @@ import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibC
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import lib.{HighPriority, LowPriority, Priority, ThrallStreamProcessor}
 
+import scala.collection.immutable
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
@@ -27,12 +28,13 @@ class KinesisTest extends KinesisTestBase {
     for (i <- 1 to 5) {
       sender.publish(message.copy(id = Some(s"image-id-$i")))
     }
+    Thread.sleep(2*1000)
   }
 
   describe("Stream merging strategy") {
     it("should process high priority events first") {
       val stream = streamProcessor.createStream()
-
+      Thread.sleep(15*1000)
       val imageMessage = UpdateMessage("image")
       val updateUsageMessage = UpdateMessage("update-image-usages")
 
@@ -40,11 +42,15 @@ class KinesisTest extends KinesisTestBase {
       publishFiveMessages(lowPrioritySender, updateUsageMessage)
       publishFiveMessages(lowPrioritySender, updateUsageMessage)
       publishFiveMessages(highPrioritySender, imageMessage)
-
-      val prioritiesFromMessages = Await.result(stream.take(20).runWith(Sink.seq), 5.minutes).map {
-        case (record, _, _) => record.priority
+      Thread.sleep(5*1000)
+      val prioritiesFromMessages: Seq[Priority] = Await.result(stream.take(20).runWith(Sink.seq), 5.minutes).map {
+        case (taggedRecord, _, _) => {
+          taggedRecord.record.markProcessed()
+          taggedRecord.priority
+        }
       }
 
+      println(prioritiesFromMessages)
       prioritiesFromMessages.length shouldBe 20
 
       val split: List[Seq[Priority]] = prioritiesFromMessages.grouped(10).toList

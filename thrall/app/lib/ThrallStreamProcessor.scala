@@ -37,8 +37,14 @@ class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfigura
   val mergedKinesisSource: Source[TaggedRecord, NotUsed] = Source.fromGraph(GraphDSL.create() { implicit g =>
     import GraphDSL.Implicits._
 
-    val highPriorityKinesisSource = KinesisSource(highPriorityKinesisConfig).map(TaggedRecord(_, HighPriority))
-    val lowPriorityKinesisSource = KinesisSource(lowPriorityKinesisConfig).map(TaggedRecord(_, LowPriority))
+    val highPriorityKinesisSource = KinesisSource(highPriorityKinesisConfig).map(record => {
+      println(record.approximateArrivalTimestamp, HighPriority)
+      TaggedRecord(record, HighPriority)
+    })
+    val lowPriorityKinesisSource = KinesisSource(lowPriorityKinesisConfig).map(record => {
+      println(record.approximateArrivalTimestamp, LowPriority)
+      TaggedRecord(record, LowPriority)
+    })
 
     val mergePreferred = g.add(MergePreferred[TaggedRecord](1))
 
