@@ -3,13 +3,13 @@
 set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR=${DIR}/../..
 
-for arg in "$@"
-do
-    if [ "$arg" == "--clean" ]; then
-        CLEAN=true
-        shift
-    fi
+for arg in "$@"; do
+  if [ "$arg" == "--clean" ]; then
+    CLEAN=true
+    shift
+  fi
 done
 
 export AWS_PAGER=""
@@ -18,14 +18,14 @@ export AWS_PROFILE=media-service
 export AWS_DEFAULT_REGION=eu-west-1
 
 LOCALSTACK_ENDPOINT=http://localhost:4566
-LOCALSTACK_CONFIG_DIR=$DIR/localstack/config
+LOCALSTACK_CONFIG_DIR=$ROOT_DIR/dev/localstack
 
 DOMAIN=local.dev-gutools.co.uk
 
 if [[ $CLEAN == true ]]; then
   echo "removing all previous local infrastructure"
 
-  rm -rf "$DIR"/localstack/.data
+  rm -rf "$ROOT_DIR/dev/localstack/.data"
   echo "  removed historical localstack data"
 
   docker-compose down -v
@@ -157,12 +157,13 @@ startDocker() {
 }
 
 setupDevNginx() {
-  dev-nginx setup-app "$DIR/nginx-mappings.yml"
+  dev-nginx setup-app "$ROOT_DIR/dev/nginx-mappings.yml"
 }
 
 setupImgOps() {
-  if [ ! -f ./imgops/dev/nginx.conf ]; then
-    cp "$DIR/imgops/dev/nginx.conf.localstack" "$DIR/imgops/dev/nginx.conf"
+  target="$ROOT_DIR/dev/imgops/nginx.conf"
+  if [ ! -f "$target" ]; then
+    cp "$ROOT_DIR/dev/imgops/nginx.conf.localstack" "$target"
   fi
 }
 
@@ -219,15 +220,15 @@ END
 }
 
 uploadPermissions() {
-  aws s3 cp "$LOCALSTACK_CONFIG_DIR/s3/files/permissions.json" \
+  aws s3 cp "$ROOT_DIR/dev/config/permissions.json" \
     s3://permissions-bucket/ \
     --endpoint-url $LOCALSTACK_ENDPOINT
 }
 
 main() {
   setupDevNginx
-  startDocker
   setupImgOps
+  startDocker
 
   createS3Buckets
   putS3BucketCors

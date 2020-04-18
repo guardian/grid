@@ -30,9 +30,9 @@ services:
       - KINESIS_ERROR_PROBABILITY=0.0
       - DATA_DIR=/tmp/localstack/data
     volumes:
-      - './localstack/.data:/tmp/localstack'
-  local-oidc-provider:
+      - './dev/localstack/.data:/tmp/localstack'
+  oidc-provider:
     build:
-      context: local-oidc-provider
+      context: ./dev/oidc-provider
     ports:
       - "9014:9014"
