@@ -1,0 +1,10 @@
+[
+  {
+    "sub": "grid-demo-account",
+    "email": "grid-demo-account@guardian.co.uk",
+    "email_verified": true,
+    "given_name": "Demo",
+    "family_name": "Account",
+    "name": "Demo Account"
+  }
+]

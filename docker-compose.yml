@@ -31,3 +31,8 @@ services:
       - DATA_DIR=/tmp/localstack/data
     volumes:
       - './localstack/.data:/tmp/localstack'
+  local-oidc-provider:
+    build:
+      context: local-oidc-provider
+    ports:
+      - "9014:9014"

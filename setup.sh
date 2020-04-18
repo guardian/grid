@@ -30,6 +30,9 @@ if [[ $CLEAN == true ]]; then
 
   docker-compose down -v
   echo "  removed docker containers"
+
+  docker-compose build
+  echo "  rebuild docker containers"
 fi
 
 createS3Buckets() {
@@ -189,7 +192,7 @@ publicKey=${publicKey}
 cookieName=${PANDA_COOKIE_NAME}
 clientId=${PANDA_CLIENT_ID}
 clientSecret=${PANDA_CLIENT_SECRET}
-discoveryDocumentUrl=http://localhost:9000/.well-known/openid-configuration
+discoveryDocumentUrl=http://localhost:9014/.well-known/openid-configuration
 END
 )
 
