@@ -218,6 +218,12 @@ END
   rm -f "$PANDA_PUBLIC_SETTINGS_FILE"
 }
 
+uploadPermissions() {
+  aws s3 cp "$LOCALSTACK_CONFIG_DIR/s3/files/permissions.json" \
+    s3://permissions-bucket/ \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+}
+
 main() {
   setupDevNginx
   startDocker
@@ -234,6 +240,7 @@ main() {
   createKinesisStreams
 
   generatePanda
+  uploadPermissions
 }
 
 main

@@ -1,0 +1,6 @@
+{
+  "Bucket": "permissions-bucket",
+  "CreateBucketConfiguration": {
+    "LocationConstraint": "eu-west-1"
+  }
+}

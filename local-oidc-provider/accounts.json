@@ -6,5 +6,13 @@
     "given_name": "Demo",
     "family_name": "Account",
     "name": "Demo Account"
+  },
+  {
+    "sub": "grid-demo-restricted-account",
+    "email": "grid-demo-restricted-account@guardian.co.uk",
+    "email_verified": true,
+    "given_name": "Demo",
+    "family_name": "Restricted Account",
+    "name": "Demo Restricted Account"
   }
 ]
