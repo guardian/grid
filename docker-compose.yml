@@ -36,3 +36,6 @@ services:
       context: ./dev/oidc-provider
     ports:
       - "9014:9014"
+    volumes:
+      - "./dev/config/users.json:/etc/gu/users.json"
+    env_file: ./dev/.env
