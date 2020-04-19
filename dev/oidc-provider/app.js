@@ -2,13 +2,11 @@
 
 const Provider = require("oidc-provider");
 
-const { EMAIL_DOMAIN } = process.env;
+const { DOMAIN, EMAIL_DOMAIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } = process.env;
 
 const port = 9014;
 const issuer = `http://localhost:${port}`;
-const clientId = "grid-local-id";
-const clientSecret = "grid-local-secret";
-const redirectURI = "https://media-auth.local.dev-gutools.co.uk/oauthCallback";
+const redirectURI = `https://media-auth.${DOMAIN}/oauthCallback`;
 
 async function findAccount(_, incomingEmail) {
   if (!incomingEmail.endsWith(`@${EMAIL_DOMAIN}`)) {
@@ -49,8 +47,8 @@ async function findAccount(_, incomingEmail) {
 
 const oidc = new Provider(issuer, {
   clients: [{
-    client_id: clientId,
-    client_secret: clientSecret,
+    client_id: OIDC_CLIENT_ID,
+    client_secret: OIDC_CLIENT_SECRET,
     redirect_uris: [ redirectURI ],
   }],
   claims: {

@@ -12,15 +12,18 @@ for arg in "$@"; do
   fi
 done
 
+# load values from .env into environment variables
+# see https://stackoverflow.com/a/30969768/3868241
+set -o allexport
+# shellcheck source=../.env
+source "$ROOT_DIR/dev/.env"
+set +o allexport
+
 export AWS_PAGER=""
 export AWS_CBOR_DISABLE=true
-export AWS_PROFILE=media-service
-export AWS_DEFAULT_REGION=eu-west-1
 
 LOCALSTACK_ENDPOINT=http://localhost:4566
 LOCALSTACK_CONFIG_DIR=$ROOT_DIR/dev/localstack
-
-DOMAIN=local.dev-gutools.co.uk
 
 if [[ $CLEAN == true ]]; then
   echo "removing all previous local infrastructure"
@@ -170,8 +173,6 @@ setupImgOps() {
 generatePanda() {
   PANDA_SETTINGS_BUCKET=panda-settings-bucket
   PANDA_COOKIE_NAME=gutoolsAuth-assym
-  PANDA_CLIENT_ID=grid-local-id
-  PANDA_CLIENT_SECRET=grid-local-secret
 
   OUTPUT_DIR=/tmp
 
@@ -191,8 +192,8 @@ generatePanda() {
 privateKey=${privateKey}
 publicKey=${publicKey}
 cookieName=${PANDA_COOKIE_NAME}
-clientId=${PANDA_CLIENT_ID}
-clientSecret=${PANDA_CLIENT_SECRET}
+clientId=${OIDC_CLIENT_ID}
+clientSecret=${OIDC_CLIENT_SECRET}
 discoveryDocumentUrl=http://localhost:9014/.well-known/openid-configuration
 END
 )
