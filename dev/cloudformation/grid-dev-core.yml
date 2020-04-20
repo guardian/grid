@@ -62,6 +62,7 @@ Resources:
   EditsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: EditsTable
       AttributeDefinitions:
       - AttributeName: id
         AttributeType: S
@@ -75,6 +76,7 @@ Resources:
   CollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: CollectionsTable
       AttributeDefinitions:
       - AttributeName: id
         AttributeType: S
@@ -88,6 +90,7 @@ Resources:
   ImageCollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: ImageCollectionsTable
       AttributeDefinitions:
       - AttributeName: id
         AttributeType: S
@@ -101,6 +104,7 @@ Resources:
   LeasesDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: LeasesTable
       AttributeDefinitions:
       - AttributeName: id
         AttributeType: S
@@ -133,6 +137,7 @@ Resources:
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: UsageRecordTable
       AttributeDefinitions:
       - AttributeName: usage_id
         AttributeType: S
@@ -162,6 +167,7 @@ Resources:
   LiveContentPollTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: LiveContentPollTable
       AttributeDefinitions:
       - AttributeName: id
         AttributeType: S
@@ -175,6 +181,7 @@ Resources:
   PreviewContentPollTable:
     Type: AWS::DynamoDB::Table
     Properties:
+      TableName: PreviewContentPollTable
       AttributeDefinitions:
       - AttributeName: id
         AttributeType: S

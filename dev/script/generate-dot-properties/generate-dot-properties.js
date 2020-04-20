@@ -1,22 +1,29 @@
 #!/usr/bin/env node
 
 const fs = require('fs');
+const path = require('path');
 const AWS = require('aws-sdk');
-require('json5/lib/require');
+require('json5/lib/register');
+
 const defaultConfig = require('./config.json5');
+const dotenvConfig = require('dotenv').config({ path: path.join(__dirname, '../../.env') }).parsed;
+
 const ServiceConfig = require('./service-config');
 
-function getCloudformationStackOutput() {
+const LOCALSTACK_ENDPOINT=`https://localstack.media.${dotenvConfig.DOMAIN}`
+
+function getCloudformationStackResources() {
     AWS.config.update({
         credentials: new AWS.SharedIniFileCredentials({
-            profile: defaultConfig.aws.profile
+            profile: dotenvConfig.AWS_PROFILE
         }),
-        region: defaultConfig.aws.region
+        region: dotenvConfig.AWS_DEFAULT_REGION,
+        endpoint: new AWS.Endpoint(LOCALSTACK_ENDPOINT)
     });
 
     const cloudformation = new AWS.CloudFormation();
 
-    return cloudformation.describeStacks({StackName: defaultConfig.aws.stackName}).promise();
+    return cloudformation.describeStackResources({StackName: dotenvConfig.CORE_STACK_NAME}).promise();
 }
 
 function writeToDisk({path, content}) {
@@ -32,16 +39,16 @@ function writeToDisk({path, content}) {
 }
 
 (async () => {
-    const cfnData = await getCloudformationStackOutput();
-    const stackOutputs = cfnData.Stacks[0].Outputs;
+    const cfnData = await getCloudformationStackResources();
+    const stackResources = cfnData.StackResources;
 
-    const stackProps = stackOutputs.reduce((acc, item) => {
+    const stackProps = stackResources.reduce((acc, item) => {
         return Object.assign({}, acc, {
-            [item.OutputKey]: item.OutputValue
+            [item.LogicalResourceId]: item.PhysicalResourceId
         });
     }, {});
 
-    const config = Object.assign({}, defaultConfig, {stackProps});
+    const config = {...defaultConfig, ...dotenvConfig, stackProps, LOCALSTACK_ENDPOINT}
     const serviceConfigs = ServiceConfig.getConfigs(config);
 
     await Promise.all(

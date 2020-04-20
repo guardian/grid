@@ -195,6 +195,15 @@ createLocalAuthStack() {
   echo "  created stack $AUTH_STACK_NAME using $AUTH_STACK_FILENAME"
 }
 
+generateDotProperties() {
+  echo "generating configuration files"
+  pushd "$ROOT_DIR/dev/script/generate-dot-properties"
+  npm install
+  npm run generate-properties
+  popd
+  echo "  configuration files created in /etc/gu"
+}
+
 main() {
   clean
   startDocker
@@ -207,6 +216,7 @@ main() {
   fi
 
   setupDevNginx
+  generateDotProperties
 }
 
 main
