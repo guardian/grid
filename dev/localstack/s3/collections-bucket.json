@@ -1,6 +1,0 @@
-{
-  "Bucket": "collections-bucket",
-  "CreateBucketConfiguration": {
-    "LocationConstraint": "eu-west-1"
-  }
-}

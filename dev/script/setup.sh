@@ -5,13 +5,6 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOT_DIR=${DIR}/../..
 
-for arg in "$@"; do
-  if [ "$arg" == "--clean" ]; then
-    CLEAN=true
-    shift
-  fi
-done
-
 # load values from .env into environment variables
 # see https://stackoverflow.com/a/30969768/3868241
 set -o allexport
@@ -19,16 +12,39 @@ set -o allexport
 source "$ROOT_DIR/dev/.env"
 set +o allexport
 
+# ---- START static variables that shouldn't be changed
 export AWS_PAGER=""
 export AWS_CBOR_DISABLE=true
 
 LOCALSTACK_ENDPOINT=http://localhost:4566
-LOCALSTACK_CONFIG_DIR=$ROOT_DIR/dev/localstack
 
-if [[ $CLEAN == true ]]; then
+CORE_STACK_FILE="$ROOT_DIR/dev/cloudformation/grid-dev-core.yml"
+CORE_STACK_FILENAME=$(basename "$CORE_STACK_FILE")
+
+AUTH_STACK_FILE="$ROOT_DIR/dev/cloudformation/grid-dev-auth.yml"
+AUTH_STACK_FILENAME=$(basename "$AUTH_STACK_FILE")
+# ---- END
+
+LOCAL_AUTH=true
+for arg in "$@"; do
+  if [ "$arg" == "--clean" ]; then
+    CLEAN=true
+    shift
+  fi
+  if [ "$arg" == "--without-local-auth" ]; then
+    LOCAL_AUTH=false
+    shift
+  fi
+done
+
+clean() {
+  if [[ $CLEAN != true ]]; then
+    return
+  fi
+
   echo "removing all previous local infrastructure"
 
-  rm -rf "$ROOT_DIR/dev/localstack/.data"
+  rm -rf "$ROOT_DIR/dev/.localstack"
   echo "  removed historical localstack data"
 
   docker-compose down -v
@@ -36,118 +52,6 @@ if [[ $CLEAN == true ]]; then
 
   docker-compose build
   echo "  rebuild docker containers"
-fi
-
-createS3Buckets() {
-  echo "creating buckets"
-
-  currentBuckets=$(aws s3api list-buckets --endpoint-url $LOCALSTACK_ENDPOINT)
-
-  for file in "$LOCALSTACK_CONFIG_DIR"/s3/*-bucket.json; do
-    name=$(jq -r '.Bucket' < "$file")
-
-    exists=$(echo "$currentBuckets" | jq -r ".Buckets[].Name | select(. == \"$name\")")
-
-    if [[ -z $exists ]]; then
-      aws s3api create-bucket \
-        --cli-input-json file://"$file" \
-        --endpoint-url $LOCALSTACK_ENDPOINT
-      echo "  created bucket using $(basename "$file")"
-    else
-      echo "  skipping $(basename "$file") as bucket $name already exists"
-    fi
-  done
-}
-
-putS3BucketCors() {
-  echo "putting bucket cors"
-  for file in "$LOCALSTACK_CONFIG_DIR"/s3/*-cors.json; do
-    aws s3api put-bucket-cors \
-      --cli-input-json file://"$file" \
-      --endpoint-url $LOCALSTACK_ENDPOINT
-    echo "  put bucket cors using $(basename "$file")"
-  done
-}
-
-putS3BucketVersioning() {
-  echo "putting bucket versioning"
-  for file in "$LOCALSTACK_CONFIG_DIR"/s3/*-versioning.json; do
-    aws s3api put-bucket-versioning \
-      --cli-input-json file://"$file" \
-      --endpoint-url $LOCALSTACK_ENDPOINT
-    echo "  put bucket versioning using $(basename "$file")"
-  done
-}
-
-putS3BucketWebsite() {
-  echo "putting bucket website"
-  for file in "$LOCALSTACK_CONFIG_DIR"/s3/*-website.json; do
-    aws s3api put-bucket-website \
-      --cli-input-json file://"$file" \
-      --endpoint-url $LOCALSTACK_ENDPOINT
-    echo "  put bucket website using $(basename "$file")"
-  done
-}
-
-createDynamoDbTables() {
-  echo "creating dynamodb tables"
-  for file in "$LOCALSTACK_CONFIG_DIR"/dynamodb/*-table.json; do
-    aws dynamodb create-table \
-      --cli-input-json file://"$file" \
-      --endpoint-url $LOCALSTACK_ENDPOINT >/dev/null
-    echo "  created table using $(basename "$file")"
-  done
-}
-
-createSNSTopics() {
-  echo "creating sns topics"
-  for file in "$LOCALSTACK_CONFIG_DIR"/sns/*-topic.json; do
-    aws sns create-topic \
-      --cli-input-json file://"$file" \
-      --endpoint-url $LOCALSTACK_ENDPOINT >/dev/null
-    echo "  created sns topic using $(basename "$file")"
-  done
-}
-
-createSQSQueues() {
-  echo "creating sqs queues"
-  for file in "$LOCALSTACK_CONFIG_DIR"/sqs/*-queue.json; do
-    aws sqs create-queue \
-      --cli-input-json file://"$file" \
-      --endpoint-url $LOCALSTACK_ENDPOINT >/dev/null
-    echo "  created sqs queue using $(basename "$file")"
-  done
-}
-
-createSNSSubscriptions() {
-  echo "creating sns subscriptions"
-  for file in "$LOCALSTACK_CONFIG_DIR"/sns/*-subscribe.json; do
-    aws sns subscribe \
-      --cli-input-json file://"$file" \
-      --endpoint-url $LOCALSTACK_ENDPOINT >/dev/null
-    echo "  created sns subscription using $(basename "$file")"
-  done
-}
-
-createKinesisStreams() {
-  echo "creating kinesis streams"
-
-  currentStreams=$(aws kinesis list-streams --endpoint-url $LOCALSTACK_ENDPOINT)
-
-  for file in "$LOCALSTACK_CONFIG_DIR"/kinesis/*.json; do
-    name=$(jq -r '.StreamName' < "$file")
-
-    exists=$(echo "$currentStreams" | jq -r ".StreamNames[] | select(. == \"$name\")")
-
-    if [[ -z $exists ]]; then
-      aws kinesis create-stream \
-        --cli-input-json file://"$file" \
-        --endpoint-url $LOCALSTACK_ENDPOINT
-      echo "  created kinesis stream using $(basename "$file")"
-    else
-      echo "  skipping $(basename "$file") as stream $name already exists"
-    fi
-  done
 }
 
 startDocker() {
@@ -155,23 +59,34 @@ startDocker() {
 
   echo "waiting for localstack to launch on $LOCALSTACK_ENDPOINT"
   while ! curl -s $LOCALSTACK_ENDPOINT >/dev/null; do
+    echo "  localstack not ready yet"
     sleep 1 # wait for 1 second before check again
   done
 }
 
 setupDevNginx() {
-  dev-nginx setup-app "$ROOT_DIR/dev/nginx-mappings.yml"
+  imageOriginBucket=$(getStackResource "$CORE_STACK_NAME" ImageOriginBucket)
+  imagesBucket=$(getStackResource "$CORE_STACK_NAME" ImageBucket)
+
+  target="$ROOT_DIR/dev/nginx-mappings.yml"
+
+  sed -e "s/@IMAGE-ORIGIN-BUCKET/$imageOriginBucket/g" \
+    -e "s/@IMAGE-BUCKET/$imagesBucket/g" \
+    -e "s/@DOMAIN_ROOT/$DOMAIN/g" \
+    "$ROOT_DIR/dev/nginx-mappings.yml.template" > "$target"
+
+  dev-nginx setup-app "$target"
 }
 
-setupImgOps() {
-  target="$ROOT_DIR/dev/imgops/nginx.conf"
-  if [ ! -f "$target" ]; then
-    cp "$ROOT_DIR/dev/imgops/nginx.conf.localstack" "$target"
+setupPanDomainConfiguration() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
   fi
-}
 
-generatePanda() {
-  PANDA_SETTINGS_BUCKET=panda-settings-bucket
+  echo "setting up pan domain authentication configuration for local auth"
+
+  panDomainBucket=$(getStackResource "$AUTH_STACK_NAME" PanDomainBucket)
+
   PANDA_COOKIE_NAME=gutoolsAuth-assym
 
   OUTPUT_DIR=/tmp
@@ -206,13 +121,15 @@ END
   echo "$privateSettings" > "$PANDA_PRIVATE_SETTINGS_FILE"
   echo "$publicSettings" > "$PANDA_PUBLIC_SETTINGS_FILE"
 
-  aws s3 cp "$PANDA_PRIVATE_SETTINGS_FILE" \
-    "s3://$PANDA_SETTINGS_BUCKET/" \
-    --endpoint-url $LOCALSTACK_ENDPOINT
+  filesToUpload=(
+    "$PANDA_PRIVATE_SETTINGS_FILE"
+    "$PANDA_PUBLIC_SETTINGS_FILE"
+  )
 
-  aws s3 cp "$PANDA_PUBLIC_SETTINGS_FILE" \
-    "s3://$PANDA_SETTINGS_BUCKET/" \
-    --endpoint-url $LOCALSTACK_ENDPOINT
+  for file in "${filesToUpload[@]}"; do
+    aws s3 cp "$file" "s3://$panDomainBucket/" --endpoint-url $LOCALSTACK_ENDPOINT
+    echo "  uploaded $file to bucket $panDomainBucket"
+  done
 
   rm -f "$PUBLIC_KEY_FILE"
   rm -f "$PRIVATE_KEY_FILE"
@@ -220,29 +137,76 @@ END
   rm -f "$PANDA_PUBLIC_SETTINGS_FILE"
 }
 
-uploadPermissions() {
+setupPermissionConfiguration() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
+  echo "setting up permissions configuration for local auth"
+
+  permissionsBucket=$(getStackResource "$AUTH_STACK_NAME" PermissionsBucket)
+
   aws s3 cp "$ROOT_DIR/dev/config/permissions.json" \
-    s3://permissions-bucket/ \
+    "s3://$permissionsBucket/" \
     --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $permissionsBucket"
+}
+
+getStackResource() {
+  stackName=$1
+  resourceName=$2
+
+  stackResources=$(
+    aws cloudformation describe-stack-resources \
+      --stack-name "$stackName" \
+      --endpoint-url $LOCALSTACK_ENDPOINT
+  )
+
+  resource=$(
+    echo "$stackResources" \
+    | jq -r ".StackResources[] | select(.LogicalResourceId == \"$resourceName\") | .PhysicalResourceId"
+  )
+
+  echo "$resource"
+}
+
+createCoreStack() {
+  echo "creating local core cloudformation stack"
+
+  aws cloudformation create-stack \
+    --stack-name "$CORE_STACK_NAME" \
+    --template-body "file://$CORE_STACK_FILE" \
+    --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
+  echo "  created stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
+}
+
+createLocalAuthStack() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
+  echo "creating local auth cloudformation stack"
+
+  aws cloudformation create-stack \
+    --stack-name "$AUTH_STACK_NAME" \
+    --template-body "file://$AUTH_STACK_FILE" \
+    --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
+  echo "  created stack $AUTH_STACK_NAME using $AUTH_STACK_FILENAME"
 }
 
 main() {
-  setupDevNginx
-  setupImgOps
+  clean
   startDocker
+  createCoreStack
 
-  createS3Buckets
-  putS3BucketCors
-  putS3BucketVersioning
-  putS3BucketWebsite
-  createDynamoDbTables
-  createSNSTopics
-  createSQSQueues
-  createSNSSubscriptions
-  createKinesisStreams
+  if [[ $LOCAL_AUTH == true ]]; then
+    createLocalAuthStack
+    setupPermissionConfiguration
+    setupPanDomainConfiguration
+  fi
 
-  generatePanda
-  uploadPermissions
+  setupDevNginx
 }
 
 main

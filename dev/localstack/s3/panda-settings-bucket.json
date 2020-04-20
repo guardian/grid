@@ -1,6 +1,0 @@
-{
-  "Bucket": "panda-settings-bucket",
-  "CreateBucketConfiguration": {
-    "LocationConstraint": "eu-west-1"
-  }
-}

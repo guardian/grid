@@ -1,6 +1,0 @@
-{
-  "Bucket": "image-bucket",
-  "CreateBucketConfiguration": {
-    "LocationConstraint": "eu-west-1"
-  }
-}

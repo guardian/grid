@@ -1,6 +1,0 @@
-{
-  "Bucket": "usage-mail-bucket",
-  "VersioningConfiguration": {
-    "Status": "Enabled"
-  }
-}

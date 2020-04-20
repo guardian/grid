@@ -1,6 +1,0 @@
-{
-  "Bucket": "usage-mail-bucket",
-  "CreateBucketConfiguration": {
-    "LocationConstraint": "eu-west-1"
-  }
-}

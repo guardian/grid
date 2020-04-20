@@ -1,6 +1,0 @@
-{
-  "Bucket": "s3-watcher-fail-bucket",
-  "CreateBucketConfiguration": {
-    "LocationConstraint": "eu-west-1"
-  }
-}

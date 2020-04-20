@@ -20,3 +20,6 @@ project/metals.sbt
 
 LOGS_LOCATION_IS_UNDEFINED
 re_ingestion_stats.txt
+
+dev/nginx-mappings.yml
+dev/.localstack

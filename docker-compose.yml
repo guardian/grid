@@ -25,12 +25,12 @@ services:
     expose:
       - 4572 # provide the imgops container with access to localstack's direct S3 endpoint
     environment:
-      - SERVICES=kinesis,dynamodb,s3,sns,sqs,kms,cloudwatch
-      - DEFAULT_REGION=eu-west-1
-      - KINESIS_ERROR_PROBABILITY=0.0
-      - DATA_DIR=/tmp/localstack/data
+      SERVICES: cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs
+      DEFAULT_REGION: eu-west-1
+      KINESIS_ERROR_PROBABILITY: 0.0
+      DATA_DIR: /tmp/localstack/data
     volumes:
-      - './dev/localstack/.data:/tmp/localstack'
+      - './dev/.localstack:/tmp/localstack'
   oidc-provider:
     build:
       context: ./dev/oidc-provider

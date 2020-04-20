@@ -1,6 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Media Service Dev
+Description: Core resources for Grid in DEV
 Resources:
+  ThrallMessageStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: media-service-DEV-thrall
+      ShardCount: 1
+      RetentionPeriodHours: 168
+  ThrallLowPriorityMessageStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: media-service-DEV-thrall-low-priority
+      ShardCount: 1
+      RetentionPeriodHours: 168
+
   ImageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -56,8 +69,8 @@ Resources:
       - AttributeName: id
         KeyType: HASH
       ProvisionedThroughput:
-        ReadCapacityUnits: '1'
-        WriteCapacityUnits: '1'
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
   CollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
@@ -69,8 +82,8 @@ Resources:
       - AttributeName: id
         KeyType: HASH
       ProvisionedThroughput:
-        ReadCapacityUnits: '1'
-        WriteCapacityUnits: '1'
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
   ImageCollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
@@ -82,8 +95,8 @@ Resources:
       - AttributeName: id
         KeyType: HASH
       ProvisionedThroughput:
-        ReadCapacityUnits: '1'
-        WriteCapacityUnits: '1'
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
   LeasesDynamoTable:
     Type: AWS::DynamoDB::Table
@@ -97,8 +110,8 @@ Resources:
       - AttributeName: id
         KeyType: HASH
       ProvisionedThroughput:
-        ReadCapacityUnits: '1'
-        WriteCapacityUnits: '1'
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
       GlobalSecondaryIndexes:
       - IndexName: mediaId
         KeySchema:
@@ -107,74 +120,16 @@ Resources:
         Projection:
           ProjectionType: ALL
         ProvisionedThroughput:
-          ReadCapacityUnits: '1'
-          WriteCapacityUnits: '1'
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     Properties:
-      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-DEV"
       Subscription:
       - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
         Protocol: sqs
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
-    Properties:
-      KmsMasterKeyId: !Sub "alias/media-service/sns-to-sqs-DEV"
-  IndexedImageMetadataQueuePolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Id: IndexedImageMetadataQueuePolicy
-        Statement:
-        - Sid: Allow-SendMessage-To-Queue-From-Topic
-          Effect: Allow
-          Principal:
-            AWS: '*'
-          Action:
-          - sqs:SendMessage
-          Resource: '*'
-          Condition:
-            ArnEquals:
-              aws:SourceArn: !Ref 'IndexedImageTopic'
-      Queues:
-      - !Ref 'IndexedImageMetadataQueue'
-
-  KmsKeySqsQueueFromSns:
-    Type: AWS::KMS::Key
-    Properties:
-      Description: "Shared key so the SQS queue can read from the SNS Topic"
-      KeyPolicy:
-        Version: 2012-10-17
-        Id: SNS-to-SQS-Key
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
-            Action:
-              - kms:*
-            Resource: "*"
-          - Effect: Allow
-            Principal:
-              Service: sqs.amazonaws.com
-            Action:
-              - kms:GenerateDataKey*
-              - kms:Decrypt
-            Resource: "*"
-          - Effect: Allow
-            Principal:
-              Service: sns.amazonaws.com
-            Action:
-              - kms:GenerateDataKey*
-              - kms:Decrypt
-            Resource: "*"
-
-  KmsKeySqsQueueFromSnsAlias:
-    Type: AWS::KMS::Alias
-    Properties:
-      AliasName: !Sub "alias/media-service/sns-to-sqs-DEV"
-      TargetKeyId:
-        Ref: KmsKeySqsQueueFromSns
-
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -198,11 +153,11 @@ Resources:
         Projection:
           ProjectionType: ALL
         ProvisionedThroughput:
-          ReadCapacityUnits: '1'
-          WriteCapacityUnits: '1'
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
       ProvisionedThroughput:
-        ReadCapacityUnits: '1'
-        WriteCapacityUnits: '1'
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
   LiveContentPollTable:
     Type: AWS::DynamoDB::Table
@@ -214,8 +169,8 @@ Resources:
       - AttributeName: id
         KeyType: HASH
       ProvisionedThroughput:
-        ReadCapacityUnits: '1'
-        WriteCapacityUnits: '1'
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
   PreviewContentPollTable:
     Type: AWS::DynamoDB::Table
@@ -227,8 +182,8 @@ Resources:
       - AttributeName: id
         KeyType: HASH
       ProvisionedThroughput:
-        ReadCapacityUnits: '1'
-        WriteCapacityUnits: '1'
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
 Outputs:
   ImageBucket:

@@ -1,6 +1,0 @@
-{
-  "Bucket": "key-bucket",
-  "CreateBucketConfiguration": {
-    "LocationConstraint": "eu-west-1"
-  }
-}
