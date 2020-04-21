@@ -13,7 +13,7 @@ trait PermissionsHandler {
   def config: CommonConfig
 
   private val permissions: PermissionsProvider = config.awsLocalEndpoint match {
-    case Some(_) if config.isDev => {
+    case Some(_) if config.isDev && config.useLocalAuth => {
       val provider = new S3PermissionsProvider(config.permissionsBucket, "permissions.json", 1.minute, PermissionsS3(S3Ops.buildS3Client(config)))
       provider.start()
       provider

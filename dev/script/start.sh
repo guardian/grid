@@ -11,6 +11,7 @@ ROOT_DIR=${DIR}/../..
 
 export AWS_CBOR_DISABLE=true
 
+LOCAL_AUTH=true
 for arg in "$@"; do
   if [ "$arg" == "--debug" ]; then
     IS_DEBUG=true
@@ -21,6 +22,11 @@ for arg in "$@"; do
     export LOCAL_LOG_SHIPPING=true
     shift
   fi
+
+  if [ "$arg" == "--without-local-auth" ]; then
+    LOCAL_AUTH=false
+    shift
+  fi
 done
 
 isInstalled() {
@@ -28,6 +34,10 @@ isInstalled() {
 }
 
 hasCredentials() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
   STATUS=$(aws sts get-caller-identity --profile media-service 2>&1 || true)
   if [[ ${STATUS} =~ (ExpiredToken) ]]; then
     echo -e "${red}Credentials for the media-service profile are expired. Please fetch new credentials and run this again.${plain}"

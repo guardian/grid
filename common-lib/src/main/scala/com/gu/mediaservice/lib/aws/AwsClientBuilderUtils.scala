@@ -22,9 +22,9 @@ trait AwsClientBuilderUtils extends StageIdentifier {
     case _ => None
   }
 
-  final def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = {
+  final def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true): S = {
     awsEndpointConfiguration match {
-      case Some(endpointConfiguration) => {
+      case Some(endpointConfiguration) if localstackAware => {
         Logger.info(s"creating aws client with local endpoint $endpointConfiguration")
         builder.withCredentials(awsCredentials).withEndpointConfiguration(endpointConfiguration)
       }

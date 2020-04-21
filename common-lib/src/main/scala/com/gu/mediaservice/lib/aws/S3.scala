@@ -171,7 +171,7 @@ object S3Ops {
   // TODO make this localstack friendly
   private val s3Endpoint = "s3.amazonaws.com"
 
-  def buildS3Client(config: CommonConfig): AmazonS3 = {
+  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true): AmazonS3 = {
     // Force v2 signatures: https://github.com/aws/aws-sdk-java/issues/372
     // imgops proxies direct to S3, passing the AWS security signature as query parameters
     // This does not work with AWS v4 signatures, presumably because the signature includes the host
@@ -188,7 +188,7 @@ object S3Ops {
       case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
     }
 
-    config.withAWSCredentials(builder).build()
+    config.withAWSCredentials(builder, localstackAware).build()
   }
 
   def objectUrl(bucket: String, key: String): URI = {
