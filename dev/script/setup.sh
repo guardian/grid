@@ -25,14 +25,14 @@ AUTH_STACK_FILE="$ROOT_DIR/dev/cloudformation/grid-dev-auth.yml"
 AUTH_STACK_FILENAME=$(basename "$AUTH_STACK_FILE")
 # ---- END
 
-LOCAL_AUTH=true
+LOCAL_AUTH=false
 for arg in "$@"; do
   if [ "$arg" == "--clean" ]; then
     CLEAN=true
     shift
   fi
-  if [ "$arg" == "--without-local-auth" ]; then
-    LOCAL_AUTH=false
+  if [ "$arg" == "--with-local-auth" ]; then
+    LOCAL_AUTH=true
     shift
   fi
 done

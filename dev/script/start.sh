@@ -11,7 +11,7 @@ ROOT_DIR=${DIR}/../..
 
 export AWS_CBOR_DISABLE=true
 
-LOCAL_AUTH=true
+LOCAL_AUTH=false
 for arg in "$@"; do
   if [ "$arg" == "--debug" ]; then
     IS_DEBUG=true
@@ -23,8 +23,8 @@ for arg in "$@"; do
     shift
   fi
 
-  if [ "$arg" == "--without-local-auth" ]; then
-    LOCAL_AUTH=false
+  if [ "$arg" == "--with-local-auth" ]; then
+    LOCAL_AUTH=true
     shift
   fi
 done
@@ -34,7 +34,7 @@ isInstalled() {
 }
 
 hasCredentials() {
-  if [[ $LOCAL_AUTH != true ]]; then
+  if [[ $LOCAL_AUTH == true ]]; then
     return
   fi
 
