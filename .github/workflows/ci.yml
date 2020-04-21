@@ -62,7 +62,6 @@ jobs:
       env:
         USE_DOCKER_FOR_TESTS: false
         ES6_TEST_URL: http://elasticsearch:9200
-        AWS_CBOR_DISABLE: true
         LOCALSTACK_ENDPOINT: http://localstack:4566
       with:
         args: clean compile test

@@ -8,6 +8,12 @@ val commonSettings = Seq(
   organization := "com.gu",
   version := "0.1",
   scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings"),
+
+  // The Java SDK uses CBOR protocol
+  // We use localstack in TEST. Kinesis in localstack uses kinesislite which requires CBOR to be disabled
+  // This is likely go away soon, see https://github.com/localstack/localstack/issues/1930
+  envVars in Test := Map("AWS_CBOR_DISABLE" -> "true"),
+
   testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
     "org.scalatest" %% "scalatest" % "3.0.5",
