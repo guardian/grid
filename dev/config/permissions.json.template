@@ -7,7 +7,7 @@
     },
     "overrides": [
       {
-        "userId": "grid-demo-account@guardian.co.uk",
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
         "active": true
       }
     ]
@@ -20,7 +20,7 @@
     },
     "overrides": [
       {
-        "userId": "grid-demo-account@guardian.co.uk",
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
         "active": true
       }
     ]
@@ -33,7 +33,7 @@
     },
     "overrides": [
       {
-        "userId": "grid-demo-account@guardian.co.uk",
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
         "active": true
       }
     ]
@@ -46,7 +46,7 @@
     },
     "overrides": [
       {
-        "userId": "grid-demo-account@guardian.co.uk",
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
         "active": true
       }
     ]

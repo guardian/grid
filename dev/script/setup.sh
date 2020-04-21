@@ -146,7 +146,12 @@ setupPermissionConfiguration() {
 
   permissionsBucket=$(getStackResource "$AUTH_STACK_NAME" PermissionsBucket)
 
-  aws s3 cp "$ROOT_DIR/dev/config/permissions.json" \
+  target="$ROOT_DIR/dev/config/permissions.json"
+
+  sed -e "s/@EMAIL_DOMAIN/$EMAIL_DOMAIN/g" \
+    "$target.template" > "$target"
+
+  aws s3 cp "$target" \
     "s3://$permissionsBucket/" \
     --endpoint-url $LOCALSTACK_ENDPOINT
 
