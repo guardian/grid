@@ -2,15 +2,14 @@ package lib
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{GraphDSL, MergePreferred, Source}
-import akka.stream.{ClosedShape, Materializer, SourceShape}
+import akka.stream.{Materializer, SourceShape}
 import akka.{Done, NotUsed}
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
-import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.DateTimeUtils
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.logging._
 import lib.kinesis.ThrallEventConsumer
 import play.api.Logger
-import com.gu.mediaservice.lib.logging._
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
@@ -29,16 +28,20 @@ case class TaggedRecord(record: KinesisRecord, priority: Priority) extends LogMa
   )
 }
 
-class ThrallStreamProcessor(highPriorityKinesisConfig: KinesisClientLibConfiguration, lowPriorityKinesisConfig: KinesisClientLibConfiguration, consumer: ThrallEventConsumer, actorSystem: ActorSystem, materializer: Materializer) {
+class ThrallStreamProcessor(
+  highPrioritySource: Source[KinesisRecord, Future[Done]],
+  lowPrioritySource: Source[KinesisRecord, Future[Done]],
+  consumer: ThrallEventConsumer,
+  actorSystem: ActorSystem,
+  materializer: Materializer) {
 
   implicit val mat = materializer
   implicit val dispatcher = actorSystem.getDispatcher
 
   val mergedKinesisSource: Source[TaggedRecord, NotUsed] = Source.fromGraph(GraphDSL.create() { implicit g =>
     import GraphDSL.Implicits._
-
-    val highPriorityKinesisSource = KinesisSource(highPriorityKinesisConfig).map(TaggedRecord(_, HighPriority))
-    val lowPriorityKinesisSource = KinesisSource(lowPriorityKinesisConfig).map(TaggedRecord(_, LowPriority))
+    val highPriorityKinesisSource = highPrioritySource.map(TaggedRecord(_, HighPriority))
+    val lowPriorityKinesisSource = lowPrioritySource.map(TaggedRecord(_, LowPriority))
 
     val mergePreferred = g.add(MergePreferred[TaggedRecord](1))
 
