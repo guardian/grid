@@ -1,7 +1,7 @@
 <configuration>
 
   <appender name="STDOUT" class="io.symphonia.lambda.logging.DefaultConsoleAppender">
-    <encoder>
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
       <pattern>%m%n</pattern>
     </encoder>
   </appender>

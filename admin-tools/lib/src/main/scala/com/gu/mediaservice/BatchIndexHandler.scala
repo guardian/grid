@@ -307,13 +307,11 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
   }
 
   private def updateItemState(id: String, progress: ProduceProgress) = {
-    logger.info("Updating item state")(
-      Markers.appendEntries(Map(
-        "progressState" -> progress.stateId,
-        "progressName" -> progress.name,
-        "imageId" -> id
-      ).asJava
-    ))
+    logger.info(Markers.appendEntries(Map(
+      "progressState" -> progress.stateId,
+      "progressName" -> progress.name,
+      "imageId" -> id
+    ).asJava), "Updating item state")
     val us = new UpdateItemSpec().
       withPrimaryKey(PKField, id).
       withUpdateExpression(s"set $StateField = :sub")
