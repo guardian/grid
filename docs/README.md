@@ -36,7 +36,7 @@
 - [Troubleshooting](99-archives/TROUBLESHOOTING.md)
 - [Migration to Elasticsearch 6](99-archives/elasticsearch6.md)
 - [Migration to Elasticsearch 7](99-archives/elasticsearch7.md)
-- [](99-archives/local-kinesis.md)
+- [Local kinesis](99-archives/local-kinesis.md)
 
 
 ---
