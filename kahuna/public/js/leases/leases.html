@@ -4,7 +4,7 @@
         gr-tooltip="Add lease"
         gr-tooltip-position="bottom">
 
-    <gr-icon ng-show="!ctrl.editing" ng-class="{'spin': ctrl.adding}">add_box</gr-icon>
+    <gr-icon data-cy="it-add-lease-icon" ng-show="!ctrl.editing" ng-class="{'spin': ctrl.adding}">add_box</gr-icon>
     <span>
        <span ng-show="ctrl.adding">Updating...</span>
     </span>
@@ -103,7 +103,7 @@
         type="submit"
         title="Save new label"
         ng-disabled="ctrl.adding">
-        <gr-icon-label gr-icon="check">
+        <gr-icon-label data-cy="it-save-lease" gr-icon="check">
             <span ng-hide="ctrl.grSmall">Save</span>
         </gr-icon-label>
     </button>
@@ -135,7 +135,7 @@
               <p>{{::ctrl.formatEndTimestamp(lease.endDate)}}</p>
               <div>{{lease.notes}}</div>
             </div>
-            <gr-confirm-delete class="gr-delete-lease flex-right"
+            <gr-confirm-delete data-cy="it-confirm-delete-lease" class="gr-delete-lease flex-right"
               gr-on-confirm="ctrl.delete(lease)">
             </gr-confirm-delete>
 
