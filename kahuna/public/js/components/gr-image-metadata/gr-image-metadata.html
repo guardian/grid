@@ -15,6 +15,7 @@
             </dd>
 
             <button
+                data-cy="it-edit-usage-rights-button"
                 ng-click="ctrl.showUsageRights = true"
                 ng-hide="!ctrl.userCanEdit || ctrl.showUsageRights"
                 class="image-info__edit">✎</button>
@@ -52,7 +53,8 @@
             </div>
 
             <div class="image-info__wrap metadata-line__info" ng-if="ctrl.metadata.description || ctrl.userCanEdit">
-                <button class="image-info__edit"
+                <button data-cy="it-edit-description-button"
+                        class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
                         ng-click="descriptionEditForm.$show()"
                         ng-hide="descriptionEditForm.$visible">✎</button>
@@ -97,7 +99,8 @@
 
             <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
             <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="ctrl.metadata.byline || ctrl.userCanEdit">
-                <button class="image-info__edit"
+                <button data-cy="it-edit-byline-button"
+                        class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
                         ng-click="bylineEditForm.$show()"
                         ng-hide="bylineEditForm.$visible"
@@ -122,7 +125,8 @@
 
             <dt ng-if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__credit image-info__wrap image-info__group--dl__key metadata-line__key">Credit</dt>
             <dd ng-if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
-                <button class="image-info__edit"
+                <button data-cy="it-edit-credit-button"
+                        class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
                         ng-click="creditEditForm.$show()"
                         ng-hide="creditEditForm.$visible"
@@ -165,7 +169,8 @@
 
             <dt ng-if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__key metadata-line__key">Copyright</dt>
             <dd ng-if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
-                <button class="image-info__edit"
+                <button data-cy="it-edit-copyright-button"
+                        class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
                         ng-click="copyrightEditForm.$show()"
                         ng-hide="copyrightEditForm.$visible"

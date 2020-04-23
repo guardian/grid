@@ -1,4 +1,5 @@
-<button ng-class="{'small': ctrl.grSmall}"
+<button data-cy="it-add-label-button"
+        ng-class="{'small': ctrl.grSmall}"
         ng-click="ctrl.active = true"
         ng-disabled="ctrl.adding"
         ng-if="!ctrl.active"

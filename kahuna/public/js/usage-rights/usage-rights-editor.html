@@ -16,6 +16,7 @@
         <!-- We reset the model here else properties remain attached to the\
         model, even though they don't exist in the form -->
         <select
+            data-cy="it-rights-select"
             class="full-width"
             ng-model="ctrl.category"
             ng-disabled="ctrl.saving"
@@ -89,6 +90,7 @@
                     <div ng-switch-when="string">
                         <input
                             id="ure-field-{{::fieldUniqueId}}"
+                            data-cy="it-edit-usage-input"
                             class="text-input form-input-text"
                             type="text"
                             name="{{ property.name }}"
