@@ -51,7 +51,7 @@ clean() {
   echo "  removed docker containers"
 
   docker-compose build
-  echo "  rebuild docker containers"
+  echo "  rebuilt docker containers"
 }
 
 startDocker() {
@@ -62,6 +62,7 @@ startDocker() {
     echo "  localstack not ready yet"
     sleep 1 # wait for 1 second before check again
   done
+  echo "  localstack is now ready"
 }
 
 setupDevNginx() {
@@ -222,6 +223,7 @@ main() {
 
   setupDevNginx
   generateDotProperties
+  echo "Setup complete. You're now able to start Grid!"
 }
 
 main
