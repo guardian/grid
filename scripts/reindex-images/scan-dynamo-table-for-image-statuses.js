@@ -3,8 +3,8 @@ const fs = require("fs");
 
 const outFile = process.argv[3];
 const tableName = process.argv[2];
-const title = `\nScript to scan a batch-index table, writing the results to a table.`;
-const info = `\nFormat -- node scan-dynamo-table-for-pk.js <table-name>`;
+const title = `\nScript to scan a batch-index table, writing the results to a file.`;
+const info = `\nFormat -- node scan-dynamo-table-for-pk.js <table-name> <output-file>`;
 
 if (process.argv.length < 3) {
   console.log(title, info)
