@@ -8,12 +8,12 @@ package object indexing {
 
     val NotStarted = ProduceProgress("at rest", 0)
     val InProgress = ProduceProgress("in progress", 1)
-    val NotFound = ProduceProgress("not found", 2)
-    val Finished = ProduceProgress("finished", 3)
+    val NotFound = ProduceProgress("not found by image-loader", 2)
+    val Enqueued = ProduceProgress("enqueued", 3)
     val Reset = ProduceProgress("reset because of failure", 0)
     val KnownError = ProduceProgress("blacklisted because of known failure", 4)
-    val Locating = ProduceProgress("looking for image",5)
-    val Found = ProduceProgress("image found", 6)
+    val Locating = ProduceProgress("looking for image", 5)
+    val Verified = ProduceProgress("image verified in media-api", 6)
     val Inconsistent = ProduceProgress("re-ingested image not found in media-api", 7)
     val UnknownError = ProduceProgress("blacklisted because of unknown failure", 8)
     val TooBig = ProduceProgress("too big, putting back down", 9001)
@@ -22,11 +22,11 @@ package object indexing {
       NotStarted,
       InProgress,
       NotFound,
-      Finished,
+      Enqueued,
       Reset,
       KnownError,
       Locating,
-      Found,
+      Verified,
       Inconsistent,
       UnknownError,
       TooBig

@@ -38,7 +38,7 @@ object ImagesGroupByProgressState extends App with LazyLogging {
     logger.info(s"starting to calculate stats at dynamoTable=$dynamoTable")
 
     val result = Map(
-      stateNameToCount(Finished),
+      stateNameToCount(Enqueued),
       stateNameToCount(NotFound),
       stateNameToCount(KnownError),
       stateNameToCount(NotStarted),

@@ -218,7 +218,7 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     val scanSpec = new ScanSpec()
       .withFilterExpression(s"$StateField in (:finished, :not_found, :in_progress)")
       .withValueMap(new ValueMap()
-        .withNumber(":finished", Finished.stateId)
+        .withNumber(":finished", Enqueued.stateId)
         .withNumber(":not_found", NotFound.stateId)
         .withNumber(":in_progress", InProgress.stateId)
       )
@@ -247,83 +247,80 @@ class InputIdsStore(table: Table, batchSize: Int) extends LazyLogging {
     */
 
   def updateStateToItemsFound(ids: List[String]): ProduceProgress = {
-    logger.info(s"updating items state to found")
-    updateItemsState(ids, Found)
+    updateItemsState(ids, Verified)
   }
 
   def updateStateToInconsistent(ids: List[String]): ProduceProgress = {
-    logger.info(s"updating items state to inconsistent")
     updateItemsState(ids, Inconsistent)
   }
 
   // used to synchronise situation of other lambda execution will start while previous one is still running
   def updateStateToItemsLocating(ids: List[String]): ProduceProgress = {
-    logger.info(s"updating items state to locating")
     updateItemsState(ids, Locating)
   }
 
   // used to synchronise situation of other lambda execution will start while previous one is still running
   def updateStateToItemsInProgress(ids: List[String]): ProduceProgress = {
-    logger.info(s"updating items state to in progress")
     updateItemsState(ids, InProgress)
   }
 
   // used to track images that were not projected successfully
-  def updateStateToNotFoundImage(notFoundId: String) =
-    updateItemState(notFoundId, NotFound.stateId)
+  def updateStateToNotFoundImage(notFoundId: String) = {
+    updateItemState(notFoundId, NotFound)
+  }
 
   def updateStateToFound(ids: List[String]): ProduceProgress = {
     logger.info(s"updating items state to found")
-    updateItemsState(ids, Found)
+    updateItemsState(ids, Verified)
   }
 
   def updateStateToFinished(ids: List[String]): ProduceProgress = {
-    logger.info(s"updating items state to finished")
-    updateItemsState(ids, Finished)
+    updateItemsState(ids, Enqueued)
   }
 
   // used in situation if something failed
   def resetItemsState(ids: List[String]): ProduceProgress = {
-    logger.info("resetting items state")
     updateItemsState(ids, Reset)
   }
 
   // used in situation if something failed
   def resetItemState(id: String): ProduceProgress = {
-    logger.info("resetting items state")
-    updateItemState(id, Reset.stateId)
+    updateItemState(id, Reset)
     Reset
   }
 
   // used in situation if something failed in a expected way and we want to ignore that file in next batch
    def setStateToKnownError(id: String): ProduceProgress = {
-    logger.info("setting item to KnownError state to ignore it next time")
-    updateItemState(id, KnownError.stateId)
+    updateItemState(id, KnownError)
     KnownError
   }
 
   def setStateToUnknownError(id: String): ProduceProgress = {
-    logger.info("setting item to UnknownError state to ignore it next time")
-    updateItemState(id, UnknownError.stateId)
+    updateItemState(id, UnknownError)
     UnknownError
   }
 
   def setStateToTooBig(id: String, size: Int): ProduceProgress = {
     logger.info(Markers.appendEntries(Map("tooBigSize" -> size).asJava),s"setting item $id to TooBig state (size $size) to ignore it next time")
-    updateItemState(id, TooBig.stateId)
+    updateItemState(id, TooBig)
     TooBig
   }
 
-  private def updateItemState(id: String, state: Int) = {
+  private def updateItemState(id: String, progress: ProduceProgress) = {
+    logger.info(Markers.appendEntries(Map(
+      "progressState" -> progress.stateId,
+      "progressName" -> progress.name,
+      "imageId" -> id
+    ).asJava), "Updating item state")
     val us = new UpdateItemSpec().
       withPrimaryKey(PKField, id).
       withUpdateExpression(s"set $StateField = :sub")
-      .withValueMap(new ValueMap().withNumber(":sub", state))
+      .withValueMap(new ValueMap().withNumber(":sub", progress.stateId))
     table.updateItem(us)
   }
 
   private def updateItemsState(ids: List[String], progress: ProduceProgress, imageSize: Option[Int] = None): ProduceProgress = {
-    ids.foreach(id => updateItemState(id, progress.stateId))
+    ids.foreach(id => updateItemState(id, progress))
     progress
   }
 
