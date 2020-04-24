@@ -91,11 +91,14 @@ buildJs() {
 }
 
 startPlayApps() {
+  # pushd to find build.sbt and allow this script to be executed from any location (but ideally from the project root)
+  pushd "$ROOT_DIR"
   if [ "$IS_DEBUG" == true ] ; then
     sbt -jvm-debug 5005 runAll
   else
     sbt runAll
   fi
+  popd
 }
 
 checkNodeVersion() {
