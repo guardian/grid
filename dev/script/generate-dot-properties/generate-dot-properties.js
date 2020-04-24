@@ -10,7 +10,7 @@ const dotenvConfig = require('dotenv').config({path: path.join(__dirname, '../..
 
 const ServiceConfig = require('./service-config');
 
-const LOCALSTACK_ENDPOINT = `https://localstack.media.${dotenvConfig.DOMAIN}`
+const LOCALSTACK_ENDPOINT = `http://localhost:4566`
 
 AWS.config.update({
   credentials: new AWS.SharedIniFileCredentials({
