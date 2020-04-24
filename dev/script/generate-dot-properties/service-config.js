@@ -10,7 +10,7 @@ function getAuthConfig(config) {
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |aws.region=${config.AWS_DEFAULT_REGION}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |`;
 }
 
@@ -23,7 +23,7 @@ function getCollectionsConfig(config) {
         |dynamo.table.collections=CollectionsTable
         |dynamo.table.imageCollections=ImageCollectionsTable
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
@@ -36,7 +36,7 @@ function getCropperConfig(config) {
         |publishing.image.bucket=${config.coreStackProps.ImageOriginBucket}
         |publishing.image.host=public.media.${config.DOMAIN}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
@@ -50,7 +50,7 @@ function getImageLoaderConfig(config) {
         |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
@@ -72,7 +72,7 @@ function getKahunaConfig(config) {
         |links.supportEmail=${config.links.supportEmail}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |security.frameAncestors=https://*.${config.DOMAIN}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |`;
 }
 
@@ -82,7 +82,7 @@ function getLeasesConfig(config) {
         |aws.region=${config.AWS_DEFAULT_REGION}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |dynamo.tablename.leasesTable=LeasesTable
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
@@ -96,7 +96,7 @@ function getMediaApiConfig(config) {
         |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.coreStackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
@@ -117,9 +117,9 @@ function getMetadataEditorConfig(config) {
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |s3.collections.bucket=${config.coreStackProps.CollectionsBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |dynamo.table.edits=EditsTable
-        |indexed.images.sqs.queue.url=${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", config.LOCALSTACK_ENDPOINT)}
+        |indexed.images.sqs.queue.url=${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
@@ -151,7 +151,7 @@ function getThrallConfig(config) {
         |es6.replicas=${config.es6.replicas}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |thrall.kinesis.lowPriorityStream.name=${config.coreStackProps.ThrallLowPriorityMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |`;
 }
 
@@ -165,7 +165,7 @@ function getUsageConfig(config) {
         |dynamo.tablename.usageRecordTable=UsageRecordTable
         |composer.baseUrl=composer.${config.DOMAIN}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallLowPriorityMessageStream}
-        |aws.local.endpoint=${config.LOCALSTACK_ENDPOINT}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |crier.live.arn=${config.guardian.crier.live.roleArn}
         |crier.preview.arn=${config.guardian.crier.preview.roleArn}
         |crier.preview.name=${config.guardian.crier.preview.streamName}
