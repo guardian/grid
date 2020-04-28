@@ -4,9 +4,10 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import com.gu.mediaservice.lib.config.StageIdentifier
 import play.api.Logger
 
-trait AwsClientBuilderUtils {
+trait AwsClientBuilderUtils extends StageIdentifier {
   def awsLocalEndpoint: Option[String]
 
   def awsRegion: String = "eu-west-1"
@@ -16,23 +17,18 @@ trait AwsClientBuilderUtils {
     InstanceProfileCredentialsProvider.getInstance()
   )
 
-  def awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
-    case Some(endpoint) => Some(new EndpointConfiguration(endpoint, awsRegion))
+  final def awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
+    case Some(endpoint) if isDev => Some(new EndpointConfiguration(endpoint, awsRegion))
     case _ => None
   }
 
-  // TODO consolidate `withAWSCredentials` with `withLocalAWSCredentials`. Requires use of localstack everywhere (Dynamo, S3, Kinesis)
-  def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
-    .withRegion(awsRegion)
-    .withCredentials(awsCredentials)
-
-  def withLocalAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = {
+  final def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true): S = {
     awsEndpointConfiguration match {
-      case Some(endpointConfiguration) => {
+      case Some(endpointConfiguration) if localstackAware => {
         Logger.info(s"creating aws client with local endpoint $endpointConfiguration")
         builder.withCredentials(awsCredentials).withEndpointConfiguration(endpointConfiguration)
       }
-      case _ => withAWSCredentials(builder)
+      case _ => builder.withCredentials(awsCredentials).withRegion(awsRegion)
     }
   }
 }

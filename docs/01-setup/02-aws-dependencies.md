@@ -12,17 +12,11 @@ Create a profile using the AWS CLI:
 aws configure --profile media-service
 ```
 
+By default, we use [localstack](https://github.com/localstack/localstack) in DEV, so the credentials for this profile don't need to be valid.
+
 Developers working at the Guardian can use Janus to get credentials.
 
 ## Resources
-The resources needed to run Grid locally are defines in the CloudFormation template [here](../../cloud-formation/dev-template.yaml).
+The resources needed to run Grid locally are defined in the CloudFormation template [here](../../dev/cloudformation/grid-dev-core.yml).
 
-Use this template to create a CloudFormation stack; for the purposes of this documentation we'll assume a stack name of `media-service-DEV`.
-
-```shell script
-aws cloudformation create-stack \
-  --stack-name media-service-DEV \
-  --template-body file://cloud-formation/dev-template.yaml \
-  --profile media-service \
-  --region eu-west-1
-```
+During the setup process, Grid will create the resources automatically.

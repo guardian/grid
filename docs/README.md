@@ -7,8 +7,8 @@
 ## [Setup](01-setup/)
 - [Software dependencies](01-setup/01-software-dependencies.md)
 - [AWS dependencies](01-setup/02-aws-dependencies.md)
-- [NGINX](01-setup/03-nginx.md)
-- [Configuration](01-setup/04-configuration.md)
+- [Configuring `setup.sh`](01-setup/03-configuring-setup.md)
+- [Running setup](01-setup/03-running-setup.md)
 
 ## [Running](02-running/)
 - [Running locally](02-running/01-running-locally.md)

@@ -18,11 +18,6 @@ trait CommonConfig extends AwsClientBuilderUtils {
   def appName: String
   def configuration: Configuration
 
-  final val stage: String = stageFromFile getOrElse "DEV"
-
-  val isProd: Boolean = stage == "PROD"
-  val isDev: Boolean = stage == "DEV"
-
   lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
 
   final val elasticsearchStack = "media-service"
@@ -38,14 +33,11 @@ trait CommonConfig extends AwsClientBuilderUtils {
 
   override val awsLocalEndpoint: Option[String] = if(isDev) properties.get("aws.local.endpoint") else None
 
-  override val awsEndpointConfiguration: Option[EndpointConfiguration] = awsLocalEndpoint match {
-    case Some(endpoint) if isDev => Some(new EndpointConfiguration(endpoint, awsRegion))
-    case _ => None
-  }
-
   lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
 
-  lazy val permissionsBucket = properties.getOrElse("permissions.bucket", "permissions-cache")
+  lazy val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
+
+  lazy val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
 
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
@@ -96,11 +88,9 @@ trait CommonConfig extends AwsClientBuilderUtils {
   final def int(key: String): Int =
     configuration.getOptional[Int](key) getOrElse missing(key, "integer")
 
+  final def boolean(key: String): Boolean =
+    configuration.getOptional[Boolean](key).getOrElse(false)
+
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
-
-  private def stageFromFile: Option[String] = {
-    val file = new File("/etc/gu/stage")
-    if (file.exists) Some(fromFile(file).mkString.trim) else None
-  }
 }

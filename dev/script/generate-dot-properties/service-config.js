@@ -3,102 +3,102 @@ function stripMargin(template, ...args) {
     return result.replace(/\r?(\n)\s*\|/g, '$1');
 }
 
-const localstackURL ='http://localhost:4566'
-
 function getAuthConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |s3.config.bucket=${config.stackProps.ConfigBucket}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |aws.region=${config.aws.region}
+        |domain.root=${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |aws.region=${config.AWS_DEFAULT_REGION}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |`;
 }
 
 function getCollectionsConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |s3.collections.bucket=${config.stackProps.CollectionsBucket}
-        |dynamo.table.collections=${config.stackProps.CollectionsDynamoTable}
-        |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |s3.collections.bucket=${config.coreStackProps.CollectionsBucket}
+        |dynamo.table.collections=CollectionsTable
+        |dynamo.table.imageCollections=ImageCollectionsTable
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
 
 function getCropperConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
-        |publishing.image.host=${config.stackProps.ImageOriginBucket}.s3.amazonaws.com
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
-        |s3.config.bucket=${config.stackProps.ConfigBucket}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |publishing.image.bucket=${config.coreStackProps.ImageOriginBucket}
+        |publishing.image.host=public.media.${config.DOMAIN}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
 
 function getImageLoaderConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |s3.image.bucket=${config.stackProps.ImageBucket}
-        |s3.thumb.bucket=${config.stackProps.ThumbBucket}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |s3.image.bucket=${config.coreStackProps.ImageBucket}
+        |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
 
 function getKahunaConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |aws.region=${config.aws.region}
-        |origin.full=${config.stackProps.ImageBucket}.s3.${config.aws.region}.amazonaws.com
-        |origin.thumb=${config.stackProps.ThumbBucket}.s3.${config.aws.region}.amazonaws.com
-        |origin.images=${config.stackProps.ImageBucket}.s3.${config.aws.region}.amazonaws.com
-        |origin.crops=${config.stackProps.ImageOriginBucket}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |origin.full=images.media.${config.DOMAIN}
+        |origin.thumb=localstack.media.${config.DOMAIN}
+        |origin.images=images.media.${config.DOMAIN}
+        |origin.crops=public.media.${config.DOMAIN}
         |google.tracking.id=${config.google.tracking.id}
         |links.feedbackForm=${config.links.feedbackForm}
         |links.usageRightsHelp=${config.links.usageRightsHelp}
         |links.invalidSessionHelp=${config.links.invalidSessionHelp}
         |links.supportEmail=${config.links.supportEmail}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
-        |security.frameAncestors=${config.security.frameAncestors}
+        |security.frameAncestors=https://*.${config.DOMAIN}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |`;
 }
 
 function getLeasesConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
-        |dynamo.tablename.leasesTable=${config.stackProps.LeasesDynamoTable}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |dynamo.tablename.leasesTable=LeasesTable
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
 
 function getMediaApiConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |s3.image.bucket=${config.stackProps.ImageBucket}
-        |s3.thumb.bucket=${config.stackProps.ThumbBucket}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
-        |s3.config.bucket=${config.stackProps.ConfigBucket}
-        |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |s3.image.bucket=${config.coreStackProps.ImageBucket}
+        |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
+        |s3.usagemail.bucket=${config.coreStackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
         |es.index.aliases.read=readAlias
         |es6.url=${config.es6.url}
@@ -112,70 +112,80 @@ function getMediaApiConfig(config) {
 
 function getMetadataEditorConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |s3.collections.bucket=${config.stackProps.CollectionsBucket}
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
-        |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
-        |indexed.images.sqs.queue.url=${config.stackProps.IndexedImageMetadataQueueUrl}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |s3.collections.bucket=${config.coreStackProps.CollectionsBucket}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |dynamo.table.edits=EditsTable
+        |indexed.images.sqs.queue.url=${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
 
 function getS3WatcherConfig(config) {
     return stripMargin`
-        |aws.region=${config.aws.region}
-        |loader.uri=https://loader.${config.domainRoot}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |loader.uri=https://loader.${config.DOMAIN}
         |auth.key.s3watcher=${config.s3Watcher.key}
-        |s3.ingest.bucket=${config.stackProps.S3WatcherIngestBucket}
-        |s3.fail.bucket=${config.stackProps.S3WatcherFailBucket}
+        |s3.ingest.bucket=${config.coreStackProps.S3WatcherIngestBucket}
+        |s3.fail.bucket=${config.coreStackProps.S3WatcherFailBucket}
         |`;
 }
 
 function getThrallConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |s3.image.bucket=${config.stackProps.ImageBucket}
-        |s3.thumb.bucket=${config.stackProps.ThumbBucket}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |s3.image.bucket=${config.coreStackProps.ImageBucket}
+        |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
         |persistence.identifier=picdarUrn
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias
-        |indexed.image.sns.topic.arn=${config.stackProps.IndexedImageTopicArn}
+        |indexed.image.sns.topic.arn=${config.coreStackProps.IndexedImageTopic}
         |es6.url=${config.es6.url}
         |es6.cluster=${config.es6.cluster}
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
+        |thrall.kinesis.lowPriorityStream.name=${config.coreStackProps.ThrallLowPriorityMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |`;
 }
 
 function getUsageConfig(config) {
     return stripMargin`
-        |domain.root=${config.domainRoot}
-        |aws.region=${config.aws.region}
-        |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |capi.live.url=${config.capi.live.url}
-        |capi.apiKey=${config.capi.live.key}
-        |dynamo.tablename.usageRecordTable=${config.stackProps.UsageRecordTable}
-        |composer.baseUrl=${config.composer.url}
-        |thrall.kinesis.stream.name=${config.thrall.streamName}
-        |aws.local.endpoint=${localstackURL}
-        |crier.live.arn=${config.crier.live.roleArn}
-        |crier.preview.arn=${config.crier.preview.roleArn}
-        |crier.preview.name=${config.crier.preview.streamName}
-        |crier.live.name=${config.crier.live.streamName}
+        |domain.root=${config.DOMAIN}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |capi.live.url=${config.guardian.capi.live.url}
+        |capi.apiKey=${config.guardian.capi.live.key}
+        |dynamo.tablename.usageRecordTable=UsageRecordTable
+        |composer.baseUrl=composer.${config.DOMAIN}
+        |thrall.kinesis.stream.name=${config.coreStackProps.ThrallLowPriorityMessageStream}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |crier.live.arn=${config.guardian.crier.live.roleArn}
+        |crier.preview.arn=${config.guardian.crier.preview.roleArn}
+        |crier.preview.name=${config.guardian.crier.preview.streamName}
+        |crier.live.name=${config.guardian.crier.live.streamName}
         |app.name=usage
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |`;
 }
 
+function getGridProdConfig(config) {
+  return stripMargin`
+    |auth.useLocal=true
+    |panda.userDomain=${config.EMAIL_DOMAIN}
+    |panda.bucketName=${config.authStackProps.PanDomainBucket}
+    |permissions.bucket=${config.authStackProps.PermissionsBucket}
+    |`;
+}
+
 module.exports = {
-    getConfigs: (config) => {
+    getCoreConfigs: (config) => {
         return {
             auth: getAuthConfig(config),
             collections: getCollectionsConfig(config),
@@ -189,5 +199,6 @@ module.exports = {
             thrall: getThrallConfig(config),
             usage: getUsageConfig(config)
         };
-    }
+    },
+    getUseLocalAuthConfig: (config) => getGridProdConfig(config)
 };

@@ -1,0 +1,11 @@
+# Additional resources for running Grid in localstack
+# A separate template until localstack supports CFN conditionals
+# see https://github.com/localstack/localstack/issues/2083
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Auth resources for Grid in DEV
+Resources:
+  PermissionsBucket:
+    Type: AWS::S3::Bucket
+  PanDomainBucket:
+    Type: AWS::S3::Bucket

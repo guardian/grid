@@ -1,14 +1,4 @@
 {
-  // where is your cloudformation stack running?
-  aws: {
-    region: 'eu-west-1',
-    profile: 'media-service',
-    stackName: 'media-service-DEV'
-  },
-
-  // Domain root of your site, e.g. foobar.co.uk
-  domainRoot: '',
-
   // An API key used to ingest images from the s3watcher.
   s3Watcher: {
     key: ''
@@ -19,34 +9,6 @@
     url: 'http://localhost:9200',
     shards: 1,
     replicas: 0
-  },
-
-  thrall: {
-    streamName: 'media-service-DEV-thrall',
-  },
-
-  // Guardian specific properties for the Usage service
-  capi: {
-    poll:  5,
-    live: {
-      url: '',
-      key: ''
-    }
-  },
-
-  crier: {
-    live: {
-      streamName: '',
-      roleArn: ''
-    },
-    preview: {
-      streamName: '',
-      roleArn: ''
-    }
-  },
-
-  composer: {
-    url: ''
   },
 
   google: {
@@ -66,5 +28,26 @@
   security: {
     frameAncestors: '',
     corsAllowedOrigins: ''
+  },
+
+  // Guardian specific properties for the Usage service
+  guardian: {
+    capi: {
+      poll:  5,
+      live: {
+        url: '',
+        key: ''
+      }
+    },
+    crier: {
+      live: {
+        streamName: '',
+        roleArn: ''
+      },
+      preview: {
+        streamName: '',
+        roleArn: ''
+      }
+    }
   }
 }

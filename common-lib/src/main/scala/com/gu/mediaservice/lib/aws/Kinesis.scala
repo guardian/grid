@@ -24,7 +24,7 @@ class Kinesis(config: KinesisSenderConfig) {
 
   private val builder = AmazonKinesisClientBuilder.standard()
 
-  private def getKinesisClient: AmazonKinesis = config.withLocalAWSCredentials(builder).build()
+  private def getKinesisClient: AmazonKinesis = config.withAWSCredentials(builder).build()
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
