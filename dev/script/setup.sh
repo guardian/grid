@@ -210,6 +210,22 @@ generateDotProperties() {
   echo "  configuration files created in /etc/gu"
 }
 
+uploadApiKey() {
+  echo "uploading an api key"
+  keyBucket=$(getStackResource "$CORE_STACK_NAME" KeyBucket)
+
+  target="/tmp/$API_KEY"
+
+  echo "DEV Key" > "$target"
+
+  aws s3 cp "$target" \
+    "s3://$keyBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  rm "$target"
+  echo "  uploaded"
+}
+
 main() {
   clean
   startDocker
@@ -223,6 +239,7 @@ main() {
 
   setupDevNginx
   generateDotProperties
+  uploadApiKey
   echo "Setup complete. You're now able to start Grid!"
 }
 
