@@ -15,8 +15,9 @@
 - [Kahuna](02-running/02-kahuna.md)
 - [Accessing logs](02-running/03-logging.md)
 
-## [Api access](03-api-access/)
-- [Authentication](03-api-access/01-authentication.md)
+## [Apis](03-apis/)
+- [Authentication](03-apis/01-authentication.md)
+- [Collections](03-apis/02-collections.md)
 
 ## [Troubleshooting](04-troubleshooting/)
 - [NGINX](04-troubleshooting/01-nginx.md)

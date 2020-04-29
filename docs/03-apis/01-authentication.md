@@ -14,6 +14,8 @@ This is typically used for server-server authentication.
 API keys are stored in the `KeyBucket` of the cloudformation stack; drop a key file here and it'll get picked by Grid
 within 10 minutes and you'll be able to make authenticated calls.
 
+Note `setup.sh` creates an initial API key `dev-`.
+
 ### Creating a Key
 Generate a key file with a random string as the filename. The contents of the file should be the application name.
 
