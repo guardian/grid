@@ -10,7 +10,7 @@ templates:
     parameters:
       bucket: media-service-dist
     dependencies:
-      - ami-update
+      - app-ami-update
 
   usage-autoscaling:
     type: autoscaling
@@ -63,7 +63,7 @@ deployments:
     actions:
       - uploadArtifacts
     dependencies:
-      - ami-update
+      - app-ami-update
 
   usage-api:
     template: usage-deploy
@@ -71,13 +71,13 @@ deployments:
   usage-stream:
     template: usage-deploy
     app: usage-stream
-  
+
   imgops:
     template: autoscaling
     actions:
       - deploy
 
-  ami-update:
+  app-ami-update:
     type: ami-cloudformation-parameter
     parameters:
       cloudFormationStackByTags: false
@@ -96,3 +96,16 @@ deployments:
           BuiltBy: amigo
           AmigoStage: PROD
           Recipe: grid-imgops
+
+  elasticsearch-ami-update:
+    type: ami-cloudformation-parameter
+    parameters:
+      cloudFormationStackByTags: false
+      cloudFormationStackName: media-service-elasticsearch
+      prependStackToCloudFormationStackName: false
+      amiEncrypted: true
+      amiParametersToTags:
+        ElasticSearchAMI:
+          BuiltBy: amigo
+          AmigoStage: PROD
+          Recipe: grid-elasticsearch
