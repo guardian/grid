@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{AssetsComponents, KahunaController}
 import lib.KahunaConfig
@@ -37,14 +38,26 @@ object KahunaSecurityConfig {
     val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
     val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self' www.google-analytics.com"
-    val imageSources = s"img-src data: blob: ${config.services.imgopsBaseUri} https://${config.fullOrigin} https://${config.thumbOrigin} https://${config.cropOrigin} www.google-analytics.com 'self'"
+
+    val imageSources: List[String] = List(
+      "data:",
+      "blob:",
+      URI.ensureSecure(config.services.imgopsBaseUri).toString,
+      URI.ensureSecure(config.fullOrigin).toString,
+      URI.ensureSecure(config.thumbOrigin).toString,
+      URI.ensureSecure(config.cropOrigin).toString,
+      URI.ensureSecure("www.google-analytics.com").toString,
+      URI.ensureSecure("app.getsentry.com").toString,
+      "'self'"
+    )
+
     val fontSources = s"font-src data: 'self'"
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
       frameOptions = None,
       // We use inline styles and script tags <sad face>
-      contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $fontSources; $imageSources; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' www.google-analytics.com;")
+      contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $fontSources; img-src ${imageSources.mkString(" ")}; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' www.google-analytics.com;")
     )
   }
 }
