@@ -2,6 +2,7 @@ import angular from 'angular';
 import {List, Map} from 'immutable';
 
 import {mediaApi} from '../../services/api/media-api';
+import {handlePossibleHttpError} from "../../sentry/sentry";
 
 export const querySuggestions = angular.module('querySuggestions', [
     mediaApi.name
@@ -130,22 +131,26 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
 
     function suggestCredit(prefix) {
         return mediaApi.metadataSearch('credit', {q: prefix}).
-            then(results => results.data.map(res => res.key));
+            then(results => results.data.map(res => res.key)).
+            catch(handlePossibleHttpError);
     }
 
     function suggestSource(prefix) {
         return mediaApi.metadataSearch('source', {q: prefix}).
-            then(results => results.data.map(res => res.key));
+            then(results => results.data.map(res => res.key)).
+            catch(handlePossibleHttpError);
     }
 
     function suggestLabels(prefix) {
         return mediaApi.labelsSuggest({q: prefix}).
-            then(labels => labels.data);
+            then(labels => labels.data).
+            catch(handlePossibleHttpError);
     }
 
     function suggestPhotoshoot(prefix) {
         return mediaApi.metadataSearch('photoshoot', {q: prefix}).
-        then(results => results.data.map(res => res.key));
+          then(results => results.data.map(res => res.key)).
+          catch(handlePossibleHttpError);
     }
 
     function getFilterSuggestions(field, value) {

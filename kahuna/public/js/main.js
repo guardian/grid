@@ -21,7 +21,7 @@ import {async}  from './util/async';
 import {digest} from './util/digest';
 
 import wfAnalyticsServiceMod  from './analytics/analytics';
-import {sentry} from './sentry/sentry';
+import {handlePossibleHttpError, sentry} from './sentry/sentry';
 
 import {userActions}        from './common/user-actions';
 
@@ -151,9 +151,9 @@ kahuna.run(['$log', '$rootScope', 'mediaApi', function($log, $rootScope, mediaAp
 kahuna.run(['$rootScope', 'mediaApi',
             ($rootScope, mediaApi) => {
 
-    mediaApi.getSession().then(session => {
-        $rootScope.$emit('events:user-loaded', session.user);
-    });
+    mediaApi.getSession()
+      .then(session => $rootScope.$emit('events:user-loaded', session.user))
+      .catch(handlePossibleHttpError)
 }]);
 
 
@@ -306,9 +306,9 @@ kahuna.controller('SessionCtrl',
                   ['$scope', '$state', '$stateParams', 'mediaApi',
                    function($scope, $state, $stateParams, mediaApi) {
 
-    mediaApi.getSession().then(session => {
-        $scope.user = session.user;
-    });
+    mediaApi.getSession()
+      .then(session => { $scope.user = session.user })
+      .catch(handlePossibleHttpError)
 }]);
 
 

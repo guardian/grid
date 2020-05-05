@@ -13,6 +13,7 @@ import '../../forms/gr-xeditable/gr-xeditable';
 import '../../util/rx';
 import { editOptions, overwrite } from '../../util/constants/editOptions';
 import {radioList} from '../gr-radio-list/gr-radio-list';
+import {handlePossibleHttpError} from "../../sentry/sentry";
 
 export const grInfoPanel = angular.module('grInfoPanel', [
   'kahuna.services.image-accessor',
@@ -157,9 +158,9 @@ grInfoPanel.controller('GrInfoPanelCtrl', [
     };
 
     ctrl.metadataSearch = (field, q) => {
-      return mediaApi.metadataSearch(field,  { q }).then(resource => {
-        return resource.data.map(d => d.key);
-      });
+      return mediaApi.metadataSearch(field,  { q })
+        .then(resource => resource.data.map(d => d.key))
+        .catch(handlePossibleHttpError)
     };
 
     ctrl.descriptionOption = overwrite.key;

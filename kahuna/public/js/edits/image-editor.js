@@ -8,6 +8,7 @@ import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
+import {handlePossibleHttpError} from "../sentry/sentry";
 
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [

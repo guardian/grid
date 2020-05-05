@@ -4,6 +4,7 @@ import '../../edits/image-editor';
 import '../../components/gr-delete-image/gr-delete-image';
 
 import template from './recent-uploads.html';
+import {handlePossibleHttpError} from "../../sentry/sentry";
 
 export let recentUploads = angular.module('kahuna.upload.recent', [
     'kahuna.edits.imageEditor',
@@ -45,7 +46,7 @@ recentUploads.controller('RecentUploadsCtrl', [
                     }
                 });
             });
-        });
+        }).catch(handlePossibleHttpError);
 
         ctrl.canBeDeleted = (image) => deletableImages.has(image.data.id);
 

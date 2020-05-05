@@ -7,6 +7,7 @@ import './gr-add-label.css';
 import template from './gr-add-label.html';
 
 import '../../directives/gr-auto-focus';
+import {handlePossibleHttpError} from "../../sentry/sentry";
 
 export var addLabel = angular.module('gr.addLabel', [
     'kahuna.services.label',
@@ -58,11 +59,11 @@ addLabel.controller('GrAddLabelCtrl', [
 
         ctrl.labelSearch = (q) => {
             if (! q) {
-                return $q.resolve([]);
+              return $q.resolve([]);
             } else {
-                return mediaApi.labelSearch({q}).then(resource => {
-                    return resource.data.map(d => d.key);
-                });
+              return mediaApi.labelSearch({q})
+                .then(resource => resource.data.map(d => d.key))
+                .catch(handlePossibleHttpError)
             }
         };
 

@@ -6,6 +6,7 @@ import template from './gr-photoshoot.html';
 import '../../image/service';
 import '../../services/photoshoot';
 import '../../services/image-accessor';
+import {handlePossibleHttpError} from "../../sentry/sentry";
 
 export const photoshoot = angular.module('gr.photoshoot', [
     'gr.image.service',
@@ -58,7 +59,8 @@ photoshoot.controller('GrPhotoshootCtrl', [
 
         ctrl.search = (q) => {
             return mediaApi.metadataSearch('photoshoot', { q })
-                .then(resource => resource.data.map(d => d.key));
+              .then(resource => resource.data.map(d => d.key))
+              .catch(handlePossibleHttpError)
         };
 
         ctrl.save = (title) => {

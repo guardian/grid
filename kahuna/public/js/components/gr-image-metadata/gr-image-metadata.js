@@ -5,6 +5,7 @@ import template from './gr-image-metadata.html';
 import '../../image/service';
 import '../../edits/service';
 import '../gr-description-warning/gr-description-warning';
+import {handlePossibleHttpError} from "../../sentry/sentry";
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
@@ -62,9 +63,9 @@ module.controller('grImageMetadataCtrl', [
         ];
 
         ctrl.metadataSearch = (field, q) => {
-            return mediaApi.metadataSearch(field,  { q }).then(resource => {
-                return resource.data.map(d => d.key);
-            });
+            return mediaApi.metadataSearch(field,  { q })
+              .then(resource => resource.data.map(d => d.key))
+              .catch(handlePossibleHttpError)
         };
 
         ctrl.credits = function(searchText) {

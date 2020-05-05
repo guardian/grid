@@ -17,6 +17,7 @@ import '../components/gr-downloader/gr-downloader';
 import '../components/gr-batch-export-original-images/gr-batch-export-original-images';
 import '../components/gr-panel-button/gr-panel-button';
 import '../components/gr-toggle-button/gr-toggle-button';
+import {handlePossibleHttpError} from "../sentry/sentry";
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -167,7 +168,7 @@ results.controller('SearchResultsCtrl', [
             return images;
         }).catch(error => {
             ctrl.loadingError = error;
-            return $q.reject(error);
+            handlePossibleHttpError(error);
         }).finally(() => {
             ctrl.loading = false;
         });
@@ -203,7 +204,7 @@ results.controller('SearchResultsCtrl', [
 
                 // images should not contain any 'holes'
                 ctrl.images = compact(ctrl.imagesAll);
-            });
+            }).catch(handlePossibleHttpError)
         };
 
         // == Vertical position ==
@@ -238,7 +239,7 @@ results.controller('SearchResultsCtrl', [
                     if (! scopeGone) {
                         checkForNewImages();
                     }
-                });
+                }).catch(handlePossibleHttpError);
             }, pollingPeriod);
         }
 

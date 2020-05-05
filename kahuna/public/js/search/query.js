@@ -10,6 +10,7 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
+import {handlePossibleHttpError} from "../sentry/sentry";
 
 export var query = angular.module('kahuna.search.query', [
     // Note: temporarily disabled for performance reasons, see above
@@ -171,7 +172,7 @@ query.controller('SearchQueryCtrl', [
           ctrl.filter.nonFree = session.user.permissions.showPaid ?
             session.user.permissions.showPaid : undefined;
         }
-    });
+    }).catch(handlePossibleHttpError)
 
 
     function resetQuery() {

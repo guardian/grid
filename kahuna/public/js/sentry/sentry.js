@@ -3,10 +3,32 @@ import raven from 'raven-js';
 
 export var sentry = angular.module('sentry', []);
 
+// Standard AngularJS HTTP request with $http
 const httpErrorProps = ['config', 'data', 'headers', 'status', 'statusText'];
+// HTTP request made with [AnyHttp](https://github.com/argo-rest/any-http-angular), used by Theseus (see theseus-angular.js)
+const anyHttpErrorProps = ['uri', 'body', 'status', 'headers'];
+
 function isHttpError(obj) {
     const objKeys = Object.keys(obj);
-    return httpErrorProps.every(key => objKeys.indexOf(key) !== -1);
+    return httpErrorProps.every(key => objKeys.indexOf(key) !== -1) ||
+      anyHttpErrorProps.every(key => objKeys.indexOf(key) !== -1)
+}
+
+/**
+ * Handle a HTTP error in a .catch block, ensuring that it's not propagated
+ * to the Angular $q service's handler code. Errors that reach this point will
+ * be logged by Sentry, and we don't want to do this for every HTTP error.
+ *
+ * @param { Error | { uri: string, status: number, body: any, headers: {[name]: value} }} error
+ * @return undefined
+ * @throw Error
+ */
+export function handlePossibleHttpError(error) {
+  if (isHttpError(error)) {
+    console.warn(error);
+    return;
+  }
+  throw error;
 }
 
 sentry.factory('sentryEnabled', ['sentryDsn', function(sentryDsn) {
