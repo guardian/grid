@@ -138,11 +138,6 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
             then(results => results.data.map(res => res.key));
     }
 
-    function suggestLabels(prefix) {
-        return mediaApi.labelsSuggest({q: prefix}).
-            then(labels => labels.data);
-    }
-
     function suggestPhotoshoot(prefix) {
         return mediaApi.metadataSearch('photoshoot', {q: prefix}).
         then(results => results.data.map(res => res.key));
@@ -153,7 +148,6 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'usages@status': return ['published', 'pending'];
         case 'usages@platform': return ['print', 'digital'];
         case 'subject':  return prefixFilter(value)(subjects);
-        case 'label':    return suggestLabels(value);
         case 'credit':   return suggestCredit(value);
         case 'source':   return suggestSource(value);
         case 'supplier': return listSuppliers().then(prefixFilter(value));

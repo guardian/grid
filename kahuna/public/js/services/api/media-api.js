@@ -80,10 +80,6 @@ mediaApi.factory('mediaApi',
         return root.follow('label-search', { q }).get();
     }
 
-    function labelsSuggest({ q }) {
-        return root.follow('suggested-labels', { q }).get();
-    }
-
     function delete_(image) {
         return image.perform('delete');
     }
@@ -95,7 +91,6 @@ mediaApi.factory('mediaApi',
         getSession,
         metadataSearch,
         labelSearch,
-        labelsSuggest,
         delete: delete_
     };
 }]);
