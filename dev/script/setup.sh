@@ -226,7 +226,19 @@ uploadApiKey() {
   echo "  uploaded"
 }
 
+checkForJavaHome() {
+  echo "Checking JAVA_HOME"
+  if [[ -z "$JAVA_HOME" ]]; then
+    echo "  JAVA_HOME not set, please set it before continuing"
+    echo "  This can be done by adding \"export JAVA_HOME=\$(/usr/libexec/java_home)\" to ~/.profile"
+    exit 1
+  else
+    echo "  JAVA_HOME is set to $JAVA_HOME"
+  fi
+}
+
 main() {
+  checkForJavaHome
   clean
   startDocker
   createCoreStack
