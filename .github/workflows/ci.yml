@@ -57,6 +57,16 @@ jobs:
           --health-retries 10
     steps:
     - uses: actions/checkout@v1
+    - name: Cache SBT ivy cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.ivy2/cache
+        key: ${{ runner.os }}-sbt-ivy-cache-${{ hashFiles('**/build.sbt') }}
+    - name: Cache SBT
+      uses: actions/cache@v1
+      with:
+        path: ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
     - name: SBT
       uses: ./.github/actions/sbt
       env:
