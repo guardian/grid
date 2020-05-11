@@ -1499,7 +1499,7 @@ FIXME: what to do with touch devices
 }
 
 .easel__canvas {
-    height: calc(100vh - 50px); /* viewport - top-bar */
+    height: calc(100vh - 50px - 100px); /* viewport - top-bar - carosel */
     vertical-align: middle;
     overflow: hidden;
 }
@@ -1549,6 +1549,18 @@ FIXME: what to do with touch devices
     visibility: hidden;
 }
 
+.image-view {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+}
+.image-main {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
 .image-details {
     box-sizing: border-box;
     font-size: 1.3rem;
@@ -1556,13 +1568,13 @@ FIXME: what to do with touch devices
 /* HACK: This is here until we start using the panelled-content here */
 .image-details--full-image {
     float: right;
-    height: calc(100vh - 50px); /* viewport - top-bar */
+    height: calc(100vh - 50px - 100px); /* viewport - top-bar  - carosel */
     width: 300px;
     border-left: 1px solid #565656;
 }
 
 .image-details--scroll {
-    height: calc(100vh - 50px - 35px); /* viewport - top-bar - tab-bar */
+    height: calc(100vh - 50px - 35px - 100px); /* viewport - top-bar - tab-bar - carosel */
     overflow-y: scroll;
 }
 
@@ -1572,7 +1584,7 @@ FIXME: what to do with touch devices
     border-right: 1px solid #565656;
     border-left: none;
     position: relative;
-    height: calc(100vh - 50px); /* viewport - top-bar */
+    height: calc(100vh - 50px - 100px); /* viewport - top-bar */
 }
 
 .image-details__delete-crops {
@@ -1585,6 +1597,20 @@ FIXME: what to do with touch devices
     clear: both;
     content:  " ";
     display:  table;
+}
+
+.image-carosel {
+    display: flex;
+    flex-direction: row;
+    height: 100px;
+    border-top: 1px solid #565656;
+}
+
+.image-carosel > li {
+    height: 80px;
+    width: 80px;
+    margin: 5px;
+    background: blue;
 }
 
 /*to clear the set widths of the side panels */

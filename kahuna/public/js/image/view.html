@@ -1,173 +1,187 @@
-<gr-top-bar>
-    <gr-top-bar-nav>
-        <a class="top-bar-item side-padded clickable" ui-sref="search" title="Back to search">
-            <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
-        </a>
-    </gr-top-bar-nav>
+<div class="image-view">
+    <gr-top-bar>
+        <gr-top-bar-nav>
+            <a class="top-bar-item side-padded clickable" ui-sref="search" title="Back to search">
+                <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
+            </a>
+        </gr-top-bar-nav>
 
-    <gr-top-bar-actions>
-        <gr-delete-image class="top-bar-item clickable"
-                         ng-if="ctrl.canBeDeleted"
-                         images="[ctrl.image]">
-        </gr-delete-image>
+        <gr-top-bar-actions>
+            <gr-delete-image class="top-bar-item clickable"
+                            ng-if="ctrl.canBeDeleted"
+                            images="[ctrl.image]">
+            </gr-delete-image>
 
-        <gr-downloader class="top-bar-item"
-                       images="[ctrl.image]">
-        </gr-downloader>
+            <gr-downloader class="top-bar-item"
+                        images="[ctrl.image]">
+            </gr-downloader>
 
-        <gr-archiver class="top-bar-item"
-                     gr-image="ctrl.image">
-        </gr-archiver>
+            <gr-archiver class="top-bar-item"
+                        gr-image="ctrl.image">
+            </gr-archiver>
 
-        <gr-crop-image class="top-bar-item" image="ctrl.image" has-full-crop="ctrl.hasFullCrop" tracking-location="Top bar">
-        </gr-crop-image>
-    </gr-top-bar-actions>
-</gr-top-bar>
+            <gr-crop-image class="top-bar-item" image="ctrl.image" has-full-crop="ctrl.hasFullCrop" tracking-location="Top bar">
+            </gr-crop-image>
+        </gr-top-bar-actions>
+    </gr-top-bar>
 
 
-<div class="image-details image-details--crop">
-    <div class="image-info">
-        <div class="image-info__group">
-            <dl>
-                <dt class="image-info__heading">Original <span class="image-info__file-size"> {{:: ctrl.image.data.source.size | asFileSize}}</span></dt>
-                    <dd class="image-info__heading--crops">
+    <div class="image-main">
+
+        <div class="image-details image-details--crop">
+            <div class="image-info">
+                <div class="image-info__group">
+                    <dl>
+                        <dt class="image-info__heading">Original <span class="image-info__file-size"> {{:: ctrl.image.data.source.size | asFileSize}}</span></dt>
+                            <dd class="image-info__heading--crops">
+                                <div class="image-crop"
+                                    ng-class="{'image-crop--selected': !ctrl.crop}">
+                                    <a draggable="true"
+                                        ui-sref="{ crop: null }"
+                                        ui-drag-data="ctrl.image | asImageDragData">
+                                        <img class="image-crop__image"
+                                            alt="original image thumbnail"
+                                            ng-src="{{:: ctrl.image.data.thumbnail | assetFile }}" />
+                                        <div class="image-crop__aspect-ratio"
+                                            ng-class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
+                                            {{::ctrl.image.data.source.dimensions.width}} &times; {{::ctrl.image.data.source.dimensions.height}}
+                                        </div>
+                                    </a>
+                                </div>
+                            </dd>
+                        </dt>
+                    </dl>
+                </div>
+                <div ng-if="ctrl.hasFullCrop" class="image-info__group">
+                    <dt class="image-info__heading">Full frame</dt>
+                    <dd>
                         <div class="image-crop"
-                             ng-class="{'image-crop--selected': !ctrl.crop}">
-                            <a draggable="true"
-                                ui-sref="{ crop: null }"
-                                ui-drag-data="ctrl.image | asImageDragData">
+                            ng-init="crop = ctrl.fullCrop"
+                            ng-class="{'image-crop--selected': crop == ctrl.crop}"
+                            ng-switch="ctrl.allowCropSelection(crop)">
+                            <a ng-switch-when="true"
+                            draggable="true"
+                            ng-init="extremeAssets = (crop | getExtremeAssets)"
+                            ng-click="ctrl.cropSelected(crop)"
+                            ui-sref="{ crop: crop.id }"
+                            ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
+                            ui-drag-image="extremeAssets.smallest | assetFile">
                                 <img class="image-crop__image"
-                                     alt="original image thumbnail"
-                                     ng-src="{{:: ctrl.image.data.thumbnail | assetFile }}" />
-                                <div class="image-crop__aspect-ratio"
-                                    ng-class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
-                                    {{::ctrl.image.data.source.dimensions.width}} &times; {{::ctrl.image.data.source.dimensions.height}}
+                                    alt="full frame image thumbnail"
+                                    ng-src="{{:: extremeAssets.smallest | assetFile }}"
+                                    ng-class="{'image-crop__image--disabled': !ctrl.allowCropSelection(crop) }"/>
+
+                                <div class="flex-container image-crop__info image-crop__more-info"
+                                    ng-class="{'image-crop__info--selected': crop == ctrl.crop}">
+                                    {{:: crop.specification.bounds.width}} &times; {{:: crop.specification.bounds.height}}
+                                    <span class="flex-spacer"></span>
+                                    <span class="image-crop__creator" title="Cropped by {{:: crop.author}} at {{:: crop.date | date:'medium'}}">{{:: crop.author | getInitials}}</span>
                                 </div>
                             </a>
+                            <div ng-switch-when="false"
+                                draggable="false"
+                                class="image-crop--disabled"
+                                ng-init="extremeAssets = (crop | getExtremeAssets)"
+                                gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
+                                gr-tooltip-position="top">
+                            <ng-include src="'/assets/js/image/crop.html'"></ng-include>
+                            </div>
                         </div>
                     </dd>
-                </dt>
-            </dl>
-        </div>
-        <div ng-if="ctrl.hasFullCrop" class="image-info__group">
-            <dt class="image-info__heading">Full frame</dt>
-            <dd>
-                <div class="image-crop"
-                     ng-init="crop = ctrl.fullCrop"
-                     ng-class="{'image-crop--selected': crop == ctrl.crop}"
-                     ng-switch="ctrl.allowCropSelection(crop)">
-                    <a ng-switch-when="true"
-                       draggable="true"
-                       ng-init="extremeAssets = (crop | getExtremeAssets)"
-                       ng-click="ctrl.cropSelected(crop)"
-                       ui-sref="{ crop: crop.id }"
-                       ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
-                       ui-drag-image="extremeAssets.smallest | assetFile">
-                        <img class="image-crop__image"
-                             alt="full frame image thumbnail"
-                             ng-src="{{:: extremeAssets.smallest | assetFile }}"
-                             ng-class="{'image-crop__image--disabled': !ctrl.allowCropSelection(crop) }"/>
-
-                        <div class="flex-container image-crop__info image-crop__more-info"
-                             ng-class="{'image-crop__info--selected': crop == ctrl.crop}">
-                            {{:: crop.specification.bounds.width}} &times; {{:: crop.specification.bounds.height}}
-                            <span class="flex-spacer"></span>
-                            <span class="image-crop__creator" title="Cropped by {{:: crop.author}} at {{:: crop.date | date:'medium'}}">{{:: crop.author | getInitials}}</span>
-                        </div>
-                    </a>
-                    <div ng-switch-when="false"
-                         draggable="false"
-                         class="image-crop--disabled"
-                         ng-init="extremeAssets = (crop | getExtremeAssets)"
-                         gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
-                         gr-tooltip-position="top">
-                      <ng-include src="'/assets/js/image/crop.html'"></ng-include>
-                    </div>
                 </div>
-            </dd>
-        </div>
-        <div class="image-info__group" ng-if="ctrl.hasCrops">
-            <dl class="image-info__group--dl">
-                <dt class="image-info__heading">Crops</dt>
-                <dd class="image-info__heading--crops">
-                    <ul class="image-crops">
-                        <li class="image-crop"
-                            ng-repeat="crop in ctrl.crops"
-                            ng-switch="ctrl.allowCropSelection(crop)"
-                            ng-class="{'image-crop--selected': crop == ctrl.crop}">
-                            <a draggable="true"
-                               ng-init="extremeAssets = (crop | getExtremeAssets)"
-                               ng-switch-when="true"
-                               ng-click="ctrl.cropSelected(crop)"
-                               ui-sref="{crop: crop.id}"
-                               ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
-                               ui-drag-image="extremeAssets.smallest | assetFile">
+                <div class="image-info__group" ng-if="ctrl.hasCrops">
+                    <dl class="image-info__group--dl">
+                        <dt class="image-info__heading">Crops</dt>
+                        <dd class="image-info__heading--crops">
+                            <ul class="image-crops">
+                                <li class="image-crop"
+                                    ng-repeat="crop in ctrl.crops"
+                                    ng-switch="ctrl.allowCropSelection(crop)"
+                                    ng-class="{'image-crop--selected': crop == ctrl.crop}">
+                                    <a draggable="true"
+                                    ng-init="extremeAssets = (crop | getExtremeAssets)"
+                                    ng-switch-when="true"
+                                    ng-click="ctrl.cropSelected(crop)"
+                                    ui-sref="{crop: crop.id}"
+                                    ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
+                                    ui-drag-image="extremeAssets.smallest | assetFile">
 
-                              <ng-include src="'/assets/js/image/crop.html'"></ng-include>
-                            </a>
-                            <div
-                                class="image-crop--disabled"
-                                draggable="false"
-                                ng-init="extremeAssets = (crop | getExtremeAssets)"
-                                ng-switch-when="false"
-                                gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
-                                gr-tooltip-position="top"
-                            >
-                              <ng-include src="'/assets/js/image/crop.html'"></ng-include>
-                            </div>
-                        </li>
-                    </ul>
-                </dd>
-            </dl>
-        </div>
-    </div>
+                                    <ng-include src="'/assets/js/image/crop.html'"></ng-include>
+                                    </a>
+                                    <div
+                                        class="image-crop--disabled"
+                                        draggable="false"
+                                        ng-init="extremeAssets = (crop | getExtremeAssets)"
+                                        ng-switch-when="false"
+                                        gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
+                                        gr-tooltip-position="top"
+                                    >
+                                    <ng-include src="'/assets/js/image/crop.html'"></ng-include>
+                                    </div>
+                                </li>
+                            </ul>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
 
-    <gr-delete-crops
-            class="image-details__delete-crops"
-            gr-image="ctrl.image"
-            gr-on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
-</div>
-
-<div class="image-details image-details--full-image">
-  <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
-  <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
-  <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
-
-  <div class="image-details image-details--scroll">
-    <gr-image-metadata gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
-    <gr-image-usage gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'usages'"></gr-image-usage>
-  </div>
-</div>
-
-<div class="image-holder">
-    <div class="easel">
-        <div class="easel__canvas"
-             ng-if="!ctrl.crop"
-             draggable="true"
-             ui-drag-data="ctrl.image | asImageDragData">
-          <img class="easel__image easel__image--checkered__background"
-               alt="preview of original image"
-               ng-src="{{:: ctrl.optimisedImageUri}}"
-               grid:track-image="ctrl.image"
-               grid:track-image-location="original"
-               grid:track-image-loadtime
-               gr-image-fade-on-load/>
+            <gr-delete-crops
+                    class="image-details__delete-crops"
+                    gr-image="ctrl.image"
+                    gr-on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
         </div>
 
-        <!-- TODO: As this loads async, add a loader -->
-        <div class="easel__canvas" ng-if="ctrl.crop"
-             draggable="true"
-             ui-drag-data="ctrl.image | asImageAndCropsDragData:ctrl.crop"
-             ui-drag-image="extremeAssets.smallest | assetFile">
-            <a class="easel__image-container"
-               ng-init="extremeAssets = (ctrl.crop | getExtremeAssets)"
-               ui-sref="{crop: ctrl.cropKey}">
-                <!-- TODO: Add tracking to crop -->
+        <div class="image-details image-details--full-image">
+        <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
+        <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
+        <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
+
+        <div class="image-details image-details--scroll">
+            <gr-image-metadata gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
+            <gr-image-usage gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'usages'"></gr-image-usage>
+        </div>
+        </div>
+
+        <div class="image-holder">
+            <div class="easel">
+                <div class="easel__canvas"
+                    ng-if="!ctrl.crop"
+                    draggable="true"
+                    ui-drag-data="ctrl.image | asImageDragData">
                 <img class="easel__image easel__image--checkered__background"
-                     alt="cropped image"
-                     ng-src="{{:: extremeAssets.largest | assetFile}}"
-                />
-            </a>
+                    alt="preview of original image"
+                    ng-src="{{:: ctrl.optimisedImageUri}}"
+                    grid:track-image="ctrl.image"
+                    grid:track-image-location="original"
+                    grid:track-image-loadtime
+                    gr-image-fade-on-load/>
+                </div>
+
+                <!-- TODO: As this loads async, add a loader -->
+                <div class="easel__canvas" ng-if="ctrl.crop"
+                    draggable="true"
+                    ui-drag-data="ctrl.image | asImageAndCropsDragData:ctrl.crop"
+                    ui-drag-image="extremeAssets.smallest | assetFile">
+                    <a class="easel__image-container"
+                    ng-init="extremeAssets = (ctrl.crop | getExtremeAssets)"
+                    ui-sref="{crop: ctrl.cropKey}">
+                        <!-- TODO: Add tracking to crop -->
+                        <img class="easel__image easel__image--checkered__background"
+                            alt="cropped image"
+                            ng-src="{{:: extremeAssets.largest | assetFile}}"
+                        />
+                    </a>
+                </div>
+            </div>
         </div>
-    </div>
+    </div> <!-- end of image main -->
+
+    <ul class="image-carosel">
+        <li ng-repeat='image in ctrl.images track by image.data.id'>
+            <ui-preview-image image="image"
+                selection-mode="ctrl.inSelectionMode"
+                ng-class="{'preview__quick-select': ctrl.inSelectionMode}"
+                ng-click="ctrl.onImageClick(image, $event)"/>
+        </li>
+    </ul class="image-carosel">
 </div>
