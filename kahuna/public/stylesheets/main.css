@@ -1601,22 +1601,25 @@ FIXME: what to do with touch devices
     display:  table;
 }
 
-.image-carosel {
+.image-filmstrip {
     display: flex;
     flex-direction: row;
     border-top: 1px solid #565656;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 10px;
+    min-height: fit-content;
 }
 
-.image-carosel > li {
+.image-filmstrip > li {
     margin: 0 5px;
     padding: 10px;
     background: #393939;
+    display: flex;
+    align-items: center;
 }
 
-.image-carosel > li img {
+.image-filmstrip > li img {
     display: block;
     max-width: 150px;
     max-height: 150px;
@@ -1908,7 +1911,7 @@ FIXME: what to do with touch devices
 }
 
 .image-crop--selected {
-    border: solid 2px #00adee;
+    box-shadow: 0px 0px 0px 2px #00adee;
 }
 
 .image-crop--disabled {
