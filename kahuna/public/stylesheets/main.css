@@ -1496,12 +1496,13 @@ FIXME: what to do with touch devices
 .easel {
     display: block;
     text-align: center;
+    height: 100%;
 }
 
 .easel__canvas {
-    height: calc(100vh - 50px - 100px); /* viewport - top-bar - carosel */
     vertical-align: middle;
     overflow: hidden;
+    height: 100%;
 }
 
 .easel__image-container {
@@ -1557,34 +1558,35 @@ FIXME: what to do with touch devices
 }
 .image-main {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
+    overflow: hidden;
+    flex-grow: 1;
 }
 
 .image-details {
     box-sizing: border-box;
     font-size: 1.3rem;
-}
-/* HACK: This is here until we start using the panelled-content here */
-.image-details--full-image {
-    float: right;
-    height: calc(100vh - 50px - 100px); /* viewport - top-bar  - carosel */
-    width: 300px;
-    border-left: 1px solid #565656;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-.image-details--scroll {
-    height: calc(100vh - 50px - 35px - 100px); /* viewport - top-bar - tab-bar - carosel */
-    overflow-y: scroll;
+/* HACK: This is here until we start using the panelled-content here */
+/* UPDATE: I have no idea what panelled-content is referring to here? */
+.image-details--full-image {
+    min-width: 300px;
+    width: 300px;
+    border-left: 1px solid #565656;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .image-details--crop {
-    float: left;
-    width: 130px;
+    min-width: 130px;
     border-right: 1px solid #565656;
     border-left: none;
     position: relative;
-    height: calc(100vh - 50px - 100px); /* viewport - top-bar */
 }
 
 .image-details__delete-crops {
@@ -1602,21 +1604,28 @@ FIXME: what to do with touch devices
 .image-carosel {
     display: flex;
     flex-direction: row;
-    height: 100px;
     border-top: 1px solid #565656;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px;
 }
 
 .image-carosel > li {
-    height: 80px;
-    width: 80px;
-    margin: 5px;
-    background: blue;
+    margin: 0 5px;
+    padding: 10px;
+    background: #393939;
 }
 
-/*to clear the set widths of the side panels */
+.image-carosel > li img {
+    display: block;
+    max-width: 150px;
+    max-height: 150px;
+    width: auto;
+    height: auto;
+}
+
 .image-holder {
-    margin-right: 300px;
-    margin-left: 130px;
+    flex-grow: 1;
 }
 
 .image-info__group {
@@ -2429,10 +2438,6 @@ FIXME: what to do with touch devices
     .label__value,
     .image-info__keyword {
         color: black !important;
-    }
-
-    .easel__canvas {
-        overflow: visible;
     }
 
     .easel__image {

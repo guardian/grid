@@ -5,4 +5,6 @@ gr-downloader:hover {
 gr-downloader .download {
     display: block;
     height: 100%;
+    /* Lopsided padding because the icon on the right provides 10px of padding in that direction */
+    padding-left: 10px;
 }
