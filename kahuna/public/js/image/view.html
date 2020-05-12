@@ -180,12 +180,12 @@
         </div>
     </div> <!-- end of image main -->
 
-    <ul ng-if='ctrl.images.length > 0' class="image-carosel">
+    <ul ng-if='ctrl.images.length > 0' class="image-filmstrip">
                                     
         <li 
             ng-class="{'image-crop--selected': image.data.id == ctrl.image.data.id}"
             ng-repeat='image in ctrl.images track by image.data.id'>
             <ui-preview-image-filmstrip image="image"/>
         </li>
-    </ul class="image-carosel">
+    </ul class="image-filmstrip">
 </div>
