@@ -33,7 +33,7 @@ jobs:
           npm install
           npm run riffraff-artefact
   ScalaBuild:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     services:
       elasticsearch:
         image: elasticsearch:7.5.2
@@ -72,11 +72,13 @@ jobs:
       with:
         path: ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
+    - name: Setup JDK
+      uses: actions/setup-java@v1
+      with:
+        java-version: 1.8
     - name: SBT
-      uses: ./.github/actions/sbt
       env:
         USE_DOCKER_FOR_TESTS: false
         ES6_TEST_URL: http://elasticsearch:9200
         LOCALSTACK_ENDPOINT: http://localstack:4566
-      with:
-        args: clean compile test
+      run: sbt clean compile test
