@@ -55,6 +55,12 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
+    container:
+      image: mozilla/sbt
+      volumes:
+        - /home/runner/.ivy2:/root/.ivy2
+        - /home/runner/.coursier:/root/.coursier
+        - /home/runner/.sbt:/root/.sbt
     steps:
     - uses: actions/checkout@v1
     - name: Cache SBT ivy cache
@@ -72,13 +78,10 @@ jobs:
       with:
         path: ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
-    - name: Setup JDK
-      uses: actions/setup-java@v1
-      with:
-        java-version: 1.8
     - name: SBT
       env:
         USE_DOCKER_FOR_TESTS: false
         ES6_TEST_URL: http://elasticsearch:9200
         LOCALSTACK_ENDPOINT: http://localstack:4566
-      run: sbt clean compile test
+      run: |
+        sbt clean compile test
