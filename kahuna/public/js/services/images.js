@@ -13,8 +13,10 @@ imagesService.factory('imagesService', [
         // rabbit-hole that doesn't seem to have any end. Hence this slightly
         // horrid global state.
         let lastSearchFirstResultTime;
+        
         let total = 0;
         let images = [];
+        let lastViewedImage = undefined;
 
         function getImageOffset(id, offset) {
             return images[images.findIndex(i => i.data.id === id) + offset];

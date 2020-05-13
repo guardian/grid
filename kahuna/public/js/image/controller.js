@@ -103,11 +103,16 @@ image.controller('ImageCtrl', [
 
     ctrl.images = imagesService.getImages();
 
-
     ctrl.tabs = [
       {key: 'metadata', value: 'Metadata'},
       {key: 'usages', value: `Usages`, disabled: true}
     ];
+
+    ctrl.showFilmstrip = true;
+    ctrl.toggleShowFilmstrip = () => {
+      console.log('toggle');
+      ctrl.showFilmstrip = !ctrl.showFilmstrip;
+    }
 
     ctrl.selectedTab = 'metadata';
 
@@ -275,28 +280,32 @@ image.controller('ImageCtrl', [
       }
     });
 
+    ctrl.previousImage = function() {
+      const prevImage = imagesService.getImageOffset(ctrl.image.data.id, -1);
+
+      if (prevImage) {
+        return $state.go('image', {imageId: prevImage.data.id, crop: undefined});
+      }
+    }
+
+    ctrl.nextImage = function () {
+      const nextImage = imagesService.getImageOffset(ctrl.image.data.id, 1);
+
+      if (nextImage) {
+        return $state.go('image', {imageId: nextImage.data.id, crop: undefined});
+      }
+    }
+
     keyboardShortcut.bindTo($scope)
       .add({
         combo: 'left',
         description: "Previous image",
-        callback: () => {
-          const prevImage = imagesService.getImageOffset(ctrl.image.data.id, -1);
-
-          if (prevImage) {
-            return $state.go('image', {imageId: prevImage.data.id, crop: undefined});
-          }
-        }
+        callback: () => ctrl.previousImage()
       })
       .add({
         combo: 'right',
         description: "Next image",
-        callback: () => {
-          const nextImage = imagesService.getImageOffset(ctrl.image.data.id, 1);
-
-          if (nextImage) {
-            return $state.go('image', {imageId: nextImage.data.id, crop: undefined});
-          }
-        }
+        callback: () => ctrl.nextImage()
       })
       .add({
         combo: 'c',

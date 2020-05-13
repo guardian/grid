@@ -117,7 +117,7 @@ results.controller('SearchResultsCtrl', [
         // (i.e. the uploadTime of the newest result in the set)
 
         // TODO: avoid this initial search (two API calls to init!)
-        ctrl.searched = imagesService.search($stateParams, {length: 1, orderBy: 'newest'}).then(function(images) {
+        imagesService.search($stateParams, {length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
 
             ctrl.hasQuery = !!$stateParams.query;
