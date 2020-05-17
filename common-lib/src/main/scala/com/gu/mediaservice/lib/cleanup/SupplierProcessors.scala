@@ -252,7 +252,7 @@ object ReutersParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     // Reuters and other misspellings
     // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
-    case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
+    case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
       usageRights = Agency("Reuters"),
       metadata = image.metadata.copy(credit = Some("Reuters"))
     )
