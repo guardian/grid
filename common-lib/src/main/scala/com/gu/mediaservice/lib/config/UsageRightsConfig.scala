@@ -78,7 +78,7 @@ object UsageRightsConfig {
     "Rex Features",
     "Ronald Grant Archive",
     "Action Images",
-    "Action Images via Reuters"
+    "Action Images/Reuters"
   )
 
   val suppliersCollectionExcl = Map(
