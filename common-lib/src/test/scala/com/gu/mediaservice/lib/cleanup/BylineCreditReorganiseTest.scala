@@ -19,6 +19,11 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
     .whenCleaned("Ella", "Ella Ling/BPI/REX")
   }
 
+  it ("should normalise via to slash") {
+    CreditByline("Philip Glass", "Anadolu Agency via Getty Images")
+      .whenCleaned("Philip Glass", "Anadolu Agency/Getty Images")
+  }
+
   it ("should remove matching byline from credit in triple slash") {
     CreditByline("Ella Ling/BPI/REX", "Ella Ling/BPI/REX")
     .whenCleaned("Ella Ling"        , "BPI/REX")
@@ -32,6 +37,11 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
   it ("should remove the byline from credit if matching") {
     CreditByline("Andy Rowland", "Andy Rowland/UK Sports Pics Ltd")
     .whenCleaned("Andy Rowland", "UK Sports Pics Ltd")
+  }
+
+  it ("should remove the byline from credit if matching") {
+    CreditByline("Andy Rowland", "Andy Rowland via UK Sports Pics Ltd")
+      .whenCleaned("Andy Rowland", "UK Sports Pics Ltd")
   }
 
   it ("should return the same if matching") {
@@ -49,6 +59,11 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
       .whenCleaned("Philip Glass", "Barcroft Media")
   }
 
+  it ("should remove organisation from byline") {
+    CreditByline("Philip Glass via Barcroft Media", "Barcroft Media")
+      .whenCleaned("Philip Glass", "Barcroft Media")
+  }
+
   it ("should handle empty byline") {
     CreditByline("", "Barcroft Media")
       .whenCleaned("", "Barcroft Media")
@@ -61,6 +76,11 @@ class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelp
 
   it ("should handle empty credit when byline has organisation names") {
     CreditByline("John Doe/BPI/REX", "")
+      .whenCleaned("John Doe", "BPI/REX")
+  }
+
+  it ("should handle empty credit when byline has organisation names") {
+    CreditByline("John Doe via BPI/REX", "")
       .whenCleaned("John Doe", "BPI/REX")
   }
 
