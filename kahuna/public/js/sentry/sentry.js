@@ -27,8 +27,8 @@ function parseUnhandledRejectionMessage(errorMsg) {
   }
   const maybeMessageJson = errorMsg.substr(messageIndex + unhandledRejectionMessage.length);
   try {
-    return JSON.parse(maybeMessageJson)
-  } catch(e) {
+    return JSON.parse(maybeMessageJson);
+  } catch (e) {
     return;
   }
 }
@@ -47,7 +47,7 @@ function isHttpError(obj) {
   });
 
   return httpErrorProps.every(key => objKeys.indexOf(key) !== -1) ||
-    anyHttpErrorProps.every(key => objKeys.indexOf(key) !== -1)
+    anyHttpErrorProps.every(key => objKeys.indexOf(key) !== -1);
 }
 
 sentry.factory('sentryEnabled', ['sentryDsn', function(sentryDsn) {
