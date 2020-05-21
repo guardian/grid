@@ -91,7 +91,7 @@ deployments:
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imaging-eoan
+          Recipe: grid-imaging
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
