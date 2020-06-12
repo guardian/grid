@@ -28,12 +28,18 @@ object ImageMetadataConverter {
     val xmpIptcPeople = fileMetadata.xmp.filterKeys(_ matches "Iptc4xmpExt:PersonInImage\\[\\d+\\]")
       .values
       .toList
-      .map(_.toString)
+      .flatMap{
+        case JsString(value) => Some(value)
+        case _ => None
+      }
 
     val xmpGettyPeople = fileMetadata.xmp.filterKeys(_ matches "GettyImagesGIFT:Personality\\[\\d+\\]")
       .values
       .toList
-      .map(_.toString)
+      .flatMap{
+        case JsString(value) => Some(value)
+        case _ => None
+      }
 
     (xmpIptcPeople ::: xmpGettyPeople).distinct
   }
