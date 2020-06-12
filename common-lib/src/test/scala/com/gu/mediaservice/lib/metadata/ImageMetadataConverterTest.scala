@@ -375,31 +375,49 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   }
 
   it("should populate peopleInImage field of ImageMetadata from multiple corresponding people xmp fields") {
-    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> JsString("person 1"),
-      "Iptc4xmpExt:PersonInImage[2]" -> JsString("person 2"), "Iptc4xmpExt:PersonInImage[3]" -> JsString("person 3"),
-      "GettyImagesGIFT:Personality[1]" -> JsString("person 4")))
+    val fileMetadata = FileMetadata(
+      Map(), Map(), Map(),
+      Map("Iptc4xmpExt:PersonInImage" ->
+        JsArray(
+          JsString("person 1"),
+          JsString("person 2"),
+          JsString("person 3")),
+      "GettyImagesGIFT:Personality" ->
+      JsArray(JsString("person 4"))
+      )
+    )
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
     imageMetadata.peopleInImage should be (Set("person 1","person 2","person 3","person 4"))
   }
 
   it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp iptc ext fields") {
-    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> JsString("person 1"),
-      "Iptc4xmpExt:PersonInImage[2]" -> JsString("person 2"), "Iptc4xmpExt:PersonInImage[3]" -> JsString("person 2")))
+    val fileMetadata = FileMetadata(Map(), Map(), Map(),
+      Map("Iptc4xmpExt:PersonInImage" ->
+        JsArray(
+          JsString("person 1"),
+          JsString("person 2"),
+          JsString("person 2")
+        )
+      ))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
     imageMetadata.peopleInImage should be (Set("person 1","person 2"))
   }
 
   it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp people fields") {
-    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> JsString("person 1"),
-      "Iptc4xmpExt:PersonInImage[2]" -> JsString("person 2"), "GettyImagesGIFT:Personality[1]" -> JsString("person 2")))
+    val fileMetadata = FileMetadata(Map(), Map(), Map(),
+      Map(
+        "Iptc4xmpExt:PersonInImage" -> JsArray(
+          JsString("person 1"),
+          JsString("person 2")
+        ),
+        "GettyImagesGIFT:Personality" -> JsArray(
+          JsString("person 2")
+        )
+      )
+    )
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
     imageMetadata.peopleInImage should be (Set("person 1","person 2"))
   }
 
-  it("should ignore invalid peopleInImage field of ImageMetadata") {
-    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[-1]" -> JsString("person 1")))
-    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.peopleInImage should be ('empty)
-  }
 
 }
