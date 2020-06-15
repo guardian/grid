@@ -15,6 +15,8 @@ The reingestion process is made up of a series of lambdas that manage the reinge
 
 ### 1. Install dependencies
 
+This will require `node`, which should have been installed as part of the grid setup process.
+
 1. `cd scripts/reindex-images/`
 1. `npm install`
 
@@ -22,7 +24,7 @@ The reingestion process is made up of a series of lambdas that manage the reinge
 
 The name of the dynamo table is referenced in the batch index lambda with the param `IMAGES_TO_INDEX_DYNAMO_TABLE`.
 
-To upload ids to the table, run `node scripts/reindex-images/upload-ids-to-dynamo.js`. Running this script without arguments will give usage details. This will require `node`, which should have been installed as part of the grid setup process.
+To upload ids to the table, run `node scripts/reindex-images/upload-ids-to-dynamo.js`. Running this script without arguments will give usage details. 
 
 ### 3. Reingest the images
 
@@ -66,9 +68,11 @@ See self-explanatory environment variables on the lambda.
 ## States
 
 Each image has a self-documenting state on its entry in dynamo.
+Note that state 6 - Verified - is the intended success state.
 
 See ./admin-tools/lib/src/main/scala/com/gu/mediaservice/indexing/IndexInputCreation.scala
 
 ## Wishlist (future development)
 
 - It would be useful to automate more of this process, especially if we would like to use this workflow for periodic reindexes.
+- It would be cleaner/safer if the event bridge was turned off by the lambda at completion.
