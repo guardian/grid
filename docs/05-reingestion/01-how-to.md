@@ -22,11 +22,21 @@ To upload ids to the table, run `node scripts/reindex-images/upload-ids-to-dynam
 
 Once the image ids are available in dynamoDB, to begin reingestion, turn the EventBridge source for the image reingestion lambda on. At the time of writing, this lambda is called `admin-tools-image-batch-index-lambda-{STAGE}`.
 
+This lambda –
+
+- finds each image by its ID in the S3 bucket containing
+-
+-
+
 The images are processed on `admin-tools`-specific `image-loader` boxes, and the reingestion messages are sent to the low-priority queue, so reingestion should not affect the performance of PROD.
 
 You can check the progress of the reingestion in [the metrics tool](). Once all images have been reingested, the activity on the lambda should cease.
 
-Don't forget to turn off the EventBridge source once this process is complete.
+Once there are no more images to process, we'd expect most images to be in the
+
+If you'd like a full description of the current table state,the script `scan-dynamo-table-for-image-statuses.js` will dump the current state of the reingestion table into a file for inspection.
+
+Don't forget to turn off the EventBridge source once this process is complete!
 
 ## 3. Check the images are now present in the Grid
 
