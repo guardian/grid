@@ -4,10 +4,10 @@ import java.util.concurrent.TimeUnit
 
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, Mappings}
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.http.bulk.BulkResponse
-import com.sksamuel.elastic4s.http.search.{SearchHit, SearchResponse}
-import com.sksamuel.elastic4s.indexes.IndexRequest
-import com.sksamuel.elastic4s.{IndexesAndType, IndexesAndTypes}
+import com.sksamuel.elastic4s.requests.bulk.BulkResponse
+import com.sksamuel.elastic4s.requests.indexes.IndexRequest
+import com.sksamuel.elastic4s.requests.searches.{SearchHit, SearchResponse}
+import com.sksamuel.elastic4s.{Indexes, IndexesAndType, IndexesAndTypes}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 
@@ -90,7 +90,7 @@ object Reindex extends EsScript {
 
         def bulkFromHits(hits: Array[SearchHit]): BulkResponse = {
           val bulkRequests: Array[IndexRequest] = hits.map { hit =>
-            indexInto(s"$newIndex/${Mappings.dummyType}")
+            indexInto(newIndex)
               .withId(hit.id)
               .source(hit.sourceAsString)
           }
@@ -109,7 +109,7 @@ object Reindex extends EsScript {
         }
 
         def scrollPercentage(scroll: SearchResponse, currentBatch: Long, done: Long): String = {
-          val total = scroll.hits.total
+          val total = scroll.hits.total.value
           // roughly accurate as we're using done, which is relative to scrollSize, rather than the actual number of docs in the new index
           val percentage = (Math.min(done,total).toFloat / total) * 100
           s"Reindexing ${Math.min(currentBatch,total)} of $total ($percentage%)"
@@ -158,7 +158,7 @@ object Reindex extends EsScript {
 
         val queryResponse = IndexClient.client.execute({
           search(currentIndex)
-            .types(Mappings.dummyType)
+//            .types(Mappings.dummyType)
             .scroll(scrollTime)
             .size(scrollSize)
             .query(queryType)
@@ -188,7 +188,7 @@ object Reindex extends EsScript {
         println(s"Pointing ${IndexClient.imagesAlias} to new index: $newIndex")
         IndexClient.changeAliasTo(newIndex, currentIndex)
 
-        val changedDocuments: Long = query(Option(startTime)).hits.total
+        val changedDocuments: Long = query(Option(startTime)).hits.total.value
         println(s"$changedDocuments changed documents since start")
 
         if(changedDocuments > 0) {
@@ -221,7 +221,7 @@ object UpdateMapping extends EsScript {
         println(s"Updating mapping on index: $index")
 
         val result = client.execute {
-          putMapping(IndexesAndType(s"$index/${Mappings.dummyType}")) as {
+          putMapping(Indexes(index)) as {
             Mappings.imageMapping.fields
           }
         }.await
@@ -257,7 +257,7 @@ object GetMapping extends EsScript {
         println(s"Getting mapping on index: $index")
 
         val result = Await.result(client.execute(
-          getMapping(IndexesAndTypes(s"$index/${Mappings.dummyType}"))
+          getMapping(index)
         ), Duration(30, SECONDS))
 
         result.status match {
@@ -366,8 +366,8 @@ object GetSettings extends EsScript {
 abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
   final val esCluster = "media-service"
-  final val esImagesAlias = "writealias"
-  final val esImagesReadAlias = "readalias"
+  final val esImagesAlias = "writeAlias"
+  final val esImagesReadAlias = "readAlias"
   final val esShards = 5
   final val esReplicas = 0
 

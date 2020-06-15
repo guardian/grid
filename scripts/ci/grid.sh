@@ -31,7 +31,7 @@ buildJs() {
 
 buildSbt() {
   echo "##teamcity[compilationStarted compiler='sbt']"
-  sbt clean test riffRaffUpload
+  sbt clean test scripts/compile riffRaffUpload
   echo "##teamcity[compilationFinished compiler='sbt']"
 
 }

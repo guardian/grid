@@ -35,17 +35,17 @@ When you add a mapping e.g. You add a new field to the [image mapping](https://g
 you should add the mapping with this script as we are using [`strict`](http://www.elasticsearch.org/guide/en/elasticsearch/guide/current/dynamic-mapping.html)
 mappings (you cannot just add things willy nilly). Updating mappings is done in 2 steps:
 
-1. Set up a SSH tunnel to the AWS elasticsearch instance: `ssh -L 9300:localhost:9300 <ES_URL>`
+1. Set up a SSH tunnel to the AWS elasticsearch instance: `ssh -L 9200:localhost:9200 <ES_URL>`
 
 2. Run the script:
 ```
     $ sbt
     > scripts/run UpdateMapping <ES_URL>
 ```
-    
+
 Optionally takes an index name. e.g. `> scripts/run UpdateMapping <ES_URL> images_5`
 
-To test the connection without making any changes to the mappings, you can run: `sbt scripts/run GetMapping <ES_URL>`.
+To test the connection without making any changes to the mappings, you can run: `sbt "scripts/run GetMapping <ES_URL>"`.
 
 ### UpdateSettings
 When you need to close the index to update the settings i.e. when you have to add / reconfigure
