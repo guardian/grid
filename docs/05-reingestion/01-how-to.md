@@ -9,9 +9,9 @@ The tooling for this operation is semi-automated, but some manual steps are stil
 The reingestion process is made up of a series of lambdas that manage the reingestion, and a dynamoDB table to track the progress of images through the process. The relevant infrastructure is created as part of the `admin-tools` stack. There are four steps –
 
 1. Install the dependencies in the scripts folder.
-2. Add the image ids to the dynamo table – the ids of the images to be reingested are added to the dynamoDB table and marked as ready.
-3. Reingest the images – the reingestion lambda is repeatedly invoked, working through the ids in the table until all of the images in the table are no longer in the ready state.
-4. Check the images are now present in the Grid – the reingestion checker lambda is repeatedly invoked, checking that images that have been marked as reingested are now present in the Grid.
+2. Add the image ids to the dynamo table.
+3. Reingest the images.
+4. Check the images are now present in the Grid.
 
 ### 1. Install dependencies
 
@@ -24,7 +24,7 @@ This will require `node`, which should have been installed as part of the grid s
 
 The name of the dynamo table is referenced in the batch index lambda with the param `IMAGES_TO_INDEX_DYNAMO_TABLE`.
 
-To upload ids to the table, run `node scripts/reindex-images/upload-ids-to-dynamo.js`. Running this script without arguments will give usage details. 
+To upload ids to the table, run `node scripts/reindex-images/upload-ids-to-dynamo.js`. Running this script without arguments will give usage details.
 
 ### 3. Reingest the images
 
@@ -34,12 +34,12 @@ This can be done for TEST [here](https://eu-west-1.console.aws.amazon.com/lambda
 and for PROD [here](https://eu-west-1.console.aws.amazon.com/lambda/home?region=eu-west-1#/functions/admin-tools-image-batch-index-lambda-PROD?tab=configuration).  You will need
 to acquire credentials through Janus.
 
-The reindex lambda –
+The reindex lambda will then be repeatedly invoked by the EventBridge expression, carrying out the following operations in batches –
 
-- Calls the `image-projection` lambda, which
+- Call the `image-projection` lambda, which
   - Asks the `image-loader` service for its image
   - If the image is present, gathers any information the Grid data services contain about it – usages, collection data, leases, and crops – merges that data with the response from `image-loader`, and returns the lot as an `Image`
-- Adds the `Image`, if it exists, to a `reingest-image` message, which is posted on the low-priority `thrall` queue.
+- Issue a `reingest-image` message with the returned `Image`, which is posted on the low-priority `thrall` queue.
 
 The images are processed on `admin-tools`-specific `image-loader` boxes, and the reingestion messages are sent to the low-priority queue, so reingestion should not affect the performance of PROD.
 
@@ -55,15 +55,13 @@ Don't forget to turn off the EventBridge source once this process is complete!
 
 At the end of step 2., every image that has been succesfully processed should have been added to the `thrall` queue as a `reingest-image` message. There's no guarantee, however, that these messages have been processed. This step checks that the images marked as submitted have been processed successfully.
 
-As with step 3., to run the image checker lambda, turn the EventBridge source for the lambda on. At the time of writing, this lambda is called `admin-tools-image-batch-check-lambda-{STAGE}`.
+As with step 3., to run the image checker lambda, turn the EventBridge source for the lambda on and wait until the lambda has exhausted its source of images. At the time of writing, this lambda is called `admin-tools-image-batch-check-lambda-{STAGE}`.
 
 You should be able to see the checking process in the metrics tool as before.
 
 ## How to tweak settings to adjust e.g. throughput
 
-See self-explanatory environment variables on the lambda.
-
-- Add example of how to get current state of reingestion bucket via script
+See environment variables on the lambda, which should document themselves.
 
 ## States
 
