@@ -12,6 +12,11 @@ The reingestion process is made up of a series of lambdas that manage the reinge
 2. Reingest the images – the reingestion lambda is repeatedly invoked, working through the ids in the table until all of the images in the table are no longer in the ready state.
 3. Check the images are now present in the Grid – the reingestion checker lambda is repeatedly invoked, checking that images that have been marked as reingested are now present in the Grid.
 
+## 0. Install dependencies
+
+1. `cd scripts/reindex-images/`
+1. `npm install`
+
 ## 1. Add the ids to the dynamo table
 
 The name of the dynamo table is referenced in the batch index lambda with the param `IMAGES_TO_INDEX_DYNAMO_TABLE`.
@@ -20,7 +25,11 @@ To upload ids to the table, run `node scripts/reindex-images/upload-ids-to-dynam
 
 ## 2. Reingest the images
 
-Once the image ids are available in dynamoDB, to begin reingestion, turn the EventBridge source for the image reingestion lambda on. At the time of writing, this lambda is called `admin-tools-image-batch-index-lambda-{STAGE}`.
+Once the image ids are available in dynamoDB, to begin reingestion, turn the EventBridge source for the image reingestion lambda on. At the time of writing, this lambda is called `admin-tools-image-batch-index-lambda-{STAGE}`, where `STAGE` is TEST or PROD.
+
+This can be done for TEST [here](https://eu-west-1.console.aws.amazon.com/lambda/home?region=eu-west-1#/functions/admin-tools-image-batch-index-lambda-TEST?tab=configuration)
+and for PROD [here](https://eu-west-1.console.aws.amazon.com/lambda/home?region=eu-west-1#/functions/admin-tools-image-batch-index-lambda-PROD?tab=configuration).  You will need
+to acquire credentials through Janus.
 
 This lambda –
 
@@ -46,7 +55,18 @@ You should be able to see the checking process in the metrics tool as before.
 
 @todo
 
-- Add notes on how to tweak settings to adjust e.g. throughput
+## How to tweak settings to adjust e.g. throughput
+
+See self-explanatory environment variables on the lambda.
+
 - Add example of how to get current state of reingestion bucket via script
-- Add notes on different states
-- Add wishlist for future infra work to improve this process?
+
+## States
+
+Each image has a self-documenting state on its entry in dynamo.
+
+See ./admin-tools/lib/src/main/scala/com/gu/mediaservice/indexing/IndexInputCreation.scala
+
+## Wishlist (future development)
+
+1. 
