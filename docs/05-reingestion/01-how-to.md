@@ -71,4 +71,4 @@ See ./admin-tools/lib/src/main/scala/com/gu/mediaservice/indexing/IndexInputCrea
 
 ## Wishlist (future development)
 
-TBC!
+- It would be useful to automate more of this process, especially if we would like to use this workflow for periodic reindexes.
