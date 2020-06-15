@@ -242,7 +242,7 @@
             <dd ng:if="ctrl.metadata.peopleInImage.length > 0"
                 class="image-info__group--dl__value metadata-line__info">
                 <span class="metadata-line__info">
-                    <span ng:repeat="person in ctrl.metadata.peopleInImage">
+                    <span ng:repeat="person in ctrl.metadata.peopleInImage" class="metadata-line__info--nowrap">
                         <a ui:sref="search.results({query: (person | queryFilter:'person')})">{{person}}</a>
                         <span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1">, </span>
                     </span>
