@@ -9,7 +9,7 @@ object IndexInputCreation {
   val Reset = ProduceProgress("reset because of failure", 0)
   val KnownError = ProduceProgress("blacklisted because of known failure", 4)
   val Locating = ProduceProgress("looking for image", 5)
-  val Verified = ProduceProgress("image verified in media-api", 6)
+  val Verified = ProduceProgress("image verified in media-api – reingestion complete", 6)
   val Inconsistent = ProduceProgress("re-ingested image not found in media-api", 7)
   val UnknownError = ProduceProgress("blacklisted because of unknown failure", 8)
   val TooBig = ProduceProgress("too big, putting back down", 9001)
