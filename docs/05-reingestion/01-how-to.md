@@ -45,7 +45,7 @@ You can check the progress of the reingestion in [the metrics tool](https://metr
 
 Once there are no more images to process, we'd expect most images to be in the `enqueued` state – see the [states](#states) section below for details.
 
-If you'd like a full description of the current table state,the script `scan-dynamo-table-for-image-statuses.js` will dump the current state of the reingestion table into a file for inspection.
+If you'd like a full description of the current table state,the script `scan-dynamo-table-for-image-statuses.js` will dump the current state of the reingestion table into a file for inspection. Running the script without arguments should document its usage.
 
 Don't forget to turn off the EventBridge source once this process is complete!
 
