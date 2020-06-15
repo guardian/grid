@@ -1823,7 +1823,7 @@ FIXME: what to do with touch devices
     border-bottom: 1px solid #999;
 }
 .metadata-line__info--nowrap {
-  white-space: no-wrap;
+  white-space: nowrap;
 }
 .metadata-line__key {
     font-weight: bold;
