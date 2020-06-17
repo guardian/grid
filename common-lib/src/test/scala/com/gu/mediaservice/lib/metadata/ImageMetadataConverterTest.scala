@@ -10,22 +10,23 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   it("should return an empty ImageMetadata for empty FileMetadata") {
     val fileMetadata = FileMetadata(Map(), Map(), Map(), Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.dateTaken should be('empty)
-    imageMetadata.description should be('empty)
-    imageMetadata.credit should be('empty)
-    imageMetadata.byline should be('empty)
-    imageMetadata.bylineTitle should be('empty)
-    imageMetadata.title should be('empty)
-    imageMetadata.copyrightNotice should be('empty)
-    imageMetadata.copyright should be('empty)
-    imageMetadata.suppliersReference should be('empty)
-    imageMetadata.source should be('empty)
-    imageMetadata.specialInstructions should be('empty)
-    imageMetadata.keywords should be('empty)
-    imageMetadata.subLocation should be('empty)
-    imageMetadata.city should be('empty)
-    imageMetadata.state should be('empty)
-    imageMetadata.country should be('empty)
+    imageMetadata.dateTaken should be ('empty)
+    imageMetadata.description should be ('empty)
+    imageMetadata.credit should be ('empty)
+    imageMetadata.byline should be ('empty)
+    imageMetadata.bylineTitle should be ('empty)
+    imageMetadata.title should be ('empty)
+    imageMetadata.copyrightNotice should be ('empty)
+    imageMetadata.copyright should be ('empty)
+    imageMetadata.suppliersReference should be ('empty)
+    imageMetadata.source should be ('empty)
+    imageMetadata.specialInstructions should be ('empty)
+    imageMetadata.keywords should be ('empty)
+    imageMetadata.subLocation should be ('empty)
+    imageMetadata.city should be ('empty)
+    imageMetadata.state should be ('empty)
+    imageMetadata.country should be ('empty)
+    imageMetadata.peopleInImage should be ('empty)
   }
 
   it("should populate string fields of ImageMetadata from default FileMetadata fields") {
@@ -362,6 +363,60 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
 
   it("should clean up machine dates with invalid BST time zone without subsecond precision into iso format") {
     ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03 BST 2014") shouldBe "2014-12-16T00:02:03.000Z"
+  }
+
+
+  // People in Image
+
+  it("should populate peopleInImage field of ImageMetadata from corresponding xmp iptc ext fields") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage" -> JsArray(Seq(JsString("person 1")))))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (Set("person 1"))
+  }
+
+  it("should populate peopleInImage field of ImageMetadata from multiple corresponding people xmp fields") {
+    val fileMetadata = FileMetadata(
+      Map(), Map(), Map(),
+      Map("Iptc4xmpExt:PersonInImage" ->
+        JsArray(Seq(
+          JsString("person 1"),
+          JsString("person 2"),
+          JsString("person 3"))),
+      "GettyImagesGIFT:Personality" ->
+      JsArray(Seq(JsString("person 4")))
+      )
+    )
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (Set("person 1","person 2","person 3","person 4"))
+  }
+
+  it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp iptc ext fields") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(),
+      Map("Iptc4xmpExt:PersonInImage" ->
+        JsArray(Seq(
+          JsString("person 1"),
+          JsString("person 2"),
+          JsString("person 2")
+        ))
+      ))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (Set("person 1","person 2"))
+  }
+
+  it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp people fields") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(),
+      Map(
+        "Iptc4xmpExt:PersonInImage" -> JsArray(Seq(
+          JsString("person 1"),
+          JsString("person 2")
+        )),
+        "GettyImagesGIFT:Personality" -> JsArray(Seq(
+          JsString("person 2")
+        ))
+      )
+    )
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (Set("person 1","person 2"))
   }
 
 
