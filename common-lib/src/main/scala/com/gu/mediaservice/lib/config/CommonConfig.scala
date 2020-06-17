@@ -47,6 +47,8 @@ trait CommonConfig extends AwsClientBuilderUtils {
   lazy val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
   lazy val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
 
+  lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase == "true"
+
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
   lazy val rootAppName: String = properties.getOrElse("app.name.root", "media")
