@@ -12,7 +12,7 @@ export const getMetadataDiff = (image, metadata) => {
     }
 
     //This only works with string fields and does not support arrays
-    if (Array.isArray(metadata[key]) || Array.isArray()) {
+    if (Array.isArray(metadata[key]) || Array.isArray(originalMetadata[key])) {
       return;
     }
 

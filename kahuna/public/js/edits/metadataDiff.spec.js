@@ -17,9 +17,9 @@ describe('metadataDiff', () => {
     expect(diff).toStrictEqual(expected);
   });
 
-  it("finds a changed string field in the presence of an array (in known location)", () => {
-    const initial = { field: "value", keywords: ["value 2"] };
-    const changed = { field: "changed", keywords: ["value 2"] };
+  it("finds a changed string field in the presence of an array", () => {
+    const initial = { field: "value", array1: ["value 2"] };
+    const changed = { field: "changed", array2: ["value 2"] };
     const expected = { field: "changed" };
     const diff = getMetadataDiff({ data: { originalMetadata: initial } }, changed);
     expect(diff).toStrictEqual(expected);
