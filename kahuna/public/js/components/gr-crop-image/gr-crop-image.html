@@ -1,5 +1,6 @@
 <span ng-if="ctrl.canBeCropped">
-    <a class="inner-clickable clickable side-padded"
+    <a  data-cy="crop-image-button"
+        class="inner-clickable clickable side-padded"
         ui-sref="crop({imageId: ctrl.image.data.id})"
         gr-track-click="Crop image button"
         gr-track-click-data="{'Location': ctrl.trackingLocation}"

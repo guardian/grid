@@ -11,6 +11,7 @@
             x:
             <form class="top-bar-item__form">
                 <input
+                    data-cy="crop-x-value-input"
                     type="number"
                     min="0"
                     max="{{ctrl.maxInputX()}}"
@@ -21,7 +22,8 @@
             y:
             <form class="top-bar-item__form">
                 <input
-                    type="number"
+                  data-cy="crop-y-value-input"
+                  type="number"
                     min="0"
                     max="{{ctrl.maxInputY()}}"
                     class="top-bar-item__form__input"
@@ -33,7 +35,8 @@
         <div class="top-bar-item side-padded">
             <form class="top-bar-item__form">
                 <input
-                    type="number"
+                  data-cy="crop-width-input"
+                  type="number"
                     min="1"
                     max="{{ctrl.originalWidth}}"
                     class="top-bar-item__form__input"
@@ -43,7 +46,8 @@
             &times;
             <form class="top-bar-item__form" ng-disabled="ctrl.freeRatio">
                 <input
-                    type="number"
+                  data-cy="crop-height-input"
+                  type="number"
                     min="1"
                     max="{{ctrl.originalHeight}}"
                     class="top-bar-item__form__input"
