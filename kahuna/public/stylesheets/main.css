@@ -1822,7 +1822,9 @@ FIXME: what to do with touch devices
     color: inherit;
     border-bottom: 1px solid #999;
 }
-
+.metadata-line__info--nowrap {
+  white-space: nowrap;
+}
 .metadata-line__key {
     font-weight: bold;
     color: #999;
