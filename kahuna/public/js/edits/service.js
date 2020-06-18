@@ -239,10 +239,11 @@ service.factory('editsService',
         var keys = new Set(Object.keys(metadata).concat(
             Object.keys(image.data.originalMetadata)));
 
-        // Keywords and subjects are arrays, the comparison below only works with string comparison.
+        // Keywords, peopleInImage and subjects are arrays, the comparison below only works with string comparison.
         // For simplicity, ignore them as we're not updating these fields at the moment.
         keys.delete('keywords');
         keys.delete('subjects');
+        keys.delete('peopleInImage');
 
         keys.forEach((key) => {
             if (metadata[key] && angular.isUndefined(image.data.originalMetadata[key])) {
@@ -300,7 +301,7 @@ service.factory('editsService',
     }
 
 
-    function batchUpdateMetadataField (images, field, value, editOption = overwrite.key) {
+    function batchUpdateMetadataField(images, field, value, editOption = overwrite.key) {
         return trackAll($rootScope, field, images, image => {
             const newFieldValue = getNewFieldValue(image, field, value, editOption);
             return updateMetadataField(image, field, newFieldValue);
