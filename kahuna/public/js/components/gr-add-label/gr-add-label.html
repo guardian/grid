@@ -18,7 +18,8 @@
         class="job-info--editor__input"
         gr-search="ctrl.labelSearch(q)">
 
-        <input type="text"
+        <input data-cy="label-input"
+               type="text"
                class="text-input gr-add-label__form__input show-no-error"
                placeholder="label1, label2, label3…"
                gr-datalist-input
@@ -36,6 +37,7 @@
             <gr-icon-label gr-icon="close"><span ng-hide="ctrl.grSmall">Cancel</span></gr-icon-label>
         </button>
         <button
+            data-cy="save-new-label-button"
             class="gr-add-label__form__buttons__button-save button-save"
             type="submit"
             title="Save new label"

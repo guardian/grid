@@ -6,7 +6,8 @@
            multiple
            gr-file-change="ctrl.uploadFiles($files)" />
 
-    <button class="file-uploader__select-files button"
+    <button data-cy="upload-button"
+            class="file-uploader__select-files button"
             gr-track-click="Upload action"
             gr-track-click-data="{ 'Action': 'Button click' }">
         <gr-icon-label gr-icon="file_upload">Upload</gr-icon-label>
