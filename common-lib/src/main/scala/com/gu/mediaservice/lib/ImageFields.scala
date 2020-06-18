@@ -50,6 +50,7 @@ trait ImageFields {
     "croppedBy" -> "exports.author",
     "filename"  -> "uploadInfo.filename",
     "photoshoot"-> photoshootField("title"),
+    "leases" -> "leases.leases",
     "leasedBy" -> "leases.leases.leasedBy",
     "people" -> "peopleInImage"
   )
