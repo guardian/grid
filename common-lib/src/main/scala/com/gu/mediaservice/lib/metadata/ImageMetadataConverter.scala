@@ -6,7 +6,7 @@ import org.joda.time.format._
 import scala.util.Try
 import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 import play.api.Logger
-import play.api.libs.json.{JsArray, JsValue, JsString}
+import play.api.libs.json.{JsArray, JsString}
 
 object ImageMetadataConverter {
 
@@ -22,23 +22,6 @@ object ImageMetadataConverter {
       .flatMap(Subject.create)
       .map(_.toString)
       .distinct
-  }
-
-private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): Seq[String] =
-  fileMetadata.xmp.get(field) match {
-    case Some(JsArray(items)) => items.toList.flatMap {
-      case JsString(value) => Some(value)
-      case _ => None
-    }
-    case Some(value) => List(value.toString)
-    case _ => List()
-  }
-
-
-  private def extractPeople(fileMetadata: FileMetadata): Set[String] = {
-    val xmpIptcPeople = extractXMPArrayStrings("Iptc4xmpExt:PersonInImage", fileMetadata)
-    val xmpGettyPeople = extractXMPArrayStrings("GettyImagesGIFT:Personality", fileMetadata)
-    (xmpIptcPeople ++ xmpGettyPeople).toSet
   }
 
   def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata = {
@@ -94,9 +77,7 @@ private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): S
                             fileMetadata.iptc.get("Province/State"),
       country             = readXmpHeadStringProp("photoshop:Country") orElse
                             fileMetadata.iptc.get("Country/Primary Location Name"),
-      subjects            = extractSubjects(fileMetadata),
-      peopleInImage       = extractPeople(fileMetadata)
-    )
+      subjects            = extractSubjects(fileMetadata))
   }
 
   // IPTC doesn't appear to enforce the datetime format of the field, which means we have to
