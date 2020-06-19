@@ -52,7 +52,7 @@
                     e:form="titleEditForm">{{ctrl.metadata.title}}</dd>
             </div>
 
-            <div class="image-info__wrap metadata-line__info" ng-if="ctrl.metadata.description || ctrl.userCanEdit">
+            <div data-cy="metadata-description" class="image-info__wrap metadata-line__info" ng-if="ctrl.metadata.description || ctrl.userCanEdit">
                 <button data-cy="it-edit-description-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
@@ -98,7 +98,7 @@
             <dd class="image-info__group--dl__value metadata-line__info" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
 
             <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
-            <dd class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="ctrl.metadata.byline || ctrl.userCanEdit">
+            <dd data-cy="metadata-byline" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="ctrl.metadata.byline || ctrl.userCanEdit">
                 <button data-cy="it-edit-byline-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
@@ -124,7 +124,7 @@
             </dd>
 
             <dt ng-if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__credit image-info__wrap image-info__group--dl__key metadata-line__key">Credit</dt>
-            <dd ng-if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
+            <dd data-cy="metadata-credit" ng-if="ctrl.metadata.credit || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
                 <button data-cy="it-edit-credit-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
@@ -168,7 +168,7 @@
 
 
             <dt ng-if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__key metadata-line__key">Copyright</dt>
-            <dd ng-if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
+            <dd data-cy="metadata-copyright" ng-if="ctrl.metadata.copyright || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
                 <button data-cy="it-edit-copyright-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
