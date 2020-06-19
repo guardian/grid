@@ -52,7 +52,7 @@ trait ImageFields {
     "photoshoot"-> photoshootField("title"),
     "leases" -> "leases.leases",
     "leasedBy" -> "leases.leases.leasedBy",
-    "people" -> "peopleInImage"
+    "people" -> metadataField("peopleInImage")
   )
 
   def getFieldPath(field: String) = field match {
