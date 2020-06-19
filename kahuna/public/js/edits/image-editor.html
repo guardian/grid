@@ -103,7 +103,10 @@
                 <div class="result-editor__usage-rights-container">
                     <div ng-hide="ctrl.showUsageRights" class="result-editor__field-value">
                         <span>{{ctrl.usageRightsCategory || 'None'}}</span>
-                        <button class="image-info__edit" ng-click="ctrl.showUsageRights = !ctrl.showUsageRights">
+                        <button
+                          data-cy="edit-rights-button"
+                          class="image-info__edit"
+                          ng-click="ctrl.showUsageRights = !ctrl.showUsageRights">
                             <gr-icon>edit</gr-icon>
                         </button>
                         <button
