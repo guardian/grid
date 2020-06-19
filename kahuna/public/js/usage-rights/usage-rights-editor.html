@@ -185,7 +185,8 @@
             <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
         </button>
 
-        <button class="ure__action button-ico button-save"
+        <button data-cy="save-usage-rights"
+            class="ure__action button-ico button-save"
             type="submit"
             title="save usage rights overrides"
             ng-disabled="ctrl.savingDisabled || !usageRights.$valid">
