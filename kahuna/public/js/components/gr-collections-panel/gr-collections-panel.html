@@ -10,7 +10,8 @@
     <div class="flex-container collections-panel-heading text-small" ng-if="! ctrl.error">
         <div class="flex-spacer">Collections</div>
 
-        <button ng-class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
+        <button data-cy="edit-collections-button"
+                ng-class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
                 ng-click="$parent.editing = !$parent.editing">
             <gr-icon-label ng-if="! $parent.editing"
                            gr-icon="edit">Edit</gr-icon-label>
@@ -19,6 +20,7 @@
         </button>
     </div>
     <gr-collection-tree gr-nodes="ctrl.collections"
+              data-cy="collection-tree"
               gr-editing="editing"
               gr-selected-images="ctrl.selectedImages$"
               gr-selected-collections="ctrl.selectedCollections">

@@ -1,5 +1,6 @@
 <div ng-init="node = ctrl.node" class="hover-parent">
-    <div class="node__info flex-container"
+    <div data-cy="{{node.data.data.description + '-collection'}}"
+         class="node__info flex-container"
          ng-class="{'node__info--selected' : ctrl.isSelected}"
          gr-drop-into-collection="node.data.fullPath">
 
@@ -25,7 +26,8 @@
             {{:: node.data.data.description}}
         </button>
 
-        <a ng-if="! ctrl.hasCustomSelect"
+        <a data-cy="collection-child-link"
+           ng-if="! ctrl.hasCustomSelect"
            class="node__name flex-spacer"
            ui-sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
             {{:: node.data.data.description}}
@@ -37,7 +39,8 @@
                            gr-on-confirm="ctrl.remove()">
         </gr-confirm-delete>
 
-        <button class="node__action clickable"
+        <button data-cy="create-new-folder-button"
+                class="node__action clickable"
                 type="button"
                 title="Add a new sub-collection"
                 ng-if="grCollectionTreeCtrl.editing"
@@ -66,7 +69,8 @@
     </div>
 
     <form class="node__add-child" ng-if="active" ng-submit="ctrl.addChild(childName);">
-        <input  gr-auto-focus
+        <input  data-cy="collection-child-input"
+                gr-auto-focus
                 class="text-input node__add-child-input"
                 type="text"
                 required
@@ -76,7 +80,7 @@
         <div class="error error--small" ng-if="formError">{{formError}}</div>
 
         <div class="node__add-child-buttons">
-            <button type="submit" class="button-save" title="Save">
+            <button data-cy="save-child-button" type="submit" class="button-save" title="Save">
                 <gr-icon-label gr-icon="check"></gr-icon-label>
             </button>
             <button type="button" class="button-cancel" ng-click="clearForm()" title="Cancel">
