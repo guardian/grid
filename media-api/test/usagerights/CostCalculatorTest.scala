@@ -1,4 +1,4 @@
-package lib.usagerights
+CommissionedAgencypackage lib.usagerights
 
 import com.gu.mediaservice.model._
 import lib.UsageQuota
@@ -22,14 +22,14 @@ class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
     }
 
     it("should be free with a free category") {
-      val usageRights = Handout()
+      val usageRights = CommissionedAgency()
       val cost = Costing.getCost(usageRights)
 
       cost should be (Free)
     }
 
     it("should be conditional with a free category and restrictions") {
-      val usageRights = Handout(
+      val usageRights = CommissionedAgency(
         restrictions = Some("Restrictions")
       )
       val cost = Costing.getCost(usageRights)
