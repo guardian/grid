@@ -1,4 +1,4 @@
-CommissionedAgencypackage lib.usagerights
+package lib.usagerights
 
 import com.gu.mediaservice.model._
 import lib.UsageQuota
