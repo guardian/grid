@@ -1,27 +1,35 @@
 package com.gu.mediaservice.model.usage
 
 import org.joda.time.DateTime
+import play.api.Logger
 
 case class UsageId(id: String) {
   override def toString = id
 }
 
 case class MediaUsage(
-                       usageId: UsageId,
-                       grouping: String,
-                       mediaId: String,
-                       usageType: UsageType,
-                       mediaType: String,
-                       status: UsageStatus,
-                       printUsageMetadata: Option[PrintUsageMetadata],
-                       digitalUsageMetadata: Option[DigitalUsageMetadata],
-                       syndicationUsageMetadata: Option[SyndicationUsageMetadata],
-                       frontUsageMetadata: Option[FrontUsageMetadata],
-                       downloadUsageMetadata: Option[DownloadUsageMetadata],
-                       lastModified: DateTime,
-                       dateAdded: Option[DateTime] = None,
-                       dateRemoved: Option[DateTime] = None
-                     ) {
+  usageId: UsageId,
+  grouping: String,
+  mediaId: String,
+  usageType: UsageType,
+  mediaType: String,
+  status: UsageStatus,
+  printUsageMetadata: Option[PrintUsageMetadata],
+  digitalUsageMetadata: Option[DigitalUsageMetadata],
+  syndicationUsageMetadata: Option[SyndicationUsageMetadata],
+  frontUsageMetadata: Option[FrontUsageMetadata],
+  downloadUsageMetadata: Option[DownloadUsageMetadata],
+  lastModified: DateTime,
+  dateAdded: Option[DateTime] = None,
+  dateRemoved: Option[DateTime] = None
+) {
+
+  def isGridLikeId: Boolean = {
+    // remove events from CAPI that represent images previous to Grid existing
+    Logger.info(s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
+    !mediaId.startsWith("gu-image-")
+  }
+
   def isRemoved: Boolean = (for {
     added <- dateAdded
     removed <- dateRemoved

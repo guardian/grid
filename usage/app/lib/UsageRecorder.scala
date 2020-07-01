@@ -115,7 +115,10 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
   private def getNotificationStream(dbUpdateStream: Observable[MatchedUsageUpdate]) = {
     dbUpdateStream.flatMap(matchedUsageUpdates => {
       def buildNotifications(usages: Set[MediaUsage]) = Observable.from(
-        usages.map(_.mediaId).toList.distinct.map(usageNotice.build))
+        usages
+          .filter(_.isGridLikeId)
+          .map(_.mediaId)
+          .toList.distinct.map(usageNotice.build))
 
       val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
       val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
