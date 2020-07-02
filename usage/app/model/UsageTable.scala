@@ -35,6 +35,10 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   }
 
   def queryByImageId(id: String): Future[Set[MediaUsage]] = Future {
+
+    if (id.isEmpty)
+      throw new Exception("Empty string received for image id")
+
     val imageIndex = table.getIndex(imageIndexName)
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
