@@ -68,4 +68,9 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
 
   def baseUri(host: String) = s"https://$host"
+
+  val cypressDevOrigin = "http://localhost:9876"
+
+  val cypressOrigins: Set[String] = Set(cypressDevOrigin)
+
 }
