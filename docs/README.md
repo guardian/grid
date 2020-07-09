@@ -22,6 +22,10 @@
 ## [Troubleshooting](04-troubleshooting/)
 - [NGINX](04-troubleshooting/01-nginx.md)
 - [SBT](04-troubleshooting/02-sbt.md)
+- [Authentication](04-troubleshooting/03-authentication.md)
+
+## [Reingestion](05-reingestion/)
+- [Image reingestion](05-reingestion/01-how-to.md)
 
 ## [Archives](99-archives/)
 - [DEV Cloudformation Setup](99-archives/01-cloudformation.md)
