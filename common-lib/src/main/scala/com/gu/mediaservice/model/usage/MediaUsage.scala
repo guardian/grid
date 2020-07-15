@@ -17,6 +17,7 @@ case class MediaUsage(
                        digitalUsageMetadata: Option[DigitalUsageMetadata],
                        syndicationUsageMetadata: Option[SyndicationUsageMetadata],
                        frontUsageMetadata: Option[FrontUsageMetadata],
+                       downloadUsageMetadata: Option[DownloadUsageMetadata],
                        lastModified: DateTime,
                        dateAdded: Option[DateTime] = None,
                        dateRemoved: Option[DateTime] = None
