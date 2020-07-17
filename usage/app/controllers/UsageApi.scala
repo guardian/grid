@@ -125,9 +125,13 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
             data = usages.map(wrapUsage)
           )
       }
-    }).recover { case error: Exception =>
-      Logger.error("UsageApi returned an error.", error)
-      respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
+    }).recover {
+      case error: BadInputException =>
+        Logger.error("UsageApi returned an error.", error)
+        respondError(BadRequest, "image-usage-retrieve-failed", error.getMessage)
+      case error: Exception =>
+        Logger.error("UsageApi returned an error.", error)
+        respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
     }
   }
 
@@ -205,6 +209,9 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)
     }).recover{
+      case error: BadInputException =>
+        Logger.warn("UsageApi returned an error.", error)
+        respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
       case error: Exception =>
         Logger.error("UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)

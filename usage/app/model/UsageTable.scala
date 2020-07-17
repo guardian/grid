@@ -6,7 +6,7 @@ import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
-import lib.UsageConfig
+import lib.{BadInputException, UsageConfig}
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
@@ -35,6 +35,10 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   }
 
   def queryByImageId(id: String): Future[Set[MediaUsage]] = Future {
+
+    if (id.trim.isEmpty)
+      throw new BadInputException("Empty string received for image id")
+
     val imageIndex = table.getIndex(imageIndexName)
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
