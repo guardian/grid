@@ -28,6 +28,8 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
   // quota updates can only be turned off in DEV
   lazy val quotaUpdateEnabled: Boolean = if (isDev) properties.getOrElse("quota.update.enabled", "false").toBoolean else true
 
+  lazy val recordDownloadAsUsage: Boolean = boolean("image.record.download")
+
   lazy val imagesAlias: String = properties.getOrElse("es.index.aliases.read", configuration.get[String]("es.index.aliases.read"))
 
   lazy val elasticsearch6Url: String =  properties("es6.url")

@@ -120,6 +120,7 @@ function getMediaApiConfig(config) {
         |quota.store.key=rcs-quota.json
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
+        |image.record.download=false
         |`;
 }
 
