@@ -38,7 +38,6 @@ image.controller('uiPreviewImageCtrl', [
         imageService,
         imageUsagesService) {
     var ctrl = this;
-
     const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
         if (ctrl.image.data.id === updatedImage.data.id) {
             ctrl.states = imageService(updatedImage).states;
@@ -51,6 +50,10 @@ image.controller('uiPreviewImageCtrl', [
     ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
         `Staff Image: ${ctrl.image.data.metadata.description}` :
         ctrl.image.data.metadata.description;
+
+    const queryTerms = (ctrl.query || "").split(" ");
+    const description = ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;';
+    ctrl.descriptionHighlighted = description.split(" ").map(term => queryTerms.includes(term) ? { term, highlight: true } : { term });
 
     ctrl.flagState = ctrl.states.costState;
 
@@ -81,7 +84,8 @@ image.directive('uiPreviewImage', function() {
         scope: {
             image: '=',
             hideInfo: '=',
-            selectionMode: '='
+            selectionMode: '=',
+            query: '&'
         },
         // extra actions can be transcluded in
         transclude: true,
@@ -99,7 +103,9 @@ image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
             scope: {
                 image: '=',
                 hideInfo: '=',
-                selectionMode: '='
+                selectionMode: '=',
+                query: '&'
+
             },
             // extra actions can be transcluded in
             transclude: true,
@@ -108,6 +114,7 @@ image.directive('uiPreviewImageLarge', ['observe$', 'inject$', 'imgops',
             controllerAs: 'ctrl',
             bindToController: true,
             link: function(scope, element, attrs, ctrl) {
+
                 ctrl.loading = false;
                 const image$ = new Rx.Subject();
 

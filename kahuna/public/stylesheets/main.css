@@ -133,6 +133,10 @@ textarea {
     resize: vertical;
 }
 
+mark {
+  padding: 2px;
+}
+
 /* annoyingly we have to have these seperate as the moz-placeholder breaks the
 Chrome selector */
 input[disabled],

@@ -82,7 +82,15 @@
         <p class="preview__description"
            title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
             <!-- Ensure contents in P to maintain height -->
-            {{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}
+            <span ng-repeat="word in ctrl.descriptionHighlighted">
+              <span ng-if="word.highlight">
+                <mark>{{word.term}}</mark>
+              </span>
+              <span ng-if="!word.highlight">
+                {{word.term}}
+              </span>
+
+            </span>
         </p>
     </div>
 

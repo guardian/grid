@@ -3,7 +3,6 @@
      class="image-loading-results">
     Fetching images…
 </div>
-
 <div ng-if="! ctrl.loading">
     <div ng-if="ctrl.loadingError">
         Error loading results: {{ctrl.loadingError}}
@@ -133,7 +132,9 @@
                     <ui-preview-image image="image"
                                       selection-mode="ctrl.inSelectionMode"
                                       ng-class="{'preview__quick-select': ctrl.inSelectionMode}"
-                                      ng-click="ctrl.onImageClick(image, $event)">
+                                      ng-click="ctrl.onImageClick(image, $event)"
+                                      query="ctrl.query"
+                                      >
                         <button class="mark-as-seen image-action"
                                 title="Mark all images until this point as seen"
                                 ui-localstore="search.seenFrom"

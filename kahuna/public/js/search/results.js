@@ -97,6 +97,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.images = [];
         ctrl.newImagesCount = 0;
+        ctrl.query = $stateParams.query || "";
 
         // Preview control
         ctrl.previewView = false;
