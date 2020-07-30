@@ -235,12 +235,25 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
     }
 
     describe("nested usage") {
-      it("should match nested usage query") {
+      it("should match nested usage status query") {
         Parser.run("usages@status:pending") should be (List(
           Nested(
             SingleField("usages"),
             SingleField("usages.status"),
             Words("pending")
+          ))
+        )
+      }
+
+      it("should match nested usage reference query") {
+        Parser.run("usages@reference:foo") should be (List(
+          Nested(
+            SingleField("usages"),
+            MultipleField(List(
+              "usages.references.uri",
+              "usages.references.name"
+            )),
+            Words("foo")
           ))
         )
       }
