@@ -31,6 +31,7 @@ export const filterFields = [
     'usages@>added',
     'usages@platform',
     'usages@status',
+    'usages@reference',
     'has',
     'croppedBy',
     'filename',
