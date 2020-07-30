@@ -240,7 +240,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
           Nested(
             SingleField("usages"),
             SingleField("usages.status"),
-            Words("pending")
+            Phrase("pending")
           ))
         )
       }
@@ -253,7 +253,20 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
               "usages.references.uri",
               "usages.references.name"
             )),
-            Words("foo")
+            Phrase("foo")
+          ))
+        )
+      }
+
+      it("should match nested usage reference query with url supplied") {
+        Parser.run("usages@reference:https://generic.cms/1234") should be (List(
+          Nested(
+            SingleField("usages"),
+            MultipleField(List(
+              "usages.references.uri",
+              "usages.references.name"
+            )),
+            Phrase("https://generic.cms/1234")
           ))
         )
       }

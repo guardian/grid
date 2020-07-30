@@ -46,7 +46,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def IsFieldName = rule { "is" }
   def IsMatchValue = rule { String ~> IsValue }
 
-  def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ MatchValue }
+  def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ ExactMatchValue }
   def NestedDateMatch = rule { ParentField ~ "@" ~ DateConstraintMatch ~> (
     (parentField: Field, dateMatch: Match) => {
       Nested(parentField, dateMatch.field, dateMatch.value)
