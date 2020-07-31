@@ -50,10 +50,16 @@ image.controller('uiPreviewImageCtrl', [
     ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
         `Staff Image: ${ctrl.image.data.metadata.description}` :
         ctrl.image.data.metadata.description;
-
-    const queryTerms = `${ctrl.query}`.split(" ");
-    const description = ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;';
-    ctrl.descriptionHighlighted = description.split(" ").map(term => queryTerms.includes(term) ? { term, highlight: true } : { term });
+      const queryTerms = `${ctrl.query()}`.split(" ").filter(_=>_.length > 2);
+      const description = ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;';
+      ctrl.descriptionHighlighted = description.split(" ").map(term => {
+        const normalisedTerm = term.replace(/[^a-zA-Z0-9]/g, '');
+        if (queryTerms.some(queryTerm => (normalisedTerm.localeCompare(queryTerm, undefined, { sensitivity: 'base' }) == 0)))
+        {
+          return { term, highlight: true };
+        }
+        return { term };
+      });
 
     ctrl.flagState = ctrl.states.costState;
 
