@@ -51,7 +51,7 @@ image.controller('uiPreviewImageCtrl', [
         `Staff Image: ${ctrl.image.data.metadata.description}` :
         ctrl.image.data.metadata.description;
 
-    const queryTerms = (ctrl.query || "").split(" ");
+    const queryTerms = `${ctrl.query}`.split(" ");
     const description = ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;';
     ctrl.descriptionHighlighted = description.split(" ").map(term => queryTerms.includes(term) ? { term, highlight: true } : { term });
 
