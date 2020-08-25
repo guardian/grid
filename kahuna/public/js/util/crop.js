@@ -8,9 +8,10 @@ const portrait = {key: 'portrait', ratio: 4 / 5, ratioString: '4:5'};
 const video = {key: 'video', ratio: 16 / 9, ratioString: '16:9'};
 const square = {key: 'square', ratio: 1, ratioString: '1:1'};
 const freeform = {key: 'freeform', ratio: null};
-const editionsCoverCard = {key: 'cover card', ratio: 10 / 18, ratioString: '10:18'};
+const editionsCoverCard = {key: 'cover card', ratio: 10 / 17, ratioString: '10:17'};
+const editionsCoverCard2 = {key: 'cover card (current)', ratio: 20 / 31, ratioString: '20:31'};
 
-const cropOptions = [landscape, portrait, video, square, freeform, editionsCoverCard];
+const cropOptions = [landscape, portrait, video, square, freeform, editionsCoverCard2];
 
 export const cropUtil = angular.module('util.crop', ['util.storage']);
 
@@ -20,6 +21,7 @@ cropUtil.constant('video', video);
 cropUtil.constant('square', square);
 cropUtil.constant('freeform', freeform);
 cropUtil.constant('editionsCoverCard', editionsCoverCard);
+cropUtil.constant('editionsCoverCard2', editionsCoverCard2);
 cropUtil.constant('cropOptions', cropOptions);
 cropUtil.constant('defaultCrop', landscape);
 
