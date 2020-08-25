@@ -48,7 +48,7 @@ object MetadataConfig {
     "Graham Turner"   -> "The Guardian",
     "Helen Davidson"  -> "The Guardian",
     "Jill Mead"       -> "The Guardian",
-    "Jonny Weeks"     -> "The Guardian",
+    //"Jonny Weeks"     -> "The Guardian", (Commented out as Jonny's photo's aren't always as Staff.)
     "Joshua Robertson" -> "The Guardian",
     "Rachel Vere"     -> "The Guardian",
     "Roger Tooth"     -> "The Guardian",
