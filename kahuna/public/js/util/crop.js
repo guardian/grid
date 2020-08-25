@@ -11,7 +11,7 @@ const freeform = {key: 'freeform', ratio: null};
 const editionsCoverCard = {key: 'cover card', ratio: 10 / 17, ratioString: '10:17'};
 const editionsCoverCard2 = {key: 'cover card (current)', ratio: 20 / 31, ratioString: '20:31'};
 
-const cropOptions = [landscape, portrait, video, square, freeform, editionsCoverCard2];
+const cropOptions = [landscape, portrait, video, square, freeform,editionsCoverCard, editionsCoverCard2];
 
 export const cropUtil = angular.module('util.crop', ['util.storage']);
 
