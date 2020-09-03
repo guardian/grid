@@ -758,7 +758,6 @@ textarea.ng-invalid {
 }
 
 .advanced-search-help__section {
-    border-bottom: 1px solid #565656;
     margin-bottom: 10px;
     padding: 0 10px 0 10px;
     box-sizing: border-box;
