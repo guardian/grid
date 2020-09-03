@@ -9,7 +9,7 @@
             • Type <span class="advanced-search-example__input">-</span> before your search term to exclude it from results</br>
             • Type <span class="advanced-search-example__input">+</span> to choose from a list of filters, see examples below</br>
             • For active filters, click the <span class="advanced-search-example__input">+</span> symbol to toggle between including and excluding options</br>
-            • As a shortcut, you can manually type the name of the filter followed by a colon, e.g. <span class="advanced-search-example__input">credit:</span></p>
+            • As a shortcut, you can manually type the name of the filter followed by a colon, eg <span class="advanced-search-example__input">credit:</span></p>
 
         <h3 class="advanced-search-help__section__sub-heading">How to filter by Credit, Copyright etc</h3>
         <dl class="advanced-search-example flex-container">
@@ -126,7 +126,15 @@
                 Filter by print or digital usage.
             </dd>
         </dl>
-        <h3 class="advanced-search-help__section__sub-heading">Other filters</h3>
+         <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr-filter-field="usages@reference" gr-example-search="[URL]"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Shows images used at the particular URL.
+            </dd>
+        </dl>
+       <h3 class="advanced-search-help__section__sub-heading">Other filters</h3>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
                 <gr-chip-example gr-filter-field="label" gr-example-search="DMskybrown"></gr-chip-example>
@@ -140,7 +148,7 @@
                 <gr-chip-example gr-filter-field="has" gr-example-search="crops"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
-                Checks for the existence of a field, eg. usageRights, crops, location.
+                Checks for the existence of a field, eg <em>usageRights</em>, <em>crops</em>, <em>city</em>, <em>people</em>.
             </dd>
         </dl>
         <dl class="advanced-search-example">
@@ -148,7 +156,7 @@
             <gr-chip-example gr-filter-field="is" gr-example-search="under-quota"></gr-chip-example>
           </dt>
           <dd class="advanced-search-example__explanation">
-            Returns images from suppliers with free usage quota.
+            Returns images from suppliers with free usage quota. Includes other options.
           </dd>
         </dl>
         <dl class="advanced-search-example">
