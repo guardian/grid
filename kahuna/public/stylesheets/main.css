@@ -741,7 +741,7 @@ textarea.ng-invalid {
 
 .advanced-search-help {
     top: 49px;
-    height: 95vh;
+    max-height: 95vh;
     overflow: auto;
     background-color: #444444;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
