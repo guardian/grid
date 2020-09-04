@@ -55,6 +55,7 @@ function getImageLoaderConfig(config) {
     return stripMargin`
         |domain.root=${config.DOMAIN}
         |aws.region=${config.AWS_DEFAULT_REGION}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |s3.image.bucket=${config.coreStackProps.ImageBucket}
         |s3.thumb.bucket=${config.coreStackProps.ThumbBucket}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
@@ -130,6 +131,7 @@ function getMetadataEditorConfig(config) {
         |aws.region=${config.AWS_DEFAULT_REGION}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |s3.collections.bucket=${config.coreStackProps.CollectionsBucket}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |dynamo.table.edits=EditsTable
