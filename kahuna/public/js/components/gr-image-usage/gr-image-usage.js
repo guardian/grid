@@ -40,6 +40,8 @@ module.controller('grImageUsageCtrl', [
           return 'Pending publication';
         case 'published':
           return 'Published';
+        case 'downloaded':
+          return 'Downloads';
         case 'unknown':
           return 'Front'; // currently only fronts have an `unknown` type, see TODO above
         default:

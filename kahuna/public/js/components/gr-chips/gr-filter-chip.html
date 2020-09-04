@@ -2,7 +2,7 @@
              gr-on-select="$grFilterChipCtrl.apply($value)">
     <button type="button"
             class="gr-filter-chip__type"
-            ng:click="$grFilterChipCtrl.toggleFilterType()"
+            ng-click="$grFilterChipCtrl.toggleFilterType()"
     >{{$chip.filterType === 'inclusion' ? '+' : '−' }}</button
     ><span class="gr-filter-chip__key">{{$chip.key}}:</span
     ><input type="text"
@@ -10,13 +10,13 @@
             class="gr-filter-chip__value"
             gr-datalist-input
             gr-auto-width
-            ng:trim="false"
+            ng-trim="false"
             gr-chip-input
             gr-chip-input-on-enter="$grFilterChipCtrl.apply($chip.value)"
             gr-chip-input-backspace-at-start="$grFilterChipCtrl.removeSelf()"
-            ng:model="$chip.value"
+            ng-model="$chip.value"
     /><button type="button"
               class="gr-filter-chip__remove"
-              ng:click="$grChipsCtrl.removeChip($chip)"
+              ng-click="$grChipsCtrl.removeChip($chip)"
     >✕</button>
 </gr-datalist>

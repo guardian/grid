@@ -7,10 +7,11 @@ import _root_.play.api.libs.json._
 import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfService, OnBehalfOfUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfApiKey, OnBehalfOfUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import lib._
 import model._
@@ -113,23 +114,30 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     }
   }
 
-  def executeRequest(exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[(String, Crop)] =
+  def executeRequest(exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[(String, Crop)] = {
+    implicit val context: RequestLoggingContext = RequestLoggingContext(
+      initialMarkers = Map(
+        "requestType" -> "executeRequest"
+      )
+    )
+
     for {
-      _          <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
-      apiImage   <- fetchSourceFromApi(exportRequest.uri, onBehalfOfPrincipal)
-      _          <- verify(apiImage.valid, InvalidImage)
+      _ <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
+      apiImage <- fetchSourceFromApi(exportRequest.uri, onBehalfOfPrincipal)
+      _ <- verify(apiImage.valid, InvalidImage)
       // Image should always have dimensions, but we want to safely extract the Option
       dimensions <- ifDefined(apiImage.source.dimensions, InvalidImage)
-      cropSpec    = ExportRequest.toCropSpec(exportRequest, dimensions)
-      _          <- verify(crops.isWithinImage(cropSpec.bounds, dimensions), InvalidCropRequest)
-      crop        = Crop.createFromCropSource(
-        by            = Some(Authentication.getEmail(user)),
+      cropSpec = ExportRequest.toCropSpec(exportRequest, dimensions)
+      _ <- verify(crops.isWithinImage(cropSpec.bounds, dimensions), InvalidCropRequest)
+      crop = Crop.createFromCropSource(
+        by = Some(Authentication.getIdentity(user)),
         timeRequested = Some(new DateTime()),
         specification = cropSpec
       )
       ExportResult(id, masterSizing, sizings) <- crops.export(apiImage, crop)
-      finalCrop   = Crop.createFromCrop(crop, masterSizing, sizings)
+      finalCrop = Crop.createFromCrop(crop, masterSizing, sizings)
     } yield (id, finalCrop)
+  }
 
   // TODO: lame, parse into URI object and compare host instead
   def isMediaApiUri(uri: String): Boolean = uri.startsWith(config.apiUri)
@@ -138,13 +146,14 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
+    // TODO we should proxy authentication from the original request rather than have a dedicated cropper API key
     val baseRequest = ws.url(uri)
       .withQueryStringParameters("include" -> "fileMetadata")
       .withHttpHeaders(Authentication.originalServiceHeaderName -> "cropper")
 
     val request = onBehalfOfPrincipal match {
-      case OnBehalfOfService(service) =>
-        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.apiKey.name)
+      case OnBehalfOfApiKey(service) =>
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.accessor.identity)
 
       case OnBehalfOfUser(_, cookie) =>
         baseRequest.addCookies(cookie)

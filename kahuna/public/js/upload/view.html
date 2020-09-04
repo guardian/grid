@@ -1,7 +1,7 @@
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item side-padded"
-           ui:sref="search"><gr-icon>search</gr-icon>
+           ui-sref="search"><gr-icon>search</gr-icon>
            <span class="top-bar-item__label">Search</span></a>
     </gr-top-bar-nav>
     <gr-top-bar-actions></gr-top-bar-actions>
@@ -11,11 +11,11 @@
     <file-prompt class="section"></file-prompt>
 
     <section class="section"
-             ng:if="ctrl.latestJob && ctrl.latestJob.length > 0">
+             ng-if="ctrl.latestJob && ctrl.latestJob.length > 0">
 
         <div class="flex-container section-heading current-uploads">
             <h2 class="flex-spacer">Your current uploads</h2>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
+            <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
@@ -24,7 +24,7 @@
     <section class="section">
         <div class="flex-container section-heading">
             <h2 class="flex-spacer">Your past 50 uploads</h2>
-            <a ng:controller="SessionCtrl" class="coloured-link" ui:sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
+            <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>
 
         <recent-uploads></recent-uploads>

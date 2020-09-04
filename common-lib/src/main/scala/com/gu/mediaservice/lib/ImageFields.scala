@@ -20,7 +20,8 @@ trait ImageFields {
     "subLocation",
     "city",
     "state",
-    "country"
+    "country",
+    "peopleInImage"
   )
 
   val usageRightsFields = List(
@@ -49,7 +50,9 @@ trait ImageFields {
     "croppedBy" -> "exports.author",
     "filename"  -> "uploadInfo.filename",
     "photoshoot"-> photoshootField("title"),
-    "leasedBy" -> "leases.leases.leasedBy"
+    "leases" -> "leases.leases",
+    "leasedBy" -> "leases.leases.leasedBy",
+    "people" -> metadataField("peopleInImage")
   )
 
   def getFieldPath(field: String) = field match {

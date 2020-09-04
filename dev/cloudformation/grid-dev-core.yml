@@ -1,0 +1,233 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Core resources for Grid in DEV
+Resources:
+  ThrallMessageStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: media-service-DEV-thrall
+      ShardCount: 1
+      RetentionPeriodHours: 168
+  ThrallLowPriorityMessageStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: media-service-DEV-thrall-low-priority
+      ShardCount: 1
+      RetentionPeriodHours: 168
+
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      CorsConfiguration:
+        CorsRules:
+        - AllowedMethods:
+          - GET
+          AllowedOrigins:
+          - '*'
+          ExposedHeaders:
+          - Date
+          MaxAge: '3600'
+
+  ThumbBucket:
+    Type: AWS::S3::Bucket
+
+  KeyBucket:
+    Type: AWS::S3::Bucket
+
+  ImageOriginBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+
+  ConfigBucket:
+    Type: AWS::S3::Bucket
+
+  S3WatcherIngestBucket:
+    Type: AWS::S3::Bucket
+
+  S3WatcherFailBucket:
+    Type: AWS::S3::Bucket
+
+  CollectionsBucket:
+    Type: AWS::S3::Bucket
+
+  UsageMailBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+
+  EditsDynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: EditsTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  CollectionsDynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CollectionsTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  ImageCollectionsDynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ImageCollectionsTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  LeasesDynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: LeasesTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      - AttributeName: mediaId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      GlobalSecondaryIndexes:
+      - IndexName: mediaId
+        KeySchema:
+        - AttributeName: mediaId
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+  IndexedImageTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+      - Endpoint: !GetAtt 'IndexedImageMetadataQueue.Arn'
+        Protocol: sqs
+  IndexedImageMetadataQueue:
+    Type: AWS::SQS::Queue
+  UsageRecordTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UsageRecordTable
+      AttributeDefinitions:
+      - AttributeName: usage_id
+        AttributeType: S
+      - AttributeName: grouping
+        AttributeType: S
+      - AttributeName: media_id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: grouping
+        KeyType: HASH
+      - AttributeName: usage_id
+        KeyType: RANGE
+      GlobalSecondaryIndexes:
+      - IndexName: media_id
+        KeySchema:
+        - AttributeName: media_id
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  LiveContentPollTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: LiveContentPollTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  PreviewContentPollTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: PreviewContentPollTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+Outputs:
+  ImageBucket:
+    Value: !Ref 'ImageBucket'
+  ThumbBucket:
+    Value: !Ref 'ThumbBucket'
+  KeyBucket:
+    Value: !Ref 'KeyBucket'
+  ImageOriginBucket:
+    Value: !Ref 'ImageOriginBucket'
+  ImageOriginWebsite:
+    Value: !GetAtt 'ImageOriginBucket.WebsiteURL'
+  ConfigBucket:
+    Value: !Ref 'ConfigBucket'
+  CollectionsBucket:
+    Value: !Ref 'CollectionsBucket'
+  S3WatcherIngestBucket:
+    Value: !Ref 'S3WatcherIngestBucket'
+  S3WatcherFailBucket:
+    Value: !Ref 'S3WatcherFailBucket'
+  UsageMailBucket:
+    Value: !Ref 'UsageMailBucket'
+  EditsDynamoTable:
+    Value: !Ref 'EditsDynamoTable'
+  CollectionsDynamoTable:
+    Value: !Ref 'CollectionsDynamoTable'
+  ImageCollectionsDynamoTable:
+    Value: !Ref 'ImageCollectionsDynamoTable'
+  LeasesDynamoTable:
+    Value: !Ref 'LeasesDynamoTable'
+  IndexedImageTopicArn:
+    Value: !Ref 'IndexedImageTopic'
+  IndexedImageMetadataQueueUrl:
+    Value: !Ref 'IndexedImageMetadataQueue'
+  UsageRecordTable:
+    Value: !Ref 'UsageRecordTable'
+  LiveContentPollTable:
+    Value: !Ref 'LiveContentPollTable'
+  PreviewContentPollTable:
+    Value: !Ref 'PreviewContentPollTable'

@@ -4,8 +4,9 @@ import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateIt
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus}
-import lib.UsageConfig
+import com.gu.mediaservice.lib.usage.ItemToMediaUsage
+import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
+import lib.{BadInputException, UsageConfig}
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
@@ -16,27 +17,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
 
-case class UsageTableFullKey(hashKey: String, rangeKey: String) {
-  override def toString = List(
-    hashKey,
-    rangeKey
-  ).mkString(UsageTableFullKey.keyDelimiter)
-}
-object UsageTableFullKey {
-  val keyDelimiter = "_"
-
-  def build(mediaUsage: MediaUsage): UsageTableFullKey = {
-    UsageTableFullKey(mediaUsage.grouping, mediaUsage.usageId.toString)
-  }
-
-  def build(combinedKey: String): Option[UsageTableFullKey] = {
-    val pair = combinedKey.split(keyDelimiter)
-
-    Try { pair match { case Array(h,r) => UsageTableFullKey(h, r) } }.toOption
-  }
-}
-
-class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoDB(config, config.usageRecordTable){
+class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable){
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
@@ -49,16 +30,20 @@ class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoD
 
       val queryResult = table.query(keyAttribute, rangeKeyCondition)
 
-      queryResult.asScala.map(mediaUsage.build).headOption
+      queryResult.asScala.map(ItemToMediaUsage.transform).headOption
     })
   }
 
   def queryByImageId(id: String): Future[Set[MediaUsage]] = Future {
+
+    if (id.trim.isEmpty)
+      throw new BadInputException("Empty string received for image id")
+
     val imageIndex = table.getIndex(imageIndexName)
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    val fullSet = queryResult.asScala.map(mediaUsage.build).toSet[MediaUsage]
+    val fullSet = queryResult.asScala.map(ItemToMediaUsage.transform).toSet[MediaUsage]
 
     hidePendingIfPublished(
       hidePendingIfRemoved(fullSet))
@@ -97,7 +82,7 @@ class UsageTable(config: UsageConfig, mediaUsage: MediaUsageOps) extends DynamoD
       val queryResult = table.query(keyAttribute)
 
       val usages = queryResult.asScala
-        .map(mediaUsage.build)
+        .map(ItemToMediaUsage.transform)
         .filter(_.status == status)
         .toSet
 

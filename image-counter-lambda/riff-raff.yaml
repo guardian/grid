@@ -1,0 +1,11 @@
+regions: [eu-west-1]
+stacks: [media-service]
+deployments:
+  image-counter-lambda:
+    type: aws-lambda
+    parameters:
+      bucket: media-service-dist
+      prefixStack: false
+      fileName: image-counter-lambda.zip
+      functionNames:
+       - "image-counter-lambda-function-"

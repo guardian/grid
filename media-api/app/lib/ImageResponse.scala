@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import com.softwaremill.quicklens._
 import lib.usagerights.CostCalculator
@@ -96,7 +97,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
-      case _ => List(downloadLink(id))
+      case _ => List(downloadLink(id), downloadOptimisedLink(id))
     }
 
     val isDeletable = canBeDeleted(image) && withDeleteImagePermission
@@ -107,6 +108,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   }
 
   def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
+  def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
 
   def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean) = {
     val cropLink = Link("crops", s"${config.cropperUri}/crops/$id")
@@ -122,9 +124,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
 
     val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id))
+      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
     } else {
-      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id))
+      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
     }
 
     val baseLinksWithOptimised = optimisedPngLink match {
@@ -297,20 +299,20 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 object ImageResponse {
 
   val newlineNormalisingImageMetadataWriter: Writes[ImageMetadata] = (input: ImageMetadata) => {
-    Json.toJson(normaliseNewLines(input))
+    Json.toJson(normaliseNewLinesInImageMeta(input))
   }
 
-  def normaliseNewLines(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.modifyAll(
+  def normaliseNewLinesInImageMeta(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.modifyAll(
     _.description,
     _.copyrightNotice,
     _.copyright,
     _.specialInstructions,
     _.suppliersReference
-  ).using(_.map(ImageResponse.normaliseNewLines))
+  ).using(_.map(ImageResponse.normaliseNewlineChars))
 
-  private val pattern = """(\r|\n|\r\n)+""".r
+  private val pattern = """[\r\n]+""".r
 
-  def normaliseNewLines(string: String): String = pattern.replaceAllIn(string, "\n")
+  def normaliseNewlineChars(string: String): String = pattern.replaceAllIn(string, "\n")
 
   def canImgBeDeleted(image: Image) = !hasExports(image) && !hasUsages(image)
 

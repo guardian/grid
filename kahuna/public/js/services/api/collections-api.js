@@ -100,7 +100,7 @@ collectionsApi.factory('collections',
     function untilNewCollectionAppears(image, collectionAdded) {
         return image.get().then( (apiImage) => {
             const apiCollections = imageAccessor.getCollectionsIds(apiImage);
-            if (apiCollections.indexOf(collectionAdded.data.pathId) > -1) {
+            if (collectionAdded.data && apiCollections.indexOf(collectionAdded.data.pathId) > -1) {
                 return apiImage;
             } else {
                 return $q.reject();
@@ -143,7 +143,7 @@ collectionsApi.factory('collections',
 
     function filterCollectionResource(image, collectionToMatch){
         return image.data.collections.filter(collection => {
-            return collection.data.pathId === collectionToMatch;
+            return collection.data && collection.data.pathId === collectionToMatch;
         });
     }
 

@@ -1,85 +1,89 @@
-<div ng:init="node = ctrl.node" class="hover-parent">
-    <div class="node__info flex-container"
-         ng:class="{'node__info--selected' : ctrl.isSelected}"
-         gr:drop-into-collection="node.data.fullPath">
+<div ng-init="node = ctrl.node" class="hover-parent">
+    <div data-cy="{{node.data.data.description + '-collection'}}"
+         class="node__info flex-container"
+         ng-class="{'node__info--selected' : ctrl.isSelected}"
+         gr-drop-into-collection="node.data.fullPath">
 
         <div class="node__marker"
              style="background: {{:: node.data.cssColour}}"></div>
 
-        <div class="node__spacer" ng:if="node.data.children.length === 0">
+        <div class="node__spacer" ng-if="node.data.children.length === 0">
             <gr-icon></gr-icon>
         </div>
 
         <button type="button"
                 class="node__toggler clickable"
-                ng:click="ctrl.showChildren = !ctrl.showChildren"
-                ng:if="node.data.children.length > 0">
+                ng-click="ctrl.showChildren = !ctrl.showChildren"
+                ng-if="node.data.children.length > 0">
 
-            <gr-icon ng:show="ctrl.showChildren">expand_more</gr-icon>
-            <gr-icon ng:hide="ctrl.showChildren">chevron_right</gr-icon>
+            <gr-icon ng-show="ctrl.showChildren">expand_more</gr-icon>
+            <gr-icon ng-hide="ctrl.showChildren">chevron_right</gr-icon>
         </button>
 
         <button class="node__name flex-spacer"
-                ng:if="ctrl.hasCustomSelect"
-                ng:click="ctrl.select()">
+                ng-if="ctrl.hasCustomSelect"
+                ng-click="ctrl.select()">
             {{:: node.data.data.description}}
         </button>
 
-        <a ng:if="! ctrl.hasCustomSelect"
+        <a data-cy="collection-child-link"
+           ng-if="! ctrl.hasCustomSelect"
            class="node__name flex-spacer"
-           ui:sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
+           ui-sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
             {{:: node.data.data.description}}
         </a>
 
         <gr-confirm-delete class="node__action clickable"
                            title="Delete this collection"
-                           ng:if="ctrl.deletable && grCollectionTreeCtrl.editing"
+                           ng-if="ctrl.deletable && grCollectionTreeCtrl.editing"
                            gr-on-confirm="ctrl.remove()">
         </gr-confirm-delete>
 
-        <button class="node__action clickable"
+        <button data-cy="create-new-folder-button"
+                class="node__action clickable"
                 type="button"
                 title="Add a new sub-collection"
-                ng:if="grCollectionTreeCtrl.editing"
-                ng:click="$parent.active = !$parent.active">
+                ng-if="grCollectionTreeCtrl.editing"
+                ng-click="$parent.active = !$parent.active">
             <gr-icon>create_new_folder</gr-icon>
         </button>
 
         <div class="text-small flex-container flex-center"
-             ng:if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
+             ng-if="ctrl.saving || dropIntoCollectionSaving">Adding…</div>
 
         <div class="text-small flex-container flex-center"
-             ng:if="ctrl.removing">Removing…</div>
+             ng-if="ctrl.removing">Removing…</div>
 
         <button class="node__action clickable hover-child"
                 title="Remove selected images from this collection"
-                ng:if="!grCollectionTreeCtrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
-                ng:click="ctrl.removeImagesFromCollection()">
+                ng-if="!grCollectionTreeCtrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
+                ng-click="ctrl.removeImagesFromCollection()">
             <gr-icon>indeterminate_check_box</gr-icon>
         </button>
         <button class="node__action clickable hover-child"
                 title="Add selected images to this collection"
-                ng:if="!grCollectionTreeCtrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
-                ng:click="ctrl.addImagesToCollection()">
+                ng-if="!grCollectionTreeCtrl.editing && ctrl.hasImagesSelected && !ctrl.saving && !ctrl.removing"
+                ng-click="ctrl.addImagesToCollection()">
             <gr-icon>add_to_photos</gr-icon>
         </button>
     </div>
 
-    <form class="node__add-child" ng:if="active" ng:submit="ctrl.addChild(childName);">
-        <input  gr:auto-focus
+    <form class="node__add-child" ng-if="active" ng-submit="ctrl.addChild(childName);">
+        <input  data-cy="collection-child-input"
+                gr-auto-focus
                 class="text-input node__add-child-input"
                 type="text"
                 required
-                ng:model="childName"
+                ng-model="childName"
                 placeholder="e.g. summer2015…" />
 
-        <div class="error error--small" ng:if="formError">{{formError}}</div>
+        <div class="error error--small" ng-if="formError">{{formError}}</div>
 
         <div class="node__add-child-buttons">
-            <button type="submit" class="button-save" title="Save">
+            <button data-cy="save-child-button" type="submit" class="button-save" title="Save">
                 <gr-icon-label gr-icon="check"></gr-icon-label>
             </button>
-            <button type="button" class="button-cancel" ng:click="clearForm()" title="Cancel">
+            <button type="button" class="button-cancel" ng-click="clearForm()" title="Cancel">
                 <gr-icon-label gr-icon="close"></gr-icon-label>
             </button>
         </div>

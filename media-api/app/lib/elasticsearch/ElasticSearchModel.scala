@@ -151,7 +151,7 @@ object SearchParams {
       request.getQueryString("persisted") flatMap parseBooleanFromQuery,
       commaSep("usageStatus").map(UsageStatus(_)),
       commaSep("usagePlatform"),
-      request.user.apiKey.tier,
+      request.user.accessor.tier,
       request.getQueryString("syndicationStatus") flatMap parseSyndicationStatus
     )
   }

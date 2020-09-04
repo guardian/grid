@@ -18,6 +18,7 @@ class MetadataCleaners(metadataConfigGetter: MetadataConfigGetter) {
   val allCleaners: List[MetadataCleaner] = List(
     CleanRubbishLocation,
     StripCopyrightPrefix,
+    RedundantTokenRemover,
     BylineCreditReorganise,
     UseCanonicalGuardianCredit,
     ExtractGuardianCreditFromByline

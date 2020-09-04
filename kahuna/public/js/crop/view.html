@@ -1,7 +1,7 @@
 <gr-top-bar>
     <gr-top-bar-nav>
         <a class="top-bar-item clickable side-padded"
-           ui:sref="image({ imageId: ctrl.image.data.id })"
+           ui-sref="image({ imageId: ctrl.image.data.id })"
            gr-tooltip="cancel [esc]">
             <gr-icon-label gr-icon="cancel">Cancel</gr-icon-label></a>
     </gr-top-bar-nav>
@@ -11,63 +11,67 @@
             x:
             <form class="top-bar-item__form">
                 <input
+                    data-cy="crop-x-value-input"
                     type="number"
                     min="0"
                     max="{{ctrl.maxInputX()}}"
                     class="top-bar-item__form__input"
-                    ng:model="ctrl.inputX"
-                    ng:change="ctrl.broadcastXChange()"/>
+                    ng-model="ctrl.inputX"
+                    ng-change="ctrl.broadcastXChange()"/>
             </form>
             y:
             <form class="top-bar-item__form">
                 <input
-                    type="number"
+                  data-cy="crop-y-value-input"
+                  type="number"
                     min="0"
                     max="{{ctrl.maxInputY()}}"
                     class="top-bar-item__form__input"
-                    ng:model="ctrl.inputY"
-                    ng:change="ctrl.broadcastYChange()"/>
+                    ng-model="ctrl.inputY"
+                    ng-change="ctrl.broadcastYChange()"/>
             </form>
         </div>
 
         <div class="top-bar-item side-padded">
             <form class="top-bar-item__form">
                 <input
-                    type="number"
+                  data-cy="crop-width-input"
+                  type="number"
                     min="1"
                     max="{{ctrl.originalWidth}}"
                     class="top-bar-item__form__input"
-                    ng:model="ctrl.inputWidth"
-                    ng:change="ctrl.broadcastWidthChange()"/>
+                    ng-model="ctrl.inputWidth"
+                    ng-change="ctrl.broadcastWidthChange()"/>
             </form>
             &times;
-            <form class="top-bar-item__form" ng:disabled="ctrl.freeRatio">
+            <form class="top-bar-item__form" ng-disabled="ctrl.freeRatio">
                 <input
-                    type="number"
+                  data-cy="crop-height-input"
+                  type="number"
                     min="1"
                     max="{{ctrl.originalHeight}}"
                     class="top-bar-item__form__input"
-                    ng:model="ctrl.inputHeight"
-                    ng:change="ctrl.broadcastHeightChange()"/>
+                    ng-model="ctrl.inputHeight"
+                    ng-change="ctrl.broadcastHeightChange()"/>
             </form>
         </div>
 
         <div class="inline-block side-padded">
-          <gr-radio-list gr-for="crop" gr-options="ctrl.cropOptions" gr-selected-option="ctrl.cropType"></gr-radio-list>
+          <gr-radio-list data-cy="crop-options" gr-for="crop" gr-options="ctrl.cropOptions" gr-selected-option="ctrl.cropType"></gr-radio-list>
         </div>
 
-        <div class="top-bar-item" ng:switch="ctrl.image.data.cost">
-            <div ng:switch-when="pay"
+        <div class="top-bar-item" ng-switch="ctrl.image.data.cost">
+            <div ng-switch-when="pay"
                  class="cost cost--pay">
                 Pay to use
             </div>
 
-            <div ng:switch-when="overquota"
+            <div ng-switch-when="overquota"
                  class="cost cost--pay">
                 Quota exceeded for this supplier
             </div>
 
-            <div ng:switch-when="conditional"
+            <div ng-switch-when="conditional"
                  class="cost cost--conditional"
                  title="restricted use: {{ctrl.image.data.usageRights.restrictions}}">
                 <!-- As `conditional` can only be set with usageRights, let's
@@ -81,16 +85,16 @@
         <div class="top-bar-item side-padded">
             <button class="button crop__action"
                     type="button"
-                    ng:click="ctrl.callCrop()"
-                    ng:disabled="ctrl.cropping"
+                    ng-click="ctrl.callCrop()"
+                    ng-disabled="ctrl.cropping"
                     gr-tooltip="Crop [enter]">
-                <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}">Crop<span ng:show="ctrl.cropping">ping…</span></gr-icon-label>
+                <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}">Crop<span ng-show="ctrl.cropping">ping…</span></gr-icon-label>
             </button>
         </div>
     </gr-top-bar-actions>
 </gr-top-bar>
 
-<div class="warning" ng:if="ctrl.cropSizeWarning()">
+<div class="warning" ng-if="ctrl.cropSizeWarning()">
     This crop is very small and will result in a low-quality image.
     Please try to use a larger crop.
 </div>
@@ -100,11 +104,11 @@
         <div class="easel__image-container">
             <img class="easel__image easel__image--cropper"
                  alt="original image to crop"
-                 ng:src="{{ctrl.optimisedImageUri}}"
-                 ui:crop-box="ctrl.coords"
-                 ui:crop-box-original-width="ctrl.originalWidth"
-                 ui:crop-box-original-height="ctrl.originalHeight"
-                 ui:crop-box-crop-type="ctrl.cropType"
+                 ng-src="{{ctrl.optimisedImageUri}}"
+                 ui-crop-box="ctrl.coords"
+                 ui-crop-box-original-width="ctrl.originalWidth"
+                 ui-crop-box-original-height="ctrl.originalHeight"
+                 ui-crop-box-crop-type="ctrl.cropType"
 
                  grid:track-image="ctrl.image"
                  grid:track-image-location="original-cropping"

@@ -1,4 +1,4 @@
-<form class="job-editor" name="jobEditor" ng:submit="ctrl.save()" novalidate>
+<form class="job-editor" name="jobEditor" ng-submit="ctrl.save()" novalidate>
     <div class="job-editor__inputs">
         <label class="job-info--editor__field flex-center">
             <div class="job-info--editor__label job-info--editor__label flex-center text-small">Description</div>
@@ -8,19 +8,19 @@
                 required
                 class="text-input job-info--editor__input job-info--editor__input--description"
                 msd-elastic
-                ng:model="ctrl.metadata.description"
-                ng:controller="DescriptionPlaceholderCtrl"
-                ng:change="ctrl.save()"
-                ng:model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
-                ng:class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-model="ctrl.metadata.description"
+                ng-controller="DescriptionPlaceholderCtrl"
+                ng-change="ctrl.save()"
+                ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
+                ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
             ></textarea>
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this description to all your current uploads"
                 type="button"
-                ng:if="ctrl.withBatch"
-                ng:click="ctrl.batchApplyMetadata('description')"
+                ng-if="ctrl.withBatch"
+                ng-click="ctrl.batchApplyMetadata('description')"
             >⇔</button>
         </label>
 
@@ -34,18 +34,18 @@
                 name="byline"
                 placeholder="eg Tom Jenkins (author’s name ONLY, leave empty if unknown)"
                 class="text-input job-info--editor__input job-info--editor__input--byline"
-                ng:model="ctrl.metadata.byline"
-                ng:change="ctrl.save()"
-                ng:model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
-                ng:class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-model="ctrl.metadata.byline"
+                ng-change="ctrl.save()"
+                ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
+                ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
             />
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this byline to all your current uploads"
                 type="button"
-                ng:if="ctrl.withBatch"
-                ng:click="ctrl.batchApplyMetadata('byline')"
+                ng-if="ctrl.withBatch"
+                ng-click="ctrl.batchApplyMetadata('byline')"
             >⇔</button>
 
         </label>
@@ -54,44 +54,46 @@
 
             <gr-datalist
                 class="job-info--editor__input"
-                gr:search="ctrl.metadataSearch('credit', q)">
+                gr-search="ctrl.metadataSearch('credit', q)">
 
-                <input type="text"
+                <input
+                    data-cy="image-metadata-credit"
+                    type="text"
                     placeholder="eg The Guardian (source, agency or institution which owns the image)"
                     class="text-input job-info__credit"
                     required
-                    gr:datalist-input
-                    ng:model="ctrl.metadata.credit"
-                    ng:change="ctrl.save()"
-                    ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
+                    gr-datalist-input
+                    ng-model="ctrl.metadata.credit"
+                    ng-change="ctrl.save()"
+                    ng-model-options="{ updateOn: 'gr-datalist:update blur' }" />
             </gr-datalist>
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this credit to all"
                 type="button"
-                ng:if="ctrl.withBatch"
-                ng:click="ctrl.batchApplyMetadata('credit')"
+                ng-if="ctrl.withBatch"
+                ng-click="ctrl.batchApplyMetadata('credit')"
             >⇔</button>
         </div>
-        <label ng:if="ctrl.copyrightWasInitiallyThere" class="job-info--editor__field flex-center">
+        <label ng-if="ctrl.copyrightWasInitiallyThere" class="job-info--editor__field flex-center">
             <div class="job-info--editor__label text-small">Copyright</div>
             <input
                 type="text"
                 name="copyright"
                 class="text-input job-info--editor__input job-info--editor__input--copyright"
-                ng:model="ctrl.metadata.copyright"
-                ng:change="ctrl.save()"
-                ng:model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
-                ng:class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-model="ctrl.metadata.copyright"
+                ng-change="ctrl.save()"
+                ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
+                ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
             />
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this copyright to all your current uploads"
                 type="button"
-                ng:if="ctrl.withBatch"
-                ng:click="ctrl.batchApplyMetadata('copyright')"
+                ng-if="ctrl.withBatch"
+                ng-click="ctrl.batchApplyMetadata('copyright')"
             >⇔</button>
         </label>
 
@@ -101,18 +103,18 @@
                 type="text"
                 name="special-instructions"
                 class="text-input job-info--editor__input"
-                ng:model="ctrl.metadata.specialInstructions"
-                ng:change="ctrl.save()"
-                ng:model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
-                ng:class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-model="ctrl.metadata.specialInstructions"
+                ng-change="ctrl.save()"
+                ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
+                ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
             />
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply these instructions to all your current uploads"
                 type="button"
-                ng:if="ctrl.withBatch"
-                ng:click="ctrl.batchApplyMetadata('specialInstructions')"
+                ng-if="ctrl.withBatch"
+                ng-click="ctrl.batchApplyMetadata('specialInstructions')"
             >⇔</button>
         </label>
     </div>

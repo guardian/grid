@@ -1,6 +1,7 @@
 GET     /                           controllers.ImageLoaderController.index
 POST    /images                     controllers.ImageLoaderController.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 POST    /imports                    controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
+GET     /images/project/:imageId    controllers.ImageLoaderController.projectImageBy(imageId: String)
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck

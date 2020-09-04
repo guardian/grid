@@ -1,10 +1,10 @@
 import angular from 'angular';
-import moment from 'moment';
 import './media-api';
 import '../../services/image-list';
 
 import {service} from '../../edits/service';
 import { trackAll } from '../../util/batch-tracking';
+import { getApiImageAndApiLeasesIfUpdated } from './leases-helper';
 
 var leaseService = angular.module('kahuna.services.lease', [
   service.name
@@ -112,13 +112,13 @@ leaseService.factory('leaseService', [
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
         return image.get().then(apiImage => {
-          const apiLeases = imageAccessor.readLeases(apiImage);
-          const leases = imageAccessor.readLeases(image);
-          const currentLastModified = moment(apiLeases.lastModified);
-          const previousLastModified = moment(leases.lastModified);
-          if (currentLastModified.isAfter(previousLastModified)) {
-            return { image: apiImage, leases: apiLeases };
+          const apiImageAndApiLeases = getApiImageAndApiLeasesIfUpdated(image, apiImage);
+          if (apiImageAndApiLeases){
+            image = apiImage;
+            return apiImageAndApiLeases;
           } else {
+            // returning $q.reject() will make apiPoll function to poll again
+            // until api call will return image with updated leases
             return $q.reject();
           }
         });

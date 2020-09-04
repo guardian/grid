@@ -1,0 +1,58 @@
+{
+  // An API key used to ingest images from the s3watcher.
+  s3Watcher: {
+    key: ''
+  },
+
+  es6: {
+    cluster: 'media-service',
+    url: 'http://localhost:9200',
+    shards: 1,
+    replicas: 0
+  },
+
+  google: {
+    tracking: {
+      id: ''
+    }
+  },
+
+  // Front end support links/email
+  links: {
+    feedbackForm: '',
+    usageRightsHelp: '',
+    invalidSessionHelp: '',
+    supportEmail: ''
+  },
+
+  security: {
+    frameAncestors: '',
+
+    // A list of trusted origins to allow requests from.
+    // These should be the subdomain to trust as the domain is added automatically..
+    // Grid will trust requests with a cookie and an `Origin` header set to this value.
+    // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin.
+    corsAllowedOrigins: [ ]
+  },
+
+  // Guardian specific properties for the Usage service
+  guardian: {
+    capi: {
+      poll:  5,
+      live: {
+        url: '',
+        key: ''
+      }
+    },
+    crier: {
+      live: {
+        streamName: '',
+        roleArn: ''
+      },
+      preview: {
+        streamName: '',
+        roleArn: ''
+      }
+    }
+  }
+}

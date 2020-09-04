@@ -13,11 +13,12 @@ GET     /images/aggregations/date/:field              controllers.AggregationCon
 
 # Images
 GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
+GET     /images/:id/_elasticsearch                    controllers.MediaApi.getImageFromElasticSearch(id: String)
 GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
 GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                     controllers.MediaApi.downloadOriginalImage(imageId: String)
-POST    /images/:id/reindex                           controllers.MediaApi.reindexImage(id: String)
+GET     /images/:imageId/downloadOptimised            controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
 DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
 GET     /images                                       controllers.MediaApi.imageSearch
 
@@ -32,8 +33,9 @@ GET     /usage/quotas                                 controllers.UsageControlle
 GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
 
 # Management
-GET     /management/healthcheck                       com.gu.mediaservice.lib.management.ManagementWithPermissions.healthCheck
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.ManagementWithPermissions.manifest
+GET     /management/imageCounts                       com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.imageCounts
 
 # Shoo robots away
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots

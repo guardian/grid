@@ -1,12 +1,13 @@
-<section ng:if="! ctrl.editInline">
-    <button class="image-info__edit"
-            ng:click="photoshootEditForm.$show()"
-            ng:hide="photoshootEditForm.$visible">
+<section ng-if="! ctrl.editInline">
+    <button data-cy="it-photoshoot-edit-button"
+            class="image-info__edit"
+            ng-click="photoshootEditForm.$show()"
+            ng-hide="photoshootEditForm.$visible">
         ✎
     </button>
 
     <span editable-text="ctrl.photoshootData.title"
-          ng:hide="photoshootEditForm.$visible"
+          ng-hide="photoshootEditForm.$visible"
           e:form="photoshootEditForm"
           e:uib-:typeahead="photoshoot for photoshoot in ctrl.search($viewValue) | limitTo:8"
           e:ng-class="{'image-info__editor--error': $error,
@@ -14,43 +15,43 @@
                        'text-input': true}"
           e:placeholder="describing a set of related images, e.g. for syndication purposes"
           onbeforesave="ctrl.save($data)">
-        <span ng:if="! ctrl.hasPhotoshootData">
+        <span ng-if="! ctrl.hasPhotoshootData">
             Unknown (click ✎ to add)
         </span>
 
-        <span ng:if="ctrl.hasPhotoshootData">
-            <span ng:if="ctrl.hasSinglePhotoshoot">
-                <a ui:sref="search.results({query: (ctrl.photoshootData.title | queryFilter:'photoshoot')})">
+        <span ng-if="ctrl.hasPhotoshootData">
+            <span ng-if="ctrl.hasSinglePhotoshoot">
+                <a ui-sref="search.results({query: (ctrl.photoshootData.title | queryFilter:'photoshoot')})">
                     {{ctrl.photoshootData.title}}
                 </a>
             </span>
 
-            <span ng:if="!ctrl.hasSinglePhotoshoot">
+            <span ng-if="!ctrl.hasSinglePhotoshoot">
                 Multiple photoshoots (click ✎ to edit <strong>all</strong>)
             </span>
         </span>
     </span>
 </section>
 
-<section ng:if="ctrl.editInline" class="edit-inline flex-container">
+<section ng-if="ctrl.editInline" class="edit-inline flex-container">
     <gr-datalist class="job-info--editor__input"
-                 gr:search="ctrl.search(q)"
+                 gr-search="ctrl.search(q)"
                  gr-tooltip="Naming a set of images for syndication etc, e.g. SL-07/18-heatwave (initials-MM/YY-title)."
                  gr-tooltip-position="bottom">
         <input type="text"
                name="photoshoot"
                class="text-input job-info--credit full-width"
                placeholder="Naming a set of images for syndication etc, e.g. SL-07/18-heatwave (initials-MM/YY-title)."
-               gr:datalist-input
-               ng:model="ctrl.photoshootData.title"
-               ng:change="ctrl.save(ctrl.photoshootData.title)"
-               ng:model-options="{ updateOn: 'gr:datalist:update blur' }" />
+               gr-datalist-input
+               ng-model="ctrl.photoshootData.title"
+               ng-change="ctrl.save(ctrl.photoshootData.title)"
+               ng-model-options="{ updateOn: 'gr-datalist:update blur' }" />
     </gr-datalist>
 
     <button type="button"
             class="job-editor__apply-to-all"
             title="Apply this photoshoot to all your current uploads"
-            ng:if="ctrl.withBatch"
-            ng:click="ctrl.batchApply(ctrl.photoshootData.title)"
+            ng-if="ctrl.withBatch"
+            ng-click="ctrl.batchApply(ctrl.photoshootData.title)"
     >⇔</button>
 </section>

@@ -19,7 +19,7 @@
     "aws-sdk": "^2.127.0"
   },
   "dependencies": {
-    "@guardian/elk-kinesis-logger": "0.1.0",
-    "node-fetch": "^1.7.3"
+    "node-fetch": "^1.7.3",
+    "p-all": "^2.1.0"
   }
 }

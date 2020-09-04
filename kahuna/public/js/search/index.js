@@ -89,6 +89,7 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             ctrl.metadataPanel = panels.metadataPanel;
 
             panelService.setAndSaveState($scope, 'collections', ctrl.collectionsPanel);
+            panelService.setAndSaveState($scope, 'metadata', ctrl.metadataPanel);
 
             keyboardShortcut.bindTo($scope).add({
                 combo: shortcutKeys.get('metadataPanel'),

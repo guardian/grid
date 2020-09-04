@@ -29,6 +29,10 @@ orderedSetFactory.value('orderedSetFactory', function() {
         return (set) => set.add(item);
     }
 
+    function union(items) {
+        return (set) => set.union(items);
+    }
+
     function remove(item) {
         return (set) => set.delete(item);
     }
@@ -49,6 +53,7 @@ orderedSetFactory.value('orderedSetFactory', function() {
 
         // Operations
         add(item)    { queueOperation(add(item));    },
+        union(items) { queueOperation(union(items)); },
         remove(item) { queueOperation(remove(item)); },
         toggle(item) { queueOperation(toggle(item)); },
         clear()      { queueOperation(clear());      }

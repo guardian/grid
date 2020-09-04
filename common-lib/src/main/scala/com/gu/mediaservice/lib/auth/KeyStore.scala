@@ -8,9 +8,9 @@ import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 
 class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, ApiKey](bucket, config)(ec) {
+  extends BaseStore[String, ApiAccessor](bucket, config)(ec) {
 
-  def lookupIdentity(key: String): Option[ApiKey] = store.get().get(key)
+  def lookupIdentity(key: String): Option[ApiAccessor] = store.get().get(key)
 
   def findKey(prefix: String): Option[String] = s3.syncFindKey(bucket, prefix)
 
@@ -19,8 +19,8 @@ class KeyStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionConte
     store.send(_ => fetchAll)
   }
 
-  private def fetchAll: Map[String, ApiKey] = {
+  private def fetchAll: Map[String, ApiAccessor] = {
     val keys = s3.client.listObjects(bucket).getObjectSummaries.asScala.map(_.getKey)
-    keys.flatMap(k => getS3Object(k).map(k -> ApiKey(_))).toMap
+    keys.flatMap(k => getS3Object(k).map(k -> ApiAccessor(_))).toMap
   }
 }

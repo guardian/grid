@@ -1,9 +1,10 @@
-<input type="text"
+<input data-cy="image-search-input"
+       type="text"
        autocomplete="off"
        placeholder="Search for images... (type + for advanced search)"
-       ng:trim="false"
+       ng-trim="false"
        gr-chip-input
        gr-chip-input-backspace-at-start="$grTextChipCtrl.removePrevious()"
-       ng:model="$grChipCtrl.chip.value"
-       ng:keypress="$grTextChipCtrl.handleKey($event)"
+       ng-model="$grChipCtrl.chip.value"
+       ng-keypress="$grTextChipCtrl.handleKey($event)"
 />

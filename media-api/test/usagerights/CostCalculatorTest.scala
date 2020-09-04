@@ -22,14 +22,14 @@ class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
     }
 
     it("should be free with a free category") {
-      val usageRights = Handout()
+      val usageRights = Obituary()
       val cost = Costing.getCost(usageRights)
 
       cost should be (Free)
     }
 
     it("should be conditional with a free category and restrictions") {
-      val usageRights = Handout(
+      val usageRights = Obituary(
         restrictions = Some("Restrictions")
       )
       val cost = Costing.getCost(usageRights)

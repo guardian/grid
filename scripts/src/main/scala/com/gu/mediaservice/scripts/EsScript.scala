@@ -1,127 +1,147 @@
 package com.gu.mediaservice.scripts
 
-import org.elasticsearch.action.admin.indices.close.CloseIndexRequest
-import org.elasticsearch.action.admin.indices.open.OpenIndexRequest
-import org.elasticsearch.action.bulk.BulkRequestBuilder
-import org.elasticsearch.action.index.IndexRequestBuilder
-import org.elasticsearch.action.search.{SearchRequestBuilder, SearchResponse}
-import org.elasticsearch.search.SearchHit
-import org.elasticsearch.index.query.QueryBuilders.{matchAllQuery, rangeQuery}
-import org.elasticsearch.common.unit.TimeValue
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, IndexSettings, Mappings}
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsResponse
+import java.util.concurrent.TimeUnit
+
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, Mappings}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.bulk.BulkResponse
+import com.sksamuel.elastic4s.requests.indexes.IndexRequest
+import com.sksamuel.elastic4s.requests.searches.{SearchHit, SearchResponse}
+import com.sksamuel.elastic4s.{Indexes, IndexesAndType, IndexesAndTypes}
 import org.joda.time.DateTime
+import play.api.libs.json.Json
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
-import ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.{Duration, FiniteDuration, SECONDS}
+import scala.concurrent.{Await, Future}
 
-object MoveIndex extends EsScript {
-  def run(esHost: String, extraArgs: List[String]) {
-
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "readAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
-
-      def move {
-        val srcIndex = getCurrentAlias.get // TODO: error handling if alias isn't attached
-        val srcIndexVersionCheck = """images_(\d+)""".r
-        val srcIndexVersion = srcIndex match {
-          case srcIndexVersionCheck(version) => version.toInt
-          case _ => 1
-        }
-        val newIndex = s"${imagesIndexPrefix}_${srcIndexVersion+1}"
-
-        assignAliasTo(newIndex)
-        removeAliasFrom(srcIndex)
-      }
-    }
-
-    EsClient.move
-  }
-  def usageError: Nothing = {
-    System.err.println("Usage: MoveIndex <ES_HOST>")
-    sys.exit(1)
-  }
-}
 
 object Reindex extends EsScript {
 
-  def run(esHost: String, args: List[String]) = {
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
-      val initTime = DateTime.now()
-      val currentIndex = getCurrentIndices.reverse.head
-      val nextIndex = nextIndexName(currentIndex)
+  def run(esUrl: String, args: List[String]) = {
 
-      def nextIndexName(currentIndex: String) = {
-        val srcIndexVersionCheck = """images_(\d+)""".r
-        val srcIndexVersion = currentIndex match {
-          case srcIndexVersionCheck(version) => version.toInt
-          case _ => 1
+    object IndexClient extends EsClient {
+      override def url = esUrl
+
+      val indexResult = client.execute {
+        getIndex(imagesAlias)
+      }.await
+
+      val currentIndex: String = indexResult.status match {
+        case 200 => {
+          indexResult.result.keySet.toList match {
+            case head::Nil => head
+            case _ => throw new Exception(s"There should only be one index associated with alias before reindexing, " +
+              s"however there was: ${indexResult.result.keys}")
+          }
         }
-        s"${imagesIndexPrefix}_${srcIndexVersion + 1}"
+        case _ => throw new Exception(s"Failed updating mapping: ${indexResult.error}")
       }
+
+      val srcIndexVersionCheck = """images_(\d+)""".r
+      val srcIndexVersion = currentIndex match {
+        case srcIndexVersionCheck(version) => version.toInt
+        case _ => 1
+      }
+      val nextIndex = s"${imagesIndexPrefix}_${srcIndexVersion+1}"
     }
 
-    def raise(msg: String) = {
-      System.err.println(s"Reindex error on: $esHost : $msg ")
+    def raiseError(msg: String) = {
+      System.err.println(s"Reindex error on: $esUrl : $msg ")
       System.err.println("Exiting...")
-      EsClient.client.close()
+      IndexClient.client.close()
       System.exit(1)
     }
 
     def validateCurrentState(esClient: ElasticSearchClient, from: Option[DateTime]) = {
-      if(esClient.getCurrentIndices.isEmpty) raise("no index with the 'write' alias exists")
-      if((esClient.getCurrentIndices.length == 2) && from.isEmpty)
-        raise("there are two indices with 'write' alias, check your properties file or use http://localhost:9200/_plugin/head/ ")
       if(from.exists(_.isAfter(DateTime.now())))
-        raise("DateTime parameter 'from' must be earlier than the current time" )
+        raiseError("DateTime parameter 'from' must be earlier than the current time" )
     }
 
-    val imageType = "image"
-    val scrollTime = new TimeValue(5 * 60 * 1000) // 5 minutes in milliseconds
-    val scrollSize = 500
-    val currentIndex = EsClient.currentIndex
-    val newIndex = EsClient.nextIndex
+    def getArg(argKey: String): Option[String] = {
+      args.find(_ contains s"${argKey}=")
+        .map(_ replaceFirst(s"${argKey}=", ""))
+    }
 
-    val from = if(args.isEmpty) None else Some(DateTime.parse(args.head))
-    validateCurrentState(EsClient, from)
-    Await.result(reindex(from, EsClient), Duration.Inf)
+    val scrollTime = new FiniteDuration(5, TimeUnit.MINUTES)
+    val scrollSize = 500
+    val currentIndex = IndexClient.currentIndex
+    val newIndex = getArg("NEW_INDEX") match {
+      case Some(arg) => arg
+      case None => IndexClient.nextIndex
+    }
+    val from = getArg("FROM_TIME") match {
+      case Some(arg) => Some(DateTime.parse(arg))
+      case None => None
+    }
+    validateCurrentState(IndexClient, from)
+    Await.result(reindex(from, IndexClient), Duration.Inf)
+    println(s"Pointing $esImagesReadAlias to new index: $newIndex")
+    IndexClient.changeAliasTo(newIndex, currentIndex, esImagesReadAlias)
+    println(s"Finished reindexing from $currentIndex to $newIndex")
+    IndexClient.client.close()
 
     def reindex(from: Option[DateTime], esClient: ElasticSearchClient) : Future[SearchResponse] = {
+
       def _scroll(scroll: SearchResponse, done: Long = 0): Future[SearchResponse] = {
         val client = esClient.client
         val currentBatch = done + scrollSize
         System.out.println(scrollPercentage(scroll, currentBatch, done))
 
-        def bulkFromHits(hits: Array[SearchHit]): BulkRequestBuilder = {
-          val bulkRequests : Array[IndexRequestBuilder] = hits.map { hit =>
-            client.prepareIndex(newIndex, imageType, hit.id).setSource(hit.source) }
+        def bulkFromHits(hits: Array[SearchHit]): BulkResponse = {
+          val bulkRequests: Array[IndexRequest] = hits.map { hit =>
+            indexInto(newIndex)
+              .withId(hit.id)
+              .source(hit.sourceAsString)
+          }
 
-          val bulk = client.prepareBulk
-          bulkRequests map { bulk.add }
-          bulk
+          val bulkResponse = IndexClient.client.execute({
+            bulk(bulkRequests)
+          }).await
+
+          bulkResponse.status match {
+            case 200 => bulkResponse.result
+            case _ => {
+              IndexClient.client.close()
+              throw new Exception("Failed performing bulk index")
+            }
+          }
         }
+
         def scrollPercentage(scroll: SearchResponse, currentBatch: Long, done: Long): String = {
-          val total = scroll.getHits.totalHits
+          val total = scroll.hits.total.value
           // roughly accurate as we're using done, which is relative to scrollSize, rather than the actual number of docs in the new index
-          val percentage = (done.toFloat / total) * 100
-          s"Reindexing $currentBatch of $total ($percentage%)"
+          val percentage = (Math.min(done,total).toFloat / total) * 100
+          s"Reindexing ${Math.min(currentBatch,total)} of $total ($percentage%)"
         }
 
+        def performScroll(scrollId: String, scrollTime: FiniteDuration): SearchResponse = {
+          val scrollResponse = IndexClient.client.execute({
+            searchScroll(scrollId)
+              .keepAlive(scrollTime)
+          }).await
 
-        val hits = scroll.getHits.hits
+          scrollResponse.status match {
+            case 200 => scrollResponse.result
+            case _ => {
+              IndexClient.client.close()
+              throw new Exception("Failed performing bulk index")
+            }
+          }
+        }
+
+        def analyseBulkResponse(bulkResponse: BulkResponse) = {
+          val successes = bulkResponse.items.filter(item => item.status == 201).map(item => item.id)
+          val failures = bulkResponse.items.filterNot(item => item.status == 201).map(item => item.id)
+          println(s"...added ${successes.length}/${bulkResponse.items.length} items in ${bulkResponse.took} ms (${failures.length} failures)")
+          if (failures.nonEmpty) println(s"......failure IDs: $failures")
+        }
+
+        val hits = scroll.hits.hits
         if(hits.nonEmpty) {
-          bulkFromHits(hits).execute.actionGet
-          val scrollResponse = client.prepareSearchScroll(scroll.getScrollId).setScroll(scrollTime).execute.actionGet
+          val bulkResponse = bulkFromHits(hits)
+          analyseBulkResponse(bulkResponse)
+          val scrollResponse = performScroll(scroll.scrollId.get, scrollTime)
           _scroll(scrollResponse, currentBatch)
         } else {
           println("No more results found")
@@ -129,38 +149,49 @@ object Reindex extends EsScript {
         }
       }
 
-      def query(from: Option[DateTime]) : SearchRequestBuilder = {
+      def query(from: Option[DateTime]) : SearchResponse = {
         val queryType = from.map(time =>
-          rangeQuery("lastModified").from(from.get).to(DateTime.now)
+          rangeQuery("lastModified").gte(from.get.getMillis).lte(DateTime.now.getMillis)
         ).getOrElse(
           matchAllQuery()
         )
 
-        EsClient.client.prepareSearch(currentIndex)
-          .setTypes(imageType)
-          .setScroll(scrollTime)
-          .setSize(scrollSize)
-          .setQuery(queryType)
+        val queryResponse = IndexClient.client.execute({
+          search(currentIndex)
+//            .types(Mappings.dummyType)
+            .scroll(scrollTime)
+            .size(scrollSize)
+            .query(queryType)
+        }).await
+
+        queryResponse.status match {
+          case 200 => queryResponse.result
+          case _ => {
+            IndexClient.client.close()
+            throw new Exception("Failed performing search query")
+          }
+        }
       }
 
       // if no 'from' time parameter is passed, create a new index
       if(from.isEmpty) {
-        EsClient.createImageIndex(newIndex)
+        IndexClient.createImageIndex(newIndex)
       } else {
         println(s"Reindexing documents modified since: ${from.toString}")
       }
 
       val startTime = DateTime.now()
       println(s"Reindex started at: $startTime")
-      println(s"Reindexing from: ${EsClient.currentIndex} to: $newIndex")
-      val scrollResponse = query(from).execute.actionGet
+      println(s"Reindexing from: ${IndexClient.currentIndex} to: $newIndex")
+      val scrollResponse = query(from)
       _scroll(scrollResponse) flatMap  { case (response: SearchResponse) =>
-        val changedDocuments: Long = query(Option(startTime)).execute.actionGet.getHits.getTotalHits
-        println(s"$changedDocuments")
-        if(changedDocuments > 0) {
-          println(s"Adding ${EsClient.imagesAlias} to $newIndex")
-          EsClient.assignAliasTo(newIndex)
+        println(s"Pointing ${IndexClient.imagesAlias} to new index: $newIndex")
+        IndexClient.changeAliasTo(newIndex, currentIndex)
 
+        val changedDocuments: Long = query(Option(startTime)).hits.total.value
+        println(s"$changedDocuments changed documents since start")
+
+        if(changedDocuments > 0) {
           println(s"Reindexing changes since start time: $startTime")
           val recurseResponse = reindex(Option(startTime), esClient)
           recurseResponse
@@ -172,138 +203,193 @@ object Reindex extends EsScript {
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: Reindex error <ES_HOST>")
+    System.err.println("Usage: Reindex error <ES_URL> [NEW_INDEX=<new_index_name>, FROM_TIME=<datetime>]")
     sys.exit(1)
   }
 }
 
+// TODO: add the ability to update a section of the mapping
 object UpdateMapping extends EsScript {
 
-  def run(esHost: String, extraArgs: List[String]) {
-    // TODO: add the ability to update a section of the mapping
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
+  def run(esUrl: String, extraArgs: List[String]) {
+
+    object MappingsClient extends EsClient {
+      override def url = esUrl
 
       def updateMappings(specifiedIndex: Option[String]) {
-        val index = getCurrentAlias.getOrElse(imagesAlias)
-        println(s"updating mapping on index: $index")
-        client.admin.indices
-          .preparePutMapping(index)
-          .setType(imageType)
-          .setSource(Mappings.imageMapping)
-          .execute.actionGet
+        val index = specifiedIndex.getOrElse(imagesAlias)
+        println(s"Updating mapping on index: $index")
+
+        val result = client.execute {
+          putMapping(Indexes(index)) as {
+            Mappings.imageMapping.fields
+          }
+        }.await
+
+        result.status match {
+          case 200 => println(Json.prettyPrint(Json.parse(result.body.get)))
+          case _ => println(s"Failed updating mapping: ${result.error}")
+        }
 
         client.close
       }
+
     }
 
-    EsClient.updateMappings(extraArgs.headOption)
+    MappingsClient.updateMappings(extraArgs.headOption)
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: UpdateMapping <ES_HOST>")
+    System.err.println("Usage: UpdateMapping <ES_URL>")
     sys.exit(1)
   }
 }
 
 object GetMapping extends EsScript {
 
-  def run(esHost: String, extraArgs: List[String]) {
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
+  def run(esUrl: String, extraArgs: List[String]) {
+
+    object MappingsClient extends EsClient {
+      override def url = esUrl
 
       def getMappings(specifiedIndex: Option[String]) {
-        val index = getCurrentAlias.getOrElse(imagesAlias)
-        println(s"getting mapping on index: $index")
-        val result = client.admin.indices
-          .prepareGetMappings(index)
-          .execute.actionGet
+        val index = specifiedIndex.getOrElse(imagesAlias)
+        println(s"Getting mapping on index: $index")
 
-        try {
-          println(result.getMappings.get(index).get(imageType).getSourceAsMap)
-        } catch {
-          case e: Throwable => throw new Exception(s"Error while getting mappings: ${e.getMessage}")
+        val result = Await.result(client.execute(
+          getMapping(index)
+        ), Duration(30, SECONDS))
+
+        result.status match {
+          case 200 => println(Json.prettyPrint(Json.parse(result.body.get)))
+          case _ => println(s"Failed getting mapping: ${result.error}")
         }
+
 
         client.close()
       }
     }
 
-    EsClient.getMappings(extraArgs.headOption)
+    MappingsClient.getMappings(extraArgs.headOption)
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: GetMapping <ES_HOST>")
+    System.err.println("Usage: GetMapping <ES_URL>")
     sys.exit(1)
   }
 }
 
 object UpdateSettings extends EsScript {
 
-  def run(esHost: String, extraArgs: List[String]) {
-    // TODO: add the ability to update a section of the mapping
-    object EsClient extends ElasticSearchClient {
-      val imagesAlias = "writeAlias"
-      val port = esPort
-      val host = esHost
-      val cluster = esCluster
-      val clientTransportSniff = false
+  def run(esUrl: String, extraArgs: List[String]) {
 
-      if (esHost != "localhost") {
-        System.err.println(s"You can only run UpdateSettings on localhost, not '$esHost'")
+    object SettingsClient extends EsClient {
+      override def url = esUrl
+
+      if (!url.contains("localhost")) {
+        System.err.println(s"You can only run UpdateSettings on localhost, not '$esUrl'")
         System.exit(1)
       }
 
-      def updateSettings {
-        val alias = getCurrentAlias.getOrElse(imagesAlias)
-        val indices = client.admin.indices
-        indices.close(new CloseIndexRequest(alias))
+      def updateIdxSettings(specifiedIndex: Option[String]) {
 
-        indices
-          .prepareUpdateSettings(alias)
-          .setSettings(IndexSettings.imageSettings)
-          .execute.actionGet
+        val index = specifiedIndex.getOrElse(imagesAlias)
+        println(s"Getting mapping on index: $index")
 
-        indices.open(new OpenIndexRequest(alias))
+        val settingsToAdd: Map[String, String] = Map("max_result_window" -> "25000")
+
+       val resultFut = for {
+          _ <- client.execute(closeIndex(index))
+          result <- {
+            client.execute(
+              updateSettings(index)
+                .add(settingsToAdd)
+            )
+          }
+          _ <- client.execute(openIndex(index))
+        } yield result
+
+        val result = Await.result(resultFut, Duration(30, SECONDS))
+
+        result.status match {
+          case 200 => println(Json.prettyPrint(Json.parse(result.body.get)))
+          case _ => println(s"Failed updating index settings: ${result.error}")
+        }
+
         client.close
       }
     }
 
-    EsClient.updateSettings
+    SettingsClient.updateIdxSettings(extraArgs.headOption)
   }
 
   def usageError: Nothing = {
-    System.err.println("Usage: UpdateSettings <ES_HOST>")
+    System.err.println("Usage: UpdateSettings <ES_URL>")
+    sys.exit(1)
+  }
+}
+
+object GetSettings extends EsScript {
+
+  def run(esUrl: String, extraArgs: List[String]) {
+
+    object SettingsClient extends EsClient {
+      override def url = esUrl
+
+      def getIdxSettings(specifiedIndex: Option[String]) {
+        val index = specifiedIndex.getOrElse(imagesAlias)
+        println(s"Getting settings on index: $index")
+
+        val result = Await.result(client.execute(
+          getSettings(index)
+        ), Duration(30, SECONDS))
+
+        result.status match {
+          case 200 => println(Json.prettyPrint(Json.parse(result.body.get)))
+          case _ => println(s"Failed getting settings: ${result.error}")
+        }
+
+
+        client.close()
+      }
+    }
+
+    SettingsClient.getIdxSettings(extraArgs.headOption)
+  }
+
+  def usageError: Nothing = {
+    System.err.println("Usage: GetMapping <ES_URL>")
     sys.exit(1)
   }
 }
 
 abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
-  final val esApp   = "elasticsearch"
-  final val esPort = 9300
   final val esCluster = "media-service"
+  final val esImagesAlias = "writeAlias"
+  final val esImagesReadAlias = "readAlias"
+  final val esShards = 5
+  final val esReplicas = 0
 
   def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
 
   def apply(args: List[String]) {
     // FIXME: Use Stage to get host (for some reason this isn't working)
-    val (esHost, extraArgs) = args match {
+    val (esUrl, extraArgs) = args match {
       case h :: t => (h, t)
       case _ => usageError
     }
 
-    run(esHost, extraArgs)
+    run(esUrl, extraArgs)
   }
 
-  def run(esHost: String, args: List[String])
+  abstract class EsClient extends ElasticSearchClient {
+    override def cluster = esCluster
+    override def imagesAlias = esImagesAlias
+    override def shards = esShards
+    override def replicas = esReplicas
+  }
+
+  def run(esUrl: String, args: List[String])
   def usageError: Nothing
 }

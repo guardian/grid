@@ -24,11 +24,11 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
   implicit val ec: ExecutionContext = executionContext
 
   final override def httpFilters: Seq[EssentialFilter] = {
-    Seq(corsFilter, csrfFilter, securityHeadersFilter, gzipFilter, new RequestLoggingFilter(materializer))
+    Seq(corsFilter, csrfFilter, securityHeadersFilter, gzipFilter, new RequestLoggingFilter(materializer), new RequestMetricFilter(config, materializer))
   }
 
   final override lazy val corsConfig: CORSConfig = CORSConfig.fromConfiguration(context.initialConfiguration).copy(
-    allowedOrigins = Origins.Matching(Set(config.services.kahunaBaseUri) ++ config.services.corsAllowedDomains)
+    allowedOrigins = Origins.Matching(Set(config.services.kahunaBaseUri, config.services.apiBaseUri) ++ config.services.corsAllowedDomains)
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)

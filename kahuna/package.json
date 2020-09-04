@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@babel/polyfill": "^7.8.7",
     "angular": "1.6.10",
     "angular-animate": "1.6.10",
     "angular-elastic": "^2.5.1 ",
@@ -10,7 +11,6 @@
     "angular-xeditable": "^0.8.1",
     "any-http-angular": "^0.1.0",
     "any-promise-angular": "^0.1.1",
-    "babel-polyfill": "^6.26.0",
     "cropperjs": "^0.7.0",
     "immutable": "^3.7.5",
     "javascript-detect-element-resize": "^0.5.3",
@@ -31,24 +31,29 @@
     "uri-templates": "0.1.5"
   },
   "devDependencies": {
-    "babel-core": "^6.26.0",
-    "babel-eslint": "^8.2.3",
-    "babel-loader": "^7.1.2",
-    "babel-preset-env": "^1.6.1",
-    "css-loader": "^0.28.7",
-    "eslint": "^4.19.1",
-    "expose-loader": "^0.7.3",
-    "html-loader": "^0.5.1",
+    "@babel/core": "^7.9.0",
+    "@babel/preset-env": "^7.9.0",
+    "babel-eslint": "^10.1.0",
+    "babel-jest": "^25.2.1",
+    "babel-loader": "^8.1.0",
+    "css-loader": "^3.4.2",
+    "eslint": "^6.8.0",
+    "expose-loader": "^0.7.5",
+    "html-loader": "^1.0.0",
     "htmllint-cli": "0.0.7",
-    "style-loader": "^0.19.0",
-    "svg-inline-loader": "^0.8.0",
-    "uglifyjs-webpack-plugin": "^1.0.1",
-    "webpack": "^3.8.1"
+    "jest": "^24.8.0",
+    "style-loader": "^1.1.3",
+    "svg-inline-loader": "^0.8.2",
+    "terser-webpack-plugin": "^2.3.5",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11",
+    "webpack-merge": "^4.2.2"
   },
   "scripts": {
-    "test": "npm run lint",
+    "test": "npm run lint && jest --coverage",
     "lint": "eslint public/js && htmllint public/js/**/*.html",
-    "dist": "webpack --progress --config webpack.config.prod.js",
+    "lint-fix": "eslint public/js --fix && htmllint public/js/**/*.html",
+    "dist": "webpack --config webpack.config.prod.js",
     "build-dev": "npm run undist && webpack --progress --config webpack.config.dev.js",
     "watch": "npm run undist && webpack --watch --config webpack.config.dev.js",
     "undist": "rm -f public/dist/build.js*"

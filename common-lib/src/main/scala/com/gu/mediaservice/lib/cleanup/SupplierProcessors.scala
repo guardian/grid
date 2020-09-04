@@ -16,7 +16,6 @@ class SupplierProcessors(metadataConfigGetter: MetadataConfigGetter) {
     AlamyParser,
     AllStarParser,
     ApParser,
-    BarcroftParser,
     CorbisParser,
     EpaParser,
     PaParser,
@@ -60,7 +59,7 @@ object AapParser extends ImageProcessor {
 
 object ActionImagesParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Action Images") | Some("Action Images via Reuters") => image.copy(
+    case Some("Action Images") | Some("Action Images/Reuters") => image.copy(
       usageRights = Agency("Action Images")
     )
     case _ => image
@@ -139,14 +138,6 @@ object ApParser extends ImageProcessor {
   }
 }
 
-object BarcroftParser extends ImageProcessor {
-  def apply(image: Image): Image =
-    // We search the credit and the source here as Barcroft seems to use both
-    if(List(image.metadata.credit, image.metadata.source).flatten.map(_.toLowerCase).exists { s =>
-      List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars").exists(s.contains)
-    }) image.copy(usageRights = Agency("Barcroft Media")) else image
-}
-
 object CorbisParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.source match {
     case Some("Corbis") => image.copy(
@@ -178,12 +169,14 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
       "Panoramic/Avalon", "Panoramic", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA", "EMPICS", "Empics News",
       "S&G and Barratts/EMPICS Sport", "EMPICS Sport", "EMPICS SPORT", "EMPICS Sports Photo Agency",
       "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
-      "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS"
+      "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS",
+      "Athena Pictures", "Flick.digital"
     )
 
     val excludedSource = List(
       "www.capitalpictures.com", "Replay Images", "UKTV", "PinPep", "Pinnacle Photo Agency Ltd", "News Images",
-      "London News Pictures Ltd", "Showtime", "Propaganda", "Equinox Features", "Athena Picture Agency Ltd"
+      "London News Pictures Ltd", "Showtime", "Propaganda", "Equinox Features", "Athena Picture Agency Ltd",
+      "www.edinburghelitemedia.co.uk", "WALES NEWS SERVICE", "Sports Inc", "UK Sports Pics Ltd"
     )
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
@@ -259,7 +252,7 @@ object ReutersParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     // Reuters and other misspellings
     // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
-    case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") => image.copy(
+    case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
       usageRights = Agency("Reuters"),
       metadata = image.metadata.copy(credit = Some("Reuters"))
     )

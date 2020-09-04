@@ -2,7 +2,7 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.getEmail
+import com.gu.mediaservice.lib.auth.Authentication.getIdentity
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.net.{URI => UriOps}
@@ -34,7 +34,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
   def addCollection(id: String) = authenticated.async(parse.json) { req =>
     (req.body \ "data").asOpt[List[String]].map { path =>
-      val collection = Collection.build(path, ActionData(getEmail(req.user), DateTime.now()))
+      val collection = Collection.build(path, ActionData(getIdentity(req.user), DateTime.now()))
       dynamo.listAdd(id, "collections", collection)
         .map(publish(id))
         .map(cols => respond(collection))

@@ -60,6 +60,13 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     } recover { case NoItemFound => emptyResponse }
   }
 
+  def getEdits(id: String) = auth.async {
+    store.get(id) map { dynamoEntry =>
+      val edits = dynamoEntry.asOpt[Edits]
+      respond(data = edits)
+    } recover { case NoItemFound => NotFound }
+  }
+
   def getArchived(id: String) = auth.async {
     store.booleanGet(id, "archived") map { archived =>
       respond(archived.getOrElse(false))

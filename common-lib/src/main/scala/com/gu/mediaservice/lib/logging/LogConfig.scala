@@ -1,22 +1,29 @@
 package com.gu.mediaservice.lib.logging
 
+import java.net.InetSocketAddress
+
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.classic.{LoggerContext, Logger => LogbackLogger}
+import net.logstash.logback.appender.LogstashTcpSocketAppender
 import com.amazonaws.util.EC2MetadataUtils
 import com.gu.logback.appender.kinesis.KinesisAppender
 import com.gu.mediaservice.lib.config.CommonConfig
+import net.logstash.logback.encoder.LogstashEncoder
 import net.logstash.logback.layout.LogstashLayout
 import org.slf4j.{LoggerFactory, Logger => SLFLogger}
 import play.api.ApplicationLoader.Context
 import play.api.LoggerConfigurator
 import play.api.libs.json._
 import scalaz.syntax.id._
+
 import scala.util.Try
 
 
 object LogConfig {
 
   val rootLogger: LogbackLogger = LoggerFactory.getLogger(SLFLogger.ROOT_LOGGER_NAME).asInstanceOf[LogbackLogger]
+
+  private val BUFFER_SIZE = 1000
 
   case class KinesisAppenderConfig(stream: String, region: String, roleArn: String, bufferSize: Int)
 
@@ -48,6 +55,36 @@ object LogConfig {
       a.start()
   }
 
+  private def makeLogstashAppender(config: CommonConfig, context: LoggerContext): LogstashTcpSocketAppender = {
+    val customFields = makeCustomFields(config)
+
+    new LogstashTcpSocketAppender() <| { appender =>
+      appender.setContext(context)
+      appender.addDestinations(new InetSocketAddress("localhost", 5000))
+      appender.setWriteBufferSize(BUFFER_SIZE)
+
+      appender.setEncoder(new LogstashEncoder() <| { encoder =>
+        encoder.setCustomFields(customFields)
+        encoder.start()
+      })
+
+      appender.start()
+    }
+  }
+
+  def initLocalLogShipping(config: CommonConfig): Unit = {
+    if(config.isDev && config.localLogShipping) {
+      Try {
+        rootLogger.info("Configuring local logstash log shipping")
+        val appender = makeLogstashAppender(config, rootLogger.getLoggerContext)
+        rootLogger.addAppender(appender)
+        rootLogger.info("Local logstash log shipping configured")
+      } recover {
+        case e => rootLogger.error("LogConfig Failed!", e)
+      }
+    }
+  }
+
   def initKinesisLogging(config: CommonConfig): Unit = {
     if (config.isDev) {
       rootLogger.info("Kinesis logging disabled in DEV")
@@ -59,14 +96,13 @@ object LogConfig {
         val customFields = makeCustomFields(config)
         val context      = rootLogger.getLoggerContext
         val layout       = makeLayout(customFields)
-        val bufferSize   = 1000
 
         val appender     = makeKinesisAppender(layout, context,
           KinesisAppenderConfig(
             config.properties("logger.kinesis.stream"),
             config.properties("logger.kinesis.region"),
             config.properties("logger.kinesis.roleArn"),
-            bufferSize
+            BUFFER_SIZE
           )
         )
 
