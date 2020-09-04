@@ -226,6 +226,31 @@ uploadApiKey() {
   echo "  uploaded"
 }
 
+uploadMetadataConfig() {
+  echo "uploading an empty metadata config file"
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="/tmp/grid-empty-metadata-config"
+
+  cat << EOF > "$target"
+{
+  "externalStaffPhotographers": [],
+  "internalStaffPhotographers": [],
+  "contractedPhotographers": [],
+  "contractIllustrators": [],
+  "staffIllustrators": [],
+  "creativeCommonsLicense": []
+}
+EOF
+
+  aws s3 cp "$target" \
+    "s3://$configBucket/photographers.json" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  rm "$target"
+  echo "  uploaded"
+}
+
 checkForJavaHome() {
   echo "Checking JAVA_HOME"
   if [[ -z "$JAVA_HOME" ]]; then
@@ -252,6 +277,7 @@ main() {
   setupDevNginx
   generateDotProperties
   uploadApiKey
+  uploadMetadataConfig
   echo "Setup complete. You're now able to start Grid!"
 }
 

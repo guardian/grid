@@ -15,6 +15,7 @@ trait MetadataConfigGetter {
 class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
   extends BaseStore[String, MetadataConfig](bucket, config)(ec) with MetadataConfigGetter {
 
+  // NB: if you change the location please update setup.sh which creates an empty config for use in local dev
   val metadataMapKey = "metadataConfig"
   val metadataStoreKey = "photographers.json"
 
