@@ -44,9 +44,11 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
   lazy val elasticsearch6Replicas: Int = properties("es6.replicas").toInt
 
   lazy val metadataTopicArn: String = properties("indexed.image.sns.topic.arn")
-
+  
   lazy val rewindFrom: Option[DateTime] = properties.get("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
   lazy val lowPriorityRewindFrom: Option[DateTime] = properties.get("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
+
+  lazy val isVersionedS3: Boolean = properties.getOrElse("s3.image.versioned", "false").toBoolean
 
   def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
   def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
