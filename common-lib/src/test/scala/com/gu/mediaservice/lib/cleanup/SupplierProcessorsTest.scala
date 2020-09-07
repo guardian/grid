@@ -426,7 +426,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
         SupplierMatch("GettyXmpParser", List(), List()),
         SupplierMatch("GettyCreditParser", List(".*Getty Images.*", ".+ via Getty(?: .*)?", ".+/Getty(?: .*)?"), List()),
         SupplierMatch("AapParser", List("AAPIMAGE", "AAP IMAGE", "AAP"), List()),
-        SupplierMatch("ActionImagesParser", List("Action Images", "Action Images via Reuters"), List()),
+        SupplierMatch("ActionImagesParser", List("Action Images", "Action Images via Reuters", "Action Images/Reuters"), List()),
         SupplierMatch("AlamyParser", List("Alamy", "Alamy Stock Photo"), List()),
         SupplierMatch("AllStarParser", List("Allstar Picture Library"), List()),
         SupplierMatch("ApParser", List("ap", "associated press"), List()),
