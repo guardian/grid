@@ -46,7 +46,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def IsFieldName = rule { "is" }
   def IsMatchValue = rule { String ~> IsValue }
 
-  def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ MatchValue }
+  def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ ExactMatchValue }
   def NestedDateMatch = rule { ParentField ~ "@" ~ DateConstraintMatch ~> (
     (parentField: Field, dateMatch: Match) => {
       Nested(parentField, dateMatch.field, dateMatch.value)
@@ -94,7 +94,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def AllowedParentFieldName = rule { "usages" }
   def AllowedNestedFieldName = rule {
-    "status" | "platform" | "section" | "publication" | "orderedBy"
+    "status" | "platform" | "section" | "publication" | "orderedBy" | "reference"
   }
   def AllowedFieldName = rule {
     "illustrator" |
@@ -114,7 +114,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "croppedBy" |
     "filename" |
     "photoshoot" |
-    "leasedBy"
+    "leasedBy" |
+    "person"
   }
 
   def resolveNamedField(name: String): Field = (name match {
@@ -126,10 +127,12 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "location"            => "subLocation"
     case "by" | "photographer" => "byline"
     case "keyword"             => "keywords"
+    case "person"              => "peopleInImage"
     case fieldName             => fieldName
   }) match {
     case "publication" => MultipleField(List("publicationName", "publicationCode"))
     case "section" => MultipleField(List("sectionId","sectionCode"))
+    case "reference" => MultipleField(List("references.uri", "references.name").map(usagesField))
     case "in" => MultipleField(List("location", "city", "state", "country").map(getFieldPath))
     case field => SingleField(getFieldPath(field))
   }

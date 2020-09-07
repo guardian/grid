@@ -4,8 +4,9 @@ import java.net.URI
 import java.util.UUID
 
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.{DigitalUsage, PublishedUsageStatus, Usage}
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 
 trait Fixtures {
 
@@ -20,7 +21,7 @@ trait Fixtures {
                  ): Image =
     Image(
      id = id,
-     uploadTime = DateTime.now(),
+     uploadTime = DateTime.now(DateTimeZone.UTC),
      uploadedBy = "yellow.giraffe@theguardian.com",
      lastModified = None,
      identifiers = Map.empty,
@@ -28,13 +29,13 @@ trait Fixtures {
      source = Asset(
        file = new URI(s"http://file/$id"),
        size = Some(292265L),
-       mimeType = Some("image/jpeg"),
+       mimeType = Some(Jpeg),
        dimensions = Some(Dimensions(width = 2800, height = 1600)),
        secureUrl = None),
      thumbnail = Some(Asset(
        file = new URI(s"http://file/thumbnail/$id"),
        size = Some(292265L),
-       mimeType = Some("image/jpeg"),
+       mimeType = Some(Jpeg),
        dimensions = Some(Dimensions(width = 800, height = 100)),
        secureUrl = None)),
      optimisedPng = None,
@@ -65,10 +66,7 @@ trait Fixtures {
 
     val syndicationRights = SyndicationRights(rcsPublishDate, Nil, rights)
 
-    val leaseByMedia = lease.map(l => LeasesByMedia(
-      lastModified = leasesLastModified,
-      leases = List(l)
-    ))
+    val leaseByMedia = lease.map(l => LeasesByMedia.build(List(l)))
 
     createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), leaseByMedia, usages, fileMetadata = fileMetadata)
   }

@@ -1,5 +1,5 @@
 <gr-confirm-delete
-  ng:if="ctrl.userHasPermission"
-  gr:label="Delete ALL usages"
-  gr:on-confirm="ctrl.delete()">
+  ng-if="ctrl.userHasPermission"
+  gr-label="Delete ALL usages"
+  gr-on-confirm="ctrl.delete()">
 </gr-confirm-delete>

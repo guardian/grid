@@ -4,28 +4,35 @@ import java.io.File
 import java.net.{URI, URLEncoder}
 import java.nio.charset.{Charset, StandardCharsets}
 
-import com.amazonaws.ClientConfiguration
+import com.amazonaws.{AmazonServiceException, ClientConfiguration}
 import com.amazonaws.services.s3.model._
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
+import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.model.{Image, ImageType, OptimisedPng, Source, Thumbnail}
+import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
+import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
+import org.slf4j.LoggerFactory
+import play.api.Logger
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
+
 case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
-case class S3ObjectMetadata(contentType: Option[String], cacheControl: Option[String], lastModified: Option[DateTime] = None)
+
+case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
 class S3(config: CommonConfig) {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
 
-  val s3Endpoint = "s3.amazonaws.com"
+  import S3Ops.objectUrl
 
-  lazy val client: AmazonS3 = buildS3Client()
+  lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
+  private val log = LoggerFactory.getLogger(getClass)
 
   private def removeExtension(filename: String): String = {
     val regex = """\.[a-zA-Z]{3,4}$""".r
@@ -40,16 +47,16 @@ class S3(config: CommonConfig) {
       case OptimisedPng => image.optimisedPng.getOrElse(image.source)
     }
 
-    val extension = asset.mimeType match {
-      case Some("image/jpeg") => "jpg"
-      case Some("image/png")  => "png"
-      case Some("image/tiff")  => "tif"
-      case _ => throw new Exception("Unsupported mime type")
+    val extension: String = asset.mimeType match {
+      case Some(mimeType) => mimeType.fileExtension
+      case _ =>
+        Logger.warn("Unrecognised mime type")(image.toLogMarker)
+        ""
     }
 
     val baseFilename: String = image.uploadInfo.filename match {
-      case Some(f)  => s"${removeExtension(f)} (${image.id}).$extension"
-      case _        => s"${image.id}.$extension"
+      case Some(f) => s"${removeExtension(f)} (${image.id})$extension"
+      case _ => s"${image.id}$extension"
     }
 
     charset.displayName() match {
@@ -86,34 +93,41 @@ class S3(config: CommonConfig) {
     client.generatePresignedUrl(request).toExternalForm
   }
 
-  def getObject(bucket: Bucket, url: URI) = {
+  def getObject(bucket: Bucket, url: URI): model.S3Object = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
     client.getObject(new GetObjectRequest(bucket, key))
   }
 
-  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[String] = None, meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
-           (implicit ex: ExecutionContext): Future[S3Object] =
+  def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
+    val content = client.getObject(new GetObjectRequest(bucket, key))
+    val stream = content.getObjectContent
+    try {
+      Some(IOUtils.toString(stream).trim)
+    } catch {
+      case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
+        log.warn(s"Cannot find key: $key in bucket: $bucket")
+        None
+    }
+    finally {
+      stream.close()
+    }
+  }
+
+  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
+           (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] =
     Future {
       val metadata = new ObjectMetadata
-      mimeType.foreach(metadata.setContentType)
+      mimeType.foreach(m => metadata.setContentType(m.name))
       cacheControl.foreach(metadata.setCacheControl)
       metadata.setUserMetadata(meta.asJava)
 
       val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
-      client.putObject(req)
+      Stopwatch(s"S3 client.putObject ($req)"){
+        client.putObject(req)
+      }
 
-      S3Object(
-        objectUrl(bucket, id),
-        file.length,
-        S3Metadata(
-          meta,
-          S3ObjectMetadata(
-            mimeType,
-            cacheControl
-          )
-        )
-      )
+      S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, cacheControl)
     }
 
   def list(bucket: Bucket, prefixDir: String)
@@ -124,24 +138,24 @@ class S3(config: CommonConfig) {
       val summaries = listing.getObjectSummaries.asScala
       summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
         case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(objectUrl(bucket, key), summary.getSize(), getMetadata(bucket, key)) :: memo
+          S3Object(objectUrl(bucket, key), summary.getSize, getMetadata(bucket, key)) :: memo
       }
     }
 
-  def getMetadata(bucket: Bucket, key: Key) = {
+  def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
     val meta = client.getObjectMetadata(bucket, key)
 
     S3Metadata(
       meta.getUserMetadata.asScala.toMap,
       S3ObjectMetadata(
-        contentType  = Option(meta.getContentType()),
-        cacheControl = Option(meta.getCacheControl()),
-        lastModified = Option(meta.getLastModified()).map(new DateTime(_))
+        contentType = Option(MimeType(meta.getContentType)),
+        cacheControl = Option(meta.getCacheControl),
+        lastModified = Option(meta.getLastModified).map(new DateTime(_))
       )
     )
   }
 
-  def getUserMetadata(bucket: Bucket, key: Key) =
+  def getUserMetadata(bucket: Bucket, key: Key): Map[Bucket, Bucket] =
     client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
 
   def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
@@ -151,20 +165,48 @@ class S3(config: CommonConfig) {
     summaries.headOption.map(_.getKey)
   }
 
-  private def objectUrl(bucket: Bucket, key: Key): URI = {
-    val bucketUrl = s"$bucket.$s3Endpoint"
-    new URI("http", bucketUrl, s"/$key", null)
-  }
+}
 
-  private def buildS3Client(): AmazonS3 = {
+object S3Ops {
+  // TODO make this localstack friendly
+  private val s3Endpoint = "s3.amazonaws.com"
+
+  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true): AmazonS3 = {
     // Force v2 signatures: https://github.com/aws/aws-sdk-java/issues/372
     // imgops proxies direct to S3, passing the AWS security signature as query parameters
     // This does not work with AWS v4 signatures, presumably because the signature includes the host
     val clientConfig = new ClientConfiguration()
     clientConfig.setSignerOverride("S3SignerType")
 
-    val builder = AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+    val builder = config.awsLocalEndpoint match {
+      case Some(_) if config.isDev => {
+        // TODO revise closer to the time of deprecation https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
+        //  `withPathStyleAccessEnabled` for localstack
+        //  see https://github.com/localstack/localstack/issues/1512
+        AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
+      }
+      case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+    }
 
-    config.withAWSCredentials(builder).build()
+    config.withAWSCredentials(builder, localstackAware).build()
+  }
+
+  def objectUrl(bucket: String, key: String): URI = {
+    val bucketUrl = s"$bucket.$s3Endpoint"
+    new URI("http", bucketUrl, s"/$key", null)
+  }
+
+  def projectFileAsS3Object(bucket: String, key: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+    S3Object(
+      objectUrl(bucket, key),
+      file.length,
+      S3Metadata(
+        meta,
+        S3ObjectMetadata(
+          mimeType,
+          cacheControl
+        )
+      )
+    )
   }
 }

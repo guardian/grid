@@ -3,40 +3,43 @@ package controllers
 import java.net.URI
 
 import akka.stream.scaladsl.StreamConverters
+import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, PandaUser, Principal}
+import com.gu.mediaservice.lib.argo.model.{Action, _}
+import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
 import lib.elasticsearch._
+import org.apache.http.entity.ContentType
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.http.HttpEntity
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(
-                auth: Authentication,
-                messageSender: ThrallMessageSender,
-                elasticSearch: ElasticSearchVersion,
-                imageResponse: ImageResponse,
-                override val config: MediaApiConfig,
-                override val controllerComponents: ControllerComponents,
-                s3Client: S3Client,
-                mediaApiMetrics: MediaApiMetrics,
-                metadataStore: MetadataStore,
-                usageRightsStore: UsageRightsStore
+  auth: Authentication,
+  messageSender: ThrallMessageSender,
+  elasticSearch: ElasticSearch,
+  imageResponse: ImageResponse,
+  override val config: MediaApiConfig,
+  override val controllerComponents: ControllerComponents,
+  s3Client: S3Client,
+  mediaApiMetrics: MediaApiMetrics,
+  metadataCleaners: MetadataCleaners,
+  supplierProcessors: SupplierProcessors,
+  ws: WSClient
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -68,7 +71,8 @@ class MediaApi(
       Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
-      Link("leases",          config.leasesUri)
+      Link("leases",          config.leasesUri),
+      Link("admin-tools",     config.adminToolsUri)
     )
     respond(indexData, indexLinks)
   }
@@ -99,7 +103,7 @@ class MediaApi(
         } else {
           hasPermission(user, permission)
         }
-      case service: AuthenticatedService if service.apiKey.tier == Internal => true
+      case service: ApiKeyAccessor if service.accessor.tier == Internal => true
       case _ => false
     }
   }
@@ -116,34 +120,26 @@ class MediaApi(
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
-  private def hasPermission(request: Authentication.Request[Any], image: Image): Boolean = request.user.apiKey.tier match {
+  private def hasPermission(request: Authentication.Request[Any], image: Image): Boolean = request.user.accessor.tier match {
     case Syndication => isAvailableForSyndication(image)
     case _ => true
   }
 
   def getImage(id: String) = auth.async { request =>
-    implicit val r = request
-
-    val include = getIncludedFromParams(request)
-
-    elasticSearch.getImageById(id) map {
-      case Some(source) if hasPermission(request, source) =>
-        val writePermission = canUserWriteMetadata(request, source)
-        val deleteImagePermission = canUserDeleteImage(request, source)
-        val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
-
-        val (imageData, imageLinks, imageActions) = imageResponse.create(
-          id,
-          source,
-          writePermission,
-          deleteImagePermission,
-          deleteCropsOrUsagePermission,
-          include,
-          request.user.apiKey.tier
-        )
-
+    getImageResponseFromES(id, request) map {
+      case Some((_, imageData, imageLinks, imageActions)) =>
         respond(imageData, imageLinks, imageActions)
+      case _ => ImageNotFound(id)
+    }
+  }
 
+  /**
+    * Get the raw response from ElasticSearch.
+    */
+  def getImageFromElasticSearch(id: String) = auth.async { request =>
+    getImageResponseFromES(id, request) map {
+      case Some((source, _, imageLinks, imageActions)) =>
+        respond(source, imageLinks, imageActions)
       case _ => ImageNotFound(id)
     }
   }
@@ -217,12 +213,16 @@ class MediaApi(
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
-        val apiKey = request.user.apiKey
-        GridLogger.info(s"Download original image $id", apiKey, id)
-        mediaApiMetrics.incrementOriginalImageDownload(apiKey)
+        val apiKey = request.user.accessor
+        GridLogger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
+        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
+
+        if(config.recordDownloadAsUsage) {
+          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
+        }
 
         Future.successful(
           Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
@@ -232,49 +232,54 @@ class MediaApi(
     }
   }
 
-  def reindexImage(id: String) = auth.async { request =>
+  def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
     implicit val r = request
 
-    val metadataConfig = metadataStore.get
-    val metadataCleaners = new MetadataCleaners(metadataConfig.allPhotographers)
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image) if hasPermission(request, image) => {
+        val apiKey = request.user.accessor
+        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
-    elasticSearch.getImageById(id) map {
-      case Some(image) if hasPermission(request, image) =>
-        // TODO: apply rights to edits API too
-        // TODO: helper to abstract boilerplate
-        val canWrite = canUserWriteMetadata(request, image)
-        if (canWrite) {
-          val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
-          val cleanMetadata = metadataCleaners.clean(imageMetadata)
-          val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
-          val usageRightsConfig = usageRightsStore.get
-          val processedImage = new SupplierProcessors(metadataConfig).process(imageCleanMetadata, usageRightsConfig)
+        val sourceImageUri =
+          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
+            case Some(_) => OptimisedPng
+            case _ => Source
+          }))
 
-          // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
-          val finalImage = processedImage.copy(
-            originalMetadata = processedImage.metadata,
-            originalUsageRights = processedImage.usageRights
-          )
-
-          val updateImage = "update-image"
-          val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
-          messageSender.publish(updateMessage)
-
-          Ok(Json.obj(
-            "id" -> id,
-            "changed" -> JsBoolean(image != finalImage),
-            "data" -> Json.obj(
-              "oldImage" -> image,
-              "updatedImage" -> finalImage
-            )
-          ))
-        } else {
-          ImageEditForbidden
+        if(config.recordDownloadAsUsage) {
+          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
         }
-      case None => ImageNotFound(id)
+
+        Future.successful(
+          Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
+        )
+      }
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
+  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
+    val baseRequest = ws.url(uri)
+      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
+        HttpHeaders.ORIGIN -> config.rootUri,
+        HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
+
+    val request = onBehalfOfPrincipal match {
+      case OnBehalfOfApiKey(service) =>
+        print(service.accessor.identity)
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.accessor.identity)
+      case OnBehalfOfUser(_, cookie) =>
+        baseRequest.addCookies(cookie)
+    }
+
+    val usagesMetadata = Map("mediaId" -> mediaId,
+      "dateAdded" -> printDateTime(DateTime.now()),
+      "downloadedBy" -> user)
+
+    GridLogger.info(s"Making usages download request")
+    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
+  }
   def imageSearch() = auth.async { request =>
     implicit val r = request
 
@@ -286,7 +291,7 @@ class MediaApi(
       val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
-        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.apiKey.tier)
+        imageResponse.create(elasticId, image, writePermission, deletePermission, deleteCropsOrUsagePermission, include, request.user.accessor.tier)
       val id = (imageData \ "id").as[String]
       val imageUri = URI.create(s"${config.rootUri}/images/$id")
       EmbeddedEntity(uri = imageUri, data = Some(imageData), imageLinks, imageActions)
@@ -310,6 +315,33 @@ class MediaApi(
       ),
       params => respondSuccess(params)
     )
+  }
+
+  private def getImageResponseFromES(id: String, request: Authentication.Request[AnyContent]): Future[Option[(Image, JsValue, List[Link], List[Action])]] = {
+    implicit val r: Authentication.Request[AnyContent] = request
+
+    val include = getIncludedFromParams(request)
+
+    elasticSearch.getImageById(id) map {
+      case Some(source) if hasPermission(request, source) =>
+        val writePermission = canUserWriteMetadata(request, source)
+        val deleteImagePermission = canUserDeleteImage(request, source)
+        val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
+
+        val (imageData, imageLinks, imageActions) = imageResponse.create(
+          id,
+          source,
+          writePermission,
+          deleteImagePermission,
+          deleteCropsOrUsagePermission,
+          include,
+          request.user.accessor.tier
+        )
+
+        Some((source, imageData, imageLinks, imageActions))
+
+      case _ => None
+    }
   }
 
   private def getSearchUrl(searchParams: SearchParams, updatedOffset: Int, length: Int): String = {

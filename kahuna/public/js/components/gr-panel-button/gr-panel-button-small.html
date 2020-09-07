@@ -1,44 +1,44 @@
 <div class="fill-height flex-container"
-     ng:class="{ 'flex-container--rtl': ctrl.position == 'right' }">
+     ng-class="{ 'flex-container--rtl': ctrl.position == 'right' }">
     <button class="button-ico-square clickable"
             type="button"
-            ng:if="!ctrl.state.hidden"
-            ng:click="ctrl.hidePanel()"
-            ng:class="{'bg-light': !ctrl.state.hidden}"
-            gr:tooltip="Hide {{:: ctrl.name}} panel"
-            gr:tooltip-position="{{:: ctrl.toolTipPosition()}}"
-            gr:track-click="{{:: ctrl.trackingName}}"
-            gr:track-click-data="ctrl.trackingData('Hide panel')">
+            ng-if="!ctrl.state.hidden"
+            ng-click="ctrl.hidePanel()"
+            ng-class="{'bg-light': !ctrl.state.hidden}"
+            gr-tooltip="Hide {{:: ctrl.name}} panel"
+            gr-tooltip-position="{{:: ctrl.toolTipPosition()}}"
+            gr-track-click="{{:: ctrl.trackingName}}"
+            gr-track-click-data="ctrl.trackingData('Hide panel')">
         <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 
     <button class="button-ico-square clickable"
             type="button"
-            ng:if="ctrl.state.hidden"
-            ng:click="ctrl.showPanel()"
-            gr:tooltip="Show {{:: ctrl.name}} panel"
-            gr:tooltip-position="{{:: ctrl.toolTipPosition()}}"
-            gr:track-click="{{:: ctrl.trackingName}}"
-            gr:track-click-data="ctrl.trackingData('Show panel')">
+            ng-if="ctrl.state.hidden"
+            ng-click="ctrl.showPanel()"
+            gr-tooltip="Show {{:: ctrl.name}} panel"
+            gr-tooltip-position="{{:: ctrl.toolTipPosition()}}"
+            gr-track-click="{{:: ctrl.trackingName}}"
+            gr-track-click-data="ctrl.trackingData('Show panel')">
         <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 
-    <div ng:if="!ctrl.state.hidden">
+    <div ng-if="!ctrl.state.hidden">
         <button class="button-ico-square clickable"
                 type="button"
-                ng:if="!ctrl.state.locked"
-                ng:click="ctrl.lockPanel()"
-                gr:track-click="{{:: ctrl.trackingName}}"
-                gr:track-click-data="ctrl.trackingData('Lock panel')">
+                ng-if="!ctrl.state.locked"
+                ng-click="ctrl.lockPanel()"
+                gr-track-click="{{:: ctrl.trackingName}}"
+                gr-track-click-data="ctrl.trackingData('Lock panel')">
             <gr-icon>lock_open</gr-icon>
         </button>
         <button class="button-ico-square clickable"
                 type="button"
-                ng:if="ctrl.state.locked"
-                ng:click="ctrl.unlockPanel()"
-                ng:class="{'bg-light': ctrl.state.locked}"
-                gr:track-click="{{:: ctrl.trackingName}}"
-                gr:track-click-data="ctrl.trackingData('Unlock panel')">
+                ng-if="ctrl.state.locked"
+                ng-click="ctrl.unlockPanel()"
+                ng-class="{'bg-light': ctrl.state.locked}"
+                gr-track-click="{{:: ctrl.trackingName}}"
+                gr-track-click-data="ctrl.trackingData('Unlock panel')">
             <gr-icon>lock</gr-icon>
         </button>
     </div>

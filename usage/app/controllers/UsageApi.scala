@@ -8,7 +8,8 @@ import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoA
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.GridLogger
-import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.lib.usage.UsageBuilder
+import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
 import lib._
 import model._
 import play.api.Logger
@@ -124,9 +125,13 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
             data = usages.map(wrapUsage)
           )
       }
-    }).recover { case error: Exception =>
-      Logger.error("UsageApi returned an error.", error)
-      respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
+    }).recover {
+      case error: BadInputException =>
+        Logger.error("UsageApi returned an error.", error)
+        respondError(BadRequest, "image-usage-retrieve-failed", error.getMessage)
+      case error: Exception =>
+        Logger.error("UsageApi returned an error.", error)
+        respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
     }
   }
 
@@ -158,7 +163,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       sur => {
-        GridLogger.info("recording syndication usage", req.user.apiKey, sur.mediaId)
+        GridLogger.info("recording syndication usage", req.user.accessor, sur.mediaId)
         val group = usageGroup.build(sur)
         usageRecorder.usageSubject.onNext(group)
         Accepted
@@ -175,8 +180,25 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       fur => {
-        GridLogger.info("recording front usage", req.user.apiKey, fur.mediaId)
+        GridLogger.info("recording front usage", req.user.accessor, fur.mediaId)
         val group = usageGroup.build(fur)
+        usageRecorder.usageSubject.onNext(group)
+        Accepted
+      }
+    )
+  }}
+
+  def setDownloadUsages() = auth(parse.json) { req => {
+    val request = (req.body \ "data").validate[DownloadUsageRequest]
+    request.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "download-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      usageRequest => {
+        GridLogger.info("recording download usage", req.user.accessor, usageRequest.mediaId)
+        val group = usageGroup.build(usageRequest)
         usageRecorder.usageSubject.onNext(group)
         Accepted
       }
@@ -187,12 +209,15 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)
     }).recover{
+      case error: BadInputException =>
+        Logger.warn("UsageApi returned an error.", error)
+        respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
       case error: Exception =>
         Logger.error("UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
     }
 
-    val updateMessage = UpdateMessage(subject = " delete-usages", id = Some(mediaId))
+    val updateMessage = UpdateMessage(subject = "delete-usages", id = Some(mediaId))
     notifications.publish(updateMessage)
     Future.successful(Ok)
   }

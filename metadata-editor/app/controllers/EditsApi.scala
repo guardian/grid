@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.config.{MetadataConfig, MetadataStore, UsageRightsConfig, UsageRightsStore}
+import com.gu.mediaservice.lib.config.{MetadataConfig, MetadataStore}
 import com.gu.mediaservice.model._
 import lib.EditsConfig
 import model.UsageRightsProperty
@@ -37,14 +38,14 @@ class EditsApi(auth: Authentication, config: EditsConfig,
 
 
   def usageRightsResponse = {
-      val metadataConfig = metadataStore.get
-      val usageRightsConfig = usageRightsStore.get
+    val metadataConfig = metadataStore.get
+    val usageRightsConfig = usageRightsStore.get
 
-      val usageRightsData = UsageRights
-        .getAll(usageRightsConfig.usageRights)
-        .map(u => CategoryResponse.fromUsageRights(u, metadataConfig, usageRightsConfig))
+    val usageRightsData = UsageRights
+      .getAll(usageRightsConfig.usageRights)
+      .map(u => CategoryResponse.fromUsageRights(u, metadataConfig, usageRightsConfig))
 
-      respond(usageRightsData)
+    respond(usageRightsData)
   }
 
   def getUsageRights = auth { usageRightsResponse }

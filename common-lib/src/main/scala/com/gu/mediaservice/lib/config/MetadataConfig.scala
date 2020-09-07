@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.config
 import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhotographer}
 import play.api.libs.json._
 
+// NB: if you add fields to here please update setup.sh which creates an empty version for use in local dev
 case class MetadataConfig(
   staffIllustrators: List[String],
   creativeCommonsLicense: List[String],

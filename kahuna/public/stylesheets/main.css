@@ -741,7 +741,7 @@ textarea.ng-invalid {
 
 .advanced-search-help {
     top: 49px;
-    height: 80vh;
+    max-height: 95vh;
     overflow: auto;
     background-color: #444444;
     box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
@@ -758,9 +758,8 @@ textarea.ng-invalid {
 }
 
 .advanced-search-help__section {
-    border-bottom: 1px solid #565656;
     margin-bottom: 10px;
-    padding: 10px 10px 0 10px;
+    padding: 0 10px 0 10px;
     box-sizing: border-box;
 }
 
@@ -788,11 +787,12 @@ textarea.ng-invalid {
 .advanced-search-example__field {
     margin-bottom: 5px;
     display: inline-flex;
-    flex-basis: 40%;
+    flex-basis: 50%;
 }
 
 .advanced-search-example__explanation {
     margin-bottom: 5px;
+    flex-basis: 50%;
 }
 
 .advanced-search-example__input {
@@ -1822,7 +1822,9 @@ FIXME: what to do with touch devices
     color: inherit;
     border-bottom: 1px solid #999;
 }
-
+.metadata-line__info--nowrap {
+  white-space: nowrap;
+}
 .metadata-line__key {
     font-weight: bold;
     color: #999;

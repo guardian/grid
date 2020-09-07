@@ -8,10 +8,13 @@ import com.google.common.hash.HashingOutputStream
 import com.google.common.io.ByteStreams
 import com.gu.mediaservice.DeprecatedHashWrapper
 import okhttp3.{OkHttpClient, Request}
+import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 case object TruncatedDownload extends Exception
+case object InvalidDownload extends Exception
 
 //TODO Revisit this logic
 class Downloader(implicit ec: ExecutionContext) {
@@ -22,25 +25,34 @@ class Downloader(implicit ec: ExecutionContext) {
     val request = new Request.Builder().url(uri.toString).build()
     val response = client.newCall(request).execute()
 
-    val expectedSize = response.header("Content-Length").toInt
-    val input = response.body().byteStream()
+    val maybeExpectedSize = Try{response.header("Content-Length").toInt}
 
-    val output = new FileOutputStream(file)
-    val hashedOutput = new HashingOutputStream(digester, output)
+    maybeExpectedSize match {
+      case Failure(exception) => {
+        Logger.error(s"Missing content-length header from $uri", exception)
+        throw InvalidDownload
+      }
+      case Success(expectedSize) => {
+        val input = response.body().byteStream()
 
-    ByteStreams.copy(input, hashedOutput)
+        val output = new FileOutputStream(file)
+        val hashedOutput = new HashingOutputStream(digester, output)
 
-    val hash = hashedOutput.hash().asBytes()
+        ByteStreams.copy(input, hashedOutput)
 
-    input.close()
-    hashedOutput.close()
+        val hash = hashedOutput.hash().asBytes()
 
-    val actualSize = Files.size(file.toPath)
+        input.close()
+        hashedOutput.close()
 
-    if (actualSize != expectedSize) {
-      throw TruncatedDownload
+        val actualSize = Files.size(file.toPath)
+
+        if (actualSize != expectedSize) {
+          throw TruncatedDownload
+        }
+
+        DigestedFile(file, hash)
+      }
     }
-
-    DigestedFile(file, hash)
   }
 }

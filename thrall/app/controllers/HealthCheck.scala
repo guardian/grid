@@ -1,21 +1,23 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.management.ElasticSearchHealthCheck
 import lib._
+import lib.elasticsearch._
 import play.api.Logger
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageConsumerVersion, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+class HealthCheck(elasticsearch: ElasticSearch, streamRunning: => Boolean, config: ThrallConfig, override val controllerComponents: ControllerComponents)(implicit override val ec: ExecutionContext)
+  extends ElasticSearchHealthCheck(controllerComponents, elasticsearch) with ArgoHelpers {
 
-  def healthCheck = Action.async {
+  override def healthCheck = Action.async {
     elasticHealth.map { esHealth =>
-      val problems = Seq(esHealth, actorSystemHealth).flatten
+      val problems = Seq(esHealth, streamRunningHealth).flatten
       if (problems.nonEmpty) {
         val problemsMessage = problems.mkString(",")
-        Logger.warn("Health check failed with problems: " + problemsMessage)
+        Logger.warn("Healthcheck failed with problems: " + problemsMessage)
         ServiceUnavailable(problemsMessage)
       } else {
         Ok("Ok")
@@ -23,20 +25,10 @@ class HealthCheck(elasticsearch: ElasticSearchVersion, messageConsumer: MessageC
     }
   }
 
-  private def elasticHealth: Future[Option[String]] = {
-    elasticsearch.healthCheck().map { result =>
-      if (!result) {
-        Some("Elastic search call failed")
-      } else {
-        None
-      }
-    }
-  }
-
-  private def actorSystemHealth: Option[String] = {
+  private def streamRunningHealth: Option[String] = {
     // A completed actor system whenTerminated Future is a sign that the actor system has terminated and is no longer running
-    if (messageConsumer.isStopped)
-      Some("Thrall consumer actor system appears to have stopped")
+    if (streamRunning)
+      Some("Thrall stream appears to have stopped")
     else
       None
   }

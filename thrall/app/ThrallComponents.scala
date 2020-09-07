@@ -1,9 +1,17 @@
-import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
+import akka.Done
+import akka.stream.scaladsl.Source
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
+import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
+import lib.elasticsearch._
+import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
 import play.api.ApplicationLoader.Context
 import router.Routes
+
+import scala.concurrent.Future
 
 class ThrallComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new ThrallConfig(configuration)
@@ -14,7 +22,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es6Config = ElasticSearch6Config(
+  val esConfig = ElasticSearchConfig(
     alias = config.writeAlias,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,
@@ -22,16 +30,22 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
     replicas = config.elasticsearch6Replicas
   )
 
-  val es6 = new ElasticSearch6(es6Config, Some(thrallMetrics))
-  es6.ensureAliasAssigned()
+  val es = new ElasticSearch(esConfig, Some(thrallMetrics))
+  es.ensureAliasAssigned()
 
-  val thrallKinesisMessageConsumer = new kinesis.ThrallMessageConsumer(
-    config, es6, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es6), config.from
-  )
-  thrallKinesisMessageConsumer.start()
+  val highPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisConfig)
+  val lowPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
+
+  val highPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
+  val lowPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
+
+  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
+  val thrallStreamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, thrallEventConsumer, actorSystem, materializer)
+
+  val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
   val thrallController = new ThrallController(controllerComponents)
-  val healthCheckController = new HealthCheck(es6, thrallKinesisMessageConsumer, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
 }

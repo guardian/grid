@@ -238,11 +238,14 @@ final case class PrImage(restrictions: Option[String] = None) extends UsageRight
 }
 object PrImage extends UsageRightsSpec {
   val category = "PR Image"
-  val defaultCost = Some(Free)
+  val defaultCost = Some(Conditional)
   val name = "PR Image"
   val description =
     "Images supplied for publicity purposes such as press launches, charity events, travel, " +
       "promotional images, etc."
+
+  override val caution =
+    Some("For use only within the context originally provided for (please state it below).")
 
   implicit val formats: Format[PrImage] =
     UsageRights.subtypeFormat(PrImage.category)(Json.format[PrImage])
@@ -254,11 +257,14 @@ final case class Handout(restrictions: Option[String] = None) extends UsageRight
 }
 object Handout extends UsageRightsSpec {
   val category = "handout"
-  val defaultCost = Some(Free)
+  val defaultCost = Some(Conditional)
   val name = "Handout"
   val description =
     "Images supplied on general release to all media e.g. images provided by police for new " +
       "stories, family shots in biographical pieces, etc."
+
+  override val caution =
+    Some("For use only within the context originally provided for (please state it below).")
 
   implicit val formats: Format[Handout] =
     UsageRights.subtypeFormat(Handout.category)(Json.format[Handout])

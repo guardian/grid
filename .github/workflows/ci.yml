@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        node-version: [8.6.0]
+        node-version: [12.16.1]
     steps:
       - uses: actions/checkout@v1
       - name: Use Node.js ${{ matrix.node-version }}
@@ -14,6 +14,11 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: Kahuna
         working-directory: ./kahuna
+        run: |
+          npm install
+          npm test
+      - name: Image Counter Lambda
+        working-directory: ./image-counter-lambda
         run: |
           npm install
           npm test
@@ -31,16 +36,32 @@ jobs:
     runs-on: ubuntu-18.04
     services:
       elasticsearch:
-        image: elasticsearch:6.5.4
+        image: elasticsearch:7.5.2
         # Wait for elasticsearch to report healthy before continuing.
         # see https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml#L28
         options: -e "discovery.type=single-node" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
+      localstack:
+        image: localstack/localstack:0.11.0
+        env:
+          SERVICES: kinesis,dynamodb
+          DEFAULT_REGION: eu-west-1
+          KINESIS_ERROR_PROBABILITY: 0.0
+          PORT_WEB_UI: 5050
+        ports:
+          - 5050:5050
+          - 4566:4566
+        options: >-
+          --health-cmd "curl localhost:5050/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
     - uses: actions/checkout@v1
     - name: SBT
       uses: ./.github/actions/sbt
       env:
-        ES6_USE_DOCKER: false
+        USE_DOCKER_FOR_TESTS: false
         ES6_TEST_URL: http://elasticsearch:9200
+        LOCALSTACK_ENDPOINT: http://localstack:4566
       with:
         args: clean compile test

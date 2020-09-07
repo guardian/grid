@@ -5,7 +5,7 @@ import java.util.UUID
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.model.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
 import play.api.libs.json._
 import play.api.mvc._
@@ -84,7 +84,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
   def postLease = auth.async(parse.json) { implicit request =>
     request.body.validate[MediaLease] match {
       case JsSuccess(mediaLease, _) =>
-        addLease(mediaLease, Some(Authentication.getEmail(request.user))).map(_ => Accepted)
+        addLease(mediaLease, Some(Authentication.getIdentity(request.user))).map(_ => Accepted)
 
       case JsError(errors) =>
         Future.successful(badRequest(errors))
@@ -124,7 +124,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
       badRequest,
       mediaLeases => {
         if (validateLeases(mediaLeases)) {
-          replaceLeases(mediaLeases, id, Some(Authentication.getEmail(request.user)))
+          replaceLeases(mediaLeases, id, Some(Authentication.getIdentity(request.user)))
           Accepted
         } else {
           respondError(BadRequest, "validation-error", "No more than one syndication lease per image")

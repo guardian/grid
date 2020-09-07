@@ -8,10 +8,10 @@ management system**, which provides a **universal** and **fast**
 experience accessing media that is **organised** and using it in an
 **affordable** way to produce **high-quality** content.
 
-See the [Vision](VISION.md) document for more details on the core
+See the [Vision](docs/00-about/01-vision.md) document for more details on the core
 principles behind this project.
 
-![Screenshot of Grid search](docs/images/screenshot-2015-07-03T11:34:43.jpg)
+![Screenshot of Grid search](docs/00-about/images/screenshot-2015-07-03T11:34:43.jpg)
 
 Grid runs as a set of independent micro-services
 ([Scala](http://www.scala-lang.org/) and

@@ -23,7 +23,7 @@
 
 .collection-overlay__collections {
     background: rgba(68, 68, 68, 1);
-    height: calc(100vh);
+    height: calc(100vh - 60px);
     position: fixed;
     top: 30px;
     left: 50%;

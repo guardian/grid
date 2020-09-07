@@ -1,8 +1,8 @@
-<div ng:if="ctrl.showInvalidReasons" class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
+<div ng-if="ctrl.showInvalidReasons" class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
     <strong ng-if="!ctrl.isOverridden">Unusable Image <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon></strong>
     <strong ng-if="ctrl.isOverridden"><strike>Unusable Image</strike> <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon></strong>
     <ul>
-        <li ng:repeat="(key, reason) in ctrl.invalidReasons">
+        <li ng-repeat="(key, reason) in ctrl.invalidReasons">
             {{reason}}
         </li>
     </ul>

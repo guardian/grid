@@ -1,5 +1,7 @@
 {
   "presets": [
-    "env"
+    ["@babel/preset-env",{
+      "exclude":["@babel/plugin-transform-regenerator"]
+    }]
   ]
 }

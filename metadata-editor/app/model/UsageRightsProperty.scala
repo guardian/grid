@@ -45,7 +45,7 @@ object UsageRightsProperty {
     optionsMap: Option[Map[String, List[String]]] = None,
     optionsMapKey: Option[String] = None
   ) = UsageRightsProperty(name, label, "string", required = true, options,
-                          optionsMap, optionsMapKey, examples)
+    optionsMap, optionsMapKey, examples)
 
   private def publicationField(required: Boolean, options: Options)  =
     UsageRightsProperty("publication", "Publication", "string", required, Some(options))

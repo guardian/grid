@@ -1,18 +1,19 @@
-<span ng:if="ctrl.canBeCropped">
-    <a class="inner-clickable clickable side-padded"
-        ui:sref="crop({imageId: ctrl.image.data.id})"
-        gr:track-click="Crop image button"
-        gr:track-click-data="{'Location': ctrl.trackingLocation}"
+<span ng-if="ctrl.canBeCropped">
+    <a  data-cy="crop-image-button"
+        class="inner-clickable clickable side-padded"
+        ui-sref="crop({imageId: ctrl.image.data.id})"
+        gr-track-click="Crop image button"
+        gr-track-click-data="{'Location': ctrl.trackingLocation}"
         gr-tooltip="Crop image [C]">
         <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
     </a>
-    <a ng:if="!ctrl.hasFullCrop" class="drop-menu clickable inner-clickable side-padded button-right-side" ng:click="showUserActions = !showUserActions">
+    <a ng-if="!ctrl.hasFullCrop" class="drop-menu clickable inner-clickable side-padded button-right-side" ng-click="showUserActions = !showUserActions">
         <span>▾</span>
-        <gr-export-original-image ng:if="showUserActions" class="drop-menu__items drop-menu__items--nopad" image="ctrl.image" cropping="ctrl.cropping" ng:class="{ 'drop-menu__items--action' : ctrl.cropping }"></gr-export-original-image>
+        <gr-export-original-image ng-if="showUserActions" class="drop-menu__items drop-menu__items--nopad" image="ctrl.image" cropping="ctrl.cropping" ng-class="{ 'drop-menu__items--action' : ctrl.cropping }"></gr-export-original-image>
     </a>
 </span>
 
-<span ng:if="! ctrl.canBeCropped"
+<span ng-if="! ctrl.canBeCropped"
 	class="crop-item side-padded">
 	<gr-icon-label gr-icon="crop">Cannot crop</gr-icon-label>
 </span>

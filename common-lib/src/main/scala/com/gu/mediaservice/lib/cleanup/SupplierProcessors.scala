@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.lib.config.{MetadataConfig, SupplierMatch, UsageRightsConfig}
+import com.gu.mediaservice.lib.config.{MetadataConfig, MetadataConfigGetter}
 import com.gu.mediaservice.model._
 
 trait ImageProcessor {
@@ -20,7 +21,7 @@ trait ImageProcessor {
     }
 }
 
-class SupplierProcessors(metadataConfig: MetadataConfig) {
+class SupplierProcessors(metadataConfigGetter: MetadataConfigGetter) {
   val all: List[ImageProcessor] = List(
     GettyXmpParser,
     GettyCreditParser,
@@ -29,14 +30,13 @@ class SupplierProcessors(metadataConfig: MetadataConfig) {
     AlamyParser,
     AllStarParser,
     ApParser,
-    BarcroftParser,
     CorbisParser,
     EpaParser,
     PaParser,
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    new PhotographerParser(metadataConfig)
+    new PhotographerParser(metadataConfigGetter.get)
   )
 
   def process(image: Image, c: UsageRightsConfig): Image =
@@ -159,13 +159,6 @@ object ApParser extends ImageProcessor {
     }
 }
 
-object BarcroftParser extends ImageProcessor {
-  def apply(image: Image, matches: List[SupplierMatch]): Image =
-    if (matchesCreditOrSource(image, "BarcroftParser", matches))
-      image.copy(usageRights = Agency("Barcroft Media"))
-    else image
-}
-
 object CorbisParser extends ImageProcessor {
   def apply(image: Image, matches: List[SupplierMatch]): Image =
     if (matchesCreditOrSource(image, "CorbisParser", matches))
@@ -197,12 +190,14 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
       "Panoramic/Avalon", "Panoramic", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA", "EMPICS", "Empics News",
       "S&G and Barratts/EMPICS Sport", "EMPICS Sport", "EMPICS SPORT", "EMPICS Sports Photo Agency",
       "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
-      "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS"
+      "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS",
+      "Athena Pictures", "Flick.digital"
     )
 
     val excludedSource = List(
       "www.capitalpictures.com", "Replay Images", "UKTV", "PinPep", "Pinnacle Photo Agency Ltd", "News Images",
-      "London News Pictures Ltd", "Showtime", "Propaganda", "Equinox Features", "Athena Picture Agency Ltd"
+      "London News Pictures Ltd", "Showtime", "Propaganda", "Equinox Features", "Athena Picture Agency Ltd",
+      "www.edinburghelitemedia.co.uk", "WALES NEWS SERVICE", "Sports Inc", "UK Sports Pics Ltd"
     )
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))

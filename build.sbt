@@ -1,14 +1,23 @@
-import PlayKeys._
+import play.sbt.PlayImport.PlayKeys._
+
 import scala.sys.process._
 
 val commonSettings = Seq(
-  scalaVersion := "2.12.8",
+  scalaVersion := "2.12.10",
   description := "grid",
   organization := "com.gu",
   version := "0.1",
   scalacOptions ++= Seq("-feature", "-deprecation", "-language:higherKinds", "-Xfatal-warnings"),
+
+  // The Java SDK uses CBOR protocol
+  // We use localstack in TEST. Kinesis in localstack uses kinesislite which requires CBOR to be disabled
+  // This is likely go away soon, see https://github.com/localstack/localstack/issues/1930
+  envVars in Test := Map("AWS_CBOR_DISABLE" -> "true"),
+
+  testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
-    "org.scalatest" %% "scalatest" % "3.0.5"
+    "org.scalatest" %% "scalatest" % "3.0.5",
+    "org.mockito" % "mockito-core" % "2.18.0"
   )
 )
 
@@ -24,6 +33,8 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in collections).value -> s"${(name in collections).value}/${(name in collections).value}.deb",
       (packageBin in Debian in cropper).value -> s"${(name in cropper).value}/${(name in cropper).value}.deb",
       (packageBin in Debian in imageLoader).value -> s"${(name in imageLoader).value}/${(name in imageLoader).value}.deb",
+      // image-loader-projection uses the same deb as image-loader, we're running it for isolation of traffic in batch reindexing
+      (packageBin in Debian in imageLoader).value -> s"${(name in imageLoader).value}-projection/${(name in imageLoader).value}-projection.deb",
       (packageBin in Debian in leases).value -> s"${(name in leases).value}/${(name in leases).value}.deb",
       (packageBin in Debian in thrall).value -> s"${(name in thrall).value}/${(name in thrall).value}.deb",
       (packageBin in Debian in kahuna).value -> s"${(name in kahuna).value}/${(name in kahuna).value}.deb",
@@ -34,7 +45,7 @@ lazy val root = project("grid", path = Some("."))
     )
   )
 
-addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run")
+addCommandAlias("runAll", "all auth/run media-api/run thrall/run image-loader/run metadata-editor/run kahuna/run collections/run cropper/run usage/run leases/run admin-tools-dev/run")
 
 // Required to allow us to run more than four play projects in parallel from a single SBT shell
 Global / concurrentRestrictions := Seq(
@@ -44,7 +55,8 @@ Global / concurrentRestrictions := Seq(
 )
 
 val awsSdkVersion = "1.11.302"
-val elastic4sVersion = "6.4.0"
+val elastic4sVersion = "7.3.5"
+val okHttpVersion = "3.12.1"
 
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
@@ -66,11 +78,11 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
     "org.elasticsearch" % "elasticsearch" % "1.7.6",
     "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
-    "com.sksamuel.elastic4s" %% "elastic4s-http" % elastic4sVersion,
+    "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
-    "com.drewnoakes" % "metadata-extractor" % "2.11.0",
+    "com.drewnoakes" % "metadata-extractor" % "2.13.0",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
@@ -79,8 +91,8 @@ lazy val commonLib = project("common-lib").settings(
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
-    "org.codehaus.janino" % "janino" % "3.0.6"
-  ),
+    "org.codehaus.janino" % "janino" % "3.0.6",
+),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 )
 
@@ -92,7 +104,7 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % "3.12.1",
+    "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
     "org.apache.tika" % "tika-core" % "1.20"
   )
 }
@@ -110,20 +122,79 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
     "org.apache.commons" % "commons-email" % "1.5",
     "org.parboiled" %% "parboiled" % "2.1.5",
     "org.http4s" %% "http4s-core" % "0.18.7",
-    "org.mockito" % "mockito-core" % "2.18.0",
     "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
 )
 
+lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
+  .settings(
+    excludeDependencies ++= Seq(
+      ExclusionRule("org.elasticsearch"),
+      ExclusionRule("com.sksamuel.elastic4s"),
+      ExclusionRule("com.drewnoakes", "metadata-extractor"),
+      ExclusionRule("org.codehaus.janino"),
+      ExclusionRule("com.typesafe.play"),
+      ExclusionRule("org.scalaz.stream"),
+      ExclusionRule("org.im4java"),
+      ExclusionRule("org.scalacheck"),
+      ExclusionRule("com.gu", "kinesis-logback-appender")
+    ),
+    libraryDependencies ++= Seq(
+      "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
+      "com.typesafe.play" %% "play-json" % "2.6.9",
+      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+      "com.typesafe.play" %% "play-functional" % "2.6.9",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
+      "io.symphonia" % "lambda-logging" % "1.0.3",
+    )
+  ).dependsOn(commonLib)
+
+lazy val adminToolsLambda = project("admin-tools-lambda", Some("admin-tools/lambda"))
+  .enablePlugins(RiffRaffArtifact)
+  .settings(
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case "logback.xml" => MergeStrategy.first
+      case x => MergeStrategy.first
+    },
+    libraryDependencies ++= Seq(
+      "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
+      "com.amazonaws" % "aws-lambda-java-events" % "2.2.7",
+    )
+  )
+  .dependsOn(adminToolsLib)
+  .settings(
+    assemblyJarName := s"${name.value}.jar",
+    riffRaffPackageType := assembly.value,
+    riffRaffUploadArtifactBucket := Some("riffraff-artifact"),
+    riffRaffUploadManifestBucket := Some("riffraff-builds"),
+    riffRaffManifestProjectName := s"media-service::grid::admin-tools-lambda"
+  )
+
+lazy val adminToolsScripts = project("admin-tools-scripts", Some("admin-tools/scripts"))
+  .settings(
+    assemblyMergeStrategy in assembly := {
+      case PathList("META-INF", xs@_*) => MergeStrategy.discard
+      case "logback.xml" => MergeStrategy.first
+      case x => MergeStrategy.first
+    }
+  ).dependsOn(adminToolsLib)
+
+lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/dev"))
+  .dependsOn(adminToolsLib)
+
 lazy val metadataEditor = playProject("metadata-editor", 9007)
+
+resolvers in ThisBuild += Resolver.bintrayRepo("streetcontxt", "maven")
 
 lazy val thrall = playProject("thrall", 9002).settings(
   libraryDependencies ++= Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
+    "com.streetcontxt" %% "kcl-akka-stream" % "2.1.0",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
@@ -156,7 +227,7 @@ def project(projectName: String, path: Option[String] = None): Project =
 val buildInfo = Seq(
   buildInfoKeys := Seq[BuildInfoKey](
     name,
-    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse(try {
+    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse (try {
       "git rev-parse HEAD".!!.trim
     } catch {
       case e: Exception => "unknown"
@@ -169,8 +240,8 @@ val buildInfo = Seq(
   )
 )
 
-def playProject(projectName: String, port: Int): Project =
-  project(projectName, None)
+def playProject(projectName: String, port: Int, path: Option[String] = None): Project =
+  project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
     .dependsOn(commonLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
@@ -188,6 +259,12 @@ def playProject(projectName: String, port: Int): Project =
       javaOptions in Universal ++= Seq(
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
-        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
+        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
+        "-J-XX:+PrintGCDetails",
+        "-J-XX:+PrintGCDateStamps",
+        s"-J-Xloggc:/var/log/$projectName/gc.log",
+        "-J-XX:+UseGCLogFileRotation",
+        "-J-XX:NumberOfGCLogFiles=5",
+        "-J-XX:GCLogFileSize=2M"
       )
     ))

@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
@@ -11,16 +12,18 @@ import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import play.api.libs.json.JsString
 
 import scala.concurrent.duration._
 import scala.util.Properties
 
 trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
 
+
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
 
-  val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
+  val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
   val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
   def esContainer: Option[DockerContainer]
@@ -117,8 +120,8 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(DateTime.parse("2018-07-03T00:00:00")),
       None,
       fileMetadata = Some(FileMetadata(xmp = Map(
-        "foo" -> "bar",
-        "toolong" -> stringLongerThan(100000)
+        "foo" -> JsString("bar"),
+        "toolong" -> JsString(stringLongerThan(100000))
       )))
     ),
 

@@ -1,9 +1,31 @@
 package lib
 
+import com.amazonaws.auth.AWSCredentialsProvider
+import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
+import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.Configuration
+
+case class KinesisReceiverConfig(
+  override val awsRegion: String,
+  override val awsCredentials: AWSCredentialsProvider,
+  override val awsLocalEndpoint: Option[String],
+  streamName: String,
+  rewindFrom: Option[DateTime],
+  metricsLevel: MetricsLevel = MetricsLevel.DETAILED
+) extends AwsClientBuilderUtils
+
+object KinesisReceiverConfig {
+  def apply(streamName: String, rewindFrom: Option[DateTime], thrallConfig: ThrallConfig): KinesisReceiverConfig = KinesisReceiverConfig(
+    thrallConfig.awsRegion,
+    thrallConfig.awsCredentials,
+    thrallConfig.awsLocalEndpoint,
+    streamName,
+    rewindFrom
+  )
+}
 
 class ThrallConfig(override val configuration: Configuration) extends CommonConfig {
   final override lazy val appName = "thrall"
@@ -23,6 +45,9 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val metadataTopicArn: String = properties("indexed.image.sns.topic.arn")
 
-  lazy val from: Option[DateTime] = properties.get("rewind.from").map(ISODateTimeFormat.dateTime.parseDateTime)
+  lazy val rewindFrom: Option[DateTime] = properties.get("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
+  lazy val lowPriorityRewindFrom: Option[DateTime] = properties.get("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
 
+  def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
+  def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
 }

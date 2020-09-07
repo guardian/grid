@@ -1,26 +1,32 @@
 package lib
 
-import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage, UsageType}
-import com.gu.mediaservice.model.{ActionData, Bounds, Collection, CommissionedAgency, ContractPhotographer, Crop, CropSpec, Edits, Image, ImageMetadata, LeasesByMedia, MediaLease, Photoshoot, StaffIllustrator, StaffPhotographer, UsageRights}
+import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
+import com.gu.mediaservice.model.{Bounds, Crop, CropSpec}
 import org.joda.time.DateTime.now
 import org.scalatest.{FunSpec, Matchers}
 
 class ImageResponseTest extends FunSpec with Matchers {
   it("should replace \\r linebreaks with \\n") {
     val text = "Here is some text\rthat spans across\rmultiple lines\r"
-    val normalisedText = ImageResponse.normaliseNewLines(text)
+    val normalisedText = ImageResponse.normaliseNewlineChars(text)
     normalisedText shouldBe "Here is some text\nthat spans across\nmultiple lines\n"
   }
 
   it("should replace \\r\\n linebreaks with \\n") {
     val text = "Here is some text\r\nthat spans across\r\nmultiple lines\r\n"
-    val normalisedText = ImageResponse.normaliseNewLines(text)
+    val normalisedText = ImageResponse.normaliseNewlineChars(text)
     normalisedText shouldBe "Here is some text\nthat spans across\nmultiple lines\n"
+  }
+
+  it("not cause a stack overflow when many consecutive newline characters are present") {
+    val text = "\n\r\n\n\n\r\r\r\n" * 10000
+    val normalisedText = ImageResponse.normaliseNewlineChars(text)
+    normalisedText shouldBe "\n"
   }
 
   it("should not touch \\n linebreaks") {
     val text = "Here is some text\nthat spans across\nmultiple lines\n"
-    val normalisedText = ImageResponse.normaliseNewLines(text)
+    val normalisedText = ImageResponse.normaliseNewlineChars(text)
     normalisedText shouldBe "Here is some text\nthat spans across\nmultiple lines\n"
   }
 

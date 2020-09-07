@@ -1,0 +1,45 @@
+# Configuration for the `setup-app` command in `dev-nginx`
+# see https://github.com/guardian/dev-nginx#setup-app
+
+name: media-service
+domain-root: @DOMAIN_ROOT
+mappings:
+  - prefix: api.media
+    port: 9001
+  - prefix: loader.media
+    port: 9003
+    client_max_body_size: 20m
+  - prefix: media
+    port: 9005
+  - prefix: cropper.media
+    port: 9006
+  - prefix: media-metadata
+    port: 9007
+  - prefix: media-imgops
+    port: 9008
+  - prefix: media-usage
+    port: 9009
+  - prefix: media-collections
+    port: 9010
+  - prefix: media-auth
+    port: 9011
+  - prefix: media-leases
+    port: 9012
+  - prefix: es.media
+    port: 9200
+  - prefix: admin-tools.media
+    port: 9013
+  - prefix: thrall.media
+    port: 9002
+  - prefix: localstack.media
+    port: 4566
+    client_max_body_size: 20m
+
+  # vanity domains for localstack S3 buckets
+  # the localstack container needs to expose port 4572 to the host
+  - prefix: public.media
+    port: 4572
+    path: /@IMAGE-ORIGIN-BUCKET/
+  - prefix: images.media
+    port: 4572
+    path: /@IMAGE-BUCKET/

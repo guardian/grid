@@ -8,9 +8,14 @@ import play.api.libs.json.Json
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, MetadataConfig](bucket, config)(ec) {
+trait MetadataConfigGetter {
+  def get: MetadataConfig
+}
 
+class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
+  extends BaseStore[String, MetadataConfig](bucket, config)(ec) with MetadataConfigGetter {
+
+  // NB: if you change the location please update setup.sh which creates an empty config for use in local dev
   val metadataMapKey = "metadataConfig"
   val metadataStoreKey = "photographers.json"
 
@@ -44,7 +49,10 @@ object MetadataStore {
   def apply(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext): MetadataStore = {
     val store = new MetadataStore(bucket, config)(ec)
     store.fetchAll match {
-      case Some(_) => Logger.info("Metadata config read in from config bucket")
+      case Some(_) => {
+        store.update()
+        Logger.info("Metadata config read in from config bucket")
+      }
       case None => throw FailedToLoadMetadataConfigJson
     }
     store

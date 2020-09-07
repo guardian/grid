@@ -150,41 +150,46 @@ class UsageStore(
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
     Logger.info("Updating usage store")
 
-    val lines: List[String] = getLatestS3Stream.map(extractEmail).getOrElse(List.empty)
-    Logger.info(s"Last usage file has ${lines.length} lines")
+    val maybeLines: Option[List[String]] = getLatestS3Stream.map(extractEmail)
 
-    val summary: List[SupplierUsageSummary] = csvParser(lines)
+    maybeLines match {
+      case Some(lines) => {
+        Logger.info(s"Last usage file has ${lines.length} lines")
+        val summary: List[SupplierUsageSummary] = csvParser(lines)
 
-    def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
-      .map(a => supplier.copy(agency = a))
-      .getOrElse(supplier)
+        def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
+          .map(a => supplier.copy(agency = a))
+          .getOrElse(supplier)
 
-    val cleanedSummary = summary
-      .map {
-        case s if s.agency.supplier.contains("Rex Features") => copyAgency(s, "rex")
-        case s if s.agency.supplier.contains("Getty Images") => copyAgency(s, "getty")
-        case s if s.agency.supplier.contains("Australian Associated Press") => copyAgency(s, "aap")
-        case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
-        case s => s
+        val cleanedSummary = summary
+          .map {
+            case s if s.agency.supplier.contains("Rex Features") => copyAgency(s, "rex")
+            case s if s.agency.supplier.contains("Getty Images") => copyAgency(s, "getty")
+            case s if s.agency.supplier.contains("Australian Associated Press") => copyAgency(s, "aap")
+            case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
+            case s => s
+          }
+
+        quotaStore.getQuota.map { supplierQuota => {
+          cleanedSummary
+            .groupBy(_.agency.supplier)
+            .mapValues(_.head)
+            .mapValues((summary: SupplierUsageSummary) => {
+              val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
+              val exceeded = quota.exists(q => summary.count > q.count)
+              val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
+
+              UsageStatus(
+                exceeded,
+                fractionOfQuota,
+                summary,
+                quota
+              )
+            })
+        }}
       }
-
-    quotaStore.getQuota.map { supplierQuota => {
-      cleanedSummary
-        .groupBy(_.agency.supplier)
-        .mapValues(_.head)
-        .mapValues((summary: SupplierUsageSummary) => {
-          val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
-          val exceeded = quota.exists(q => summary.count > q.count)
-          val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
-
-          UsageStatus(
-            exceeded,
-            fractionOfQuota,
-            summary,
-            quota
-          )
-        })
-    }}
+      case _ => Future.successful(Map.empty)
+    }
   }
 }
 

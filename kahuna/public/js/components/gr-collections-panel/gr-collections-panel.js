@@ -92,6 +92,14 @@ grCollectionsPanel.controller('GrNodeCtrl',
     function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState) {
 
     const ctrl = this;
+
+    try {
+      ctrl.node.data.data.pathId;
+    } catch (e) {
+      console.info('unable to find pathId for node, tree failing to render to completion');
+      console.info(ctrl.node);
+    }
+
     const pathId = ctrl.node.data.data.pathId;
 
     ctrl.saving = false;

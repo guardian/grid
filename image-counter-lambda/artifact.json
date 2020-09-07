@@ -1,0 +1,11 @@
+{
+  "projectName": "media-service::grid::image-counter-lambda",
+  "vcsURL": "https://github.com/guardian/grid/",
+  "actions": [
+    {
+      "action": "image-counter-lambda",
+      "path": "dist",
+      "compress": "zip"
+    }
+  ]
+}
