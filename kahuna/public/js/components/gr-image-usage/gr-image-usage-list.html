@@ -5,8 +5,8 @@
 
     <ul>
         <li class="gr-image-usage__record" ng-repeat="usage in ctrl.usages">
-            <gr-icon ng:if="usage.platform === 'print'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage.dateAdded)}">local_library</gr-icon>
-            <gr-icon ng:if="usage.platform === 'digital'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage.dateAdded)}">phonelink</gr-icon>
+            <gr-icon ng-if="usage.platform === 'print'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage.dateAdded)}">local_library</gr-icon>
+            <gr-icon ng-if="usage.platform === 'digital'" class="usage-list__icon" ng-class="{'icon-warning': ctrl.isRecent(usage.dateAdded)}">phonelink</gr-icon>
 
             {{usage.title}}
 
@@ -14,9 +14,9 @@
                 <span class="date-added">{{::ctrl.formatTimestamp(usage.dateAdded)}}</span>
                 <ul class="reference-list">
                     <li ng-repeat="reference in usage.references">
-                        <a ng:if="reference.uri" href="{{reference.uri}}" title="Open in {{reference.type}}" target="_blank">
-                            <gr-frontend-icon class="reference-list__icon" ng:if="reference.type === 'frontend'"></gr-frontend-icon>
-                            <gr-composer-icon class="reference-list__icon" ng:if="reference.type === 'composer'"></gr-composer-icon>
+                        <a ng-if="reference.uri" href="{{reference.uri}}" title="Open in {{reference.type}}" rel="noopener" target="_blank">
+                            <gr-frontend-icon class="reference-list__icon" ng-if="reference.type === 'frontend'"></gr-frontend-icon>
+                            <gr-composer-icon class="reference-list__icon" ng-if="reference.type === 'composer'"></gr-composer-icon>
                         </a>
                     </li>
                 </ul>

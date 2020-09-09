@@ -1,0 +1,53 @@
+{
+  // An API key used to ingest images from the s3watcher.
+  s3Watcher: {
+    key: ''
+  },
+
+  es6: {
+    cluster: 'media-service',
+    url: 'http://localhost:9200',
+    shards: 1,
+    replicas: 0
+  },
+
+  google: {
+    tracking: {
+      id: ''
+    }
+  },
+
+  // Front end support links/email
+  links: {
+    feedbackForm: '',
+    usageRightsHelp: '',
+    invalidSessionHelp: '',
+    supportEmail: ''
+  },
+
+  security: {
+    frameAncestors: '',
+    corsAllowedOrigins: ''
+  },
+
+  // Guardian specific properties for the Usage service
+  guardian: {
+    capi: {
+      poll:  5,
+      live: {
+        url: '',
+        key: ''
+      }
+    },
+    crier: {
+      live: {
+        streamName: '',
+        roleArn: ''
+      },
+      preview: {
+        streamName: '',
+        roleArn: ''
+      }
+    }
+  }
+}

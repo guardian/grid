@@ -1,16 +1,16 @@
 <div class="gr-chips__wrapper"
-     ng:click="$grChipsCtrl.wrapperClicked($event)">
-    <span ng:repeat="$chip in $grChipsCtrl.items"
-          ng:switch="$chip.type"
+     ng-click="$grChipsCtrl.wrapperClicked($event)">
+    <span ng-repeat="$chip in $grChipsCtrl.items"
+          ng-switch="$chip.type"
           class="gr-chips__chip-wrapper"
-          ng:class="$chip.type === 'text' ? 'text-chip' : 'filter-chip'">
-       <gr-text-chip ng:switch-when="text"
+          ng-class="$chip.type === 'text' ? 'text-chip' : 'filter-chip'">
+       <gr-text-chip ng-switch-when="text"
                      gr-chip="$chip"></gr-text-chip>
-       <gr-filter-chip ng:switch-when="filter"
+       <gr-filter-chip ng-switch-when="filter"
                        gr-chip="$chip"></gr-filter-chip>
-       <gr-static-filter-chip ng:switch-when="static-filter"
+       <gr-static-filter-chip ng-switch-when="static-filter"
                               gr-chip="$chip"></gr-static-filter-chip>
-       <gr-filter-chooser-chip ng:switch-when="filter-chooser"
+       <gr-filter-chooser-chip ng-switch-when="filter-chooser"
                                gr-chip="$chip"></gr-filter-chooser-chip>
     </span>
 </div>

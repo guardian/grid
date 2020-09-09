@@ -5,28 +5,24 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "compile": "tsc",
-    "riffraff-artefact": "npm run compile && VERBOSE=true ARTEFACT_PATH=$PWD riffraff-artefact"
+    "compile": "ncc build src/handler.ts -o dist -m -e aws-sdk -s",
+    "deploy": "npm run compile && node-riffraff-artifact"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@guardian/node-riffraff-artifact": "^0.1.5",
     "@types/jest": "^24.9.0",
+    "@types/node": "^13.1.8",
     "@types/node-fetch": "^2.5.4",
+    "@zeit/ncc": "^0.21.0",
     "jest": "^24.9.0",
     "ts-jest": "^24.3.0",
-    "typescript": "^3.7.5",
-    "node-riffraff-artefact": "^2.0.1"
+    "typescript": "^3.7.5"
   },
   "dependencies": {
-    "@types/node": "^13.1.8",
     "aws-sdk": "^2.606.0",
     "node-fetch": "latest"
-  },
-  "isAwsLambda": true,
-  "cloudformation": false,
-  "projectName": "media-service::grid::image-counter-lambda",
-  "uploadArtefact": true,
-  "riffraffFile": "./riff-raff.yaml"
+  }
 }

@@ -7,7 +7,7 @@ const inFile = process.argv[3];
 
 if (!tableName || !inFile) {
   console.error(
-    `\nIncorrect number of arguments. Format -- node upload-ids-to-dynamo.js <table-name> <input-file>`
+    `\nIncorrect number of arguments. Format -- node upload-ids-to-dynamo.js <table-name> <input-file>. The file should contain a list of image ids, separated by newlines.`
   );
   process.exit(1);
 }

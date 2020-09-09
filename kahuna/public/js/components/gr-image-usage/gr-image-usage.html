@@ -3,7 +3,7 @@
 </div>
 
 <gr-delete-usages
-  ng:if="ctrl.usagesCount > 0"
-  gr:image="ctrl.image"
-  gr:on-delete="ctrl.onUsagesDeleted()">
+  ng-if="ctrl.usagesCount > 0"
+  gr-image="ctrl.image"
+  gr-on-delete="ctrl.onUsagesDeleted()">
 </gr-delete-usages>

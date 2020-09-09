@@ -1,0 +1,54 @@
+[
+  {
+    "permission": {
+      "name": "show_paid",
+      "app": "grid",
+      "defaultValue": false
+    },
+    "overrides": [
+      {
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
+        "active": true
+      }
+    ]
+  },
+  {
+    "permission": {
+      "name": "delete_image",
+      "app": "grid",
+      "defaultValue": false
+    },
+    "overrides": [
+      {
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
+        "active": true
+      }
+    ]
+  },
+  {
+    "permission": {
+      "name": "edit_metadata",
+      "app": "grid",
+      "defaultValue": false
+    },
+    "overrides": [
+      {
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
+        "active": true
+      }
+    ]
+  },
+  {
+    "permission": {
+      "name": "delete_crops",
+      "app": "grid",
+      "defaultValue": false
+    },
+    "overrides": [
+      {
+        "userId": "grid-demo-account@@EMAIL_DOMAIN",
+        "active": true
+      }
+    ]
+  }
+]

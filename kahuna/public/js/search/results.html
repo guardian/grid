@@ -1,28 +1,29 @@
 <!-- TODO: show only after a delay -->
-<div ng:if="ctrl.loading"
+<div ng-if="ctrl.loading"
      class="image-loading-results">
     Fetching images…
 </div>
 
-<div ng:if="! ctrl.loading">
-    <div ng:if="ctrl.loadingError">
+<div ng-if="! ctrl.loading">
+    <div ng-if="ctrl.loadingError">
         Error loading results: {{ctrl.loadingError}}
     </div>
-    <div ng:if="! ctrl.loadingError">
+    <div ng-if="! ctrl.loadingError">
         <div class="results-toolbar">
             <gr-panel-button-small
+                data-cy="show-collections-panel"
                 class="results-toolbar-item results-toolbar-item--left results-toolbar-item--no-hover"
-                gr:panel="ctrl.collectionsPanel"
-                gr:position="left"
-                gr:name="collections"
-                gr:icon="collections">
+                gr-panel="ctrl.collectionsPanel"
+                gr-position="left"
+                gr-name="collections"
+                gr-icon="collections">
             </gr-panel-button-small>
 
             <div class="results-toolbar-item results-toolbar-item--static
                         image-results-count">
                 {{ctrl.totalResults | toLocaleString}} matches
-                <button ng:if="ctrl.newImagesCount > 0"
-                        ng:click="ctrl.revealNewImages()"
+                <button ng-if="ctrl.newImagesCount > 0"
+                        ng-click="ctrl.revealNewImages()"
                         class="image-results-count__new"
                         gr-tooltip="{{ctrl.newImagesCount}} new images as of {{ctrl.lastestTimeMoment}}"
                         gr-tooltip-position="right"
@@ -33,12 +34,12 @@
 
             <div class="results-toolbar__right flex-container">
                 <div class="results-toolbar-item results-toolbar-item--right results-toolbar-item--static"
-                     ng:if="ctrl.selectionCount > 0">
+                     ng-if="ctrl.selectionCount > 0">
                     {{ctrl.selectionCount}} selected
                 </div>
 
                 <div class="results-toolbar-item results-toolbar-item--right results-toolbar-item--static results-toolbar-item__progress"
-                    ng-style="ctrl.buildBatchProgressGradient()" ng:if="ctrl.batchOperations.length > 0">
+                    ng-style="ctrl.buildBatchProgressGradient()" ng-if="ctrl.batchOperations.length > 0">
 
                     <span ng-repeat="entry in ctrl.batchOperations">
                         Updating {{entry.key}}: {{entry.completed}}/{{entry.total}}
@@ -46,47 +47,47 @@
                 </div>
 
                 <a class="results-toolbar-item results-toolbar-item--right"
-                   ng:click="ctrl.clearSelection()"
-                   ng:if="ctrl.selectionCount > 0">
+                   ng-click="ctrl.clearSelection()"
+                   ng-if="ctrl.selectionCount > 0">
                     <gr-icon-label gr-icon="clear">Clear selection</gr-icon-label>
                 </a>
 
                 <gr-batch-export-original-images class="results-toolbar-item results-toolbar-item--right"
                   images="ctrl.selectedImages"
-                  ng:if="ctrl.selectionCount > 0"></gr-batch-export-original-images>
+                  ng-if="ctrl.selectionCount > 0"></gr-batch-export-original-images>
 
                 <gr-downloader class="results-toolbar-item results-toolbar-item--right"
                     images="ctrl.selectedImages"
-                    ng:if="ctrl.selectionCount > 0"></gr-downloader>
+                    ng-if="ctrl.selectionCount > 0"></gr-downloader>
 
                 <gr-delete-image class="results-toolbar-item results-toolbar-item--right"
                                  images="ctrl.selectedImages"
-                                 ng:if="ctrl.selectionIsDeletable && ctrl.selectionCount > 0">
+                                 ng-if="ctrl.selectionIsDeletable && ctrl.selectionCount > 0">
                 </gr-delete-image>
 
                 <gr-archiver class="results-toolbar-item results-toolbar-item--right"
-                             gr:images="ctrl.selectedImages"
-                             ng:if="ctrl.selectionCount > 0">
+                             gr-images="ctrl.selectedImages"
+                             ng-if="ctrl.selectionCount > 0">
                 </gr-archiver>
 
                 <gr-toggle-button class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
-                                  gr:toggle="ctrl.previewView"
-                                  gr:icon="find_in_page"
-                                  gr:name="Preview">
+                                  gr-toggle="ctrl.previewView"
+                                  gr-icon="find_in_page"
+                                  gr-name="Preview">
                 </gr-toggle-button>
 
                 <gr-panel-button
                     class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"
-                    gr:panel="ctrl.metadataPanel"
-                    gr:position="right"
-                    gr:name="info"
-                    gr:icon="info">
+                    gr-panel="ctrl.metadataPanel"
+                    gr-position="right"
+                    gr-name="info"
+                    gr-icon="info">
                 </gr-panel-button>
             </div>
         </div>
 
         <ul class="results"
-            ng:if="!ctrl.previewView"
+            ng-if="!ctrl.previewView"
             gu:lazy-table="ctrl.imagesAll"
             gu:lazy-table-cell-min-width="280"
             gu:lazy-table-cell-height="292"
@@ -94,35 +95,35 @@
             gu:lazy-table-load-range="ctrl.loadRange($start, $end)"
             gu-lazy-table-shortcuts>
 
-            <li ng:repeat="image in ctrl.images track by image.data.id"
+            <li ng-repeat="image in ctrl.images track by image.data.id"
                 gu:lazy-table-cell="image">
 
                 <div class="result"
-                     ng:class="{ 'result--seen': ctrl.imageHasBeenSeen(image),
+                     ng-class="{ 'result--seen': ctrl.imageHasBeenSeen(image),
                                  'result--selected': ctrl.imageHasBeenSelected(image)}">
 
                     <!-- <HACK> -->
                     <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
                     <!-- </HACK> -->
                     <div class="result__select result__select--selected"
-                         ng:if="ctrl.imageHasBeenSelected(image)">
+                         ng-if="ctrl.imageHasBeenSelected(image)">
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--select"
                                checked="true"
-                               ng:click="ctrl.deselect(image)"/>
+                               ng-click="ctrl.deselect(image)"/>
                         <label for="id-{{::image.data.id}}-result__select__checkbox--select"
                                class="result__select__checkbox__label">
                             <gr-icon>check_box</gr-icon>
                         </label>
                     </div>
                     <div class="result__select"
-                         ng:if="!ctrl.imageHasBeenSelected(image)"
-                         ng:class="{ 'result__select--no-pointer-events': ctrl.inSelectionMode}">
+                         ng-if="!ctrl.imageHasBeenSelected(image)"
+                         ng-class="{ 'result__select--no-pointer-events': ctrl.inSelectionMode}">
                         <input type="checkbox"
                                class="result__select__checkbox"
                                id="id-{{::image.data.id}}-result__select__checkbox--deselect"
-                               ng:click="ctrl.select(image)" />
+                               ng-click="ctrl.select(image)" />
                         <label for="id-{{::image.data.id}}-result__select__checkbox--deselect"
                                class="result__select__checkbox__label">
                             <gr-icon>check_box</gr-icon>
@@ -131,12 +132,12 @@
 
                     <ui-preview-image image="image"
                                       selection-mode="ctrl.inSelectionMode"
-                                      ng:class="{'preview__quick-select': ctrl.inSelectionMode}"
-                                      ng:click="ctrl.onImageClick(image, $event)">
+                                      ng-class="{'preview__quick-select': ctrl.inSelectionMode}"
+                                      ng-click="ctrl.onImageClick(image, $event)">
                         <button class="mark-as-seen image-action"
                                 title="Mark all images until this point as seen"
-                                ui:localstore="search.seenFrom"
-                                ui:localstore-val="ctrl.getLastSeenVal(image)">
+                                ui-localstore="search.seenFrom"
+                                ui-localstore-val="ctrl.getLastSeenVal(image)">
                             <gr-icon>remove_red_eye</gr-icon>
                         </button>
                     </ui-preview-image>
@@ -145,7 +146,7 @@
         </ul>
 
         <gu:lazy-preview
-            ng:if="ctrl.previewView"
+            ng-if="ctrl.previewView"
             gu:lazy-preview-items="ctrl.images"
             gu:lazy-preview-items-total="ctrl.imagesAll"
             gu:lazy-preview-preloaded-items="20"
@@ -153,13 +154,13 @@
             gu:lazy-preview-selection-mode="ctrl.inSelectionMode">
         </gu:lazy-preview>
 
-        <div ng:if="ctrl.totalResults > ctrl.maxResults && !ctrl.previewView"
+        <div ng-if="ctrl.totalResults > ctrl.maxResults && !ctrl.previewView"
              class="image-results-more">
             <div class="image-results-more__heading">Too many results to display</div>
             <div class="image-results-more__instructions">Please refine your search to limit the number of results</div>
         </div>
 
-        <div ng:if="ctrl.totalResults == 0"
+        <div ng-if="ctrl.totalResults == 0"
              class="image-no-results">
             No matches, sorry! Try altering your search.
         </div>

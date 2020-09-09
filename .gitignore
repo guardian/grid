@@ -11,7 +11,6 @@ data
 *.py[cod]
 .venv
 kahuna/npm-debug.log
-imgops/dev/nginx.conf
 *.iml
 
 .bloop
@@ -21,3 +20,7 @@ project/metals.sbt
 
 LOGS_LOCATION_IS_UNDEFINED
 re_ingestion_stats.txt
+
+dev/nginx-mappings.yml
+dev/.localstack
+dev/config/permissions.json

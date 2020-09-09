@@ -42,4 +42,5 @@ module.exports = {
       'rx': 'rx/dist/rx.all',
     },
   },
+  devtool: "source-map",
 };

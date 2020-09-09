@@ -1,5 +1,3 @@
 package com.gu.mediaservice.lib
 
-package object logging {
-  val FALLBACK: String = "unknown"
-}
+package object logging extends MarkerUtils

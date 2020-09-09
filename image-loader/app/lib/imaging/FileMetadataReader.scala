@@ -14,7 +14,7 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
-import com.gu.mediaservice.model.{Dimensions, FileMetadata, FileMetadataAggregator}
+import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.JsValue
@@ -56,7 +56,7 @@ object FileMetadataReader {
     }
     yield getMetadataWithICPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
-  def fromICPTCHeadersWithColorInfo(image: File, imageId:String, mimeType: String): Future[FileMetadata] =
+  def fromICPTCHeadersWithColorInfo(image: File, imageId:String, mimeType: MimeType): Future[FileMetadata] =
     for {
       metadata <- readMetadata(image)
       colourModelInformation <- getColorModelInformation(image, metadata, mimeType)
@@ -157,7 +157,7 @@ object FileMetadataReader {
 
   private def dateToUTCString(date: DateTime): String = ISODateTimeFormat.dateTime.print(date.withZone(DateTimeZone.UTC))
 
-  def dimensions(image: File, mimeType: Option[String]): Future[Option[Dimensions]] =
+  def dimensions(image: File, mimeType: Option[MimeType]): Future[Option[Dimensions]] =
     for {
       metadata <- readMetadata(image)
     }
@@ -165,12 +165,12 @@ object FileMetadataReader {
 
       mimeType match {
 
-        case Some("image/jpeg") => for {
+        case Some(Jpeg) => for {
           jpegDir <- Option(metadata.getFirstDirectoryOfType(classOf[JpegDirectory]))
 
         } yield Dimensions(jpegDir.getImageWidth, jpegDir.getImageHeight)
 
-        case Some("image/png") => for {
+        case Some(Png) => for {
           pngDir <- Option(metadata.getFirstDirectoryOfType(classOf[PngDirectory]))
 
         } yield {
@@ -179,7 +179,7 @@ object FileMetadataReader {
           Dimensions(width, height)
         }
 
-        case Some("image/tiff") => for {
+        case Some(Tiff) => for {
           exifDir <- Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
 
         } yield {
@@ -193,7 +193,7 @@ object FileMetadataReader {
       }
     }
 
-  def getColorModelInformation(image: File, metadata: Metadata, mimeType: String): Future[Map[String, String]] = {
+  def getColorModelInformation(image: File, metadata: Metadata, mimeType: MimeType): Future[Map[String, String]] = {
 
     val source = addImage(image)
 
@@ -203,12 +203,12 @@ object FileMetadataReader {
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 
-  private def getColourInformation(metadata: Metadata, maybeImageType: Option[String], mimeType: String): Map[String, String] = {
+  private def getColourInformation(metadata: Metadata, maybeImageType: Option[String], mimeType: MimeType): Map[String, String] = {
 
     val hasAlpha = maybeImageType.map(imageType => if (imageType.contains("Matte")) "true" else "false")
 
     mimeType match {
-      case "image/png" => val metaDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
+      case Png => val metaDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
         Map(
           "hasAlpha" -> hasAlpha,
           "colorType" -> Option(metaDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
@@ -233,8 +233,9 @@ object FileMetadataReader {
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
     Option(nullableStr) map (_.trim) filter (_.nonEmpty)
 
-  private def readMetadata(file: File): Future[Metadata] =
-    Future(ImageMetadataReader.readMetadata(file))
+  private def readMetadata(file: File): Future[Metadata] = Future {
+    ImageMetadataReader.readMetadata(file)
+  }
 
   // Helper to flatten maps of options
   implicit class MapFlattener[K, V](val map: Map[K, Option[V]]) {

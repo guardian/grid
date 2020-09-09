@@ -1,4 +1,4 @@
-<div ng:click="ctrl.callCrop(); $event.stopPropagation();"
-     gr:track-click="Full frame button">
-        <gr-icon-label gr-icon="crop"></gr-icon-label> Crop<span ng:if="ctrl.cropping">ping</span> full frame<span ng:if="ctrl.cropping">…</span>
+<div ng-click="ctrl.callCrop(); $event.stopPropagation();"
+     gr-track-click="Full frame button">
+        <gr-icon-label gr-icon="crop"></gr-icon-label> Crop<span ng-if="ctrl.cropping">ping</span> full frame<span ng-if="ctrl.cropping">…</span>
 </div>

@@ -12,14 +12,14 @@ object ImagesGroupByProgressState extends App with LazyLogging {
   import InputIdsStore._
 
   private val dynamoTable = args(0)
-  private val ddbClient = BatchIndexHandlerAwsFunctions.buildDynamoTableClient(dynamoTable)
+  private val ddbClient = AwsHelpers.buildDynamoTableClient(dynamoTable)
   private val stateIndex = ddbClient.getIndex(StateField)
 
   def execute() = {
 
     def stateNameToCount(progressType: ProduceProgress): (String, Int) = {
       logger.info(s"calculating stateNameToCount for $progressType")
-      val queryRes = stateIndex.query(getAllMediaIdsWithinStateQuery(progressType.stateId))
+      val queryRes = stateIndex.query(getAllMediaIdsWithinProgressQuery(progressType))
       val result = progressType.name -> queryRes.iterator.asScala.length
       logger.info(s"result=$result")
       result
@@ -38,7 +38,7 @@ object ImagesGroupByProgressState extends App with LazyLogging {
     logger.info(s"starting to calculate stats at dynamoTable=$dynamoTable")
 
     val result = Map(
-      stateNameToCount(Finished),
+      stateNameToCount(Enqueued),
       stateNameToCount(NotFound),
       stateNameToCount(KnownError),
       stateNameToCount(NotStarted),

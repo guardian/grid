@@ -1,19 +1,22 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions, ElasticSearchClient, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Mappings}
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
 import lib.ThrallMetrics
 import org.joda.time.DateTime
+import play.api.MarkerContext
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,21 +32,29 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   lazy val shards = config.shards
   lazy val replicas = config.replicas
 
-  def bulkInsert(images: Seq[Image])(implicit ex: ExecutionContext): List[Future[ElasticSearchBulkUpdateResponse]] = {
-    val request = bulk {
-      images.map(img => {
+  def bulkInsert(images: Seq[Image])(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchBulkUpdateResponse]] = {
+    val (requests, totalSize) =
+      images.foldLeft[(Seq[IndexRequest], Int)](List(), 0)
+      { (collector: (Seq[IndexRequest], Int), img) =>
+      val (requestsSoFar, sizeSoFar) = collector
+      val document = Json.stringify(Json.toJson(img))
+      (
+        requestsSoFar :+
         indexInto(imagesAlias)
           .id(img.id)
-          .source(Json.stringify(Json.toJson(img)))
-      })
+          .source(document),
+        sizeSoFar + document.length()
+      )
     }
 
-    val response = executeAndLog(request, s"Bulk inserting ${images.length} images")
+    val request = bulk { requests }
+
+    val response = executeAndLog(request, s"Bulk inserting ${images.length} images, total size $totalSize")
 
     List(response.map(_ => ElasticSearchBulkUpdateResponse()))
   }
 
-  def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val painlessSource = loadPainless(
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
       """
@@ -84,7 +95,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     })
   }
 
-  def getImage(id: String)(implicit ex: ExecutionContext): Future[Option[Image]] = {
+  def getImage(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     executeAndLog(get(imagesAlias, id), s"ES6 get image by $id").map { r =>
       if (r.result.found) {
         Some(Json.parse(r.result.sourceAsString).as[Image])
@@ -94,7 +105,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
   }
 
-  def updateImageUsages(id: String, usages: List[Usage], lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def updateImageUsages(id: String, usages: Seq[Usage], lastModified: JsLookupResult)(implicit ex: ExecutionContext,logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceUsagesScript = """
       | def dtf = DateTimeFormatter.ISO_DATE_TIME;
       | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
@@ -128,7 +139,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights])(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
     val replaceSyndicationRightsScript = """
         | ctx._source.syndicationRights = params.syndicationRights;
@@ -157,7 +168,11 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(executeAndLog(updateRequest, s"ES6 updating syndicationRights on image $id with rights $params").map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def applyImageMetadataOverride(id: String, metadata: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def applyImageMetadataOverride(
+                                  id: String, metadata: JsLookupResult, lastModified: JsLookupResult
+                                )(
+                                  implicit ex: ExecutionContext, logMarker: LogMarker
+                                ): List[Future[ElasticSearchUpdateResponse]] = {
     val photoshootSuggestionScript = """
       | if (ctx._source.userMetadata.photoshoot != null) {
       |   ctx._source.userMetadata.photoshoot.suggest = [ "input": [ ctx._source.userMetadata.photoshoot.title ] ];
@@ -196,7 +211,11 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id with lastModified $lastModified").map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])(implicit ex: ExecutionContext): Future[List[Image]] = { // TODO could be a Seq
+  def getInferredSyndicationRightsImages(
+                                          photoshoot: Photoshoot, excludedImageId: Option[String]
+                                        )(
+                                          implicit ex: ExecutionContext, logMarker: LogMarker
+                                        ): Future[List[Image]] = { // TODO could be a Seq
     val inferredSyndicationRights = not(termQuery("syndicationRights.isInferred", false)) // Using 'not' to include nulls
 
     val filter = excludedImageId match {
@@ -221,7 +240,11 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
   }
 
-  def getLatestSyndicationRights(photoshoot: Photoshoot, excludedImageId: Option[String] = None)(implicit ex: ExecutionContext): Future[Option[Image]] = {
+  def getLatestSyndicationRights(
+                                  photoshoot: Photoshoot, excludedImageId: Option[String] = None
+                                )(
+                                  implicit ex: ExecutionContext, logMarker: LogMarker
+                                ): Future[Option[Image]] = {
     val nonInferredSyndicationRights = termQuery("syndicationRights.isInferred", false)
 
     val filter = excludedImageId match {
@@ -248,7 +271,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
   }
 
-  def deleteImage(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchDeleteResponse]] = {
+  def deleteImage(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchDeleteResponse]] = {
     // search for the image first, and then only delete and succeed
     // this is because the delete query does not respond with anything useful
     // TODO: is there a more efficient way to do this?
@@ -274,7 +297,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     })
   }
 
-  def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def deleteAllImageUsages(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val deleteUsagesScript = loadPainless("""| ctx._source.remove('usages')""")
 
     val script = Script(script = deleteUsagesScript).lang("painless")
@@ -287,7 +310,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def deleteSyndicationRights(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def deleteSyndicationRights(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val deleteSyndicationRightsScript = loadPainless("""
         | ctx._source.remove('syndicationRights');
       """)
@@ -303,7 +326,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   private def getUpdateRequest(id: String, script: String)  = updateById(imagesAlias, id)
       .script(Script(script = script).lang("painless"))
 
-  def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceLeasesScript = loadPainless(
       """
         | ctx._source.leases.lastModified = params.lastModified;
@@ -331,7 +354,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def addImageLease(id: String, lease: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
     val addLeaseScript = loadPainless(
       """| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
@@ -365,7 +388,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def removeImageLease(id: String, leaseId: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def removeImageLease(id: String, leaseId: JsLookupResult, lastModified: JsLookupResult)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val removeLeaseScript = loadPainless(
       """|
          | for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
@@ -400,7 +423,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def updateImageExports(id: String, exports: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def updateImageExports(id: String, exports: JsLookupResult)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
     val addExportsScript = loadPainless(
     """| if (ctx._source.exports == null) {
@@ -437,7 +460,8 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def deleteImageExports(id: String)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+  def deleteImageExports(id: String, logMarker: LogMarker)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = {
+    implicit val lm = logMarker
     val deleteExportsScript = loadPainless("""
      | ctx._source.remove('exports');
     """)
@@ -462,7 +486,12 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
 
-  def setImageCollection(id: String, collections: JsLookupResult)(implicit ex: ExecutionContext): List[Future[ElasticSearchUpdateResponse]] = { // TODO rename to setImageCollections
+  def setImageCollection(
+                          id: String, collections: JsLookupResult
+                        )(
+                          implicit ex: ExecutionContext, logMarker: LogMarker
+                        ): List[Future[ElasticSearchUpdateResponse]] = {
+    // TODO rename to setImageCollections
     val setCollectionsScript = loadPainless(
       """
         | ctx._source.collections = params.collections;

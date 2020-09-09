@@ -1,9 +1,9 @@
 <section>
-    <span ng:if="!ctrl.hasInformationFromRCS">
+    <span ng-if="!ctrl.hasInformationFromRCS">
         No information available.
     </span>
 
-    <span ng:if="ctrl.hasInformationFromRCS">
-        Syndication rights have <strong ng:if="!ctrl.hasRightsAcquired">not</strong> been acquired for this image.
+    <span ng-if="ctrl.hasInformationFromRCS">
+        Syndication rights have <strong ng-if="!ctrl.hasRightsAcquired">not</strong> been acquired for this image.
     </span>
 </section>

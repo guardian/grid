@@ -6,19 +6,19 @@ import java.util.UUID
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
-import play.api.Configuration
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
+import play.api.{Configuration, Logger}
+import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
 
 import scala.io.Source._
 import scala.util.Try
 
 
-trait CommonConfig {
+trait CommonConfig extends AwsClientBuilderUtils {
   def appName: String
   def configuration: Configuration
 
   lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
-
-  final val awsEndpoint = "ec2.eu-west-1.amazonaws.com"
 
   final val elasticsearchStack = "media-service"
 
@@ -29,35 +29,25 @@ trait CommonConfig {
 
   final val sessionId = UUID.randomUUID().toString
 
-  final val awsRegion = properties.getOrElse("aws.region", "eu-west-1")
+  override val awsRegion: String = properties.getOrElse("aws.region", "eu-west-1")
 
-  final val kinesisAWSEndpoint = s"kinesis.$awsRegion.amazonaws.com"
-
-  final val dynamodbAWSEndpoint = s"dynamodb.$awsRegion.amazonaws.com"
-
-  lazy val awsCredentials = new AWSCredentialsProviderChain(
-    new ProfileCredentialsProvider("media-service"),
-    InstanceProfileCredentialsProvider.getInstance()
-  )
+  override val awsLocalEndpoint: Option[String] = if(isDev) properties.get("aws.local.endpoint") else None
 
   lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
 
-  lazy val permissionsBucket = properties.getOrElse("permissions.bucket", "permissions-cache")
+  lazy val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
-  def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T]): S = builder
-    .withRegion(awsRegion)
-    .withCredentials(awsCredentials)
+  lazy val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
 
-  final val stage: String = stageFromFile getOrElse "DEV"
-
-  val isProd: Boolean = stage == "PROD"
-  val isDev: Boolean = stage == "DEV"
+  val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
+  lazy val thrallKinesisLowPriorityStream = properties("thrall.kinesis.lowPriorityStream.name")
 
-  lazy val thrallKinesisEndpoint: String = properties.getOrElse("thrall.local.kinesis.url", kinesisAWSEndpoint)
+  lazy val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
+  lazy val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
 
-  lazy val thrallKinesisDynamoEndpoint: String = properties.getOrElse("thrall.local.dynamodb.url", dynamodbAWSEndpoint)
+  lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase == "true"
 
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
@@ -80,6 +70,8 @@ trait CommonConfig {
 
   lazy val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, streamName)
+
   final def getStringSetFromProperties(key: String): Set[String] = Try(
     properties(key).split(",").map(_.trim).toSet
   ).getOrElse(Set.empty)
@@ -98,11 +90,9 @@ trait CommonConfig {
   final def int(key: String): Int =
     configuration.getOptional[Int](key) getOrElse missing(key, "integer")
 
+  final def boolean(key: String): Boolean =
+    configuration.getOptional[Boolean](key).getOrElse(false)
+
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
-
-  private def stageFromFile: Option[String] = {
-    val file = new File("/etc/gu/stage")
-    if (file.exists) Some(fromFile(file).mkString.trim) else None
-  }
 }

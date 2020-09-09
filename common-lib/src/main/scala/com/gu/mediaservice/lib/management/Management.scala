@@ -51,7 +51,7 @@ class ElasticSearchHealthCheck(override val controllerComponents: ControllerComp
     elasticHealth.map {
       case None => Ok("Ok")
       case Some(err) => {
-        Logger.warn(s"Health check failed with problems: $err")
+        Logger.warn(s"Healthcheck failed with problems: $err")
         ServiceUnavailable(err)
       }
     }

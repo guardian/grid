@@ -23,7 +23,8 @@ case class ImageMetadata(
   city:                Option[String]   = None,
   state:               Option[String]   = None,
   country:             Option[String]   = None,
-  subjects:            List[String]     = Nil
+  subjects:            List[String]     = Nil,
+  peopleInImage:       Set[String]      = Set()
 )
 
 object ImageMetadata {
@@ -47,7 +48,8 @@ object ImageMetadata {
       (__ \ "city").readNullable[String] ~
       (__ \ "state").readNullable[String] ~
       (__ \ "country").readNullable[String] ~
-      (__ \ "subjects").readNullable[List[String]].map(_ getOrElse Nil)
+      (__ \ "subjects").readNullable[List[String]].map(_ getOrElse Nil) ~
+      (__ \ "peopleInImage").readNullable[Set[String]].map(_ getOrElse Set())
     )(ImageMetadata.apply _)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] = (
@@ -68,7 +70,8 @@ object ImageMetadata {
       (__ \ "city").writeNullable[String] ~
       (__ \ "state").writeNullable[String] ~
       (__ \ "country").writeNullable[String] ~
-      (__ \ "subjects").writeNullable[List[String]].contramap((l: List[String]) => if (l.isEmpty) None else Some(l))
+      (__ \ "subjects").writeNullable[List[String]].contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
+      (__ \ "peopleInImage").writeNullable[Set[String]].contramap((l: Set[String]) => if (l.isEmpty) None else Some(l))
     )(unlift(ImageMetadata.unapply))
 
 }

@@ -1,99 +1,101 @@
 package lib.kinesis
 
 import com.gu.mediaservice.lib.aws.{BulkIndexRequest, EsResponse, UpdateMessage}
-import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
+import com.gu.mediaservice.lib.logging.{GridLogger, LogMarker, MarkerMap, combineMarkers}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import lib.elasticsearch._
-import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+
 class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
-                       syndicationRightsOps: SyndicationRightsOps,
-                       bulkIndexS3Client: BulkIndexS3Client
+                       syndicationRightsOps: SyndicationRightsOps
                       ) {
 
-  def chooseProcessor(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Option[UpdateMessage => Future[Any]] = {
-    PartialFunction.condOpt(updateMessage.subject) {
-      case "image" => indexImage
-      case "reindex-image" => indexImage
-      case "delete-image" => deleteImage
-      case "update-image" => indexImage
-      case "delete-image-exports" => deleteImageExports
-      case "update-image-exports" => updateImageExports
-      case "update-image-user-metadata" => updateImageUserMetadata
-      case "update-image-usages" => updateImageUsages
-      case "replace-image-leases" => replaceImageLeases
-      case "add-image-lease" => addImageLease
-      case "remove-image-lease" => removeImageLease
-      case "set-image-collections" => setImageCollections
-      case "delete-usages" => deleteAllUsages
-      case "upsert-rcs-rights" => upsertSyndicationRights
-      case "update-image-photoshoot" => updateImagePhotoshoot
-      case "batch-index" => batchIndex
-    }
+  def process(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
+    updateMessage.subject match {
+      case "image" => indexImage(updateMessage, logMarker)
+      case "reingest-image" => indexImage(updateMessage, logMarker)
+      case "delete-image" => deleteImage(updateMessage, logMarker)
+      case "update-image" => indexImage(updateMessage, logMarker)
+      case "delete-image-exports" => deleteImageExports(updateMessage, logMarker)
+      case "update-image-exports" => updateImageExports(updateMessage, logMarker)
+      case "update-image-user-metadata" => updateImageUserMetadata(updateMessage, logMarker)
+      case "update-image-usages" => updateImageUsages(updateMessage, logMarker)
+      case "replace-image-leases" => replaceImageLeases(updateMessage, logMarker)
+      case "add-image-lease" => addImageLease(updateMessage, logMarker)
+      case "remove-image-lease" => removeImageLease(updateMessage, logMarker)
+      case "set-image-collections" => setImageCollections(updateMessage, logMarker)
+      case "delete-usages" => deleteAllUsages(updateMessage, logMarker)
+      case "upsert-rcs-rights" => upsertSyndicationRights(updateMessage, logMarker)
+      case "update-image-photoshoot" => updateImagePhotoshoot(updateMessage, logMarker)
+      case unknownSubject => {
+        Future.failed(ProcessorNotFoundException(unknownSubject))
+      }
+     }
   }
 
-  def batchIndex(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchBulkUpdateResponse]] = {
-    val request = message.bulkIndexRequest.get
-    Logger.info(s"attempt to parse images from $request")
-    val imagesToIndex = bulkIndexS3Client.getImages(request)
-    val markers: LogstashMarker = message.toLogMarker.and(Markers.append("batchImageCount", imagesToIndex.length))
-    Logger.info(s"Processing a batch index of size: ${imagesToIndex.size}")(markers)
-    Future.sequence(es.bulkInsert(imagesToIndex))
-  }
-
-  def updateImageUsages(message: UpdateMessage)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
+  def updateImageUsages(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] = {
     implicit val unw: OWrites[UsageNotice] = Json.writes[UsageNotice]
+    implicit val lm = logMarker
     withId(message) { id =>
       withUsageNotice(message) { usageNotice =>
         withLastModified(message) { lastModifed =>
-          val usages = usageNotice.usageJson.as[List[Usage]]
-          Future.sequence(es.updateImageUsages(id, usages, dateTimeAsJsLookup(lastModifed)))
+          val usages = usageNotice.usageJson.as[Seq[Usage]]
+          Future.traverse(es.updateImageUsages(id, usages, dateTimeAsJsLookup(lastModifed)))(_.recoverWith {
+            case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
+          }
+          )
         }
       }
     }
   }
 
-  def reindexImage(message: UpdateMessage)(implicit ec: ExecutionContext) = {
-    Logger.info("Reindexing image")(message.toLogMarker)
-    indexImage(message)
+  def reindexImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    Logger.info(s"Reindexing image: ${message.image.map(_.id).getOrElse("image not found")}")
+    indexImage(message, logMarker)
   }
 
-  private def indexImage(message: UpdateMessage)(implicit ec: ExecutionContext) =
-    Future.sequence(withImage(message)(i => es.indexImage(i.id, Json.toJson(message.image.get))))
+  private def indexImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+    Future.sequence(withImage(message)(i => es.indexImage(i.id, Json.toJson(message.image.get))(ec,logMarker)))
 
-  def updateImageExports(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def updateImageExports(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     def asJsLookup(cs: Seq[Crop]): JsLookupResult = JsDefined(Json.toJson(cs))
+
     withId(message) { id =>
       withCrops(message) { crops =>
-        Future.sequence(es.updateImageExports(id, asJsLookup(crops)))
+        Future.sequence(es.updateImageExports(id, asJsLookup(crops))(ec,logMarker))
       }
     }
   }
 
-  private def deleteImageExports(message: UpdateMessage)(implicit ec: ExecutionContext) =
-    Future.sequence(withId(message)(id => es.deleteImageExports(id)))
+  private def deleteImageExports(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+    Future.sequence(withId(message)(id => es.deleteImageExports(id, logMarker)))
 
-  private def updateImageUserMetadata(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  private def updateImageUserMetadata(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     def asJsLookup(e: Edits): JsLookupResult = JsDefined(Json.toJson(e))
+
     withEdits(message) { edits =>
       withLastModified(message) { lastModified =>
-        Future.sequence(withId(message)(id => es.applyImageMetadataOverride(id, asJsLookup(edits), dateTimeAsJsLookup(lastModified))))
+        Future.sequence(withId(message)(id => es.applyImageMetadataOverride(id, asJsLookup(edits), dateTimeAsJsLookup(lastModified))(ec,logMarker)))
       }
     }
   }
 
-  private def replaceImageLeases(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  private def replaceImageLeases(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val marker = logMarker
+
     def asJsLookup(ls: Seq[MediaLease]): JsLookupResult = JsDefined(Json.toJson(ls))
+
     withId(message) { id =>
       withLeases(message) { leases =>
         Future.sequence(es.replaceImageLeases(id, leases))
@@ -101,8 +103,10 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  private def addImageLease(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  private def addImageLease(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val marker = logMarker
     def asJsLookup(m: MediaLease): JsLookupResult = JsDefined(Json.toJson(m))
+
     withId(message) { id =>
       withLease(message) { mediaLease =>
         withLastModified(message) { lastModified =>
@@ -112,8 +116,10 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  def removeImageLease(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  def removeImageLease(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val marker = logMarker
     def asJsLookup(i: String): JsLookupResult = JsDefined(Json.toJson(i))
+
     withLeaseId(message) { leaseId =>
       withLastModified(message) { lastModified =>
         Future.sequence(withId(message)(id => es.removeImageLease(id, asJsLookup(leaseId), dateTimeAsJsLookup(lastModified))))
@@ -121,8 +127,10 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  private def setImageCollections(message: UpdateMessage)(implicit ec: ExecutionContext) = {
+  private def setImageCollections(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val lm = logMarker
     def asJsLookup(c: Seq[Collection]): JsLookupResult = JsDefined(Json.toJson(c))
+
     withCollections(message) { collections =>
       withId(message) { id =>
         Future.sequence(es.setImageCollection(id, asJsLookup(collections)))
@@ -130,12 +138,13 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  private def deleteImage(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) = {
+  private def deleteImage(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val marker = logMarker
     Future.sequence(
       withId(updateMessage) { id =>
         // if we cannot delete the image as it's "protected", succeed and delete
         // the message anyway.
-        GridLogger.info("ES6 Deleting image: " + id)
+        Logger.info("ES6 Deleting image: " + id)
         es.deleteImage(id).map { requests =>
           requests.map {
             case _: ElasticSearchDeleteResponse =>
@@ -154,16 +163,18 @@ class MessageProcessor(es: ElasticSearch,
     )
   }
 
-  private def deleteAllUsages(updateMessage: UpdateMessage)(implicit ec: ExecutionContext) =
-    Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))
+  private def deleteAllUsages(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val marker = logMarker
+    Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))}
 
-  def upsertSyndicationRights(updateMessage: UpdateMessage)(implicit ec: ExecutionContext): Future[Unit] = {
+  def upsertSyndicationRights(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+    implicit val marker = logMarker
     withId(updateMessage) { id =>
       withSyndicationRights(updateMessage) { syndicationRights =>
         es.getImage(id) map {
           case Some(image) =>
             val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}", id)
+            Logger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
             syndicationRightsOps.upsertOrRefreshRights(
               image = image.copy(syndicationRights = Some(syndicationRights)),
               currentPhotoshootOpt = photoshoot
@@ -174,22 +185,23 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  def updateImagePhotoshoot(message: UpdateMessage)(implicit ec: ExecutionContext): Future[Unit] = {
+  def updateImagePhotoshoot(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+    implicit val marker = logMarker
     withEdits(message) { upcomingEdits =>
       withId(message) { id =>
         for {
           imageOpt <- es.getImage(id)
           prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
-          _ <- updateImageUserMetadata(message)
+          _ <- updateImageUserMetadata(message, logMarker)
           _ <- {
-            GridLogger.info(s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
+            Logger.info(s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
             syndicationRightsOps.upsertOrRefreshRights(
               image = imageOpt.get,
               currentPhotoshootOpt = upcomingEdits.photoshoot,
               previousPhotoshootOpt = prevPhotoshootOpt
             )
           }
-        } yield GridLogger.info(s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}", id)
+        } yield Logger.info(s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}")
       }
     }
   }
@@ -263,3 +275,5 @@ class MessageProcessor(es: ElasticSearch,
   private def dateTimeAsJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))
 
 }
+
+case class ProcessorNotFoundException(unknownSubject: String) extends Exception(s"Could not find processor for ${unknownSubject} message")

@@ -1,39 +1,39 @@
-<span ng:if="! ctrl.readonly"
-      ng:switch="ctrl.archivedState"
+<span ng-if="! ctrl.readonly"
+      ng-switch="ctrl.archivedState"
       class="gr-archiver-status"
-      ng:class="{'gr-archiver-status--interactive': ctrl.archivedState !== 'kept',
+      ng-class="{'gr-archiver-status--interactive': ctrl.archivedState !== 'kept',
                  'gr-archiver-status--archived':    ctrl.archivedState !== 'unarchived',
                  'gr-archiver-status--unarchived':  ctrl.archivedState === 'unarchived'}">
-    <span ng:switch-when="kept"
+    <span ng-switch-when="kept"
           title="Kept in Library because the image has been {{ctrl.archivedExplanation}}.">
         <gr-library-locked-icon class="gr-archiver-status__icon"></gr-library-locked-icon>
     </span>
-    <button ng:switch-when="archived"
+    <button ng-switch-when="archived"
             type="button"
             class="gr-archiver-status__button inner-clickable"
             title="Remove from Library"
-            ng:click="ctrl.unarchive()"
-            ng:disabled="ctrl.archiving">
+            ng-click="ctrl.unarchive()"
+            ng-disabled="ctrl.archiving">
         <gr-library-added-icon class="gr-archiver-status__icon"></gr-library-added-icon>
         <gr-library-remove-icon class="gr-archiver-status__icon"></gr-library-remove-icon>
     </button>
-    <button ng:switch-when="unarchived"
+    <button ng-switch-when="unarchived"
             type="button"
             class="gr-archiver-status__button inner-clickable"
             title="Add to Library"
-            ng:click="ctrl.archive()"
-            ng:disabled="ctrl.archiving">
+            ng-click="ctrl.archive()"
+            ng-disabled="ctrl.archiving">
         <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
     </button>
 </span>
 
-<span ng:if="ctrl.readonly"
-      ng:switch="ctrl.archivedState"
+<span ng-if="ctrl.readonly"
+      ng-switch="ctrl.archivedState"
       class="gr-archiver-status gr-archiver-status--archived">
-    <span ng:switch-when="kept">
+    <span ng-switch-when="kept">
         <gr-library-locked-icon class="gr-archiver-status__icon"></gr-library-locked-icon>
     </span>
-    <span ng:switch-when="archived">
+    <span ng-switch-when="archived">
         <gr-library-added-icon class="gr-archiver-status__icon"></gr-library-added-icon>
     </span>
 </span>

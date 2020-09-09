@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
@@ -18,10 +19,11 @@ import scala.util.Properties
 
 trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
 
+
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
 
-  val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
+  val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
   val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
   def esContainer: Option[DockerContainer]

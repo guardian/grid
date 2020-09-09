@@ -3,6 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions}
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
@@ -26,6 +27,7 @@ import scala.concurrent.{Await, Future}
 class ElasticSearchTest extends ElasticSearchTestBase with Eventually with ElasticSearchExecutions with MockitoSugar {
 
   implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
+
 
   private val index = "images"
 
@@ -430,6 +432,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   }
 
   private def saveImages(images: Seq[Image]) = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
     Future.sequence(images.map { i =>
       executeAndLog(indexInto(index) id i.id source Json.stringify(Json.toJson(i)), s"Indexing test image")
     })
@@ -438,6 +442,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
 
   private def purgeTestImages = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
     def deleteImages = executeAndLog(deleteByQuery(index, matchAllQuery()), s"Deleting images")
 
     Await.result(deleteImages, fiveSeconds)

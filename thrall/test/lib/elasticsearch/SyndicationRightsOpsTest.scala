@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import java.util.UUID
 
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
 import org.joda.time.DateTime
 import org.scalatest.time.{Millis, Seconds, Span}
@@ -12,12 +13,16 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
   lazy val syndRightsOps = new SyndicationRightsOps(ES)
 
   def withImage(image: Image)(test: Image => Unit): Unit = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
     ES.indexImage(image.id, Json.toJson(image))
     Thread.sleep(1000)
     test(image)
   }
 
   def withPhotoshoot(photoshoot: Photoshoot)(test: List[Image] => Unit): Unit = {
+    implicit val logMarker: LogMarker = MarkerMap()
+
     val images = (1 to 5).map { _ =>
       val image = imageWithPhotoshoot(photoshoot)
       ES.indexImage(image.id, Json.toJson(image))
@@ -31,6 +36,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
   private def makeSyndicationRightsInferred(imageWithRights: Image): Option[SyndicationRights] = imageWithRights.syndicationRights.map(_.copy(isInferred = true))
 
+  implicit val logMarker = MarkerMap()
   implicit val defaultPatience = PatienceConfig(timeout = Span(30, Seconds), interval = Span(250, Millis))
 
   "SyndicationRightsOps" - {

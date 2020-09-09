@@ -3,8 +3,8 @@ package com.gu.mediaservice.lib.cleanup
 import org.scalatest.{FunSpec, Matchers}
 
 class RedundantTokenRemoverTest extends FunSpec with Matchers with MetadataHelper {
-  // We've seen both "/" and " / " in the wild so test with both
-  val separators = List("/", " / ")
+  // We've seen "/", " via " and " / " in the wild so test with both
+  val separators = List("/", " / ", " via ")
 
   separators.foreach { s =>
     it (s"Remove redundant byline, keep redundant credit - '$s' separator") {

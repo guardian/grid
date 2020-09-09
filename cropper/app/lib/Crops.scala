@@ -2,10 +2,10 @@ package lib
 
 import java.io.File
 
-import com.gu.mediaservice.lib.imaging.ImageOperations.MimeType
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 
 import scala.concurrent.Future
@@ -26,38 +26,38 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   private val cropQuality = 75d
   private val masterCropQuality = 95d
 
-  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: String, isMaster: Boolean = false): String = {
-    s"${source.id}/${Crop.getCropId(bounds)}/${if(isMaster) "master/" else ""}$outputWidth.$fileType"
+  def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false): String = {
+    val masterString: String = if (isMaster) "master/" else ""
+    s"${source.id}/${Crop.getCropId(bounds)}/${masterString}$outputWidth${fileType.fileExtension}"
   }
 
   def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: MimeType, colourModel: Option[String],
-                      colourType: String): Future[MasterCrop] = {
+                      colourType: String)(implicit requestContext: RequestLoggingContext): Future[MasterCrop] = {
 
     val source   = crop.specification
     val metadata = apiImage.metadata
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
-      strip <- imageOperations.cropImage(sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType.extension)
+      strip <- imageOperations.cropImage(sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType)
       file: File <- imageOperations.appendMetadata(strip, metadata)
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
-      filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType.extension, true)
-      sizing      = store.storeCropSizing(file, filename, mediaType.name, crop, dimensions)
+      filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
+      sizing      = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
       dirtyAspect = source.bounds.width.toFloat / source.bounds.height
       aspect      = crop.specification.aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
     }
     yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
-  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop,
-                  mediaType: MimeType): Future[List[Asset]] = {
+  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit requestContext: RequestLoggingContext): Future[List[Asset]] = {
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
-        file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, mediaType.extension)
-        optimisedFile = imageOperations.optimiseImage(file, mediaType)
-        filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, mediaType.extension)
-        sizing        <- store.storeCropSizing(optimisedFile, filename, mediaType.name, crop, dimensions)
+        file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType)
+        optimisedFile = imageOperations.optimiseImage(file, cropType)
+        filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
+        sizing        <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)
         _             <- delete(file)
         _             <- delete(optimisedFile)
       }
@@ -65,7 +65,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     })
   }
 
-  def deleteCrops(id: String) = store.deleteCrops(id)
+  def deleteCrops(id: String): Future[Unit] = store.deleteCrops(id)
 
   def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
       config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
@@ -81,17 +81,17 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     positiveCoords && strictlyPositiveSize && withinBounds
   }
 
-  def export(apiImage: SourceImage, crop: Crop): Future[ExportResult] = {
+  def export(apiImage: SourceImage, crop: Crop)(implicit requestContext: RequestLoggingContext): Future[ExportResult] = {
     val source    = crop.specification
-    val mediaType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
+    val mimeType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)
     val colourType = apiImage.fileMetadata.colourModelInformation.getOrElse("colorType", "")
     val hasAlpha = apiImage.fileMetadata.colourModelInformation.get("hasAlpha").flatMap(a => Try(a.toBoolean).toOption).getOrElse(true)
-    val cropType = Crops.cropType(mediaType, colourType, hasAlpha)
+    val cropType = Crops.cropType(mimeType, colourType, hasAlpha)
 
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-      colourModel <- ImageOperations.identifyColourModel(sourceFile, mediaType)
+      colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
       masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, colourType)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
@@ -111,15 +111,14 @@ object Crops {
     *  - If the image has transparency then it should always be a PNG as the transparency is not available in JPEG
     *  - If the image is not true colour then we assume it is a graphic that should be retained as a PNG
     */
-  def cropType(mediaType: String, colourType: String, hasAlpha: Boolean): MimeType = {
-    val isJpeg = mediaType == "image/jpeg"
+  def cropType(mediaType: MimeType, colourType: String, hasAlpha: Boolean): MimeType = {
     val isGraphic = !colourType.matches("True[ ]?Color.*")
     val outputAsPng = hasAlpha || isGraphic
 
-    if ( !isJpeg && outputAsPng ) {
-      ImageOperations.Png
-    } else {
-      ImageOperations.Jpeg
+    mediaType match {
+      case Png if outputAsPng => Png
+      case Tiff if outputAsPng => Png
+      case _ => Jpeg
     }
   }
 }

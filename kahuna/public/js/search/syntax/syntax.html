@@ -1,6 +1,6 @@
 <div class="advanced-search-help">
     <button class="advanced-search-help__cancel"
-            ng:click="$parent.searchInfo = false">
+            ng-click="$parent.searchInfo = false">
         <gr-icon>close</gr-icon>
     </button>
     <div class="advanced-search-help__section">
@@ -14,12 +14,12 @@
         <h3 class="advanced-search-help__section__sub-heading">All filtering fields</h3>
         <dl class="advanced-search-example flex-container">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="by" gr:example-search="Cookie Monster"></gr-chip-example>
+                <gr-chip-example gr-filter-field="by" gr-example-search="Cookie Monster"></gr-chip-example>
             </dt>
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="category" gr:example-search="screengrab"></gr-chip-example>
+                <gr-chip-example gr-filter-field="category" gr-example-search="screengrab"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Has a suggestion list.
@@ -27,22 +27,22 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="city" gr:example-search="Austin"></gr-chip-example>
+                <gr-chip-example gr-filter-field="city" gr-example-search="Austin"></gr-chip-example>
             </dt>
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="copyright" gr:example-search="2016 Getty Images"></gr-chip-example>
+                <gr-chip-example gr-filter-field="copyright" gr-example-search="2016 Getty Images"></gr-chip-example>
             </dt>
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="country" gr:example-search="India"></gr-chip-example>
+                <gr-chip-example gr-filter-field="country" gr-example-search="India"></gr-chip-example>
             </dt>
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="credit" gr:example-search="REUTERS"></gr-chip-example>
+                <gr-chip-example gr-filter-field="credit" gr-example-search="REUTERS"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Currently case-sensitive. Has a suggestion list.
@@ -50,12 +50,12 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="description" gr:example-search="Beaches"></gr-chip-example>
+                <gr-chip-example gr-filter-field="description" gr-example-search="Beaches"></gr-chip-example>
             </dt>
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="illustrator" gr:example-search="Steve Bell"></gr-chip-example>
+                <gr-chip-example gr-filter-field="illustrator" gr-example-search="Steve Bell"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Has a suggestion list.
@@ -63,7 +63,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="in" gr:example-search="Xanadu"></gr-chip-example>
+                <gr-chip-example gr-filter-field="in" gr-example-search="Xanadu"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Searches the <em>city</em> and <em>country</em> fields.
@@ -71,7 +71,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="keyword" gr:example-search="Film Still"></gr-chip-example>
+                <gr-chip-example gr-filter-field="keyword" gr-example-search="Film Still"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Currently case-sensitive.
@@ -79,10 +79,18 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="label" gr:example-search="pp"></gr-chip-example>
+                <gr-chip-example gr-filter-field="label" gr-example-search="pp"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Typing <span class="advanced-search-example__input">#</span> automatically creates a label filter.
+            </dd>
+        </dl>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr:filter-field="person" gr:example-search="David Beckham"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Currently case-sensitive. Must be full name.
             </dd>
         </dl>
         <dl class="advanced-search-example">
@@ -95,7 +103,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="supplier" gr:example-search="AAP"></gr-chip-example>
+                <gr-chip-example gr-filter-field="supplier" gr-example-search="AAP"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Has a suggestion list.
@@ -103,7 +111,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="state" gr:example-search="Jammu and Kashmir"></gr-chip-example>
+                <gr-chip-example gr-filter-field="state" gr-example-search="Jammu and Kashmir"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 This refers to a location.
@@ -111,7 +119,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="subject" gr:example-search="politics"></gr-chip-example>
+                <gr-chip-example gr-filter-field="subject" gr-example-search="politics"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Has a suggestion list.
@@ -119,7 +127,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="uploader" gr:example-search="Getty"></gr-chip-example>
+                <gr-chip-example gr-filter-field="uploader" gr-example-search="Getty"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Search by person (email) or agency (folder).
@@ -127,7 +135,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="usages@&gt;added" gr:example-search="2016-01-10"></gr-chip-example>
+                <gr-chip-example gr-filter-field="usages@&gt;added" gr-example-search="2016-01-10"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Images used <em>after</em> a given date YYYY-MM-DD.
@@ -135,7 +143,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="usages@&lt;added" gr:example-search="2012-07-29"></gr-chip-example>
+                <gr-chip-example gr-filter-field="usages@&lt;added" gr-example-search="2012-07-29"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Images used <em>before</em> a given date YYYY-MM-DD.
@@ -143,7 +151,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="usages@status" gr:example-search="published"></gr-chip-example>
+                <gr-chip-example gr-filter-field="usages@status" gr-example-search="published"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Has a suggestion list.
@@ -151,7 +159,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="usages@platform" gr:example-search="print"></gr-chip-example>
+                <gr-chip-example gr-filter-field="usages@platform" gr-example-search="print"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Has a suggestion list: filter by print or digital usage.
@@ -159,7 +167,7 @@
         </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
-                <gr-chip-example gr:filter-field="has" gr:example-search="crops"></gr-chip-example>
+                <gr-chip-example gr-filter-field="has" gr-example-search="crops"></gr-chip-example>
             </dt>
             <dd class="advanced-search-example__explanation">
                 Checks for the existence of a field, eg. usageRights, crops, location.
@@ -167,7 +175,7 @@
         </dl>
         <dl class="advanced-search-example">
           <dt class="advanced-search-example__field">
-            <gr-chip-example gr:filter-field="is" gr:example-search="under-quota"></gr-chip-example>
+            <gr-chip-example gr-filter-field="is" gr-example-search="under-quota"></gr-chip-example>
           </dt>
           <dd class="advanced-search-example__explanation">
             Returns images from suppliers with free usage quota.

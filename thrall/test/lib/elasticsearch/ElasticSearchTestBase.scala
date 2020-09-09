@@ -1,14 +1,17 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import helpers.Fixtures
+import org.joda.time.DateTime
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
-import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.ElasticDsl._
+import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -16,7 +19,7 @@ import scala.util.Properties
 
 trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
 
-  val useEsDocker = Properties.envOrElse("ES6_USE_DOCKER", "true").toBoolean
+  val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
   val esTestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
@@ -58,4 +61,18 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     esContainer.toList ++ super.dockerContainers
 
   final override val StartContainersTimeout = 1.minute
+
+
+  def reloadedImage(id: String) = {
+    implicit val logMarker: LogMarker = MarkerMap()
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  def indexedImage(id: String) = {
+    implicit val logMarker: LogMarker = MarkerMap()
+    Thread.sleep(1000) // TODO use eventually clause
+    Await.result(ES.getImage(id), fiveSeconds)
+  }
+
+  def asJsLookup(d: DateTime): JsLookupResult = JsDefined(Json.toJson(d.toString))
 }

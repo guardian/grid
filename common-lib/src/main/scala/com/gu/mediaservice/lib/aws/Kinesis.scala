@@ -3,7 +3,6 @@ package com.gu.mediaservice.lib.aws
 import java.nio.ByteBuffer
 import java.util.UUID
 
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -12,20 +11,20 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
+import com.amazonaws.auth.AWSCredentialsProvider
 
-class Kinesis(config: CommonConfig) {
+case class KinesisSenderConfig(
+  override val awsRegion: String,
+  override val awsCredentials: AWSCredentialsProvider,
+  override val awsLocalEndpoint: Option[String],
+  streamName: String
+) extends AwsClientBuilderUtils
+
+class Kinesis(config: KinesisSenderConfig) {
 
   private val builder = AmazonKinesisClientBuilder.standard()
 
-  import config.{awsRegion, awsCredentials, thrallKinesisEndpoint, thrallKinesisStream}
-
-  private def getKinesisClient: AmazonKinesis = {
-    Logger.info(s"creating kinesis publisher with endpoint=$thrallKinesisEndpoint , region=$awsRegion")
-   builder
-     .withEndpointConfiguration(new EndpointConfiguration(thrallKinesisEndpoint, awsRegion))
-     .withCredentials(awsCredentials)
-     .build()
-  }
+  private def getKinesisClient: AmazonKinesis = config.withAWSCredentials(builder).build()
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
@@ -42,7 +41,7 @@ class Kinesis(config: CommonConfig) {
 
     val data = ByteBuffer.wrap(payload)
     val request = new PutRecordRequest()
-      .withStreamName(thrallKinesisStream)
+      .withStreamName(config.streamName)
       .withPartitionKey(partitionKey)
       .withData(data)
 

@@ -1,12 +1,9 @@
 const shared = require('./webpack.config.shared');
+const merge = require('webpack-merge');
 
-module.exports = {
-  entry: shared.entry,
-  output: shared.output,
-  module: shared.module,
-  resolve: shared.resolve,
+module.exports = merge(shared,{
+  mode: 'development',
   devServer: {
     publicPath: '/public/dist/',
   },
-  devtool: "source-map",
-};
+});

@@ -1,17 +1,16 @@
 package com.gu.mediaservice.lib.metrics
 
-import com.amazonaws.auth.AWSCredentialsProvider
-import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, StandardUnit}
+import com.amazonaws.services.cloudwatch.model._
 import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
+import scalaz.concurrent.Task
+import scalaz.stream.Process.{constant, emitAll}
+import scalaz.stream.async.mutable.Topic
+import scalaz.stream.{Sink, async}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
-import scalaz.concurrent.Task
-import scalaz.stream.Process.{constant, emitAll}
-import scalaz.stream.{Sink, async}
-import scalaz.stream.async.mutable.Topic
 
 trait Metric[A] {
 
@@ -29,7 +28,7 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
   /** The maximum number of data points to report in one batch.
     * (Each batch costs 1 HTTP request to CloudWatch)
     */
-  val maxChunkSize: Int = 20
+  val maxChunkSize: Int = Int.MaxValue
 
   /** The maximum time to wait between reports, when there is data enqueued.
     *
@@ -68,10 +67,41 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
   private val client: AmazonCloudWatch = config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
 
   private def putData(data: Seq[MetricDatum]): Task[Unit] = Task {
-    client.putMetricData(new PutMetricDataRequest()
-      .withNamespace(namespace)
-      .withMetricData(data.asJava))
-    logger.info(s"Put ${data.size} metric data points to namespace $namespace")
+
+    val aggregatedMetrics: Seq[MetricDatum] = data
+      .groupBy(metric => (metric.getMetricName, metric.getDimensions))
+      .map { case (_, values) =>
+        values.reduce((m1, m2) => m1.clone()
+          .withValue(null)
+          .withStatisticValues(aggregateMetricStats(m1,m2)))
+      }
+      .toSeq
+
+    aggregatedMetrics.grouped(20).foreach(chunkedMetrics => { //can only send max 20 metrics to CW at a time
+      client.putMetricData(new PutMetricDataRequest()
+        .withNamespace(namespace)
+        .withMetricData(chunkedMetrics.asJava))
+      }
+    )
+
+    logger.info(s"Put ${data.size} metric data points (aggregated to ${aggregatedMetrics.size} points) to namespace $namespace")
+  }
+
+  private def aggregateMetricStats(metricDatumOriginal: MetricDatum, metricDatumNew: MetricDatum): StatisticSet = {
+    metricDatumOriginal.getStatisticValues match {
+      case stats if stats == null =>
+        new StatisticSet()
+          .withMinimum(Math.min(metricDatumOriginal.getValue, metricDatumNew.getValue))
+          .withMaximum(Math.max(metricDatumOriginal.getValue, metricDatumNew.getValue))
+          .withSum(metricDatumOriginal.getValue + metricDatumNew.getValue)
+          .withSampleCount(if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString)) 1d else 2d)
+      case stats =>
+        new StatisticSet()
+          .withMinimum(Math.min(stats.getMinimum, metricDatumNew.getValue))
+          .withMaximum(Math.max(stats.getMinimum, metricDatumNew.getValue))
+          .withSum(stats.getSum + metricDatumNew.getValue)
+          .withSampleCount(if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString)) 1d else stats.getSampleCount + 1)
+    }
   }
 
   abstract class CloudWatchMetric[A](val name: String) extends Metric[A] {

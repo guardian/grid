@@ -5,6 +5,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{Request => _, _}
+import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
@@ -87,7 +88,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
       system = config.stringOpt("panda.system").getOrElse("media-service"),
       bucketName = config.stringOpt("panda.bucketName").getOrElse("pan-domain-auth-settings"),
       settingsFileKey = config.stringOpt("panda.settingsFileKey").getOrElse(s"${config.services.domainRoot}.settings"),
-      s3Client = config.withAWSCredentials(AmazonS3ClientBuilder.standard()).build()
+      s3Client = S3Ops.buildS3Client(config, config.useLocalAuth)
     )
   }
 }

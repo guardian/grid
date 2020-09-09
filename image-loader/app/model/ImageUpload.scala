@@ -3,21 +3,26 @@ package model
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.UUID
 
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.RequestLoggingContext
+import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
-import lib.ImageLoaderConfig
-import lib.imaging.FileMetadataReader
+import lib.{DigestedFile, ImageLoaderConfig, Notifications}
+import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
-import net.logstash.logback.marker.LogstashMarker
+import org.joda.time.DateTime
 import play.api.Logger
+import play.api.libs.json.{JsObject, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
@@ -27,15 +32,15 @@ case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPn
 
 case object OptimisedPng {
 
-  def shouldOptimise(mimeType: Option[String], fileMetadata: FileMetadata): Boolean =
+  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean =
     mimeType match {
-      case Some("image/png") =>
+      case Some(Png) =>
         fileMetadata.colourModelInformation.get("colorType") match {
           case Some("True Color") => true
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      case Some("image/tiff") => true
+      case Some(Tiff) => true
       case _ => false
     }
 }
@@ -45,27 +50,29 @@ object OptimisedPngOps {
   def build(file: File, uploadRequest: UploadRequest,
             fileMetadata: FileMetadata,
             config: ImageUploadOpsCfg,
-            storeOrProject: (UploadRequest, File) => Future[S3Object])(implicit ec: ExecutionContext): OptimisedPng = {
+            storeOrProject: (UploadRequest, File) => Future[S3Object])
+           (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
 
-    val shouldNotOptimise = !OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)
-    if (shouldNotOptimise) return OptimisedPng(Future(None), isPng24 = false, None)
-
-    val optimisedFile: File = toOptimisedFile(file, uploadRequest, config)
-
-    val pngStoreFuture: Future[Option[S3Object]] = Some(storeOrProject(uploadRequest, optimisedFile))
-      .map(result => result.map(Option(_)))
-      .getOrElse(Future.successful(None))
-
-    if (isTransformedFilePath(file.getAbsolutePath))
-      file.delete
-
-    OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
-
+    val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
+      OptimisedPng(Future(None), isPng24 = false, None)
+    } else {
+      val optimisedFile: File = toOptimisedFile(file, uploadRequest, config)
+      val pngStoreFuture: Future[Option[S3Object]] = Some(storeOrProject(uploadRequest, optimisedFile))
+        .map(result => result.map(Option(_)))
+        .getOrElse(Future.successful(None))
+      if (isTransformedFilePath(file.getAbsolutePath))
+        file.delete
+      OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
+    }
+    result
   }
 
-  private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg): File = {
+  private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg)
+                             (implicit logMarker: LogMarker): File = {
     val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
-    Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+    Stopwatch("pngquant") {
+      Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+    }
     new File(optimisedFilePath)
   }
 
@@ -103,22 +110,26 @@ case object ImageUpload {
   }
 }
 
-class ImageUploadOps(store: ImageLoaderStore,
-                     config: ImageLoaderConfig,
-                     imageOps: ImageOperations)(implicit val ec: ExecutionContext) {
+class Uploader(val store: ImageLoaderStore,
+               val config: ImageLoaderConfig,
+               val imageOps: ImageOperations,
+               val notifications: Notifications)
+              (implicit val ec: ExecutionContext) extends ArgoHelpers {
 
 
-  import ImageUploadOps.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg}
+  import Uploader.{fromUploadRequestShared, toMetaMap, toImageUploadOpsCfg}
 
-  private val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-    storeSource, storeThumbnail, storeOptimisedPng)
 
-  def fromUploadRequest(uploadRequest: UploadRequest, requestLoggingContext: RequestLoggingContext): Future[ImageUpload] = {
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, requestLoggingContext)
-    finalImage.map(img => ImageUpload(uploadRequest, img))
+  def fromUploadRequest(uploadRequest: UploadRequest)
+                       (implicit logMarker: LogMarker): Future[ImageUpload] = {
+    val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
+      storeSource, storeThumbnail, storeOptimisedPng)
+    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
+    finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 
-  private def storeSource(uploadRequest: UploadRequest) = {
+  private def storeSource(uploadRequest: UploadRequest)
+                         (implicit logMarker: LogMarker) = {
     val meta = toMetaMap(uploadRequest)
     store.storeOriginal(
       uploadRequest.imageId,
@@ -128,38 +139,96 @@ class ImageUploadOps(store: ImageLoaderStore,
     )
   }
 
-  private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = store.storeThumbnail(
+  private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File)
+                            (implicit logMarker: LogMarker) = store.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
-    Some("image/jpeg")
+    Some(Jpeg)
   )
 
-  private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = {
+  private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File)
+                               (implicit logMarker: LogMarker) = {
     store.storeOptimisedPng(
       uploadRequest.imageId,
       optimisedPngFile
     )
   }
+
+  def loadFile(digestedFile: DigestedFile,
+               user: Principal,
+               uploadedBy: Option[String],
+               identifiers: Option[String],
+               uploadTime: DateTime,
+               filename: Option[String],
+               requestId: UUID)
+              (implicit ec:ExecutionContext,
+               logMarker: LogMarker): Future[UploadRequest] = Future {
+    val DigestedFile(tempFile, id) = digestedFile
+
+    println(logMarker)
+
+    // TODO: should error if the JSON parsing failed
+    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
+
+    MimeTypeDetection.guessMimeType(tempFile) match {
+      case util.Left(unsupported) =>
+        Logger.error(s"Unsupported mimetype", unsupported)
+        throw unsupported
+      case util.Right(mimeType) =>
+        Logger.info(s"Detected mimetype as $mimeType")
+        UploadRequest(
+          requestId = requestId,
+          imageId = id,
+          tempFile = tempFile,
+          mimeType = Some(mimeType),
+          uploadTime = uploadTime,
+          uploadedBy = uploadedBy.getOrElse(Authentication.getIdentity(user)),
+          identifiers = identifiersMap,
+          uploadInfo = UploadInfo(filename)
+        )
+    }
+  }
+
+  def storeFile(uploadRequest: UploadRequest)
+               (implicit ec:ExecutionContext,
+                logMarker: LogMarker): Future[JsObject] = {
+
+    Logger.info("Storing file")
+
+    for {
+      imageUpload <- fromUploadRequest(uploadRequest)
+      updateMessage = UpdateMessage(subject = "image", image = Some(imageUpload.image))
+      _ <- Future { notifications.publish(updateMessage) }
+      // TODO: centralise where all these URLs are constructed
+      uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
+    } yield {
+      Json.obj("uri" -> uri)
+    }
+
+  }
+
 }
 
-case class ImageUploadOpsCfg(tempDir: File,
-                             thumbWidth: Int,
-                             thumbQuality: Double,
-                             transcodedMimeTypes: List[String],
-                             originalFileBucket: String,
-                             thumbBucket: String
-                            )
+case class ImageUploadOpsCfg(
+  tempDir: File,
+  thumbWidth: Int,
+  thumbQuality: Double,
+  transcodedMimeTypes: List[MimeType],
+  originalFileBucket: String,
+  thumbBucket: String
+)
 
-case class ImageUploadOpsDependencies(config: ImageUploadOpsCfg,
-                                      imageOps: ImageOperations,
-                                      storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
-                                      storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
-                                      storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
-                                     )
+case class ImageUploadOpsDependencies(
+  config: ImageUploadOpsCfg,
+  imageOps: ImageOperations,
+  storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
+  storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
+  storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
+)
 
-object ImageUploadOps {
+object Uploader {
 
-  def toImageUploadOpsCfg(config: ImageLoaderConfig) = {
+  def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
     ImageUploadOpsCfg(
       config.tempDir,
       config.thumbWidth,
@@ -170,64 +239,83 @@ object ImageUploadOps {
     )
   }
 
-  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies, requestLoggingContext: RequestLoggingContext)(implicit ec: ExecutionContext): Future[Image] = {
+  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies)
+                             (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
 
     import deps._
 
-    val initialMarkers: LogstashMarker = uploadRequest.toLogMarker.and(requestLoggingContext.toMarker())
-
-    Logger.info("Starting image ops")(initialMarkers)
+    Logger.info("Starting image ops")
     val uploadedFile = uploadRequest.tempFile
 
     val fileMetadataFuture = toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
 
-    Logger.info("Have read file headers")(initialMarkers)
+    Logger.info("Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
-      val fileMetadataMarkers: LogstashMarker = initialMarkers.and(fileMetadata.toLogMarker)
-      Logger.info("Have read file metadata")(fileMetadataMarkers)
+      uploadAndStoreImage(config,
+        storeOrProjectOriginalFile,
+        storeOrProjectThumbFile,
+        storeOrProjectOptimisedPNG,
+        uploadRequest,
+        deps,
+        uploadedFile,
+        fileMetadataFuture,
+        fileMetadata)(ec, addLogMarkers(fileMetadata.toLogMarker))
+    })
+  }
 
-      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+  private def uploadAndStoreImage(config: ImageUploadOpsCfg,
+                   storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
+                   storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
+                   storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object],
+                   uploadRequest: UploadRequest,
+                   deps: ImageUploadOpsDependencies,
+                   uploadedFile: File,
+                   fileMetadataFuture: Future[FileMetadata],
+                   fileMetadata: FileMetadata)
+                  (implicit ec: ExecutionContext, logMarker: LogMarker) = {
+    Logger.info("Have read file metadata")
+    Logger.info("stored source file")
+    // FIXME: pass mimeType
+    val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
+
+    // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
+    createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
-      Logger.info("stored source file")(initialMarkers)
-      // FIXME: pass mimeType
-      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
-      val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
-
+      val toOptimiseFile = uploadRequest.tempFile
       val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
+      Logger.info("thumbnail created")
 
-      Logger.info("thumbnail created")(initialMarkers)
+      val optimisedPng = OptimisedPngOps.build(
+        toOptimiseFile,
+        uploadRequest,
+        fileMetadata,
+        config,
+        storeOrProjectOptimisedPNG)(ec, logMarker)
+      Logger.info("optimised image created")
 
-      //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
-      val optimiseFileFuture: Future[File] = createOptimisedFileFuture(uploadRequest, deps)
+      bracket(thumbFuture)(_.delete) { thumb =>
+        // Run the operations in parallel
+        val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
+        val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
 
-      optimiseFileFuture.flatMap(toOptimiseFile => {
-        Logger.info("optimised image created")(initialMarkers)
+        val finalImage = toFinalImage(
+          sourceStoreFuture,
+          thumbStoreFuture,
+          sourceDimensionsFuture,
+          thumbDimensionsFuture,
+          fileMetadataFuture,
+          colourModelFuture,
+          optimisedPng,
+          uploadRequest
+        )
+        Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
+        uploadedFile.delete()
+        toOptimiseFile.delete()
 
-        val optimisedPng = OptimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config, storeOrProjectOptimisedPNG)
-
-        bracket(thumbFuture)(_.delete) { thumb =>
-          // Run the operations in parallel
-          val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
-          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
-
-          val finalImage = toFinalImage(
-            sourceStoreFuture,
-            thumbStoreFuture,
-            sourceDimensionsFuture,
-            thumbDimensionsFuture,
-            fileMetadataFuture,
-            colourModelFuture,
-            optimisedPng,
-            uploadRequest
-          )
-
-          Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")(initialMarkers)
-          uploadedFile.delete()
-
-          finalImage
-        }
-      })
+        finalImage
+      }
     })
   }
 
@@ -250,7 +338,9 @@ object ImageUploadOps {
                            fileMetadataFuture: Future[FileMetadata],
                            colourModelFuture: Future[Option[String]],
                            optimisedPng: OptimisedPng,
-                           uploadRequest: UploadRequest)(implicit ec: ExecutionContext): Future[Image] = {
+                           uploadRequest: UploadRequest)
+                          (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
+    Logger.info("Starting image ops")
     for {
       s3Source <- sourceStoreFuture
       s3Thumb <- thumbStoreFuture
@@ -260,7 +350,6 @@ object ImageUploadOps {
       fileMetadata <- fileMetadataFuture
       colourModel <- colourModelFuture
       fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
-
       metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
       cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
 
@@ -273,6 +362,7 @@ object ImageUploadOps {
         None
 
       baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+
       processedImage = SupplierProcessors.process(baseImage)
 
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
@@ -282,15 +372,15 @@ object ImageUploadOps {
       )
     } yield {
       if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
-      Logger.info("Ending image ops")(uploadRequest.toLogMarker)
+      Logger.info("Ending image ops")
       finalImage
     }
   }
 
-  private def toFileMetadata(f: File, imageId: String, mimeType: Option[String]): Future[FileMetadata] = {
+  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
     mimeType match {
-      case Some("image/png") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
-      case Some("image/tiff") => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Png) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Tiff) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }
@@ -311,22 +401,21 @@ object ImageUploadOps {
   }
 
   private def createOptimisedFileFuture(uploadRequest: UploadRequest,
-                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
+                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[UploadRequest] = {
     import deps._
-    val uploadedFile = uploadRequest.tempFile
     uploadRequest.mimeType match {
-      case Some(mime) => mime match {
-        case transcodedMime if config.transcodedMimeTypes.contains(mime) =>
-          for {
-            transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir)
-          } yield transformedImage
-        case _ =>
-          Future.apply(uploadedFile)
-      }
+      case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
+        for {
+          transformedImage <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, config.tempDir)
+        } yield uploadRequest
+          // This file has been converted.
+          .copy(mimeType = Some(Jpeg))
+          .copy(tempFile = transformedImage)
       case _ =>
-        Future.apply(uploadedFile)
+        Future.successful(uploadRequest)
     }
   }
+
 
 }
 

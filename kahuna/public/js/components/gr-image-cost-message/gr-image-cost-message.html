@@ -1,18 +1,18 @@
-<div ng:switch="messageState">
-    <div ng:switch-when="no_rights"
+<div ng-switch="messageState">
+    <div ng-switch-when="no_rights"
         class="image-notice image-info__group status cost cost--pay">
         No rights to use this image
     </div>
-    <div ng:switch-when="overquota"
+    <div ng-switch-when="overquota"
         class="image-notice image-info__group status cost cost--pay">
         Quota exceeded for this supplier
     </div>
-    <div ng:switch-when="pay"
+    <div ng-switch-when="pay"
          class="image-notice image-info__group status cost cost--pay">
         Pay to use
     </div>
 
-    <div ng:switch-when="conditional"
+    <div ng-switch-when="conditional"
          class="image-notice image-info__group cost cost--conditional"
          title="This image can be used but only within certain restrictions">
         <b>Restricted use:</b> {{image.data.usageRights.restrictions}}
