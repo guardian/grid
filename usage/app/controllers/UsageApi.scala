@@ -125,9 +125,13 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
             data = usages.map(wrapUsage)
           )
       }
-    }).recover { case error: Exception =>
-      Logger.error("UsageApi returned an error.", error)
-      respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
+    }).recover {
+      case error: BadInputException =>
+        Logger.error("UsageApi returned an error.", error)
+        respondError(BadRequest, "image-usage-retrieve-failed", error.getMessage)
+      case error: Exception =>
+        Logger.error("UsageApi returned an error.", error)
+        respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
     }
   }
 
@@ -184,10 +188,30 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     )
   }}
 
+  def setDownloadUsages() = auth(parse.json) { req => {
+    val request = (req.body \ "data").validate[DownloadUsageRequest]
+    request.fold(
+      e => respondError(
+        BadRequest,
+        errorKey = "download-usage-parse-failed",
+        errorMessage = JsError.toJson(e).toString
+      ),
+      usageRequest => {
+        GridLogger.info("recording download usage", req.user.accessor, usageRequest.mediaId)
+        val group = usageGroup.build(usageRequest)
+        usageRecorder.usageSubject.onNext(group)
+        Accepted
+      }
+    )
+  }}
+
   def deleteUsages(mediaId: String) = auth.async {
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)
     }).recover{
+      case error: BadInputException =>
+        Logger.warn("UsageApi returned an error.", error)
+        respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
       case error: Exception =>
         Logger.error("UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)

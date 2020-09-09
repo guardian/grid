@@ -3,9 +3,10 @@ package controllers
 import java.net.URI
 
 import akka.stream.scaladsl.StreamConverters
+import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
-import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, PandaUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -13,11 +14,13 @@ import com.gu.mediaservice.lib.logging.GridLogger
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
-import lib.elasticsearch.{ElasticSearch, _}
+import lib.elasticsearch._
+import org.apache.http.entity.ContentType
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
 import play.api.http.HttpEntity
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
@@ -31,7 +34,8 @@ class MediaApi(
                 override val config: MediaApiConfig,
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
-                mediaApiMetrics: MediaApiMetrics
+                mediaApiMetrics: MediaApiMetrics,
+                ws: WSClient
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -212,9 +216,13 @@ class MediaApi(
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
-        Future.successful(
-          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
-        )
+        if(config.recordDownloadAsUsage) {
+          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
+        }
+
+          Future.successful(
+            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+          )
       }
       case _ => Future.successful(ImageNotFound(id))
     }
@@ -235,6 +243,10 @@ class MediaApi(
             case _ => Source
           }))
 
+        if(config.recordDownloadAsUsage) {
+          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
+        }
+
         Future.successful(
           Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
         )
@@ -243,6 +255,27 @@ class MediaApi(
     }
   }
 
+  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
+    val baseRequest = ws.url(uri)
+      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
+        HttpHeaders.ORIGIN -> config.rootUri,
+        HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
+
+    val request = onBehalfOfPrincipal match {
+      case OnBehalfOfApiKey(service) =>
+        print(service.accessor.identity)
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.accessor.identity)
+      case OnBehalfOfUser(_, cookie) =>
+        baseRequest.addCookies(cookie)
+    }
+
+    val usagesMetadata = Map("mediaId" -> mediaId,
+      "dateAdded" -> printDateTime(DateTime.now()),
+      "downloadedBy" -> user)
+
+    GridLogger.info(s"Making usages download request")
+    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
+  }
   def imageSearch() = auth.async { request =>
     implicit val r = request
 

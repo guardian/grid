@@ -24,6 +24,12 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
     log.info(s"Deleted image $id from bucket $bucket")
   }
 
+  def deleteVersionedImage(bucket: String, id: String) = Future {
+    val objectVersion = client.getObjectMetadata(bucket, id).getVersionId
+    client.deleteVersion(bucket, id, objectVersion)
+    log.info(s"Deleted image $id from bucket $bucket (version: $objectVersion)")
+  }
+
   def deleteFolder(bucket: String, id: String) = Future {
 		val files = client.listObjects(bucket, id).getObjectSummaries.asScala
 		files.foreach(file => client.deleteObject(bucket, file.getKey))

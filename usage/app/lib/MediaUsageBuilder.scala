@@ -17,6 +17,7 @@ object MediaUsageBuilder {
     None,
     None,
     None,
+    None,
     printUsage.dateAdded
   )
 
@@ -32,6 +33,7 @@ object MediaUsageBuilder {
       status = mediaWrapper.contentStatus,
       printUsageMetadata = None,
       digitalUsageMetadata = Some(mediaWrapper.usageMetadata),
+      None,
       None,
       None,
       lastModified = mediaWrapper.lastModified
@@ -51,6 +53,7 @@ object MediaUsageBuilder {
       digitalUsageMetadata = None,
       syndicationUsageMetadata = Some(syndicationUsageRequest.metadata),
       None,
+      None,
       lastModified = syndicationUsageRequest.dateAdded
     )
   }
@@ -69,8 +72,27 @@ object MediaUsageBuilder {
       digitalUsageMetadata = None,
       syndicationUsageMetadata = None,
       frontUsageMetadata = Some(frontUsageRequest.metadata),
+      None,
       lastModified = frontUsageRequest.dateAdded
     )
   }
 
+  def build(downloadUsageRequest: DownloadUsageRequest, groupId: String): MediaUsage = {
+    val usageId = UsageIdBuilder.build(downloadUsageRequest)
+
+    MediaUsage (
+      usageId,
+      groupId,
+      downloadUsageRequest.mediaId,
+      DownloadUsage,
+      mediaType = "image",
+      downloadUsageRequest.status,
+      printUsageMetadata = None,
+      digitalUsageMetadata = None,
+      syndicationUsageMetadata = None,
+      frontUsageMetadata = None,
+      downloadUsageMetadata = Some(downloadUsageRequest.metadata),
+      lastModified = downloadUsageRequest.dateAdded
+    )
+  }
 }

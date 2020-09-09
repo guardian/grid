@@ -6,6 +6,7 @@ DELETE  /usages/media/:mediaId                          controllers.UsageApi.del
 POST    /usages/print                                   controllers.UsageApi.setPrintUsages
 POST    /usages/syndication                             controllers.UsageApi.setSyndicationUsages
 POST    /usages/front                                   controllers.UsageApi.setFrontUsages
+POST    /usages/download                                controllers.UsageApi.setDownloadUsages
 
 GET     /usages/digital/content/*contentId/reindex      controllers.UsageApi.reindexForContent(contentId: String)
 

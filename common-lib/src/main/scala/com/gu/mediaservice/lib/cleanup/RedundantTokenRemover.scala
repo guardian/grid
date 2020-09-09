@@ -4,6 +4,7 @@ import com.gu.mediaservice.model.ImageMetadata
 object RedundantTokenRemover extends MetadataCleaner {
   val toRemove = List(
     "Handout",
+    "Handout .",
     "HANDOUT",
     "HO",
     "HO HANDOUT",
@@ -18,7 +19,8 @@ object RedundantTokenRemover extends MetadataCleaner {
     "UNCREDITED",
     "Uncredited",
     "uncredited",
-    "XXSTRINGERXX xxxxx"
+    "XXSTRINGERXX xxxxx",
+    "AFP Contributor#AFP"
   )
 
   override def clean(metadata: ImageMetadata): ImageMetadata = metadata.copy(

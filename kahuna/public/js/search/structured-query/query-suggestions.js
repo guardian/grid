@@ -31,6 +31,7 @@ export const filterFields = [
     'usages@>added',
     'usages@platform',
     'usages@status',
+    'usages@reference',
     'has',
     'croppedBy',
     'filename',
@@ -151,7 +152,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
 
     function getFilterSuggestions(field, value) {
         switch (field) {
-        case 'usages@status': return ['published', 'pending'];
+        case 'usages@status': return ['published', 'pending', 'removed'];
         case 'usages@platform': return ['print', 'digital'];
         case 'subject':  return prefixFilter(value)(subjects);
         case 'label':    return suggestLabels(value);

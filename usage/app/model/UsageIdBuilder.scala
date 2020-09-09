@@ -32,4 +32,10 @@ object UsageIdBuilder {
     Some(frontUsageRequest.metadata.front),
     Some(frontUsageRequest.status)
   ))
+
+  def build(downloadUsageRequest: DownloadUsageRequest) = buildId(List(
+    Some(downloadUsageRequest.mediaId),
+    Some(downloadUsageRequest.metadata.downloadedBy),
+    Some(downloadUsageRequest.status)
+  ))
 }

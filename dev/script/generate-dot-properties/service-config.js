@@ -3,13 +3,19 @@ function stripMargin(template, ...args) {
     return result.replace(/\r?(\n)\s*\|/g, '$1');
 }
 
+function getCorsAllowedOriginString(config) {
+  return config.security.corsAllowedOrigins
+    .map(origin => `${origin}.${config.DOMAIN}`)
+    .join(',');
+}
+
 function getAuthConfig(config) {
     return stripMargin`
         |domain.root=${config.DOMAIN}
         |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |aws.region=${config.AWS_DEFAULT_REGION}
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |metrics.request.enabled=false
         |`;
@@ -25,7 +31,7 @@ function getCollectionsConfig(config) {
         |dynamo.table.imageCollections=ImageCollectionsTable
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
 }
@@ -40,7 +46,7 @@ function getCropperConfig(config) {
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |s3.config.bucket=${config.coreStackProps.ConfigBucket}
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
 }
@@ -54,7 +60,7 @@ function getImageLoaderConfig(config) {
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
 }
@@ -74,7 +80,7 @@ function getKahunaConfig(config) {
         |links.usageRightsHelp=${config.links.usageRightsHelp}
         |links.invalidSessionHelp=${config.links.invalidSessionHelp}
         |links.supportEmail=${config.links.supportEmail}
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |security.frameAncestors=https://*.${config.DOMAIN}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |metrics.request.enabled=false
@@ -89,7 +95,7 @@ function getLeasesConfig(config) {
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |dynamo.tablename.leasesTable=LeasesTable
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
 }
@@ -112,8 +118,9 @@ function getMediaApiConfig(config) {
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
         |quota.store.key=rcs-quota.json
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
+        |image.record.download=false
         |`;
 }
 
@@ -127,7 +134,7 @@ function getMetadataEditorConfig(config) {
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
         |dynamo.table.edits=EditsTable
         |indexed.images.sqs.queue.url=${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
 }
@@ -180,7 +187,7 @@ function getUsageConfig(config) {
         |crier.preview.name=${config.guardian.crier.preview.streamName}
         |crier.live.name=${config.guardian.crier.live.streamName}
         |app.name=usage
-        |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
 }
