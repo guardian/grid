@@ -1,6 +1,7 @@
 import play.sbt.PlayImport.PlayKeys._
 
 import scala.sys.process._
+import scala.util.control.NonFatal
 
 val commonSettings = Seq(
   scalaVersion := "2.12.10",
@@ -224,14 +225,18 @@ def project(projectName: String, path: Option[String] = None): Project =
   Project(projectName, file(path.getOrElse(projectName)))
     .settings(commonSettings)
 
+def maybeLocalGit(): Option[String] = {
+  try {
+    Some("git rev-parse HEAD".!!.trim)
+  } catch {
+    case NonFatal(e) => None
+  }
+}
+
 val buildInfo = Seq(
   buildInfoKeys := Seq[BuildInfoKey](
     name,
-    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse (try {
-      "git rev-parse HEAD".!!.trim
-    } catch {
-      case e: Exception => "unknown"
-    }))
+    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) orElse maybeLocalGit() getOrElse "unknown")
   ),
   buildInfoPackage := "utils.buildinfo",
   buildInfoOptions := Seq(
