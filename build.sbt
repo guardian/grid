@@ -227,7 +227,10 @@ def project(projectName: String, path: Option[String] = None): Project =
 val buildInfo = Seq(
   buildInfoKeys := Seq[BuildInfoKey](
     name,
-    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse("git rev-parse HEAD" #|| "echo unknown" !!<))
+    BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse {
+      val gitCommitId=Process("git rev-parse HEAD") #|| Process("echo unknown") !!<
+        gitCommitId
+    })
   ),
   buildInfoPackage := "utils.buildinfo",
   buildInfoOptions := Seq(
