@@ -259,10 +259,11 @@ kahuna.factory('getEntity', ['$q', function($q) {
 kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
             function($rootScope, $window, $q, getEntity) {
 
-    // Note: we target all domains because we don't know who
-    // may be embedding us.
-    var postMessage = message => $window.parent.postMessage(message, '*');
-    var cropMessage = function(image, crop) {return { image, crop };};
+    // Note: we target all domains because we don't know who may be embedding us.
+    // Wrap message in `angular.toJson` to remove internal fields with a `$$` prefix.
+    // See https://docs.angularjs.org/api/ng/function/angular.toJson
+    const postMessage = message => $window.parent.postMessage(JSON.parse(angular.toJson(message)), '*');
+    const cropMessage = function(image, crop) {return { image, crop };};
 
     // These interfaces are used when the app is embedded as an iframe
     $rootScope.$on('events:crop-selected', (_, params) => {
