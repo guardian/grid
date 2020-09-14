@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.ImageMetadata
+import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.model.{Image, ImageMetadata}
 
 trait MetadataCleaner extends ImageProcessor {
   def clean(metadata: ImageMetadata): ImageMetadata
@@ -8,20 +9,17 @@ trait MetadataCleaner extends ImageProcessor {
   override def apply(image: Image): Image = image.copy(metadata = clean(image.metadata))
 }
 
-class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
+class GuardianMetadataCleaners extends MetadataCleaners(MetadataConfig.allPhotographersMap)
 
-  val attrCreditFromBylineCleaners = creditBylineMap.map { case (credit, bylines) =>
-    AttributeCreditFromByline(bylines, credit)
-  }
-
-  val allCleaners: List[MetadataCleaner] = List(
+class MetadataCleaners(creditBylineMap: Map[String, List[String]])
+  extends ComposeImageProcessors(
     CleanRubbishLocation,
     StripCopyrightPrefix,
     RedundantTokenRemover,
     BylineCreditReorganise,
     UseCanonicalGuardianCredit,
-    ExtractGuardianCreditFromByline
-  ) ++ attrCreditFromBylineCleaners ++ List(
+    ExtractGuardianCreditFromByline,
+    AttributeCreditFromByline.fromCreditBylineMap(creditBylineMap),
     CountryCode,
     GuardianStyleByline,
     CapitaliseByline,
@@ -33,12 +31,6 @@ class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
     DropRedundantTitle,
     PhotographerRenamer
   )
-
-  def clean(inputMetadata: ImageMetadata): ImageMetadata =
-    allCleaners.foldLeft(inputMetadata) {
-      case (metadata, cleaner) => cleaner.clean(metadata)
-    }
-}
 
 // By vague order of importance:
 

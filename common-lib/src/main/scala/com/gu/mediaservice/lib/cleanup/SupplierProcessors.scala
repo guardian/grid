@@ -1,17 +1,13 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{NoRights, Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.model.{Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
-
-trait ImageProcessor {
-  def apply(image: Image): Image
-}
 
 /**
   * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
   */
-object SupplierProcessors {
-  val all: List[ImageProcessor] = List(
+object SupplierProcessors
+  extends ComposeImageProcessors(
     GettyXmpParser,
     GettyCreditParser,
     AapParser,
@@ -27,10 +23,6 @@ object SupplierProcessors {
     RonaldGrantParser,
     PhotographerParser
   )
-
-  def process(image: Image): Image =
-    all.foldLeft(image) { case (im, processor) => processor(im) }
-}
 
 /**
   * Guardian specific logic to correctly identify Guardian and Observer photographers and their contracts

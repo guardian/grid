@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.{BrowserViewableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
-import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
+import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -88,7 +88,7 @@ object Uploader extends GridLogging {
     )
   }
 
-  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies)
+  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies, processor: ImageProcessor)
                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
 
     import deps._
@@ -107,7 +107,8 @@ object Uploader extends GridLogging {
         OptimiseWithPngQuant,
         uploadRequest,
         deps,
-        fileMetadata)(ec, addLogMarkers(fileMetadata.toLogMarker))
+        fileMetadata,
+        processor)(ec, addLogMarkers(fileMetadata.toLogMarker))
     })
   }
 
@@ -117,7 +118,8 @@ object Uploader extends GridLogging {
                                          optimiseOps: OptimiseOps,
                                          uploadRequest: UploadRequest,
                                          deps: ImageUploadOpsDependencies,
-                                         fileMetadata: FileMetadata)
+                                         fileMetadata: FileMetadata,
+                                         processor: ImageProcessor)
                   (implicit ec: ExecutionContext, logMarker: LogMarker) = {
     val originalMimeType = uploadRequest.mimeType
       .orElse(MimeTypeDetection.guessMimeType(uploadRequest.tempFile).toOption)
@@ -158,15 +160,14 @@ object Uploader extends GridLogging {
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
-      val cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
 
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      val baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+      val baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
 
-      val processedImage = SupplierProcessors.process(baseImage)
+      val processedImage = processor(baseImage)
 
       logger.info("Ending image ops")
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
@@ -272,7 +273,7 @@ class Uploader(val store: ImageLoaderStore,
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
       storeSource, storeThumbnail, storeOptimisedImage)
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies)
+    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, config.imageProcessor)
     finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
   }
 

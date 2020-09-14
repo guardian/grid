@@ -10,7 +10,7 @@ import play.api.Configuration
 import scala.util.Try
 
 
-abstract class CommonConfig(configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
+abstract class CommonConfig(val configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
   final val elasticsearchStack = "media-service"
 
   final val elasticsearchApp = "elasticsearch"

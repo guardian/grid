@@ -16,4 +16,14 @@ case class AttributeCreditFromByline(bylines: List[String], credit: String) exte
     case Some(byline) if lowercaseBylines.contains(byline.toLowerCase) => metadata.copy(credit = Some(credit))
     case _ => metadata
   }
+
+  override def description: String = s"AttributeCreditFromByline($credit)"
+}
+
+object AttributeCreditFromByline {
+  def fromCreditBylineMap(creditBylineMap: Map[String, List[String]]): ImageProcessor = {
+    ImageProcessor.compose("AttributeCreditFromBylines", creditBylineMap.map { case (credit, bylines) =>
+      AttributeCreditFromByline(bylines, credit)
+    }.toSeq:_*)
+  }
 }
