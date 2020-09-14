@@ -228,7 +228,7 @@ val buildInfo = Seq(
   buildInfoKeys := Seq[BuildInfoKey](
     name,
     BuildInfoKey.constant("gitCommitId", Option(System.getenv("BUILD_VCS_NUMBER")) getOrElse {
-      val gitCommitId=Process("git rev-parse HEAD") #|| Process("echo unknown") !!<
+      val gitCommitId="git rev-parse HEAD" #|| "echo unknown" !!<
         gitCommitId
     })
   ),
