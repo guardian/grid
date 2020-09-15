@@ -12,7 +12,8 @@
   },
   "devDependencies": {
     "aws-sdk": "^2.2.21",
-    "eslint": "^3.19.0",
+    "eslint": "^7.9.0",
+    "eslint-plugin-standard": "^4.0.1",
     "node-lambda": "^0.7.1",
     "node-riffraff-artefact": "^2.0.1"
   },
