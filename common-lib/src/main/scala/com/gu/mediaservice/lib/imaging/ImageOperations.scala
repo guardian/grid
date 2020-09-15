@@ -134,11 +134,11 @@ class ImageOperations(playPath: String) {
 
   def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[File] = {
     for {
-      outputFile  <- createTempFile(s"transformed-", ".png", tempDir)
+      outputFile      <- createTempFile(s"transformed-", ".png", tempDir)
       transformSource = addImage(sourceFile)
-      addOutput    = addDestImage(transformSource)(outputFile)
-      _           <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
-      _           <- checkForOutputFileChange(outputFile)
+      addOutput       = addDestImage(transformSource)(outputFile)
+      _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
+      _               <- checkForOutputFileChange(outputFile)
     } yield outputFile
   }
 

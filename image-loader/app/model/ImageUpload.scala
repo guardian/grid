@@ -47,7 +47,8 @@ case object OptimisedPng {
 
 object OptimisedPngOps {
 
-  def build(file: File, uploadRequest: UploadRequest,
+  def build(file: File,
+            uploadRequest: UploadRequest,
             fileMetadata: FileMetadata,
             config: ImageUploadOpsCfg,
             storeOrProject: (UploadRequest, File) => Future[S3Object])
@@ -164,8 +165,6 @@ class Uploader(val store: ImageLoaderStore,
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
-
-    println(logMarker)
 
     // TODO: should error if the JSON parsing failed
     val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
@@ -293,7 +292,7 @@ object Uploader {
         fileMetadata,
         config,
         storeOrProjectOptimisedPNG)(ec, logMarker)
-      Logger.info("optimised image created")
+      Logger.info(s"optimised image ($toOptimiseFile) created")
 
       bracket(thumbFuture)(_.delete) { thumb =>
         // Run the operations in parallel
@@ -379,8 +378,7 @@ object Uploader {
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
     mimeType match {
-      case Some(Png) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
-      case Some(Tiff) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Png | Tiff) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }
