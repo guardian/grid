@@ -19,7 +19,7 @@
     "aws-sdk": "^2.127.0"
   },
   "dependencies": {
-    "node-fetch": "^1.7.3",
+    "node-fetch": "^2.6.1",
     "p-all": "^2.1.0"
   }
 }
