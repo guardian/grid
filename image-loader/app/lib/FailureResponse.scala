@@ -30,13 +30,23 @@ object FailureResponse extends ArgoHelpers {
       s"Unsupported mime-type: ${unsupported.mimeType}. Supported: ${supportedMimeTypes.mkString(", ")}"
     )
   }
-  def notAnImage(supportedMimeTypes: List[MimeType]): Result = {
-    Logger.info(s"Rejected request to load file: file type is not supported")
+  def notAnImage(exception: Exception, supportedMimeTypes: List[MimeType]): Result = {
+    Logger.info(s"Rejected request to load file: file type is not supported", exception)
 
     respondError(
       UnsupportedMediaType,
-      "unsupported-type",
-      s"Unsupported file type: not an image type. Supported: ${supportedMimeTypes.mkString(", ")}"
+      "unsupported-file-type",
+      s"Unsupported file type: not a valid image type. Supported: ${supportedMimeTypes.mkString(", ")}"
+    )
+  }
+
+  def badImage(exception: Exception): Result = {
+    Logger.info(s"Rejected request to load file: image file is not good")
+
+    respondError(
+      UnsupportedMediaType,
+      "bad-file",
+      s"Bad file: not a valid image file."
     )
   }
 }
