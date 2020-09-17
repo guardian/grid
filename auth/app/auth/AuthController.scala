@@ -4,7 +4,7 @@ import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.PandaUser
+import com.gu.mediaservice.lib.auth.Authentication.GridUser
 import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
 import com.gu.pandomainauth.service.OAuthException
 import play.api.Logger
@@ -33,28 +33,30 @@ class AuthController(auth: Authentication, val config: AuthConfig,
 
   def index = auth.AuthAction { indexResponse }
 
-  def session = auth.AuthAction { request =>
-    val user = request.user
-    val firstName = user.firstName
-    val lastName = user.lastName
+  def session = auth.apply { request =>
+    request.user match {
+      case GridUser(email, firstName, lastName, avatarUrl) =>
+        val showPaid = hasPermission(request.user, Permissions.ShowPaid)
 
-    val showPaid = hasPermission(PandaUser(request.user), Permissions.ShowPaid)
-
-    respond(
-      Json.obj("user" ->
-        Json.obj(
-          "name" -> s"$firstName $lastName",
-          "firstName" -> firstName,
-          "lastName" -> lastName,
-          "email" -> user.email,
-          "avatarUrl" -> user.avatarUrl,
-          "permissions" ->
+        respond(
+          Json.obj("user" ->
             Json.obj(
-              "showPaid" -> showPaid
+              "name" -> s"$firstName $lastName",
+              "firstName" -> firstName,
+              "lastName" -> lastName,
+              "email" -> email,
+              "avatarUrl" -> avatarUrl,
+              "permissions" ->
+                Json.obj(
+                  "showPaid" -> showPaid
+                )
             )
+          )
         )
-      )
-    )
+
+      case _ =>
+        BadRequest(s"Cannot get session for ${request.user}")
+    }
   }
 
 

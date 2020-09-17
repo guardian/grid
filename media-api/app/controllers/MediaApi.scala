@@ -93,8 +93,8 @@ class MediaApi(
     permission: PermissionDefinition
   ) = {
     request.user match {
-      case user: PandaUser =>
-        if (user.user.email.toLowerCase == image.uploadedBy.toLowerCase) {
+      case user: GridUser =>
+        if (user.email.toLowerCase == image.uploadedBy.toLowerCase) {
           true
         } else {
           hasPermission(user, permission)

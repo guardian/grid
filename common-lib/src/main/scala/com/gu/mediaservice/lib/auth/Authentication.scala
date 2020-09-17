@@ -60,7 +60,8 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
         }
       case None =>
         APIAuthAction.invokeBlock(request, (userRequest: UserRequest[A]) => {
-          block(new AuthenticatedRequest(PandaUser(userRequest.user), request))
+          val gridUser = GridUser(userRequest.user.email, userRequest.user.firstName, userRequest.user.lastName, userRequest.user.avatarUrl)
+          block(new AuthenticatedRequest(gridUser, request))
         })
     }
   }
@@ -73,7 +74,8 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
     case service: ApiKeyAccessor =>
       OnBehalfOfApiKey(service)
 
-    case user: PandaUser =>
+    case user: GridUser =>
+      // TODO MRB: support forwarding other credentials, not just Panda
       val cookieName = panDomainSettings.settings.cookieSettings.cookieName
 
       originalRequest.cookies.get(cookieName) match {
@@ -97,15 +99,15 @@ object Authentication {
   sealed trait Principal {
     def accessor: ApiAccessor
   }
-  case class PandaUser(user: User) extends Principal {
-    def accessor: ApiAccessor = ApiAccessor(identity = user.email, tier = Internal)
+  case class GridUser(email: String, firstName: String, lastName: String, avatarUrl: Option[String]) extends Principal {
+    def accessor: ApiAccessor = ApiAccessor(identity = email, tier = Internal)
   }
   case class ApiKeyAccessor(accessor: ApiAccessor) extends Principal
 
   type Request[A] = AuthenticatedRequest[A, Principal]
 
   sealed trait OnBehalfOfPrincipal { def principal: Principal }
-  case class OnBehalfOfUser(override val principal: PandaUser, cookie: WSCookie) extends OnBehalfOfPrincipal
+  case class OnBehalfOfUser(override val principal: GridUser, cookie: WSCookie) extends OnBehalfOfPrincipal
   case class OnBehalfOfApiKey(override val principal: ApiKeyAccessor) extends OnBehalfOfPrincipal
 
   val apiKeyHeaderName = "X-Gu-Media-Key"
