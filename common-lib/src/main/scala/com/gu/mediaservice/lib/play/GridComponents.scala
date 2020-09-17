@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.play
 
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.{Authentication, PandaUserAuthentication}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
@@ -32,5 +32,7 @@ abstract class GridComponents(context: Context) extends BuiltInComponentsFromCon
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)
-  val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
+
+  val userAuthentication = new PandaUserAuthentication(config, defaultBodyParser, wsClient, controllerComponents)(executionContext)
+  val auth = new Authentication(config, actorSystem, userAuthentication, defaultBodyParser)(executionContext)
 }

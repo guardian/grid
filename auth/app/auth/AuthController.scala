@@ -5,16 +5,14 @@ import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.GridUser
-import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
-import com.gu.pandomainauth.service.OAuthException
-import play.api.Logger
+import com.gu.mediaservice.lib.auth.{Permissions, PermissionsHandler, UserAuthenticationSPI}
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-class AuthController(auth: Authentication, val config: AuthConfig,
+class AuthController(auth: UserAuthenticationSPI, val config: AuthConfig,
                      override val controllerComponents: ControllerComponents)(implicit ec: ExecutionContext)
   extends BaseController
   with ArgoHelpers
@@ -31,9 +29,9 @@ class AuthController(auth: Authentication, val config: AuthConfig,
     respond(indexData, indexLinks)
   }
 
-  def index = auth.AuthAction { indexResponse }
+  def index = auth { indexResponse }
 
-  def session = auth.apply { request =>
+  def session = auth { request =>
     request.user match {
       case GridUser(email, firstName, lastName, avatarUrl) =>
         val showPaid = hasPermission(request.user, Permissions.ShowPaid)
@@ -72,7 +70,7 @@ class AuthController(auth: Authentication, val config: AuthConfig,
   // If a redirectUri is provided, redirect the browser there once auth'd,
   // else return a dummy page (e.g. for automatically re-auth'ing in the background)
   // FIXME: validate redirectUri before doing the auth
-  def doLogin(redirectUri: Option[String] = None) = auth.AuthAction { req =>
+  def doLogin(redirectUri: Option[String] = None) = auth { req =>
     redirectUri map {
       case uri if isValidDomain(uri) => Redirect(uri)
       case _ => Ok("logged in (not redirecting to external redirectUri)")
@@ -80,23 +78,10 @@ class AuthController(auth: Authentication, val config: AuthConfig,
   }
 
   def oauthCallback = Action.async { implicit request =>
-    // We use the `Try` here as the `GoogleAuthException` are thrown before we
-    // get to the asynchronicity of the `Future` it returns.
-    // We then have to flatten the Future[Future[T]]. Fiddly...
-    Future.fromTry(Try(auth.processOAuthCallback())).flatten.recover {
-      // This is when session session args are missing
-      case e: OAuthException => respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)
-
-      // Class `missing anti forgery token` as a 4XX
-      // see https://github.com/guardian/pan-domain-authentication/blob/master/pan-domain-auth-play_2-6/src/main/scala/com/gu/pandomainauth/service/GoogleAuth.scala#L63
-      case e: IllegalArgumentException if e.getMessage == "The anti forgery token did not match" => {
-        Logger.error(e.getMessage)
-        respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)
-      }
-    }
+    auth.handleOAuthCallback(request)
   }
 
-  def logout = Action { implicit request =>
-    auth.processLogout
+  def logout = auth { implicit request =>
+    auth.logout(request)
   }
 }
