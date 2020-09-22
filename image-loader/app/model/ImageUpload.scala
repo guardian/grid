@@ -53,11 +53,15 @@ object OptimisedPngOps {
             config: ImageUploadOpsCfg,
             storeOrProject: (UploadRequest, File) => Future[S3Object])
            (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
-
+    
     val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
       OptimisedPng(Future(None), isPng24 = false, None)
     } else {
-      val optimisedFile: File = toOptimisedFile(file, uploadRequest, config)
+      val optimisedFile = {
+        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng-" + uploadRequest.imageId + ".png"
+        Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+        new File(optimisedFilePath)
+      }
       val pngStoreFuture: Future[Option[S3Object]] = Some(storeOrProject(uploadRequest, optimisedFile))
         .map(result => result.map(Option(_)))
         .getOrElse(Future.successful(None))
