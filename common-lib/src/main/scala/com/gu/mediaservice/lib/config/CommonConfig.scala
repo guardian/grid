@@ -1,16 +1,10 @@
 package com.gu.mediaservice.lib.config
 
-import java.io.File
 import java.util.UUID
 
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.auth.{AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
-import com.amazonaws.client.builder.AwsClientBuilder
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import play.api.{Configuration, Logger}
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
+import play.api.Configuration
 
-import scala.io.Source._
 import scala.util.Try
 
 
