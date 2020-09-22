@@ -3,7 +3,7 @@ package lib
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
-class KahunaConfig(override val configuration: Configuration) extends CommonConfig {
+class KahunaConfig(override val playAppConfiguration: Configuration) extends CommonConfig {
 
   final override lazy val appName = "kahuna"
 
@@ -11,18 +11,18 @@ class KahunaConfig(override val configuration: Configuration) extends CommonConf
   val mediaApiUri: String = services.apiBaseUri
   val authUri: String = services.authBaseUri
 
-  val sentryDsn: Option[String] = properties.get("sentry.dsn").filterNot(_.isEmpty)
+  val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
 
-  val thumbOrigin: String = properties("origin.thumb")
-  val fullOrigin: String = properties("origin.full")
-  val cropOrigin: String = properties("origin.crops")
-  val imageOrigin: String = properties("origin.images")
-  val googleTrackingId: Option[String] = properties.get("google.tracking.id").filterNot(_.isEmpty)
+  val thumbOrigin: String = string("origin.thumb")
+  val fullOrigin: String = string("origin.full")
+  val cropOrigin: String = string("origin.crops")
+  val imageOrigin: String = string("origin.images")
+  val googleTrackingId: Option[String] = stringOpt("google.tracking.id").filterNot(_.isEmpty)
 
-  val feedbackFormLink: Option[String]= properties.get("links.feedbackForm").filterNot(_.isEmpty)
-  val usageRightsHelpLink: Option[String]= properties.get("links.usageRightsHelp").filterNot(_.isEmpty)
-  val invalidSessionHelpLink: Option[String]= properties.get("links.invalidSessionHelp").filterNot(_.isEmpty)
-  val supportEmail: Option[String]= properties.get("links.supportEmail").filterNot(_.isEmpty)
+  val feedbackFormLink: Option[String]= stringOpt("links.feedbackForm").filterNot(_.isEmpty)
+  val usageRightsHelpLink: Option[String]= stringOpt("links.usageRightsHelp").filterNot(_.isEmpty)
+  val invalidSessionHelpLink: Option[String]= stringOpt("links.invalidSessionHelp").filterNot(_.isEmpty)
+  val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
 
-  val frameAncestors: Set[String] = getStringSetFromProperties("security.frameAncestors")
+  val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
 }

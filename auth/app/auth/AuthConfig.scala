@@ -5,7 +5,7 @@ import play.api.Configuration
 
 import scala.concurrent.ExecutionContext
 
-class AuthConfig(override val configuration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig {
+class AuthConfig(override val playAppConfiguration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig {
 
   override lazy val appName = "auth"
 

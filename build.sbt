@@ -91,6 +91,7 @@ lazy val commonLib = project("common-lib").settings(
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     "com.typesafe.play" %% "play-logback" % "2.6.15", // needed when running the scripts
     "org.scalacheck" %% "scalacheck" % "1.14.0",
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
@@ -149,7 +150,6 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       "com.typesafe.play" %% "play-json" % "2.6.9",
       "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)

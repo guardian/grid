@@ -1,18 +1,38 @@
 package com.gu.mediaservice.lib.config
 
+import java.io.File
 import java.util.UUID
 
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
+import com.typesafe.config.{ConfigException, ConfigFactory}
+import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 
 import scala.util.Try
 
 
-trait CommonConfig extends AwsClientBuilderUtils {
+trait CommonConfig extends AwsClientBuilderUtils with StrictLogging {
   def appName: String
-  def configuration: Configuration
+  def playAppConfiguration: Configuration
 
-  lazy val properties: Map[String, String] = Properties.fromPath(s"/etc/gu/$appName.properties")
+  def loadConfiguration(file: File): Configuration = {
+    if (file.exists) {
+      logger.info(s"Loading config from $file")
+      Configuration(ConfigFactory.parseFile(file))
+    } else {
+      logger.info(s"Skipping config file $file as it doesn't exist")
+      Configuration.empty
+    }
+  }
+
+  // local config for this app, later files override earlier files
+  private val localAppConfiguration: Configuration =
+    loadConfiguration(new File(s"/etc/gu/$appName.properties")) ++
+    loadConfiguration(new File(s"/etc/grid/$appName.conf")) ++
+    loadConfiguration(new File(s"${System.getProperty("user.home")}/.grid/$appName.conf"))
+
+  // the config we'll actually use, the local config overrides the play config
+  val configuration: Configuration = playAppConfiguration ++ localAppConfiguration
 
   final val elasticsearchStack = "media-service"
 
@@ -23,30 +43,30 @@ trait CommonConfig extends AwsClientBuilderUtils {
 
   final val sessionId = UUID.randomUUID().toString
 
-  override val awsRegion: String = properties.getOrElse("aws.region", "eu-west-1")
+  override val awsRegion: String = stringDefault("aws.region", "eu-west-1")
 
-  override val awsLocalEndpoint: Option[String] = if(isDev) properties.get("aws.local.endpoint") else None
+  override val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint") else None
 
-  lazy val authKeyStoreBucket = properties("auth.keystore.bucket")
+  val authKeyStoreBucket = string("auth.keystore.bucket")
 
-  lazy val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
+  val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
-  lazy val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
+  val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
 
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
-  lazy val thrallKinesisStream = properties("thrall.kinesis.stream.name")
-  lazy val thrallKinesisLowPriorityStream = properties("thrall.kinesis.lowPriorityStream.name")
+  val thrallKinesisStream = string("thrall.kinesis.stream.name")
+  val thrallKinesisLowPriorityStream = string("thrall.kinesis.lowPriorityStream.name")
 
-  lazy val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
-  lazy val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
+  val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
+  val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
 
-  lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase == "true"
+  val requestMetricsEnabled: Boolean = boolean("metrics.request.enabled")
 
   // Note: had to make these lazy to avoid init order problems ;_;
-  lazy val domainRoot: String = properties("domain.root")
-  lazy val rootAppName: String = properties.getOrElse("app.name.root", "media")
-  lazy val serviceHosts = ServiceHosts(
+  val domainRoot: String = string("domain.root")
+  val rootAppName: String = stringDefault("app.name.root", "media")
+  val serviceHosts = ServiceHosts(
     stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
     stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
     stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
@@ -60,15 +80,18 @@ trait CommonConfig extends AwsClientBuilderUtils {
     stringDefault("hosts.authPrefix", s"$rootAppName-auth.")
   )
 
-  lazy val corsAllowedOrigins: Set[String] = getStringSetFromProperties("security.cors.allowedOrigins")
+  val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
-  lazy val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
+  val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, streamName)
 
-  final def getStringSetFromProperties(key: String): Set[String] = Try(
-    properties(key).split(",").map(_.trim).toSet
-  ).getOrElse(Set.empty)
+  final def getStringSet(key: String): Set[String] = Try {
+    configuration.get[Seq[String]](key)
+  }.recover {
+    case _:ConfigException.WrongType => configuration.get[String](key).split(",").toSeq.map(_.trim)
+  }.map(_.toSet)
+   .getOrElse(Set.empty)
 
   final def apply(key: String): String =
     string(key)
@@ -83,6 +106,9 @@ trait CommonConfig extends AwsClientBuilderUtils {
 
   final def int(key: String): Int =
     configuration.getOptional[Int](key) getOrElse missing(key, "integer")
+
+  final def intDefault(key: String, default: Int): Int =
+    configuration.getOptional[Int](key) getOrElse default
 
   final def boolean(key: String): Boolean =
     configuration.getOptional[Boolean](key).getOrElse(false)
