@@ -37,7 +37,10 @@ class MediaApiConfig(playAppConfiguration: Configuration, mode: Mode) extends Co
   lazy val imageBucket: String = string("s3.image.bucket")
   lazy val thumbBucket: String = string("s3.thumb.bucket")
 
-  lazy val cloudFrontPrivateKeyLocation: String = "/etc/gu/ssl/private/cloudfront.pem"
+  lazy val cloudFrontPrivateKeyLocations: Seq[String] = Seq(
+    "/etc/grid/ssl/private/cloudfront.pem",
+    "/etc/gu/ssl/private/cloudfront.pem" // TODO - remove once migrated away from
+  )
 
   lazy val cloudFrontDomainImageBucket: Option[String] = stringOpt("cloudfront.domain.imagebucket")
   lazy val cloudFrontDomainThumbBucket: Option[String] = stringOpt("cloudfront.domain.thumbbucket")

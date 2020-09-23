@@ -11,16 +11,17 @@ import org.joda.time.DateTime
 import scala.util.Try
 
 trait CloudFrontDistributable {
-  val privateKeyLocation: String
+  val privateKeyLocations: Seq[String]
   val keyPairId: Option[String]
 
   val protocol: Protocol = Protocol.https
   val validForMinutes: Int = 30
 
   private def expiresAt: Date = DateTime.now.plusMinutes(validForMinutes).toDate
-  private lazy val privateKeyFile: File = {
-    new File(privateKeyLocation)
-  }
+  private lazy val privateKeyFile: File =
+    privateKeyLocations.map { location =>
+      new File(location)
+    }.find(_.exists).get
 
   def signedCloudFrontUrl(cloudFrontDomain: String, s3ObjectPath: String): Option[String] = Try {
     CloudFrontUrlSigner.getSignedURLWithCannedPolicy(
@@ -29,7 +30,7 @@ trait CloudFrontDistributable {
 }
 
 class S3Client(config: MediaApiConfig) extends S3(config) with CloudFrontDistributable {
-  lazy val privateKeyLocation: String = config.cloudFrontPrivateKeyLocation
+  lazy val privateKeyLocations: Seq[String] = config.cloudFrontPrivateKeyLocations
   lazy val keyPairId: Option[String] = config.cloudFrontKeyPairId
 }
 
