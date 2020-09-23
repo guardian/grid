@@ -14,11 +14,17 @@ trait ElasticSearchError {
 object ElasticSearchException {
   def apply(e: ElasticError): Exception with ElasticSearchError = {
     e match {
-      case ElasticError(t, r, _, _, _, Seq(), _, _, _, _) => // No root causes provided.
+      case ElasticError(t, r, _, _, _, Seq(), None, _, _, _) => // No root causes provided.
         new Exception(s"query failed because: $r type: $t") with ElasticSearchError {
           override def error: ElasticError = e
 
           override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t)
+        }
+      case ElasticError(t, r, _, _, _, _, Some(c), _, _, _) =>
+        new Exception(s"query failed because: $r type: $t caused by $c") with ElasticSearchError {
+          override def error: ElasticError = e
+
+          override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, "causedBy" -> c.toString())
         }
       case ElasticError(t, r, _, _, _, s, _, _, _, _) =>
         new Exception(s"query failed because: $r type: $t root cause ${s.mkString(", ")}") with ElasticSearchError {
