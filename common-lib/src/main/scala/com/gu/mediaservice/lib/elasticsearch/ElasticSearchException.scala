@@ -20,7 +20,7 @@ object ElasticSearchException {
 
           override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t)
         }
-      case ElasticError(t, r, _, _, _, _, Some(c), _, _, _) =>
+      case ElasticError(t, r, _, _, _, Seq(), Some(c), _, _, _) =>
         new Exception(s"query failed because: $r type: $t caused by $c") with ElasticSearchError {
           override def error: ElasticError = e
 
