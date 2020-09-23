@@ -9,8 +9,11 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
@@ -35,7 +38,8 @@ class MediaApi(
                 override val controllerComponents: ControllerComponents,
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
-                ws: WSClient
+                ws: WSClient,
+                metadataStore: MetadataStore
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
@@ -231,20 +235,53 @@ class MediaApi(
   def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
     implicit val r = request
 
-    elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request, image) => {
-        val apiKey = request.user.accessor
-        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
-        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
+    val metadataConfig = metadataStore.get
+    val metadataCleaners = new MetadataCleaners(metadataConfig.allPhotographers)
 
-        val sourceImageUri =
-          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
-            case Some(_) => OptimisedPng
-            case _ => Source
-          }))
+    elasticSearch.getImageById(id) map {
+      case Some(image) if hasPermission(request, image) =>
+        // TODO: apply rights to edits API too
+        // TODO: helper to abstract boilerplate
+        val canWrite = canUserWriteMetadata(request, image)
+        if (canWrite) {
+          val imageMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
+          val cleanMetadata = metadataCleaners.clean(imageMetadata)
+          val imageCleanMetadata = image.copy(metadata = cleanMetadata, originalMetadata = cleanMetadata)
+          val processedImage = new SupplierProcessors(metadataConfig).process(imageCleanMetadata)
 
-        if(config.recordDownloadAsUsage) {
-          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
+          // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+          val finalImage = processedImage.copy(
+            originalMetadata = processedImage.metadata,
+            originalUsageRights = processedImage.usageRights
+          )
+
+          //add the apiKeys for grafana
+//          GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+//          mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
+
+          val sourceImageUri =
+            new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
+              case Some(_) => OptimisedPng
+              case _ => Source
+            }))
+
+          if(config.recordDownloadAsUsage) {
+            postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
+
+          val updateImage = "update-image"
+          val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
+          messageSender.publish(updateMessage)
+
+          Ok(Json.obj(
+            "id" -> id,
+            "changed" -> JsBoolean(image != finalImage),
+            "data" -> Json.obj(
+              "oldImage" -> image,
+              "updatedImage" -> finalImage
+            )
+          ))
+        } else {
+          ImageEditForbidden
         }
 
         Future.successful(

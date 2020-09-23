@@ -1,13 +1,13 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{NoRights, Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
-import com.gu.mediaservice.lib.config.PhotographersList
+import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.model._
 
 trait ImageProcessor {
   def apply(image: Image): Image
 }
 
-object SupplierProcessors {
+class SupplierProcessors(metadataConfig: MetadataConfig) {
   val all: List[ImageProcessor] = List(
     GettyXmpParser,
     GettyCreditParser,
@@ -22,17 +22,17 @@ object SupplierProcessors {
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    PhotographerParser
+    new PhotographerParser(metadataConfig)
   )
 
   def process(image: Image): Image =
     all.foldLeft(image) { case (im, processor) => processor(im) }
 }
 
-object PhotographerParser extends ImageProcessor {
+class PhotographerParser(metadataConfig: MetadataConfig) extends ImageProcessor {
   def apply(image: Image): Image = {
     image.metadata.byline.flatMap { byline =>
-      PhotographersList.getPhotographer(byline).map{
+      metadataConfig.getPhotographer(byline).map {
         case p: StaffPhotographer => image.copy(
           usageRights = p,
           metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))

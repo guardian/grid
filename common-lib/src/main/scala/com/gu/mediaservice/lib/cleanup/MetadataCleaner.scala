@@ -1,15 +1,16 @@
 package com.gu.mediaservice.lib.cleanup
 
+import com.gu.mediaservice.lib.config.Company
 import com.gu.mediaservice.model.ImageMetadata
 
 trait MetadataCleaner {
   def clean(metadata: ImageMetadata): ImageMetadata
 }
 
-class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {
+class MetadataCleaners(companies: List[Company]) {
 
-  val attrCreditFromBylineCleaners = creditBylineMap.map { case (credit, bylines) =>
-    AttributeCreditFromByline(bylines, credit)
+  val attrCreditFromBylineCleaners = companies.map { company =>
+    AttributeCreditFromByline(company.photographers, company.name)
   }
 
   val allCleaners: List[MetadataCleaner] = List(

@@ -1,5 +1,7 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.gu.mediaservice.lib.config.MetadataStore
+
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, ManagementWithPermissions}
 import com.gu.mediaservice.lib.play.GridComponents
@@ -26,7 +28,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
     shards = config.elasticsearch6Shards,
     replicas = config.elasticsearch6Replicas
   )
-
+4
   val s3Client = new S3Client(config)
 
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)
@@ -38,7 +40,11 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
-  val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient)
+  val metaDataConfigStore = MetadataStore(config.configBucket, config)
+  metaDataConfigStore.scheduleUpdates(actorSystem.scheduler)
+
+  val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient,metaDataConfigStore)
+
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)

@@ -13,6 +13,7 @@ class EditsConfig(override val configuration: Configuration) extends CommonConfi
 
   val keyStoreBucket = properties("auth.keystore.bucket")
   val collectionsBucket: String = properties("s3.collections.bucket")
+  val configBucket: String = properties("s3.config.bucket")
 
   val editsTable = properties("dynamo.table.edits")
 

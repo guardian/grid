@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.MetadataStore
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging._
@@ -88,7 +88,6 @@ object OptimisedPngOps {
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
 case object ImageUpload {
-  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
   def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
@@ -143,6 +142,15 @@ class Uploader(val store: ImageLoaderStore,
       meta
     )
   }
+
+class ImageUploadOps(metadataStore: MetadataStore,
+                     loaderStore: ImageLoaderStore,
+                     config: ImageLoaderConfig,
+                     imageOps: ImageOperations,
+                     optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext) {
+  def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
+    Logger.info("Starting image ops")(uploadRequest.toLogMarker)
+    val uploadedFile = uploadRequest.tempFile
 
   private def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File)
                             (implicit logMarker: LogMarker) = store.storeThumbnail(
@@ -319,6 +327,55 @@ object Uploader {
 
         finalImage
       }
+
+      toOptimiseFileFuture.flatMap(toOptimiseFile => {
+        Logger.info("optimised image created")(uploadRequest.toLogMarker)
+
+        val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
+
+        bracket(thumbFuture)(_.delete) { thumb =>
+          // Run the operations in parallel
+          val thumbStoreFuture = storeThumbnail(uploadRequest, thumb)
+          val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some("image/jpeg"))
+
+          for {
+            s3Source <- sourceStoreFuture
+            s3Thumb <- thumbStoreFuture
+            s3PngOption <- optimisedPng.optimisedFileStoreFuture
+            sourceDimensions <- sourceDimensionsFuture
+            thumbDimensions <- thumbDimensionsFuture
+            fileMetadata <- fileMetadataFuture
+            colourModel <- colourModelFuture
+            fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
+
+            metaDataConfig = metadataStore.get
+            metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
+            metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
+            cleanMetadata = metadataCleaners.clean(metadata)
+
+            sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
+            thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
+
+            pngAsset = if (optimisedPng.isPng24)
+              Some(Asset.fromS3Object(s3PngOption.get, sourceDimensions))
+            else
+              None
+
+            baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+            processedImage = new SupplierProcessors(metaDataConfig).process(baseImage)
+
+            // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
+            finalImage = processedImage.copy(
+              originalMetadata = processedImage.metadata,
+              originalUsageRights = processedImage.usageRights
+            )
+          } yield {
+            if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
+            Logger.info("Ending image ops")(uploadRequest.toLogMarker)
+            ImageUpload(uploadRequest, finalImage)
+          }
+        }
+      })
     })
   }
 
@@ -418,6 +475,18 @@ object Uploader {
     }
   }
 
+    loaderStore.storeOriginal(
+      uploadRequest.imageId,
+      uploadRequest.tempFile,
+      uploadRequest.mimeType,
+      meta
+    )
+  }
+  def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File) = loaderStore.storeThumbnail(
+    uploadRequest.imageId,
+    thumbFile,
+    Some("image/jpeg")
+  )
 
 }
 
