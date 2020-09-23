@@ -2,13 +2,10 @@ package lib
 
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.Configuration
+import play.api.{Configuration, Mode}
 
 
-class EditsConfig(override val playAppConfiguration: Configuration) extends CommonConfig {
-
-  final override lazy val appName = "metadata-editor"
-
+class EditsConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("metadata-editor", playAppConfiguration, mode) {
   val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
 
   val keyStoreBucket = string("auth.keystore.bucket")

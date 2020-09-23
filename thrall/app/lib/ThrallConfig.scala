@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import play.api.Configuration
+import play.api.{Configuration, Mode}
 
 case class KinesisReceiverConfig(
   override val awsRegion: String,
@@ -27,9 +27,7 @@ object KinesisReceiverConfig {
   )
 }
 
-class ThrallConfig(override val playAppConfiguration: Configuration) extends CommonConfig {
-  final override lazy val appName = "thrall"
-
+class ThrallConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("thrall", playAppConfiguration, mode) {
   lazy val queueUrl: String = string("sqs.queue.url")
 
   lazy val imageBucket: String = string("s3.image.bucket")

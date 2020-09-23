@@ -1,15 +1,9 @@
 package lib
 
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.Configuration
+import play.api.{Configuration, Mode}
 
-class AdminToolsConfig(override val playAppConfiguration: Configuration) extends CommonConfig {
-  override def appName: String = "admin-tools"
-
-  // hardcoded for dev
-  override lazy val domainRoot: String = "local.dev-gutools.co.uk"
-  override lazy val properties = Map("auth.keystore.bucket" -> "not-used")
-
+class AdminToolsConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("admin-tools", playAppConfiguration, mode) {
   // hardcoded for dev
   val apiKey: String = "dev-"
 

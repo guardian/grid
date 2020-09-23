@@ -6,17 +6,19 @@ import java.util.UUID
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
 import com.typesafe.config.{ConfigException, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
-import play.api.Configuration
+import play.api.{Configuration, Mode}
 
 import scala.util.Try
 
 
-trait CommonConfig extends AwsClientBuilderUtils with StrictLogging {
-  def appName: String
-  def playAppConfiguration: Configuration
+abstract class CommonConfig(val appName: String, playAppConfiguration: Configuration, mode: Mode) extends AwsClientBuilderUtils with StrictLogging {
+  val isUnitTest: Boolean = mode == Mode.Test
 
   def loadConfiguration(file: File): Configuration = {
-    if (file.exists) {
+    if (isUnitTest) {
+      logger.info(s"Skipping config file $file as running a unit test")
+      Configuration.empty
+    } else if (file.exists) {
       logger.info(s"Loading config from $file")
       Configuration(ConfigFactory.parseFile(file))
     } else {

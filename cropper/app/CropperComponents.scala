@@ -7,7 +7,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 
 class CropperComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new CropperConfig(configuration)
+  final override lazy val config = new CropperConfig(configuration, context.environment.mode)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 

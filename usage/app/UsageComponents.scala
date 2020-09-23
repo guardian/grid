@@ -9,7 +9,7 @@ import scala.concurrent.Future
 
 class UsageComponents(context: Context) extends GridComponents(context) {
 
-  final override lazy val config = new UsageConfig(configuration)
+  final override lazy val config = new UsageConfig(configuration, context.environment.mode)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
