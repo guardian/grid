@@ -329,8 +329,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   def replaceImageLeases(id: String, leases: Seq[MediaLease])(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceLeasesScript = loadPainless(
       """
-        | ctx._source.leases.lastModified = params.lastModified;
-        | ctx._source.leases.leases = params.leases;
+        | ctx._source.leases = ["leases": params.leases, "lastModified": params.lastModified];
         | """.stripMargin
     )
 

@@ -5,7 +5,7 @@ import java.util.UUID
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.MediaLease
+import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http._
@@ -373,6 +373,32 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           lease = Some(lease),
           leasesLastModified = Some(timeBeforeEdit)
         )
+        Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+
+        val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
+        val anotherUpdatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("Another updated lease"), mediaId = UUID.randomUUID().toString)
+        val updatedLeases = Seq(updatedLease, anotherUpdatedLease)
+        updatedLeases.size shouldBe 2
+
+        Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases)), fiveSeconds)
+
+        val newLeases = reloadedImage(id).get.leases
+        newLeases.leases.size shouldBe 2
+        newLeases.leases.head.notes shouldBe Some("An updated lease")
+        newLeases.lastModified.get.isAfter(timeBeforeEdit) shouldBe true
+      }
+
+      "can replace leases when they are empty" in {
+        val lease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val id = UUID.randomUUID().toString
+        val timeBeforeEdit = DateTime.now
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(DateTime.now()),
+          lease = None,
+          leasesLastModified = Some(timeBeforeEdit)
+        ).copy(leases = LeasesByMedia.empty)
         Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
 
         val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
