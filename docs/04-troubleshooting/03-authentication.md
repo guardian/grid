@@ -10,5 +10,5 @@ We'll need to configure Grid to allow requests from the outside by setting `secu
 Once configured, Grid will trust requests which include the [`Origin` header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin)
 set to one of the domains specified, if they also include a valid cookie, of course!
 
-Note: the [generate-dot-properties](../../dev/script/generate-dot-properties) script can be used to create the config files in `/etc/gu`.
-Refer to [it's configuration](../../dev/script/generate-dot-properties/config.json5) to set `security.cors.allowedOrigins`.
+Note: the [generate-config](../../dev/script/generate-config) script can be used to create the config files in `~/.grid/`.
+Refer to [it's configuration](../../dev/script/generate-config/config.json5) to set `security.cors.allowedOrigins`.

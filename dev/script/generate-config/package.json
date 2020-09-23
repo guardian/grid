@@ -1,11 +1,11 @@
 {
-  "name": "generate-dot-properties",
+  "name": "generate-config",
   "version": "1.0.0",
   "description": "",
-  "main": "generate-dot-properties.js",
+  "main": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "generate-properties": "./generate-dot-properties.js"
+    "generate-config": "./generate-config.js"
   },
   "author": "",
   "license": "ISC",
