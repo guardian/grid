@@ -202,12 +202,14 @@ createLocalAuthStack() {
 }
 
 generateDotProperties() {
+  CONF_HOME="${HOME}/.grid"
+  mkdir -p ${CONF_HOME}
   echo "generating configuration files"
   pushd "$ROOT_DIR/dev/script/generate-dot-properties"
   npm install
   npm run generate-properties
   popd
-  echo "  configuration files created in /etc/gu"
+  echo "  configuration files created in ${CONF_HOME}"
 }
 
 uploadApiKey() {
