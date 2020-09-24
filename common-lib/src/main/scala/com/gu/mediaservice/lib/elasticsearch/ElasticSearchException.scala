@@ -36,7 +36,7 @@ object ElasticSearchException {
         new Exception(s"query failed because: $r type: $t root cause ${s.mkString(", ")}, caused by $c") with ElasticSearchError {
           override def error: ElasticError = e
 
-          override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, "rootCause" -> s.mkString(", "))
+          override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, "rootCause" -> s.mkString(", "), "causedBy" -> c.toString())
         }
       case _ => new Exception(s"query failed because: unknown error") with ElasticSearchError {
         override def error: ElasticError = e
