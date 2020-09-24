@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataStore
+import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging._
@@ -144,6 +144,7 @@ class Uploader(val store: ImageLoaderStore,
   }
 
 class ImageUploadOps(metadataStore: MetadataStore,
+                     usageRightsStore: UsageRightsStore,
                      loaderStore: ImageLoaderStore,
                      config: ImageLoaderConfig,
                      imageOps: ImageOperations,
@@ -361,8 +362,10 @@ object Uploader {
             else
               None
 
+            usageRightsConfig = usageRightsStore.get
+
             baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
-            processedImage = new SupplierProcessors(metaDataConfig).process(baseImage)
+            processedImage = new SupplierProcessors(metaDataConfig).process(baseImage, usageRightsConfig)
 
             // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
             finalImage = processedImage.copy(

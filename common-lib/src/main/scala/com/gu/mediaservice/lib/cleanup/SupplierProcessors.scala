@@ -1,10 +1,23 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.config.{MetadataConfig, SupplierMatch, UsageRightsConfig}
 import com.gu.mediaservice.model._
 
 trait ImageProcessor {
-  def apply(image: Image): Image
+  def apply(image: Image, supplierCreditMatches: List[SupplierMatch]): Image
+
+  def getMatcher(parserName: String, matches: List[SupplierMatch]): Option[SupplierMatch] =
+    matches.find(m => m.name == parserName)
+
+  def matchesCreditOrSource(image: Image, parserName: String, supplierMatches: List[SupplierMatch])=
+    getMatcher(parserName, supplierMatches) match {
+      case Some(m) => (image.metadata.credit, image.metadata.source) match {
+        case (Some(credit), _) if m.creditMatches.map(_.toLowerCase).exists(credit.toLowerCase.matches) => true
+        case (_, Some(source)) if m.sourceMatches.map(_.toLowerCase).exists(source.toLowerCase.matches) => true
+        case _ => false
+      }
+      case _ => false
+    }
 }
 
 class SupplierProcessors(metadataConfig: MetadataConfig) {
@@ -25,11 +38,13 @@ class SupplierProcessors(metadataConfig: MetadataConfig) {
     new PhotographerParser(metadataConfig)
   )
 
-  def process(image: Image): Image =
-    all.foldLeft(image) { case (im, processor) => processor(im) }
+  def process(image: Image, c: UsageRightsConfig): Image =
+    all.foldLeft(image) { case (im, processor) => processor(im, c.supplierCreditMatches) }
 }
 
 class PhotographerParser(metadataConfig: MetadataConfig) extends ImageProcessor {
+
+  def apply(image: Image, matches: List[SupplierMatch]): Image = apply(image)
   def apply(image: Image): Image = {
     image.metadata.byline.flatMap { byline =>
       metadataConfig.getPhotographer(byline).map {
@@ -48,43 +63,54 @@ class PhotographerParser(metadataConfig: MetadataConfig) extends ImageProcessor 
 }
 
 object AapParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("AAPIMAGE") | Some("AAP IMAGE") | Some("AAP") => image.copy(
-      usageRights = Agencies.get("aap"),
-      metadata    = image.metadata.copy(credit = Some("AAP"))
-    )
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "AapParser", matches))
+      image.copy(
+        usageRights = Agencies.get("aap"),
+        metadata    = image.metadata.copy(credit = Some("AAP"))
+      )
+    else image
 }
 
 object ActionImagesParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Action Images") | Some("Action Images/Reuters") => image.copy(
-      usageRights = Agency("Action Images")
-    )
-    case _ => image
-  }
+
+//  def apply(image: Image): Image = image.metadata.credit match {
+//    case Some("Action Images") | Some("Action Images/Reuters") => image.copy(
+//      usageRights = Agency("Action Images")
+//    )
+//    case _ => image
+//  }
+
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "ActionImagesParser", matches))
+      image.copy(
+        usageRights = Agency("Action Images")
+      )
+    else image
+
 }
 
 object AlamyParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
-      usageRights = Agencies.get("alamy")
-    )
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "AlamyParser", matches))
+      image.copy(
+        usageRights = Agencies.get("alamy")
+      )
+    else image
 }
 
 object AllStarParser extends ImageProcessor {
   val SlashAllstar = """(.+)/Allstar""".r
   val AllstarSlash = """Allstar/(.+)""".r
 
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Allstar Picture Library") => withAllstarRights(image)(None)
-    case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
-    case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "AllStarParser", matches))
+      withAllstarRights(image)(None)
+    else image.metadata.credit match {
+      case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
+      case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
+      case _ => image
+    }
 
   def withAllstarRights(image: Image) =
     (asAllstarAgency(image, _: Option[String])) andThen
@@ -125,35 +151,45 @@ object ApParser extends ImageProcessor {
   val InvisionFor = "^invision for (.+)".r
   val PersonInvisionAp = "(.+)\\s*/invision/ap$".r
 
-  def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
-    case Some("ap") | Some("associated press") => image.copy(
-      usageRights = Agency("AP"),
-      metadata    = image.metadata.copy(credit = Some("AP"))
-    )
-    case Some("invision") | Some("invision/ap") |
-         Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
-      usageRights = Agency("AP", Some("Invision"))
-    )
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "ApParser", matches))
+      image.copy(
+        usageRights = Agency("AP"),
+        metadata    = image.metadata.copy(credit = Some("AP"))
+      )
+    else image.metadata.credit.map(_.toLowerCase) match {
+      case Some("invision") | Some("invision/ap") |
+           Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
+        usageRights = Agency("AP", Some("Invision"))
+      )
+      case _ => image
+    }
 }
 
+object BarcroftParser extends ImageProcessor {
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "BarcroftParser", matches))
+      image.copy(usageRights = Agency("Barcroft Media"))
+    else image
+}
+
+
 object CorbisParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.source match {
-    case Some("Corbis") => image.copy(
-      usageRights = Agency("Corbis")
-    )
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "CorbisParser", matches))
+      image.copy(
+        usageRights = Agency("Corbis")
+      )
+    else image
 }
 
 object EpaParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some(x) if x.matches(".*\\bEPA\\b.*") => image.copy(
-      usageRights = Agency("EPA")
-    )
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "EpaParser", matches))
+      image.copy(
+        usageRights = Agency("EPA")
+      )
+    else image
 }
 
 trait GettyProcessor {
@@ -163,7 +199,7 @@ trait GettyProcessor {
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  def apply(image: Image): Image = {
+  def apply(image: Image, matches: List[SupplierMatch]): Image = {
     val excludedCredit = List(
       "Replay Images", "newspix international", "i-images", "photoshot", "Ian Jones", "Photo News/Panoramic",
       "Panoramic/Avalon", "Panoramic", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA", "EMPICS", "Empics News",
@@ -202,18 +238,15 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
 object GettyCreditParser extends ImageProcessor with GettyProcessor {
   val gettyCredits = List("AFP", "FilmMagic", "WireImage", "Hulton")
 
-  val IncludesGetty = ".*Getty Images.*".r
-  // Take a leap of faith as the credit may be truncated if too long...
-  val ViaGetty = ".+ via Getty(?: .*)?".r
-  val SlashGetty = ".+/Getty(?: .*)?".r
-
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
-       usageRights = gettyAgencyWithCollection(image.metadata.source)
-    )
-    case Some(credit) => knownGettyCredits(image, credit)
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "GettyCreditParser", matches))
+      image.copy(
+        usageRights = gettyAgencyWithCollection(image.metadata.source)
+      )
+    else image.metadata.credit match {
+      case Some(credit) => knownGettyCredits(image, credit)
+      case _ => image
+    }
 
   def knownGettyCredits(image: Image, credit: String): Image =
     gettyCredits.find(_.toLowerCase == credit.toLowerCase) match {
@@ -225,68 +258,72 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
 }
 
 object PaParser extends ImageProcessor {
-  val paCredits = List(
-    "PA",
-    "PA WIRE",
-    "PA Wire/PA Images",
-    "PA Wire/PA Photos",
-    "PA Wire/Press Association Images",
-    "PA Archive/PA Photos",
-    "PA Archive/PA Images",
-    "PA Archive/Press Association Ima",
-    "PA Archive/Press Association Images",
-    "Press Association Images"
-  ).map(_.toLowerCase)
-
-  def apply(image: Image): Image = {
-    val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
-      paCredits.contains(creditOrSource.toLowerCase)
-    }
-    if (isPa) {
-      image.copy(usageRights = Agency("PA"))
-    } else image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "PaParser", matches))
+      image.copy(
+        metadata = image.metadata.copy(credit = Some("PA")),
+        usageRights = Agency("PA")
+      )
+    else image
 }
 
 object ReutersParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    // Reuters and other misspellings
-    // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
-    case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
-      usageRights = Agency("Reuters"),
-      metadata = image.metadata.copy(credit = Some("Reuters"))
-    )
-    // Others via Reuters
-    case Some("USA TODAY Sports") => image.copy(
-      metadata = image.metadata.copy(credit = Some("USA Today Sports")),
-      usageRights = Agency("Reuters")
-    )
-    case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
-      usageRights = Agency("Reuters")
-    )
-    case _ => image
-  }
+//<<<<<<< HEAD
+//  def apply(image: Image): Image = image.metadata.credit match {
+//    // Reuters and other misspellings
+//    // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
+//    case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
+//      usageRights = Agency("Reuters"),
+//      metadata = image.metadata.copy(credit = Some("Reuters"))
+//    )
+//    // Others via Reuters
+//    case Some("USA TODAY Sports") => image.copy(
+//      metadata = image.metadata.copy(credit = Some("USA Today Sports")),
+//      usageRights = Agency("Reuters")
+//    )
+//    case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
+//      usageRights = Agency("Reuters")
+//    )
+//    case _ => image
+//  }
+//=======
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+  // Reuters and other misspellings
+  // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
+    if (matchesCreditOrSource(image, "ReutersParser", matches))
+      image.copy(
+        usageRights = Agency("Reuters"),
+        metadata = image.metadata.copy(credit = Some("Reuters"))
+      )
+    else image.metadata.credit match {
+      // Others via Reuters
+      case Some("USA TODAY Sports") => image.copy(
+        metadata = image.metadata.copy(credit = Some("USA Today Sports")),
+        usageRights = Agency("Reuters")
+      )
+      case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
+        usageRights = Agency("Reuters")
+      )
+      case _ => image
+    }
 }
 
 object RexParser extends ImageProcessor {
   val rexAgency = Agencies.get("rex")
   val SlashRex = ".+/ Rex Features".r
 
-  def apply(image: Image): Image = (image.metadata.source, image.metadata.credit) match {
-    // TODO: cleanup byline/credit
-    case (Some("Rex Features"), _)      => image.copy(usageRights = rexAgency)
-    case (_, Some(SlashRex()))          => image.copy(usageRights = rexAgency)
-    case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = rexAgency)
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "RexParser", matches))
+      image.copy(usageRights = rexAgency)
+    else image
 }
 
 object RonaldGrantParser extends ImageProcessor {
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("www.ronaldgrantarchive.com") | Some("Ronald Grant Archive") => image.copy(
-      usageRights = Agency("Ronald Grant Archive"),
-      metadata    = image.metadata.copy(credit = Some("Ronald Grant"))
-    )
-    case _ => image
-  }
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "RonaldGrantParser", matches))
+      image.copy(
+        usageRights = Agency("Ronald Grant Archive"),
+        metadata = image.metadata.copy(credit = Some("Ronald Grant"))
+      )
+    else image
 }

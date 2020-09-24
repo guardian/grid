@@ -419,6 +419,28 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
 
   def applyProcessors(image: Image): Image = {
+
+    val matches: List[SupplierMatch] =
+      List(
+        SupplierMatch("GettyXmpParser", List(), List()),
+        SupplierMatch("GettyCreditParser", List(".*Getty Images.*", ".+ via Getty(?: .*)?", ".+/Getty(?: .*)?"), List()),
+        SupplierMatch("AapParser", List("AAPIMAGE", "AAP IMAGE", "AAP"), List()),
+        SupplierMatch("ActionImagesParser", List("Action Images", "Action Images via Reuters"), List()),
+        SupplierMatch("AlamyParser", List("Alamy", "Alamy Stock Photo"), List()),
+        SupplierMatch("AllStarParser", List("Allstar Picture Library"), List()),
+        SupplierMatch("ApParser", List("ap", "associated press"), List()),
+        SupplierMatch("BarcroftParser", List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars"), List("barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars")),
+        SupplierMatch("BloombergParser", List("Bloomberg"), List()),
+        SupplierMatch("CorbisParser", List(), List("Corbis")),
+        SupplierMatch("EpaParser", List(".*\\bEPA\\b.*"), List()),
+        SupplierMatch("PaParser", List("PA", "PA WIRE", "PA Wire/PA Images", "PA Wire/PA Photos", "PA Wire/Press Association Images", "PA Archive/PA Photos", "PA Archive/PA Images", "PA Archive/Press Association Ima", "PA Archive/Press Association Images", "Press Association Images"), List()),
+        SupplierMatch("ReutersParser", List("REUTERS", "Reuters", "RETUERS", "REUTERS/"), List()),
+        SupplierMatch("RexParser", List(".+/ Rex Features"), List("Rex Features", "REX/Shutterstock")),
+        SupplierMatch("RonaldGrantParser", List("www.ronaldgrantarchive.com", "Ronald Grant Archive"), List())
+      )
+    val usageRightsConfig =
+      UsageRightsConfig(matches, List(), List(), Map())
+
     val metadataConfig =
       MetadataConfig(List(), List(),
         List(Company("The Guardian", List("Graham Turner"))),
@@ -426,6 +448,6 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
         List(Company("The Guardian", List("Linda Nylind", "Murdo MacLeod"))),
         List()
       )
-    new SupplierProcessors(metadataConfig).process(image)
+    new SupplierProcessors(metadataConfig).process(image, usageRightsConfig)
   }
 }
