@@ -91,10 +91,12 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
     metricDatumOriginal.getStatisticValues match {
       case stats if stats == null =>
         new StatisticSet()
+
           .withMinimum(Math.min(metricDatumOriginal.getValue, metricDatumNew.getValue))
           .withMaximum(Math.max(metricDatumOriginal.getValue, metricDatumNew.getValue))
           .withSum(metricDatumOriginal.getValue + metricDatumNew.getValue)
           .withSampleCount(if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString)) 1d else 2d)
+
       case stats =>
         new StatisticSet()
           .withMinimum(Math.min(stats.getMinimum, metricDatumNew.getValue))

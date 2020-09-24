@@ -49,6 +49,11 @@ trait CommonConfig extends AwsClientBuilderUtils {
 
   lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase == "true"
 
+  lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase match {
+    case "true" => true
+    case _ => false
+  }
+
   // Note: had to make these lazy to avoid init order problems ;_;
   lazy val domainRoot: String = properties("domain.root")
   lazy val rootAppName: String = properties.getOrElse("app.name.root", "media")
