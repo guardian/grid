@@ -418,7 +418,22 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
 
-  def applyProcessors(image: Image): Image = {
+  describe("AFP") {
+    it("should match AFP credit") {
+      val image = createImageFromMetadata("credit" -> "AFP/Getty Images")
+      val processedImage = applyProcessors(image, List(SupplierMatch("AfpParser", List("AFP/.*"), List("AFP"))))
+      processedImage.usageRights should be(Agency("AFP"))
+    }
+
+    it("should match AFP source") {
+      val image = createImageFromMetadata("source" -> "AFP")
+      val processedImage = applyProcessors(image, List(SupplierMatch("AfpParser", List("AFP/.*"), List("AFP"))))
+      processedImage.usageRights should be(Agency("AFP"))
+    }
+  }
+
+
+  def applyProcessors(image: Image, extraSupplierMatches: List[SupplierMatch] = List()): Image = {
 
     val matches: List[SupplierMatch] =
       List(
@@ -436,10 +451,31 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
         SupplierMatch("PaParser", List("PA", "PA WIRE", "PA Wire/PA Images", "PA Wire/PA Photos", "PA Wire/Press Association Images", "PA Archive/PA Photos", "PA Archive/PA Images", "PA Archive/Press Association Ima", "PA Archive/Press Association Images", "Press Association Images"), List()),
         SupplierMatch("ReutersParser", List("REUTERS", "Reuters", "RETUERS", "REUTERS/"), List()),
         SupplierMatch("RexParser", List(".+/ Rex Features"), List("Rex Features", "REX/Shutterstock")),
-        SupplierMatch("RonaldGrantParser", List("www.ronaldgrantarchive.com", "Ronald Grant Archive"), List())
-      )
+        SupplierMatch("RonaldGrantParser", List("www.ronaldgrantarchive.com", "Ronald Grant Archive"), List()),
+      ) ++ extraSupplierMatches
+
+    val supplierParsers = List(
+      "GettyXmp",
+      "GettyCredit",
+      "Aap",
+      "ActionImages",
+      "Alamy",
+      "AllStar",
+      "Ap",
+      "Barcroft",
+      "Bloomberg",
+      "Corbis",
+      "Epa",
+      "Pa",
+      "Reuters",
+      "Rex",
+      "RonaldGrant",
+      "Afp",
+      "Photographer"
+    )
+
     val usageRightsConfig =
-      UsageRightsConfig(matches, List(), List(), Map())
+      UsageRightsConfig(matches, supplierParsers, List(), List(), Map())
 
     val metadataConfig =
       MetadataConfig(List(), List(),

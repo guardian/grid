@@ -5,6 +5,7 @@ import play.api.libs.json._
 
 case class UsageRightsConfig(
                               supplierCreditMatches: List[SupplierMatch],
+                              supplierParsers: List[String],
                               usageRights: List[String],
                               freeSuppliers: List[String],
                               suppliersCollectionExcl: Map[String, List[String]]) {

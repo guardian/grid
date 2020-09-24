@@ -21,25 +21,34 @@ trait ImageProcessor {
 }
 
 class SupplierProcessors(metadataConfig: MetadataConfig) {
-  val all: List[ImageProcessor] = List(
-    GettyXmpParser,
-    GettyCreditParser,
-    AapParser,
-    ActionImagesParser,
-    AlamyParser,
-    AllStarParser,
-    ApParser,
-    CorbisParser,
-    EpaParser,
-    PaParser,
-    ReutersParser,
-    RexParser,
-    RonaldGrantParser,
-    new PhotographerParser(metadataConfig)
+
+  val supplierMap = Map(
+    "GettyXmp"    -> GettyXmpParser,
+    "GettyCredit" -> GettyCreditParser,
+    "Aap"         -> AapParser,
+    "ActionImages"-> ActionImagesParser,
+    "Alamy"       -> AlamyParser,
+    "AllStar"     -> AllStarParser,
+    "Ap"          -> ApParser,
+    "Barcroft"    -> BarcroftParser,
+    "Corbis"      -> CorbisParser,
+    "Epa"         -> EpaParser,
+    "Pa"          -> PaParser,
+    "Reuters"     -> ReutersParser,
+    "Rex"         -> RexParser,
+    "RonaldGrant" -> RonaldGrantParser,
+    "Afp"         -> AfpParser,
+    "Photographer"-> new PhotographerParser(metadataConfig)
+
   )
 
+  def getAll(supplierList: List[String]) =
+    supplierList
+      .map(supplierMap.get)
+      .collect { case Some(processor) => processor }
+
   def process(image: Image, c: UsageRightsConfig): Image =
-    all.foldLeft(image) { case (im, processor) => processor(im, c.supplierCreditMatches) }
+    getAll(c.supplierParsers).foldLeft(image) { case (im, processor) => processor(im, c.supplierCreditMatches) }
 }
 
 class PhotographerParser(metadataConfig: MetadataConfig) extends ImageProcessor {
@@ -324,6 +333,15 @@ object RonaldGrantParser extends ImageProcessor {
       image.copy(
         usageRights = Agency("Ronald Grant Archive"),
         metadata = image.metadata.copy(credit = Some("Ronald Grant"))
+      )
+    else image
+}
+
+object AfpParser extends ImageProcessor {
+  def apply(image: Image, matches: List[SupplierMatch]): Image =
+    if (matchesCreditOrSource(image, "AfpParser", matches))
+      image.copy(
+        usageRights = Agency("AFP"),
       )
     else image
 }
