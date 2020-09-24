@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
@@ -37,6 +38,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
   val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,
     cluster = "media-service-test", shards = 1, replicas = 0)
+
+  private val usageRightsConfig = UsageRightsConfig(List(), List(), Map("" -> List()))
 
   private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
   val client = ES.client

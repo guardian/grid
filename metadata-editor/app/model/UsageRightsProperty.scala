@@ -23,13 +23,11 @@ object UsageRightsProperty {
   type OptionsMap = Map[String, List[String]]
   type Options = List[String]
 
-  import UsageRightsConfig.freeSuppliers
-
   implicit val jsonWrites: Writes[UsageRightsProperty] = Json.writes[UsageRightsProperty]
 
   def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
 
-  val props: List[(UsageRightsSpec, MetadataConfig) => List[UsageRightsProperty]] =
+  val props: List[(UsageRightsSpec, MetadataConfig, UsageRightsConfig) => List[UsageRightsProperty]] =
     List(categoryUsageRightsProperties, restrictionProperties)
 
   def companyListToMap(companies: List[Company]): OptionsMap = Map(companies
@@ -37,7 +35,7 @@ object UsageRightsProperty {
 
   def optionsFromCompanyList(companies: List[Company]): Options = sortList(companyListToMap(companies).keys.toList)
 
-  def getPropertiesForSpec(u: UsageRightsSpec, m: MetadataConfig): List[UsageRightsProperty] = props.flatMap(f => f(u, m))
+  def getPropertiesForSpec(u: UsageRightsSpec, m: MetadataConfig, c: UsageRightsConfig): List[UsageRightsProperty] = props.flatMap(f => f(u, m, c))
 
   private def requiredStringField(
     name: String,
@@ -63,14 +61,14 @@ object UsageRightsProperty {
     requiredStringField("creator", "Illustrator",
       optionsMap = Some(companyListToMap(illustrators)), optionsMapKey = Some(key))
 
-  private def restrictionProperties(u: UsageRightsSpec, m: MetadataConfig): List[UsageRightsProperty] = u match {
+  private def restrictionProperties(u: UsageRightsSpec, m: MetadataConfig, c: UsageRightsConfig): List[UsageRightsProperty] = u match {
     case NoRights => List()
     case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
-  def categoryUsageRightsProperties(u: UsageRightsSpec, m: MetadataConfig) = u match {
+  def categoryUsageRightsProperties(u: UsageRightsSpec, m: MetadataConfig, c: UsageRightsConfig) = u match {
     case Agency => List(
-      requiredStringField("supplier", "Supplier", Some(sortList(freeSuppliers))),
+      requiredStringField("supplier", "Supplier", Some(sortList(c.freeSuppliers))),
       UsageRightsProperty(
         "suppliersCollection", "Collection", "string", required = false,
         examples = Some("AFP, FilmMagic, WireImage"))

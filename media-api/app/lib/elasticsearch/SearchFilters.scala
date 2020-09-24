@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
-import com.gu.mediaservice.lib.config.UsageRightsConfig
+//import com.gu.mediaservice.lib.config.UsageRightsConfig
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
@@ -10,10 +10,15 @@ import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
 class SearchFilters(config: MediaApiConfig)  extends ImageFields {
+//  class SearchFilters(config: MediaApiConfig, usageRightsConfig: () => UsageRightsConfig)  extends ImageFields {
+
 
   val syndicationFilter = new SyndicationFilter(config)
 
-  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
+//  val usageRightsConf = usageRightsConfig()
+  val usageRights: List[String] = ??? //usageRightsConf.usageRights
+  val freeSuppliers: List[String] =  ??? //usageRightsConf.freeSuppliers
+  val suppliersCollectionExcl: Map[String, List[String]] = ??? //usageRightsConf.suppliersCollectionExcl
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!
@@ -48,7 +53,7 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   val maybeFreeFilter: Option[Query] = filterOrFilter(freeFilter, Some(filters.not(hasRightsCategoryFilter)))
 
   lazy val freeToUseCategories: List[String] =
-    UsageRights.all.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
+    UsageRights.getAll(usageRights).filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
 
   val persistedCategories = NonEmptyList(
     StaffPhotographer.category,

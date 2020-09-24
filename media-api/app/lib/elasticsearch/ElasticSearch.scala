@@ -5,7 +5,9 @@ import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Mappings}
-import com.gu.mediaservice.lib.logging.MarkerMap
+import com.gu.mediaservice.lib.logging.MarkerMap\
+import com.gu.mediaservice.lib.config.UsageRightsConfig
+
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
 import com.sksamuel.elastic4s.ElasticDsl
@@ -29,6 +31,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency]) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax {
 
+
   lazy val imagesAlias = elasticConfig.alias
   lazy val url = elasticConfig.url
   lazy val cluster = elasticConfig.cluster
@@ -47,6 +50,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
    **/
 
   val searchFilters = new SearchFilters(config)
+
   val syndicationFilter = new SyndicationFilter(config)
 
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)

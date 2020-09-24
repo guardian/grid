@@ -18,16 +18,8 @@ import play.utils.UriEncoding
 
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
-  //  implicit val dateTimeFormat = DateFormat
-  implicit val usageQuotas = usageQuota
-
-  object Costing extends CostCalculator {
-    val quotas = usageQuotas
-  }
-
-  implicit val costing = Costing
-
+class ImageResponse(config: MediaApiConfig, s3Client: S3Client, implicit val costCalculator: CostCalculator) extends EditsResponse {
+//  implicit val dateTimeFormat = DateFormat
   val metadataBaseUri: String = config.services.metadataBaseUri
 
   type FileMetadataEntity = EmbeddedEntity[FileMetadata]
@@ -179,7 +171,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       (source \ "userMetadata" \ "usageRights").asOpt[JsObject]
     ).flatten.foldLeft(Json.obj())(_ ++ _).as[UsageRights]
 
-    val cost = Costing.getCost(usageRights)
+    val cost = costCalculator.getCost(usageRights)
 
     __.json.update(__.read[JsObject].map(_ ++ Json.obj("cost" -> cost.toString)))
   }
