@@ -56,9 +56,6 @@ function writeToDisk({path, content}) {
     });
   }, {});
 
-  console.error("Core stack props")
-  console.error(JSON.stringify(coreStackProps))
-
   const coreConfig = {...defaultConfig, ...dotenvConfig, coreStackProps}
   const coreServiceConfigs = ServiceConfig.getCoreConfigs(coreConfig);
 
@@ -70,7 +67,7 @@ function writeToDisk({path, content}) {
     ));
 
   const authStackExists = await doesStackExist(dotenvConfig.AUTH_STACK_NAME)
-  const localAuthFilePath = `${homeDir}/.grid/grid-prod.properties`;
+  const localAuthFilePath = `${homeDir}/.grid/grid-prod.conf`;
 
   if (authStackExists) {
     const authStackCfnData = await getCloudformationStackResources(dotenvConfig.AUTH_STACK_NAME);

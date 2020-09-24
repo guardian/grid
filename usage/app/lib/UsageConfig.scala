@@ -14,11 +14,11 @@ import scala.util.Try
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
 class UsageConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("usage", playAppConfiguration, mode) {
-  lazy val rootUri: String = services.metadataBaseUri
-  lazy val kahunaUri: String = services.kahunaBaseUri
-  lazy val usageUri: String = services.usageBaseUri
-  lazy val apiUri: String = services.apiBaseUri
-  lazy val loginUriTemplate: String = services.loginUriTemplate
+  val rootUri: String = services.metadataBaseUri
+  val kahunaUri: String = services.kahunaBaseUri
+  val usageUri: String = services.usageBaseUri
+  val apiUri: String = services.apiBaseUri
+  val loginUriTemplate: String = services.loginUriTemplate
 
   val defaultPageSize = 100
   val defaultMaxRetries = 6
@@ -50,12 +50,12 @@ class UsageConfig(playAppConfiguration: Configuration, mode: Mode) extends Commo
   val crierLiveArn = Try { string("crier.live.arn") }
   val crierPreviewArn = Try { string("crier.preview.arn") }
 
-  lazy val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+  val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     liveStream <- crierLiveKinesisStream
     liveArn <- crierLiveArn
   } yield KinesisReaderConfig(liveStream, liveArn, liveAppName)
 
-  lazy val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+  val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     previewStream <- crierPreviewKinesisStream
     previewArn <- crierPreviewArn
   } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)

@@ -10,7 +10,9 @@ class AdminToolsComponents(context: Context) extends GridComponents(context) {
   final override lazy val config = new AdminToolsConfig(
     configuration ++ Configuration.from(Map(
       "domain.root" -> "local.dev-gutools.co.uk",
-      "auth.keystore.bucket" -> "not-used"
+      "auth.keystore.bucket" -> "not-used",
+      "thrall.kinesis.stream.name"-> "not-used",
+      "thrall.kinesis.lowPriorityStream.name"-> "not-used"
     )),
     context.environment.mode
   )

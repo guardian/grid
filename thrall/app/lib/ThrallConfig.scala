@@ -28,25 +28,23 @@ object KinesisReceiverConfig {
 }
 
 class ThrallConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("thrall", playAppConfiguration, mode) {
-  lazy val queueUrl: String = string("sqs.queue.url")
+  val imageBucket: String = string("s3.image.bucket")
 
-  lazy val imageBucket: String = string("s3.image.bucket")
+  val writeAlias: String = string("es.index.aliases.write")
 
-  lazy val writeAlias: String = stringDefault("es.index.aliases.write", playAppConfiguration.get[String]("es.index.aliases.write"))
+  val thumbnailBucket: String = string("s3.thumb.bucket")
 
-  lazy val thumbnailBucket: String = string("s3.thumb.bucket")
+  val elasticsearch6Url: String =  string("es6.url")
+  val elasticsearch6Cluster: String = string("es6.cluster")
+  val elasticsearch6Shards: Int = string("es6.shards").toInt
+  val elasticsearch6Replicas: Int = string("es6.replicas").toInt
 
-  lazy val elasticsearch6Url: String =  string("es6.url")
-  lazy val elasticsearch6Cluster: String = string("es6.cluster")
-  lazy val elasticsearch6Shards: Int = string("es6.shards").toInt
-  lazy val elasticsearch6Replicas: Int = string("es6.replicas").toInt
+  val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
 
-  lazy val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
+  val rewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
+  val lowPriorityRewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
 
-  lazy val rewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
-  lazy val lowPriorityRewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
-
-  lazy val isVersionedS3: Boolean = boolean("s3.image.versioned")
+  val isVersionedS3: Boolean = boolean("s3.image.versioned")
 
   def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
   def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
