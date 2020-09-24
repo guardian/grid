@@ -53,7 +53,7 @@ object UsageRights {
     usageRights
       .map(usageRightsMap.get)
       .collect { case Some(spec) => spec }
-  
+
 
   val photographer = List(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
   val illustrator = List(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
@@ -206,12 +206,12 @@ object Agencies {
 
 final case class Agency(supplier: String, suppliersCollection: Option[String] = None,
                         restrictions: Option[String] = None) extends UsageRights  {
-  val defaultCost = Agency.defaultCost
+  val defaultCost = None
   def id: Option[String] = Agencies.lookupId(supplier)
 }
 object Agency extends UsageRightsSpec {
   val category = "agency"
-  val defaultCost = None
+  val defaultCost = Some(Pay)
   val name = "Agency - subscription"
   val description =
     "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid to access and use pictures."
@@ -354,7 +354,7 @@ object Obituary extends UsageRightsSpec {
 
 
 final case class StaffPhotographer(photographer: String, publication: String,
-                             restrictions: Option[String] = None) extends Photographer {
+                                   restrictions: Option[String] = None) extends Photographer {
   val defaultCost = StaffPhotographer.defaultCost
 }
 object StaffPhotographer extends UsageRightsSpec {
@@ -370,7 +370,7 @@ object StaffPhotographer extends UsageRightsSpec {
 
 
 final case class ContractPhotographer(photographer: String, publication: Option[String] = None,
-                                restrictions: Option[String] = None) extends Photographer {
+                                      restrictions: Option[String] = None) extends Photographer {
   val defaultCost = ContractPhotographer.defaultCost
 }
 object ContractPhotographer extends UsageRightsSpec {
@@ -386,7 +386,7 @@ object ContractPhotographer extends UsageRightsSpec {
 
 
 final case class CommissionedPhotographer(photographer: String, publication: Option[String] = None,
-                                    restrictions: Option[String] = None) extends Photographer {
+                                          restrictions: Option[String] = None) extends Photographer {
   val defaultCost = CommissionedPhotographer.defaultCost
 }
 object CommissionedPhotographer extends UsageRightsSpec {
@@ -479,7 +479,7 @@ object CommissionedIllustrator extends UsageRightsSpec {
 
 
 final case class CreativeCommons(licence: String, source: String, creator: String, contentLink: String,
-                           restrictions: Option[String] = None) extends UsageRights {
+                                 restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = CreativeCommons.defaultCost
 }
 object CreativeCommons extends UsageRightsSpec {

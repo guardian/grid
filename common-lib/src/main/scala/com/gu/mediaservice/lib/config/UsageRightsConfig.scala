@@ -1,11 +1,13 @@
 package com.gu.mediaservice.lib.config
 
+import com.gu.mediaservice.model.Cost
 import play.api.libs.json._
 
 
 case class UsageRightsConfig(
                               supplierCreditMatches: List[SupplierMatch],
                               supplierParsers: List[String],
+                              supplierCostings: Map[String, Cost],
                               usageRights: List[String],
                               freeSuppliers: List[String],
                               suppliersCollectionExcl: Map[String, List[String]]) {
