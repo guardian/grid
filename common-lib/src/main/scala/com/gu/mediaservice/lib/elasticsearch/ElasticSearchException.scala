@@ -26,8 +26,14 @@ object ElasticSearchException {
 
           override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, "causedBy" -> c.toString())
         }
-      case ElasticError(t, r, _, _, _, s, _, _, _, _) =>
+      case ElasticError(t, r, _, _, _, s, None, _, _, _) =>
         new Exception(s"query failed because: $r type: $t root cause ${s.mkString(", ")}") with ElasticSearchError {
+          override def error: ElasticError = e
+
+          override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, "rootCause" -> s.mkString(", "))
+        }
+      case ElasticError(t, r, _, _, _, s, Some(c), _, _, _) =>
+        new Exception(s"query failed because: $r type: $t root cause ${s.mkString(", ")}, caused by $c") with ElasticSearchError {
           override def error: ElasticError = e
 
           override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, "rootCause" -> s.mkString(", "))
