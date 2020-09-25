@@ -8,6 +8,7 @@ trait StageIdentifier {
   final val stage: String =
     loadStageFile("/etc/grid/stage") orElse loadStageFile("/etc/gu/stage") getOrElse "DEV"
 
+  // TODO:SAH - remove these and favour explicit config for anything that is derived from here
   val isProd: Boolean = stage == "PROD"
   val isDev: Boolean = stage == "DEV"
 

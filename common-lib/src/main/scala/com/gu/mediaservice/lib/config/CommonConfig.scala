@@ -12,39 +12,35 @@ import scala.util.Try
 
 
 abstract class CommonConfig(val appName: String, playAppConfiguration: Configuration, mode: Mode) extends AwsClientBuilderUtils with StrictLogging {
-  val isUnitTest: Boolean = mode == Mode.Test
-
-  def loadConfiguration(file: File): Configuration = {
-    if (isUnitTest) {
-      logger.info(s"Skipping config file $file as running a unit test")
-      Configuration.empty
-    } else if (file.exists) {
-      logger.info(s"Loading config from $file")
-      Configuration(ConfigFactory.parseFile(file))
-    } else {
-      logger.info(s"Skipping config file $file as it doesn't exist")
-      Configuration.empty
-    }
-  }
-
-  // list of files to load, later files override earlier files
-  private val configurationFiles = Seq(
-    s"/etc/gu/grid-prod.properties",
-    s"/etc/grid/common.conf",
+  // list of files to load for each mode, later files override earlier files
+  private val developerConfigFiles = Seq(
     s"${System.getProperty("user.home")}/.grid/common.conf",
-    s"/etc/gu/$appName.properties",
-    s"/etc/grid/$appName.conf",
     s"${System.getProperty("user.home")}/.grid/$appName.conf"
   )
+  private val deployedConfigFiles = Seq(
+    s"/etc/gu/grid-prod.properties",
+    s"/etc/grid/common.conf",
+    s"/etc/gu/$appName.properties",
+    s"/etc/grid/$appName.conf"
+  )
 
-  // local config for this app
-  private val localAppConfiguration: Configuration =
-    configurationFiles.foldLeft(Configuration.empty) { case (config, fileName) =>
-      config ++ loadConfiguration(new File(fileName))
+  // build the final config, any file based config overrides the play config
+  val configuration: Configuration = {
+    // get config from any files on the machine
+    val fileConfiguration: Configuration = {
+      if (mode == Mode.Test) {
+        // when in test mode never load any files
+        Configuration.empty
+      } else if (isDev) {
+        loadConfiguration(developerConfigFiles)
+      } else {
+        loadConfiguration(deployedConfigFiles)
+      }
     }
 
-  // the config we'll actually use, the local config overrides the play config
-  val configuration: Configuration = playAppConfiguration ++ localAppConfiguration
+    // merge with incoming config
+    playAppConfiguration ++ fileConfiguration
+  }
 
   final val elasticsearchStack = "media-service"
 
@@ -127,4 +123,19 @@ abstract class CommonConfig(val appName: String, playAppConfiguration: Configura
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
+
+  private def loadConfiguration(file: File): Configuration = {
+    if (file.exists) {
+      logger.info(s"Loading config from $file")
+      Configuration(ConfigFactory.parseFile(file))
+    } else {
+      logger.info(s"Skipping config file $file as it doesn't exist")
+      Configuration.empty
+    }
+  }
+
+  private def loadConfiguration(fileNames: Seq[String]): Configuration =
+    fileNames.foldLeft(Configuration.empty) { case (config, fileName) =>
+      config ++ loadConfiguration(new File(fileName))
+    }
 }
