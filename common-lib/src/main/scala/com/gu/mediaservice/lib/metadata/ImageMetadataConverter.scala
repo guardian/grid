@@ -6,7 +6,7 @@ import org.joda.time.format._
 import scala.util.Try
 import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
 import play.api.Logger
-import play.api.libs.json.{JsArray, JsValue, JsString}
+import play.api.libs.json.{JsArray, JsString}
 
 object ImageMetadataConverter {
 
