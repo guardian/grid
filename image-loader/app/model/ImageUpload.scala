@@ -47,29 +47,35 @@ case object OptimisedPng {
 
 object OptimisedPngOps {
 
-  def build(file: File,
-            uploadRequest: UploadRequest,
-            fileMetadata: FileMetadata,
-            config: ImageUploadOpsCfg,
-            storeOrProject: (UploadRequest, File) => Future[S3Object])
-           (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
+  private def isTransformedFilePath(filePath: String) = filePath.contains("transformed-")
 
-    val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
-      OptimisedPng(Future(None), isPng24 = false, None)
-    } else {
-      val optimisedFile = {
-        val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng-" + uploadRequest.imageId + ".png"
-        Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
-        new File(optimisedFilePath)
+  def build (file: File, uploadRequest: UploadRequest, fileMetadata: FileMetadata, speed: Double = 4, config: ImageUploadOpsCfg,
+             storeOrProject: (UploadRequest, File) => Future[S3Object])
+            (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
+
+
+    if (OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
+
+
+      val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
+        OptimisedPng(Future(None), isPng24 = false, None)
+      } else {
+        val optimisedFile = {
+
+          val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
+          Seq("pngquant", "--quality", "1-85", "--speed", speed.toString, file.getAbsolutePath, "--output", optimisedFilePath).!
+
+          new File(optimisedFilePath)
+        }
+        val pngStoreFuture: Future[Option[S3Object]] = Some(storeOrProject(uploadRequest, optimisedFile))
+          .map(result => result.map(Option(_)))
+          .getOrElse(Future.successful(None))
+        if (isTransformedFilePath(file.getAbsolutePath))
+          file.delete
+        OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
       }
-      val pngStoreFuture: Future[Option[S3Object]] = Some(storeOrProject(uploadRequest, optimisedFile))
-        .map(result => result.map(Option(_)))
-        .getOrElse(Future.successful(None))
-      if (isTransformedFilePath(file.getAbsolutePath))
-        file.delete
-      OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
+      result
     }
-    result
   }
 
   private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg)
@@ -364,7 +370,7 @@ object Uploader {
       toOptimiseFileFuture.flatMap(toOptimiseFile => {
         Logger.info("optimised image created")(uploadRequest.toLogMarker)
 
-        val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata)
+        val optimisedPng = optimisedPngOps.build(toOptimiseFile, uploadRequest, fileMetadata, config.optimiseSpeed)
 
         bracket(thumbFuture)(_.delete) { thumb =>
           // Run the operations in parallel
