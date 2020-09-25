@@ -27,11 +27,21 @@ abstract class CommonConfig(val appName: String, playAppConfiguration: Configura
     }
   }
 
-  // local config for this app, later files override earlier files
+  // list of files to load, later files override earlier files
+  private val configurationFiles = Seq(
+    s"/etc/gu/grid-prod.properties",
+    s"/etc/grid/common.conf",
+    s"${System.getProperty("user.home")}/.grid/common.conf",
+    s"/etc/gu/$appName.properties",
+    s"/etc/grid/$appName.conf",
+    s"${System.getProperty("user.home")}/.grid/$appName.conf"
+  )
+
+  // local config for this app
   private val localAppConfiguration: Configuration =
-    loadConfiguration(new File(s"/etc/gu/$appName.properties")) ++
-    loadConfiguration(new File(s"/etc/grid/$appName.conf")) ++
-    loadConfiguration(new File(s"${System.getProperty("user.home")}/.grid/$appName.conf"))
+    configurationFiles.foldLeft(Configuration.empty) { case (config, fileName) =>
+      config ++ loadConfiguration(new File(fileName))
+    }
 
   // the config we'll actually use, the local config overrides the play config
   val configuration: Configuration = playAppConfiguration ++ localAppConfiguration

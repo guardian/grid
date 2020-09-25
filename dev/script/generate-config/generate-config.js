@@ -67,7 +67,7 @@ function writeToDisk({path, content}) {
     ));
 
   const authStackExists = await doesStackExist(dotenvConfig.AUTH_STACK_NAME)
-  const localAuthFilePath = `${homeDir}/.grid/grid-prod.conf`;
+  const localAuthFilePath = `${homeDir}/.grid/common.conf`;
 
   if (authStackExists) {
     const authStackCfnData = await getCloudformationStackResources(dotenvConfig.AUTH_STACK_NAME);
