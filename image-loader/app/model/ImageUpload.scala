@@ -327,6 +327,38 @@ object Uploader {
         toOptimiseFile.delete()
 
         finalImage
+
+      val markers: LogstashMarker = fileMetadata.toLogMarker.and(uploadMarkers)
+      Logger.info("Have read file metadata")(markers)
+
+      // These futures are started outside the for-comprehension, otherwise they will not run in parallel
+      val sourceStoreFuture = storeSource(uploadRequest)
+      Logger.info("stored source file")(uploadRequest.toLogMarker)
+      // FIXME: pass mimeType
+      val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, "image/jpeg")
+      val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
+
+      val thumbFuture = for {
+        fileMetadata <- fileMetadataFuture
+        colourModel <- colourModelFuture
+        iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
+        thumb <- imageOps.createThumbnail(uploadedFile, uploadRequest.mimeType, config.thumbWidth, config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
+      } yield thumb
+
+      Logger.info("thumbnail created")(uploadRequest.toLogMarker)
+
+      //Could potentially use this file as the source file if needed (to generate thumbnail etc from)
+      val toOptimiseFileFuture: Future[File] = uploadRequest.mimeType match {
+        case Some(mime) => mime match {
+          case transcodedMime if config.transcodedMimeTypes.contains(mime) =>
+            for {
+            transformedImage <- imageOps.transformImage(uploadedFile, uploadRequest.mimeType, config.tempDir, config.transcodedOptimisedQuality)
+            } yield transformedImage
+          case _ =>
+            Future.apply(uploadedFile)
+        }
+        case _ =>
+          Future.apply(uploadedFile)
       }
 
       toOptimiseFileFuture.flatMap(toOptimiseFile => {
