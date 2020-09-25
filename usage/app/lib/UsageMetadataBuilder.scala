@@ -23,6 +23,14 @@ class UsageMetadataBuilder(config: UsageConfig) {
     }.toOption
   }
 
+  def buildDownload(metadataMap: Map[String, Any]): Option[DownloadUsageMetadata] = {
+    Try {
+      DownloadUsageMetadata(
+        metadataMap("downloadedBy").asInstanceOf[String]
+      )
+    }.toOption
+  }
+
   def build(content: Content): DigitalUsageMetadata = {
     DigitalUsageMetadata(
       URI.create(content.webUrl),

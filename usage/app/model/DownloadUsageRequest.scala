@@ -1,6 +1,7 @@
 package model
 
 import com.gu.mediaservice.model.usage.{DownloadUsageMetadata, DownloadedUsageStatus, UsageStatus}
+import com.gu.mediaservice.model.usage.{DownloadUsageMetadata, UnknownUsageStatus, UsageStatus}
 import org.joda.time.DateTime
 import play.api.libs.json.{JodaReads, JodaWrites, Json, Reads, Writes}
 
@@ -11,6 +12,8 @@ case class DownloadUsageRequest (
 ) {
   val metadata: DownloadUsageMetadata = DownloadUsageMetadata(downloadedBy)
   val status: UsageStatus = DownloadedUsageStatus
+//  val status: UsageStatus = UnknownUsageStatus
+
 }
 object DownloadUsageRequest {
   import JodaWrites._

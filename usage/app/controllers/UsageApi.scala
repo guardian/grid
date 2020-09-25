@@ -196,9 +196,9 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorKey = "download-usage-parse-failed",
         errorMessage = JsError.toJson(e).toString
       ),
-      usageRequest => {
-        GridLogger.info("recording download usage", req.user.accessor, usageRequest.mediaId)
-        val group = usageGroup.build(usageRequest)
+      fur => {
+        GridLogger.info("recording download usage", req.user.accessor, fur.mediaId)
+        val group = usageGroup.build(fur)
         usageRecorder.usageSubject.onNext(group)
         Accepted
       }
