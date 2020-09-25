@@ -6,12 +6,13 @@ import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
 case class KinesisReceiverConfig(
   override val awsRegion: String,
   override val awsCredentials: AWSCredentialsProvider,
   override val awsLocalEndpoint: Option[String],
+  override val isDev: Boolean,
   streamName: String,
   rewindFrom: Option[DateTime],
   metricsLevel: MetricsLevel = MetricsLevel.DETAILED
@@ -22,12 +23,13 @@ object KinesisReceiverConfig {
     thrallConfig.awsRegion,
     thrallConfig.awsCredentials,
     thrallConfig.awsLocalEndpoint,
+    thrallConfig.isDev,
     streamName,
     rewindFrom
   )
 }
 
-class ThrallConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("thrall", playAppConfiguration, mode) {
+class ThrallConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val imageBucket: String = string("s3.image.bucket")
 
   val writeAlias: String = string("es.index.aliases.write")

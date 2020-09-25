@@ -1,9 +1,9 @@
 package lib
 
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
-class AdminToolsConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("admin-tools", playAppConfiguration, mode) {
+class AdminToolsConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   // hardcoded for dev
   val apiKey: String = "dev-"
 

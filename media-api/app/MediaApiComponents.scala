@@ -10,7 +10,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 
 class MediaApiComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new MediaApiConfig(configuration, context.environment.mode)
+  final override lazy val config = new MediaApiConfig(configuration)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 

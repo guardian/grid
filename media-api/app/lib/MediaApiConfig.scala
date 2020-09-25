@@ -1,10 +1,8 @@
 package lib
 
-import com.amazonaws.services.ec2.{AmazonEC2, AmazonEC2ClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.discovery.EC2._
 import org.joda.time.DateTime
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
 import scala.util.Try
 
@@ -13,7 +11,7 @@ case class StoreConfig(
   storeKey: String
 )
 
-class MediaApiConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("media-api", playAppConfiguration, mode) {
+class MediaApiConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val keyStoreBucket: String = string("auth.keystore.bucket")
 
   val configBucket: String = string("s3.config.bucket")

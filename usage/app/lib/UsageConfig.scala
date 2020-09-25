@@ -1,19 +1,17 @@
 package lib
 
-import java.net.URI
-
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.{Configuration, Logger, Mode}
 import com.gu.mediaservice.lib.net.URI.ensureSecure
+import play.api.{Configuration, Logger}
 
 import scala.util.Try
 
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("usage", playAppConfiguration, mode) {
+class UsageConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val usageUri: String = services.usageBaseUri

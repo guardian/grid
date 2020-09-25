@@ -44,15 +44,16 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     "es6.url",
     "es6.cluster",
     "s3.image.bucket",
-    "s3.thumb.bucket"
+    "s3.thumb.bucket",
+    "grid.stage",
+    "grid.appName"
   )
 
   private val mediaApiConfig = new MediaApiConfig(
     Configuration.from(Map(
       "es6.shards" -> 0,
       "es6.replicas" -> 0
-    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    Mode.Test
+    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap)
   )
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)

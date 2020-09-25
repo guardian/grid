@@ -1,3 +1,3 @@
 import com.gu.mediaservice.lib.play.GridAppLoader
 
-class AppLoader extends GridAppLoader(new ThrallComponents(_))
+class AppLoader extends GridAppLoader("thrall", new ThrallComponents(_))

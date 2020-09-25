@@ -1,9 +1,9 @@
 package lib
 
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
-class KahunaConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("kahuna", playAppConfiguration, mode) {
+class KahunaConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri
   val authUri: String = services.authBaseUri

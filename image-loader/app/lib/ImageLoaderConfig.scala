@@ -4,9 +4,9 @@ import java.io.File
 
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
-class ImageLoaderConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("image-loader", playAppConfiguration, mode) {
+class ImageLoaderConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val imageBucket: String = string("s3.image.bucket")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")

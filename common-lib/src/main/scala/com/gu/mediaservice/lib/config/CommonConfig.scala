@@ -1,47 +1,16 @@
 package com.gu.mediaservice.lib.config
 
-import java.io.File
 import java.util.UUID
 
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
-import com.typesafe.config.{ConfigException, ConfigFactory}
+import com.typesafe.config.ConfigException
 import com.typesafe.scalalogging.StrictLogging
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
 import scala.util.Try
 
 
-abstract class CommonConfig(val appName: String, playAppConfiguration: Configuration, mode: Mode) extends AwsClientBuilderUtils with StrictLogging {
-  // list of files to load for each mode, later files override earlier files
-  private val developerConfigFiles = Seq(
-    s"${System.getProperty("user.home")}/.grid/common.conf",
-    s"${System.getProperty("user.home")}/.grid/$appName.conf"
-  )
-  private val deployedConfigFiles = Seq(
-    s"/etc/gu/grid-prod.properties",
-    s"/etc/grid/common.conf",
-    s"/etc/gu/$appName.properties",
-    s"/etc/grid/$appName.conf"
-  )
-
-  // build the final config, any file based config overrides the play config
-  val configuration: Configuration = {
-    // get config from any files on the machine
-    val fileConfiguration: Configuration = {
-      if (mode == Mode.Test) {
-        // when in test mode never load any files
-        Configuration.empty
-      } else if (isDev) {
-        loadConfiguration(developerConfigFiles)
-      } else {
-        loadConfiguration(deployedConfigFiles)
-      }
-    }
-
-    // merge with incoming config
-    playAppConfiguration ++ fileConfiguration
-  }
-
+abstract class CommonConfig(configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
   final val elasticsearchStack = "media-service"
 
   final val elasticsearchApp = "elasticsearch"
@@ -50,6 +19,12 @@ abstract class CommonConfig(val appName: String, playAppConfiguration: Configura
   final val stackName = "media-service"
 
   final val sessionId = UUID.randomUUID().toString
+
+  // TODO:SAH - remove these and favour explicit config for anything that is derived from here
+  val stage: String = string(GridConfigLoader.STAGE_KEY)
+  val appName: String = string(GridConfigLoader.APP_KEY)
+  val isProd: Boolean = stage == "PROD"
+  override val isDev: Boolean = stage == "DEV"
 
   override val awsRegion: String = stringDefault("aws.region", "eu-west-1")
 
@@ -92,7 +67,7 @@ abstract class CommonConfig(val appName: String, playAppConfiguration: Configura
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
-  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, streamName)
+  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
   final def getStringSet(key: String): Set[String] = Try {
     configuration.get[Seq[String]](key)
@@ -123,19 +98,4 @@ abstract class CommonConfig(val appName: String, playAppConfiguration: Configura
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
-
-  private def loadConfiguration(file: File): Configuration = {
-    if (file.exists) {
-      logger.info(s"Loading config from $file")
-      Configuration(ConfigFactory.parseFile(file))
-    } else {
-      logger.info(s"Skipping config file $file as it doesn't exist")
-      Configuration.empty
-    }
-  }
-
-  private def loadConfiguration(fileNames: Seq[String]): Configuration =
-    fileNames.foldLeft(Configuration.empty) { case (config, fileName) =>
-      config ++ loadConfiguration(new File(fileName))
-    }
 }

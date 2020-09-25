@@ -1,3 +1,3 @@
 import com.gu.mediaservice.lib.play.GridAppLoader
 
-class AppLoader extends GridAppLoader(new MediaApiComponents(_))
+class AppLoader extends GridAppLoader("media-api", new MediaApiComponents(_))

@@ -5,7 +5,7 @@ import play.api.ApplicationLoader.Context
 import router.Routes
 
 class LeasesComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new LeasesConfig(configuration, context.environment.mode)
+  final override lazy val config = new LeasesConfig(configuration)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 

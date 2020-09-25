@@ -1,12 +1,12 @@
 package lib
 
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
 import scala.concurrent.ExecutionContext
 
 
-class CollectionsConfig(playAppConfiguration: Configuration, mode: Mode)(implicit ec: ExecutionContext) extends CommonConfig("collections", playAppConfiguration, mode) {
+class CollectionsConfig(playAppConfiguration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig(playAppConfiguration) {
   val collectionsTable = string("dynamo.table.collections")
   val imageCollectionsTable = string("dynamo.table.imageCollections")
 

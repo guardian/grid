@@ -2,12 +2,11 @@ package lib
 
 import java.io.File
 
-import com.amazonaws.auth.{AWSCredentials, BasicAWSCredentials}
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.{Configuration, Mode}
+import play.api.Configuration
 
 
-class CropperConfig(playAppConfiguration: Configuration, mode: Mode) extends CommonConfig("cropper", playAppConfiguration, mode) {
+class CropperConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val imgPublishingBucket = string("publishing.image.bucket")
 
   val imgPublishingHost = string("publishing.image.host")

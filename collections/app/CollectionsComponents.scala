@@ -6,7 +6,7 @@ import router.Routes
 import store.CollectionsStore
 
 class CollectionsComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new CollectionsConfig(configuration, context.environment.mode)
+  final override lazy val config = new CollectionsConfig(configuration)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 

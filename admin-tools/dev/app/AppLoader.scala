@@ -1,3 +1,3 @@
 import com.gu.mediaservice.lib.play.GridAppLoader
 
-class AppLoader extends GridAppLoader(new AdminToolsComponents(_))
+class AppLoader extends GridAppLoader("admin-tools", new AdminToolsComponents(_))

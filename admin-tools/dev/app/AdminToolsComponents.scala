@@ -13,8 +13,7 @@ class AdminToolsComponents(context: Context) extends GridComponents(context) {
       "auth.keystore.bucket" -> "not-used",
       "thrall.kinesis.stream.name"-> "not-used",
       "thrall.kinesis.lowPriorityStream.name"-> "not-used"
-    )),
-    context.environment.mode
+    ))
   )
 
   final override val buildInfo = utils.buildinfo.BuildInfo

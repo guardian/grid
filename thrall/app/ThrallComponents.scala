@@ -14,7 +14,7 @@ import router.Routes
 import scala.concurrent.Future
 
 class ThrallComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new ThrallConfig(configuration, context.environment.mode)
+  final override lazy val config = new ThrallConfig(configuration)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
