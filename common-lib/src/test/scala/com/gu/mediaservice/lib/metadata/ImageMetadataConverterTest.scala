@@ -5,6 +5,8 @@ import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
 
+import scala.collection.immutable
+
 class ImageMetadataConverterTest extends FunSpec with Matchers {
 
   it("should return an empty ImageMetadata for empty FileMetadata") {
@@ -418,6 +420,23 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
     imageMetadata.peopleInImage should be (Set("person 1","person 2"))
   }
+//
+//=======
+//    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> "person 1"))
+//    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+//    imageMetadata.peopleInImage should be (List("person 1"))
+//  }
 
+  it("should populate peopleInImage field of ImageMetadata from multiple corresponding xmp iptc ext fields") {
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage[1]" -> "person 1",
+      "Iptc4xmpExt:PersonInImage[2]" -> "person 2", "Iptc4xmpExt:PersonInImage[3]" -> "person 3"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be (List("person 1","person 2","person 3"))
+  }
 
+  it("should ignore invalid peopleInImage field of ImageMetadata") {
+    val fileMetadata = FileMetadata(immutable.Map(), immutable.Map(), immutable.Map(), immutable.Map("Iptc4xmpExt:PersonInImage[-1]" -> "person 1"))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.peopleInImage should be ('empty)
+  }
 }

@@ -72,6 +72,7 @@ object ImageMetadata {
       (__ \ "country").writeNullable[String] ~
       (__ \ "subjects").writeNullable[List[String]].contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
       (__ \ "peopleInImage").writeNullable[Set[String]].contramap((l: Set[String]) => if (l.isEmpty) None else Some(l))
+
     )(unlift(ImageMetadata.unapply))
 
 }

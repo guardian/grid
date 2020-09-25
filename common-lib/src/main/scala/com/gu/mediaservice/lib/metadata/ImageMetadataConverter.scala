@@ -53,6 +53,10 @@ private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): S
       res
     }
 
+
+
+  def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
+
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseRandomDate) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseRandomDate) orElse
@@ -95,9 +99,11 @@ private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): S
       country             = readXmpHeadStringProp("photoshop:Country") orElse
                             fileMetadata.iptc.get("Country/Primary Location Name"),
       subjects            = extractSubjects(fileMetadata),
+
       peopleInImage       = extractPeople(fileMetadata)
     )
   }
+
 
   // IPTC doesn't appear to enforce the datetime format of the field, which means we have to
   // optimistically attempt various formats observed in the wild. Dire times.
