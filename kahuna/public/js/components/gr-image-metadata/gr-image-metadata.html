@@ -94,8 +94,9 @@
 
     <div class="image-info__group">
         <dl class="image-info__group--dl metadata-line">
-            <dt class="image-info__group--dl__key metadata-line__key image-info__wrap" ng-if="ctrl.metadata.dateTaken">Taken on</dt>
-            <dd class="image-info__group--dl__value metadata-line__info" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
+
+            <dt class="image-info__group--dl__key metadata-line__key image-info__wrap" ng:if="ctrl.metadata.dateTaken">Taken on</dt>
+            <dd class="image-info__group--dl__value metadata-line__info" ng:if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm:ss'}}</dd>
 
             <dt class="image-info__byline image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="ctrl.metadata.byline || ctrl.userCanEdit">By</dt>
             <dd data-cy="metadata-byline" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="ctrl.metadata.byline || ctrl.userCanEdit">
@@ -197,7 +198,7 @@
             <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">Uploaded</dt>
             <dd class="image-info__group--dl__value metadata-line__info">
                         <span class="metadata-line__info">
-                            {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
+                            {{ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm:ss'}}
                         </span>
             </dd>
 
