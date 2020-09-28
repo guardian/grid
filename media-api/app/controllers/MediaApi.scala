@@ -266,7 +266,7 @@ class MediaApi(
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.apiKey
-        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.PandaUser.getEmail(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
         val sourceImageUri =

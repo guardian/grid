@@ -18,6 +18,7 @@ object ImageIngestOperations {
 class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
   extends S3ImageStorage(config) {
 
+
   import ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 
   def storeOriginal(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
@@ -31,7 +32,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def storeOptimisedPng(id: String, file: File)
                        (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some(Png))
-  
+
   def deleteOriginal(id: String): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
   def deletePng(id: String): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
