@@ -1,80 +1,66 @@
-const Rx = require('rx');
-const S3Helper = require('./S3Helper');
+import {Context, S3Event} from 'aws-lambda';
+import {AWSError, S3} from 'aws-sdk'
 
+export interface CleanEvent {
+    bucket: string
+    path: string[]
+    key: string
+    filename: string
+    size: number
+}
 
-module.exports = {
-    init: function(event, context, logger) {
-        const buildS3Event = function(event) {
-            const e = event.Records[0].s3;
+export interface IngestConfig {
+    region: string
+    baseUrl: string
+    apiKey: string
+    failBucket: string
+    s3UrlExpiry: number
+    stage: string    
+}
 
-            const normaliseKey = function(key) {
-                return decodeURIComponent(key.replace(/\+/g, " "));
-            };
-            const srcKey = normaliseKey(e.object.key);
-            const srcBucket = e.bucket.name;
-            const srcSize = e.object.size;
+export const cleanEvents = function(event: S3Event): CleanEvent[] {
+    return event.Records.map( record => {
+        const e = record.s3 
 
-            const path =  srcKey.split("/");
-
-            const filenameFromKey = function() {
-                return path[(path.length - 1)];
-            };
-            const srcFilename = filenameFromKey(srcKey);
-
-            return {
-                bucket: srcBucket,
-                path: path,
-                key: srcKey,
-                filename: srcFilename,
-                size: srcSize
-            };
+        const normaliseKey = function(key: string) {
+            return decodeURIComponent(key.replace(/\+/g, " "))
         };
-
-        const s3Event = buildS3Event(event);
-
-        const noConfigError = Rx.Observable.throw(
-                new Error("Config file missing."));
-
-        const configParseError = Rx.Observable.throw(
-                new Error("Config invalid JSON."));
-
-        function parseJson(data) {
-            try {
-                const obj = JSON.parse(data);
-                return Rx.Observable.return(obj);
-            } catch (e) {
-                return configParseError;
-            }
-        }
-
-        const config = S3Helper.getS3Object({
-            Bucket: s3Event.bucket,
-            Key: "config.json"
-        }).catch(noConfigError).flatMap(function(data){
-            return parseJson(data.Body.toString());
-        });
-
-        const fail = function(err) {
-            logger.error('Lambda failure', s3Event);
-            logger.close().then(() => {
-                console.log('Lambda failed', err);
-                context.fail(err);
-            });
-        };
-
-        const success = function() {
-            logger.log('Finished successfully.', s3Event);
-            logger.close().then(() => {
-                console.log('Lambda succeeded');
-                context.succeed(s3Event);
-            });
-        };
-
+        const key = normaliseKey(e.object.key)
+        const bucket = e.bucket.name
+        const size = e.object.size
+    
+        const path =  key.split("/")
+        const filename = path[(path.length - 1)]
+    
         return {
-            s3Event: s3Event,
-            config: config,
-            fail: fail,
-            success: success
-        };
+            bucket,
+            path,
+            key,
+            filename,
+            size
+        }
+    })
+}
+
+export const readIngestConfig = async function(s3Client: S3, event: CleanEvent): Promise<IngestConfig> {
+    async function parseConfigJson(data: string): Promise<IngestConfig> {
+        try {
+            return JSON.parse(data)
+        } catch (e) {
+            return Promise.reject(new Error("s3://${s3Event.bucket}/config.json is invalid JSON"))
+        }
     }
-};
+
+    const configResponse = await s3Client.getObject({
+        Bucket: event.bucket,
+        Key: "config.json"
+    }).promise()
+
+    const configBody = configResponse.Body?.toString()
+
+    if (configBody === undefined) {
+        return Promise.reject(new Error(`Error reading config from s3://${event.bucket}/config.json`))
+    }
+    
+    return await parseConfigJson(configBody);
+}

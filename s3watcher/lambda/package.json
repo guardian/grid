@@ -4,12 +4,12 @@
   "description": "",
   "main": "S3Watcher.js",
   "dependencies": {
-    "@guardian/elk-kinesis-logger": "0.1.0",
-    "request": "~2.81.0"
+    "node-fetch": "^2.6.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.63",
     "@types/node": "^12.12.62",
+    "@types/node-fetch": "^2.5.7",
     "aws-sdk": "^2.761.0",
     "eslint": "^7.9.0",
     "eslint-plugin-standard": "^4.0.1",
@@ -20,8 +20,9 @@
   "scripts": {
     "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
     "test": "npm run lint",
-    "lint": "eslint S3Watcher.js lib",
-    "build": "ARTEFACT_PATH=$PWD riffraff-artefact"
+    "lint": "eslint S3Watcher.ts lib",
+    "build": "ARTEFACT_PATH=$PWD riffraff-artefact",
+    "tsc": "tsc"
   },
   "author": "",
   "license": "Apache-2.0",

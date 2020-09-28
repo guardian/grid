@@ -1,30 +1,30 @@
-module.exports = {
-    create: function (uploadResult) {
-        const metricName = uploadResult.succeeded ?
-            "UploadedImages" : "FailedUploads";
+import { UploadResult } from "./GridApi";
 
-        const dimensions = [{
-            "Name" : "UploadedBy",
-            "Value" : uploadResult.uploadedBy
-        }];
+export const createMetric = function (uploadResult: UploadResult) {
+    const metricName = uploadResult.succeeded ?
+        "UploadedImages" : "FailedUploads";
 
-        const timestamp = new Date;
+    const dimensions = [{
+        "Name" : "UploadedBy",
+        "Value" : uploadResult.uploadedBy
+    }];
 
-        return {
-            MetricData: [{
-                MetricName: metricName,
-                Dimensions: dimensions,
-                Timestamp: timestamp,
-                Unit: "Count",
-                Value: 1
-            },
-            {
-                MetricName: metricName,
-                Timestamp: timestamp,
-                Unit: "Count",
-                Value: 1
-            }],
-            Namespace: uploadResult.stage + "/S3watcher"
-        };
-    }
-};
+    const timestamp = new Date;
+
+    return {
+        MetricData: [{
+            MetricName: metricName,
+            Dimensions: dimensions,
+            Timestamp: timestamp,
+            Unit: "Count",
+            Value: 1
+        },
+        {
+            MetricName: metricName,
+            Timestamp: timestamp,
+            Unit: "Count",
+            Value: 1
+        }],
+        Namespace: uploadResult.stage + "/S3watcher"
+    };
+}
