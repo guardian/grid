@@ -7,6 +7,8 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
+import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, OnBehalfOfService, OnBehalfOfUser, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
@@ -21,6 +23,7 @@ import lib.elasticsearch._
 import org.apache.http.entity.ContentType
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
+import play.api.Logger
 import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
@@ -28,6 +31,7 @@ import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 class MediaApi(
                 auth: Authentication,
@@ -214,6 +218,28 @@ class MediaApi(
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
+        val apiKey = request.user.apiKey
+        GridLogger.info(s"Download original image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
+        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
+        val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
+
+        postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getEmail(request.user))
+
+        Future.successful(
+          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+        )
+      }
+      case _ => Future.successful(ImageNotFound(id))
+    }
+  }
+
+  def downloadOriginalImage(id: String) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.accessor
         GridLogger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
@@ -225,15 +251,64 @@ class MediaApi(
           postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
         }
 
-          Future.successful(
-            Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
-          )
+        Future.successful(
+          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
+        )
+
       }
       case _ => Future.successful(ImageNotFound(id))
     }
   }
 
   def downloadOptimisedImage(id: String, width: Integer, height: Integer, quality: Integer) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) flatMap {
+      case Some(image) if hasPermission(request, image) => {
+        val apiKey = request.user.apiKey
+        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
+        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
+
+        val sourceImageUri =
+          new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
+            case Some(_) => OptimisedPng
+            case _ => Source
+          }))
+
+        postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getEmail(request.user))
+
+        Future.successful(
+          Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
+        )
+      }
+      case _ => Future.successful(ImageNotFound(id))
+    }
+  }
+
+
+  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
+    val baseRequest = ws.url(uri)
+      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
+          HttpHeaders.ORIGIN -> config.rootUri,
+          HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
+
+    val request = onBehalfOfPrincipal match {
+      case OnBehalfOfService(service) =>
+        print(service.apiKey.name)
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.apiKey.name)
+      case OnBehalfOfUser(_, cookie) =>
+        baseRequest.addCookies(cookie)
+    }
+
+    val usagesMetadata = Map("mediaId" -> mediaId,
+        "dateAdded" -> printDateTime(DateTime.now()),
+        "downloadedBy" -> user)
+
+    GridLogger.info(s"Making usages download request")
+    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
+  }
+
+  def reindexImage(id: String) = auth.async { request =>
     implicit val r = request
 
     val metadataConfig = metadataStore.get
@@ -257,19 +332,6 @@ class MediaApi(
             originalUsageRights = processedImage.usageRights
           )
 
-          //add the apiKeys for grafana
-//          GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
-//          mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
-
-          val sourceImageUri =
-            new URI(s3Client.signUrl(config.imageBucket, image.optimisedPng.getOrElse(image.source).file, image, imageType = image.optimisedPng match {
-              case Some(_) => OptimisedPng
-              case _ => Source
-            }))
-
-          if(config.recordDownloadAsUsage) {
-            postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
-
           val updateImage = "update-image"
           val updateMessage = UpdateMessage(subject = updateImage, id = Some(finalImage.id), image = Some(finalImage))
           messageSender.publish(updateMessage)
@@ -285,12 +347,7 @@ class MediaApi(
         } else {
           ImageEditForbidden
         }
-
-        Future.successful(
-          Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
-        )
-      }
-      case _ => Future.successful(ImageNotFound(id))
+      case None => ImageNotFound(id)
     }
   }
 

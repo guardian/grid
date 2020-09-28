@@ -47,8 +47,6 @@ trait CommonConfig extends AwsClientBuilderUtils {
   lazy val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
   lazy val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
 
-  lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase == "true"
-
   lazy val requestMetricsEnabled: Boolean = properties.getOrElse("metrics.request.enabled", "false").toLowerCase match {
     case "true" => true
     case _ => false

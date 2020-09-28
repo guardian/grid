@@ -1,7 +1,6 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
-//import com.gu.mediaservice.lib.elasticsearch6.ElasticSearch6Config
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, ManagementWithPermissions}
 import com.gu.mediaservice.lib.play.GridComponents
