@@ -6,7 +6,6 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
-
 import scala.concurrent.Future
 
 object ImageIngestOperations {
@@ -17,7 +16,6 @@ object ImageIngestOperations {
 
 class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
   extends S3ImageStorage(config) {
-
 
   import ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 
