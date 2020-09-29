@@ -27,7 +27,12 @@ cropUtil.constant('cropOptions', cropOptions);
 cropUtil.constant('defaultCrop', landscape);
 
 cropUtil.factory('cropSettings', ['storage', function(storage) {
-  const isValidCropType = cropType => cropOptions.some(_ => _.key === cropType);
+  function getCropOptions() {
+    const customCrop =  storage.getJs(CUSTOM_CROP_STORAGE_KEY, true);
+    return customCrop ? cropOptions.concat(customCrop) : cropOptions;
+  }
+
+  const isValidCropType = cropType => getCropOptions().some(_ => _.key === cropType);
 
   const isValidRatio = ratio => {
     const splitRatio = ratio.split(',');
@@ -64,18 +69,15 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
   };
 
   function set({cropType, customRatio}) {
+    // set customRatio first in case cropType relies on a custom crop
+    if (customRatio) {
+      setCustomCrop(customRatio);
+    }
+
     if (cropType) {
       setCropType(cropType);
     }
 
-    if (customRatio) {
-      setCustomCrop(customRatio);
-    }
-  }
-
-  function getCropOptions() {
-    const customCrop =  storage.getJs(CUSTOM_CROP_STORAGE_KEY, true);
-    return customCrop ? cropOptions.concat(customCrop) : cropOptions;
   }
 
   function getCropType() {
