@@ -15,7 +15,8 @@ cropBox.directive('uiCropBox', [
   'nextTick',
   'delay',
   'cropOptions',
-  function($timeout, $parse, safeApply, nextTick, delay, cropOptions) {
+  'cropSettings',
+  function($timeout, $parse, safeApply, nextTick, delay, cropOptions, cropSettings) {
 
     return {
         restrict: 'A',
@@ -95,7 +96,8 @@ cropBox.directive('uiCropBox', [
             // Once initialised, sync all options to cropperjs
             function postInit(cropper) {
                 scope.$watch('cropType', function(cropType) {
-                    const cropSpec = cropOptions.find(_ => _.key === cropType);
+                    const allCropOptions = cropSettings.getCropOptions();
+                    const cropSpec = allCropOptions.find(_ => _.key === cropType);
                     cropper.setAspectRatio(cropSpec.ratio);
                 });
 

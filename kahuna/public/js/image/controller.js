@@ -70,7 +70,7 @@ image.controller('ImageCtrl', [
   'imageService',
   'imageUsagesService',
   'keyboardShortcut',
-  'cropTypeUtil',
+  'cropSettings',
   'cropOptions',
 
   function ($rootScope,
@@ -90,7 +90,7 @@ image.controller('ImageCtrl', [
             imageService,
             imageUsagesService,
             keyboardShortcut,
-            cropTypeUtil,
+            cropSettings,
             cropOptions) {
 
     let ctrl = this;
@@ -170,8 +170,8 @@ image.controller('ImageCtrl', [
 
     ctrl.image.allCrops = [];
 
-    cropTypeUtil.set($stateParams);
-    ctrl.cropType = cropTypeUtil.get();
+    cropSettings.set($stateParams);
+    ctrl.cropType = cropSettings.getCropType();
     ctrl.capitalisedCropType = ctrl.cropType ?
       ctrl.cropType[0].toUpperCase() + ctrl.cropType.slice(1) :
       '';
