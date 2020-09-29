@@ -7,13 +7,13 @@ export const transfer = async function(s3: S3, cloudwatch: CloudWatch, event: Cl
     const s3ObjectRequest = {
         Bucket: event.bucket,
         Key: event.key
-    };
+    }
 
     const importRequest = buildGridImportRequest(config, event)
 
     console.log('Importing via image-loader.', s3ObjectRequest)
 
-    const urlExpiryInSeconds = config.s3UrlExpiry;
+    const urlExpiryInSeconds = config.s3UrlExpiry
     const signedUrl = await s3.getSignedUrlPromise('getObject', {
         ... s3ObjectRequest,
         Expires: urlExpiryInSeconds

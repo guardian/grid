@@ -32,13 +32,13 @@ export const buildGridImportRequest = function(config: IngestConfig, s3Event: Cl
 
     const buildUploadedBy = function(path: string[]){
         if (path.length > 1) {
-            return path[0];
+            return path[0]
         } else {
-            throw new Error(`Unable to process file uploaded to root folder: ${s3Event.key}`);
+            throw new Error(`Unable to process file uploaded to root folder: ${s3Event.key}`)
         }
-    };
+    }
 
-    const uploadedBy = buildUploadedBy(s3Event.path);
+    const uploadedBy = buildUploadedBy(s3Event.path)
 
     return {
         key: config.apiKey,
@@ -51,7 +51,7 @@ export const buildGridImportRequest = function(config: IngestConfig, s3Event: Cl
             uploadedBy: uploadedBy,
             stage: config.stage
         }
-    };
+    }
 }
 
 export const importImage = async function(importRequest: GridImportRequest, imageUri: string): Promise<UploadResult> {

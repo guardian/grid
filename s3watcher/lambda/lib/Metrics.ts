@@ -1,15 +1,16 @@
-import { UploadResult } from "./GridApi";
+import { PutMetricDataInput } from "aws-sdk/clients/cloudwatch"
+import { UploadResult } from "./GridApi"
 
-export const createMetric = function (uploadResult: UploadResult) {
+export const createMetric = function (uploadResult: UploadResult): PutMetricDataInput {
     const metricName = uploadResult.succeeded ?
-        "UploadedImages" : "FailedUploads";
+        "UploadedImages" : "FailedUploads"
 
     const dimensions = [{
         "Name" : "UploadedBy",
         "Value" : uploadResult.uploadedBy
-    }];
+    }]
 
-    const timestamp = new Date;
+    const timestamp = new Date
 
     return {
         MetricData: [{
@@ -26,5 +27,5 @@ export const createMetric = function (uploadResult: UploadResult) {
             Value: 1
         }],
         Namespace: uploadResult.stage + "/S3watcher"
-    };
+    }
 }

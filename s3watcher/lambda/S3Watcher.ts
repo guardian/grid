@@ -1,9 +1,9 @@
 import {cleanEvents, CleanEvent, IngestConfig, readIngestConfig} from './lib/Lambda'
 import {transfer} from './lib/Transfer'
-import AWS from 'aws-sdk';
+import AWS from 'aws-sdk'
 import { readConfig } from './lib/EnvironmentConfig'
 
-import { S3Event } from "aws-lambda";
+import { S3Event } from "aws-lambda"
 
 const envConfig = readConfig()
 
@@ -23,11 +23,11 @@ const processEvent = async function(event:CleanEvent) {
 }
 
 interface Failure {
-    error: any
+    error: any // eslint-disable-line @typescript-eslint/no-explicit-any
     event: CleanEvent
 }
 function isFailure(item: Failure | void): item is Failure {
-    return item !== undefined;
+    return item !== undefined
 }
 
 exports.handler = async function(rawEvent: S3Event) {

@@ -1,5 +1,5 @@
-import {Context, S3Event} from 'aws-lambda';
-import {AWSError, S3} from 'aws-sdk'
+import {S3Event} from 'aws-lambda'
+import {S3} from 'aws-sdk'
 
 export interface CleanEvent {
     bucket: string
@@ -24,7 +24,7 @@ export const cleanEvents = function(event: S3Event): CleanEvent[] {
 
         const normaliseKey = function(key: string) {
             return decodeURIComponent(key.replace(/\+/g, " "))
-        };
+        }
         const key = normaliseKey(e.object.key)
         const bucket = e.bucket.name
         const size = e.object.size
@@ -62,5 +62,5 @@ export const readIngestConfig = async function(s3Client: S3, event: CleanEvent):
         return Promise.reject(new Error(`Error reading config from s3://${event.bucket}/config.json`))
     }
     
-    return await parseConfigJson(configBody);
+    return await parseConfigJson(configBody)
 }
