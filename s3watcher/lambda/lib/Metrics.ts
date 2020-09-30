@@ -1,7 +1,7 @@
 import { PutMetricDataInput } from "aws-sdk/clients/cloudwatch"
 import { UploadResult } from "./GridApi"
 
-export const createMetric = function (uploadResult: UploadResult): PutMetricDataInput {
+export const createMetric = function (uploadResult: UploadResult, timestamp: Date): PutMetricDataInput {
     const metricName = uploadResult.succeeded ?
         "UploadedImages" : "FailedUploads"
 
@@ -9,8 +9,6 @@ export const createMetric = function (uploadResult: UploadResult): PutMetricData
         "Name" : "UploadedBy",
         "Value" : uploadResult.uploadedBy
     }]
-
-    const timestamp = new Date
 
     return {
         MetricData: [{

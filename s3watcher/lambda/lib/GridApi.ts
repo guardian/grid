@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
-import { CleanEvent, IngestConfig } from './Lambda'
+import { ImportAction, IngestConfig } from './Lambda'
+import { Logger } from './Logging'
 
 interface Headers {
     [name: string]: string
@@ -16,6 +17,7 @@ interface GridImportRequest {
     size: number
     headers: Headers
     params: Params
+    fetchUrl: string
 }
 
 export interface UploadResult {
@@ -25,7 +27,9 @@ export interface UploadResult {
     stage: string
 }
 
-export const buildGridImportRequest = function(config: IngestConfig, s3Event: CleanEvent): GridImportRequest {
+export const buildGridImportRequest = function(config: IngestConfig, s3Event: ImportAction, imageUri: string): GridImportRequest {
+    const IMPORT_PATH = "/imports"
+    
     const headers = {
         'X-Gu-Media-Key': config.apiKey
     }
@@ -40,32 +44,32 @@ export const buildGridImportRequest = function(config: IngestConfig, s3Event: Cl
 
     const uploadedBy = buildUploadedBy(s3Event.path)
 
+    const params: Params = {
+        filename: s3Event.filename,
+        uploadedBy: uploadedBy,
+        stage: config.stage,
+        uri: imageUri
+    }
+
+    const queryString = Object.keys(params)
+        .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k]))
+        .join('&')
+    const fetchUrl = `${config.baseUrl}${IMPORT_PATH}?${queryString}`
+
     return {
         key: config.apiKey,
         url: config.baseUrl,
-        path: "/imports",
+        path: IMPORT_PATH,
         size: s3Event.size,
-        headers: headers,
-        params: {
-            filename: s3Event.filename,
-            uploadedBy: uploadedBy,
-            stage: config.stage
-        }
+        headers,
+        params,
+        fetchUrl
     }
 }
 
-export const importImage = async function(importRequest: GridImportRequest, imageUri: string): Promise<UploadResult> {
-    const queryParams: Params = { 
-        ... importRequest.params,
-        uri: imageUri
-    }
-    const queryString = Object.keys(queryParams)
-        .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(queryParams[k]))
-        .join('&')
-    const url = `${importRequest.url}${importRequest.path}?${queryString}`
-
+export const importImage = async function(logger: Logger, importRequest: GridImportRequest): Promise<UploadResult> {
     try {
-        const uploadResponse = await fetch(url, { headers: importRequest.headers })
+        const uploadResponse = await fetch(importRequest.fetchUrl, { headers: importRequest.headers })
         return {
             statusCode: uploadResponse.status,
             succeeded: uploadResponse.status == 202,
@@ -73,7 +77,7 @@ export const importImage = async function(importRequest: GridImportRequest, imag
             stage: importRequest.params.stage
         }
     } catch(error) {
-        console.error("Fetch failed with error", error)
+        logger.error("Fetch failed with network error", {error: JSON.stringify(error)})
         return {
             statusCode: 0,
             succeeded: false,

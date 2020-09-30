@@ -1,17 +1,16 @@
 import {createMetric} from './Metrics'
 import { buildGridImportRequest, importImage } from './GridApi'
-import { CleanEvent, IngestConfig } from './Lambda'
+import { ImportAction, IngestConfig } from './Lambda'
 import {S3, CloudWatch} from 'aws-sdk'
+import { Logger } from './Logging'
 
-export const transfer = async function(s3: S3, cloudwatch: CloudWatch, event: CleanEvent, config: IngestConfig): Promise<void> {
+export const transfer = async function(logger: Logger, s3: S3, cloudwatch: CloudWatch, event: ImportAction, config: IngestConfig): Promise<void> {
     const s3ObjectRequest = {
         Bucket: event.bucket,
         Key: event.key
     }
 
-    const importRequest = buildGridImportRequest(config, event)
-
-    console.log('Importing via image-loader.', s3ObjectRequest)
+    logger.info('Importing via image-loader.', s3ObjectRequest)
 
     const urlExpiryInSeconds = config.s3UrlExpiry
     const signedUrl = await s3.getSignedUrlPromise('getObject', {
@@ -19,21 +18,21 @@ export const transfer = async function(s3: S3, cloudwatch: CloudWatch, event: Cl
         Expires: urlExpiryInSeconds
     })
 
-    const uploadResult = await importImage(importRequest, signedUrl)
-    console.log('Grid API call finished', uploadResult)
+    const importRequest = buildGridImportRequest(config, event, signedUrl)
+    const uploadResult = await importImage(logger, importRequest)
+    logger.info('Grid API call finished', {event: JSON.stringify(uploadResult)})
     
     // record the cloudwatch result either way
-    console.log('Recording result to Cloud Watch', uploadResult)
     await cloudwatch.putMetricData(
-        createMetric(uploadResult)
+        createMetric(uploadResult, new Date())
     ).promise().catch(err => {
-        console.log('Error whilst recording cloudwatch metrics', err)
+        logger.error('Error whilst recording cloudwatch metrics', {error: JSON.stringify(err)})
     })
 
     if (uploadResult.succeeded) {
-        console.log('Deleting from ingest bucket.', s3ObjectRequest)
+        logger.info(`Deleting from ingest bucket ${JSON.stringify(s3ObjectRequest)}`)
         await s3.deleteObject(s3ObjectRequest).promise().catch(err => {
-            console.log('Error whilst deleting ingested image', err)
+            logger.error('Error whilst deleting ingested image', err)
         })
     } else {
         const s3CopyToDeadLetterReq = {
@@ -43,15 +42,14 @@ export const transfer = async function(s3: S3, cloudwatch: CloudWatch, event: Cl
         }
 
         try {
-            console.log('Import failed.', uploadResult)
-            console.log('Copying to fail bucket.')
+            logger.warn(`Import failed, copying to failure bucket ${JSON.stringify(s3CopyToDeadLetterReq)}`)
             await s3.copyObject(s3CopyToDeadLetterReq).promise()
-            console.log('Deleting from ingest bucket.', s3ObjectRequest)
+            logger.info(`Deleting from ingest bucket ${JSON.stringify(s3ObjectRequest)}`)
             await s3.deleteObject(s3ObjectRequest).promise().catch(err => {
-                console.log('Error whilst deleting failed ingested image', err)
+                logger.error('Error whilst deleting failed ingested image', {error: JSON.stringify(err)})
             })
         } catch(err) {
-            console.log('Error whilst moving image to failed bucket', err)
+            logger.error('Error whilst moving image to failed bucket', {error: JSON.stringify(err)})
         }
 
         throw new Error(`Unable to import file: s3://${event.bucket}/${event.key}`)
