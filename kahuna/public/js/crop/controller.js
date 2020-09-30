@@ -52,11 +52,13 @@ crop.controller('ImageCropCtrl', [
         ? `${cropOption.key} (${cropOption.ratioString})`
         : cropOption.key;
 
-      ctrl.cropOptions = cropOptions.map(option => Object.assign(option, {
-        value: cropOptionDisplayValue(option),
-        tooltip: `${option.key} [${option.key.charAt(0)}]`,
-        disabled: storageCropType && storageCropType !== option.key
-      }));
+      ctrl.cropOptions = cropOptions
+        .filter(option => !storageCropType || storageCropType === option.key)
+        .map(option => Object.assign(option, {
+          value: cropOptionDisplayValue(option),
+          tooltip: `${option.key} [${option.key.charAt(0)}]`,
+          disabled: storageCropType && storageCropType !== option.key
+        }));
 
       ctrl.cropType = storageCropType || defaultCrop.key;
 
