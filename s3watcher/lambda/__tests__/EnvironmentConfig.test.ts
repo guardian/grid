@@ -1,4 +1,4 @@
-import {readConfig} from '../lib/EnvironmentConfig'
+import { readConfig } from "../lib/EnvironmentConfig"
 
 const OLD_ENV = process.env
 
@@ -12,20 +12,20 @@ afterAll(() => {
 })
 
 test("read environment vars are set", () => {
-  process.env.STAGE='TEST'
-  process.env.APP='monkey'
-  process.env.STACK='grid_stack'
-  process.env.REGION='us-east-1'
-  process.env.PROFILE='grid_profile'
-  process.env.LOGGING_ROLE='a_logging_role'
-  process.env.STREAM_NAME='grid_logging_stream'
+  process.env.STAGE = "TEST"
+  process.env.APP = "monkey"
+  process.env.STACK = "grid_stack"
+  process.env.REGION = "us-east-1"
+  process.env.PROFILE = "grid_profile"
+  process.env.LOGGING_ROLE = "a_logging_role"
+  process.env.STREAM_NAME = "grid_logging_stream"
 
   const config = readConfig()
   expect(config).toEqual({
     app: "monkey",
     isDev: false,
-    loggingRoleArn: 'a_logging_role',
-    loggingStream: 'grid_logging_stream',
+    loggingRoleArn: "a_logging_role",
+    loggingStream: "grid_logging_stream",
     profile: "grid_profile",
     region: "us-east-1",
     stack: "grid_stack",

@@ -1,13 +1,13 @@
-import { time } from 'console'
-import { UploadResult } from '../lib/GridApi'
-import {createMetric} from '../lib/Metrics'
+import { time } from "console"
+import { UploadResult } from "../lib/GridApi"
+import { createMetric } from "../lib/Metrics"
 
 test("creation of a metric on successful upload", () => {
   const result: UploadResult = {
     statusCode: 202,
     succeeded: true,
     uploadedBy: "SupplierOne",
-    stage: "TEST"
+    stage: "TEST",
   }
 
   const timestamp = new Date()
@@ -16,14 +16,20 @@ test("creation of a metric on successful upload", () => {
   expect(metricData.Namespace).toEqual("TEST/S3watcher")
   expect(metricData.MetricData.length).toEqual(2)
 
-  const metricWithDim = metricData.MetricData.find(m => m.Dimensions !== undefined)
+  const metricWithDim = metricData.MetricData.find(
+    (m) => m.Dimensions !== undefined
+  )
   expect(metricWithDim?.MetricName).toEqual("UploadedImages")
-  expect(metricWithDim?.Dimensions).toEqual([{Name: "UploadedBy", Value: "SupplierOne"}])
+  expect(metricWithDim?.Dimensions).toEqual([
+    { Name: "UploadedBy", Value: "SupplierOne" },
+  ])
   expect(metricWithDim?.Timestamp).toEqual(timestamp)
   expect(metricWithDim?.Unit).toEqual("Count")
   expect(metricWithDim?.Value).toBe(1)
 
-  const metricNoDim = metricData.MetricData.find(m => m.Dimensions === undefined)
+  const metricNoDim = metricData.MetricData.find(
+    (m) => m.Dimensions === undefined
+  )
   expect(metricWithDim?.MetricName).toEqual("UploadedImages")
   expect(metricWithDim?.Dimensions).toBeUndefined
   expect(metricWithDim?.Timestamp).toEqual(timestamp)
@@ -36,7 +42,7 @@ test("creation of a metric on failued upload", () => {
     statusCode: 500,
     succeeded: false,
     uploadedBy: "SupplierOne",
-    stage: "TEST"
+    stage: "TEST",
   }
 
   const timestamp = new Date()
@@ -45,14 +51,20 @@ test("creation of a metric on failued upload", () => {
   expect(metricData.Namespace).toEqual("TEST/S3watcher")
   expect(metricData.MetricData.length).toEqual(2)
 
-  const metricWithDim = metricData.MetricData.find(m => m.Dimensions !== undefined)
+  const metricWithDim = metricData.MetricData.find(
+    (m) => m.Dimensions !== undefined
+  )
   expect(metricWithDim?.MetricName).toEqual("FailedUploads")
-  expect(metricWithDim?.Dimensions).toEqual([{Name: "UploadedBy", Value: "SupplierOne"}])
+  expect(metricWithDim?.Dimensions).toEqual([
+    { Name: "UploadedBy", Value: "SupplierOne" },
+  ])
   expect(metricWithDim?.Timestamp).toEqual(timestamp)
   expect(metricWithDim?.Unit).toEqual("Count")
   expect(metricWithDim?.Value).toBe(1)
 
-  const metricNoDim = metricData.MetricData.find(m => m.Dimensions === undefined)
+  const metricNoDim = metricData.MetricData.find(
+    (m) => m.Dimensions === undefined
+  )
   expect(metricWithDim?.MetricName).toEqual("FailedUploads")
   expect(metricWithDim?.Dimensions).toBeUndefined
   expect(metricWithDim?.Timestamp).toEqual(timestamp)
