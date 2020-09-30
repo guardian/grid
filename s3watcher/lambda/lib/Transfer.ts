@@ -4,7 +4,7 @@ import { ImportAction, IngestConfig } from './Lambda'
 import {S3, CloudWatch} from 'aws-sdk'
 import { Logger } from './Logging'
 
-type ImportCall = (logger: Logger, req: GridImportRequest) => UploadResult
+type ImportCall = (logger: Logger, req: GridImportRequest) => Promise<UploadResult>
 
 export const transfer = async function(logger: Logger, s3: S3, cloudwatch: CloudWatch, importImage: ImportCall, event: ImportAction, config: IngestConfig): Promise<void> {
     const s3ObjectRequest = {

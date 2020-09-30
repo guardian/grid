@@ -1,6 +1,6 @@
 import { S3, CloudWatch } from 'aws-sdk'
 import {transfer} from '../lib/Transfer'
-import { getObjectPromise, getSignedUrlPromisePromise } from '../__mocks__/aws-sdk'
+import { deleteObjectPromise, getObjectPromise, getSignedUrlPromisePromise } from '../__mocks__/aws-sdk'
 import { action, createMockLogger, ingestConfig } from './Fixtures'
 
 test('transfer successfully coordinates a transfer', async () => {
@@ -8,7 +8,7 @@ test('transfer successfully coordinates a transfer', async () => {
   const s3Client = new S3()
   const cloudwatch = new CloudWatch()
   getSignedUrlPromisePromise.mockReturnValueOnce("https://s3.monkey.com/blah/blah")
-  getObjectPromise.mockReturnValueOnce
+  deleteObjectPromise.mockReturnValueOnce
   const importAction = jest.fn().mockReturnValueOnce({ succeeded: true })
   const result = transfer(logger, s3Client, cloudwatch, importAction, action, ingestConfig)
   await expect(result).resolves.toBeUndefined()

@@ -5,6 +5,7 @@ import { readConfig } from './lib/EnvironmentConfig'
 
 import { S3Event } from "aws-lambda"
 import { createLogger } from './lib/Logging'
+import { importImage } from './lib/GridApi'
 
 const envConfig = readConfig()
 const logger = createLogger({
@@ -35,7 +36,7 @@ function isFailure(item: Failure | void): item is Failure {
 const processEvent = async function(action:ImportAction) {
     const ingestConfigString: string = await readIngestConfig(s3, action)
     const ingestConfig: IngestConfig = await parseIngestConfig(ingestConfigString)
-    await transfer(logger, s3, cloudwatch, action, ingestConfig)
+    await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
     logger.info('Completed processing import action')
 }
 
@@ -56,4 +57,6 @@ exports.handler = async function(rawEvent: S3Event) {
             failure: JSON.stringify(failure.error)
         })
     })
+
+    logger.info(`Processed ${events.length - failures.length}/${events.length} events successfully`)
 }

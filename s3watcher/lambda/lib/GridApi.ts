@@ -51,6 +51,7 @@ export const buildGridImportRequest = async function(config: IngestConfig, s3Eve
         uri: imageUri
     }
 
+    // @todo – use URLSearchParams?
     const queryString = Object.keys(params)
         .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k]))
         .join('&')
@@ -85,6 +86,5 @@ export const importImage = async function(logger: Logger, importRequest: GridImp
             stage: importRequest.params.stage
         }
     }
-
 }
 
