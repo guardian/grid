@@ -10,7 +10,7 @@ interface Params {
     [name: string]: string
 }
 
-interface GridImportRequest {
+export interface GridImportRequest {
     key: string
     url: string
     path: string
@@ -27,7 +27,7 @@ export interface UploadResult {
     stage: string
 }
 
-export const buildGridImportRequest = function(config: IngestConfig, s3Event: ImportAction, imageUri: string): GridImportRequest {
+export const buildGridImportRequest = async function(config: IngestConfig, s3Event: ImportAction, imageUri: string): Promise<GridImportRequest> {
     const IMPORT_PATH = "/imports"
     
     const headers = {

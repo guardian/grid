@@ -1,10 +1,12 @@
 import {createMetric} from './Metrics'
-import { buildGridImportRequest, importImage } from './GridApi'
+import { buildGridImportRequest, GridImportRequest, importImage, UploadResult } from './GridApi'
 import { ImportAction, IngestConfig } from './Lambda'
 import {S3, CloudWatch} from 'aws-sdk'
 import { Logger } from './Logging'
 
-export const transfer = async function(logger: Logger, s3: S3, cloudwatch: CloudWatch, event: ImportAction, config: IngestConfig): Promise<void> {
+type ImportCall = (logger: Logger, req: GridImportRequest) => UploadResult
+
+export const transfer = async function(logger: Logger, s3: S3, cloudwatch: CloudWatch, importImage: ImportCall, event: ImportAction, config: IngestConfig): Promise<void> {
     const s3ObjectRequest = {
         Bucket: event.bucket,
         Key: event.key
@@ -18,7 +20,7 @@ export const transfer = async function(logger: Logger, s3: S3, cloudwatch: Cloud
         Expires: urlExpiryInSeconds
     })
 
-    const importRequest = buildGridImportRequest(config, event, signedUrl)
+    const importRequest = await buildGridImportRequest(config, event, signedUrl)
     const uploadResult = await importImage(logger, importRequest)
     logger.info('Grid API call finished', {event: JSON.stringify(uploadResult)})
     

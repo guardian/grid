@@ -15,7 +15,7 @@ test('build an import request', () => {
 
   const importRequest = buildGridImportRequest(config, cleanEvent, uri)
 
-  expect(importRequest).toEqual({
+  expect(importRequest).resolves.toEqual({
     fetchUrl: "https://grid.example.net/imports?filename=incoming-image.jpg&uploadedBy=SupplierSeven&stage=TEST&uri=https%3A%2F%2Fs3.example.net%2Fsigned-uri-to-access-image%3Fsignature%3Dmonkeybob",
     headers: {
       "X-Gu-Media-Key": "top-secret",
@@ -31,4 +31,20 @@ test('build an import request', () => {
     size: 11235023,
     url: "https://grid.example.net",
   })
+})
+
+test('build an import request with a file in the root', () => {
+  const config = ingestConfig
+  const cleanEvent: ImportAction = {
+    bucket: 'source-bucket',
+    key: 'incoming-image.jpg',
+    filename: 'incoming-image.jpg',
+    path: ['incoming-image.jpg'],
+    size: 11235023
+  }
+  const uri = 'https://s3.example.net/signed-uri-to-access-image?signature=monkeybob'
+
+  const importRequest = buildGridImportRequest(config, cleanEvent, uri)
+
+  expect(importRequest).rejects.toThrowError("Unable to process file uploaded to root folder: incoming-image.jpg")
 })

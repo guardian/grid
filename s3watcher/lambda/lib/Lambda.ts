@@ -40,11 +40,25 @@ export const createActionFromNotification = function(record: S3EventRecord): Imp
     }
 }
 
+const isIngestConfig = function(config: any): config is IngestConfig {
+    return  typeof config === "object" &&
+            typeof config.region === "string" &&
+            typeof config.baseUrl === "string" &&
+            typeof config.apiKey === "string" &&
+            typeof config.failBucket === "string" &&
+            typeof config.stage === "string" &&
+            typeof config.s3UrlExpiry === "number"
+} 
+
 export const parseIngestConfig = async function(json: string): Promise<IngestConfig> {
     try {
-        return JSON.parse(json)
+        const parsedJson = JSON.parse(json)
+        if (isIngestConfig(parsedJson)) {
+            return parsedJson
+        }
+        return Promise.reject(new Error("Provided JSON is not a valid configuration"))
     } catch (e) {
-        return Promise.reject(new Error("s3://${s3Event.bucket}/config.json is invalid JSON"))
+        return Promise.reject(new Error("Provided string is invalid JSON"))
     }
 }
 

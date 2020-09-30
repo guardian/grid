@@ -1,4 +1,4 @@
-interface LoggingFields {
+export interface LoggingFields {
   [key: string]: string | number
 }
 
@@ -10,18 +10,18 @@ export interface Logger {
   error: Log
 }
 
-export const createLogger = function(baseFields: LoggingFields): Logger {
+export const createLogger = function(baseFields: LoggingFields, logger: (fields: LoggingFields) => void = log): Logger {
   return {
-    info: logWithBaseFields({... baseFields, level: "INFO"}),
-    warn: logWithBaseFields({... baseFields, level: "WARN"}),
-    error: logWithBaseFields({... baseFields, level: "ERROR"})
+    info: logWithBaseFields({... baseFields, level: "INFO"}, logger),
+    warn: logWithBaseFields({... baseFields, level: "WARN"}, logger),
+    error: logWithBaseFields({... baseFields, level: "ERROR"}, logger)
   }
 }
 
-const logWithBaseFields = function(baseFields: LoggingFields): Log {
+const logWithBaseFields = function(baseFields: LoggingFields, logger: (fields: LoggingFields) => void): Log {
   return (msg: string, fields?: LoggingFields) => {
     const extraFields = fields === undefined ? {} : fields
-    log({... baseFields, ... extraFields, message: msg})
+    logger({... baseFields, ... extraFields, message: msg})
   }
 }
 
