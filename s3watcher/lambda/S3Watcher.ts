@@ -25,7 +25,7 @@ const credentials = envConfig.isDev
   : undefined
 
 AWS.config.update({
-  credentials: new AWS.SharedIniFileCredentials({ profile: envConfig.profile }),
+  credentials: credentials,
   region: envConfig.region,
 })
 
@@ -40,14 +40,14 @@ function isFailure(item: Failure | void): item is Failure {
   return item !== undefined
 }
 
-const processEvent = async function (action: ImportAction) {
+const processEvent = async function (action: ImportAction): Promise<void> {
   const ingestConfigString: string = await readIngestConfig(s3, action)
   const ingestConfig: IngestConfig = await parseIngestConfig(ingestConfigString)
   await transfer(logger, s3, cloudwatch, importImage, action, ingestConfig)
   logger.info("Completed processing import action")
 }
 
-exports.handler = async function (rawEvent: S3Event) {
+exports.handler = async function (rawEvent: S3Event): Promise<void> {
   logger.info("Received notification from S3")
 
   const events: ImportAction[] = rawEvent.Records.map(
