@@ -21,7 +21,6 @@ crop.controller('ImageCropCtrl', [
   'optimisedImageUri',
   'keyboardShortcut',
   'defaultCrop',
-  'cropOptions',
   'cropSettings',
   'square',
   'freeform',
@@ -36,7 +35,6 @@ crop.controller('ImageCropCtrl', [
     optimisedImageUri,
     keyboardShortcut,
     defaultCrop,
-    cropOptions,
     cropSettings,
     square,
     freeform) {
@@ -201,7 +199,7 @@ crop.controller('ImageCropCtrl', [
           callback: () => ctrl.callCrop()
         });
 
-      cropOptions.forEach(option => {
+      cropSettings.getCropOptions().forEach(option => {
         keyboardShortcut.bindTo($scope).add({
           combo: option.key.charAt(0),
           description: `Start ${option.key} crop`,
