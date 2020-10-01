@@ -14,11 +14,7 @@ import { createLogger } from "./lib/Logging"
 import { importImage } from "./lib/GridApi"
 
 const envConfig = readConfig()
-const logger = createLogger({
-  app: envConfig.app,
-  stack: envConfig.stack,
-  stage: envConfig.stage,
-})
+const logger = createLogger({})
 
 const credentials = envConfig.isDev
   ? new AWS.SharedIniFileCredentials({ profile: envConfig.profile })
