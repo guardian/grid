@@ -122,12 +122,17 @@ checkForJavaHome() {
   fi
 }
 
+ensureNginxIsRunning() {
+  dev-nginx start -g
+}
+
 main() {
   checkForJavaHome
   hasCredentials
   checkRequirements
   checkNodeVersion
   startDockerContainers
+  ensureNginxIsRunning
   buildJs
   startPlayApps
 }
