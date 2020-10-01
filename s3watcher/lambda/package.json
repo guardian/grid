@@ -16,7 +16,6 @@
     "eslint": "^7.9.0",
     "eslint-config-prettier": "^6.12.0",
     "jest": "^26.4.2",
-    "jest-circus": "^26.4.2",
     "node-lambda": "^0.7.1",
     "prettier": "2.1.2",
     "ts-jest": "^26.4.1",
@@ -25,8 +24,8 @@
   },
   "scripts": {
     "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
-    "test": "JEST_CIRCUS=1 jest --coverage",
-    "test:watch": "JEST_CIRCUS=1 jest --watch",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
     "lint": "eslint S3Watcher.ts lib",
     "build": "ARTEFACT_PATH=$PWD riffraff-artefact",
     "tsc": "tsc"
