@@ -21,8 +21,7 @@ crop.controller('ImageCropCtrl', [
   'optimisedImageUri',
   'keyboardShortcut',
   'defaultCrop',
-  'cropOptions',
-  'cropTypeUtil',
+  'cropSettings',
   'square',
   'freeform',
   function(
@@ -36,23 +35,23 @@ crop.controller('ImageCropCtrl', [
     optimisedImageUri,
     keyboardShortcut,
     defaultCrop,
-    cropOptions,
-    cropTypeUtil,
+    cropSettings,
     square,
     freeform) {
 
       const ctrl = this;
       const imageId = $stateParams.imageId;
 
-      cropTypeUtil.set($stateParams);
+    cropSettings.set($stateParams);
+      const allCropOptions = cropSettings.getCropOptions();
 
-      const storageCropType = cropTypeUtil.get();
+      const storageCropType = cropSettings.getCropType();
 
       const cropOptionDisplayValue = cropOption => cropOption.ratioString
         ? `${cropOption.key} (${cropOption.ratioString})`
         : cropOption.key;
 
-      ctrl.cropOptions = cropOptions
+    ctrl.cropOptions = allCropOptions
         .filter(option => !storageCropType || storageCropType === option.key)
         .map(option => Object.assign(option, {
           value: cropOptionDisplayValue(option),
@@ -200,7 +199,7 @@ crop.controller('ImageCropCtrl', [
           callback: () => ctrl.callCrop()
         });
 
-      cropOptions.forEach(option => {
+      cropSettings.getCropOptions().forEach(option => {
         keyboardShortcut.bindTo($scope).add({
           combo: option.key.charAt(0),
           description: `Start ${option.key} crop`,
