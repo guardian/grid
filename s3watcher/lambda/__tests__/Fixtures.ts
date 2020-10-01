@@ -21,6 +21,7 @@ export const action: ImportAction = {
 
 interface MockLogger extends Logger {
   getLoggedLines: () => LoggingFields[]
+  getWarningsAndErrors: () => LoggingFields[]
 }
 
 export const createMockLogger = function (
@@ -34,5 +35,8 @@ export const createMockLogger = function (
   return {
     ...logger,
     getLoggedLines: () => lines,
+    getWarningsAndErrors: () => {
+      return lines.filter((l) => l.level !== "INFO")
+    },
   }
 }

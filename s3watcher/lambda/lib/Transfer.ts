@@ -2,7 +2,6 @@ import { createMetric } from "./Metrics"
 import {
   buildGridImportRequest,
   GridImportRequest,
-  importImage,
   UploadResult,
 } from "./GridApi"
 import { ImportAction, IngestConfig } from "./Lambda"
