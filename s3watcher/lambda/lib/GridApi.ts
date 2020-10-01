@@ -81,6 +81,7 @@ export const importImage = async (
   try {
     logger.info(`Calling ${importRequest.fetchUrl}`)
     const uploadResponse = await fetch(importRequest.fetchUrl, {
+      method: "POST",
       headers: importRequest.headers,
     })
     return {
