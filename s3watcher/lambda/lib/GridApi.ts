@@ -74,11 +74,12 @@ export const buildGridImportRequest = async function (
   }
 }
 
-export const importImage = async function (
+export const importImage = async (
   logger: Logger,
   importRequest: GridImportRequest
-): Promise<UploadResult> {
+): Promise<UploadResult> => {
   try {
+    logger.info(`Calling ${importRequest.fetchUrl}`)
     const uploadResponse = await fetch(importRequest.fetchUrl, {
       headers: importRequest.headers,
     })
