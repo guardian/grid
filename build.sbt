@@ -42,6 +42,8 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in metadataEditor).value -> s"${(name in metadataEditor).value}/${(name in metadataEditor).value}.deb",
       (packageBin in Debian in usage).value -> s"${(name in usage).value}/${(name in usage).value}.deb",
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
+      // pull in s3watcher build
+      file("s3watcher/lambda/target/s3watcher.zip") -> "s3watcher/s3watcher.zip",
       file("riff-raff.yaml") -> "riff-raff.yaml"
     )
   )

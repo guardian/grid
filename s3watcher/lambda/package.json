@@ -20,14 +20,15 @@
     "prettier": "2.1.2",
     "ts-jest": "^26.4.1",
     "ts-node": "^9.0.0",
-    "typescript": "^4.0.3"
+    "typescript": "^4.0.3",
+    "@vercel/ncc": "^0.24.0"
   },
   "scripts": {
     "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint S3Watcher.ts lib",
-    "build": "ARTEFACT_PATH=$PWD riffraff-artefact",
+    "build": "rm target/* && ncc build S3Watcher.ts -o target -e aws-sdk && zip target/s3watcher.zip target/index.js",
     "tsc": "tsc"
   },
   "author": "",
