@@ -16,7 +16,7 @@
     "eslint": "^7.9.0",
     "eslint-config-prettier": "^6.12.0",
     "jest": "^26.4.2",
-    "node-lambda": "^0.7.1",
+    "node-lambda": "^0.17.0",
     "prettier": "2.1.2",
     "ts-jest": "^26.4.1",
     "ts-node": "^9.0.0",
@@ -24,11 +24,11 @@
     "@vercel/ncc": "^0.24.0"
   },
   "scripts": {
-    "local": "node-lambda run -h index.handler -j ../event.json",
+    "local": "npm run build && node-lambda run -h index.handler -j ../event.json",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint index.ts lib",
-    "build": "rm -f target/* && ncc build index.ts -o target -e aws-sdk && zip target/s3watcher.zip target/index.js",
+    "build": "rm -f target/* && ncc build index.ts -o target -e aws-sdk && (cd target; zip s3watcher.zip index.js)",
     "tsc": "tsc"
   },
   "author": "",
