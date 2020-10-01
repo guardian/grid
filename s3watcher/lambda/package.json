@@ -24,11 +24,11 @@
     "@vercel/ncc": "^0.24.0"
   },
   "scripts": {
-    "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
+    "local": "node-lambda run -h index.handler -j ../event.json",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
-    "lint": "eslint S3Watcher.ts lib",
-    "build": "rm -f target/* && ncc build S3Watcher.ts -o target -e aws-sdk && zip target/s3watcher.zip target/index.js",
+    "lint": "eslint index.ts lib",
+    "build": "rm -f target/* && ncc build index.ts -o target -e aws-sdk && zip target/s3watcher.zip target/index.js",
     "tsc": "tsc"
   },
   "author": "",

@@ -9,7 +9,7 @@ import { transfer } from "./lib/Transfer"
 import AWS from "aws-sdk"
 import { readConfig } from "./lib/EnvironmentConfig"
 
-import { S3Event } from "aws-lambda"
+import { Handler, S3Event } from "aws-lambda"
 import { createLogger } from "./lib/Logging"
 import { importImage } from "./lib/GridApi"
 
@@ -47,7 +47,7 @@ const processEvent = async function (action: ImportAction): Promise<void> {
   logger.info("Completed processing import action")
 }
 
-exports.handler = async function (rawEvent: S3Event): Promise<void> {
+export const handler: Handler = async (rawEvent: S3Event): Promise<void> => {
   logger.info("Received notification from S3")
 
   const events: ImportAction[] = rawEvent.Records.map(
