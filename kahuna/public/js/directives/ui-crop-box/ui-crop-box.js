@@ -14,9 +14,8 @@ cropBox.directive('uiCropBox', [
   'safeApply',
   'nextTick',
   'delay',
-  'cropOptions',
   'cropSettings',
-  function($timeout, $parse, safeApply, nextTick, delay, cropOptions, cropSettings) {
+  function($timeout, $parse, safeApply, nextTick, delay, cropSettings) {
 
     return {
         restrict: 'A',
