@@ -28,7 +28,7 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "lint": "eslint S3Watcher.ts lib",
-    "build": "rm target/* && ncc build S3Watcher.ts -o target -e aws-sdk && zip target/s3watcher.zip target/index.js",
+    "build": "rm -f target/* && ncc build S3Watcher.ts -o target -e aws-sdk && zip target/s3watcher.zip target/index.js",
     "tsc": "tsc"
   },
   "author": "",
