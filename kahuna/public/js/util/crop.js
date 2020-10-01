@@ -35,8 +35,8 @@ cropUtil.factory('cropSettings', ['storage', function(storage) {
   const isValidCropType = cropType => getCropOptions().some(_ => _.key === cropType);
 
   const isValidRatio = ratio => {
-    const splitRatio = ratio.split(',');
-    return !(splitRatio.length < 3 || isNaN(splitRatio[1]) || isNaN(splitRatio[2]));
+    const [label, x, y, ...rest] = ratio.split(',');
+    return label && !isNaN(x) && !isNaN(y);
   };
 
   const parseRatio = ratio => {
