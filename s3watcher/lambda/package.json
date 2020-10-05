@@ -5,7 +5,7 @@
   "main": "S3Watcher.js",
   "dependencies": {
     "async": "~1.4.2",
-    "@guardian/elk-kinesis-logger": "0.1.0",
+    "@guardian/elk-kinesis-logger": "0.5.0",
     "request": "~2.81.0",
     "rx": "^3.1.2",
     "rx-node": "^1.0.1"
