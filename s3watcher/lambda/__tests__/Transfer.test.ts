@@ -88,8 +88,9 @@ test("transfer completes even if the cloudwatch metric fails", async () => {
     "https://s3.monkey.com/blah/blah"
   )
   putDataPromise.mockRejectedValue(new Error("Cloudwatch broken"))
-  deleteObjectPromise.mockReturnValueOnce
+  deleteObjectPromise.mockResolvedValueOnce(undefined)
   const importAction = jest.fn().mockReturnValueOnce({ succeeded: true })
+
   const result = transfer(
     logger,
     s3Client,

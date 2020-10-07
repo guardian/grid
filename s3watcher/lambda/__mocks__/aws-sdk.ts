@@ -1,13 +1,7 @@
-export const getObjectPromise = jest.fn().mockReturnValue(Promise.resolve(true))
-export const copyObjectPromise = jest
-  .fn()
-  .mockReturnValue(Promise.resolve(true))
-export const deleteObjectPromise = jest
-  .fn()
-  .mockReturnValue(Promise.resolve(true))
-export const getSignedUrlPromisePromise = jest
-  .fn()
-  .mockReturnValue(Promise.resolve(true))
+export const getObjectPromise = jest.fn()
+export const copyObjectPromise = jest.fn()
+export const deleteObjectPromise = jest.fn()
+export const getSignedUrlPromisePromise = jest.fn()
 
 const getObjectFn = jest
   .fn()
@@ -29,7 +23,7 @@ export class S3 {
   getSignedUrlPromise = getSignedUrlPromiseFn
 }
 
-export const putDataPromise = jest.fn().mockReturnValue(Promise.resolve(true))
+export const putDataPromise = jest.fn()
 
 const putDataFn = jest
   .fn()
