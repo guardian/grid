@@ -30,11 +30,11 @@ test("creation of a metric on successful upload", () => {
   const metricNoDim = metricData.MetricData.find(
     (m) => m.Dimensions === undefined
   )
-  expect(metricWithDim?.MetricName).toEqual("UploadedImages")
-  expect(metricWithDim?.Dimensions).toBeUndefined
-  expect(metricWithDim?.Timestamp).toEqual(timestamp)
-  expect(metricWithDim?.Unit).toEqual("Count")
-  expect(metricWithDim?.Value).toBe(1)
+  expect(metricNoDim?.MetricName).toEqual("UploadedImages")
+  expect(metricNoDim?.Dimensions).toBeUndefined()
+  expect(metricNoDim?.Timestamp).toEqual(timestamp)
+  expect(metricNoDim?.Unit).toEqual("Count")
+  expect(metricNoDim?.Value).toBe(1)
 })
 
 test("creation of a metric on failued upload", () => {
@@ -65,9 +65,9 @@ test("creation of a metric on failued upload", () => {
   const metricNoDim = metricData.MetricData.find(
     (m) => m.Dimensions === undefined
   )
-  expect(metricWithDim?.MetricName).toEqual("FailedUploads")
-  expect(metricWithDim?.Dimensions).toBeUndefined
-  expect(metricWithDim?.Timestamp).toEqual(timestamp)
-  expect(metricWithDim?.Unit).toEqual("Count")
-  expect(metricWithDim?.Value).toBe(1)
+  expect(metricNoDim?.MetricName).toEqual("FailedUploads")
+  expect(metricNoDim?.Dimensions).toBeUndefined()
+  expect(metricNoDim?.Timestamp).toEqual(timestamp)
+  expect(metricNoDim?.Unit).toEqual("Count")
+  expect(metricNoDim?.Value).toBe(1)
 })
