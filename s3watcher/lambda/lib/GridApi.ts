@@ -57,11 +57,9 @@ export const buildGridImportRequest = async function (
     uri: imageUri,
   }
 
-  // @todo – use URLSearchParams?
-  const queryString = Object.keys(params)
-    .map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(params[k]))
-    .join("&")
-  const fetchUrl = new URL(`${IMPORT_PATH}?${queryString}`, config.baseUrl)
+  const queryParams = new URLSearchParams(params)
+
+  const fetchUrl = new URL(`${IMPORT_PATH}?${queryParams}`, config.baseUrl)
 
   return {
     key: config.apiKey,
