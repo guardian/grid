@@ -12,12 +12,12 @@ interface Params {
 
 export interface GridImportRequest {
   key: string
-  url: string
+  url: URL
   path: string
   size: number
   headers: Headers
   params: Params
-  fetchUrl: string
+  fetchUrl: URL
 }
 
 export interface UploadResult {
@@ -61,11 +61,11 @@ export const buildGridImportRequest = async function (
   const queryString = Object.keys(params)
     .map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(params[k]))
     .join("&")
-  const fetchUrl = `${config.baseUrl}${IMPORT_PATH}?${queryString}`
+  const fetchUrl = new URL(`${IMPORT_PATH}?${queryString}`, config.baseUrl)
 
   return {
     key: config.apiKey,
-    url: config.baseUrl,
+    url: new URL(config.baseUrl),
     path: IMPORT_PATH,
     size: s3Event.size,
     headers,

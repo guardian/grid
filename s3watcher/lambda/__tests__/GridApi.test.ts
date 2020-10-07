@@ -7,7 +7,7 @@ import { ImportAction } from "../lib/Lambda"
 import { createMockLogger, ingestConfig } from "./Fixtures"
 import fetch from "node-fetch"
 
-test("build an import request", () => {
+test("build an import request", async () => {
   const config = ingestConfig
   const cleanEvent: ImportAction = {
     bucket: "source-bucket",
@@ -21,9 +21,9 @@ test("build an import request", () => {
 
   const importRequest = buildGridImportRequest(config, cleanEvent, uri)
 
-  expect(importRequest).resolves.toEqual({
+  await expect(importRequest).resolves.toEqual({
     fetchUrl:
-      "https://grid.example.net/imports?filename=incoming-image.jpg&uploadedBy=SupplierSeven&stage=TEST&uri=https%3A%2F%2Fs3.example.net%2Fsigned-uri-to-access-image%3Fsignature%3Dmonkeybob",
+      new URL("https://grid.example.net/imports?filename=incoming-image.jpg&uploadedBy=SupplierSeven&stage=TEST&uri=https%3A%2F%2Fs3.example.net%2Fsigned-uri-to-access-image%3Fsignature%3Dmonkeybob"),
     headers: {
       "X-Gu-Media-Key": "top-secret",
     },
@@ -37,11 +37,11 @@ test("build an import request", () => {
     },
     path: "/imports",
     size: 11235023,
-    url: "https://grid.example.net",
+    url: new URL("https://grid.example.net/"),
   })
 })
 
-test("build an import request with a file in the root", () => {
+test("build an import request with a file in the root", async () => {
   const config = ingestConfig
   const cleanEvent: ImportAction = {
     bucket: "source-bucket",
@@ -55,15 +55,15 @@ test("build an import request with a file in the root", () => {
 
   const importRequest = buildGridImportRequest(config, cleanEvent, uri)
 
-  expect(importRequest).rejects.toThrowError(
+  await expect(importRequest).rejects.toThrowError(
     "Unable to process file uploaded to root folder: incoming-image.jpg"
   )
 })
 
-test("calling the Grid imports endpoint", () => {
+test("calling the Grid imports endpoint", async () => {
   const logger = createMockLogger({})
   const request: GridImportRequest = {
-    fetchUrl: "https://grid.example.net/imports?filename=incoming-image.jpg",
+    fetchUrl: new URL("https://grid.example.net/imports?filename=incoming-image.jpg"),
     headers: {
       "X-Gu-Media-Key": "top-secret",
     },
@@ -77,14 +77,14 @@ test("calling the Grid imports endpoint", () => {
     },
     path: "/imports",
     size: 11235023,
-    url: "https://grid.example.net",
+    url: new URL("https://grid.example.net"),
   }
   const mock = (fetch as unknown) as jest.Mock
   mock.mockReturnValue({})
   const result = importImage(logger, request)
-  expect(result).resolves.not.toThrow()
+  await expect(result).resolves.not.toThrow()
   expect(mock).toBeCalledWith(
-    "https://grid.example.net/imports?filename=incoming-image.jpg",
+    new URL("https://grid.example.net/imports?filename=incoming-image.jpg"),
     {
       headers: {
         "X-Gu-Media-Key": "top-secret",

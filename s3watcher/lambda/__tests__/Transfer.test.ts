@@ -31,7 +31,7 @@ test("transfer successfully coordinates a transfer", async () => {
     action,
     ingestConfig
   )
-  await expect(result).resolves.toBeUndefined()
+  await expect(result).resolves.toEqual({"succeeded": true})
   expect(s3Client.getSignedUrlPromise).toHaveBeenCalledWith("getObject", {
     Bucket: "import-bucket",
     Expires: 60,
@@ -99,7 +99,7 @@ test("transfer completes even if the cloudwatch metric fails", async () => {
     action,
     ingestConfig
   )
-  await expect(result).resolves.toBeUndefined()
+  await expect(result).resolves.toEqual({"succeeded": true})
   expect(s3Client.getSignedUrlPromise).toHaveBeenCalled()
   expect(cloudwatch.putMetricData).toHaveBeenCalled()
   expect(s3Client.copyObject).not.toHaveBeenCalled()

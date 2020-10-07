@@ -20,7 +20,7 @@ export const transfer = async function (
   importImage: ImportCall,
   event: ImportAction,
   config: IngestConfig
-): Promise<void> {
+): Promise<UploadResult> {
   const s3ObjectRequest = {
     Bucket: event.bucket,
     Key: event.key,
@@ -93,4 +93,5 @@ export const transfer = async function (
 
     throw new Error(`Unable to import file: s3://${event.bucket}/${event.key}`)
   }
+  return uploadResult
 }

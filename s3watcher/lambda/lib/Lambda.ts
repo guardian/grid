@@ -42,6 +42,7 @@ export const createActionFromNotification = function (
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const isIngestConfig = function (config: any): config is IngestConfig {
   return (
     typeof config === "object" &&
