@@ -80,7 +80,7 @@ test("parseIngestConfig should fail to parse an incomplete config", () => {
     "stage": "CONFIG_TEST"
   }`
   const action: Promise<IngestConfig> = parseIngestConfig(config)
-  expect(action).rejects.toThrowError("")
+  expect(action).rejects.toThrowError("Provided JSON is not a valid configuration")
 })
 
 test("parseIngestConfig should fail to parse an incomplete config", () => {
