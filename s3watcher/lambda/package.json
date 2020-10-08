@@ -4,24 +4,32 @@
   "description": "",
   "main": "S3Watcher.js",
   "dependencies": {
-    "async": "~1.4.2",
-    "@guardian/elk-kinesis-logger": "0.1.0",
-    "request": "~2.81.0",
-    "rx": "^3.1.2",
-    "rx-node": "^1.0.1"
+    "node-fetch": "^2.6.1"
   },
   "devDependencies": {
-    "aws-sdk": "^2.2.21",
+    "@types/aws-lambda": "^8.10.63",
+    "@types/node": "^12.12.62",
+    "@types/node-fetch": "^2.5.7",
+    "@typescript-eslint/eslint-plugin": "^4.3.0",
+    "@typescript-eslint/parser": "^4.3.0",
+    "aws-sdk": "^2.761.0",
     "eslint": "^7.9.0",
-    "eslint-plugin-standard": "^4.0.1",
-    "node-lambda": "^0.7.1",
-    "node-riffraff-artefact": "^2.0.1"
+    "eslint-config-prettier": "^6.12.0",
+    "jest": "^26.4.2",
+    "node-lambda": "^0.17.0",
+    "prettier": "2.1.2",
+    "ts-jest": "^26.4.1",
+    "ts-node": "^9.0.0",
+    "typescript": "^4.0.3",
+    "@vercel/ncc": "^0.24.0"
   },
   "scripts": {
-    "local": "node-lambda run -h S3Watcher.handler -j ../event.json",
-    "test": "npm run lint",
-    "lint": "eslint S3Watcher.js lib",
-    "build": "ARTEFACT_PATH=$PWD riffraff-artefact"
+    "local": "npm run build && node-lambda run -h index.handler -j ../event.json",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "lint": "eslint index.ts lib",
+    "build": "rm -f target/* && ncc build index.ts -o target -e aws-sdk && (cd target; zip s3watcher.zip index.js)",
+    "tsc": "tsc"
   },
   "author": "",
   "license": "Apache-2.0",

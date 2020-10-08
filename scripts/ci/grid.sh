@@ -5,17 +5,25 @@ set -e
 SCRIPT_DIR=$(dirname ${0})
 
 setupNvm() {
-    export NVM_DIR="$HOME/.nvm"
-    [[ -s "$NVM_DIR/nvm.sh" ]] && . "$NVM_DIR/nvm.sh"  # This loads nvm
+  export NVM_DIR="$HOME/.nvm"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    # This loads nvm if installed directly
+    source "$NVM_DIR/nvm.sh"
+  elif [ -s "$(brew --prefix nvm)/nvm.sh" ]; then
+    # This will load nvm if installed via brew
+    source "$(brew --prefix nvm)/nvm.sh"
+  else
+    echo "Can't find NVM"
+    exit 1
+  fi
 
-    nvm install
-    nvm use
+  nvm install
+  nvm use
 }
 
-buildJs() {
+buildKahuna() {
   echo "##teamcity[compilationStarted compiler='webpack']"
 
-  setupNvm
   pushd ${SCRIPT_DIR}/../../kahuna
 
   # clear old packages first
@@ -29,12 +37,26 @@ buildJs() {
   popd
 }
 
+buildWatcher() {
+  echo "##teamcity[compilationStarted compiler='ncc']"
+  pushd ${SCRIPT_DIR}/../../s3watcher/lambda
+
+  nvm use ${NODE_VERSION}
+  npm install
+  npm test
+  npm run build
+
+  popd
+  echo "##teamcity[compilationFinished compiler='ncc']"
+}
+
 buildSbt() {
   echo "##teamcity[compilationStarted compiler='sbt']"
   sbt clean test scripts/compile riffRaffUpload
   echo "##teamcity[compilationFinished compiler='sbt']"
-
 }
 
-buildJs
+setupNvm
+buildKahuna
+buildWatcher
 buildSbt
