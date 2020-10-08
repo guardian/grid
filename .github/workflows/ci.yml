@@ -1,5 +1,12 @@
 name: Grid CI
-on: [pull_request]
+on:
+  pull_request:
+
+  # triggering CI default branch improves caching
+  # see https://docs.github.com/en/free-pro-team@latest/actions/guides/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache
+  push:
+    branches:
+      - main
 jobs:
   JSBuild:
     runs-on: ubuntu-18.04
@@ -57,6 +64,17 @@ jobs:
           --health-retries 10
     steps:
     - uses: actions/checkout@v1
+
+    # see https://github.com/actions/cache/blob/master/examples.md#scala---sbt
+    - name: Cache SBT
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+          ~/.coursier
+        key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
+
     - name: SBT
       uses: ./.github/actions/sbt
       env:
