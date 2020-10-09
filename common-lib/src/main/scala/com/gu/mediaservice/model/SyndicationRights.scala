@@ -72,8 +72,8 @@ object Property {
   val reads: Reads[Property] = Json.reads[Property]
   val writes: Writes[Property] = (
     (__ \ "propertyCode").write[String] ~
-    (__ \ "expiresOn").write[Option[DateTime]] ~
-    (__ \ "value").write[Option[String]]
+    (__ \ "expiresOn").writeNullable[DateTime] ~
+    (__ \ "value").writeNullable[String]
   ){ r: Property => (r.propertyCode, r.expiresOn, r.value) }
 
   implicit val formats: Format[Property] = Format(reads, writes)
