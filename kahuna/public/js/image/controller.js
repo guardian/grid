@@ -89,8 +89,7 @@ image.controller('ImageCtrl', [
             imageService,
             imageUsagesService,
             keyboardShortcut,
-            cropSettings,
-) {
+            cropSettings) {
 
     let ctrl = this;
 
