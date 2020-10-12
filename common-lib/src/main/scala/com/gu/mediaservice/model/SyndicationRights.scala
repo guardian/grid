@@ -22,7 +22,7 @@ object SyndicationRights {
   val reads: Reads[SyndicationRights] = Json.using[Json.WithDefaultValues].reads[SyndicationRights]
 
   val writes: Writes[SyndicationRights] = (
-    (__ \ "published").write[Option[DateTime]] ~
+    (__ \ "published").writeNullable[DateTime] ~
     (__ \ "suppliers").write[Seq[Supplier]] ~
     (__ \ "rights").write[Seq[Right]] ~
     (__ \ "isInferred").write[Boolean]
@@ -38,9 +38,9 @@ case class Supplier(
 object Supplier {
   val reads: Reads[Supplier] = Json.reads[Supplier]
   val writes: Writes[Supplier] = (
-    (__ \ "supplierName").write[Option[String]] ~
-    (__ \ "supplierId").write[Option[String]] ~
-    (__ \ "prAgreement").write[Option[Boolean]]
+    (__ \ "supplierName").writeNullable[String] ~
+    (__ \ "supplierId").writeNullable[String] ~
+    (__ \ "prAgreement").writeNullable[Boolean]
   ){ s: Supplier => (s.supplierName, s.supplierId, s.prAgreement) }
 
   implicit val formats: Format[Supplier] = Format(reads, writes)
@@ -54,7 +54,7 @@ object Right {
   val reads: Reads[Right] = Json.reads[Right]
   val writes: Writes[Right] = (
     (__ \ "rightCode").write[String] ~
-    (__ \ "acquired").write[Option[Boolean]] ~
+    (__ \ "acquired").writeNullable[Boolean] ~
     (__ \ "properties").write[Seq[Property]]
   ){ r: Right => (r.rightCode, r.acquired, r.properties) }
 
@@ -72,8 +72,8 @@ object Property {
   val reads: Reads[Property] = Json.reads[Property]
   val writes: Writes[Property] = (
     (__ \ "propertyCode").write[String] ~
-    (__ \ "expiresOn").write[Option[DateTime]] ~
-    (__ \ "value").write[Option[String]]
+    (__ \ "expiresOn").writeNullable[DateTime] ~
+    (__ \ "value").writeNullable[String]
   ){ r: Property => (r.propertyCode, r.expiresOn, r.value) }
 
   implicit val formats: Format[Property] = Format(reads, writes)
