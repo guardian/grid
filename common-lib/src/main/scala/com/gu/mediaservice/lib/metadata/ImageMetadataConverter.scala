@@ -53,10 +53,6 @@ private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): S
       res
     }
 
-
-
-  def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata =
-
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseRandomDate) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseRandomDate) orElse

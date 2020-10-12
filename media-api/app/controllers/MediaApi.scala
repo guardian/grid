@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.auth.Authentication.{AuthenticatedService, OnBehalfOfService, OnBehalfOfUser, PandaUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, OnBehalfOfApiKey, OnBehalfOfUser, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
@@ -218,28 +218,6 @@ class MediaApi(
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
-        val apiKey = request.user.apiKey
-        GridLogger.info(s"Download original image: $id from user: ${Authentication.getEmail(request.user)}", apiKey, id)
-        mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
-        val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
-        val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-        val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType)
-
-        postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getEmail(request.user))
-
-        Future.successful(
-          Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(image, Source))
-        )
-      }
-      case _ => Future.successful(ImageNotFound(id))
-    }
-  }
-
-  def downloadOriginalImage(id: String) = auth.async { request =>
-    implicit val r = request
-
-    elasticSearch.getImageById(id) flatMap {
-      case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.accessor
         GridLogger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
@@ -265,8 +243,8 @@ class MediaApi(
 
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
-        val apiKey = request.user.apiKey
-        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.PandaUser.getEmail(request.user)}", apiKey, id)
+        val apiKey = request.user.accessor
+        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
         val sourceImageUri =
@@ -275,7 +253,7 @@ class MediaApi(
             case _ => Source
           }))
 
-        postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getEmail(request.user))
+        postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
 
         Future.successful(
           Redirect(config.imgopsUri + List(sourceImageUri.getPath, sourceImageUri.getRawQuery).mkString("?") + s"&w=$width&h=$height&q=$quality")
@@ -293,9 +271,9 @@ class MediaApi(
           HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
 
     val request = onBehalfOfPrincipal match {
-      case OnBehalfOfService(service) =>
-        print(service.apiKey.name)
-        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.apiKey.name)
+      case OnBehalfOfApiKey(apiKey) =>
+        print(apiKey.accessor.identity)
+        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> apiKey.accessor.identity)
       case OnBehalfOfUser(_, cookie) =>
         baseRequest.addCookies(cookie)
     }
@@ -351,27 +329,6 @@ class MediaApi(
     }
   }
 
-  def postToUsages(uri: String, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal, mediaId: String, user: String) = {
-    val baseRequest = ws.url(uri)
-      .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
-        HttpHeaders.ORIGIN -> config.rootUri,
-        HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
-
-    val request = onBehalfOfPrincipal match {
-      case OnBehalfOfApiKey(service) =>
-        print(service.accessor.identity)
-        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.accessor.identity)
-      case OnBehalfOfUser(_, cookie) =>
-        baseRequest.addCookies(cookie)
-    }
-
-    val usagesMetadata = Map("mediaId" -> mediaId,
-      "dateAdded" -> printDateTime(DateTime.now()),
-      "downloadedBy" -> user)
-
-    GridLogger.info(s"Making usages download request")
-    request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
-  }
   def imageSearch() = auth.async { request =>
     implicit val r = request
 

@@ -49,7 +49,7 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
             _.apply(message.body))
         _ = recordMessageCount(message)
       } yield ()
-      future |> deleteOnSuccess(msg)
+      future ▹ deleteOnSuccess(msg)
     }
 
     processMessages()

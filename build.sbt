@@ -65,7 +65,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.typesafe.play" %% "play" % "2.6.20", ws,
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
-    "com.gu" %% "pan-domain-auth-play_2-6" % "0.9.2-SNAPSHOT",
+    "com.gu" %% "pan-domain-auth-play_2-6" % "0.9.2",
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,

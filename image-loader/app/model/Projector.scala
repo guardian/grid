@@ -30,11 +30,11 @@ object Projector {
 }
 
 case class S3FileExtractedMetadata(
-  uploadedBy: String,
-  uploadTime: DateTime,
-  uploadFileName: Option[String],
-  picdarUrn: Option[String]
-)
+                                    uploadedBy: String,
+                                    uploadTime: DateTime,
+                                    uploadFileName: Option[String],
+                                    picdarUrn: Option[String]
+                                  )
 
 object S3FileExtractedMetadata {
   def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
@@ -129,7 +129,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
-    projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
+      projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly)
   }
 

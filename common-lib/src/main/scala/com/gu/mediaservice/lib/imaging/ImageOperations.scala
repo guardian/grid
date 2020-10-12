@@ -132,7 +132,7 @@ class ImageOperations(playPath: String) {
     } yield outputFile
   }
 
-  def transformImage(sourceFile: File, sourceMimeType: Option[String], tempDir: File, qual: Double = 100): Future[File] = {
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File, qual: Double = 100): Future[File] = {
 
     for {
       outputFile      <- createTempFile(s"transformed-", ".png", tempDir)

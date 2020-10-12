@@ -138,9 +138,10 @@ object Authentication {
     }
     val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
     val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
-    val inAccessGroup = authedUser.permissions.exists(_.toLowerCase.contains("grid access"))
 
-    val isValid = ((usePermissionsValidation && inAccessGroup) || (!usePermissionsValidation && isValidEmail)) && isValidDomain && passesMultifactor
+//    val inAccessGroup = authedUser.permissions.exists(_.toLowerCase.contains("grid access"))
+
+    val isValid = ((usePermissionsValidation) || (!usePermissionsValidation && isValidEmail)) && isValidDomain && passesMultifactor
 
     GridLogger.info(s"Validated user ${authedUser.user.email} as ${if(isValid) "valid" else "invalid"} using " +
                         s"${if(usePermissionsValidation) "permissions" else "white list"} validation")
