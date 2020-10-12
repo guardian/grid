@@ -7,7 +7,7 @@ The [`setup.sh`](../../dev/script/setup.sh) script will do all the hard work!
 - Launch the required Docker containers as defined in [`docker-compose.yml`](../../docker-compose.yml)
 - Use the [CloudFormation templates](../../dev/cloudformation) to create AWS resources within [localstack](https://github.com/localstack/localstack)
 - Setup NGINX proxies using [dev-nginx](https://github.com/guardian/dev-nginx)
-- Generate configuration files in `/etc/gu`
+- Generate configuration files in `~/.grid`
 - Optionally create an authentication stack
 
 ## Running

@@ -8,11 +8,8 @@ import play.api.Configuration
 
 import scala.util.Try
 
-class LeasesConfig(override val configuration: Configuration) extends CommonConfig {
-
-  final override lazy val appName = "leases"
-
-  val leasesTable = properties("dynamo.tablename.leasesTable")
+class LeasesConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+  val leasesTable = string("dynamo.tablename.leasesTable")
 
   val rootUri: String = services.leasesBaseUri
   val kahunaUri: String = services.kahunaBaseUri

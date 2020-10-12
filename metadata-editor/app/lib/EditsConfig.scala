@@ -5,18 +5,15 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
 
-class EditsConfig(override val configuration: Configuration) extends CommonConfig {
+class EditsConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+  val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
 
-  final override lazy val appName = "metadata-editor"
+  val keyStoreBucket = string("auth.keystore.bucket")
+  val collectionsBucket: String = string("s3.collections.bucket")
 
-  val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
+  val editsTable = string("dynamo.table.edits")
 
-  val keyStoreBucket = properties("auth.keystore.bucket")
-  val collectionsBucket: String = properties("s3.collections.bucket")
-
-  val editsTable = properties("dynamo.table.edits")
-
-  val queueUrl = properties("indexed.images.sqs.queue.url")
+  val queueUrl = string("indexed.images.sqs.queue.url")
 
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri

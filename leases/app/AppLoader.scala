@@ -1,3 +1,3 @@
 import com.gu.mediaservice.lib.play.GridAppLoader
 
-class AppLoader extends GridAppLoader(new LeasesComponents(_))
+class AppLoader extends GridAppLoader("leases", new LeasesComponents(_))

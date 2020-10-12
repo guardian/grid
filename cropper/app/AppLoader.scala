@@ -1,3 +1,3 @@
 import com.gu.mediaservice.lib.play.GridAppLoader
 
-class AppLoader extends GridAppLoader(new CropperComponents(_))
+class AppLoader extends GridAppLoader("cropper", new CropperComponents(_))

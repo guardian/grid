@@ -6,12 +6,9 @@ import play.api.Configuration
 import scala.concurrent.ExecutionContext
 
 
-class CollectionsConfig(override val configuration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig {
-
-  override lazy val appName = "collections"
-
-  val collectionsTable = properties("dynamo.table.collections")
-  val imageCollectionsTable = properties("dynamo.table.imageCollections")
+class CollectionsConfig(playAppConfiguration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig(playAppConfiguration) {
+  val collectionsTable = string("dynamo.table.collections")
+  val imageCollectionsTable = string("dynamo.table.imageCollections")
 
   val rootUri = services.collectionsBaseUri
   val kahunaUri = services.kahunaBaseUri

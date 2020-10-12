@@ -4,14 +4,23 @@ import java.io.File
 
 import scala.io.Source.fromFile
 
-trait StageIdentifier {
-  final val stage: String = stageFromFile getOrElse "DEV"
+class StageIdentifier {
+  final val stage: String =
+    loadStageFile("/etc/grid/stage") orElse loadStageFile("/etc/gu/stage") getOrElse "DEV"
 
   val isProd: Boolean = stage == "PROD"
   val isDev: Boolean = stage == "DEV"
 
-  private def stageFromFile: Option[String] = {
-    val file = new File("/etc/gu/stage")
-    if (file.exists) Some(fromFile(file).mkString.trim) else None
+  private def loadStageFile(fileName: String): Option[String] = {
+    val file = new File(fileName)
+    if (file.exists) {
+      val source = fromFile(file)
+      val stage = try {
+        source.mkString.trim
+      } finally {
+        source.close()
+      }
+      Some(stage.trim)
+    } else None
   }
 }

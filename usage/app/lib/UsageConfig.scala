@@ -1,64 +1,59 @@
 package lib
 
-import java.net.URI
-
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.{Configuration, Logger}
 import com.gu.mediaservice.lib.net.URI.ensureSecure
+import play.api.{Configuration, Logger}
 
 import scala.util.Try
 
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(override val configuration: Configuration) extends CommonConfig {
-
-  final override lazy val appName = "usage"
-
-  lazy val rootUri: String = services.metadataBaseUri
-  lazy val kahunaUri: String = services.kahunaBaseUri
-  lazy val usageUri: String = services.usageBaseUri
-  lazy val apiUri: String = services.apiBaseUri
-  lazy val loginUriTemplate: String = services.loginUriTemplate
+class UsageConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+  val rootUri: String = services.metadataBaseUri
+  val kahunaUri: String = services.kahunaBaseUri
+  val usageUri: String = services.usageBaseUri
+  val apiUri: String = services.apiBaseUri
+  val loginUriTemplate: String = services.loginUriTemplate
 
   val defaultPageSize = 100
   val defaultMaxRetries = 6
   val defaultMaxPrintRequestSizeInKb = 500
   val defaultDateLimit = "2016-01-01T00:00:00+00:00"
 
-  val maxPrintRequestLengthInKb: Int = Try(properties("api.setPrint.maxLength").toInt).getOrElse[Int](defaultMaxPrintRequestSizeInKb)
+  val maxPrintRequestLengthInKb: Int = intDefault("api.setPrint.maxLength", defaultMaxPrintRequestSizeInKb)
 
-  val capiLiveUrl = properties("capi.live.url")
-  val capiApiKey = properties("capi.apiKey")
-  val capiPageSize: Int = Try(properties("capi.page.size").toInt).getOrElse[Int](defaultPageSize)
-  val capiMaxRetries: Int = Try(properties("capi.maxRetries").toInt).getOrElse[Int](defaultMaxRetries)
+  val capiLiveUrl = string("capi.live.url")
+  val capiApiKey = string("capi.apiKey")
+  val capiPageSize: Int = intDefault("capi.page.size", defaultPageSize)
+  val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
 
-  val usageDateLimit: String = Try(properties("usage.dateLimit")).getOrElse(defaultDateLimit)
+  val usageDateLimit: String = stringDefault("usage.dateLimit", defaultDateLimit)
 
-  private val composerBaseUrlProperty: String = properties("composer.baseUrl")
+  private val composerBaseUrlProperty: String = string("composer.baseUrl")
   private val composerBaseUrl = ensureSecure(composerBaseUrlProperty)
 
   val composerContentBaseUrl: String = s"$composerBaseUrl/content"
 
-  val usageRecordTable = properties("dynamo.tablename.usageRecordTable")
+  val usageRecordTable = string("dynamo.tablename.usageRecordTable")
 
-  val dynamoRegion: Region = RegionUtils.getRegion(properties("aws.region"))
-  val awsRegionName = properties("aws.region")
+  val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
+  val awsRegionName = string("aws.region")
 
-  val crierLiveKinesisStream = Try { properties("crier.live.name") }
-  val crierPreviewKinesisStream = Try { properties("crier.preview.name") }
+  val crierLiveKinesisStream = Try { string("crier.live.name") }
+  val crierPreviewKinesisStream = Try { string("crier.preview.name") }
 
-  val crierLiveArn = Try { properties("crier.live.arn") }
-  val crierPreviewArn = Try { properties("crier.preview.arn") }
+  val crierLiveArn = Try { string("crier.live.arn") }
+  val crierPreviewArn = Try { string("crier.preview.arn") }
 
-  lazy val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+  val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     liveStream <- crierLiveKinesisStream
     liveArn <- crierLiveArn
   } yield KinesisReaderConfig(liveStream, liveArn, liveAppName)
 
-  lazy val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+  val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     previewStream <- crierPreviewKinesisStream
     previewArn <- crierPreviewArn
   } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
@@ -80,7 +75,7 @@ class UsageConfig(override val configuration: Configuration) extends CommonConfi
   val liveAppName = s"media-service-livex-$postfix"
   val previewAppName = s"media-service-previewx-$postfix"
 
-  val apiOnly: Boolean = Try(properties("app.name")).toOption match {
+  val apiOnly: Boolean = stringOpt("app.name") match {
     case Some("usage-stream") =>
       Logger.info(s"Starting as Stream Reader Usage.")
       false

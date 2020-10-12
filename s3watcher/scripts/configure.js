@@ -1,17 +1,17 @@
-const properties = require('./properties');
+const configLoader = require('./properties');
 const AWS = require('aws-sdk');
 
 AWS.config.credentials = new AWS.SharedIniFileCredentials({profile: 'media-service'});
 
-const props = properties.load('s3watcher');
+const configObject = configLoader.load('s3watcher');
 
-const s3IngestBucket = props['s3.ingest.bucket'];
+const s3IngestBucket = configLoader.get(configObject, 's3.ingest.bucket');
 
 const config = {
-    region:      props['aws.region'],
-    baseUrl:     props['loader.uri'],
-    apiKey:      props['auth.key.s3watcher'],
-    failBucket:  props['s3.fail.bucket'],
+    region:      configLoader.get(configObject, 'aws.region'),
+    baseUrl:     configLoader.get(configObject, 'loader.uri'),
+    apiKey:      configLoader.get(configObject, 'auth.key.s3watcher'),
+    failBucket:  configLoader.get(configObject, 's3.fail.bucket'),
     s3UrlExpiry: 60,
     stage:       'DEV'
 };

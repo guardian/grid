@@ -3,7 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 const AWS = require('aws-sdk');
+const os = require('os');
 require('json5/lib/register');
+
+const homeDir = os.homedir();
 
 const defaultConfig = require('./config.json5');
 const dotenvConfig = require('dotenv').config({path: path.join(__dirname, '../../.env')}).parsed;
@@ -58,13 +61,13 @@ function writeToDisk({path, content}) {
 
   await Promise.all(
     Object.keys(coreServiceConfigs).map(filename => writeToDisk({
-        path: `/etc/gu/${filename}.properties`,
+        path: `${homeDir}/.grid/${filename}.conf`,
         content: coreServiceConfigs[filename]
       })
     ));
 
   const authStackExists = await doesStackExist(dotenvConfig.AUTH_STACK_NAME)
-  const localAuthFilePath = "/etc/gu/grid-prod.properties";
+  const localAuthFilePath = `${homeDir}/.grid/common.conf`;
 
   if (authStackExists) {
     const authStackCfnData = await getCloudformationStackResources(dotenvConfig.AUTH_STACK_NAME);

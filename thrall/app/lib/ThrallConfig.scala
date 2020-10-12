@@ -12,6 +12,7 @@ case class KinesisReceiverConfig(
   override val awsRegion: String,
   override val awsCredentials: AWSCredentialsProvider,
   override val awsLocalEndpoint: Option[String],
+  override val isDev: Boolean,
   streamName: String,
   rewindFrom: Option[DateTime],
   metricsLevel: MetricsLevel = MetricsLevel.DETAILED
@@ -22,33 +23,30 @@ object KinesisReceiverConfig {
     thrallConfig.awsRegion,
     thrallConfig.awsCredentials,
     thrallConfig.awsLocalEndpoint,
+    thrallConfig.isDev,
     streamName,
     rewindFrom
   )
 }
 
-class ThrallConfig(override val configuration: Configuration) extends CommonConfig {
-  final override lazy val appName = "thrall"
+class ThrallConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+  val imageBucket: String = string("s3.image.bucket")
 
-  lazy val queueUrl: String = properties("sqs.queue.url")
+  val writeAlias: String = string("es.index.aliases.write")
 
-  lazy val imageBucket: String = properties("s3.image.bucket")
+  val thumbnailBucket: String = string("s3.thumb.bucket")
 
-  lazy val writeAlias: String = properties.getOrElse("es.index.aliases.write", configuration.get[String]("es.index.aliases.write"))
+  val elasticsearch6Url: String =  string("es6.url")
+  val elasticsearch6Cluster: String = string("es6.cluster")
+  val elasticsearch6Shards: Int = string("es6.shards").toInt
+  val elasticsearch6Replicas: Int = string("es6.replicas").toInt
 
-  lazy val thumbnailBucket: String = properties("s3.thumb.bucket")
+  val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
 
-  lazy val elasticsearch6Url: String =  properties("es6.url")
-  lazy val elasticsearch6Cluster: String = properties("es6.cluster")
-  lazy val elasticsearch6Shards: Int = properties("es6.shards").toInt
-  lazy val elasticsearch6Replicas: Int = properties("es6.replicas").toInt
+  val rewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
+  val lowPriorityRewindFrom: Option[DateTime] = stringOpt("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
 
-  lazy val metadataTopicArn: String = properties("indexed.image.sns.topic.arn")
-  
-  lazy val rewindFrom: Option[DateTime] = properties.get("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
-  lazy val lowPriorityRewindFrom: Option[DateTime] = properties.get("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
-
-  lazy val isVersionedS3: Boolean = properties.getOrElse("s3.image.versioned", "false").toBoolean
+  val isVersionedS3: Boolean = boolean("s3.image.versioned")
 
   def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
   def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)

@@ -4,11 +4,11 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import com.gu.mediaservice.lib.config.StageIdentifier
 import play.api.Logger
 
-trait AwsClientBuilderUtils extends StageIdentifier {
+trait AwsClientBuilderUtils {
   def awsLocalEndpoint: Option[String]
+  def isDev: Boolean
 
   def awsRegion: String = "eu-west-1"
 

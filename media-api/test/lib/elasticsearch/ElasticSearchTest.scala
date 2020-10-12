@@ -16,7 +16,7 @@ import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
-import play.api.Configuration
+import play.api.{Configuration, Mode}
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -28,11 +28,33 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   implicit val request = mock[AuthenticatedRequest[AnyContent, Principal]]
 
-
   private val index = "images"
 
-  private val mediaApiConfig = new MediaApiConfig(Configuration.from(Map(
-    "persistence.identifier" -> "picdarUrn")))
+  private val NOT_USED_IN_TEST = "not used in test"
+  private val MOCK_CONFIG_KEYS = Seq(
+    "auth.keystore.bucket",
+    "persistence.identifier",
+    "thrall.kinesis.stream.name",
+    "thrall.kinesis.lowPriorityStream.name",
+    "domain.root",
+    "s3.config.bucket",
+    "s3.usagemail.bucket",
+    "quota.store.key",
+    "es.index.aliases.read",
+    "es6.url",
+    "es6.cluster",
+    "s3.image.bucket",
+    "s3.thumb.bucket",
+    "grid.stage",
+    "grid.appName"
+  )
+
+  private val mediaApiConfig = new MediaApiConfig(
+    Configuration.from(Map(
+      "es6.shards" -> 0,
+      "es6.replicas" -> 0
+    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap)
+  )
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
   val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,

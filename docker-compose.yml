@@ -37,5 +37,5 @@ services:
     ports:
       - "9014:9014"
     volumes:
-      - "./dev/config/users.json:/etc/gu/users.json"
+      - "./dev/config/users.json:/etc/grid/users.json"
     env_file: ./dev/.env

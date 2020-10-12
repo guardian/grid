@@ -201,13 +201,15 @@ createLocalAuthStack() {
   echo "  created stack $AUTH_STACK_NAME using $AUTH_STACK_FILENAME"
 }
 
-generateDotProperties() {
+generateConfig() {
+  CONF_HOME="${HOME}/.grid"
+  mkdir -p ${CONF_HOME}
   echo "generating configuration files"
-  pushd "$ROOT_DIR/dev/script/generate-dot-properties"
+  pushd "$ROOT_DIR/dev/script/generate-config"
   npm install
-  npm run generate-properties
+  npm run generate-config
   popd
-  echo "  configuration files created in /etc/gu"
+  echo "  configuration files created in ${CONF_HOME}"
 }
 
 uploadApiKey() {
@@ -250,7 +252,7 @@ main() {
   fi
 
   setupDevNginx
-  generateDotProperties
+  generateConfig
   uploadApiKey
   echo "Setup complete. You're now able to start Grid!"
 }

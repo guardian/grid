@@ -14,7 +14,7 @@ async function findAccount(_, incomingEmail) {
     return;
   }
 
-  const users = require("/etc/gu/users.json").map(u => {
+  const users = require("/etc/grid/users.json").map(u => {
     return {
       ...u,
       email: `${u.id}@${EMAIL_DOMAIN}`

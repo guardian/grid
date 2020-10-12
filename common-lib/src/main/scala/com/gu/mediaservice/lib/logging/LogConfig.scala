@@ -99,9 +99,9 @@ object LogConfig {
 
         val appender     = makeKinesisAppender(layout, context,
           KinesisAppenderConfig(
-            config.properties("logger.kinesis.stream"),
-            config.properties("logger.kinesis.region"),
-            config.properties("logger.kinesis.roleArn"),
+            config.string("logger.kinesis.stream"),
+            config.string("logger.kinesis.region"),
+            config.string("logger.kinesis.roleArn"),
             BUFFER_SIZE
           )
         )
