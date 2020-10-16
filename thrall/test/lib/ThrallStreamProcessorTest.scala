@@ -8,7 +8,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import com.contxt.kinesis.KinesisRecord
-import lib.kinesis.ThrallEventConsumer
+import lib.kinesis.{HighPriority, LowPriority, Priority, ThrallEventConsumer, ThrallStreamProcessor}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 

@@ -1,8 +1,8 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{BulkIndexRequest, EsResponse, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
-import com.gu.mediaservice.lib.logging.{GridLogger, LogMarker, MarkerMap, combineMarkers}
+import com.gu.mediaservice.lib.logging.{GridLogger, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
@@ -174,11 +174,11 @@ class MessageProcessor(es: ElasticSearch,
         es.getImage(id) map {
           case Some(image) =>
             val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-            Logger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
             syndicationRightsOps.upsertOrRefreshRights(
               image = image.copy(syndicationRights = Some(syndicationRights)),
               currentPhotoshootOpt = photoshoot
             )
+            GridLogger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
           case _ => GridLogger.info(s"Image $id not found")
         }
       }

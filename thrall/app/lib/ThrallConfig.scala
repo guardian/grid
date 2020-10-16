@@ -45,6 +45,7 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val metadataTopicArn: String = properties("indexed.image.sns.topic.arn")
 
+  //at what point does this get created in properties as it is currently not in /etc/gu/thrall.properties eventho i notice it is an option
   lazy val rewindFrom: Option[DateTime] = properties.get("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
   lazy val lowPriorityRewindFrom: Option[DateTime] = properties.get("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
 

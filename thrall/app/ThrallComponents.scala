@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
 import lib.elasticsearch._
-import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
+import lib.kinesis.{KinesisConfig, ThrallEventConsumer, ThrallStreamProcessor}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
@@ -39,7 +39,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val highPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val lowPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
 
-  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
+  val thrallEventConsumer = new ThrallEventConsumer(es, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
   val thrallStreamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, thrallEventConsumer, actorSystem, materializer)
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
