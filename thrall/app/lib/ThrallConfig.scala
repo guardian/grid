@@ -38,14 +38,13 @@ class ThrallConfig(override val configuration: Configuration) extends CommonConf
 
   lazy val thumbnailBucket: String = properties("s3.thumb.bucket")
 
-  lazy val elasticsearch6Url: String =  properties("es6.url")
-  lazy val elasticsearch6Cluster: String = properties("es6.cluster")
-  lazy val elasticsearch6Shards: Int = properties("es6.shards").toInt
-  lazy val elasticsearch6Replicas: Int = properties("es6.replicas").toInt
+  lazy val elasticsearch7Url: String =  properties("es7.url")
+  lazy val elasticsearch7Cluster: String = properties("es7.cluster")
+  lazy val elasticsearch7Shards: Int = properties("es7.shards").toInt
+  lazy val elasticsearch7Replicas: Int = properties("es7.replicas").toInt
 
   lazy val metadataTopicArn: String = properties("indexed.image.sns.topic.arn")
 
-  //at what point does this get created in properties as it is currently not in /etc/gu/thrall.properties eventho i notice it is an option
   lazy val rewindFrom: Option[DateTime] = properties.get("thrall.kinesis.stream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
   lazy val lowPriorityRewindFrom: Option[DateTime] = properties.get("thrall.kinesis.lowPriorityStream.rewindFrom").map(ISODateTimeFormat.dateTime.parseDateTime)
 

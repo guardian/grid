@@ -1,4 +1,4 @@
 # thrall
 
-Thralls pulls messages from an SQS queue, interpret them, and modify an Elasticsearch index accordingly.
+Thralls pulls messages from a kinesis, interprets them, and modifies an Elasticsearch index accordingly.
 
