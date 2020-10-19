@@ -448,6 +448,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     ImageMetadataConverter.parseRandomDate("Tue Jul 03 04:05:06 BST 2001") should be (Some(day(2001, 7, 3, 3, 5, 6)))
 
     ImageMetadataConverter.parseRandomDate("2001") should be (Some(day(2001)))
+    ImageMetadataConverter.parseRandomDate("2001-02") should be (Some(day(2001, 2)))
 
   }
 

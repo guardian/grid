@@ -129,6 +129,7 @@ object ImageMetadataConverter {
     DateTimeFormat.forPattern("E MMM dd HH:mm:ss 'BST' yyyy").withZone(DateTimeZone.forOffsetHours(1)),
 
     DateTimeFormat.forPattern("yyyy"),
+    DateTimeFormat.forPattern("yyyy-MM"),
 
     // 2014-12-16 - Maybe it's just a date
     // no timezone provided so force UTC rather than use the machine's timezone
