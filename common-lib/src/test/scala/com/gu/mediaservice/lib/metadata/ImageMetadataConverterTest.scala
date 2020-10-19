@@ -1,6 +1,9 @@
 package com.gu.mediaservice.lib.metadata
 
+import java.util.Date
+
 import com.gu.mediaservice.model.FileMetadata
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter, ISODateTimeFormat}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
@@ -417,6 +420,42 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     )
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
     imageMetadata.peopleInImage should be (Set("person 1","person 2"))
+  }
+
+  def checkDate(dtf: DateTimeFormatter, s: String, d: DateTime) = {
+    ImageMetadataConverter.parseRandomDate(s) shouldEqual (d)
+  }
+
+
+  it("should cope with awful dates") {
+    def day(y:Int, M:Int = 1, d:Int = 1, h:Int = 0, m:Int = 0, s:Int = 0, ss:Int = 0) =
+      new DateTime()
+        .withZone(DateTimeZone.UTC)
+        .withYear(y)
+        .withMonthOfYear(M)
+        .withDayOfMonth(d)
+        .withHourOfDay(h)
+        .withMinuteOfHour(m)
+        .withSecondOfMinute(s)
+        .withMillisOfSecond(ss)
+
+    ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06.007Z") should be (Some(day(2001, 2, 3, 4, 5, 6, 7)))
+    ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06 +00:00") should be (Some(day(2001, 2, 3, 4, 5, 6)))
+    ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06+00:00") should be (Some(day(2001, 2, 3, 4, 5, 6)))
+
+    ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06") should be (Some(day(2001, 2, 3, 4, 5, 6)))
+    ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06.007") should be (Some(day(2001, 2, 3, 4, 5, 6, 7)))
+
+    ImageMetadataConverter.parseRandomDate("2001-02-03T04:05.006+00:00") should be (Some(day(2001, 2, 3, 4, 5, 0, 6)))
+    ImageMetadataConverter.parseRandomDate("2001-02-03T04:05+00:00") should be (Some(day(2001, 2, 3, 4, 5)))
+    ImageMetadataConverter.parseRandomDate("Sat Feb 03 04:05:06.007 UTC 2001") should be (Some(day(2001, 2, 3, 4, 5, 6, 7)))
+    ImageMetadataConverter.parseRandomDate("Sat Feb 03 04:05:06 UTC 2001") should be (Some(day(2001, 2, 3, 4, 5, 6)))
+
+    ImageMetadataConverter.parseRandomDate("Tue Jul 03 04:05:06.007 BST 2001") should be (Some(day(2001, 7, 3, 3, 5, 6, 7)))
+    ImageMetadataConverter.parseRandomDate("Tue Jul 03 04:05:06 BST 2001") should be (Some(day(2001, 7, 3, 3, 5, 6)))
+
+    ImageMetadataConverter.parseRandomDate("2001") should be (Some(day(2001)))
+
   }
 
 
