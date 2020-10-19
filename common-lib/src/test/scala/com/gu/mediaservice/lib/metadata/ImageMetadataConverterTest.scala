@@ -420,11 +420,6 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.peopleInImage should be (Set("person 1","person 2"))
   }
 
-  def checkDate(dtf: DateTimeFormatter, s: String, d: DateTime) = {
-    ImageMetadataConverter.parseRandomDate(s) shouldEqual (d)
-  }
-
-
   it("should cope with awful dates") {
     def day(y:Int, M:Int = 1, d:Int = 1, h:Int = 0, m:Int = 0, s:Int = 0, ss:Int = 0) =
       new DateTime()
