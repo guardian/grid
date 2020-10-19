@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.metadata
 
 import com.gu.mediaservice.model.FileMetadata
-import org.joda.time.format.{DateTimeFormat, DateTimeFormatter, ISODateTimeFormat}
+import org.joda.time.format.DateTimeFormatter
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
