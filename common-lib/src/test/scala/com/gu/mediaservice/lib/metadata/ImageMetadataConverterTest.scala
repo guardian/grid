@@ -1,7 +1,5 @@
 package com.gu.mediaservice.lib.metadata
 
-import java.util.Date
-
 import com.gu.mediaservice.model.FileMetadata
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter, ISODateTimeFormat}
 import org.joda.time.{DateTime, DateTimeZone}
