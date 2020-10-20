@@ -9,10 +9,10 @@ sbt migration/assembly
 
 Creates a jar at:
 ```
-migration/target/scala-2.12/migration-assembly-0.1.jar  
+migration/target/scala-2.12/migration-assembly-0.1.jar
 ```
 
 Execute
 ```
-java -jar migration-assembly-0.1.jar [es1host] [es1port] [es1cluster] [es1index] [es6host] [es6port] [es6cluster] [es6index]
+java -jar migration-assembly-0.1.jar [es6host] [es6port] [es6cluster] [es6index] [es6Alias] [es7host] [es7port] [es7cluster] [es7index] [es7Alias]
 ```
