@@ -101,10 +101,10 @@ function getMediaApiConfig(config) {
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
         |es.index.aliases.read=readAlias
-        |es6.url=${config.es6.url}
-        |es6.cluster=${config.es6.cluster}
-        |es6.shards=${config.es6.shards}
-        |es6.replicas=${config.es6.replicas}
+        |es.url=${config.es.url}
+        |es.cluster=${config.es.cluster}
+        |es.shards=${config.es.shards}
+        |es.replicas=${config.es.replicas}
         |quota.store.key=rcs-quota.json
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |metrics.request.enabled=false
@@ -147,10 +147,10 @@ function getThrallConfig(config) {
         |es.index.aliases.write=writeAlias
         |es.index.aliases.read=readAlias
         |indexed.image.sns.topic.arn=${config.stackProps.IndexedImageTopicArn}
-        |es6.url=${config.es6.url}
-        |es6.cluster=${config.es6.cluster}
-        |es6.shards=${config.es6.shards}
-        |es6.replicas=${config.es6.replicas}
+        |es7.url=${config.es7.url}
+        |es7.cluster=${config.es7.cluster}
+        |es7.shards=${config.es7.shards}
+        |es7.replicas=${config.es7.replicas}
         |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |metrics.request.enabled=false
         |`;
