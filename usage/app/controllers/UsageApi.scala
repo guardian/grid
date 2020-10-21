@@ -57,25 +57,23 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     val usageFuture = usageTable.queryByUsageId(usageId)
 
     usageFuture.map[play.api.mvc.Result]((mediaUsageOption: Option[MediaUsage]) => {
-      mediaUsageOption.foldLeft(
-        respondNotFound("No usages found.")
-      )((_, mediaUsage: MediaUsage) => {
-        val usage = UsageBuilder.build(mediaUsage)
-        val mediaId = mediaUsage.mediaId
-
-        val uri = usageUri(usage.id)
-        val links = List(
-          Link("media", s"${config.services.apiBaseUri}/images/$mediaId"),
-          Link("media-usage", s"${config.services.usageBaseUri}/usages/media/$mediaId")
-        )
-
-        respond[Usage](data = usage, uri = uri, links = links)
-      })
+      mediaUsageOption match {
+        case None => respondNotFound("No usages found.")
+        case Some(mediaUsage: MediaUsage) => {
+          val usage = UsageBuilder.build(mediaUsage)
+          val mediaId = mediaUsage.mediaId
+          val uri = usageUri(usage.id)
+          val links = List(
+              Link("media", s"${config.services.apiBaseUri}/images/$mediaId"),
+              Link("media-usage", s"${config.services.usageBaseUri}/usages/media/$mediaId")
+          )
+          respond[Usage](data = usage, uri = uri, links = links)
+        }
+      }
     }).recover { case error: Exception =>
       Logger.error("UsageApi returned an error.", error)
       respondError(InternalServerError, "usage-retrieve-failed", error.getMessage)
     }
-
   }
 
   def reindexForContent(contentId: String) = auth.async {
