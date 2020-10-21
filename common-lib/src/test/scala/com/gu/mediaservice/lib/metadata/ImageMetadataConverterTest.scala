@@ -420,7 +420,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.peopleInImage should be (Set("person 1","person 2"))
   }
 
-  it("should cope with awful dates") {
+  it("should cope with all expected date formats and return None otherwise") {
     def day(y:Int, M:Int = 1, d:Int = 1, h:Int = 0, m:Int = 0, s:Int = 0, ss:Int = 0) =
       new DateTime()
         .withZone(DateTimeZone.UTC)
@@ -449,6 +449,10 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
 
     ImageMetadataConverter.parseRandomDate("2001") should be (Some(day(2001)))
     ImageMetadataConverter.parseRandomDate("2001-02") should be (Some(day(2001, 2)))
+
+    ImageMetadataConverter.parseRandomDate("2001-02-03") should be (Some(day(2001, 2, 3)))
+
+    ImageMetadataConverter.parseRandomDate("2000-02-31") should be (None)
 
   }
 
