@@ -29,7 +29,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency]) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency],  usageRightsConfig: () => UsageRightsConfig ) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax {
 
 
   lazy val imagesAlias = elasticConfig.alias
@@ -49,7 +49,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
    * if i ask the same query with 1ms timeout it may give me for example 4000 results instead
    **/
 
-  val searchFilters = new SearchFilters(config)
+  val searchFilters = new SearchFilters(config, usageRightsConfig)
 
   val syndicationFilter = new SyndicationFilter(config)
 

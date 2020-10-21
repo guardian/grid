@@ -2,7 +2,6 @@ package lib.kinesis
 
 import java.time.Instant
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
@@ -13,13 +12,11 @@ import lib.elasticsearch._
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json.{JodaReads, Json, Reads}
-
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS, SECONDS}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 class ThrallEventConsumer(es: ElasticSearch,
-                          thrallMetrics: ThrallMetrics,
                           store: ThrallStore,
                           metadataEditorNotifications: MetadataEditorNotifications,
                           syndicationRightsOps: SyndicationRightsOps,

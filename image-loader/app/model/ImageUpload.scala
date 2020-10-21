@@ -13,7 +13,8 @@ import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.{MetadataStore, UsageRightsStore}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
+import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch, addLogMarkers}
+import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.resource.FutureResources._
 import com.gu.mediaservice.model._
@@ -23,8 +24,7 @@ import lib.storage.ImageLoaderStore
 import net.logstash.logback.marker.LogstashMarker
 import org.joda.time.DateTime
 import play.api.Logger
-import play.api.libs.json.JsObject
-import play.libs.Json
+import play.api.libs.json.{JsObject, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
@@ -47,7 +47,7 @@ case object OptimisedPng {
     }
 }
 
-class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implicit val ec: ExecutionContext, val logMaker: LogMarker) {
+class OptimisedPngOps(store: ImageLoaderStore, config: ImageLoaderConfig)(implicit val ec: ExecutionContext, val logMaker: LogMarker = MarkerMap()) {
   private def storeOptimisedPng(uploadRequest: UploadRequest, optimisedPngFile: File) = store.storeOptimisedPng(
     uploadRequest.imageId,
     optimisedPngFile
@@ -150,7 +150,15 @@ class ImageUploadOps(metadataStore: MetadataStore,
                      loaderStore: ImageLoaderStore,
                      config: ImageLoaderConfig,
                      imageOps: ImageOperations,
-                     optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext, logMarker: LogMarker) {
+                     optimisedPngOps: OptimisedPngOps)(implicit val ec: ExecutionContext, val logMaker: LogMarker = MarkerMap()) {
+
+  import Uploader.initStores
+
+  initStores(metadataStore, usageRightsStore)
+
+  private def getMetaDataStore(): MetadataStore = metadataStore
+  private def getUsageRightsDataStore(): UsageRightsStore = usageRightsStore
+
   def fromUploadRequest(uploadRequest: UploadRequest): Future[ImageUpload] = {
     Logger.info("Starting image ops")(uploadRequest.toLogMarker)
     val uploadedFile = uploadRequest.tempFile
@@ -269,7 +277,7 @@ class ImageUploadOps(metadataStore: MetadataStore,
     )
   }
   def storeThumbnail(uploadRequest: UploadRequest, thumbFile: File)
-                    (implicit logMarker: LogMarker) = loaderStore.storeThumbnail(
+                    (implicit logMaker: LogMarker = MarkerMap()) = loaderStore.storeThumbnail(
     uploadRequest.imageId,
     thumbFile,
     Some(Jpeg)
@@ -294,6 +302,8 @@ case class ImageUploadOpsDependencies(
 
 object Uploader {
 
+
+
   def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
     ImageUploadOpsCfg(
       config.tempDir,
@@ -303,6 +313,16 @@ object Uploader {
       config.imageBucket,
       config.thumbnailBucket
     )
+  }
+
+
+  case class Stores(metadataStore: MetadataStore, usageRightsStore: UsageRightsStore)
+
+  var stores : Stores = null
+
+  def initStores(metadataStore: MetadataStore, usageRightsStore: UsageRightsStore): Stores = {
+    stores = Stores(metadataStore, usageRightsStore)
+    stores
   }
 
   def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies)
@@ -371,8 +391,8 @@ object Uploader {
         val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
 
         val finalImage = toFinalImage(
-          metadataStore,
-          usageRightsStore,
+          stores.metadataStore,
+          stores.usageRightsStore,
           sourceStoreFuture,
           thumbStoreFuture,
           sourceDimensionsFuture,
@@ -429,7 +449,6 @@ object Uploader {
       metadataCleaners = new MetadataCleaners(metaDataConfig.allPhotographers)
       metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
       cleanMetadata = metadataCleaners.clean(metadata)
-
 
       sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
@@ -590,7 +609,6 @@ class Uploader(val store: ImageLoaderStore,
     } yield {
       Json.obj("uri" -> uri)
     }
-
   }
 
 }

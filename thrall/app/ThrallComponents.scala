@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{HealthCheck, ThrallController}
 import lib._
 import lib.elasticsearch._
-import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
+import lib.kinesis.{KinesisConfig, ThrallEventConsumer, ThrallStreamProcessor}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
@@ -24,10 +24,10 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
 
   val esConfig = ElasticSearchConfig(
     alias = config.writeAlias,
-    url = config.elasticsearch6Url,
-    cluster = config.elasticsearch6Cluster,
-    shards = config.elasticsearch6Shards,
-    replicas = config.elasticsearch6Replicas
+    url = config.elasticsearch7Url,
+    cluster = config.elasticsearch7Cluster,
+    shards = config.elasticsearch7Shards,
+    replicas = config.elasticsearch7Replicas
   )
 
   val es = new ElasticSearch(esConfig, Some(thrallMetrics))
@@ -39,7 +39,7 @@ class ThrallComponents(context: Context) extends GridComponents(context) {
   val highPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val lowPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
 
-  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
+  val thrallEventConsumer = new ThrallEventConsumer(es, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
   val thrallStreamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, thrallEventConsumer, actorSystem, materializer)
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()

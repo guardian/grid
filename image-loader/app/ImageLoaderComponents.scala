@@ -8,10 +8,9 @@ import lib.storage.ImageLoaderStore
 import model.{ImageUploadOps, OptimisedPngOps, Projector, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
-
 import scala.concurrent.ExecutionContext
 
-class ImageLoaderComponents(context: Context)(implicit ec: ExecutionContext, logMarker: LogMarker) extends GridComponents(context) {
+class ImageLoaderComponents(context: Context)(implicit ec: ExecutionContext = ExecutionContext.global) extends GridComponents(context) {
   final override lazy val config = new ImageLoaderConfig(configuration)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
@@ -35,7 +34,7 @@ class ImageLoaderComponents(context: Context)(implicit ec: ExecutionContext, log
 
   val imageUploadOps = new ImageUploadOps(metaDataConfigStore, usageRightsConfigStore, loaderStore, config, imageOperations, optimisedPngOps)
 
-  val controller = new ImageLoaderController(auth, downloader, loaderStore, notifications, config, imageUploadOps, controllerComponents, wsClient)
+  val controller = new ImageLoaderController(auth, downloader, loaderStore, notifications, config, uploader, projector, controllerComponents, wsClient)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }

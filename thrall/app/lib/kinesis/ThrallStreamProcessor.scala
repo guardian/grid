@@ -1,4 +1,4 @@
-package lib
+package lib.kinesis
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{GraphDSL, MergePreferred, Source}
@@ -8,7 +8,6 @@ import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.DateTimeUtils
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging._
-import lib.kinesis.ThrallEventConsumer
 import play.api.Logger
 
 import scala.concurrent.Future

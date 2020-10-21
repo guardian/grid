@@ -27,6 +27,7 @@ import play.api.Logger
 import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
+import play.api.mvc.{AnyContent, BaseController, ControllerComponents}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
