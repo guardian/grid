@@ -100,11 +100,11 @@ function getMediaApiConfig(config) {
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
-        |es.index.aliases.read=readAlias
-        |es.url=${config.es.url}
-        |es.cluster=${config.es.cluster}
-        |es.shards=${config.es.shards}
-        |es.replicas=${config.es.replicas}
+        |es7.index.aliases7.read=readAlias
+        |es7.url=${config.es7.url}
+        |es7.cluster=${config.es7.cluster}
+        |es7.shards=${config.es7.shards}
+        |es7.replicas=${config.es7.replicas}
         |quota.store.key=rcs-quota.json
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |metrics.request.enabled=false
