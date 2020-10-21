@@ -1,13 +1,12 @@
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, Mappings}
 import com.gu.mediaservice.model.Image
-import com.sksamuel.elastic4s.bulk.BulkRequest
-import com.sksamuel.elastic4s.http.ElasticClient
-import com.sksamuel.elastic4s.ElasticDsl._
-import org.elasticsearch.action.search.{SearchResponse, SearchType}
-import org.elasticsearch.common.unit.TimeValue
-import org.elasticsearch.index.query.QueryBuilders
-import org.elasticsearch.search.SearchHit
+import com.sksamuel.elastic4s.ElasticApi.{RichFuture, bulk, indexInto, search, searchScroll}
+import com.sksamuel.elastic4s.ElasticClient
+import com.sksamuel.elastic4s.ElasticDsl.{BulkHandler, SearchHandler, SearchScrollHandler}
+import com.sksamuel.elastic4s.requests.bulk.BulkRequest
+import com.sksamuel.elastic4s.requests.common.RefreshPolicy
+import com.sksamuel.elastic4s.requests.searches.SearchHit
+
 import org.joda.time.DateTime
 import play.api.Logger
 import play.api.libs.json._
@@ -20,58 +19,56 @@ object Main extends App with JsonCleaners {
 
   val OneMinute = Duration(60, SECONDS)
 
-  val es1Host = args(0)
-  val es1Port = args(1).toInt
-  val es1Cluster = args(2)
-  val es1Alias = args(3)
+  val es6Host = args(0)
+  val es6Port = args(1).toInt
+  val es6Cluster = args(2)
+  val es6Index = args(3)
+  val es6Alias = args(4)
 
-  val es6Host = args(4)
-  val es6Port = args(5).toInt
-  val es6Cluster = args(6)
-  val es6Index = args(7)
-  val es6Alias= args(8)
+  val es7Host = args(5)
+  val es7Port = args(6).toInt
+  val es7Cluster = args(7)
+  val es7Index = args(8)
+  val es7Alias= args(9)
 
-  val es1Config = ElasticSearchConfig(alias = es1Alias, host = es1Host, port = es1Port, cluster = es1Cluster)
   val es6Config = ElasticSearchConfig(alias = es6Alias, url = s"http://$es6Host:$es6Port", cluster = es6Cluster, shards = 5, replicas = 0)
-
-  Logger.info("Configuring ES1: " + es1Config)
-  val es1 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
-    override def host = es1Config.host
-    override def port = es1Config.port
-    override def cluster = es1Config.cluster
-    override def imagesAlias = es1Config.alias
-    override def clientTransportSniff = false
-  }
-
-  println("Waiting for ES1 health check")
-  es1.waitUntilHealthy()
-  println("ES1 connection is healthy")
+  val es7Config = ElasticSearchConfig(alias = es7Alias, url = s"http://$es7Host:$es7Port", cluster = es7Cluster, shards = 5, replicas = 0)
 
   Logger.info("Configuring ES6: " + es6Config)
   val es6 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
-    override def host = es6Config.host
-    override def port = es6Config.port
+    override def url = es6Config.url
     override def cluster = es6Config.cluster
     override def imagesAlias = es6Config.alias
     override def shards = es6Config.shards
     override def replicas = es6Config.replicas
   }
-
   println("Waiting for ES6 health check")
   es6.waitUntilHealthy()
   println("ES6 connection is healthly")
 
-  println("Ensuring ES6 index exists")
-  es6.ensureIndexExists(es6Index)
-  es6.ensureAliasAssigned()
+  Logger.info("Configuring ES7: " + es7Config)
+  val es7 = new com.gu.mediaservice.lib.elasticsearch.ElasticSearchClient {
+    override def url = es7Config.url
+    override def cluster = es7Config.cluster
+    override def imagesAlias = es7Config.alias
+    override def shards = es7Config.shards
+    override def replicas = es7Config.replicas
+  }
 
-  println("Counting ES1 images")
-  val countES1ImagesQuery = es1.client.prepareSearch(es1Alias).setTypes("image").setSize(0)
-  private val response: SearchResponse = es1.client.search(countES1ImagesQuery.request()).actionGet()
-  private val totalToMigrate: Long = response.getHits.totalHits()
+  println("Waiting for ES7 health check")
+  es7.waitUntilHealthy()
+  println("ES7 connection is healthy")
+
+  println("Ensuring ES7 index exists")
+  es7.ensureIndexExists(es7Index)
+  es7.ensureAliasAssigned()
+
+  println("Counting ES6 images")
+  private val response= es6.countImages().await
+  private val totalToMigrate: Long = response.catCount
   println("Found " + totalToMigrate + " images to migrate")
 
-  // Migrate images by scolling the ES1 index and bulk indexing the docs into the ES6 index
+  // Migrate images by scolling the ES6 index and bulk indexing the docs into the ES7 index
   var scrolled = 0
   var successes = 0
   var failures = Seq[String]()
@@ -80,35 +77,36 @@ object Main extends App with JsonCleaners {
   def executeIndexWithErrorHandling(client: ElasticClient, definition: BulkRequest, hits: Seq[SearchHit]): Future[Boolean] = {
     (client execute {
       definition
-    }).map { r =>
-      if (r.isSuccess) {
+    }).map { response =>
+      if (response.isSuccess) {
         Logger.debug("Index succeeded")
-        if (r.result.hasFailures) {
+        if (response.result.hasFailures) {
           println("Bulk index had failures:")
-          r.result.failures.foreach { f =>
+          response.result.failures.foreach { f =>
             println("Failure: " + f.id + " / " + f.result + " / " + f.error)
             failures = failures :+ f.id
             val source = hits.find( h => h.id == f.id)
             source.map { h =>
-              println(h.sourceAsString())
+              println(h.sourceAsString)
             }
           }
         }
         scrolled = scrolled + hits.size
-        successes = successes + r.result.successes.size
+        successes = successes + response.result.successes.size
         true
       } else {
-        Logger.error("Indexing failed: " + r.error)
-        throw new RuntimeException("Indexing failed: " + r.error)
+        Logger.error("Indexing failed: " + response.error)
+        throw new RuntimeException("Indexing failed: " + response.error)
       }
     }
   }
 
-  def migrate(hits: Seq[SearchHit]) = {
+  def migrate(hits: Array[SearchHit]) = {
     println("Map " + hits.size + " hits to Bulk index request")
-    val bulkIndexRequest = bulk {
+
+    val bulkIndexRequest: BulkRequest = bulk {
       hits.par.flatMap { h =>
-        val json = Json.parse(h.getSourceAsString)
+        val json = Json.parse(h.sourceAsString)
         json.validate[Image] match { // Validate that this JSON actually represents an Image object to avoid runtime errors further down the line
           case _: JsSuccess[Image] => {
             // For documents which pass validation, clean them and migrate the raw document source.
@@ -120,45 +118,45 @@ object Main extends App with JsonCleaners {
             val cleaned = withCleanedSuggest.transform(pruneUnusedLeasesCurrentField).asOpt.getOrElse(withCleanedSuggest)
 
             val toMigrate = Json.stringify(cleaned)
-            Some(indexInto(es6Index, Mappings.dummyType).id(h.id).source(toMigrate))
+            Some(indexInto(es7Index).id(h.id).source(toMigrate))
           }
           case e: JsError => println("Failure: " + h.id + " JSON errors: " + JsError.toJson(e).toString())
-            println(h.getSourceAsString)
-            failures = failures :+ h.id()
+            println(h.sourceAsString)
+            failures = failures :+ h.id
             None
         }
       }.toIndexedSeq
     }
 
     println("Submitting bulk index request")
-    Await.result(executeIndexWithErrorHandling(es6.client, bulkIndexRequest, hits), OneMinute)
+    Await.result(executeIndexWithErrorHandling(es7.client, bulkIndexRequest, hits), OneMinute)
   }
 
-  println("Scrolling through ES1 images")
   def scrollImages() = {
-    val ScrollTime = new TimeValue(120000)
-    val ScrollResultsPerShard = 200
-
+    println("Scrolling through ES6 images")//    val ScrollTime = new TimeValue(120000)
+    val scrollKeepAlive = "2m"
+    val ScrollResultsPerShard = 2000
     println("Creating scroll with size (times number of shards): " + ScrollResultsPerShard)
-    val scroll = es1.client.prepareSearch(es1Alias)
-      .setSearchType(SearchType.SCAN)
-      .setScroll(ScrollTime)
-      .setQuery(QueryBuilders.matchAllQuery())
-      .setSize(ScrollResultsPerShard).execute().actionGet()
+    var scroll = es6.client.execute{
+      search(es6Index)
+        .scroll(scrollKeepAlive)
+        .limit(ScrollResultsPerShard)
+    }.await.result
+    var scrollId = scroll.scrollId.get
 
-    var scrollResp = es1.client.prepareSearchScroll(scroll.getScrollId).setScroll(ScrollTime).execute().actionGet()
-
-    while (scrollResp.getHits.getHits.length > 0) {
-      println("Migrating")
-      migrate(scrollResp.getHits.getHits)
-
+    while (scroll.hits.hits.length > 0) {
+      println("Scrolling.....")
+      scrollId = scroll.scrollId.get
+      println(scrollId + " / " + scroll.hits.total)
+      println("Migrating.....")
+      migrate(scroll.hits.hits)
       val duration = new org.joda.time.Duration(startTime, DateTime.now)
       val rate = (successes + failures.size) / duration.getStandardSeconds
-      println(successes + " (" + failures.size + ") / " + scrollResp.getHits.getTotalHits + " in " + duration.getStandardMinutes + " minutes @ " + rate + " per second")
+      println(successes + " (" + failures.size + ") / " + scroll.hits.total + " in " + duration.getStandardMinutes + " minutes @ " + rate + " per second")
 
-      println("Scrolling")
-      scrollResp = es1.client.prepareSearchScroll(scrollResp.getScrollId).setScroll(ScrollTime).execute().actionGet()
-      println(scrollResp.getScrollId + " / " + scrollResp.getHits.getTotalHits)
+      scroll = es6.client.execute {
+        searchScroll(scrollId).keepAlive(scrollKeepAlive)
+      }.await.result
     }
   }
 
@@ -167,11 +165,9 @@ object Main extends App with JsonCleaners {
   println("Scrolled: " + scrolled)
   println("Successes: " + successes)
   println("Failures: " + failures.size)
-
   println("Failure ids: " + failures.mkString(", "))
   println("Done")
-  es1.client.close()
+
   es6.client.close()
+  es7.client.close()
 }
-
-

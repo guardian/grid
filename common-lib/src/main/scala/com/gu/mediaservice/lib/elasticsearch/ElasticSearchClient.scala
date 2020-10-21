@@ -88,7 +88,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions {
   }
 
   def ensureIndexExists(index: String): Unit = {
-    Logger.info("Checking index exists…")
+    Logger.info(s"Checking index: ${index} exists…")
 
     val eventualIndexExistsResponse: Future[Response[IndexExistsResponse]] = client.execute {
       indexExists(index)
