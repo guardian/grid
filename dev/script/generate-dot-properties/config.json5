@@ -4,7 +4,7 @@
     key: ''
   },
 
-  es6: {
+  es7: {
     cluster: 'media-service',
     url: 'http://localhost:9200',
     shards: 1,
