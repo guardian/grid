@@ -24,8 +24,7 @@ object ImageMetadataConverter {
       .distinct
   }
 
-private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): Seq[String] =
-  fileMetadata.xmp.get(field) match {
+  private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): Seq[String] = fileMetadata.xmp.get(field) match {
     case Some(JsArray(items)) => items.toList.flatMap {
       case JsString(value) => Some(value)
       case _ => None
@@ -129,13 +128,15 @@ private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): S
     DateTimeFormat.forPattern("E MMM dd HH:mm:ss.SSS 'BST' yyyy").withZone(DateTimeZone.forOffsetHours(1)),
     DateTimeFormat.forPattern("E MMM dd HH:mm:ss 'BST' yyyy").withZone(DateTimeZone.forOffsetHours(1)),
 
+    DateTimeFormat.forPattern("yyyy"),
+    DateTimeFormat.forPattern("yyyy-MM"),
 
     // 2014-12-16 - Maybe it's just a date
     // no timezone provided so force UTC rather than use the machine's timezone
     ISODateTimeFormat.date.withZoneUTC
   )
 
-  private def parseRandomDate(str: String): Option[DateTime] =
+  private[metadata] def parseRandomDate(str: String): Option[DateTime] =
     dateTimeFormatters.foldLeft[Option[DateTime]](None){
       case (successfulDate@Some(_), _) => successfulDate
       case (None, formatter) => safeParsing(formatter.parseDateTime(str))
