@@ -22,7 +22,7 @@ function getCollectionsConfig(config) {
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
         |dynamo.table.collections=${config.stackProps.CollectionsDynamoTable}
         |dynamo.table.imageCollections=${config.stackProps.ImageCollectionsDynamoTable}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |metrics.request.enabled=false
         |`;
@@ -35,7 +35,7 @@ function getCropperConfig(config) {
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |publishing.image.bucket=${config.stackProps.ImageOriginBucket}
         |publishing.image.host=${config.stackProps.ImageOriginBucket}.s3.amazonaws.com
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |metrics.request.enabled=false
@@ -50,7 +50,7 @@ function getImageLoaderConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |metrics.request.enabled=false
         |`;
@@ -82,7 +82,7 @@ function getLeasesConfig(config) {
         |domain.root=${config.domainRoot}
         |aws.region=${config.aws.region}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |dynamo.tablename.leasesTable=${config.stackProps.LeasesDynamoTable}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
         |metrics.request.enabled=false
@@ -96,7 +96,7 @@ function getMediaApiConfig(config) {
         |s3.image.bucket=${config.stackProps.ImageBucket}
         |s3.thumb.bucket=${config.stackProps.ThumbBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
@@ -118,7 +118,7 @@ function getMetadataEditorConfig(config) {
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |auth.keystore.bucket=${config.stackProps.KeyBucket}
         |s3.collections.bucket=${config.stackProps.CollectionsBucket}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |dynamo.table.edits=${config.stackProps.EditsDynamoTable}
         |indexed.images.sqs.queue.url=${config.stackProps.IndexedImageMetadataQueueUrl}
         |security.cors.allowedOrigins=${config.security.corsAllowedOrigins}
@@ -151,7 +151,7 @@ function getThrallConfig(config) {
         |es6.cluster=${config.es6.cluster}
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |metrics.request.enabled=false
         |`;
 }
@@ -165,7 +165,7 @@ function getUsageConfig(config) {
         |capi.apiKey=${config.capi.live.key}
         |dynamo.tablename.usageRecordTable=${config.stackProps.UsageRecordTable}
         |composer.baseUrl=${config.composer.url}
-        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageQueue}
+        |thrall.kinesis.stream.name=${config.stackProps.ThrallMessageStream}
         |crier.live.arn=${config.crier.live.roleArn}
         |crier.preview.arn=${config.crier.preview.roleArn}
         |crier.preview.name=${config.crier.preview.streamName}
