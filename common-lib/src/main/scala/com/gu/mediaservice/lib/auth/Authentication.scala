@@ -100,7 +100,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   }
 
   private def buildPandaSettings() = {
-    println(config.useLocalAuth)
     new PanDomainAuthSettingsRefresher(
       domain = config.services.domainRoot,
       system = config.stringOpt("panda.system").getOrElse("media-service"),
