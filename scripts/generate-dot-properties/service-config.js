@@ -100,7 +100,7 @@ function getMediaApiConfig(config) {
         |s3.config.bucket=${config.stackProps.ConfigBucket}
         |s3.usagemail.bucket=${config.stackProps.UsageMailBucket}
         |persistence.identifier=picdarUrn
-        |es7.index.aliases7.read=readAlias
+        |es7.index.aliases.read=readAlias
         |es7.url=${config.es7.url}
         |es7.cluster=${config.es7.cluster}
         |es7.shards=${config.es7.shards}
