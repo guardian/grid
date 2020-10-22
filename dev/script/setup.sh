@@ -267,6 +267,7 @@ main() {
   if [[ $LOCAL_AUTH == true ]]; then
     createLocalAuthStack
     setupPermissionConfiguration
+    setupValidEmailsConfiguration
     setupPanDomainConfiguration
   fi
 
