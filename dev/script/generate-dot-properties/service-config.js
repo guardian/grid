@@ -60,6 +60,7 @@ function getImageLoaderConfig(config) {
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
