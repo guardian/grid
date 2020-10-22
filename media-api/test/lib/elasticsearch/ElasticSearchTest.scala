@@ -41,7 +41,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   private val usageRightsConfig = UsageRightsConfig(List(), List(), Map(), List(), List(), Map())
 
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
+  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty, () => usageRightsConfig)
   val client = ES.client
 
   def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
@@ -417,7 +417,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
       val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition), length = 50)
-      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies)
+      val usageRightsConfig = UsageRightsConfig(List(), List(), Map(), List(), List(), Map())
+      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies, () => usageRightsConfig)
 
       whenReady(elasticsearch.search(search), timeout, interval) { result => {
         val overQuotaImages = List(
