@@ -100,6 +100,7 @@ class S3(config: CommonConfig) {
   }
 
   def getObjectAsString(bucket: Bucket, key: String): Option[String] = {
+    println(s"$bucket -- $key")
     val content = client.getObject(new GetObjectRequest(bucket, key))
     val stream = content.getObjectContent
     try {
