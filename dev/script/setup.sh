@@ -159,6 +159,27 @@ setupPermissionConfiguration() {
   echo "  uploaded file to $permissionsBucket"
 }
 
+setupValidEmailsConfiguration() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
+  echo "setting up valid emails configuration for local auth"
+
+  permissionsBucket=$(getStackResource "$AUTH_STACK_NAME" PermissionsBucket)
+
+  target="$ROOT_DIR/dev/config/valid_emails.json"
+
+  sed -e "s/@EMAIL_DOMAIN/$EMAIL_DOMAIN/g" \
+    "$target.template" > "$target"
+
+  aws s3 cp "$target" \
+    "s3://$permissionsBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $permissionsBucket"
+}
+
 getStackResource() {
   stackName=$1
   resourceName=$2

@@ -24,3 +24,4 @@ re_ingestion_stats.txt
 dev/nginx-mappings.yml
 dev/.localstack
 dev/config/permissions.json
+dev/config/valid_emails.json
