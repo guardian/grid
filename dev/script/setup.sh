@@ -156,6 +156,20 @@ setupPermissionConfiguration() {
     "s3://$permissionsBucket/" \
     --endpoint-url $LOCALSTACK_ENDPOINT
 
+  # Add permissions.bucket propery
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/auth.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/collections.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/cropper.properties
+#  sudo echo "permissions.bucket=$permissionsBucket" >> grid-prod.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/image-loader.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/kahuna.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/leases.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/media-api.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/metadata-editor.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/s3watcher.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/thrall.properties
+  sudo echo "permissions.bucket=$permissionsBucket" >> /etc/gu/usage.properties
+
   echo "  uploaded file to $permissionsBucket"
 }
 
