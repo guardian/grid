@@ -28,7 +28,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
     shards = config.elasticsearch6Shards,
     replicas = config.elasticsearch6Replicas
   )
-4
+
   val s3Client = new S3Client(config)
 
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)

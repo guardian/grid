@@ -6,8 +6,6 @@ import akka.stream.scaladsl.StreamConverters
 import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
-import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, OnBehalfOfApiKey, OnBehalfOfUser, PandaUser, Principal}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
@@ -23,16 +21,14 @@ import lib.elasticsearch._
 import org.apache.http.entity.ContentType
 import org.http4s.UriTemplate
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.{AnyContent, BaseController, ControllerComponents}
 import play.api.mvc.Security.AuthenticatedRequest
-import play.api.mvc._
+import play.api.mvc.{Result, ResponseHeader}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
 
 class MediaApi(
                 auth: Authentication,
