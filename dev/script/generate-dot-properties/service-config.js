@@ -133,6 +133,7 @@ function getMetadataEditorConfig(config) {
         |s3.collections.bucket=${config.coreStackProps.CollectionsBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |dynamo.table.edits=EditsTable
         |indexed.images.sqs.queue.url=${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
