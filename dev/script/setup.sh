@@ -152,6 +152,20 @@ setupUsageRightsConfiguration() {
   echo "  uploaded file to $configBucket"
 }
 
+setupPhotographersConfiguration() {
+  echo "setting up photographers configuration"
+
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="$ROOT_DIR/dev/config/photographers.json"
+
+  aws s3 cp "$target" \
+    "s3://$configBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $configBucket"
+}
+
 setupPermissionConfiguration() {
   if [[ $LOCAL_AUTH != true ]]; then
     return
@@ -286,6 +300,7 @@ main() {
   fi
 
   setupUsageRightsConfiguration
+  setupPhotographersConfiguration
   setupDevNginx
   generateDotProperties
   uploadApiKey
