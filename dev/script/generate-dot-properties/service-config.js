@@ -9,6 +9,18 @@ function getCorsAllowedOriginString(config) {
     .join(',');
 }
 
+function getAdminToolsConfig(config) {
+  return stripMargin`
+        |domain.root=${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |metrics.request.enabled=false
+        |`;
+}
+
 function getAuthConfig(config) {
     return stripMargin`
         |domain.root=${config.DOMAIN}
@@ -206,6 +218,7 @@ function getGridProdConfig(config) {
 module.exports = {
     getCoreConfigs: (config) => {
         return {
+            'admin-tools': getAdminToolsConfig(config),
             auth: getAuthConfig(config),
             collections: getCollectionsConfig(config),
             cropper: getCropperConfig(config),
