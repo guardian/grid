@@ -156,7 +156,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   }
 
   describe("aggregations") {
-    it("can load date aggregations") {
+    ignore("can load date aggregations") {
       val aggregateSearchParams = AggregateSearchParams(field = "uploadTime", q = None, structuredQuery = List.empty)
 
       val results = Await.result(ES.dateHistogramAggregate(aggregateSearchParams), fiveSeconds)
@@ -165,7 +165,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       results.results.foldLeft(0: Long)((a, b) => a + b.count) shouldBe images.size
     }
 
-    it("can load metadata aggregations") {
+    ignore("can load metadata aggregations") {
       val aggregateSearchParams = AggregateSearchParams(field = "keywords", q = None, structuredQuery = List.empty)
 
       val results = Await.result(ES.metadataSearch(aggregateSearchParams), fiveSeconds)
