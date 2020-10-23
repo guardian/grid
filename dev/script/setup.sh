@@ -149,7 +149,7 @@ setupUsageRightsConfiguration() {
     "s3://$configBucket/" \
     --endpoint-url $LOCALSTACK_ENDPOINT
 
-  echo "  uploaded file to configBucket"
+  echo "  uploaded file to $configBucket"
 }
 
 setupPermissionConfiguration() {
