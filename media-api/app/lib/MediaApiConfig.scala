@@ -31,10 +31,10 @@ class MediaApiConfig(override val configuration: Configuration) extends CommonCo
 
   lazy val imagesAlias: String = properties.getOrElse("es.index.aliases.read", configuration.get[String]("es.index.aliases.read"))
 
-  lazy val elasticsearch6Url: String =  properties("es6.url")
-  lazy val elasticsearch6Cluster: String = properties("es6.cluster")
-  lazy val elasticsearch6Shards: Int = properties("es6.shards").toInt
-  lazy val elasticsearch6Replicas: Int = properties("es6.replicas").toInt
+  lazy val elasticsearch6Url: String =  properties("es7.url")
+  lazy val elasticsearch6Cluster: String = properties("es7.cluster")
+  lazy val elasticsearch6Shards: Int = properties("es7.shards").toInt
+  lazy val elasticsearch6Replicas: Int = properties("es7.replicas").toInt
 
   lazy val imageBucket: String = properties("s3.image.bucket")
   lazy val thumbBucket: String = properties("s3.thumb.bucket")
