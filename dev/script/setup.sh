@@ -138,6 +138,20 @@ END
   rm -f "$PANDA_PUBLIC_SETTINGS_FILE"
 }
 
+setupUsageRightsConfiguration() {
+  echo "setting up usage rights configuration"
+
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="$ROOT_DIR/dev/config/usage_rights.json"
+
+  aws s3 cp "$target" \
+    "s3://configBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to configBucket"
+}
+
 setupPermissionConfiguration() {
   if [[ $LOCAL_AUTH != true ]]; then
     return
@@ -271,6 +285,7 @@ main() {
     setupPanDomainConfiguration
   fi
 
+  setupUsageRightsConfiguration
   setupDevNginx
   generateDotProperties
   uploadApiKey
