@@ -146,7 +146,7 @@ setupUsageRightsConfiguration() {
   target="$ROOT_DIR/dev/config/usage_rights.json"
 
   aws s3 cp "$target" \
-    "s3://configBucket/" \
+    "s3://$configBucket/" \
     --endpoint-url $LOCALSTACK_ENDPOINT
 
   echo "  uploaded file to configBucket"
