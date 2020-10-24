@@ -193,6 +193,10 @@ Resources:
         WriteCapacityUnits: 1
 
 Outputs:
+  ThrallMessageStream:
+    Value: !REF 'ThrallMessageStream'
+  ThrallLowPriorityMessageStream:
+    Value: !REF 'ThrallLowPriorityMessageStream'
   ImageBucket:
     Value: !Ref 'ImageBucket'
   ThumbBucket:
