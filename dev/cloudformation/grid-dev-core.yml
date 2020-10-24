@@ -4,11 +4,13 @@ Resources:
   ThrallMessageStream:
     Type: AWS::Kinesis::Stream
     Properties:
+      Name: media-service-DEV-thrall
       ShardCount: 1
       RetentionPeriodHours: 168
   ThrallLowPriorityMessageStream:
     Type: AWS::Kinesis::Stream
     Properties:
+      Name: media-service-DEV-thrall-low-priority
       ShardCount: 1
       RetentionPeriodHours: 168
 
