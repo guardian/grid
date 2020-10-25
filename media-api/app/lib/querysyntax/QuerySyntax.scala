@@ -110,6 +110,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "category" |
     "subject" |
     "supplier" |
+    "suppliersReference" |
+    "specialInstructions" |
     "collection" |
     "keyword" |
     "label" |
