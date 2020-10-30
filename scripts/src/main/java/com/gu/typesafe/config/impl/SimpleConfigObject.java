@@ -1,5 +1,6 @@
 /**
  *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ *   THIS FILE HAS BEEN MODIFIED TO ADD SUPPORT FOR COMPACT KEYS
  */
 package com.gu.typesafe.config.impl;
 
@@ -461,7 +462,10 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         if (isEmpty()) {
             sb.append("{}");
         } else {
-            boolean outerBraces = options.getJson() || !atRoot;
+            String[] keys = keySet().toArray(new String[size()]);
+            boolean singleton = keys.length == 1;
+            boolean shouldCompact = singleton && options.getCompactKeys();
+            boolean outerBraces = options.getJson() || (!atRoot && !shouldCompact);
 
             int innerIndent;
             if (outerBraces) {
@@ -475,7 +479,6 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             }
 
             int separatorCount = 0;
-            String[] keys = keySet().toArray(new String[size()]);
             Arrays.sort(keys, new RenderComparator());
             for (String k : keys) {
                 com.gu.typesafe.config.impl.AbstractConfigValue v;
@@ -502,7 +505,11 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                         sb.append("\n");
                     }
                 }
-                indent(sb, innerIndent, options);
+                if (shouldCompact) {
+                  sb.append(".");
+                } else {
+                  indent(sb, innerIndent, options);
+                }
                 v.render(sb, innerIndent, false /* atRoot */, k, options);
 
                 if (options.getFormatted()) {

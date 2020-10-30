@@ -1,5 +1,6 @@
 /**
  *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ *     THIS FILE HAS BEEN MODIFIED TO ADD SUPPORT FOR COMPACT KEYS
  */
 package com.gu.typesafe.config;
 
@@ -21,13 +22,15 @@ public final class ConfigRenderOptions {
     private final boolean comments;
     private final boolean formatted;
     private final boolean json;
+    private final boolean compactKeys;
 
     private ConfigRenderOptions(boolean originComments, boolean comments, boolean formatted,
-            boolean json) {
+            boolean json, boolean compactKeys) {
         this.originComments = originComments;
         this.comments = comments;
         this.formatted = formatted;
         this.json = json;
+        this.compactKeys = compactKeys;
     }
 
     /**
@@ -38,7 +41,7 @@ public final class ConfigRenderOptions {
      * @return the default render options
      */
     public static ConfigRenderOptions defaults() {
-        return new ConfigRenderOptions(true, true, true, true);
+        return new ConfigRenderOptions(true, true, true, true, false);
     }
 
     /**
@@ -48,7 +51,7 @@ public final class ConfigRenderOptions {
      * @return the concise render options
      */
     public static ConfigRenderOptions concise() {
-        return new ConfigRenderOptions(false, false, false, true);
+        return new ConfigRenderOptions(false, false, false, true, false);
     }
 
     /**
@@ -64,7 +67,7 @@ public final class ConfigRenderOptions {
         if (value == comments)
             return this;
         else
-            return new ConfigRenderOptions(originComments, value, formatted, json);
+            return new ConfigRenderOptions(originComments, value, formatted, json, compactKeys);
     }
 
     /**
@@ -97,7 +100,7 @@ public final class ConfigRenderOptions {
         if (value == originComments)
             return this;
         else
-            return new ConfigRenderOptions(value, comments, formatted, json);
+            return new ConfigRenderOptions(value, comments, formatted, json, compactKeys);
     }
 
     /**
@@ -122,7 +125,7 @@ public final class ConfigRenderOptions {
         if (value == formatted)
             return this;
         else
-            return new ConfigRenderOptions(originComments, comments, value, json);
+            return new ConfigRenderOptions(originComments, comments, value, json, compactKeys);
     }
 
     /**
@@ -150,7 +153,7 @@ public final class ConfigRenderOptions {
         if (value == json)
             return this;
         else
-            return new ConfigRenderOptions(originComments, comments, formatted, value);
+            return new ConfigRenderOptions(originComments, comments, formatted, value, compactKeys);
     }
 
     /**
@@ -161,6 +164,33 @@ public final class ConfigRenderOptions {
      */
     public boolean getJson() {
         return json;
+    }
+
+    /**
+     * Returns options with compact keys toggled. Compact keys means that when an
+     * object only has one member it will be rendered using the dot notation.
+     *
+     * i.e. rather than {@code key { key2=value }} you will get {@code key.key2=value}
+     *
+     * @param value
+     *            true to compact the object keys
+     * @return options with requested setting for compact keys
+     */
+    public ConfigRenderOptions setCompactKeys(boolean value) {
+      if (value == compactKeys)
+        return this;
+      else
+        return new ConfigRenderOptions(originComments, comments, formatted, json, value);
+    }
+
+    /**
+     * Returns whether the options enable compact keys. This method is mostly used by
+     * the config lib internally, not by applications.
+     *
+     * @return true if object keys should be rendered compactly
+     */
+    public boolean getCompactKeys() {
+      return compactKeys;
     }
 
     @Override
@@ -174,6 +204,8 @@ public final class ConfigRenderOptions {
             sb.append("formatted,");
         if (json)
             sb.append("json,");
+        if (compactKeys)
+            sb.append("compactKeys,");
         if (sb.charAt(sb.length() - 1) == ',')
             sb.setLength(sb.length() - 1);
         sb.append(")");

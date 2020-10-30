@@ -1,5 +1,6 @@
 /**
  *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ *   THIS FILE HAS BEEN MODIFIED TO ADD SUPPORT FOR COMPACT KEYS
  */
 package com.gu.typesafe.config.impl;
 
@@ -341,7 +342,10 @@ abstract class AbstractConfigValue implements com.gu.typesafe.config.ConfigValue
             } else {
                 // in non-JSON we can omit the colon or equals before an object
                 if (this instanceof ConfigObject) {
-                    if (options.getFormatted())
+                  ConfigObject configObj = (ConfigObject) this;
+                  boolean singleton = configObj.keySet().size() == 1;
+                  boolean shouldCompact = singleton && options.getCompactKeys();
+                    if (options.getFormatted() && !shouldCompact)
                         sb.append(' ');
                 } else {
                     sb.append("=");
