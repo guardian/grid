@@ -36,11 +36,9 @@ class MediaApiComponents(context: Context) extends GridComponents(context) {
   usageQuota.scheduleUpdates()
 
   val usageRightsConfigStore = UsageRightsStore(config.configBucket, config)
-
-  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies, () => usageRightsConfigStore.get)
-  elasticSearch.ensureAliasAssigned()
   usageRightsConfigStore.scheduleUpdates(actorSystem.scheduler)
 
+  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies, () => usageRightsConfigStore.get)
   elasticSearch.ensureAliasAssigned()
 
   val imageResponse = new ImageResponse(config, s3Client, new CostCalculator(usageRightsConfigStore, usageQuota))
