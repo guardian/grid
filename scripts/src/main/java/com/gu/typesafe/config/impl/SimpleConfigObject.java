@@ -505,7 +505,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                         sb.append("\n");
                     }
                 }
-                if (shouldCompact) {
+                if (shouldCompact && !atRoot) {
                   sb.append(".");
                 } else {
                   indent(sb, innerIndent, options);

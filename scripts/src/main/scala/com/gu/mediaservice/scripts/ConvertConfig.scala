@@ -2,11 +2,13 @@ package com.gu.mediaservice.scripts
 
 import java.io.File
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 
 import com.gu.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 
 import scala.util.Try
+
+import scala.collection.JavaConverters._
 
 object ConvertConfig {
   case class Conversion(input: File, output: File)
@@ -19,18 +21,30 @@ object ConvertConfig {
   }
 
   private def convertConfigs(args: List[String], overwrite: Boolean): Unit = {
-    val conversions = args.map { arg =>
+    val conversions = args.flatMap { arg =>
       val input = new File(arg)
-      assert(input.exists(), s"File provided for conversion doesn't exist: $input")
-      assert(input.toString.endsWith(".properties"), s"File provided for conversion isn't a java properties input: $input")
-      val output = new File(s"${arg.stripSuffix(".properties")}.conf")
-      if (!overwrite) {
-        assert(!output.exists, s"Output file for $input already exists: $output")
+      assert(input.exists, s"File provided for conversion doesn't exist: $input")
+      val files: List[File] = if (input.isDirectory) {
+        val paths: List[Path] = Files.walk(input.toPath).iterator.asScala.toIterable.toList
+        val regularFiles = paths.filter(file => Files.isRegularFile(file))
+        val propertiesFiles = regularFiles.filter(_.toString.endsWith(".properties"))
+        val files = propertiesFiles.map(_.toFile)
+        assert(files.nonEmpty, s"No properties files found to convert in $input")
+        files
+      } else {
+        assert(input.toString.endsWith(".properties"), s"File provided for conversion isn't a java properties input: $input")
+        List(input)
       }
-      Conversion(input, output)
+      files.map { f =>
+        val output = new File(s"${f.toString.stripSuffix(".properties")}.conf")
+        if (!overwrite) {
+          assert(!output.exists, s"Output file for $input already exists: $output")
+        }
+        Conversion(f, output)
+      }
     }
 
-    conversions.foreach(convert)
+    conversions.foreach(conversion => convert(conversion))
   }
 
   private def convert(conversion: Conversion): Either[Throwable, Unit] = {
