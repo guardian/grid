@@ -38,8 +38,8 @@ mappings:
   # vanity domains for localstack S3 buckets
   # the localstack container needs to expose port 4572 to the host
   - prefix: public.media
-    port: 4572
+    port: 4566
     path: /@IMAGE-ORIGIN-BUCKET/
   - prefix: images.media
-    port: 4572
+    port: 4566
     path: /@IMAGE-BUCKET/
