@@ -7,7 +7,6 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoAction}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
 import lib._
@@ -21,7 +20,7 @@ import scala.util.Try
 
 class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGroupOps, notifications: Notifications, config: UsageConfig, usageRecorder: UsageRecorder, liveContentApi: LiveContentApi,
   override val controllerComponents: ControllerComponents, playBodyParsers: PlayBodyParsers)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers with GridLogging {
+  extends BaseController with ArgoHelpers {
 
   private def wrapUsage(usage: Usage): EntityResponse[Usage] = {
     EntityResponse(
@@ -162,7 +161,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       sur => {
-        logger.info("recording syndication usage", req.user.accessor, sur.mediaId)
+        logger.info(req.user.accessor, ImageId(sur.mediaId), "recording syndication usage")
         val group = usageGroup.build(sur)
         usageRecorder.usageSubject.onNext(group)
         Accepted
@@ -179,7 +178,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       fur => {
-        logger.info("recording front usage", req.user.accessor, fur.mediaId)
+        logger.info(req.user.accessor, ImageId(fur.mediaId), "recording front usage")
         val group = usageGroup.build(fur)
         usageRecorder.usageSubject.onNext(group)
         Accepted
@@ -196,7 +195,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       usageRequest => {
-        logger.info("recording download usage", req.user.accessor, usageRequest.mediaId)
+        logger.info(req.user.accessor, ImageId(usageRequest.mediaId), "recording download usage")
         val group = usageGroup.build(usageRequest)
         usageRecorder.usageSubject.onNext(group)
         Accepted

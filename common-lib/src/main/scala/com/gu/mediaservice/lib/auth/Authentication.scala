@@ -24,7 +24,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
                      override val controllerComponents: ControllerComponents,
                      override val executionContext: ExecutionContext)
 
-  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers with GridLogging {
+  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers {
 
   implicit val ec: ExecutionContext = executionContext
 

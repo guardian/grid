@@ -1,8 +1,7 @@
 package com.gu.mediaservice.model.usage
 
+import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
-import play.api.Logger
-
 case class UsageId(id: String) {
   override def toString = id
 }
@@ -22,12 +21,12 @@ case class MediaUsage(
   lastModified: DateTime,
   dateAdded: Option[DateTime] = None,
   dateRemoved: Option[DateTime] = None
-) {
+) extends GridLogging {
 
   def isGridLikeId: Boolean = {
     if (mediaId.startsWith("gu-image-")) {
       // remove events from CAPI that represent images previous to Grid existing
-      Logger.info(s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
+      logger.info(s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
       false
     } else {
       true

@@ -3,7 +3,6 @@ package lib
 import java.net.InetAddress
 import java.util.UUID
 
-import play.api.Logger
 import com.amazonaws.auth._
 import com.amazonaws.auth.InstanceProfileCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider

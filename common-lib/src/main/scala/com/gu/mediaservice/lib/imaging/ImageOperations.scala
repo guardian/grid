@@ -6,8 +6,8 @@ import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
-import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
@@ -16,7 +16,7 @@ import scala.sys.process._
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 class UnsupportedCropOutputTypeException extends Exception
 
-class ImageOperations(playPath: String) {
+class ImageOperations(playPath: String) extends GridLogging {
   import ExifTool._
   import ImageMagick._
 
@@ -108,7 +108,7 @@ class ImageOperations(playPath: String) {
     //  However we'd need to change the `Asset` model as source image and crop use this model
     //  and a source can legally be a `Tiff`. It's not a small change...
     case Tiff =>
-      Logger.error("Attempting to optimize a Tiff crop. Cropping as Tiff is not supported.")
+      logger.error("Attempting to optimize a Tiff crop. Cropping as Tiff is not supported.")
       throw new UnsupportedCropOutputTypeException
   }
 

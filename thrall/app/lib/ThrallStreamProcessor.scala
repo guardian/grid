@@ -9,8 +9,6 @@ import com.gu.mediaservice.lib.DateTimeUtils
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging._
 import lib.kinesis.ThrallEventConsumer
-import play.api.Logger
-
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
@@ -33,7 +31,7 @@ class ThrallStreamProcessor(
   lowPrioritySource: Source[KinesisRecord, Future[Done]],
   consumer: ThrallEventConsumer,
   actorSystem: ActorSystem,
-  materializer: Materializer) {
+  materializer: Materializer) extends GridLogging {
 
   implicit val mat = materializer
   implicit val dispatcher = actorSystem.getDispatcher
@@ -72,13 +70,13 @@ class ThrallStreamProcessor(
         val basicMakers = combineMarkers(taggedRecord, stopwatch.elapsed)
         val markers = maybeUpdateMessage.map(combineMarkers(basicMakers, _)).getOrElse(basicMakers)
 
-        Logger.info("Record processed")(markers)
+        logger.info(markers, "Record processed")
         taggedRecord.record.markProcessed()
     }
 
     stream.onComplete {
-      case Failure(exception) => Logger.error("stream completed with failure", exception)
-      case Success(_) => Logger.info("Stream completed with done, probably shutting down")
+      case Failure(exception) => logger.error("stream completed with failure", exception)
+      case Success(_) => logger.info("Stream completed with done, probably shutting down")
     }
 
     stream

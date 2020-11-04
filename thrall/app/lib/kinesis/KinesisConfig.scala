@@ -5,11 +5,10 @@ import java.util.UUID
 
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration}
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
+import com.gu.mediaservice.lib.logging.GridLogging
 import lib.KinesisReceiverConfig
 import org.joda.time.DateTime
-import play.api.Logger
-
-object KinesisConfig {
+object KinesisConfig extends GridLogging {
   private val workerId = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   def kinesisConfig(config: KinesisReceiverConfig): KinesisClientLibConfiguration = {
@@ -22,7 +21,7 @@ object KinesisConfig {
     )
 
     config.awsLocalEndpoint.map(endpoint => {
-      Logger.info(s"creating kinesis consumer with endpoint=$endpoint")
+      logger.info(s"creating kinesis consumer with endpoint=$endpoint")
       clientConfig.withKinesisEndpoint(endpoint).withDynamoDBEndpoint(endpoint)
     }).getOrElse(clientConfig)
   }

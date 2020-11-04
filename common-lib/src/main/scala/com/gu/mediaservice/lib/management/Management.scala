@@ -2,11 +2,8 @@ package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.auth.PermissionsHandler
-import com.gu.mediaservice.lib.elasticsearch.{
-  ElasticSearchClient,
-  ElasticSearchImageCounts
-}
-import play.api.Logger
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchImageCounts}
+import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.json.{Format, Json}
 import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
 
@@ -46,12 +43,14 @@ class ManagementWithPermissions(override val controllerComponents: ControllerCom
   }
 }
 
-class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext) extends HealthCheck {
+class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext)
+  extends HealthCheck with GridLogging {
+
   override def healthCheck: Action[AnyContent] = Action.async {
     elasticHealth.map {
       case None => Ok("Ok")
       case Some(err) => {
-        Logger.warn(s"Healthcheck failed with problems: $err")
+        logger.warn(s"Healthcheck failed with problems: $err")
         ServiceUnavailable(err)
       }
     }
@@ -75,7 +74,7 @@ class ElasticSearchHealthCheck(override val controllerComponents: ControllerComp
       case counts: ElasticSearchImageCounts =>
         Ok(Json.toJson(counts))
       case _ =>
-        Logger.warn(s"Can't get stats")
+        logger.warn(s"Can't get stats")
         ServiceUnavailable("Can't get stats")
     }
   }

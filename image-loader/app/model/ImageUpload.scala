@@ -21,7 +21,6 @@ import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json.{JsObject, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -171,10 +170,10 @@ class Uploader(val store: ImageLoaderStore,
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>
-        Logger.error(s"Unsupported mimetype", unsupported)
+        logger.error(s"Unsupported mimetype", unsupported)
         throw unsupported
       case util.Right(mimeType) =>
-        Logger.info(s"Detected mimetype as $mimeType")
+        logger.info(s"Detected mimetype as $mimeType")
         UploadRequest(
           requestId = requestId,
           imageId = id,
@@ -192,7 +191,7 @@ class Uploader(val store: ImageLoaderStore,
                (implicit ec:ExecutionContext,
                 logMarker: LogMarker): Future[JsObject] = {
 
-    Logger.info("Storing file")
+    logger.info("Storing file")
 
     for {
       imageUpload <- fromUploadRequest(uploadRequest)
@@ -225,7 +224,7 @@ case class ImageUploadOpsDependencies(
   storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object]
 )
 
-object Uploader {
+object Uploader extends GridLogging {
 
   def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
     ImageUploadOpsCfg(
@@ -243,12 +242,12 @@ object Uploader {
 
     import deps._
 
-    Logger.info("Starting image ops")
+    logger.info("Starting image ops")
     val uploadedFile = uploadRequest.tempFile
 
     val fileMetadataFuture = toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
 
-    Logger.info("Have read file headers")
+    logger.info("Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
       uploadAndStoreImage(config,
@@ -273,8 +272,8 @@ object Uploader {
                    fileMetadataFuture: Future[FileMetadata],
                    fileMetadata: FileMetadata)
                   (implicit ec: ExecutionContext, logMarker: LogMarker) = {
-    Logger.info("Have read file metadata")
-    Logger.info("stored source file")
+    logger.info("Have read file metadata")
+    logger.info("stored source file")
     // FIXME: pass mimeType
     val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
@@ -284,7 +283,7 @@ object Uploader {
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
       val toOptimiseFile = uploadRequest.tempFile
       val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
-      Logger.info("thumbnail created")
+      logger.info("thumbnail created")
 
       val optimisedPng = OptimisedPngOps.build(
         toOptimiseFile,
@@ -292,7 +291,7 @@ object Uploader {
         fileMetadata,
         config,
         storeOrProjectOptimisedPNG)(ec, logMarker)
-      Logger.info(s"optimised image ($toOptimiseFile) created")
+      logger.info(s"optimised image ($toOptimiseFile) created")
 
       bracket(thumbFuture)(_.delete) { thumb =>
         // Run the operations in parallel
@@ -309,7 +308,7 @@ object Uploader {
           optimisedPng,
           uploadRequest
         )
-        Logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
+        logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
         uploadedFile.delete()
         toOptimiseFile.delete()
 
@@ -339,7 +338,7 @@ object Uploader {
                            optimisedPng: OptimisedPng,
                            uploadRequest: UploadRequest)
                           (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
-    Logger.info("Starting image ops")
+    logger.info("Starting image ops")
     for {
       s3Source <- sourceStoreFuture
       s3Thumb <- thumbStoreFuture
@@ -371,7 +370,7 @@ object Uploader {
       )
     } yield {
       if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
-      Logger.info("Ending image ops")
+      logger.info("Ending image ops")
       finalImage
     }
   }

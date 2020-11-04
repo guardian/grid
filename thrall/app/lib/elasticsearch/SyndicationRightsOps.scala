@@ -2,12 +2,11 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
-import play.api.Logger
 import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
+class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) extends GridLogging {
   /**
     * Upserting syndication rights and updating photoshoots accordingly.
     * @param image - image that has been updated. Should include any new rights.
@@ -77,13 +76,13 @@ class SyndicationRightsOps(es: ElasticSearch)(implicit ex: ExecutionContext) {
                           ): Unit =
     latestRights match {
       case updatedRights@Some(rights) if updateRequired(image, inferredImages) =>
-        Logger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for ${inferredImages.length} image id(s) in photoshoot $photoshoot: ${inferredImages.map(_.id)}")
+        logger.info(s"Using rights ${Json.toJson(rights)} to infer syndication rights for ${inferredImages.length} image id(s) in photoshoot $photoshoot: ${inferredImages.map(_.id)}")
         inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, updatedRights.map(_.copy(isInferred = true))))
       case None if image.hasNonInferredRights =>
-        Logger.info(s"Removing rights from images (photoshoot $photoshoot): ${inferredImages.map(_.id)} (total = ${inferredImages.length}).")
+        logger.info(s"Removing rights from images (photoshoot $photoshoot): ${inferredImages.map(_.id)} (total = ${inferredImages.length}).")
         inferredImages.foreach(img => es.updateImageSyndicationRights(img.id, None))
       case _ =>
-        Logger.info(s"No rights to refresh in photoshoot $photoshoot")
+        logger.info(s"No rights to refresh in photoshoot $photoshoot")
     }
 
   /* Only replace rights if at least one of the following is true:

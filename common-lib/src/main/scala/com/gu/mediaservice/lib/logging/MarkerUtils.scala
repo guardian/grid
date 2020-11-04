@@ -10,6 +10,9 @@ trait LogMarker {
   def toLogMarker: LogstashMarker = appendEntries(markerContents.asJava)
 
   def markerContents: Map[String, Any]
+
+  def +(marker: (String, Any)): LogMarker = MarkerMap(markerContents + marker)
+  def ++(marker: Map[String, Any]): LogMarker = MarkerMap(markerContents ++ marker)
 }
 
 case class MarkerMap(markerContents: Map[String, Any]) extends LogMarker

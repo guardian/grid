@@ -7,14 +7,13 @@ import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, RequestLoggingContext}
+import com.gu.mediaservice.lib.logging.{FALLBACK, GridLogging, LogMarker, RequestLoggingContext}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
 import model.{Projector, Uploader}
-import play.api.Logger
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -56,11 +55,11 @@ class ImageLoaderController(auth: Authentication,
         "filename" -> filename.getOrElse(FALLBACK)
       )
     )
-    Logger.info("loadImage request start")
+    logger.info("loadImage request start")
 
     // synchronous write to file
     val tempFile = createTempFile("requestBody")
-    Logger.info("body parsed")
+    logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
@@ -80,17 +79,17 @@ class ImageLoaderController(auth: Authentication,
 
       result map { r =>
         val result = Accepted(r).as(ArgoMediaType)
-        Logger.info("loadImage request end")
+        logger.info("loadImage request end")
         result
       } recover {
         case e =>
-          Logger.error("loadImage request ended with a failure", e)
+          logger.error("loadImage request ended with a failure", e)
           (e match {
             case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
             case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
             case e: java.io.IOException => FailureResponse.badImage(e).as(ArgoMediaType)
             case e =>
-              Logger.error("Failed upload", e)
+              logger.error("Failed upload", e)
               InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
           }).as(ArgoMediaType)
       }
@@ -113,11 +112,11 @@ class ImageLoaderController(auth: Authentication,
 
       result.map {
         case Some(img) =>
-          Logger.info("image found")
+          logger.info("image found")
           Ok(Json.toJson(img)).as(ArgoMediaType)
         case None =>
           val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
-          Logger.info("image not found")
+          logger.info("image not found")
           respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
       } recover {
         case _: NoSuchImageExistsInS3 => NotFound(Json.obj("imageId" -> imageId))
@@ -143,7 +142,7 @@ class ImageLoaderController(auth: Authentication,
         )
       )
 
-      Logger.info("importImage request start")
+      logger.info("importImage request start")
 
       val tempFile = createTempFile("download")
       val result = for {
@@ -165,7 +164,7 @@ class ImageLoaderController(auth: Authentication,
       result
         .map {
           r => {
-            Logger.info("importImage request end")
+            logger.info("importImage request end")
             // NB This return code (202) is explicitly required by s3-watcher
             // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
             Accepted(r).as(ArgoMediaType)
@@ -189,15 +188,15 @@ class ImageLoaderController(auth: Authentication,
   // then clear them up again at the end.  This avoids leaks.
   def createTempFile(prefix: String)(implicit logMarker: LogMarker): File = {
     val tempFile = File.createTempFile(prefix, "", config.tempDir)
-    Logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")
+    logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")
     tempFile
   }
 
   def deleteTempFile(tempFile: File)(implicit logMarker: LogMarker): Future[Unit] = Future {
     if (tempFile.delete()) {
-      Logger.info(s"Deleted temp file $tempFile")
+      logger.info(s"Deleted temp file $tempFile")
     } else {
-      Logger.warn(s"Unable to delete temp file $tempFile in ${config.tempDir}")
+      logger.warn(s"Unable to delete temp file $tempFile in ${config.tempDir}")
     }
   }
 

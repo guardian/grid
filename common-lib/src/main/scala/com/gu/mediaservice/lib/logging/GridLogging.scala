@@ -6,24 +6,31 @@ import net.logstash.logback.marker.Markers
 import scala.collection.JavaConverters._
 
 trait GridLogging extends StrictLogging {
+  case class ImageId(id: String)
+
   implicit class LoggerWithHelpers(logger: Logger) {
-    def info(message: String, markers: Map[String, Any] = Map()): Unit = logger.info(Markers.appendEntries(markers.asJava), message)
+    def info(markers: Map[String, Any], message: String): Unit = logger.info(Markers.appendEntries(markers.asJava), message)
+    def info(markers: LogMarker, message: String): Unit = logger.info(markers.toLogMarker, message)
 
-    def warn(message: String, markers: Map[String, Any] = Map()): Unit = logger.warn(Markers.appendEntries(markers.asJava), message)
+    def warn(markers: Map[String, Any], message: String): Unit = logger.warn(Markers.appendEntries(markers.asJava), message)
+    def warn(markers: LogMarker, message: String): Unit = logger.warn(markers.toLogMarker, message)
+    def warn(markers: LogMarker, message: String, cause: Throwable): Unit = logger.warn(markers.toLogMarker, message, cause)
 
-    def error(message: String, markers: Map[String, Any] = Map()): Unit = logger.error(Markers.appendEntries(markers.asJava), message)
+    def error(markers: Map[String, Any], message: String): Unit = logger.error(Markers.appendEntries(markers.asJava), message)
+    def error(markers: LogMarker, message: String): Unit = logger.error(markers.toLogMarker, message)
+    def error(markers: LogMarker, message: String, cause: Throwable): Unit = logger.error(markers.toLogMarker, message, cause)
 
-    def info(message: String, apiKey: ApiAccessor): Unit = info(message, apiKeyMarkers(apiKey))
+    def info(apiKey: ApiAccessor, message: String): Unit = info(apiKeyMarkers(apiKey), message)
 
-    def info(message: String, apiKey: ApiAccessor, imageId: String): Unit = info(message, apiKeyMarkers(apiKey) ++ imageIdMarker(imageId))
+    def info(apiKey: ApiAccessor, imageId: ImageId, message: String): Unit = info(apiKeyMarkers(apiKey) ++ imageIdMarker(imageId), message)
 
-    def info(message: String, imageId: String): Unit = info(message, imageIdMarker(imageId))
+    def info(message: String, imageId: ImageId): Unit = info(imageIdMarker(imageId), message)
 
-    private def apiKeyMarkers(apiKey: ApiAccessor) = Map(
+    def apiKeyMarkers(apiKey: ApiAccessor) = Map(
       "key-tier" -> apiKey.tier.toString,
       "key-name" -> apiKey.identity
     )
 
-    private def imageIdMarker(imageId: String) = Map("image-id" -> imageId)
+    def imageIdMarker(imageId: ImageId) = Map("image-id" -> imageId.id)
   }
 }

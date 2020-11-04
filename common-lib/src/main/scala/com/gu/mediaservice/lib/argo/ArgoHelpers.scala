@@ -1,14 +1,15 @@
 package com.gu.mediaservice.lib.argo
 
 import java.net.URI
+
 import play.api.libs.json.{Json, Writes}
-import play.api.mvc.{Results, Result}
-import play.api.Logger
-
+import play.api.mvc.{Result, Results}
 import com.gu.mediaservice.lib.argo.model._
+import com.gu.mediaservice.lib.logging.GridLogging
+import com.typesafe.scalalogging.Logger
 
 
-trait ArgoHelpers extends Results {
+trait ArgoHelpers extends Results with GridLogging {
 
   val ArgoMediaType = "application/vnd.argo+json"
 
@@ -55,7 +56,7 @@ trait ArgoHelpers extends Results {
 
   // TODO: find a nicer way to serialise ErrorResponse[Nothing] without this hack
   def respondError(errorStatus: Status, errorKey: String, errorMessage: String, links: List[Link] = Nil): Result = {
-    Logger.warn(s"[$errorKey] Responding with error status ${errorStatus.header.status}, $errorMessage")
+    logger.warn(s"[$errorKey] Responding with error status ${errorStatus.header.status}, $errorMessage")
     val response = ErrorResponse[Int](
       errorKey     = errorKey,
       errorMessage = errorMessage,

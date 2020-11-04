@@ -7,8 +7,8 @@ import java.nio.file.Files
 import com.google.common.hash.HashingOutputStream
 import com.google.common.io.ByteStreams
 import com.gu.mediaservice.DeprecatedHashWrapper
+import com.gu.mediaservice.lib.logging.GridLogging
 import okhttp3.{OkHttpClient, Request}
-import play.api.Logger
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -17,7 +17,7 @@ case object TruncatedDownload extends Exception
 case object InvalidDownload extends Exception
 
 //TODO Revisit this logic
-class Downloader(implicit ec: ExecutionContext) {
+class Downloader(implicit ec: ExecutionContext) extends GridLogging {
   private val client = new OkHttpClient()
   private val digester = DeprecatedHashWrapper.sha1()
 
@@ -29,7 +29,7 @@ class Downloader(implicit ec: ExecutionContext) {
 
     maybeExpectedSize match {
       case Failure(exception) => {
-        Logger.error(s"Missing content-length header from $uri", exception)
+        logger.error(s"Missing content-length header from $uri", exception)
         throw InvalidDownload
       }
       case Success(expectedSize) => {

@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.imaging.im4jwrapper
 import java.util.concurrent.Executors
 import java.io.File
 
+import com.gu.mediaservice.lib.logging.GridLogging
 import org.im4java.process.ArrayListOutputConsumer
 
 import scala.collection.JavaConverters._
@@ -10,10 +11,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import org.im4java.core.{ConvertCmd, IMOperation, IdentifyCmd}
 import scalaz.syntax.id._
 import com.gu.mediaservice.model.{Bounds, Dimensions}
-import play.api.Logger
-
-
-object ImageMagick {
+object ImageMagick extends GridLogging {
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
 
@@ -32,7 +30,7 @@ object ImageMagick {
   def depth(op: IMOperation)(depth: Int): IMOperation = op <| (_.depth(depth))
 
   def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = {
-    Logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging operation $op")
+    logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging operation $op")
 
     Future((new ConvertCmd(!useImageMagick)).run(op))
   }

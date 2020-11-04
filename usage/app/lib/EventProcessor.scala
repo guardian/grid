@@ -16,8 +16,6 @@ import com.gu.thrift.serializer.ThriftDeserializer
 import org.apache.thrift.protocol.TCompactProtocol
 import org.apache.thrift.transport.TIOStreamTransport
 import org.joda.time.DateTime
-import play.api.Logger
-
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try

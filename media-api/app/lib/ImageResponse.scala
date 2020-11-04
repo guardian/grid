@@ -5,20 +5,22 @@ import java.net.URI
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import com.softwaremill.quicklens._
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.utils.UriEncoding
 
 import scala.util.{Failure, Try}
 
-class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota) extends EditsResponse {
+class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
+  extends EditsResponse with GridLogging {
+
   //  implicit val dateTimeFormat = DateFormat
   implicit val usageQuotas = usageQuota
 
@@ -56,7 +58,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       Json.toJson(image)(imageResponseWrites(image.id, included.contains("fileMetadata")))
     }.recoverWith {
       case e =>
-        Logger.error(s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")
+        logger.error(s"Failed to read ElasticSearch response $id into Image object: ${e.getMessage}")
         Failure(e)
     }.get
 

@@ -6,7 +6,6 @@ import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model.UsageTable
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json._
 import rx.lang.scala.Observable
 

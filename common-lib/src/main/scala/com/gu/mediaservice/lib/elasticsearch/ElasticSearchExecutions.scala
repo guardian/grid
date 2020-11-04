@@ -2,12 +2,10 @@ package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging._
 import com.sksamuel.elastic4s._
-import play.api.Logger
-
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-trait ElasticSearchExecutions  {
+trait ElasticSearchExecutions extends GridLogging {
 
   def client: ElasticClient
 
@@ -35,18 +33,24 @@ trait ElasticSearchExecutions  {
 
     result.foreach { r =>
       val elapsed = stopwatch.elapsed
-      Logger.info(s"$message - query returned successfully in ${elapsed.toMillis} ms")(combineMarkers(logMarkers, elapsed))
+      logger.info(combineMarkers(logMarkers, elapsed), s"$message - query returned successfully in ${elapsed.toMillis} ms")
     }
 
     result.failed.foreach { e =>
       val elapsed = stopwatch.elapsed
       e match {
-        case ElasticNotFoundException => Logger.error(s"$message - query failed: Document not Found")(
-          combineMarkers(logMarkers, elapsed, MarkerMap(Map("reason" -> "ElasticNotFoundException"))))
+        case ElasticNotFoundException => logger.error(
+          combineMarkers(logMarkers, elapsed, MarkerMap(Map("reason" -> "ElasticNotFoundException"))),
+          s"$message - query failed: Document not Found"
+        )
         case ElasticSearchException(error, marker) =>
-          Logger.error(s"$message - query failed: ${e.getMessage}")(combineMarkers(logMarkers, elapsed, marker))
-        case _ => Logger.error(s"$message - query failed: ${e.getMessage} cs: ${e.getCause}")(
-          combineMarkers(logMarkers, elapsed, MarkerMap(Map("reason" -> "unknown es error"))))
+          logger.error(combineMarkers(logMarkers, elapsed, marker), s"$message - query failed", e)
+        case _ =>
+          logger.error(
+            combineMarkers(logMarkers, elapsed, MarkerMap(Map("reason" -> "unknown es error"))),
+          s"$message - query failed",
+            e
+          )
       }
     }
     result

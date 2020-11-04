@@ -13,7 +13,6 @@ import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model._
 import lib._
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.data.Forms._
 import play.api.data._
 import play.api.libs.json._

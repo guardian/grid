@@ -36,7 +36,7 @@ class MediaApi(
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient
-)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler with GridLogging {
+)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",

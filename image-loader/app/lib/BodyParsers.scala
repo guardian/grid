@@ -6,7 +6,7 @@ import java.security.MessageDigest
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import play.api.Logger
+import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.streams.Accumulator
 import play.api.mvc._
 
@@ -46,7 +46,7 @@ object DigestBodyParser extends ArgoHelpers {
   }
 
   def failValidation(foo: Result, message: String) = {
-    Logger.info(message)
+    logger.info(message)
     Left(foo)
   }
 

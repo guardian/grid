@@ -9,7 +9,6 @@ import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import lib.elasticsearch._
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,7 +60,7 @@ class MessageProcessor(es: ElasticSearch,
   }
 
   def reindexImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
-    Logger.info(s"Reindexing image: ${message.image.map(_.id).getOrElse("image not found")}")
+    logger.info(logMarker, s"Reindexing image: ${message.image.map(_.id).getOrElse("image not found")}")
     indexImage(message, logMarker)
   }
 
@@ -139,12 +138,12 @@ class MessageProcessor(es: ElasticSearch,
   }
 
   private def deleteImage(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
-    implicit val marker = logMarker
     Future.sequence(
       withId(updateMessage) { id =>
+        implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
         // if we cannot delete the image as it's "protected", succeed and delete
         // the message anyway.
-        Logger.info("ES6 Deleting image: " + id)
+        logger.info(marker, "ES6 Deleting image: " + id)
         es.deleteImage(id).map { requests =>
           requests.map {
             case _: ElasticSearchDeleteResponse =>
@@ -155,7 +154,7 @@ class MessageProcessor(es: ElasticSearch,
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
-              logger.info("Could not delete image", id)
+              logger.info(marker, "Could not delete image")
               Future.successful(EsResponse(s"Image cannot be deleted: $id"))
           }
         }
@@ -168,40 +167,40 @@ class MessageProcessor(es: ElasticSearch,
     Future.sequence(withId(updateMessage)(id => es.deleteAllImageUsages(id)))}
 
   def upsertSyndicationRights(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
-    implicit val marker = logMarker
     withId(updateMessage) { id =>
+      implicit val marker = logMarker ++ logger.imageIdMarker(ImageId(id))
       withSyndicationRights(updateMessage) { syndicationRights =>
         es.getImage(id) map {
           case Some(image) =>
             val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-            Logger.info(s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
+            logger.info(marker, s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
             syndicationRightsOps.upsertOrRefreshRights(
               image = image.copy(syndicationRights = Some(syndicationRights)),
               currentPhotoshootOpt = photoshoot
             )
-          case _ => logger.info(s"Image $id not found")
+          case _ => logger.info(marker, s"Image $id not found")
         }
       }
     }
   }
 
   def updateImagePhotoshoot(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
-    implicit val marker = logMarker
     withEdits(message) { upcomingEdits =>
       withId(message) { id =>
+        implicit val marker = logMarker ++ logger.imageIdMarker(ImageId(id))
         for {
           imageOpt <- es.getImage(id)
           prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
           _ <- updateImageUserMetadata(message, logMarker)
           _ <- {
-            Logger.info(s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
+            logger.info(marker, s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
             syndicationRightsOps.upsertOrRefreshRights(
               image = imageOpt.get,
               currentPhotoshootOpt = upcomingEdits.photoshoot,
               previousPhotoshootOpt = prevPhotoshootOpt
             )
           }
-        } yield Logger.info(s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}")
+        } yield logger.info(marker, s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}")
       }
     }
   }
