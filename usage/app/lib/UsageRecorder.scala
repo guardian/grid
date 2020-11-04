@@ -1,26 +1,26 @@
 package lib
 
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
+import com.typesafe.scalalogging.StrictLogging
 import model._
-import play.api.Logger
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
 import rx.lang.scala.{Observable, Subscriber, Subscription}
 
 case class ResetException() extends Exception
 
-class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStream: UsageStream, usageNotice: UsageNotifier, usageNotifier: UsageNotifier) {
+class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStream: UsageStream, usageNotice: UsageNotifier, usageNotifier: UsageNotifier) extends StrictLogging {
   val usageSubject = PublishSubject[UsageGroup]()
   val previewUsageStream: Observable[UsageGroup] = usageStream.previewObservable.merge(usageSubject)
   val liveUsageStream: Observable[UsageGroup] = usageStream.liveObservable.merge(usageSubject)
 
-  val subscriber = Subscriber((_:Any) => Logger.debug(s"Sent Usage Notification"))
+  val subscriber = Subscriber((_:Any) => logger.debug(s"Sent Usage Notification"))
 
   var subscribeToPreview: Option[Subscription] = None
   var subscribeToLive: Option[Subscription] = None
 
   def recordUpdate(update: JsObject): JsObject = {
-    Logger.info(s"Usage update processed: $update")
+    logger.info(s"Usage update processed: $update")
     usageMetrics.incrementUpdated
 
     update
@@ -45,13 +45,13 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
     .retry((_, error) => {
-      Logger.error(s"Encountered an error trying to match usage group (${usageGroup.grouping}", error)
+      logger.error(s"Encountered an error trying to match usage group (${usageGroup.grouping}", error)
 
       true
     })
     .map(MatchedUsageGroup(usageGroup, _))
     .map(matchedUsageGroup => {
-      Logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
+      logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
 
       matchedUsageGroup
     })
@@ -74,7 +74,7 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
   val liveNotifiedStream: Observable[Unit] = distinctLiveNotificationStream.map(usageNotifier.send)
 
   def reportStreamError(i: Int, error: Throwable): Boolean = {
-    Logger.error("UsageRecorder encountered an error.", error)
+    logger.error("UsageRecorder encountered an error.", error)
     usageMetrics.incrementErrors
 
     true
@@ -92,10 +92,10 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
       val usageGroup   = matchUsageGroup.usageGroup
 
       dbUsageGroup.usages.foreach(g => {
-        Logger.info(s"Seen DB Usage for ${g.mediaId} (job-$uuid)")
+        logger.info(s"Seen DB Usage for ${g.mediaId} (job-$uuid)")
       })
       usageGroup.usages.foreach(g => {
-        Logger.info(s"Seen Stream Usage for ${g.mediaId} (job-$uuid)")
+        logger.info(s"Seen Stream Usage for ${g.mediaId} (job-$uuid)")
       })
 
       val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(usageTable.delete)
@@ -104,7 +104,7 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
       val updates = (if(usageGroup.isReindex) Set() else usageGroup.usages & dbUsageGroup.usages)
         .map(usageTable.update)
 
-      Logger.info(s"DB Operations d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-$uuid)")
+      logger.info(s"DB Operations d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-$uuid)")
 
       Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
         .map(recordUpdate)

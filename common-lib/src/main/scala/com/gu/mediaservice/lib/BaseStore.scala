@@ -6,6 +6,7 @@ import akka.actor.Scheduler
 import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 
@@ -14,10 +15,10 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext) {
-  val s3 = new S3(config)
+abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
+  extends GridLogging {
 
-  private val log = LoggerFactory.getLogger(getClass)
+  val s3 = new S3(config)
 
   protected val store: Box[Map[TStoreKey, TStoreVal]] = Box(Map.empty)
   protected val lastUpdated: Box[DateTime] = Box(DateTime.now())
@@ -31,12 +32,12 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
 
     if (objects.nonEmpty) {
       val obj = objects.maxBy(_.getLastModified)
-      log.info(s"Latest key ${obj.getKey} in bucket $bucket")
+      logger.info(s"Latest key ${obj.getKey} in bucket $bucket")
 
       val stream = s3.client.getObject(bucket, obj.getKey).getObjectContent
       Some(stream)
     } else {
-      log.error(s"Bucket $bucket is empty")
+      logger.error(s"Bucket $bucket is empty")
       None
     }
   }

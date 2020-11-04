@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{Request => _, _}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.{AuthActions, UserRequest}
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
@@ -24,7 +24,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
                      override val controllerComponents: ControllerComponents,
                      override val executionContext: ExecutionContext)
 
-  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers {
+  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers with GridLogging {
 
   implicit val ec: ExecutionContext = executionContext
 
@@ -51,7 +51,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           case Some(apiKey) =>
-            GridLogger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
+            logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
             if (ApiAccessor.hasAccess(apiKey, request, config.services))
               block(new AuthenticatedRequest(ApiKeyAccessor(apiKey), request))
             else

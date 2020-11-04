@@ -2,7 +2,7 @@ package lib.kinesis
 
 import com.gu.mediaservice.lib.aws.{BulkIndexRequest, EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
-import com.gu.mediaservice.lib.logging.{GridLogger, LogMarker, MarkerMap, combineMarkers}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, combineMarkers}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
@@ -19,7 +19,7 @@ class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
                        syndicationRightsOps: SyndicationRightsOps
-                      ) {
+                      ) extends GridLogging {
 
   def process(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     updateMessage.subject match {
@@ -155,7 +155,7 @@ class MessageProcessor(es: ElasticSearch,
               EsResponse(s"Image deleted: $id")
           } recoverWith {
             case ImageNotDeletable =>
-              GridLogger.info("Could not delete image", id)
+              logger.info("Could not delete image", id)
               Future.successful(EsResponse(s"Image cannot be deleted: $id"))
           }
         }
@@ -179,7 +179,7 @@ class MessageProcessor(es: ElasticSearch,
               image = image.copy(syndicationRights = Some(syndicationRights)),
               currentPhotoshootOpt = photoshoot
             )
-          case _ => GridLogger.info(s"Image $id not found")
+          case _ => logger.info(s"Image $id not found")
         }
       }
     }

@@ -7,12 +7,11 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoAction}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
 import lib._
 import model._
-import play.api.Logger
 import play.api.libs.json.{JsError, JsValue, Json}
 import play.api.mvc._
 import play.utils.UriEncoding
@@ -22,7 +21,7 @@ import scala.util.Try
 
 class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGroupOps, notifications: Notifications, config: UsageConfig, usageRecorder: UsageRecorder, liveContentApi: LiveContentApi,
   override val controllerComponents: ControllerComponents, playBodyParsers: PlayBodyParsers)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with ArgoHelpers with GridLogging {
 
   private def wrapUsage(usage: Usage): EntityResponse[Usage] = {
     EntityResponse(
@@ -53,7 +52,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
   def index = auth { indexResponse }
 
   def forUsage(usageId: String) = auth.async {
-    GridLogger.info(s"Request for single usage $usageId")
+    logger.info(s"Request for single usage $usageId")
     val usageFuture = usageTable.queryByUsageId(usageId)
 
     usageFuture.map[play.api.mvc.Result]((mediaUsageOption: Option[MediaUsage]) => {
@@ -72,7 +71,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         respond[Usage](data = usage, uri = uri, links = links)
       })
     }).recover { case error: Exception =>
-      Logger.error("UsageApi returned an error.", error)
+      logger.error("UsageApi returned an error.", error)
       respondError(InternalServerError, "usage-retrieve-failed", error.getMessage)
     }
 
@@ -100,7 +99,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     result
       .map(_ => Accepted)
       .recover { case error: Exception =>
-        Logger.error(s"UsageApi reindex for for content ($contentId) failed!", error)
+        logger.error(s"UsageApi reindex for for content ($contentId) failed!", error)
         InternalServerError
       }
   }
@@ -127,10 +126,10 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
       }
     }).recover {
       case error: BadInputException =>
-        Logger.error("UsageApi returned an error.", error)
+        logger.error("UsageApi returned an error.", error)
         respondError(BadRequest, "image-usage-retrieve-failed", error.getMessage)
       case error: Exception =>
-        Logger.error("UsageApi returned an error.", error)
+        logger.error("UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
     }
   }
@@ -163,7 +162,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       sur => {
-        GridLogger.info("recording syndication usage", req.user.accessor, sur.mediaId)
+        logger.info("recording syndication usage", req.user.accessor, sur.mediaId)
         val group = usageGroup.build(sur)
         usageRecorder.usageSubject.onNext(group)
         Accepted
@@ -180,7 +179,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       fur => {
-        GridLogger.info("recording front usage", req.user.accessor, fur.mediaId)
+        logger.info("recording front usage", req.user.accessor, fur.mediaId)
         val group = usageGroup.build(fur)
         usageRecorder.usageSubject.onNext(group)
         Accepted
@@ -197,7 +196,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         errorMessage = JsError.toJson(e).toString
       ),
       usageRequest => {
-        GridLogger.info("recording download usage", req.user.accessor, usageRequest.mediaId)
+        logger.info("recording download usage", req.user.accessor, usageRequest.mediaId)
         val group = usageGroup.build(usageRequest)
         usageRecorder.usageSubject.onNext(group)
         Accepted
@@ -210,10 +209,10 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
       usages.foreach(usageTable.deleteRecord)
     }).recover{
       case error: BadInputException =>
-        Logger.warn("UsageApi returned an error.", error)
+        logger.warn("UsageApi returned an error.", error)
         respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
       case error: Exception =>
-        Logger.error("UsageApi returned an error.", error)
+        logger.error("UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
     }
 
