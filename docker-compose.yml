@@ -18,12 +18,12 @@ services:
     ports:
       - "9090:9000"
   localstack:
-    image: localstack/localstack:0.11.0
+    image: localstack/localstack:0.11.6
     ports:
       - "4566:4566" # localstack's service proxy endpoint
       - "4572:4572" # localstack's direct S3 endpoint, needed for image and image-origin buckets (see nginx-mappings.yml)
     expose:
-      - 4572 # provide the imgops container with access to localstack's direct S3 endpoint
+      - 4566 # provide the imgops container with access to localstack's direct S3 endpoint
     environment:
       SERVICES: cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs
       DEFAULT_REGION: eu-west-1
