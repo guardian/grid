@@ -3,6 +3,7 @@ package lib
 import com.amazonaws.regions.{Region, RegionUtils}
 import com.amazonaws.services.identitymanagement._
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.net.URI.ensureSecure
 import play.api.{Configuration, Logger}
 
@@ -11,7 +12,7 @@ import scala.util.Try
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+class UsageConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) with GridLogging {
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val usageUri: String = services.usageBaseUri
@@ -65,7 +66,7 @@ class UsageConfig(playAppConfiguration: Configuration) extends CommonConfig(play
       iamClient.getUser.getUser.getUserName
     } catch {
       case e:com.amazonaws.AmazonServiceException=>
-        Logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names")
+        logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names")
         "tempcredentials"
     }
   } else {
@@ -77,13 +78,13 @@ class UsageConfig(playAppConfiguration: Configuration) extends CommonConfig(play
 
   val apiOnly: Boolean = stringOpt("app.name") match {
     case Some("usage-stream") =>
-      Logger.info(s"Starting as Stream Reader Usage.")
+      logger.info(s"Starting as Stream Reader Usage.")
       false
     case Some("usage") =>
-      Logger.info(s"Starting as API only Usage.")
+      logger.info(s"Starting as API only Usage.")
       true
     case name =>
-      Logger.error(s"App name is invalid: $name")
+      logger.error(s"App name is invalid: $name")
       sys.exit(1)
   }
 }

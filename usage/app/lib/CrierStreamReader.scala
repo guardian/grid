@@ -9,8 +9,9 @@ import com.amazonaws.auth.InstanceProfileCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
+import com.gu.mediaservice.lib.logging.GridLogging
 
-class CrierStreamReader(config: UsageConfig) {
+class CrierStreamReader(config: UsageConfig) extends GridLogging {
 
   lazy val workerId: String = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
@@ -66,13 +67,13 @@ class CrierStreamReader(config: UsageConfig) {
   private lazy val previewWorkerThread = previewWorker.map(makeThread)
 
   def start() = {
-    Logger.info("Trying to start Crier Stream Readers")
+    logger.info("Trying to start Crier Stream Readers")
 
     liveWorkerThread
       .map(_.start)
-      .foreach(_ => Logger.info("Starting Crier Live Stream reader"))
+      .foreach(_ => logger.info("Starting Crier Live Stream reader"))
     previewWorkerThread
       .map(_.start)
-      .foreach(_ => Logger.info("Starting Crier Preview Stream reader"))
+      .foreach(_ => logger.info("Starting Crier Preview Stream reader"))
   }
 }

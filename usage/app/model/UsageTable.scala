@@ -4,11 +4,11 @@ import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateIt
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
 import lib.{BadInputException, UsageConfig}
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json._
 import rx.lang.scala.Observable
 
@@ -17,7 +17,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
 
-class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable){
+class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable) with GridLogging {
 
   val hashKeyName = "grouping"
   val rangeKeyName = "usage_id"
@@ -71,14 +71,14 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   }.toSet
 
   def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] = {
-    Logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
+    logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
     Observable.from(Future {
       val status = usageGroup.status
       val grouping = usageGroup.grouping
       val keyAttribute = new KeyAttribute("grouping", grouping)
 
-      Logger.info(s"Querying table for $grouping - $status")
+      logger.info(s"Querying table for $grouping - $status")
       val queryResult = table.query(keyAttribute)
 
       val usages = queryResult.asScala
@@ -86,7 +86,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
         .filter(_.status == status)
         .toSet
 
-      Logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
+      logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
       UsageGroup(usages, grouping, usageGroup.status, new DateTime)
     })
@@ -104,7 +104,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   def deleteRecord(mediaUsage: MediaUsage) = {
     val record = UsageRecord.buildDeleteRecord(mediaUsage)
 
-    Logger.info(s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
+    logger.info(s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
 
     val deleteSpec = new DeleteItemSpec()
       .withPrimaryKey(
@@ -133,7 +133,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
   })
   .onErrorResumeNext(e => {
-    Logger.error(s"Dynamo update fail for $record!", e)
+    logger.error(s"Dynamo update fail for $record!", e)
     Observable.error(e)
   })
   .map(asJsObject)
