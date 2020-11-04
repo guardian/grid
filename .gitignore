@@ -25,3 +25,4 @@ dev/nginx-mappings.yml
 dev/.localstack
 dev/config/permissions.json
 dev/config/valid_emails.json
+Brewfile.lock.json
