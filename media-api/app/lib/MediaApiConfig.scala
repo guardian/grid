@@ -12,8 +12,6 @@ case class StoreConfig(
 )
 
 class MediaApiConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
-  val keyStoreBucket: String = string("auth.keystore.bucket")
-
   val configBucket: String = string("s3.config.bucket")
   val usageMailBucket: String = string("s3.usagemail.bucket")
 

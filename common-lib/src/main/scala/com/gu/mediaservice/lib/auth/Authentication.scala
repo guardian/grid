@@ -88,7 +88,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
       system = config.stringOpt("panda.system").getOrElse("media-service"),
       bucketName = config.stringOpt("panda.bucketName").getOrElse("pan-domain-auth-settings"),
       settingsFileKey = config.stringOpt("panda.settingsFileKey").getOrElse(s"${config.services.domainRoot}.settings"),
-      s3Client = S3Ops.buildS3Client(config, config.useLocalAuth)
+      s3Client = S3Ops.buildS3Client(config, localstackAware=config.useLocalAuth)
     )
   }
 }
