@@ -5,9 +5,8 @@ import play.api.ApplicationLoader.Context
 import play.api.Configuration
 import router.Routes
 
-class AdminToolsComponents(context: Context) extends GridComponents(context) {
-
-  final override lazy val config = new AdminToolsConfig(
+object AdminToolsComponents {
+  def config(configuration: Configuration) = new AdminToolsConfig(
     configuration ++ Configuration.from(Map(
       "domain.root" -> "local.dev-gutools.co.uk",
       "auth.keystore.bucket" -> "not-used",
@@ -15,7 +14,9 @@ class AdminToolsComponents(context: Context) extends GridComponents(context) {
       "thrall.kinesis.lowPriorityStream.name"-> "not-used"
     ))
   )
+}
 
+class AdminToolsComponents(context: Context) extends GridComponents(context, AdminToolsComponents.config) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val controller = new AdminToolsCtr(config, controllerComponents)

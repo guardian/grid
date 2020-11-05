@@ -6,7 +6,7 @@ import play.api.Configuration
 import scala.concurrent.ExecutionContext
 
 
-class CollectionsConfig(playAppConfiguration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig(playAppConfiguration) {
+class CollectionsConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val collectionsTable = string("dynamo.table.collections")
   val imageCollectionsTable = string("dynamo.table.imageCollections")
 
