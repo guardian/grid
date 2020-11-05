@@ -73,11 +73,11 @@ class MediaApi(
     respond(indexData, indexLinks)
   }
 
-  private val ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
-  private val ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
-  private val ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
+  private def ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
+  private def ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
+  private def ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
   private def ImageNotFound(id: String) = respondError(NotFound, "image-not-found", s"No image found with the given id $id")
-  private val ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
+  private def ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
 
   def index = auth { indexResponse }
 

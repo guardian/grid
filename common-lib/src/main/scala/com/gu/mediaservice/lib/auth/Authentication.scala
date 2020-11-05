@@ -33,7 +33,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   )
 
   // API key errors
-  val invalidApiKeyResult = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
+  def invalidApiKeyResult = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
 
   val keyStore = new KeyStore(config.authKeyStoreBucket, config)
 
