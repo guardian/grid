@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Mappings}
-import com.gu.mediaservice.lib.logging.MarkerMap
+import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
 import com.sksamuel.elastic4s.ElasticDsl
@@ -15,7 +15,6 @@ import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.elasticsearch._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
-import play.api.Logger
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -27,7 +26,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 
-class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency]) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax {
+class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency])
+  extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging {
 
   lazy val imagesAlias = elasticConfig.alias
   lazy val url = elasticConfig.url
@@ -208,7 +208,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
-    Logger.info("Edit aggregation requested with params.field: " + params.field)
+    logger.info("Edit aggregation requested with params.field: " + params.field)
     val field = "labels" // TODO was - params.field
     aggregateSearch("edits", params, termsAggregation("edits").field(editsField(field)), fromTermAggregation)
   }
@@ -218,7 +218,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     implicit val logMarker = MarkerMap()
-    Logger.info("aggregate search: " + name + " / " + params + " / " + aggregation)
+    logger.info("aggregate search: " + name + " / " + params + " / " + aggregation)
     val query = queryBuilder.makeQuery(params.structuredQuery)
     val search = prepareSearch(query) aggregations aggregation size 0
 
@@ -268,12 +268,12 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     Json.parse(sourceAsString).validate[Image] match {
       case i: JsSuccess[Image] => Some(i.value)
       case e: JsError =>
-        Logger.error("Failed to parse image from source string " + id + ": " + e.toString)
+        logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None
     }
   }
 
   private def logSearchQueryIfTimedOut(req: SearchRequest, res: SearchResponse) =
-    if (res.isTimedOut) Logger.info(s"SearchQuery was TimedOut after $SearchQueryTimeout \nquery: ${req.show}")
+    if (res.isTimedOut) logger.info(s"SearchQuery was TimedOut after $SearchQueryTimeout \nquery: ${req.show}")
 
 }

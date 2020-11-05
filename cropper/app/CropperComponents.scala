@@ -6,9 +6,7 @@ import lib.{CropStore, CropperConfig, Crops, Notifications}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class CropperComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new CropperConfig(configuration)
-
+class CropperComponents(context: Context) extends GridComponents(context, new CropperConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new CropStore(config)

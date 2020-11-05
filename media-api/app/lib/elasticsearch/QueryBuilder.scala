@@ -3,6 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.Agency
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
@@ -10,9 +11,7 @@ import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
-import play.api.Logger
-
-class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agency]) extends ImageFields {
+class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agency]) extends ImageFields with GridLogging {
 
   // For some sad reason, there was no helpful alias for this in the ES library
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
@@ -50,12 +49,12 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       case IsValue(value) => IsQueryFilter.apply(value, overQuotaAgencies) match {
         case Some(isQuery) => isQuery.query
         case _ => {
-          Logger.info(s"Cannot perform IS query on ${condition.value}")
+          logger.info(s"Cannot perform IS query on ${condition.value}")
           matchNoneQuery
         }
       }
       case _ => {
-        Logger.info(s"Cannot perform IS query on ${condition.value}")
+        logger.info(s"Cannot perform IS query on ${condition.value}")
         matchNoneQuery
       }
     }

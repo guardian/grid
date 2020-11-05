@@ -1,6 +1,6 @@
 package com.gu.mediaservice.model
 
-import play.api.Logger
+import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.json._
 
 class UnsupportedMimeTypeException(val mimeType: String) extends Exception
@@ -17,7 +17,7 @@ sealed trait MimeType {
   override def toString: String = this.name
 }
 
-object MimeType {
+object MimeType extends GridLogging {
   def apply(value: String): MimeType = value.toLowerCase match {
     case "image/jpeg" => Jpeg
     case "image/png" => Png
@@ -26,16 +26,16 @@ object MimeType {
     // Support crops created in the early years of Grid (~2016) which state mime type w/out an 'image/' prefix
     // TODO correct these values in a reindex
     case "jpg" => {
-      Logger.info("Encountered legacy mime type representation (jpg)")
+      logger.info("Encountered legacy mime type representation (jpg)")
       Jpeg
     }
     case "png" => {
-      Logger.info("Encountered legacy mime type representation (png)")
+      logger.info("Encountered legacy mime type representation (png)")
       Png
     }
 
     case _ => {
-      Logger.warn(s"Unsupported mime type $value")
+      logger.warn(s"Unsupported mime type $value")
       throw new UnsupportedMimeTypeException(value)
     }
   }

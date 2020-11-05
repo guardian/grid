@@ -5,9 +5,7 @@ import lib._
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class MetadataEditorComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new EditsConfig(configuration)
-
+class MetadataEditorComponents(context: Context) extends GridComponents(context, new EditsConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new EditsStore(config)

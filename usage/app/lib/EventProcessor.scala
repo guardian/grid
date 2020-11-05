@@ -11,24 +11,23 @@ import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.thrift.serializer.ThriftDeserializer
 import org.apache.thrift.protocol.TCompactProtocol
 import org.apache.thrift.transport.TIOStreamTransport
 import org.joda.time.DateTime
-import play.api.Logger
-
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
-abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor {
+abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with GridLogging {
 
   implicit val codec = Event
 
   val contentStream: ContentStream
 
   override def initialize(shardId: String): Unit = {
-    Logger.debug(s"Initialized an event processor for shard $shardId")
+    logger.debug(s"Initialized an event processor for shard $shardId")
   }
 
   override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit
@@ -54,7 +53,7 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor {
           case Some(content: EventPayload.Content) =>
             val container = getContentItem(content.content, dateTime)
             contentStream.observable.onNext(container)
-          case _ => Logger.debug(s"Received crier update for ${event.payloadId} without payload")
+          case _ => logger.debug(s"Received crier update for ${event.payloadId} without payload")
         }
       case EventType.Delete =>
         //TODO: how do we deal with a piece of content that has been deleted?
@@ -75,13 +74,13 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor {
 
                   val container = new LiveContentItem(content, dateTime)
                   LiveCrierContentStream.observable.onNext(container)
-                case _ => Logger.debug(s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
+                case _ => logger.debug(s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
               }
             })
-          case _ => Logger.debug(s"Received crier update for ${event.payloadId} without payload")
+          case _ => logger.debug(s"Received crier update for ${event.payloadId} without payload")
         }
 
-      case _ => Logger.debug(s"Unsupported event type $EventType")
+      case _ => logger.debug(s"Unsupported event type $EventType")
     }
   }
 }

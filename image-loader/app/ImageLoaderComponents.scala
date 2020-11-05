@@ -7,9 +7,7 @@ import model.{Uploader, Projector}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class ImageLoaderComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new ImageLoaderConfig(configuration)
-
+class ImageLoaderComponents(context: Context) extends GridComponents(context, new ImageLoaderConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new ImageLoaderStore(config)

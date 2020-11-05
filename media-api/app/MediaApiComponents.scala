@@ -9,9 +9,7 @@ import lib.elasticsearch.ElasticSearch
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-class MediaApiComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new MediaApiConfig(configuration)
-
+class MediaApiComponents(context: Context) extends GridComponents(context, new MediaApiConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)

@@ -1,10 +1,10 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.management.ElasticSearchHealthCheck
 import lib._
 import lib.elasticsearch._
-import play.api.Logger
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,7 +17,7 @@ class HealthCheck(elasticsearch: ElasticSearch, streamRunning: => Boolean, confi
       val problems = Seq(esHealth, streamRunningHealth).flatten
       if (problems.nonEmpty) {
         val problemsMessage = problems.mkString(",")
-        Logger.warn("Healthcheck failed with problems: " + problemsMessage)
+        logger.warn("Healthcheck failed with problems: " + problemsMessage)
         ServiceUnavailable(problemsMessage)
       } else {
         Ok("Ok")

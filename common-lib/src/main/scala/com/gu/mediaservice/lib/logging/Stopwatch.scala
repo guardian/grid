@@ -1,6 +1,5 @@
 package com.gu.mediaservice.lib.logging
 
-import play.api.Logger
 import java.time.ZonedDateTime
 import com.gu.mediaservice.lib.DateTimeUtils
 
@@ -30,7 +29,7 @@ class Stopwatch  {
   def elapsed: DurationForLogging = DurationForLogging(startTime, (System.nanoTime() - startedAt).nanos)
 }
 
-object Stopwatch {
+object Stopwatch extends GridLogging {
   def start: Stopwatch = new Stopwatch
 
   def apply[T](label: String)(body: => T)(implicit marker: LogMarker): T = {
@@ -38,10 +37,10 @@ object Stopwatch {
     val stopwatch = new Stopwatch
     try {
       val result = body
-      Logger.info(s"Stopwatch: $label")(addMarkers("elapsed" -> stopwatch.elapsed.duration.toString))
+      logger.info(addMarkers("elapsed" -> stopwatch.elapsed.duration.toString).toLogMarker, s"Stopwatch: $label")
       result
     } catch {
-      case e: Exception => Logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e
+      case e: Exception => logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e
     }
   }
 

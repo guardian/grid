@@ -4,9 +4,8 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.auth.{AWSCredentialsProvider, AWSCredentialsProviderChain, InstanceProfileCredentialsProvider}
 import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration
-import play.api.Logger
-
-trait AwsClientBuilderUtils {
+import com.gu.mediaservice.lib.logging.GridLogging
+trait AwsClientBuilderUtils extends GridLogging {
   def awsLocalEndpoint: Option[String]
   def isDev: Boolean
 
@@ -25,7 +24,7 @@ trait AwsClientBuilderUtils {
   final def withAWSCredentials[T, S <: AwsClientBuilder[S, T]](builder: AwsClientBuilder[S, T], localstackAware: Boolean = true): S = {
     awsEndpointConfiguration match {
       case Some(endpointConfiguration) if localstackAware => {
-        Logger.info(s"creating aws client with local endpoint $endpointConfiguration")
+        logger.info(s"creating aws client with local endpoint $endpointConfiguration")
         builder.withCredentials(awsCredentials).withEndpointConfiguration(endpointConfiguration)
       }
       case _ => builder.withCredentials(awsCredentials).withRegion(awsRegion)

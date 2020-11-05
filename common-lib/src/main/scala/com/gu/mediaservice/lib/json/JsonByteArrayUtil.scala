@@ -4,11 +4,12 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.nio.charset.StandardCharsets
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
+import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.json._
 
 import scala.io.Source.fromInputStream
 
-object JsonByteArrayUtil extends PlayJsonHelpers {
+object JsonByteArrayUtil extends PlayJsonHelpers with GridLogging {
   private val compressionMarkerByte: Byte = 0x00.toByte
 
   private def compress(bytes: Array[Byte]): Array[Byte] = {

@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
@@ -210,7 +210,7 @@ class MediaApi(
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.accessor
-        GridLogger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+        logger.info(s"Download original image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OriginalDownloadType)
         val s3Object = s3Client.getObject(config.imageBucket, image.source.file)
         val file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
@@ -234,7 +234,7 @@ class MediaApi(
     elasticSearch.getImageById(id) flatMap {
       case Some(image) if hasPermission(request, image) => {
         val apiKey = request.user.accessor
-        GridLogger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
+        logger.info(s"Download optimised image: $id from user: ${Authentication.getIdentity(request.user)}", apiKey, id)
         mediaApiMetrics.incrementImageDownload(apiKey, mediaApiMetrics.OptimisedDownloadType)
 
         val sourceImageUri =
@@ -273,7 +273,7 @@ class MediaApi(
       "dateAdded" -> printDateTime(DateTime.now()),
       "downloadedBy" -> user)
 
-    GridLogger.info(s"Making usages download request")
+    logger.info(s"Making usages download request")
     request.post(Json.toJson(Map("data" -> usagesMetadata))) //fire and forget
   }
   def imageSearch() = auth.async { request =>

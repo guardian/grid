@@ -5,7 +5,7 @@ import play.api.Configuration
 
 import scala.concurrent.ExecutionContext
 
-class AuthConfig(playAppConfiguration: Configuration)(implicit ec: ExecutionContext) extends CommonConfig(playAppConfiguration) {
+class AuthConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val rootUri: String = services.authBaseUri
   val mediaApiUri: String = services.apiBaseUri
   val kahunaUri = services.kahunaBaseUri

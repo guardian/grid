@@ -9,9 +9,9 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
-import play.api.Logger
 import play.api.libs.json.{JodaWrites, Json}
 import com.amazonaws.auth.AWSCredentialsProvider
+import com.gu.mediaservice.lib.logging.GridLogging
 
 case class KinesisSenderConfig(
   override val awsRegion: String,
@@ -21,7 +21,7 @@ case class KinesisSenderConfig(
   streamName: String
 ) extends AwsClientBuilderUtils
 
-class Kinesis(config: KinesisSenderConfig) {
+class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
   private val builder = AmazonKinesisClientBuilder.standard()
 
@@ -38,7 +38,7 @@ class Kinesis(config: KinesisSenderConfig) {
     val payload = JsonByteArrayUtil.toByteArray(message)
 
     val markers: LogstashMarker = message.toLogMarker.and(Markers.append("compressed-size", payload.length))
-    Logger.info("Publishing message to kinesis")(markers)
+    logger.info(markers, "Publishing message to kinesis")
 
     val data = ByteBuffer.wrap(payload)
     val request = new PutRecordRequest()
@@ -48,10 +48,10 @@ class Kinesis(config: KinesisSenderConfig) {
 
     try {
       val result = kinesisClient.putRecord(request)
-      Logger.info(s"Published kinesis message: $result")
+      logger.info(s"Published kinesis message: $result")
     } catch {
       case e: Exception =>
-        Logger.error(s"kinesis putRecord exception message: ${e.getMessage}")
+        logger.error(s"kinesis putRecord exception message: ${e.getMessage}")
         // propagate error forward to the client
         throw e
     }

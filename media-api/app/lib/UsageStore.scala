@@ -4,13 +4,12 @@ import java.io.InputStream
 import java.util.Properties
 
 import com.gu.mediaservice.lib.BaseStore
-import com.gu.mediaservice.lib.logging.GridLogger
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Agencies, Agency, UsageRights}
 import javax.mail.Session
 import javax.mail.internet.{MimeBodyPart, MimeMultipart}
 import org.apache.commons.mail.util.MimeMessageUtils
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
@@ -60,7 +59,7 @@ object StoreAccess {
   implicit val writes: Writes[StoreAccess] = Json.writes[StoreAccess]
 }
 
-object UsageStore {
+object UsageStore extends GridLogging {
   def extractEmail(stream: InputStream): List[String] = {
     val s = Session.getDefaultInstance(new Properties())
     val message = MimeMessageUtils.createMimeMessage(s, stream)
@@ -78,12 +77,12 @@ object UsageStore {
             Source.fromInputStream(c).getLines().toList
 
           case _ =>
-            Logger.error("Usage email is missing base64 encoded attachment")
+            logger.error("Usage email is missing base64 encoded attachment")
             List.empty
         }
 
       case other =>
-        Logger.error(s"Unexpected message content type ${other.getClass}")
+        logger.error(s"Unexpected message content type ${other.getClass}")
         List.empty
     }
   }
@@ -97,7 +96,7 @@ object UsageStore {
       .map(_.toList)
 
     if(lines.exists(_.length != 2)) {
-      Logger.error("CSV header error. Expected 2 columns")
+      logger.error("CSV header error. Expected 2 columns")
       throw new IllegalArgumentException("CSV header error. Expected 2 columns")
     }
 
@@ -108,12 +107,12 @@ object UsageStore {
             SupplierUsageSummary(Agency(supplier), count.toInt)
 
           case _ =>
-            Logger.error("CSV body error. Expected 2 columns")
+            logger.error("CSV body error. Expected 2 columns")
             throw new IllegalArgumentException("CSV body error. Expected 2 columns")
         }
 
       case other =>
-        Logger.error(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
+        logger.error(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
         throw new IllegalArgumentException(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
     }
   }
@@ -123,7 +122,7 @@ class UsageStore(
   bucket: String,
   config: MediaApiConfig,
   quotaStore: QuotaStore
-)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config) {
+)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config) with GridLogging {
   import UsageStore._
 
   def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
@@ -148,13 +147,13 @@ class UsageStore(
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
-    Logger.info("Updating usage store")
+    logger.info("Updating usage store")
 
     val maybeLines: Option[List[String]] = getLatestS3Stream.map(extractEmail)
 
     maybeLines match {
       case Some(lines) => {
-        Logger.info(s"Last usage file has ${lines.length} lines")
+        logger.info(s"Last usage file has ${lines.length} lines")
         val summary: List[SupplierUsageSummary] = csvParser(lines)
 
         def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
@@ -205,7 +204,7 @@ class QuotaStore(
     if (config.quotaUpdateEnabled) {
       store.send(_ => fetchQuota)
     } else {
-      GridLogger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
+      logger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
     }
   }
 

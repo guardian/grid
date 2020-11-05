@@ -7,8 +7,7 @@ import play.api.Configuration
 import play.filters.headers.SecurityHeadersConfig
 import router.Routes
 
-class KahunaComponents(context: Context) extends GridComponents(context) with AssetsComponents {
-  final override lazy val config = new KahunaConfig(configuration)
+class KahunaComponents(context: Context) extends GridComponents(context, new KahunaConfig(_)) with AssetsComponents {
   final override lazy val securityHeadersConfig: SecurityHeadersConfig = KahunaSecurityConfig(config, context.initialConfiguration)
 
   final override val buildInfo = utils.buildinfo.BuildInfo

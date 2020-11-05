@@ -7,8 +7,7 @@ import play.api.{Configuration, Environment}
 import play.api.http.HttpConfiguration
 import router.Routes
 
-class AuthComponents(context: Context) extends GridComponents(context) {
-  final override lazy val config = new AuthConfig(configuration)
+class AuthComponents(context: Context) extends GridComponents(context, new AuthConfig(_)) {
   final override lazy val httpConfiguration = AuthHttpConfig(configuration, context.environment)
 
   final override val buildInfo = utils.buildinfo.BuildInfo

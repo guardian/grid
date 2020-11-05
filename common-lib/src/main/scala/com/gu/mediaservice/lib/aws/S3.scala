@@ -9,11 +9,10 @@ import com.amazonaws.services.s3.model._
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder, model}
 import com.amazonaws.util.IOUtils
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 import org.joda.time.{DateTime, Duration}
 import org.slf4j.LoggerFactory
-import play.api.Logger
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,7 +23,7 @@ case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3Objec
 
 case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime] = None)
 
-class S3(config: CommonConfig) {
+class S3(config: CommonConfig) extends GridLogging {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
@@ -50,7 +49,7 @@ class S3(config: CommonConfig) {
     val extension: String = asset.mimeType match {
       case Some(mimeType) => mimeType.fileExtension
       case _ =>
-        Logger.warn("Unrecognised mime type")(image.toLogMarker)
+        logger.warn(image.toLogMarker, "Unrecognised mime type")
         ""
     }
 

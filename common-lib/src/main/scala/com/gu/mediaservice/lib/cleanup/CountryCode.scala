@@ -1,11 +1,11 @@
 package com.gu.mediaservice.lib.cleanup
 
 import java.util.Locale
-import play.api.Logger
 
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.ImageMetadata
 
-object CountryCode extends MetadataCleaner {
+object CountryCode extends MetadataCleaner with GridLogging {
 
   val TwoLetterCode   = """([A-Z]{2})""".r
   val ThreeLetterCode = """([A-Z]{3})""".r
@@ -20,7 +20,7 @@ object CountryCode extends MetadataCleaner {
     // Rather inefficient O(n) lookup, seemingly no built-in lookup for ISO3 codes
     val matchingLocale = allLocales.find(_.getISO3Country == code)
     matchingLocale.map(_.getDisplayName) getOrElse {
-      Logger.warn(s"Failed to map three-letter code to country name: $code")
+      logger.warn(s"Failed to map three-letter code to country name: $code")
       code
     }
   }

@@ -7,9 +7,7 @@ import router.Routes
 
 import scala.concurrent.Future
 
-class UsageComponents(context: Context) extends GridComponents(context) {
-
-  final override lazy val config = new UsageConfig(configuration)
+class UsageComponents(context: Context) extends GridComponents(context, new UsageConfig(_)) {
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 

@@ -1,14 +1,14 @@
 package com.gu.mediaservice.lib.metadata
 
+import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format._
 
 import scala.util.Try
 import com.gu.mediaservice.model.{FileMetadata, ImageMetadata}
-import play.api.Logger
-import play.api.libs.json.{JsArray, JsValue, JsString}
+import play.api.libs.json.{JsArray, JsString, JsValue}
 
-object ImageMetadataConverter {
+object ImageMetadataConverter extends GridLogging {
 
   private def extractSubjects(fileMetadata: FileMetadata): List[String] = {
     val supplementalCategories = fileMetadata.iptc
@@ -148,7 +148,7 @@ object ImageMetadataConverter {
   def cleanDate(dirtyDate: String, fieldName: String = "none", imageId:String = "none"): String = parseRandomDate(dirtyDate) match {
     case Some(cleanDate) => cleanDateFormat.print(cleanDate)
     case None => {
-      Logger.info(s"Unable to parse date $dirtyDate from field $fieldName for image $imageId")
+      logger.info(s"Unable to parse date $dirtyDate from field $fieldName for image $imageId")
       dirtyDate
     }
   }

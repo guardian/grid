@@ -11,7 +11,6 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
 import org.joda.time.DateTime
-import play.api.Logger
 import play.api.libs.json.{JodaReads, Json, Reads}
 
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS, SECONDS}
@@ -23,7 +22,7 @@ class ThrallEventConsumer(es: ElasticSearch,
                           store: ThrallStore,
                           metadataEditorNotifications: MetadataEditorNotifications,
                           syndicationRightsOps: SyndicationRightsOps,
-                          actorSystem: ActorSystem) extends PlayJsonHelpers {
+                          actorSystem: ActorSystem) extends PlayJsonHelpers with GridLogging {
 
   private val attemptTimeout = FiniteDuration(20, SECONDS)
   private val delay = FiniteDuration(1, MILLISECONDS)
@@ -44,15 +43,15 @@ class ThrallEventConsumer(es: ElasticSearch,
 
     Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
       case Success(Some(updateMessage: UpdateMessage)) => {
-        Logger.info(s"Received ${updateMessage.subject} message at $timestamp")(updateMessage.toLogMarker)
+        logger.info(updateMessage.toLogMarker, s"Received ${updateMessage.subject} message at $timestamp")
         Some(updateMessage)
       }
       case Success(None)=> {
-        Logger.error(s"No message present in record at $timestamp")
+        logger.error(s"No message present in record at $timestamp")
         None //No message received
       }
       case Failure(e) => {
-        Logger.error(s"Exception during process record block at $timestamp", e)
+        logger.error(s"Exception during process record block at $timestamp", e)
         None
       }
     }
@@ -75,33 +74,31 @@ class ThrallEventConsumer(es: ElasticSearch,
           }, attempts, attemptTimeout, delay, marker
         ).transform {
           case Success(_) => {
-            Logger.info(
-              s"Completed processing of ${
-                updateMessage.subject
-              } message")(combineMarkers(marker, stopwatch.elapsed))
+            logger.info(
+              combineMarkers(marker, stopwatch.elapsed),
+              s"Completed processing of ${updateMessage.subject} message"
+            )
             Success(updateMessage)
           }
           case Failure(processorNotFoundException: ProcessorNotFoundException) => {
-            Logger.error(
-              s"Could not find processor for ${
-                processorNotFoundException.unknownSubject
-              } message; message will be ignored")
+            logger.error(
+              s"Could not find processor for ${processorNotFoundException.unknownSubject} message; message will be ignored"
+            )
             Failure(processorNotFoundException)
           }
           case Failure(timeoutException: TimeoutException) => {
-            Logger.error(
-              s"Timeout of $timeout reached while processing ${
-                updateMessage.subject
-              } message; message will be ignored:",
+            logger.error(
+              combineMarkers(marker, stopwatch.elapsed),
+              s"Timeout of $timeout reached while processing ${updateMessage.subject} message; message will be ignored:",
               timeoutException
-            )(combineMarkers(marker, stopwatch.elapsed))
+            )
             Failure(timeoutException)
           }
           case Failure(e: Throwable) => {
-            Logger.error(
-              s"Failed to process ${
-                updateMessage.subject
-              } message; message will be ignored:", e)(combineMarkers(marker, stopwatch.elapsed))
+            logger.error(
+              combineMarkers(marker, stopwatch.elapsed),
+              s"Failed to process ${updateMessage.subject} message; message will be ignored:", e
+            )
             Failure(e)
           }
         }
