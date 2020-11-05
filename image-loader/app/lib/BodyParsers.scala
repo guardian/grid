@@ -22,13 +22,13 @@ object DigestedFile {
 
 object DigestBodyParser extends ArgoHelpers {
 
-  private val missingContentLengthError = respondError(
+  private def missingContentLengthError = respondError(
     Status(411),
     "missing-content-length",
     s"Missing content-length. Please specify a correct 'Content-Length' header"
   )
 
-  private val incorrectContentLengthError = respondError(
+  private def incorrectContentLengthError = respondError(
     Status(400),
     "incorrect-content-length",
     s"Incorrect content-length. The specified content-length does match that of the received file."

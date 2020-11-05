@@ -19,7 +19,7 @@ object Tier {
 
 case class ApiAccessor(identity: String, tier: Tier)
 object ApiAccessor extends ArgoHelpers {
-  val unauthorizedResult: Result = respondError(Forbidden, "forbidden", "Unauthorized - the API key is not allowed to perform this operation", List.empty)
+  def unauthorizedResult: Result = respondError(Forbidden, "forbidden", "Unauthorized - the API key is not allowed to perform this operation", List.empty)
 
   def apply(content: String): ApiAccessor = {
     val rows = content.split("\n")
