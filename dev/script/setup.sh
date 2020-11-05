@@ -138,6 +138,34 @@ END
   rm -f "$PANDA_PUBLIC_SETTINGS_FILE"
 }
 
+setupUsageRightsConfiguration() {
+  echo "setting up usage rights configuration"
+
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="$ROOT_DIR/dev/config/usage_rights.json"
+
+  aws s3 cp "$target" \
+    "s3://$configBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $configBucket"
+}
+
+setupPhotographersConfiguration() {
+  echo "setting up photographers configuration"
+
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="$ROOT_DIR/dev/config/photographers.json"
+
+  aws s3 cp "$target" \
+    "s3://$configBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $configBucket"
+}
+
 setupPermissionConfiguration() {
   if [[ $LOCAL_AUTH != true ]]; then
     return
@@ -148,6 +176,27 @@ setupPermissionConfiguration() {
   permissionsBucket=$(getStackResource "$AUTH_STACK_NAME" PermissionsBucket)
 
   target="$ROOT_DIR/dev/config/permissions.json"
+
+  sed -e "s/@EMAIL_DOMAIN/$EMAIL_DOMAIN/g" \
+    "$target.template" > "$target"
+
+  aws s3 cp "$target" \
+    "s3://$permissionsBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $permissionsBucket"
+}
+
+setupValidEmailsConfiguration() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
+  echo "setting up valid emails configuration for local auth"
+
+  permissionsBucket=$(getStackResource "$AUTH_STACK_NAME" PermissionsBucket)
+
+  target="$ROOT_DIR/dev/config/valid_emails.json"
 
   sed -e "s/@EMAIL_DOMAIN/$EMAIL_DOMAIN/g" \
     "$target.template" > "$target"
@@ -246,9 +295,12 @@ main() {
   if [[ $LOCAL_AUTH == true ]]; then
     createLocalAuthStack
     setupPermissionConfiguration
+    setupValidEmailsConfiguration
     setupPanDomainConfiguration
   fi
 
+  setupUsageRightsConfiguration
+  setupPhotographersConfiguration
   setupDevNginx
   generateDotProperties
   uploadApiKey

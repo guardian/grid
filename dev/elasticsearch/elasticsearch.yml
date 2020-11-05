@@ -1,6 +1,7 @@
 cluster.name: media-service
-
 xpack.security.enabled: false
 discovery.type: single-node
-
+discovery.zen.minimum_master_nodes: 1
 network.host: 0.0.0.0
+bootstrap.memory_lock: true
+action.destructive_requires_name: true

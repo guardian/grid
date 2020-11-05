@@ -9,6 +9,18 @@ function getCorsAllowedOriginString(config) {
     .join(',');
 }
 
+function getAdminToolsConfig(config) {
+  return stripMargin`
+        |domain.root=${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
+        |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
+        |aws.region=${config.AWS_DEFAULT_REGION}
+        |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
+        |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |metrics.request.enabled=false
+        |`;
+}
+
 function getAuthConfig(config) {
     return stripMargin`
         |domain.root=${config.DOMAIN}
@@ -60,6 +72,7 @@ function getImageLoaderConfig(config) {
         |auth.keystore.bucket=${config.coreStackProps.KeyBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
         |metrics.request.enabled=false
         |`;
@@ -132,6 +145,7 @@ function getMetadataEditorConfig(config) {
         |s3.collections.bucket=${config.coreStackProps.CollectionsBucket}
         |thrall.kinesis.stream.name=${config.coreStackProps.ThrallMessageStream}
         |aws.local.endpoint=https://localstack.media.${config.DOMAIN}
+        |s3.config.bucket=${config.coreStackProps.ConfigBucket}
         |dynamo.table.edits=EditsTable
         |indexed.images.sqs.queue.url=${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
         |security.cors.allowedOrigins=${getCorsAllowedOriginString(config)}
@@ -204,6 +218,7 @@ function getGridProdConfig(config) {
 module.exports = {
     getCoreConfigs: (config) => {
         return {
+            'admin-tools': getAdminToolsConfig(config),
             auth: getAuthConfig(config),
             collections: getCollectionsConfig(config),
             cropper: getCropperConfig(config),

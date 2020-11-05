@@ -2,17 +2,17 @@
 
 set -o shwordsplit
 
-API="https://api.media.local.dev-gutools.co.uk/management/healthcheck"
-THRALL="https://thrall.media.local.dev-gutools.co.uk/management/healthcheck"
-IMAGE_LOADER="https://loader.media.local.dev-gutools.co.uk/management/healthcheck"
-KAHUNA="https://media.local.dev-gutools.co.uk/management/healthcheck"
-CROPPER="https://cropper.media.local.dev-gutools.co.uk/management/healthcheck"
-METADATA="https://media-metadata.local.dev-gutools.co.uk/management/healthcheck"
-USAGE="https://media-usage.local.dev-gutools.co.uk/management/healthcheck"
-COLLECTIONS="https://media-collections.local.dev-gutools.co.uk/management/healthcheck"
-AUTH="https://media-auth.local.dev-gutools.co.uk/management/healthcheck"
-LEASES="https://media-leases.local.dev-gutools.co.uk/management/healthcheck"
-ADMIN_TOOLS="https://admin-tools.media.local.dev-gutools.co.uk/management/healthcheck"
+API="https://api.media.example.com/management/healthcheck"
+THRALL="https://thrall.media.example.com/management/healthcheck"
+IMAGE_LOADER="https://loader.media.example.com/management/healthcheck"
+KAHUNA="https://media.example.com/management/healthcheck"
+CROPPER="https://cropper.media.example.com/management/healthcheck"
+METADATA="https://media-metadata.example.com/management/healthcheck"
+USAGE="https://media-usage.example.com/management/healthcheck"
+COLLECTIONS="https://media-collections.example.com/management/healthcheck"
+AUTH="https://media-auth.example.com/management/healthcheck"
+LEASES="https://media-leases.example.com/management/healthcheck"
+ADMIN_TOOLS="https://admin-tools.media.example.com/management/healthcheck"
 
 lu="$COLLECTIONS $IMAGE_LOADER $CROPPER $METADATA $THRALL $KAHUNA $API $USAGE $AUTH $LEASES $ADMIN_TOOLS"
 
