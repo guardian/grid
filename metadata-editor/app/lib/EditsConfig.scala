@@ -8,7 +8,6 @@ import play.api.Configuration
 class EditsConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
 
-  val keyStoreBucket = string("auth.keystore.bucket")
   val collectionsBucket: String = string("s3.collections.bucket")
 
   val editsTable = string("dynamo.table.edits")

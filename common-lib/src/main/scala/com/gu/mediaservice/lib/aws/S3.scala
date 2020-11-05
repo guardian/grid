@@ -31,6 +31,8 @@ class S3(config: CommonConfig) extends GridLogging {
   import S3Ops.objectUrl
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
+  // also create a legacy client that uses v2 signatures for URL signing
+  private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
   private val log = LoggerFactory.getLogger(getClass)
 
   private def removeExtension(filename: String): String = {
@@ -89,7 +91,7 @@ class S3(config: CommonConfig) extends GridLogging {
     val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
     val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
-    client.generatePresignedUrl(request).toExternalForm
+    legacySigningClient.generatePresignedUrl(request).toExternalForm
   }
 
   def getObject(bucket: Bucket, url: URI): model.S3Object = {
@@ -168,14 +170,16 @@ class S3(config: CommonConfig) extends GridLogging {
 
 object S3Ops {
   // TODO make this localstack friendly
+  // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   private val s3Endpoint = "s3.amazonaws.com"
 
-  def buildS3Client(config: CommonConfig, localstackAware: Boolean = true): AmazonS3 = {
-    // Force v2 signatures: https://github.com/aws/aws-sdk-java/issues/372
-    // imgops proxies direct to S3, passing the AWS security signature as query parameters
-    // This does not work with AWS v4 signatures, presumably because the signature includes the host
+  def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true): AmazonS3 = {
+
     val clientConfig = new ClientConfiguration()
-    clientConfig.setSignerOverride("S3SignerType")
+    // Option to disable v4 signatures (https://github.com/aws/aws-sdk-java/issues/372) which is required by imgops
+    // which proxies direct to S3, passing the AWS security signature as query parameters. This does not work with
+    // AWS v4 signatures, presumably because the signature includes the host
+    if (forceV2Sigs) clientConfig.setSignerOverride("S3SignerType")
 
     val builder = config.awsLocalEndpoint match {
       case Some(_) if config.isDev => {
