@@ -8,7 +8,7 @@ mappings:
     port: 9001
   - prefix: loader.media
     port: 9003
-    client_max_body_size: 20m
+    client_max_body_size: 500m
   - prefix: media
     port: 9005
   - prefix: cropper.media
@@ -33,7 +33,7 @@ mappings:
     port: 9002
   - prefix: localstack.media
     port: 4566
-    client_max_body_size: 20m
+    client_max_body_size: 500m
 
   # vanity domains for localstack S3 buckets
   # the localstack container needs to expose port 4572 to the host
