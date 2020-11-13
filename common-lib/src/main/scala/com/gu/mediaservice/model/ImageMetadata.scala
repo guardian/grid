@@ -13,7 +13,6 @@ case class ImageMetadata(
   byline:              Option[String]   = None,
   bylineTitle:         Option[String]   = None,
   title:               Option[String]   = None,
-  copyrightNotice:     Option[String]   = None,
   copyright:           Option[String]   = None,
   suppliersReference:  Option[String]   = None,
   source:              Option[String]   = None,
@@ -38,7 +37,6 @@ object ImageMetadata {
       (__ \ "byline").readNullable[String] ~
       (__ \ "bylineTitle").readNullable[String] ~
       (__ \ "title").readNullable[String] ~
-      (__ \ "copyrightNotice").readNullable[String] ~
       (__ \ "copyright").readNullable[String] ~
       (__ \ "suppliersReference").readNullable[String] ~
       (__ \ "source").readNullable[String] ~
@@ -60,7 +58,6 @@ object ImageMetadata {
       (__ \ "byline").writeNullable[String] ~
       (__ \ "bylineTitle").writeNullable[String] ~
       (__ \ "title").writeNullable[String] ~
-      (__ \ "copyrightNotice").writeNullable[String] ~
       (__ \ "copyright").writeNullable[String] ~
       (__ \ "suppliersReference").writeNullable[String] ~
       (__ \ "source").writeNullable[String] ~

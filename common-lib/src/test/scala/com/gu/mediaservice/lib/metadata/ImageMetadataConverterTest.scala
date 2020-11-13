@@ -17,7 +17,6 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.byline should be ('empty)
     imageMetadata.bylineTitle should be ('empty)
     imageMetadata.title should be ('empty)
-    imageMetadata.copyrightNotice should be ('empty)
     imageMetadata.copyright should be ('empty)
     imageMetadata.suppliersReference should be ('empty)
     imageMetadata.source should be ('empty)
@@ -38,7 +37,6 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
         "By-line" -> "the byline",
         "By-line Title" -> "the byline title",
         "Headline" -> "the title",
-        "Copyright Notice" -> "the copyright notice",
         "Original Transmission Reference" -> "the suppliers reference",
         "Source" -> "the source",
         "Special Instructions" -> "the special instructions",
@@ -62,7 +60,6 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.byline should be(Some("the byline"))
     imageMetadata.bylineTitle should be(Some("the byline title"))
     imageMetadata.title should be(Some("the title"))
-    imageMetadata.copyrightNotice should be(Some("the copyright notice"))
     imageMetadata.copyright should be(Some("the copyright"))
     imageMetadata.suppliersReference should be(Some("the suppliers reference"))
     imageMetadata.source should be(Some("the source"))
@@ -81,7 +78,6 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
         "By-line" -> "the byline",
         "By-line Title" -> "the byline title",
         "Headline" -> "the title",
-        "Copyright Notice" -> "the copyright notice",
         "Original Transmission Reference" -> "the suppliers reference",
         "Source" -> "the source",
         "Special Instructions" -> "the special instructions",
@@ -110,7 +106,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
         "photoshop:Credit" -> JsString("xmp credit"),
         "photoshop:AuthorsPosition" -> JsString("xmp byline title"),
         "photoshop:Headline" -> JsString("xmp "),
-        "dc:Rights" -> JsString("xmp copyrightNotice"),
+        "dc:Rights" -> JsString("xmp copyright"),
         "photoshop:TransmissionReference" -> JsString("xmp suppliersReference"),
         "photoshop:Source" -> JsString("xmp source"),
         "photoshop:Instructions" -> JsString("xmp specialInstructions"),
@@ -128,8 +124,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.dateTaken should be(Some(parseDate("2018-06-27T13:54:55Z")))
     imageMetadata.bylineTitle should be(Some("xmp byline title"))
     imageMetadata.title should be(Some("xmp "))
-    imageMetadata.copyrightNotice should be(Some("xmp copyrightNotice"))
-    imageMetadata.copyright should be(Some("the copyright"))
+    imageMetadata.copyright should be(Some("xmp copyright"))
     imageMetadata.suppliersReference should be(Some("xmp suppliersReference"))
     imageMetadata.source should be(Some("xmp source"))
     imageMetadata.specialInstructions should be(Some("xmp specialInstructions"))
@@ -163,7 +158,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
         "photoshop:Credit" -> JsString("xmp credit"),
         "photoshop:AuthorsPosition" -> JsString("xmp byline title"),
         "photoshop:Headline" -> JsString("xmp "),
-        "dc:Rights" -> JsString("xmp copyrightNotice"),
+        "dc:Rights" -> JsString("xmp copyright"),
         "photoshop:TransmissionReference" -> JsString("xmp suppliersReference"),
         "photoshop:Source" -> JsString("xmp source"),
         "photoshop:Instructions" -> JsString("xmp specialInstructions"),
@@ -181,7 +176,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.dateTaken should be(Some(parseDate("2018-06-27T13:54:55Z")))
     imageMetadata.bylineTitle should be(Some("xmp byline title"))
     imageMetadata.title should be(Some("xmp "))
-    imageMetadata.copyrightNotice should be(Some("xmp copyrightNotice"))
+    imageMetadata.copyright should be(Some("xmp copyright"))
     imageMetadata.suppliersReference should be(Some("xmp suppliersReference"))
     imageMetadata.source should be(Some("xmp source"))
     imageMetadata.specialInstructions should be(Some("xmp specialInstructions"))
@@ -189,12 +184,6 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.city should be(Some("xmp City"))
     imageMetadata.state should be(Some("xmp State"))
     imageMetadata.country should be(Some("xmp Country"))
-  }
-
-  it("should fallback to Copyright Notice for copyright field of ImageMetadata if Copyright is missing") {
-    val fileMetadata = FileMetadata(Map("Copyright Notice" -> "the copyright notice"), Map(), Map(), Map())
-    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.copyrightNotice should be(Some("the copyright notice"))
   }
 
   it("should fallback to Object Name for suppliersReference field of ImageMetadata if Original Transmission Reference is missing") {

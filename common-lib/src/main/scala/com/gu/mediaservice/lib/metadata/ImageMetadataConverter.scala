@@ -68,11 +68,9 @@ object ImageMetadataConverter extends GridLogging {
                             fileMetadata.iptc.get("By-line Title"),
       title               = readXmpHeadStringProp("photoshop:Headline") orElse
                             fileMetadata.iptc.get("Headline"),
-      copyrightNotice     = readXmpHeadStringProp("dc:Rights") orElse
-                            fileMetadata.iptc.get("Copyright Notice"),
-      // FIXME: our copyright and copyrightNotice fields should be one field (they read from equivalent fields).
-      copyright           = fileMetadata.exif.get("Copyright") orElse
-                            fileMetadata.iptc.get("Copyright Notice"),
+      copyright           = readXmpHeadStringProp("dc:Rights") orElse
+                            fileMetadata.iptc.get("Copyright Notice") orElse
+                            fileMetadata.exif.get("Copyright"),
       // Here we combine two separate fields, based on bad habits of our suppliers.
       suppliersReference  = readXmpHeadStringProp("photoshop:TransmissionReference") orElse
                             fileMetadata.iptc.get("Original Transmission Reference") orElse

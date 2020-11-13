@@ -306,7 +306,6 @@ object ImageResponse {
 
   def normaliseNewLinesInImageMeta(imageMetadata: ImageMetadata): ImageMetadata = imageMetadata.modifyAll(
     _.description,
-    _.copyrightNotice,
     _.copyright,
     _.specialInstructions,
     _.suppliersReference

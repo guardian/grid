@@ -11,7 +11,6 @@ trait ImageFields {
     "credit",
     "creditUri",
     "copyright",
-    "copyrightNotice",
     "suppliersReference",
     "subjects",
     "source",
