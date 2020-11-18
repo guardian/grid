@@ -4,6 +4,7 @@ import template from './gr-image-metadata.html';
 
 import '../../image/service';
 import '../../edits/service';
+import './gr-image-metadata.css';
 import '../gr-description-warning/gr-description-warning';
 
 export const module = angular.module('gr.imageMetadata', [

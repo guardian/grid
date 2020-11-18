@@ -1,0 +1,16 @@
+.full-metadata {
+  margin-top: 5px;
+}
+
+.full-metadata-section {
+  display: inline-table;
+  width: 270px;
+}
+
+.full-metadata-section button {
+  left: 245px;
+}
+
+.full-metadata-key {
+  margin-right: 15px;
+}

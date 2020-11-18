@@ -225,11 +225,25 @@
       full metadata
     </button>
 
-    <div ng-if="metadataExpanded" class="metadata metadata-line image-info__group--dl">
+    <div ng-if="metadataExpanded" class="metadata metadata-line image-info__group--dl full-metadata">
       <dl ng-repeat="(key, value) in ctrl.metadata" ng-if="ctrl.isUsefulMetadata(key)"
           class="metadata__body image-info__group--dl">
-        <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
-        <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+        <dd class="image-info__wrap image-info__group--dl__value metadata-line__info full-metadata-section">
+          <button class="image-info__edit" ng-if="ctrl.userCanEdit" ng-click="metaEditForm.$show()"
+                  ng-hide="metaEditForm.$visible">✎
+          </button>
+          <span editable-text="value" ng-hide="metaEditForm.$visible"
+                onbeforesave="ctrl.updateMetadataField(key, $data)" e:ng-class="{'image-info__editor--error': $error,
+                                           'image-info__editor--saving': metaEditForm.$waiting,
+                                           'text-input': true}" e:form="metaEditForm">
+
+            <span>
+              <span
+                class="full-metadata-key image-info__wrap image-info__group--dl__key metadata-line__key">{{key | spaceWords}}</span>
+              <span>{{value}}</span>
+            </span>
+          </span>
+        </dd>
       </dl>
       <dl ng-repeat="(key, value) in ctrl.identifiers" class="metadata__body image-info__group--dl">
         <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
