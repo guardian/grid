@@ -9,9 +9,10 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
-import play.api.libs.json.{JodaWrites, Json}
+import play.api.libs.json.{JodaWrites, Json, Writes}
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.gu.mediaservice.lib.logging.GridLogging
+import org.joda.time.DateTime
 
 case class KinesisSenderConfig(
   override val awsRegion: String,
@@ -32,8 +33,8 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
   def publish(message: UpdateMessage) {
     val partitionKey = UUID.randomUUID().toString
 
-    implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
-    implicit val unw = Json.writes[UsageNotice]
+    implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites
+    implicit val unw: Writes[UsageNotice] = Json.writes[UsageNotice]
 
     val payload = JsonByteArrayUtil.toByteArray(message)
 
@@ -51,7 +52,7 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
       logger.info(s"Published kinesis message: $result")
     } catch {
       case e: Exception =>
-        logger.error(markers, s"kinesis putRecord exception message: ${e.getMessage}")
+        logger.error(markers, s"kinesis putRecord failed", e)
         // propagate error forward to the client
         throw e
     }

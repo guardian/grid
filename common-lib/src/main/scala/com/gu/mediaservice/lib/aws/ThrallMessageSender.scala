@@ -60,6 +60,6 @@ case class UpdateMessage(
       "id" -> id.getOrElse(image.map(_.id).getOrElse("none")),
       "size" -> message.getBytes.length,
       "length" -> message.length
-    )
+    ) ++ image.map("fileName" -> _.source.file.toString)
   }
 }
