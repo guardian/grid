@@ -2,6 +2,10 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
+/*
+ Generic cleaner that normalises the byline and credit fields. They can come in various formats such as
+ Photographer via Agency or Photographer/Agency or even Photographer via Agency/OtherAgency into the dedicated fields.
+ */
 object BylineCreditReorganise extends MetadataCleaner {
   type Field = Option[String]
 

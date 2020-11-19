@@ -2,6 +2,9 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
+/**
+  * TODO: Split this into two cleaners?
+  */
 object GuardianStyleByline extends MetadataCleaner {
   override def clean(metadata: ImageMetadata): ImageMetadata = {
     metadata.copy(

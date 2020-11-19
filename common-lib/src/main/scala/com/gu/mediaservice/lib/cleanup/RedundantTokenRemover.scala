@@ -1,6 +1,9 @@
 package com.gu.mediaservice.lib.cleanup
 import com.gu.mediaservice.model.ImageMetadata
 
+/**
+  * Possibly generic cleaner that removes common tokens from byline/credit that are meaningless. Will never leave the credit empty.
+  */
 object RedundantTokenRemover extends MetadataCleaner {
   val toRemove = List(
     "Handout",

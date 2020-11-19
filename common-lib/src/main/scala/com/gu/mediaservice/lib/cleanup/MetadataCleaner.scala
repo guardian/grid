@@ -2,8 +2,10 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
-trait MetadataCleaner {
+trait MetadataCleaner extends ImageProcessor {
   def clean(metadata: ImageMetadata): ImageMetadata
+
+  override def apply(image: Image): Image = image.copy(metadata = clean(image.metadata))
 }
 
 class MetadataCleaners(creditBylineMap: Map[String, List[String]]) {

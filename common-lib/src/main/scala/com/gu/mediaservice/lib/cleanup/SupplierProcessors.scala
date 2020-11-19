@@ -7,6 +7,9 @@ trait ImageProcessor {
   def apply(image: Image): Image
 }
 
+/**
+  * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
+  */
 object SupplierProcessors {
   val all: List[ImageProcessor] = List(
     GettyXmpParser,
@@ -29,6 +32,9 @@ object SupplierProcessors {
     all.foldLeft(image) { case (im, processor) => processor(im) }
 }
 
+/**
+  * Guardian specific logic to correctly identify Guardian and Observer photographers and their contracts
+  */
 object PhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
     image.metadata.byline.flatMap { byline =>

@@ -5,6 +5,9 @@ import java.util.Locale
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.ImageMetadata
 
+/**
+  * Cleaner that maps 2/3 letter country codes onto country names
+  */
 object CountryCode extends MetadataCleaner with GridLogging {
 
   val TwoLetterCode   = """([A-Z]{2})""".r

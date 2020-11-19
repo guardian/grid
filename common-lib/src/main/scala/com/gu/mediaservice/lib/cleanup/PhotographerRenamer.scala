@@ -2,9 +2,15 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
+/*
+  Mapping of names used by agencies to the names which is correct by some measure.
+  TODO: Largely generic and we can make it completely so.
+ */
 object PhotographerRenamer extends MetadataCleaner {
+  val dependencies: Seq[Class[_]] = Seq(BylineCreditReorganise.getClass)
+
   val names = Map(
-    "WPA Pool" -> "WPA",
+    "WPA Pool" -> "WPA", // this is a bit guardian specific
     "Lipnitzki" -> "Boris Lipnitzki",
     "Abdullah Coskun" -> "Abdullah Coşkun",
     "Adam Warzawa" -> "Adam Warżawa",
@@ -443,7 +449,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Venturelli" -> "Daniele Venturelli",
     "Veronique de Viguerie" -> "Véronique de Viguerie",
     "Veronique Durruty" -> "Véronique Durruty",
-    "Victor R Caivano" -> "Víctor R Caivano",
+    "Victor R Caivano" -> "Víctor R Caivano", // relies on a previous cleaner having removed the '.' from 'R.' (GuardianStyleByline and InitialJoiner?)
     "Villar Lopez" -> "Villar López",
     "Vincent Perez" -> "Vincent Pérez",
     "Vit Simanek" -> "Vít Šimánek",

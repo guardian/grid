@@ -2,6 +2,9 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
+/**
+  * Super Guardian-specific - really only important for old pictures.
+  */
 object ExtractGuardianCreditFromByline extends MetadataCleaner {
 
   val BylineForTheGuardian = """(?i)(.+) for the (Guardian|Observer)[.]?""".r
