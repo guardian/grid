@@ -1,6 +1,5 @@
 brew "awscli"
 brew "sbt"
-brew "node"
 brew "nginx"
 brew "libgd"
 brew "graphicsmagick"
