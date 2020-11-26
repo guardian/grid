@@ -7,12 +7,7 @@ export const getMetadataDiff = (image, metadata) => {
   );
 
   keys.forEach((key) => {
-    if (originalMetadata[key] === metadata[key]) {
-      return;
-    }
-
-    //This only works with string fields and does not support arrays
-    if (Array.isArray(metadata[key]) || Array.isArray(originalMetadata[key])) {
+    if (JSON.stringify(originalMetadata[key]) === JSON.stringify(metadata[key])) {
       return;
     }
 
