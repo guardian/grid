@@ -20,15 +20,15 @@ describe('metadataDiff', () => {
   it("finds a changed string field in the presence of an array", () => {
     const initial = { field: "value", array1: ["value 2"] };
     const changed = { field: "changed", array2: ["value 2"] };
-    const expected = { field: "changed" };
+    const expected = { field: "changed", array1: "", array2: ["value 2"] };
     const diff = getMetadataDiff({ data: { originalMetadata: initial } }, changed);
     expect(diff).toStrictEqual(expected);
    });
 
-  it("discards an array field", () => {
+  it("handles an array field", () => {
     const initial = { field: "value", keywords: ["value 2"] };
     const changed = { field: "changed", keywords: ["value 2","value 3"] };
-    const expected = { field: "changed" };
+    const expected = { field: "changed", keywords: ["value 2","value 3"] };
     const diff = getMetadataDiff({ data: { originalMetadata: initial } }, changed);
     expect(diff).toStrictEqual(expected);
   });
