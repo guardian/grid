@@ -259,7 +259,7 @@ service.factory('editsService',
         proposedMetadata[field] = value;
 
         // peopleInImage is a special case. This turns a comma-separated string into an array trimmed of whitespace
-        if(field === 'peopleInImage' ) {
+        if (field === 'peopleInImage' ) {
           proposedMetadata[field] = value.toString().split(',')
             .map(s => s.trim())
             .filter(s => s !== "");
