@@ -50,6 +50,6 @@ trait MetadataHelper {
       subLocation         = metadata.get("subLocation"),
       city                = metadata.get("city"),
       state               = metadata.get("state"),
-      country             = metadata.get("country")
+      country             = metadata.get("country"),
     )
 }

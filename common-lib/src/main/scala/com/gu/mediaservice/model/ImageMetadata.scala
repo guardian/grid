@@ -25,7 +25,7 @@ case class ImageMetadata(
   state:               Option[String]   = None,
   country:             Option[String]   = None,
   subjects:            List[String]     = Nil,
-  peopleInImage:       Set[String]      = Set()
+  peopleInImage:       Set[String]      = Set(),
 )
 
 object ImageMetadata {
