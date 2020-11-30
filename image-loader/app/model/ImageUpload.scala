@@ -279,6 +279,10 @@ object Uploader extends GridLogging {
     val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
 
     // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
+
+    // we don't create a new upload request, we just override the old one.  This is the bug!
+
+
     createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
       val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
       val toOptimiseFile = uploadRequest.tempFile
@@ -406,8 +410,8 @@ object Uploader extends GridLogging {
           transformedImage <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, config.tempDir)
         } yield uploadRequest
           // This file has been converted.
-          .copy(mimeType = Some(Jpeg))
-          .copy(tempFile = transformedImage)
+          .copy(mimeType = Some(MimeType(transformedImage._2)))
+          .copy(tempFile = transformedImage._1)
       case _ =>
         Future.successful(uploadRequest)
     }

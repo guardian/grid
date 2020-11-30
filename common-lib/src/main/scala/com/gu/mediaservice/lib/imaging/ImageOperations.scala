@@ -131,14 +131,14 @@ class ImageOperations(playPath: String) extends GridLogging {
     } yield outputFile
   }
 
-  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[File] = {
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, String)] = {
     for {
       outputFile      <- createTempFile(s"transformed-", ".png", tempDir)
       transformSource = addImage(sourceFile)
       addOutput       = addDestImage(transformSource)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
-      _               <- checkForOutputFileChange(outputFile)
-    } yield outputFile
+      extension       <- checkForOutputFileChange(outputFile)
+    } yield (outputFile, extension)
   }
 
   // When a layered tiff is unpacked, the temp file (blah.something) is moved
@@ -147,7 +147,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   // As the file has been renamed, the file object still exists, but has the wrong name
   // We will need to put it back where it is expected to be found, and clean up the other
   // files.
-  private def checkForOutputFileChange(f: File): Future[Unit] = Future {
+  private def checkForOutputFileChange(f: File): Future[String] = Future {
     val fileBits = f.getAbsolutePath.split("\\.").toList
     val mainPart = fileBits.dropRight(1).mkString(".")
     val extension = fileBits.last
@@ -160,6 +160,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       // Tidy up any other files (blah-1,2,3 etc will be created for each subsequent layer)
       cleanUpLayerFiles(mainPart, extension, 1)
     }
+    fileBits.last
   }
 
   @scala.annotation.tailrec
