@@ -238,7 +238,6 @@ object Uploader extends GridLogging {
         OptimisedPngQuantOps,
         uploadRequest,
         deps,
-        fileMetadataFuture,
         fileMetadata)(ec, addLogMarkers(fileMetadata.toLogMarker))
     })
   }
@@ -250,7 +249,6 @@ object Uploader extends GridLogging {
                                   pngOptimiser: OptimisedPngOps,
                                   originalUploadRequest: UploadRequest,
                                   deps: ImageUploadOpsDependencies,
-                                  fileMetadataFuture: Future[FileMetadata],
                                   fileMetadata: FileMetadata)
                   (implicit ec: ExecutionContext, logMarker: LogMarker) = {
     logger.info("Have read file metadata")
@@ -271,7 +269,7 @@ object Uploader extends GridLogging {
     val sourceStoreFuture = storeOrProjectOriginalFile(originalUploadRequest)
 
     createOptimisedFileFuture(originalUploadRequest, deps).flatMap(optimisedUploadRequest => {
-      val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, optimisedUploadRequest, deps)
+      val thumbFuture = createThumbFuture(fileMetadata, colourModelFuture, optimisedUploadRequest, deps)
       logger.info("thumbnail created")
 
       val optimisedPng: Option[OptimisedPng] = if (pngOptimiser.shouldOptimise(optimisedUploadRequest.mimeType, fileMetadata)) {
@@ -369,13 +367,12 @@ object Uploader extends GridLogging {
     }
   }
 
-  private def createThumbFuture(fileMetadataFuture: Future[FileMetadata],
+  private def createThumbFuture(fileMetadata: FileMetadata,
                                 colourModelFuture: Future[Option[String]],
                                 uploadRequest: UploadRequest,
                                 deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
     import deps._
     for {
-      fileMetadata <- fileMetadataFuture
       colourModel <- colourModelFuture
       iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
       thumb <- imageOps
