@@ -225,9 +225,8 @@ object Uploader extends GridLogging {
     import deps._
 
     logger.info("Starting image ops")
-    val uploadedFile = uploadRequest.tempFile
 
-    val fileMetadataFuture = toFileMetadata(uploadedFile, uploadRequest.imageId, uploadRequest.mimeType)
+    val fileMetadataFuture = toFileMetadata(uploadRequest.tempFile, uploadRequest.imageId, uploadRequest.mimeType)
 
     logger.info("Have read file headers")
 
@@ -239,7 +238,6 @@ object Uploader extends GridLogging {
         OptimisedPngQuantOps,
         uploadRequest,
         deps,
-        uploadedFile,
         fileMetadataFuture,
         fileMetadata)(ec, addLogMarkers(fileMetadata.toLogMarker))
     })
@@ -252,15 +250,14 @@ object Uploader extends GridLogging {
                                   pngOptimiser: OptimisedPngOps,
                                   originalUploadRequest: UploadRequest,
                                   deps: ImageUploadOpsDependencies,
-                                  uploadedFile: File,
                                   fileMetadataFuture: Future[FileMetadata],
                                   fileMetadata: FileMetadata)
                   (implicit ec: ExecutionContext, logMarker: LogMarker) = {
     logger.info("Have read file metadata")
     logger.info("stored source file")
     // FIXME: pass mimeType
-    val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
-    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, originalUploadRequest.mimeType)
+    val colourModelFuture = ImageOperations.identifyColourModel(originalUploadRequest.tempFile, Jpeg)
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(originalUploadRequest.tempFile, originalUploadRequest.mimeType)
 
     // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
 
@@ -302,8 +299,8 @@ object Uploader extends GridLogging {
           optimisedPng,
           optimisedUploadRequest
         )
-        logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
-        uploadedFile.delete()
+        logger.info(s"Deleting temp file ${originalUploadRequest.tempFile.getAbsolutePath}")
+        originalUploadRequest.tempFile.delete()
         optimisedUploadRequest.tempFile.delete()
 
         finalImage
