@@ -263,12 +263,13 @@ object Uploader extends GridLogging {
 
 //    We have three actions to take.
 //    1) storeOrProjectOriginalFile - takes original upload request
-//    2) storeOrProjectThumbFile - takes a new upload request
-//    3) storeOrProjectOptimisedPNG - takes a new upload request, possibly for the extracted tiff file
+//    2) storeOrProjectOptimisedPNG - takes a new upload request, possibly for the extracted tiff file
+//    3) storeOrProjectThumbFile - takes a new upload request
 
     val sourceStoreFuture = storeOrProjectOriginalFile(originalUploadRequest)
 
-    createOptimisedFileFuture(originalUploadRequest, deps).flatMap(optimisedUploadRequest => {
+    createOptimisedFileFuture(originalUploadRequest, deps)
+      .flatMap(optimisedUploadRequest => {
       val thumbFuture = createThumbFuture(fileMetadata, colourModelFuture, optimisedUploadRequest, deps)
       logger.info("thumbnail created")
 
