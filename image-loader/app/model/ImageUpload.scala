@@ -26,10 +26,28 @@ import play.api.libs.json.{JsObject, Json}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
 
-case class OptimisedPng(optimisedFileStoreFuture: Future[Option[S3Object]], isPng24: Boolean,
-                        optimisedTempFile: Option[File])
+case class OptimisedPng(optimisedFileStoreFuture: Future[S3Object],
+                        optimisedTempFile: File)
 
-case object OptimisedPng {
+trait OptimisedPngOps {
+  def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg)
+                     (implicit logMarker: LogMarker): File
+  def isTransformedFilePath(filePath: String): Boolean
+  def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean
+}
+
+object OptimisedPngQuantOps extends OptimisedPngOps {
+
+  def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg)
+                             (implicit logMarker: LogMarker): File = {
+    val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
+    Stopwatch("pngquant") {
+      Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+    }
+    new File(optimisedFilePath)
+  }
+
+  def isTransformedFilePath(filePath: String): Boolean = filePath.contains("transformed-")
 
   def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean =
     mimeType match {
@@ -42,42 +60,6 @@ case object OptimisedPng {
       case Some(Tiff) => true
       case _ => false
     }
-}
-
-object OptimisedPngOps {
-
-  def build(file: File,
-            uploadRequest: UploadRequest,
-            fileMetadata: FileMetadata,
-            config: ImageUploadOpsCfg,
-            storeOrProject: (UploadRequest, File) => Future[S3Object])
-           (implicit ec: ExecutionContext, logMarker: LogMarker): OptimisedPng = {
-
-    val result = if (!OptimisedPng.shouldOptimise(uploadRequest.mimeType, fileMetadata)) {
-      OptimisedPng(Future(None), isPng24 = false, None)
-    } else {
-      val optimisedFile: File = toOptimisedFile(file, uploadRequest, config)
-      val pngStoreFuture: Future[Option[S3Object]] = Some(storeOrProject(uploadRequest, optimisedFile))
-        .map(result => result.map(Option(_)))
-        .getOrElse(Future.successful(None))
-      if (isTransformedFilePath(file.getAbsolutePath))
-        file.delete
-      OptimisedPng(pngStoreFuture, isPng24 = true, Some(optimisedFile))
-    }
-    result
-  }
-
-  private def toOptimisedFile(file: File, uploadRequest: UploadRequest, config: ImageUploadOpsCfg)
-                             (implicit logMarker: LogMarker): File = {
-    val optimisedFilePath = config.tempDir.getAbsolutePath + "/optimisedpng - " + uploadRequest.imageId + ".png"
-    Stopwatch("pngquant") {
-      Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
-    }
-    new File(optimisedFilePath)
-  }
-
-  private def isTransformedFilePath(filePath: String): Boolean = filePath.contains("transformed-")
-
 }
 
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
@@ -254,6 +236,7 @@ object Uploader extends GridLogging {
         storeOrProjectOriginalFile,
         storeOrProjectThumbFile,
         storeOrProjectOptimisedPNG,
+        OptimisedPngQuantOps,
         uploadRequest,
         deps,
         uploadedFile,
@@ -262,44 +245,51 @@ object Uploader extends GridLogging {
     })
   }
 
-  private def uploadAndStoreImage(config: ImageUploadOpsCfg,
-                   storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
-                   storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
-                   storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object],
-                   uploadRequest: UploadRequest,
-                   deps: ImageUploadOpsDependencies,
-                   uploadedFile: File,
-                   fileMetadataFuture: Future[FileMetadata],
-                   fileMetadata: FileMetadata)
+  private[model] def uploadAndStoreImage(config: ImageUploadOpsCfg,
+                                  storeOrProjectOriginalFile: UploadRequest => Future[S3Object],
+                                  storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object],
+                                  storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object],
+                                  pngOptimiser: OptimisedPngOps,
+                                  originalUploadRequest: UploadRequest,
+                                  deps: ImageUploadOpsDependencies,
+                                  uploadedFile: File,
+                                  fileMetadataFuture: Future[FileMetadata],
+                                  fileMetadata: FileMetadata)
                   (implicit ec: ExecutionContext, logMarker: LogMarker) = {
     logger.info("Have read file metadata")
     logger.info("stored source file")
     // FIXME: pass mimeType
     val colourModelFuture = ImageOperations.identifyColourModel(uploadedFile, Jpeg)
-    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, uploadRequest.mimeType)
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadedFile, originalUploadRequest.mimeType)
 
     // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
 
     // we don't create a new upload request, we just override the old one.  This is the bug!
 
+//    We have three actions to take.
+//    1) storeOrProjectOriginalFile - takes original upload request
+//    2) storeOrProjectThumbFile - takes a new upload request
+//    3) storeOrProjectOptimisedPNG - takes a new upload request, possibly for the extracted tiff file
 
-    createOptimisedFileFuture(uploadRequest, deps).flatMap(uploadRequest => {
-      val sourceStoreFuture = storeOrProjectOriginalFile(uploadRequest)
-      val toOptimiseFile = uploadRequest.tempFile
-      val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, uploadRequest, deps)
+    val sourceStoreFuture = storeOrProjectOriginalFile(originalUploadRequest)
+
+    createOptimisedFileFuture(originalUploadRequest, deps).flatMap(optimisedUploadRequest => {
+      val thumbFuture = createThumbFuture(fileMetadataFuture, colourModelFuture, optimisedUploadRequest, deps)
       logger.info("thumbnail created")
 
-      val optimisedPng = OptimisedPngOps.build(
-        toOptimiseFile,
-        uploadRequest,
-        fileMetadata,
-        config,
-        storeOrProjectOptimisedPNG)(ec, logMarker)
-      logger.info(s"optimised image ($toOptimiseFile) created")
+      val optimisedPng: Option[OptimisedPng] = if (pngOptimiser.shouldOptimise(optimisedUploadRequest.mimeType, fileMetadata)) {
+        val optimisedFile: File = pngOptimiser.toOptimisedFile(optimisedUploadRequest.tempFile, optimisedUploadRequest, config)
+        val pngStoreFuture: Future[S3Object] =
+          storeOrProjectOptimisedPNG(optimisedUploadRequest, optimisedFile)
+            .andThen{case _ => optimisedFile.delete()}
+        Some(OptimisedPng(pngStoreFuture, optimisedFile))
+      } else {
+        None
+      }
 
       bracket(thumbFuture)(_.delete) { thumb =>
         // Run the operations in parallel
-        val thumbStoreFuture = storeOrProjectThumbFile(uploadRequest, thumb)
+        val thumbStoreFuture = storeOrProjectThumbFile(optimisedUploadRequest, thumb)
         val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
 
         val finalImage = toFinalImage(
@@ -310,11 +300,11 @@ object Uploader extends GridLogging {
           fileMetadataFuture,
           colourModelFuture,
           optimisedPng,
-          uploadRequest
+          optimisedUploadRequest
         )
         logger.info(s"Deleting temp file ${uploadedFile.getAbsolutePath}")
         uploadedFile.delete()
-        toOptimiseFile.delete()
+        optimisedUploadRequest.tempFile.delete()
 
         finalImage
       }
@@ -339,14 +329,14 @@ object Uploader extends GridLogging {
                            thumbDimensionsFuture: Future[Option[Dimensions]],
                            fileMetadataFuture: Future[FileMetadata],
                            colourModelFuture: Future[Option[String]],
-                           optimisedPng: OptimisedPng,
+                           optimisedPng: Option[OptimisedPng],
                            uploadRequest: UploadRequest)
                           (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     logger.info("Starting image ops")
     for {
       s3Source <- sourceStoreFuture
       s3Thumb <- thumbStoreFuture
-      s3PngOption <- optimisedPng.optimisedFileStoreFuture
+      s3PngOption <- optimisedPng.map(_.optimisedFileStoreFuture.map(a => Some(a))).getOrElse(Future.successful(None))
       sourceDimensions <- sourceDimensionsFuture
       thumbDimensions <- thumbDimensionsFuture
       fileMetadata <- fileMetadataFuture
@@ -358,11 +348,7 @@ object Uploader extends GridLogging {
       sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
-      pngAsset = if (optimisedPng.isPng24)
-        Some(Asset.fromS3Object(s3PngOption.get, sourceDimensions))
-      else
-        None
-
+      pngAsset = s3PngOption.map (Asset.fromS3Object(_, sourceDimensions))
       baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
 
       processedImage = SupplierProcessors.process(baseImage)
@@ -373,7 +359,7 @@ object Uploader extends GridLogging {
         originalUsageRights = processedImage.usageRights
       )
     } yield {
-      if (optimisedPng.isPng24) optimisedPng.optimisedTempFile.get.delete
+      optimisedPng.foreach(_.optimisedTempFile.delete)
       logger.info("Ending image ops")
       finalImage
     }
