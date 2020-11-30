@@ -292,7 +292,7 @@ object Uploader extends GridLogging {
           thumbStoreFuture,
           sourceDimensionsFuture,
           thumbDimensionsFuture,
-          fileMetadataFuture,
+          fileMetadata,
           colourModelFuture,
           optimisedPng,
           optimisedUploadRequest
@@ -322,7 +322,7 @@ object Uploader extends GridLogging {
                            thumbStoreFuture: Future[S3Object],
                            sourceDimensionsFuture: Future[Option[Dimensions]],
                            thumbDimensionsFuture: Future[Option[Dimensions]],
-                           fileMetadataFuture: Future[FileMetadata],
+                           fileMetadata: FileMetadata,
                            colourModelFuture: Future[Option[String]],
                            optimisedPng: Option[OptimisedPng],
                            uploadRequest: UploadRequest)
@@ -334,7 +334,6 @@ object Uploader extends GridLogging {
       s3PngOption <- optimisedPng.map(_.optimisedFileStoreFuture.map(a => Some(a))).getOrElse(Future.successful(None))
       sourceDimensions <- sourceDimensionsFuture
       thumbDimensions <- thumbDimensionsFuture
-      fileMetadata <- fileMetadataFuture
       colourModel <- colourModelFuture
       fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
       metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
