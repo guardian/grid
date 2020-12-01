@@ -1,34 +1,34 @@
 package model
 
 import java.io.File
+import java.net.URI
 import java.util.UUID
 
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{FileMetadata, UploadInfo}
 import org.joda.time.DateTime
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.when
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncFlatSpec, AsyncFunSuite, FunSuite, FunSuiteLike, Matchers}
+import org.scalatest.{AsyncFunSuite, Matchers}
+import test.lib.ResourceHelpers
 
 import scala.concurrent.{ExecutionContext, Future}
-import ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
 
 class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
+  implicit val ec = ExecutionContext.Implicits.global
+
   test("do something") {
     class MockLogMarker extends LogMarker {
       override def markerContents: Map[String, Any] = ???
     }
     implicit val logMarker = new MockLogMarker();
 
-    val mockConfig = mock[ImageUploadOpsCfg]
+    val mockConfig = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
-    val mockStoreOrProjectOriginalFileResult = mock[S3Object]
-
-    val mockS3Object = mock[S3Object]
+    val mockS3Meta = S3Metadata(Map.empty, S3ObjectMetadata(None, None, None))
+    val mockS3Object = S3Object(new URI("innernets.com"), 12345, mockS3Meta)
     def storeOrProjectOriginalFile: UploadRequest => Future[S3Object] = {
       _ => Future.successful(mockS3Object)
     }
@@ -38,44 +38,55 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     def storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object] = {
       (_, _) => Future.successful(mockS3Object)
     }
-    val imageOps: ImageOperations = new ImageOperations("")
+
+    /**
+      * @todo: I flailed about until I found a path that worked, but
+      * what arcane magic System.getProperty relies upon, and exactly
+      * _how_ it will break in CI, I do not know
+      */
+    val imageOps: ImageOperations = new ImageOperations(System.getProperty("user.dir"))
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
       imageOps,
       storeOrProjectOriginalFile,
       storeOrProjectThumbFile,
-      storeOrProjectOptimisedPNG)
+      storeOrProjectOptimisedPNG
+    )
 
     val mockOptimisedPngOps = mock[OptimisedPngOps]
 
     val uuid = UUID.randomUUID()
-    val tempFile = java.io.File.createTempFile("aaaa", "b")
+    val tempFile = ResourceHelpers.fileAt("rubbish.jpg")
     val ul = UploadInfo(None)
-    val uploadRequest = new UploadRequest(
-                              uuid,
-                              "imageId": String,
-                              tempFile, //: File,
-                              None, //mimeType: Option[MimeType],
-                              DateTime.now(), //uploadTime: DateTime,
-                              "uploadedBy", //: String,
-                              Map(), // identifiers: Map[String, String],
-                              ul //uploadInfo: UploadInfo
-                            )
+    val uploadRequest = UploadRequest(
+      uuid,
+      "imageId": String,
+      tempFile,
+      None,
+      DateTime.now(),
+      "uploadedBy",
+      Map(),
+      ul
+    )
 
     val fileMetadata = FileMetadata()
 
-    val futureImage = Uploader.uploadAndStoreImage(mockConfig,
+    val futureImage = Uploader.uploadAndStoreImage(
+      mockConfig,
       mockDependencies.storeOrProjectOriginalFile,
       mockDependencies.storeOrProjectThumbFile,
       mockDependencies.storeOrProjectOptimisedPNG,
       mockOptimisedPngOps,
       uploadRequest, //originalUploadRequest: UploadRequest,
       mockDependencies, //deps: ImageUploadOpsDependencies,
-      fileMetadata)(global, logMarker) //fileMetadata: FileMetadata)
+      fileMetadata
+    )
 
-    futureImage.map({_ => fail()})(global)
-
+    futureImage transformWith {
+      case Success(_) => fail("Do summat 'ere")
+      case Failure(e) => e.getMessage shouldBe "gnar"
+    }
   }
 }
 

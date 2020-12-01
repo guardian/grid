@@ -268,8 +268,7 @@ object Uploader extends GridLogging {
 
     val sourceStoreFuture = storeOrProjectOriginalFile(originalUploadRequest)
 
-    createOptimisedFileFuture(originalUploadRequest, deps)
-      .flatMap(optimisedUploadRequest => {
+    createOptimisedFileFuture(originalUploadRequest, deps).flatMap(optimisedUploadRequest => {
       val thumbFuture = createThumbFuture(fileMetadata, colourModelFuture, optimisedUploadRequest, deps)
       logger.info("thumbnail created")
 
