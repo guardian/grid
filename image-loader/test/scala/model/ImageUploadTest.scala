@@ -18,17 +18,28 @@ import scala.util.{Failure, Success}
 
 class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
   implicit val ec = ExecutionContext.Implicits.global
+  class MockLogMarker extends LogMarker {
+    override def markerContents: Map[String, Any] = ???
+  }
+  implicit val logMarker = new MockLogMarker();
+  val mockConfig = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
+
+  /**
+    * @todo: I flailed about until I found a path that worked, but
+    * what arcane magic System.getProperty relies upon, and exactly
+    * _how_ it will break in CI, I do not know
+    */
+  val imageOps: ImageOperations = new ImageOperations(System.getProperty("user.dir"))
+
+  val mockOptimisedPngOps = mock[OptimisedPngOps]
 
   test("do something") {
-    class MockLogMarker extends LogMarker {
-      override def markerContents: Map[String, Any] = ???
-    }
-    implicit val logMarker = new MockLogMarker();
-
-    val mockConfig = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
+    val imageFileName = "rubbish.jpg"
+    val uuid = UUID.randomUUID()
 
     val mockS3Meta = S3Metadata(Map.empty, S3ObjectMetadata(None, None, None))
     val mockS3Object = S3Object(new URI("innernets.com"), 12345, mockS3Meta)
+
     def storeOrProjectOriginalFile: UploadRequest => Future[S3Object] = {
       _ => Future.successful(mockS3Object)
     }
@@ -39,13 +50,6 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       (_, _) => Future.successful(mockS3Object)
     }
 
-    /**
-      * @todo: I flailed about until I found a path that worked, but
-      * what arcane magic System.getProperty relies upon, and exactly
-      * _how_ it will break in CI, I do not know
-      */
-    val imageOps: ImageOperations = new ImageOperations(System.getProperty("user.dir"))
-
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
       imageOps,
@@ -54,14 +58,11 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       storeOrProjectOptimisedPNG
     )
 
-    val mockOptimisedPngOps = mock[OptimisedPngOps]
-
-    val uuid = UUID.randomUUID()
-    val tempFile = ResourceHelpers.fileAt("rubbish.jpg")
+    val tempFile = ResourceHelpers.fileAt(imageFileName)
     val ul = UploadInfo(None)
     val uploadRequest = UploadRequest(
       uuid,
-      "imageId": String,
+      "imageId",
       tempFile,
       None,
       DateTime.now(),
@@ -70,22 +71,24 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       ul
     )
 
-    val fileMetadata = FileMetadata()
-
     val futureImage = Uploader.uploadAndStoreImage(
       mockConfig,
       mockDependencies.storeOrProjectOriginalFile,
       mockDependencies.storeOrProjectThumbFile,
       mockDependencies.storeOrProjectOptimisedPNG,
       mockOptimisedPngOps,
-      uploadRequest, //originalUploadRequest: UploadRequest,
-      mockDependencies, //deps: ImageUploadOpsDependencies,
-      fileMetadata
+      uploadRequest,
+      mockDependencies,
+      FileMetadata()
     )
 
     futureImage transformWith {
-      case Success(_) => fail("Do summat 'ere")
-      case Failure(e) => e.getMessage shouldBe "gnar"
+      case Success(_) =>
+        // Assertions or fails
+        fail("Do summat 'ere")
+      case Failure(e) =>
+        // Assertions or fail
+        e.getMessage shouldBe "gnar"
     }
   }
 }
