@@ -4,11 +4,14 @@ import java.io.File
 import java.net.URI
 import java.util.UUID
 
+import com.drew.imaging.ImageProcessingException
+import com.gu.mediaservice.lib.{StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.model.{FileMetadata, Image, Jpeg, MimeType, Png, Tiff, UploadInfo}
+import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, UploadInfo}
 import lib.imaging.MimeTypeDetection
+import model.upload.{OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncFunSuite, Matchers}
@@ -26,7 +29,8 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
 
   implicit val logMarker = new MockLogMarker();
     // For mime type info, see https://github.com/guardian/grid/pull/2568
-    val mockConfig = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, List(Tiff), "img-bucket", "thumb-bucket")
+    val tempDir = new File("/tmp")
+    val mockConfig = ImageUploadOpsCfg(tempDir, 256, 85d, List(Tiff), "img-bucket", "thumb-bucket")
 
   /**
     * @todo: I flailed about until I found a path that worked, but
@@ -40,7 +44,6 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     expectedOriginalMimeType: MimeType,
     expectedThumbMimeType: MimeType,
     expectedOptimisedMimeType: Option[MimeType] = None) = {
-    val willCreateOptimisedPNG = expectedOptimisedMimeType.isDefined
 
     val uuid = UUID.randomUUID()
     val randomId = UUID.randomUUID().toString + fileName
@@ -48,38 +51,38 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     val mockS3Meta = S3Metadata(Map.empty, S3ObjectMetadata(None, None, None))
     val mockS3Object = S3Object(new URI("innernets.com"), 12345, mockS3Meta)
 
-    def storeOrProjectOriginalFile: UploadRequest => Future[S3Object] = {
+    def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = {
       a => {
         Future.successful(
           mockS3Object
-            .copy(size = a.tempFile.length())
+            .copy(size = a.file.length())
             .copy(metadata = mockS3Object.metadata
               .copy(objectMetadata = mockS3Object.metadata.objectMetadata
-                .copy(contentType = a.mimeType))))
+                .copy(contentType = Some(a.mimeType)))))
       }
     }
 
-    def storeOrProjectThumbFile: (UploadRequest, File) => Future[S3Object] = {
-      (a, b) => {
+    def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = {
+      a => {
         Future.successful(
           mockS3Object
-            .copy(size = b.length())
+            .copy(size = a.file.length())
             .copy(metadata = mockS3Object.metadata
               .copy(objectMetadata = mockS3Object.metadata.objectMetadata
-                .copy(contentType = a.mimeType)))
+                .copy(contentType = Some(a.mimeType))))
         )
       }
     }
 
-    def storeOrProjectOptimisedPNG: (UploadRequest, File) => Future[S3Object] = {
-      (a, b) => {
-        if (a.mimeType.contains(Jpeg)) fail("We should not create optimised jpg")
+    def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = {
+      a => {
+        if (a.mimeType == Jpeg) fail("We should not create optimised jpg")
         Future.successful(
           mockS3Object
-            .copy(size = b.length())
+            .copy(size = a.file.length())
             .copy(metadata = mockS3Object.metadata
               .copy(objectMetadata = mockS3Object.metadata.objectMetadata
-                .copy(contentType = a.mimeType)))
+                .copy(contentType = Some(a.mimeType))))
         )
       }
     }
@@ -107,11 +110,10 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     )
 
     val futureImage = Uploader.uploadAndStoreImage(
-      mockConfig,
       mockDependencies.storeOrProjectOriginalFile,
       mockDependencies.storeOrProjectThumbFile,
-      mockDependencies.storeOrProjectOptimisedPNG,
-      OptimisedPngQuantOps,
+      mockDependencies.storeOrProjectOptimisedImage,
+      OptimiseWithPngQuant,
       uploadRequest,
       mockDependencies,
       FileMetadata()
@@ -119,11 +121,15 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
 
     // Assertions; Failure will auto-fail
     futureImage.map(i => {
+      // Assertions on original request
       assert(i.id == randomId, "Correct id comes back")
       assert(i.source.mimeType.contains(expectedOriginalMimeType), "Should have the correct mime type")
+
+      // Assertions on generated thumbnail image
       assert(i.thumbnail.isDefined, "Should always create a thumbnail")
-      assert(i.optimisedPng.isDefined == willCreateOptimisedPNG, "Should or should not create an optimised png")
       assert(i.thumbnail.get.mimeType.get == expectedThumbMimeType, "Should have correct thumb mime type")
+
+      // Assertions on optional generated optimised png image
       assert(i.optimisedPng.flatMap(p => p.mimeType) == expectedOptimisedMimeType, "Should have correct optimised mime type")
     })
   }
@@ -150,6 +156,23 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
   }
   test("basn2c16_TrueColor_16bit") {
     imageUpload("basn2c16_TrueColor_16bit.png", Png, Png, Some(Png))
+  }
+  test("not an image but looks like one") {
+    imageUpload("thisisnotanimage.jpg", Png, Png, Some(Png)).transformWith{
+      case Success(_) => fail("Should have thrown an error")
+      case Failure(e) => e match {
+        case e: ImageProcessingException => assert(e.getMessage == "File format could not be determined")
+      }
+    }
+  }
+  test("not an image and does not look like one") {
+    // this exception is thrown before the futures are resolved, and so does not need transformWith
+    try {
+      imageUpload("thisisnotanimage.stupid", Png, Png, Some(Png))
+      fail("Should have thrown an error")
+    } catch {
+      case e: Exception => assert(e.getMessage == "No idea what you have given me")
+    }
   }
 }
 

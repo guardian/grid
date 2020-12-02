@@ -5,7 +5,7 @@ import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
-import com.gu.mediaservice.lib.ImageIngestOperations
+import com.gu.mediaservice.lib.{ImageIngestOperations, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
@@ -13,6 +13,7 @@ import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, Jpeg, Png, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
+import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.{Logger, MarkerContext}
@@ -133,37 +134,36 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly)
   }
 
-  private def projectOriginalFileAsS3Model(uploadRequest: UploadRequest)
+  private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage)
                                           (implicit ec: ExecutionContext)= Future {
-    val meta: Map[String, String] = toMetaMap(uploadRequest)
-    val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
+    val key = ImageIngestOperations.fileKeyFromId(storableOriginalImage.id)
     S3Ops.projectFileAsS3Object(
       config.originalFileBucket,
       key,
-      uploadRequest.tempFile,
-      uploadRequest.mimeType,
-      meta
+      storableOriginalImage.file,
+      Some(storableOriginalImage.mimeType),
+      storableOriginalImage.meta
     )
   }
 
-  private def projectThumbnailFileAsS3Model(uploadRequest: UploadRequest, thumbFile: File)(implicit ec: ExecutionContext) = Future {
-    val key = ImageIngestOperations.fileKeyFromId(uploadRequest.imageId)
-    val thumbMimeType = Some(Jpeg)
+  private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage)(implicit ec: ExecutionContext) = Future {
+    val key = ImageIngestOperations.fileKeyFromId(storableThumbImage.id)
+    val thumbMimeType = Some(Jpeg) // todo remove hard coding
     S3Ops.projectFileAsS3Object(
       config.thumbBucket,
       key,
-      thumbFile,
+      storableThumbImage.file,
       thumbMimeType
     )
   }
 
-  private def projectOptimisedPNGFileAsS3Model(uploadRequest: UploadRequest, optimisedPngFile: File)(implicit ec: ExecutionContext) = Future {
-    val key = ImageIngestOperations.optimisedPngKeyFromId(uploadRequest.imageId)
-    val optimisedPngMimeType = Some(Png)
+  private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage)(implicit ec: ExecutionContext) = Future {
+    val key = ImageIngestOperations.optimisedPngKeyFromId(storableOptimisedImage.id)
+    val optimisedPngMimeType = Some(Png)   // todo remove hard coding
     S3Ops.projectFileAsS3Object(
       config.originalFileBucket,
       key,
-      optimisedPngFile,
+      storableOptimisedImage.file,
       optimisedPngMimeType
     )
   }

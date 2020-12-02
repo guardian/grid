@@ -133,7 +133,8 @@ class ImageOperations(playPath: String) extends GridLogging {
 
   def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, String)] = {
     for {
-      outputFile      <- createTempFile(s"transformed-", ".png", tempDir)
+      // png suffix is used by imagemagick to infer the required type
+      outputFile      <- createTempFile(s"transformed-", Png.fileExtension, tempDir)
       transformSource = addImage(sourceFile)
       addOutput       = addDestImage(transformSource)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))

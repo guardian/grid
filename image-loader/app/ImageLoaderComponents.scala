@@ -3,7 +3,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers.ImageLoaderController
 import lib._
 import lib.storage.ImageLoaderStore
-import model.{Uploader, Projector}
+import model.{Projector, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
 

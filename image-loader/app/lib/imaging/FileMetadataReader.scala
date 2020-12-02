@@ -12,10 +12,11 @@ import com.drew.metadata.jpeg.JpegDirectory
 import com.drew.metadata.png.PngDirectory
 import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
+import com.gu.mediaservice.lib.StorableImage
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
-import model.UploadRequest
+import model.upload.UploadRequest
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.JsValue
@@ -57,8 +58,8 @@ object FileMetadataReader {
     }
     yield getMetadataWithICPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
-  def fromICPTCHeadersWithColorInfo(uploadRequest: UploadRequest): Future[FileMetadata] =
-    fromICPTCHeadersWithColorInfo(uploadRequest.tempFile, uploadRequest.imageId, uploadRequest.mimeType.get)
+  def fromICPTCHeadersWithColorInfo(image: StorableImage): Future[FileMetadata] =
+    fromICPTCHeadersWithColorInfo(image.file, image.id, image.mimeType)
 
   def fromICPTCHeadersWithColorInfo(image: File, imageId:String, mimeType: MimeType): Future[FileMetadata] =
     for {
