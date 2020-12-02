@@ -1,3 +1,6 @@
+const areSetsEqual = (a, b) => a.size === b.size && [...a].every(value => b.has(value));
+
+
 export const getMetadataDiff = (image, metadata) => {
   const diff = {};
   const originalMetadata = image.data.originalMetadata;
@@ -7,8 +10,15 @@ export const getMetadataDiff = (image, metadata) => {
   );
 
   keys.forEach((key) => {
-    if (JSON.stringify(originalMetadata[key]) === JSON.stringify(metadata[key])) {
+    if (originalMetadata[key] === metadata[key]) {
       return;
+    }
+
+    // Arrays cannot be compared with simple equality
+    if (Array.isArray(metadata[key]) || Array.isArray(originalMetadata[key])) {
+      if (areSetsEqual(new Set(originalMetadata[key]), new Set(metadata[key]))) {
+        return;
+      }
     }
 
     // if the user has provided an override of '' (e.g. they want remove the title),
