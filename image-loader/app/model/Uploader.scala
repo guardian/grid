@@ -157,19 +157,19 @@ object Uploader extends GridLogging {
       sourceDimensions <- sourceDimensionsFuture
       thumbDimensions <- FileMetadataReader.dimensions(thumb, Some(Jpeg))
       colourModel <- colourModelFuture
-      fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
-      metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
-      cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
-
-      sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
-      thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
-
-      pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
-
-      processedImage = SupplierProcessors.process(baseImage)
-
     } yield {
+      val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
+      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
+      val cleanMetadata = ImageUpload.metadataCleaners.clean(metadata)
+
+      val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
+      val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
+
+      val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
+      val baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, cleanMetadata)
+
+      val processedImage = SupplierProcessors.process(baseImage)
+
       logger.info("Ending image ops")
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
       processedImage.copy(

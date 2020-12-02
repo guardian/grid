@@ -21,11 +21,18 @@ object OptimiseWithPngQuant extends OptimiseOps {
   // TODO This really ought to be a Future, right?
   def toOptimisedFile(file: File, storableImage: StorableImage, tempDir: File)
                      (implicit logMarker: LogMarker): (File, MimeType) = {
+
     val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + storableImage.id + ".png"
     Stopwatch("pngquant") {
       Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
     }
-    (new File(optimisedFilePath), Png)
+
+    val optimisedFile = new File(optimisedFilePath)
+    if (optimisedFile.exists()) {
+      (optimisedFile, Png)
+    } else {
+      throw new Exception(s"Attempted to optimise PNG file ${optimisedFile.getPath}")
+    }
   }
 
   def isTransformedFilePath(filePath: String): Boolean = filePath.contains("transformed-")
