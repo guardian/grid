@@ -228,9 +228,8 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     edits
   }
 
-  // FIXME: At the moment we can't accept keywords as it is a list
   def metadataAsMap(metadata: ImageMetadata) = {
-    (Json.toJson(metadata).as[JsObject]-"keywords").as[Map[String, JsValue]]
+    (Json.toJson(metadata).as[JsObject]).as[Map[String, JsValue]]
   }
 
 
