@@ -5,7 +5,6 @@ import java.io.File
 import com.gu.mediaservice.lib.StorableImage
 import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
 import com.gu.mediaservice.model.{FileMetadata, MimeType, Png, Tiff}
-import model.ImageUploadOpsCfg
 
 import scala.sys.process._
 
@@ -22,9 +21,11 @@ object OptimiseWithPngQuant extends OptimiseOps {
   def toOptimisedFile(file: File, storableImage: StorableImage, tempDir: File)
                      (implicit logMarker: LogMarker): (File, MimeType) = {
 
-    val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + storableImage.id + ".png"
+    val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + storableImage.id + Png.fileExtension
     Stopwatch("pngquant") {
-      Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+      val result = Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+      if (result>0)
+        throw new Exception(s"pngquant failed to convert to optimised png file (rc = $result)")
     }
 
     val optimisedFile = new File(optimisedFilePath)

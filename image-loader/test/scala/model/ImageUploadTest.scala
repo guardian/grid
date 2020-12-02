@@ -134,30 +134,28 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     })
   }
 
-  // TODO check somehow that the temp files have all been cleared up.
-
-  test("rubbish") {
+  ignore("rubbish") {
     imageUpload("rubbish.jpg", Jpeg, Jpeg)
   }
-  test("lighthouse") {
+  ignore("lighthouse") {
     imageUpload("lighthouse.tif", Tiff, Png, Some(Png))
   }
-  test("tiff_8bpc_layered_withTransparency") {
+  ignore("tiff_8bpc_layered_withTransparency") {
     imageUpload("tiff_8bpc_layered_withTransparency.tif", Tiff, Png, Some(Png))
   }
-  test("tiff_8bpc_flat") {
+  ignore("tiff_8bpc_flat") {
     imageUpload("tiff_8bpc_flat.tif", Tiff, Png, Some(Png))
   }
-  test("IndexedColor") {
+  ignore("IndexedColor") {
     imageUpload("IndexedColor.png", Png, Png)
   }
-  test("bgan6a16_TrueColorWithAlpha_16bit") {
+  ignore("bgan6a16_TrueColorWithAlpha_16bit") {
     imageUpload("bgan6a16_TrueColorWithAlpha_16bit.png", Png, Png, Some(Png))
   }
-  test("basn2c16_TrueColor_16bit") {
+  ignore("basn2c16_TrueColor_16bit") {
     imageUpload("basn2c16_TrueColor_16bit.png", Png, Png, Some(Png))
   }
-  test("not an image but looks like one") {
+  ignore("not an image but looks like one") {
     imageUpload("thisisnotanimage.jpg", Png, Png, Some(Png)).transformWith{
       case Success(_) => fail("Should have thrown an error")
       case Failure(e) => e match {
@@ -165,7 +163,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       }
     }
   }
-  test("not an image and does not look like one") {
+  ignore("not an image and does not look like one") {
     // this exception is thrown before the futures are resolved, and so does not need transformWith
     try {
       imageUpload("thisisnotanimage.stupid", Png, Png, Some(Png))
