@@ -258,51 +258,50 @@ object Uploader extends GridLogging {
     val sourceDimensionsFuture = FileMetadataReader.dimensions(originalUploadRequest.tempFile, originalUploadRequest.mimeType)
 
     // if the file needs pre-processing into a supported type of file, do it now and create the new upload request.
-
-    // we don't create a new upload request, we just override the old one.  This is the bug!
-
-//    We have three actions to take.
-//    1) storeOrProjectOriginalFile - takes original upload request
-//    2) storeOrProjectOptimisedPNG - takes a new upload request, possibly for the extracted tiff file
-//    3) storeOrProjectThumbFile - takes a new upload request
+    //    We have three actions to take.
+    //    1) storeOrProjectOriginalFile - takes original upload request
+    //    2) storeOrProjectOptimisedPNG - takes a new upload request, possibly for the extracted tiff file
+    //    3) storeOrProjectThumbFile - takes a new upload request
 
     val sourceStoreFuture = storeOrProjectOriginalFile(originalUploadRequest)
 
+    // todo convert to for comp
     createOptimisedFileFuture(originalUploadRequest, deps).flatMap(optimisedUploadRequest => {
-      val thumbFuture = createThumbFuture(fileMetadata, colourModelFuture, optimisedUploadRequest, deps)
-      logger.info("thumbnail created")
+      FileMetadataReader.fromICPTCHeadersWithColorInfo(optimisedUploadRequest).flatMap(
+       optimisedFileMetadata => {
+         val thumbFuture = createThumbFuture(optimisedFileMetadata, colourModelFuture, optimisedUploadRequest, deps)
+         logger.info("thumbnail created")
 
-      val optimisedPng: Option[OptimisedPng] = if (pngOptimiser.shouldOptimise(optimisedUploadRequest.mimeType, fileMetadata)) {
-        val optimisedFile: File = pngOptimiser.toOptimisedFile(optimisedUploadRequest.tempFile, optimisedUploadRequest, config)
-        val pngStoreFuture: Future[S3Object] =
-          storeOrProjectOptimisedPNG(optimisedUploadRequest, optimisedFile)
-            .andThen{case _ => optimisedFile.delete()}
-        Some(OptimisedPng(pngStoreFuture, optimisedFile))
-      } else {
-        None
-      }
+         val optimisedPng: Option[OptimisedPng] = if (pngOptimiser.shouldOptimise(optimisedUploadRequest.mimeType, optimisedFileMetadata)) {
+           val optimisedFile: File = pngOptimiser.toOptimisedFile(optimisedUploadRequest.tempFile, optimisedUploadRequest, config)
+           val pngStoreFuture: Future[S3Object] =
+             storeOrProjectOptimisedPNG(optimisedUploadRequest, optimisedFile)
+           Some(OptimisedPng(pngStoreFuture, optimisedFile))
+         } else
+           None
 
-      bracket(thumbFuture)(_.delete) { thumb =>
-        // Run the operations in parallel
-        val thumbStoreFuture = storeOrProjectThumbFile(optimisedUploadRequest, thumb)
-        val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
+         bracket(thumbFuture)(_.delete) { thumb =>
+           // Run the operations in parallel
+           val thumbStoreFuture = storeOrProjectThumbFile(optimisedUploadRequest, thumb)
+           val thumbDimensionsFuture = FileMetadataReader.dimensions(thumb, Some(Jpeg))
 
-        val finalImage = toFinalImage(
-          sourceStoreFuture,
-          thumbStoreFuture,
-          sourceDimensionsFuture,
-          thumbDimensionsFuture,
-          fileMetadata,
-          colourModelFuture,
-          optimisedPng,
-          optimisedUploadRequest
-        )
-        logger.info(s"Deleting temp file ${originalUploadRequest.tempFile.getAbsolutePath}")
-        originalUploadRequest.tempFile.delete()
-        optimisedUploadRequest.tempFile.delete()
+           val finalImage = toFinalImage(
+             sourceStoreFuture,
+             thumbStoreFuture,
+             sourceDimensionsFuture,
+             thumbDimensionsFuture,
+             fileMetadata,
+             colourModelFuture,
+             optimisedPng,
+             originalUploadRequest
+           )
+           logger.info(s"Deleting temp file ${originalUploadRequest.tempFile.getAbsolutePath}")
+           originalUploadRequest.tempFile.delete()
+           optimisedUploadRequest.tempFile.delete()
 
-        finalImage
-      }
+           finalImage
+         }
+       })
     })
   }
 
@@ -386,11 +385,10 @@ object Uploader extends GridLogging {
     uploadRequest.mimeType match {
       case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
         for {
-          transformedImage <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, config.tempDir)
+          (file, filetype) <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, config.tempDir)
         } yield uploadRequest
-          // This file has been converted.
-          .copy(mimeType = Some(MimeType(transformedImage._2)))
-          .copy(tempFile = transformedImage._1)
+          .copy(mimeType = Some(MimeType(filetype)))
+          .copy(tempFile = file)
       case _ =>
         Future.successful(uploadRequest)
     }
