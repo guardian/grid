@@ -44,13 +44,13 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePng(id: String): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 }
 
-trait ImageWrapper {
+sealed trait ImageWrapper {
   val id: String
   val file: File
   val mimeType: MimeType
   val meta: Map[String, String]
 }
-trait StorableImage extends ImageWrapper
+sealed trait StorableImage extends ImageWrapper
 
 case class StorableThumbImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
 case class StorableOriginalImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
