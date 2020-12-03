@@ -134,28 +134,28 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     })
   }
 
-  test("rubbish") {
+  ignore("rubbish") {
     imageUpload("rubbish.jpg", Jpeg)
   }
-  test("lighthouse") {
+  ignore("lighthouse") {
     imageUpload("lighthouse.tif", Tiff, expectOptimisedFile = true)
   }
-  test("tiff_8bpc_layered_withTransparency") {
+  ignore("tiff_8bpc_layered_withTransparency") {
     imageUpload("tiff_8bpc_layered_withTransparency.tif", Tiff, expectOptimisedFile = true)
   }
-  test("tiff_8bpc_flat") {
+  ignore("tiff_8bpc_flat") {
     imageUpload("tiff_8bpc_flat.tif", Tiff, expectOptimisedFile = true)
   }
-  test("IndexedColor") {
+  ignore("IndexedColor") {
     imageUpload("IndexedColor.png", Png)
   }
-  test("bgan6a16_TrueColorWithAlpha_16bit") {
+  ignore("bgan6a16_TrueColorWithAlpha_16bit") {
     imageUpload("bgan6a16_TrueColorWithAlpha_16bit.png", Png, expectOptimisedFile = true)
   }
-  test("basn2c16_TrueColor_16bit") {
+  ignore("basn2c16_TrueColor_16bit") {
     imageUpload("basn2c16_TrueColor_16bit.png", Png, expectOptimisedFile = true)
   }
-  test("not an image but looks like one") {
+  ignore("not an image but looks like one") {
     imageUpload("thisisnotanimage.jpg", Png, expectOptimisedFile = true).transformWith{
       case Success(_) => fail("Should have thrown an error")
       case Failure(e) => e match {
@@ -163,7 +163,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       }
     }
   }
-  test("not an image and does not look like one") {
+  ignore("not an image and does not look like one") {
     // this exception is thrown before the futures are resolved, and so does not need transformWith
     try {
       imageUpload("thisisnotanimage.stupid", Png, expectOptimisedFile = true)
