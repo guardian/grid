@@ -144,7 +144,7 @@ object Uploader extends GridLogging {
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
-      optimisedFileMetadata <- FileMetadataReader.fromICPTCHeadersWithColorInfo(browserViewableImage)
+      optimisedFileMetadata <- FileMetadataReader.fromIPTCHeadersWithColorInfo(browserViewableImage)
       thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
       maybeStorableOptimisedImage <- getStorableOptimisedImage(makeNewDirInTempDirHere, optimiseOps, browserViewableImage, optimisedFileMetadata)
@@ -212,7 +212,7 @@ object Uploader extends GridLogging {
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
     mimeType match {
-      case Some(Png | Tiff) => FileMetadataReader.fromICPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Png | Tiff) => FileMetadataReader.fromIPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }
