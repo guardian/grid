@@ -44,19 +44,19 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
   def deletePng(id: String): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 }
 
-
-
-trait StorableImage {
+trait ImageWrapper {
   val id: String
   val file: File
   val mimeType: MimeType
   val meta: Map[String, String]
 }
+trait StorableImage extends ImageWrapper
+
 case class StorableThumbImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
 case class StorableOriginalImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
 case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
-case class StorableBrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, mustUpload: Boolean = false) extends StorableImage {
+case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, mustUpload: Boolean = false) extends ImageWrapper {
   def asStorableOptimisedImage = StorableOptimisedImage(id, file, mimeType, meta)
   def asStorableThumbImage = StorableThumbImage(id, file, mimeType, meta)
-
 }
+

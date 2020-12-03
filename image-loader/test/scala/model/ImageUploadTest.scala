@@ -5,7 +5,7 @@ import java.net.URI
 import java.util.UUID
 
 import com.drew.imaging.ImageProcessingException
-import com.gu.mediaservice.lib.{StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
@@ -50,41 +50,17 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     val mockS3Meta = S3Metadata(Map.empty, S3ObjectMetadata(None, None, None))
     val mockS3Object = S3Object(new URI("innernets.com"), 12345, mockS3Meta)
 
-    def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = {
-      a => {
-        Future.successful(
-          mockS3Object
-            .copy(size = a.file.length())
-            .copy(metadata = mockS3Object.metadata
-              .copy(objectMetadata = mockS3Object.metadata.objectMetadata
-                .copy(contentType = Some(a.mimeType)))))
-      }
-    }
+    def mockStore = (a: StorableImage) =>
+      Future.successful(
+        mockS3Object
+          .copy(size = a.file.length())
+          .copy(metadata = mockS3Object.metadata
+            .copy(objectMetadata = mockS3Object.metadata.objectMetadata
+              .copy(contentType = Some(a.mimeType)))))
 
-    def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = {
-      a => {
-        Future.successful(
-          mockS3Object
-            .copy(size = a.file.length())
-            .copy(metadata = mockS3Object.metadata
-              .copy(objectMetadata = mockS3Object.metadata.objectMetadata
-                .copy(contentType = Some(a.mimeType))))
-        )
-      }
-    }
-
-    def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = {
-      a => {
-        if (a.mimeType == Jpeg) fail("We should not create optimised jpg")
-        Future.successful(
-          mockS3Object
-            .copy(size = a.file.length())
-            .copy(metadata = mockS3Object.metadata
-              .copy(objectMetadata = mockS3Object.metadata.objectMetadata
-                .copy(contentType = Some(a.mimeType))))
-        )
-      }
-    }
+    def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
+    def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
+    def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,

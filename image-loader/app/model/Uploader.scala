@@ -9,7 +9,7 @@ import java.util.UUID
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.{StorableBrowserViewableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.lib.{BrowserViewableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -183,10 +183,10 @@ object Uploader extends GridLogging {
   }
 
   private def getStorableOptimisedImage(
-             tempDir: File,
-             optimiseOps: OptimiseOps,
-             browserViewableImage: StorableBrowserViewableImage,
-             optimisedFileMetadata: FileMetadata)
+                                         tempDir: File,
+                                         optimiseOps: OptimiseOps,
+                                         browserViewableImage: BrowserViewableImage,
+                                         optimisedFileMetadata: FileMetadata)
            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[StorableOptimisedImage]] = {
     if (optimiseOps.shouldOptimise(Some(browserViewableImage.mimeType), optimisedFileMetadata)) {
       for {
@@ -219,29 +219,29 @@ object Uploader extends GridLogging {
 
   private def createThumbFuture(fileMetadata: FileMetadata,
                                 colourModelFuture: Future[Option[String]],
-                                storableBrowserViewableImage: StorableBrowserViewableImage,
+                                browserViewableImage: BrowserViewableImage,
                                 deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
     import deps._
     for {
       colourModel <- colourModelFuture
       iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
       (thumb, thumbMimeType) <- imageOps
-        .createThumbnail(storableBrowserViewableImage.file, Some(storableBrowserViewableImage.mimeType), config.thumbWidth,
+        .createThumbnail(browserViewableImage.file, Some(browserViewableImage.mimeType), config.thumbWidth,
           config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
-    } yield storableBrowserViewableImage
+    } yield browserViewableImage
       .copy(file = thumb, mimeType = thumbMimeType)
       .asStorableThumbImage
   }
 
   private def createBrowserViewableFileFuture(uploadRequest: UploadRequest,
                                               tempDir: File,
-                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[StorableBrowserViewableImage] = {
+                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[BrowserViewableImage] = {
     import deps._
     uploadRequest.mimeType match {
       case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
         for {
           (file, filetype) <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, tempDir)
-        } yield StorableBrowserViewableImage(
+        } yield BrowserViewableImage(
           uploadRequest.imageId,
           file = file,
           mimeType = MimeType(filetype),
@@ -249,7 +249,7 @@ object Uploader extends GridLogging {
         )
       case Some(mimeType) =>
         Future.successful(
-          StorableBrowserViewableImage(
+          BrowserViewableImage(
             uploadRequest.imageId,
             file = uploadRequest.tempFile,
             mimeType = mimeType)

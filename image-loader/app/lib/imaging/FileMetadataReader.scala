@@ -12,7 +12,7 @@ import com.drew.metadata.jpeg.JpegDirectory
 import com.drew.metadata.png.PngDirectory
 import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
-import com.gu.mediaservice.lib.StorableImage
+import com.gu.mediaservice.lib.{ImageWrapper, StorableImage}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
@@ -58,7 +58,7 @@ object FileMetadataReader {
     }
     yield getMetadataWithIPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
-  def fromIPTCHeadersWithColorInfo(image: StorableImage): Future[FileMetadata] =
+  def fromIPTCHeadersWithColorInfo(image: ImageWrapper): Future[FileMetadata] =
     fromIPTCHeadersWithColorInfo(image.file, image.id, image.mimeType)
 
   def fromIPTCHeadersWithColorInfo(image: File, imageId:String, mimeType: MimeType): Future[FileMetadata] =
