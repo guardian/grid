@@ -168,7 +168,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       transformSource = addImage(sourceFile)
       addOutput       = addDestImage(transformSource)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
-      extension       <- checkForOutputFileChange(outputFile)
+      _               <- checkForOutputFileChange(outputFile)
     } yield (outputFile, optimisedMimeType)
   }
 
@@ -178,7 +178,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   // As the file has been renamed, the file object still exists, but has the wrong name
   // We will need to put it back where it is expected to be found, and clean up the other
   // files.
-  private def checkForOutputFileChange(f: File): Future[String] = Future {
+  private def checkForOutputFileChange(f: File): Future[Unit] = Future {
     val fileBits = f.getAbsolutePath.split("\\.").toList
     val mainPart = fileBits.dropRight(1).mkString(".")
     val extension = fileBits.last
@@ -191,7 +191,6 @@ class ImageOperations(playPath: String) extends GridLogging {
       // Tidy up any other files (blah-1,2,3 etc will be created for each subsequent layer)
       cleanUpLayerFiles(mainPart, extension, 1)
     }
-    fileBits.last
   }
 
   @scala.annotation.tailrec
