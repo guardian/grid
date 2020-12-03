@@ -6,22 +6,25 @@ import com.gu.mediaservice.lib.StorableImage
 import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
 import com.gu.mediaservice.model.{FileMetadata, MimeType, Png, Tiff}
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
 
 trait OptimiseOps {
   def toOptimisedFile(file: File, storableImage: StorableImage, tempDir: File)
-                     (implicit logMarker: LogMarker): (File, MimeType)
+                     (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)]
   def isTransformedFilePath(filePath: String): Boolean
   def shouldOptimise(mimeType: Option[MimeType], fileMetadata: FileMetadata): Boolean
+  def optimiseMimeType: MimeType
 }
 
 object OptimiseWithPngQuant extends OptimiseOps {
 
-  // TODO This really ought to be a Future, right?
-  def toOptimisedFile(file: File, storableImage: StorableImage, tempDir: File)
-                     (implicit logMarker: LogMarker): (File, MimeType) = {
+  override def optimiseMimeType: MimeType = Png
 
-    val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + storableImage.id + Png.fileExtension
+  def toOptimisedFile(file: File, storableImage: StorableImage, tempDir: File)
+                     (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)] = Future {
+
+    val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + storableImage.id + optimiseMimeType.fileExtension
     Stopwatch("pngquant") {
       val result = Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
       if (result>0)

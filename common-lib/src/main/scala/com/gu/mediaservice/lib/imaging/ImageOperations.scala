@@ -4,6 +4,8 @@ import java.io._
 
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
+import com.gu.mediaservice.lib.StorableThumbImage
+import com.gu.mediaservice.lib.imaging.ImageOperations.thumbMimeType
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -114,21 +116,26 @@ class ImageOperations(playPath: String) extends GridLogging {
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
-  def createThumbnail(sourceFile: File, sourceMimeType: Option[MimeType], width: Int, qual: Double = 100d,
-                      tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
+  def createThumbnail(sourceFile: File,
+                      sourceMimeType: Option[MimeType],
+                      width: Int,
+                      qual: Double = 100d,
+                      tempDir: File,
+                      iccColourSpace: Option[String],
+                      colourModel: Option[String]): Future[(File, MimeType)] = {
+    val cropSource  = addImage(sourceFile)
+    val thumbnailed = thumbnail(cropSource)(width)
+    val corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
+    val converted   = applyOutputProfile(corrected, optimised = true)
+    val stripped    = stripMeta(converted)
+    val profiled    = applyOutputProfile(stripped, optimised = true)
+    val unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+    val qualified   = quality(unsharpened)(qual)
+    val addOutput   = {file:File => addDestImage(qualified)(file)}
     for {
-      outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
-      cropSource  = addImage(sourceFile)
-      thumbnailed = thumbnail(cropSource)(width)
-      corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
-      converted   = applyOutputProfile(corrected, optimised = true)
-      stripped    = stripMeta(converted)
-      profiled    = applyOutputProfile(stripped, optimised = true)
-      unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-      qualified   = quality(unsharpened)(qual)
-      addOutput   = addDestImage(qualified)(outputFile)
-      _          <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
-    } yield outputFile
+      outputFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
+      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
+    } yield (outputFile, thumbMimeType)
   }
 
   def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, String)] = {
@@ -177,6 +184,7 @@ class ImageOperations(playPath: String) extends GridLogging {
 }
 
 object ImageOperations {
+  val thumbMimeType = Jpeg
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext): Future[Option[String]] = {
     // TODO: use mimeType to lookup other properties once we support other formats
 

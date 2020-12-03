@@ -13,7 +13,7 @@ import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, Jpeg, Png, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
-import model.upload.UploadRequest
+import model.upload.{OptimiseWithPngQuant, UploadRequest}
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.{Logger, MarkerContext}
@@ -148,7 +148,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.fileKeyFromId(storableThumbImage.id)
-    val thumbMimeType = Some(Jpeg) // todo remove hard coding
+    val thumbMimeType = Some(OptimiseWithPngQuant.optimiseMimeType) // this IS what we will generate.
     S3Ops.projectFileAsS3Object(
       config.thumbBucket,
       key,
@@ -159,7 +159,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(storableOptimisedImage.id)
-    val optimisedPngMimeType = Some(Png)   // todo remove hard coding
+    val optimisedPngMimeType = Some(ImageOperations.thumbMimeType) // this IS what we will generate.
     S3Ops.projectFileAsS3Object(
       config.originalFileBucket,
       key,

@@ -14,23 +14,23 @@ import lib.imaging.MimeTypeDetection
 import model.upload.{OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.{Assertion, AsyncFunSuite, Matchers}
 import test.lib.ResourceHelpers
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
-  implicit val ec = ExecutionContext.Implicits.global
+  private implicit val ec: ExecutionContext = ExecutionContext.Implicits.global
 
   class MockLogMarker extends LogMarker {
     override def markerContents: Map[String, Any] = Map()
   }
 
-  implicit val logMarker = new MockLogMarker();
+  private implicit val logMarker: MockLogMarker = new MockLogMarker()
     // For mime type info, see https://github.com/guardian/grid/pull/2568
     val tempDir = new File("/tmp")
-    val mockConfig = ImageUploadOpsCfg(tempDir, 256, 85d, List(Tiff), "img-bucket", "thumb-bucket")
+    val mockConfig: ImageUploadOpsCfg = ImageUploadOpsCfg(tempDir, 256, 85d, List(Tiff), "img-bucket", "thumb-bucket")
 
   /**
     * @todo: I flailed about until I found a path that worked, but
@@ -39,11 +39,10 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     */
   val imageOps: ImageOperations = new ImageOperations(System.getProperty("user.dir"))
 
-  def imageUpload(
-    fileName: String,
-    expectedOriginalMimeType: MimeType,
-    expectedThumbMimeType: MimeType,
-    expectedOptimisedMimeType: Option[MimeType] = None) = {
+  private def imageUpload(
+                   fileName: String,
+                   expectedOriginalMimeType: MimeType,
+                   expectOptimisedFile: Boolean = false): Future[Assertion] = {
 
     val uuid = UUID.randomUUID()
     val randomId = UUID.randomUUID().toString + fileName
@@ -127,46 +126,47 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
 
       // Assertions on generated thumbnail image
       assert(i.thumbnail.isDefined, "Should always create a thumbnail")
-      assert(i.thumbnail.get.mimeType.get == expectedThumbMimeType, "Should have correct thumb mime type")
+      assert(i.thumbnail.get.mimeType.get == Jpeg, "Should have correct thumb mime type")
 
       // Assertions on optional generated optimised png image
-      assert(i.optimisedPng.flatMap(p => p.mimeType) == expectedOptimisedMimeType, "Should have correct optimised mime type")
+      assert(i.optimisedPng.isDefined == expectOptimisedFile, "Should have optimised file")
+      assert(!expectOptimisedFile || i.optimisedPng.flatMap(p => p.mimeType).contains(Png), "Should have correct optimised mime type")
     })
   }
 
-  ignore("rubbish") {
-    imageUpload("rubbish.jpg", Jpeg, Jpeg)
+  test("rubbish") {
+    imageUpload("rubbish.jpg", Jpeg)
   }
-  ignore("lighthouse") {
-    imageUpload("lighthouse.tif", Tiff, Png, Some(Png))
+  test("lighthouse") {
+    imageUpload("lighthouse.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("tiff_8bpc_layered_withTransparency") {
-    imageUpload("tiff_8bpc_layered_withTransparency.tif", Tiff, Png, Some(Png))
+  test("tiff_8bpc_layered_withTransparency") {
+    imageUpload("tiff_8bpc_layered_withTransparency.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("tiff_8bpc_flat") {
-    imageUpload("tiff_8bpc_flat.tif", Tiff, Png, Some(Png))
+  test("tiff_8bpc_flat") {
+    imageUpload("tiff_8bpc_flat.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("IndexedColor") {
-    imageUpload("IndexedColor.png", Png, Png)
+  test("IndexedColor") {
+    imageUpload("IndexedColor.png", Png)
   }
-  ignore("bgan6a16_TrueColorWithAlpha_16bit") {
-    imageUpload("bgan6a16_TrueColorWithAlpha_16bit.png", Png, Png, Some(Png))
+  test("bgan6a16_TrueColorWithAlpha_16bit") {
+    imageUpload("bgan6a16_TrueColorWithAlpha_16bit.png", Png, expectOptimisedFile = true)
   }
-  ignore("basn2c16_TrueColor_16bit") {
-    imageUpload("basn2c16_TrueColor_16bit.png", Png, Png, Some(Png))
+  test("basn2c16_TrueColor_16bit") {
+    imageUpload("basn2c16_TrueColor_16bit.png", Png, expectOptimisedFile = true)
   }
-  ignore("not an image but looks like one") {
-    imageUpload("thisisnotanimage.jpg", Png, Png, Some(Png)).transformWith{
+  test("not an image but looks like one") {
+    imageUpload("thisisnotanimage.jpg", Png, expectOptimisedFile = true).transformWith{
       case Success(_) => fail("Should have thrown an error")
       case Failure(e) => e match {
         case e: ImageProcessingException => assert(e.getMessage == "File format could not be determined")
       }
     }
   }
-  ignore("not an image and does not look like one") {
+  test("not an image and does not look like one") {
     // this exception is thrown before the futures are resolved, and so does not need transformWith
     try {
-      imageUpload("thisisnotanimage.stupid", Png, Png, Some(Png))
+      imageUpload("thisisnotanimage.stupid", Png, expectOptimisedFile = true)
       fail("Should have thrown an error")
     } catch {
       case e: Exception => assert(e.getMessage == "No idea what you have given me")
