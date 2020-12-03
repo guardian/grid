@@ -134,25 +134,25 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     })
   }
 
-  ignore("rubbish") {
+  ignore("A jpg which is suitable for UI viewing") {
     imageUpload("rubbish.jpg", Jpeg)
   }
-  ignore("lighthouse") {
+  ignore("An opaque tiff file which requires optimising for UI") {
     imageUpload("lighthouse.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("tiff_8bpc_layered_withTransparency") {
+  ignore("A layered tiff file (will require renaming extracted file) which requires optimising for UI") {
     imageUpload("tiff_8bpc_layered_withTransparency.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("tiff_8bpc_flat") {
+  ignore("Another opaque tiff file which requires optimising for UI") {
     imageUpload("tiff_8bpc_flat.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("IndexedColor") {
+  ignore("A png which is suitable for UI viewing") {
     imageUpload("IndexedColor.png", Png)
   }
-  ignore("bgan6a16_TrueColorWithAlpha_16bit") {
+  ignore("A png which is not suitable (too many colours + transparency) for UI viewing") {
     imageUpload("bgan6a16_TrueColorWithAlpha_16bit.png", Png, expectOptimisedFile = true)
   }
-  ignore("basn2c16_TrueColor_16bit") {
+  ignore("A png which is not suitable (too many colours) for UI viewing") {
     imageUpload("basn2c16_TrueColor_16bit.png", Png, expectOptimisedFile = true)
   }
   ignore("not an image but looks like one") {
@@ -169,7 +169,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       imageUpload("thisisnotanimage.stupid", Png, expectOptimisedFile = true)
       fail("Should have thrown an error")
     } catch {
-      case e: Exception => assert(e.getMessage == "No idea what you have given me")
+      case e: Exception => assert(e.getMessage == "File of unknown and undetectable mime type")
     }
   }
 }
