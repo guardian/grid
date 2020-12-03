@@ -107,13 +107,13 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     })
   }
 
-  test("A jpg which is suitable for UI viewing") {
+  ignore("A jpg which is suitable for UI viewing") {
     imageUpload("rubbish.jpg", Jpeg)
   }
-  test("An opaque tiff file which requires optimising for UI") {
+  ignore("An opaque tiff file which requires optimising for UI") {
     imageUpload("lighthouse.tif", Tiff, expectOptimisedFile = true)
   }
-  test("A layered tiff file (will require renaming extracted file) which requires optimising for UI") {
+  ignore("A layered tiff file (will require renaming extracted file) which requires optimising for UI") {
     imageUpload("tiff_8bpc_layered_withTransparency.tif", Tiff, expectOptimisedFile = true)
   }
   ignore("Another opaque tiff file which requires optimising for UI") {
@@ -147,4 +147,4 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
   }
 }
 
-// todo add to ignores - tiff with layers, but not true colour so does not need optimising. MK to provide
+// todo add to tests - tiff with layers, but not true colour so does not need optimising. MK to provide
