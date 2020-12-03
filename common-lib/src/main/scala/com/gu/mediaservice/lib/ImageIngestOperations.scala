@@ -37,7 +37,7 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   private def storeOptimisedImage(storableImage: StorableImage)
                        (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(Png)) // TODO remove hard coding!
+    storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
 
   def deleteOriginal(id: String): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
