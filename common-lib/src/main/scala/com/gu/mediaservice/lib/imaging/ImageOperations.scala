@@ -116,6 +116,20 @@ class ImageOperations(playPath: String) extends GridLogging {
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
+
+  /**
+    * Given a source file containing a png (the 'browser viewable' file),
+    * construct a thumbnail file in the provided temp directory, and return
+    * the file with metadata about it.
+    * @param sourceFile File containing browser viewable (ie not too big or colourful) image
+    * @param sourceMimeType Mime time of browser viewable file
+    * @param width Desired with of thumbnail
+    * @param qual Desired quality of thumbnail
+    * @param tempDir Location to create thumbnail file
+    * @param iccColourSpace (Approximately) number of colours to use
+    * @param colourModel Colour model - eg RGB or CMYK
+    * @return The file created and the mimetype of the content of that file, in a future.
+    */
   def createThumbnail(sourceFile: File,
                       sourceMimeType: Option[MimeType],
                       width: Int,
@@ -138,7 +152,16 @@ class ImageOperations(playPath: String) extends GridLogging {
     } yield (outputFile, thumbMimeType)
   }
 
-  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, String)] = {
+  /**
+    * Given a source file containing a file which requires optimising to make it suitable for viewing in
+    * a browser, construct a new image file in the provided temp directory, and return
+    * * the file with metadata about it.
+    * @param sourceFile File containing browser viewable (ie not too big or colourful) image
+    * @param sourceMimeType Mime time of browser viewable file
+    * @param tempDir Location to create optimised file
+    * @return The file created and the mimetype of the content of that file, in a future.
+    */
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, MimeType)] = {
     for {
       // png suffix is used by imagemagick to infer the required type
       outputFile      <- createTempFile(s"transformed-", Png.fileExtension, tempDir)
@@ -146,7 +169,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       addOutput       = addDestImage(transformSource)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       extension       <- checkForOutputFileChange(outputFile)
-    } yield (outputFile, extension)
+    } yield (outputFile, MimeType(extension))
   }
 
   // When a layered tiff is unpacked, the temp file (blah.something) is moved
