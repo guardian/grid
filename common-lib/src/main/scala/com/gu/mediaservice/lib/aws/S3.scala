@@ -116,7 +116,7 @@ class S3(config: CommonConfig) extends GridLogging {
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
-           (implicit ex: ExecutionContext, logMarker: LogMarker): Future[S3Object] =
+           (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Unit] =
     Future {
       val metadata = new ObjectMetadata
       mimeType.foreach(m => metadata.setContentType(m.name))
@@ -127,8 +127,6 @@ class S3(config: CommonConfig) extends GridLogging {
       Stopwatch(s"S3 client.putObject ($req)"){
         client.putObject(req)
       }
-
-      S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, cacheControl)
     }
 
   def list(bucket: Bucket, prefixDir: String)
@@ -199,9 +197,9 @@ object S3Ops {
     new URI("http", bucketUrl, s"/$key", null)
   }
 
-  def projectFileAsS3Object(bucket: String, key: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+  def projectFileAsS3Object(url: URI, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
     S3Object(
-      objectUrl(bucket, key),
+      url,
       file.length,
       S3Metadata(
         meta,
@@ -211,5 +209,9 @@ object S3Ops {
         )
       )
     )
+  }
+
+  def projectFileAsS3Object(bucket: String, key: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+    projectFileAsS3Object(objectUrl(bucket, key), file, mimeType, meta, cacheControl)
   }
 }

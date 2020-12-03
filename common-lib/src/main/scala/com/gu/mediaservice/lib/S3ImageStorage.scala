@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib
 
 import java.io.File
 
-import com.gu.mediaservice.lib.aws.S3
+import com.gu.mediaservice.lib.aws.{S3, S3Ops}
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.MimeType
@@ -15,9 +15,15 @@ import scala.concurrent.Future
 class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage {
   private val log = LoggerFactory.getLogger(getClass)
 
+  private val cacheSetting = Some(cacheForever)
   def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
-                (implicit logMarker: LogMarker) =
-    store(bucket, id, file, mimeType, meta, Some(cacheForever))
+                (implicit logMarker: LogMarker) = {
+    store(bucket, id, file, mimeType, meta, cacheSetting)
+      .map( _ =>
+        // TODO this is just giving back the stuff we passed in and should be factored out.
+        S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, cacheSetting)
+      )
+  }
 
   def deleteImage(bucket: String, id: String) = Future {
     client.deleteObject(bucket, id)

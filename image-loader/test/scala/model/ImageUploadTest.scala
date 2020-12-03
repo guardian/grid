@@ -6,7 +6,7 @@ import java.util.UUID
 
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata}
+import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata, S3Ops}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, UploadInfo}
@@ -52,11 +52,8 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
 
     def mockStore = (a: StorableImage) =>
       Future.successful(
-        mockS3Object
-          .copy(size = a.file.length())
-          .copy(metadata = mockS3Object.metadata
-            .copy(objectMetadata = mockS3Object.metadata.objectMetadata
-              .copy(contentType = Some(a.mimeType)))))
+        S3Ops.projectFileAsS3Object(new URI("http://madeupname/"), a.file, Some(a.mimeType), a.meta, None)
+      )
 
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
     def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
