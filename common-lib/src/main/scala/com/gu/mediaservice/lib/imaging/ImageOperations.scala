@@ -59,7 +59,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   def cropImage(sourceFile: File, sourceMimeType: Option[MimeType], bounds: Bounds, qual: Double = 100d, tempDir: File,
                 iccColourSpace: Option[String], colourModel: Option[String], fileType: MimeType): Future[File] = {
     for {
-      outputFile <- createTempFile(s"crop-", s".${fileType.fileExtension}", tempDir)
+      outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
       qualified     = quality(cropSource)(qual)
       corrected     = correctColour(qualified)(iccColourSpace, colourModel)
@@ -70,6 +70,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       depthAdjusted = depth(cropped)(8)
       addOutput     = addDestImage(depthAdjusted)(outputFile)
       _             <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
+      _             <- checkForOutputFileChange(outputFile)
     }
     yield outputFile
   }
