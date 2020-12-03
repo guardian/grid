@@ -197,7 +197,7 @@ object S3Ops {
     new URI("http", bucketUrl, s"/$key", null)
   }
 
-  def projectFileAsS3Object(url: URI, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
+  def projectFileAsS3Object(url: URI, file: File, mimeType: Option[MimeType], meta: Map[String, String], cacheControl: Option[String]): S3Object = {
     S3Object(
       url,
       file.length,

@@ -27,15 +27,15 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     case s:StorableOptimisedImage => storeOptimisedImage(s)
   }
 
-  private def storeOriginalImage(storableImage: StorableImage)
+  private def storeOriginalImage(storableImage: StorableOriginalImage)
                         (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType), storableImage.meta)
 
-  private def storeThumbnailImage(storableImage: StorableImage)
+  private def storeThumbnailImage(storableImage: StorableThumbImage)
                          (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(thumbnailBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
 
-  private def storeOptimisedImage(storableImage: StorableImage)
+  private def storeOptimisedImage(storableImage: StorableOptimisedImage)
                        (implicit logMarker: LogMarker): Future[S3Object] =
     storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
 
