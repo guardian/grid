@@ -59,6 +59,7 @@ function getImageLoaderConfig(config) {
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
+        |transcoded.mime.types="image/tiff"
         |`;
 }
 
