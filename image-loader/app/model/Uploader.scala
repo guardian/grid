@@ -240,11 +240,11 @@ object Uploader extends GridLogging {
     uploadRequest.mimeType match {
       case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
         for {
-          (file, filetype) <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, tempDir)
+          (file, mimeType) <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, tempDir)
         } yield BrowserViewableImage(
           uploadRequest.imageId,
           file = file,
-          mimeType = MimeType(filetype),
+          mimeType = mimeType,
           mustUpload = true
         )
       case Some(mimeType) =>
