@@ -5,7 +5,7 @@ import java.io._
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.StorableThumbImage
-import com.gu.mediaservice.lib.imaging.ImageOperations.thumbMimeType
+import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -164,12 +164,12 @@ class ImageOperations(playPath: String) extends GridLogging {
   def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, MimeType)] = {
     for {
       // png suffix is used by imagemagick to infer the required type
-      outputFile      <- createTempFile(s"transformed-", Png.fileExtension, tempDir)
+      outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       transformSource = addImage(sourceFile)
       addOutput       = addDestImage(transformSource)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       extension       <- checkForOutputFileChange(outputFile)
-    } yield (outputFile, MimeType(extension))
+    } yield (outputFile, optimisedMimeType)
   }
 
   // When a layered tiff is unpacked, the temp file (blah.something) is moved
@@ -208,6 +208,7 @@ class ImageOperations(playPath: String) extends GridLogging {
 
 object ImageOperations {
   val thumbMimeType = Jpeg
+  val optimisedMimeType = Png
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext): Future[Option[String]] = {
     // TODO: use mimeType to lookup other properties once we support other formats
 
