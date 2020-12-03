@@ -56,7 +56,7 @@ object FileMetadataReader {
     for {
       metadata <- readMetadata(image)
     }
-    yield getMetadataWithICPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
+    yield getMetadataWithIPTCHeaders(metadata, imageId) // FIXME: JPEG, JFIF, Photoshop, GPS, File
 
   def fromIPTCHeadersWithColorInfo(image: StorableImage): Future[FileMetadata] =
     fromIPTCHeadersWithColorInfo(image.file, image.id, image.mimeType)
@@ -66,9 +66,9 @@ object FileMetadataReader {
       metadata <- readMetadata(image)
       colourModelInformation <- getColorModelInformation(image, metadata, mimeType)
     }
-    yield getMetadataWithICPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
+    yield getMetadataWithIPTCHeaders(metadata, imageId).copy(colourModelInformation = colourModelInformation)
 
-  private def getMetadataWithICPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =
+  private def getMetadataWithIPTCHeaders(metadata: Metadata, imageId:String): FileMetadata =
     FileMetadata(
       iptc = exportDirectory(metadata, classOf[IptcDirectory]),
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
