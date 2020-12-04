@@ -4,6 +4,8 @@ import java.io._
 
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
+import com.gu.mediaservice.lib.StorableThumbImage
+import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -57,7 +59,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   def cropImage(sourceFile: File, sourceMimeType: Option[MimeType], bounds: Bounds, qual: Double = 100d, tempDir: File,
                 iccColourSpace: Option[String], colourModel: Option[String], fileType: MimeType): Future[File] = {
     for {
-      outputFile <- createTempFile(s"crop-", s".${fileType.fileExtension}", tempDir)
+      outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
       qualified     = quality(cropSource)(qual)
       corrected     = correctColour(qualified)(iccColourSpace, colourModel)
@@ -68,6 +70,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       depthAdjusted = depth(cropped)(8)
       addOutput     = addDestImage(depthAdjusted)(outputFile)
       _             <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
+      _             <- checkForOutputFileChange(outputFile)
     }
     yield outputFile
   }
@@ -114,31 +117,60 @@ class ImageOperations(playPath: String) extends GridLogging {
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
-  def createThumbnail(sourceFile: File, sourceMimeType: Option[MimeType], width: Int, qual: Double = 100d,
-                      tempDir: File, iccColourSpace: Option[String], colourModel: Option[String]): Future[File] = {
+
+  /**
+    * Given a source file containing a png (the 'browser viewable' file),
+    * construct a thumbnail file in the provided temp directory, and return
+    * the file with metadata about it.
+    * @param sourceFile File containing browser viewable (ie not too big or colourful) image
+    * @param sourceMimeType Mime time of browser viewable file
+    * @param width Desired with of thumbnail
+    * @param qual Desired quality of thumbnail
+    * @param tempDir Location to create thumbnail file
+    * @param iccColourSpace (Approximately) number of colours to use
+    * @param colourModel Colour model - eg RGB or CMYK
+    * @return The file created and the mimetype of the content of that file, in a future.
+    */
+  def createThumbnail(sourceFile: File,
+                      sourceMimeType: Option[MimeType],
+                      width: Int,
+                      qual: Double = 100d,
+                      tempDir: File,
+                      iccColourSpace: Option[String],
+                      colourModel: Option[String]): Future[(File, MimeType)] = {
+    val cropSource  = addImage(sourceFile)
+    val thumbnailed = thumbnail(cropSource)(width)
+    val corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
+    val converted   = applyOutputProfile(corrected, optimised = true)
+    val stripped    = stripMeta(converted)
+    val profiled    = applyOutputProfile(stripped, optimised = true)
+    val unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+    val qualified   = quality(unsharpened)(qual)
+    val addOutput   = {file:File => addDestImage(qualified)(file)}
     for {
-      outputFile <- createTempFile(s"thumb-", ".jpg", tempDir)
-      cropSource  = addImage(sourceFile)
-      thumbnailed = thumbnail(cropSource)(width)
-      corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
-      converted   = applyOutputProfile(corrected, optimised = true)
-      stripped    = stripMeta(converted)
-      profiled    = applyOutputProfile(stripped, optimised = true)
-      unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-      qualified   = quality(unsharpened)(qual)
-      addOutput   = addDestImage(qualified)(outputFile)
-      _          <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
-    } yield outputFile
+      outputFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
+      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
+    } yield (outputFile, thumbMimeType)
   }
 
-  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[File] = {
+  /**
+    * Given a source file containing a file which requires optimising to make it suitable for viewing in
+    * a browser, construct a new image file in the provided temp directory, and return
+    * * the file with metadata about it.
+    * @param sourceFile File containing browser viewable (ie not too big or colourful) image
+    * @param sourceMimeType Mime time of browser viewable file
+    * @param tempDir Location to create optimised file
+    * @return The file created and the mimetype of the content of that file, in a future.
+    */
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, MimeType)] = {
     for {
-      outputFile      <- createTempFile(s"transformed-", ".png", tempDir)
+      // png suffix is used by imagemagick to infer the required type
+      outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       transformSource = addImage(sourceFile)
       addOutput       = addDestImage(transformSource)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       _               <- checkForOutputFileChange(outputFile)
-    } yield outputFile
+    } yield (outputFile, optimisedMimeType)
   }
 
   // When a layered tiff is unpacked, the temp file (blah.something) is moved
@@ -175,6 +207,8 @@ class ImageOperations(playPath: String) extends GridLogging {
 }
 
 object ImageOperations {
+  val thumbMimeType = Jpeg
+  val optimisedMimeType = Png
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext): Future[Option[String]] = {
     // TODO: use mimeType to lookup other properties once we support other formats
 

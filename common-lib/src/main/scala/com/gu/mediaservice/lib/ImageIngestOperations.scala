@@ -20,19 +20,43 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   import ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 
-  def storeOriginal(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
-                   (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(imageBucket, fileKeyFromId(id), file, mimeType, meta)
+  def store(storableImage: StorableImage)
+           (implicit logMarker: LogMarker): Future[S3Object] = storableImage match {
+    case s:StorableOriginalImage => storeOriginalImage(s)
+    case s:StorableThumbImage => storeThumbnailImage(s)
+    case s:StorableOptimisedImage => storeOptimisedImage(s)
+  }
 
-  def storeThumbnail(id: String, file: File, mimeType: Option[MimeType])
-                    (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(thumbnailBucket, fileKeyFromId(id), file, mimeType)
+  private def storeOriginalImage(storableImage: StorableOriginalImage)
+                        (implicit logMarker: LogMarker): Future[S3Object] =
+    storeImage(imageBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType), storableImage.meta)
 
-  def storeOptimisedPng(id: String, file: File)
+  private def storeThumbnailImage(storableImage: StorableThumbImage)
+                         (implicit logMarker: LogMarker): Future[S3Object] =
+    storeImage(thumbnailBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
+
+  private def storeOptimisedImage(storableImage: StorableOptimisedImage)
                        (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(imageBucket, optimisedPngKeyFromId(id), file, Some(Png))
-  
+    storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
+
   def deleteOriginal(id: String): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
   def deletePng(id: String): Future[Unit] = deleteImage(imageBucket, optimisedPngKeyFromId(id))
 }
+
+sealed trait ImageWrapper {
+  val id: String
+  val file: File
+  val mimeType: MimeType
+  val meta: Map[String, String]
+}
+sealed trait StorableImage extends ImageWrapper
+
+case class StorableThumbImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
+case class StorableOriginalImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
+case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
+case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, mustUpload: Boolean = false) extends ImageWrapper {
+  def asStorableOptimisedImage = StorableOptimisedImage(id, file, mimeType, meta)
+  def asStorableThumbImage = StorableThumbImage(id, file, mimeType, meta)
+}
+
