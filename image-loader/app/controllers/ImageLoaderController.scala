@@ -3,6 +3,7 @@ package controllers
 import java.io.File
 import java.net.URI
 
+import akka.http.scaladsl.model.EntityStreamException
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -174,6 +175,7 @@ class ImageLoaderController(auth: Authentication,
           case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
           case _: IllegalArgumentException => FailureResponse.invalidUri
           case e: UserImageLoaderException => FailureResponse.badUserInput(e)
+          case e: EntityStreamException => FailureResponse.uploadFailed(e)
           case NonFatal(_) => FailureResponse.failedUriDownload
       }
     }

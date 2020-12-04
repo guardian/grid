@@ -1,5 +1,6 @@
 package lib
 
+import akka.http.scaladsl.model.EntityStreamException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{MimeType, UnsupportedMimeTypeException}
@@ -22,6 +23,14 @@ object FailureResponse extends ArgoHelpers {
     respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
   }
 
+  def uploadFailed(e: EntityStreamException): Result = {
+    logger.info("Unable to process file, possibly network issues", e)
+    respondError(
+      UnprocessableEntity,
+      "incomplete-upload",
+      s"Incomplete upload - is this a very large file, or a bad network?"
+    )
+  }
   def unsupportedMimeType(unsupported: UnsupportedMimeTypeException, supportedMimeTypes: List[MimeType]): Result = {
     logger.info(s"Rejected request to load file: mime-type is not supported", unsupported)
     respondError(
