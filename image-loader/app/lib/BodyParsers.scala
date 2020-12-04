@@ -79,7 +79,9 @@ object DigestBodyParser extends ArgoHelpers {
             validate(request, to, md)
           }
         } catch {
-          case e:Exception => Accumulator.done(failValidation(uploadFailed, e.getMessage))
+          case e:Exception =>
+          logger.info("Upload failed", e)
+            Accumulator.done(failValidation(uploadFailed, e.getMessage))
         }
       }
     }
