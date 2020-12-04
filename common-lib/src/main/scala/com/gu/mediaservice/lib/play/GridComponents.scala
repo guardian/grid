@@ -48,9 +48,10 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 class GridHttpErrorHandler(httpErrorHandler: HttpErrorHandler) extends HttpErrorHandler with Results {
 
   override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = exception match {
-    case e:UnexpectedException if e.cause.getClass.getCanonicalName == "akka.http.scaladsl.model.EntityStreamException" => {
+    case e:UnexpectedException => {
       logger.info(s"Upload failed? Request = $request", e)
-      Future.successful(UnprocessableEntity("The upload did not complete"))
+      httpErrorHandler.onServerError(request, e)
+//      Future.successful(UnprocessableEntity("The upload did not complete"))
     }
     case x => httpErrorHandler.onServerError(request, x)
   }
