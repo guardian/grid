@@ -90,6 +90,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     "com.typesafe.play" %% "play-logback" % "2.6.15", // needed when running the scripts
+    "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     // needed to parse conditional statements in `logback.xml`

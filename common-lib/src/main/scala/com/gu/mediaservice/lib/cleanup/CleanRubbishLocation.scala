@@ -2,6 +2,10 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
+/*
+  Cleans a small number of values that denote 'no value' - these are dropped to None
+  TODO: This could be applied to all fields in metadata (according to Akash/Mateusz)
+ */
 object CleanRubbishLocation extends MetadataCleaner {
 
   val Rubbish = """(\s*[.-]*\s*)""".r

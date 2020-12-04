@@ -5,6 +5,7 @@ import java.net.URI
 import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
+import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
@@ -33,7 +34,7 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
   private val s3 = mock[AmazonS3]
-  private val projector = new Projector(config, s3, imageOperations)
+  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources

@@ -7,6 +7,7 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.lib.{ImageIngestOperations, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
+import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.lib.net.URI
@@ -27,7 +28,7 @@ object Projector {
   import Uploader.toImageUploadOpsCfg
 
   def apply(config: ImageLoaderConfig, imageOps: ImageOperations)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps)
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, config.imageProcessor)
 }
 
 case class S3FileExtractedMetadata(
@@ -62,9 +63,10 @@ object S3FileExtractedMetadata {
 
 class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
-                imageOps: ImageOperations) {
+                imageOps: ImageOperations,
+                processor: ImageProcessor) {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
   def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -122,7 +124,8 @@ class Projector(config: ImageUploadOpsCfg,
 }
 
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
-                               imageOps: ImageOperations) {
+                               imageOps: ImageOperations,
+                               processor: ImageProcessor) {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
 
@@ -131,7 +134,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
     projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
-    fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly)
+    fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage)

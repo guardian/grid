@@ -2,6 +2,9 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
+/*
+ * Generic cleaner to fix up byline capitalisation
+ */
 object CapitaliseByline extends MetadataCleaner with CapitalisationFixer {
   // Note: probably not exhaustive list
   override val joinWords = List("van", "der", "den", "dem", "von", "de", "du", "la", "et")

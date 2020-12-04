@@ -2,6 +2,10 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
+/**
+  * Remove any explicit copyright character or string.
+  * TODO: Remove processing from copyright field (see PR#2778)
+  */
 object StripCopyrightPrefix extends MetadataCleaner {
 
   // Prefix-match any combination of copyright (separated by whitespace)

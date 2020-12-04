@@ -418,7 +418,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
 
   def applyProcessors(image: Image): Image =
-    SupplierProcessors.process(image)
+    SupplierProcessors.apply(image)
 
 
 }
