@@ -7,10 +7,11 @@ import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.logging.GridLogging
+import play.api.UnexpectedException
 import play.api.libs.streams.Accumulator
 import play.api.mvc._
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Either, Left, Right}
 
 case class DigestedFile(file: File, digest: String)
@@ -21,6 +22,12 @@ object DigestedFile {
 }
 
 object DigestBodyParser extends ArgoHelpers {
+
+  private def uploadFailed = respondError(
+    UnprocessableEntity,
+    "upload-failed",
+    s"Upload failed"
+  )
 
   private def missingContentLengthError = respondError(
     Status(411),
@@ -35,14 +42,16 @@ object DigestBodyParser extends ArgoHelpers {
   )
 
   def slurp(to: File)(implicit ec: ExecutionContext): Accumulator[ByteString, (MessageDigest, FileOutputStream)] = {
-    Accumulator(Sink.fold[(MessageDigest, FileOutputStream), ByteString](
-      (MessageDigest.getInstance("SHA-1"), new FileOutputStream(to))) {
+    val sink = (Sink.fold[(MessageDigest, FileOutputStream), ByteString]
+    (MessageDigest.getInstance("SHA-1"), new FileOutputStream(to))
+    {
       case ((md, os), data) =>
         md.update(data.toArray)
         os.write(data.toArray)
 
         (md, os)
     })
+    Accumulator(sink).recoverWith{case e:Exception => throw e}
   }
 
   def failValidation(foo: Result, message: String) = {
@@ -60,11 +69,18 @@ object DigestBodyParser extends ArgoHelpers {
     }
   }
 
-  def create(to: File)(implicit ex: ExecutionContext): BodyParser[DigestedFile] =
-    BodyParser("digested file, to=" + to) { request => {
-      slurp(to).map { case (md, os) =>
-        os.close()
-        validate(request, to, md)
+  def create(to: File)(implicit ex: ExecutionContext): BodyParser[DigestedFile] = {
+    BodyParser("digested file, to=" + to) {
+      request => {
+        try {
+          val accumulator = slurp(to)
+          accumulator.map { case (md, os) =>
+            os.close()
+            validate(request, to, md)
+          }
+        } catch {
+          case e:Exception => Accumulator.done(failValidation(uploadFailed, e.getMessage))
+        }
       }
     }
   }
