@@ -138,12 +138,9 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
   }
   ignore("not an image and does not look like one") {
     // this exception is thrown before the futures are resolved, and so does not need transformWith
-    try {
-      imageUpload("thisisnotanimage.stupid", Png, expectOptimisedFile = true)
-      fail("Should have thrown an error")
-    } catch {
-      case e: Exception => assert(e.getMessage == "File of unknown and undetectable mime type")
-    }
+    val caught = the [Exception] thrownBy
+        imageUpload("thisisnotanimage.stupid", Png, expectOptimisedFile = true)
+    assert(caught.getMessage == "File of unknown and undetectable mime type")
   }
 }
 
