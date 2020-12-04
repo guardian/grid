@@ -14,7 +14,7 @@ import play.filters.HttpFiltersComponents
 import play.filters.cors.CORSConfig.Origins
 import play.filters.cors.{CORSComponents, CORSConfig}
 import play.filters.gzip.GzipFilterComponents
-
+import akka.http.scaladsl.model.EntityStreamException
 import scala.concurrent.{ExecutionContext, Future}
 
 abstract class GridComponents[Config <: CommonConfig](context: Context, val loadConfig: Configuration => Config) extends BuiltInComponentsFromContext(context)
@@ -48,12 +48,11 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 class GridHttpErrorHandler(httpErrorHandler: HttpErrorHandler) extends HttpErrorHandler with Results {
 
   override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = exception match {
-    case e:RuntimeException if e.getClass.getCanonicalName == "akka.http.scaladsl.model.EntityStreamException" => {
+    case e:EntityStreamException => {
       logger.info(s"Upload failed? Request = $request", e)
       Future.successful(UnprocessableEntity("The upload did not complete"))
     }
-    case e if e.getClass.getCanonicalName.contains("EntityStreamException") =>
-      logger.info(s"Entity stream exception is $e")
+    case e  =>
       httpErrorHandler.onServerError(request, e)
   }
 
