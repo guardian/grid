@@ -5,15 +5,17 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogConfig}
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
-import play.api.{BuiltInComponentsFromContext, Configuration}
+import play.api.Logger.logger
+import play.api.http.{DefaultHttpErrorHandler, HttpErrorHandler}
+import play.api.{BuiltInComponentsFromContext, Configuration, UnexpectedException}
 import play.api.libs.ws.ahc.AhcWSComponents
-import play.api.mvc.EssentialFilter
+import play.api.mvc.{EssentialFilter, RequestHeader, Result, Results}
 import play.filters.HttpFiltersComponents
 import play.filters.cors.CORSConfig.Origins
 import play.filters.cors.{CORSComponents, CORSConfig}
 import play.filters.gzip.GzipFilterComponents
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 abstract class GridComponents[Config <: CommonConfig](context: Context, val loadConfig: Configuration => Config) extends BuiltInComponentsFromContext(context)
   with AhcWSComponents with HttpFiltersComponents with CORSComponents with GzipFilterComponents {
@@ -22,6 +24,9 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   // next thing is to set up log shipping
   LogConfig.initKinesisLogging(config)
   LogConfig.initLocalLogShipping(config)
+
+  override lazy val httpErrorHandler: HttpErrorHandler = new GridHttpErrorHandler(environment, configuration, sourceMapper,
+    Some(router))
 
   def buildInfo: BuildInfo
 
@@ -37,4 +42,14 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 
   lazy val management = new Management(controllerComponents, buildInfo)
   val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
+}
+
+class GridHttpErrorHandler extends DefaultHttpErrorHandler with Results {
+  override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = exception match {
+    case e:UnexpectedException if e.cause.getClass.getCanonicalName == "akka.http.scaladsl.model.EntityStreamException" => {
+      logger.info(s"Upload failed? Request = $request", e)
+      Future.successful(UnprocessableEntity("The upload did not complete"))
+    }
+    case x => super.onServerError(request, x)
+  }
 }
