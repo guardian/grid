@@ -17,8 +17,6 @@ import scala.concurrent.{ExecutionContext, Future}
   * This file expressly converts this to a 422 Unprocessable Entity response.
   *
   * The client is almost certainly ignoring the response anyway.
-  * @param mat
-  * @param ec
   */
 class ConnectionBrokenFilter(override val mat: Materializer)(implicit ec: ExecutionContext)
   extends Filter with Results with StrictLogging {
