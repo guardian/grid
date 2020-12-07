@@ -53,3 +53,9 @@ This is the [oidc-provider](../../dev/oidc-provider) and we can login to Grid us
 [`users.json`](../../dev/config/users.json), for example `grid-demo-account@guardian.co.uk`. There isn't a password, so enter any value.
 
 If you haven't used the `--with-local-auth` flag, you'll begin a Google authentication flow.
+
+## Cerebro
+
+To inspect the elasticsearch database, cerebro is included as part of the grids local stack.
+It can be accessed http://localhost:9090/#/connect?host=http:%2F%2Felasticsearch:9200
+For cerebro, the address of the elasticsearch instance is `http://elasticsearch:9200`
