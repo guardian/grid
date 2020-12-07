@@ -7,7 +7,20 @@ import play.api.mvc.{Filter, RequestHeader, Result, Results}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class EntityStreamExceptionFilter(override val mat: Materializer)(implicit ec: ExecutionContext)
+/**
+  * When the GRID is reloaded during an upload, or the network is throttled / flaky
+  * an attempt to POST a large file will result in an EntityStreamException being thrown
+  * on attempt to read the input stream.
+  * This is, by default, logged as a server error (5XX) but cannot be usefully addressed
+  * and effectively pollutes the logs.
+  *
+  * This file expressly converts this to a 422 Unprocessable Entity response.
+  *
+  * The client is almost certainly ignoring the response anyway.
+  * @param mat
+  * @param ec
+  */
+class ConnectionBrokenFilter(override val mat: Materializer)(implicit ec: ExecutionContext)
   extends Filter with Results with StrictLogging {
   override def apply(next: (RequestHeader) => Future[Result])(rh: RequestHeader): Future[Result] = {
     next(rh) recover {

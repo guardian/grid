@@ -33,7 +33,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     securityHeadersFilter,
     gzipFilter,
     new RequestLoggingFilter(materializer),
-    new EntityStreamExceptionFilter(materializer),
+    new ConnectionBrokenFilter(materializer),
     new RequestMetricFilter(config, materializer)
   )
 
