@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.play
 
+import akka.http.scaladsl.model.EntityStreamException
 import akka.stream.Materializer
 import com.gu.mediaservice.lib.auth.Authentication
 import net.logstash.logback.marker.Markers.appendEntries
@@ -71,6 +72,9 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
 
     val markers = MarkerContext(appendEntries((mandatoryMarkers ++ optionalMarkers).asJava))
     logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ERROR "$referer" ${duration}ms""")(markers)
-    logger.error(s"Error for ${request.method} ${request.uri}", throwable)
+    throwable match {
+      case _: EntityStreamException => logger.info(s"Upload failed with EntityStreamException. Request = $request")(markers)
+      case _ => logger.error(s"Error for ${request.method} ${request.uri}", throwable)(markers)
+    }
   }
 }
