@@ -67,6 +67,8 @@ lazy val commonLib = project("common-lib").settings(
     "com.typesafe.play" %% "play" % "2.6.20", ws,
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+    akkaHttpServer,
+    ws,
     "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2",
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
@@ -96,9 +98,7 @@ lazy val commonLib = project("common-lib").settings(
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
-    "org.codehaus.janino" % "janino" % "3.0.6",
-    akkaHttpServer,
-    ws
+    "org.codehaus.janino" % "janino" % "3.0.6"
 ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 )
