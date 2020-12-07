@@ -97,6 +97,8 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
+    akkaHttpServer,
+    ws
 ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 )
