@@ -49,7 +49,7 @@ class GridHttpErrorHandler(httpErrorHandler: HttpErrorHandler) extends HttpError
 
   override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = exception match {
     case e:EntityStreamException => {
-      logger.info(s"Upload failed? Request = $request", e)
+      logger.info(s"Upload failed with EntityStreamException. Request = $request")
       Future.successful(UnprocessableEntity("The upload did not complete"))
     }
     case e  =>
