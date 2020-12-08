@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.config.Services
-import play.api.mvc.{Request, Result}
+import play.api.mvc.{RequestHeader, Result}
 
 sealed trait Tier
 case object Internal extends Tier
@@ -28,7 +28,7 @@ object ApiAccessor extends ArgoHelpers {
     ApiAccessor(name, tier)
   }
 
-  def hasAccess(apiKey: ApiAccessor, request: Request[Any], services: Services): Boolean = apiKey.tier match {
+  def hasAccess(apiKey: ApiAccessor, request: RequestHeader, services: Services): Boolean = apiKey.tier match {
     case Internal => true
     case ReadOnly => request.method == "GET"
     case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")
