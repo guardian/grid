@@ -50,8 +50,10 @@ async.factory("race", [
 ]);
 
 async.service("queue", ['$timeout', ($timeout) => {
+  console.log("queue created!");
   return createQueue({
-    timeout: $timeout
+    timeout: $timeout,
+    maxWorkers: 1
   });
 }]);
 

@@ -78,7 +78,7 @@ export const createQueue = ({
         // ensuring it is run in a new call stack.
         setTimeout(() => {
           startWorker();
-        }, 0);
+        }, 100);
       });
   };
 
