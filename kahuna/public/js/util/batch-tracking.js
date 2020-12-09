@@ -5,7 +5,7 @@ export function trackAll($rootScope, key, input, fn) {
     let completed = 0;
     $rootScope.$broadcast("events:batch-operations:start",
         { key, completed: 0, total: input.size ? input.size : input.length });
-  const queue = createQueue({ maxWorkers: 30 });
+  const queue = createQueue({ maxWorkers: 15 });
   const results = input.map(item => {
     return new Promise((resolve, reject) =>
       queue.add({
