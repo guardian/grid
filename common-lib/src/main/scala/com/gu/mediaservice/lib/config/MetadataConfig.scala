@@ -75,7 +75,8 @@ object MetadataConfig {
     "Tom Stuttard"          -> "The Guardian",
     "Tricia De Courcy Ling" -> "The Guardian",
     "Walter Doughty"        -> "The Guardian",
-
+    "Eric Wadsworth"        -> "The Guardian",
+    
     "David Newell Smith"    -> "The Observer",
     "Tony McGrath"          -> "The Observer",
     "Catherine Shaw"        -> "The Observer",
