@@ -8,38 +8,40 @@ import Scalaz._
 
 import com.gu.mediaservice.model.{StaffPhotographer, ContractPhotographer, Photographer}
 
+case class KnownPhotographer(name: String, publication: String)
+
 object PhotographersList {
-  type Store = Map[String, String]
   type CreditBylineMap = Map[String, List[String]]
 
-  import MetadataConfig.{ staffPhotographers, contractedPhotographers }
+  import MetadataConfig.{ Store, staffPhotographers, contractedPhotographers }
 
   def creditBylineMap(store: Store): CreditBylineMap = store
-      .groupBy{ case (photographer, publication) => publication }
-      .map{ case (publication, photographers) => publication -> photographers.keys.toList.sortWith(_.toLowerCase < _.toLowerCase) }
+      .groupBy{ case KnownPhotographer(_, publication) => publication }
+      .map{ case (publication, photographers) => publication -> photographers.map(_.name).sortWith(_.toLowerCase < _.toLowerCase) }
 
-  def creditBylineMap(stores: List[Store]): CreditBylineMap =
-    stores.map(creditBylineMap).reduceLeft(_ |+| _)
-
-  def list(store: Store) = store.keys.toList.sortWith(_.toLowerCase < _.toLowerCase)
-
-  def getPublication(store: Store, name: String): Option[String] = store.get(name)
+  def list(store: Store) = store.map(_.name).sortWith(_.toLowerCase < _.toLowerCase)
 
   def caseInsensitiveLookup(store: Store, lookup: String) =
-    store.find{case (name, pub) => name.toLowerCase == lookup.toLowerCase}
+    store.reverse.find{case KnownPhotographer(name, _) => name.toLowerCase == lookup.toLowerCase}
 
   def getPhotographer(photographer: String): Option[Photographer] = {
     caseInsensitiveLookup(staffPhotographers, photographer).map {
-      case (name, pub) => StaffPhotographer(name, pub)
+      case KnownPhotographer(name, publication) => StaffPhotographer(name, publication)
     }.orElse(caseInsensitiveLookup(contractedPhotographers, photographer).map {
-      case (name, pub) => ContractPhotographer(name, Some(pub))
+      case KnownPhotographer(name, publication) => ContractPhotographer(name, Some(publication))
     })
   }
 }
 
 object MetadataConfig {
 
-  val externalStaffPhotographers: Map[String, String] = Map(
+  type Store = List[KnownPhotographer] // not a Map at this point to allow for duplicate keys (as some photographers take pics for multiple publications)
+
+  implicit class KnownPhotographerOps(name: String) {
+    def ->(publication: String): KnownPhotographer = KnownPhotographer(name, publication)
+  }
+
+  val externalStaffPhotographers: Store = List(
     // Current
     "Ben Doherty"     -> "The Guardian",
     "Bill Code"       -> "The Guardian",
@@ -73,6 +75,7 @@ object MetadataConfig {
     "Tom Stuttard"          -> "The Guardian",
     "Tricia De Courcy Ling" -> "The Guardian",
     "Walter Doughty"        -> "The Guardian",
+
     "David Newell Smith"    -> "The Observer",
     "Tony McGrath"          -> "The Observer",
     "Catherine Shaw"        -> "The Observer",
@@ -84,7 +87,7 @@ object MetadataConfig {
   // This is mainly used so when we ingest photos from Picdar, we make sure we categorise
   // them correctly.
   // TODO: Think about removin these once Picdar is dead.
-  val internalStaffPhotographers = List(
+  val internalStaffPhotographers: Store = List(
     "E Hamilton West"       -> "The Guardian",
     "Harriet St Johnston"   -> "The Guardian",
     "Lorna Roach"           -> "The Guardian",
@@ -92,11 +95,11 @@ object MetadataConfig {
     "Ken Saunders"          -> "The Guardian"
   )
 
-  val staffPhotographers = externalStaffPhotographers ++ internalStaffPhotographers
+  val staffPhotographers: Store = externalStaffPhotographers ++ internalStaffPhotographers
 
-  val contractedPhotographers: Map[String, String] = Map(
+  val contractedPhotographers: Store = List(
     "Alicia Canter"       -> "The Guardian",
-    "Antonio Zazueta"     -> "The Guardian",
+    "Antonio Olmos"       -> "The Guardian",
     "Christopher Thomond" -> "The Guardian",
     "David Levene"        -> "The Guardian",
     "Eamonn McCabe"       -> "The Guardian",
@@ -130,7 +133,7 @@ object MetadataConfig {
     "Guardian Design"
   )
 
-  val contractIllustrators: Map[String, String] = Map(
+  val contractIllustrators: Store = List(
     "Ben Lamb"              -> "The Guardian",
     "Andrzej Krauze"        -> "The Guardian",
     "David Squires"         -> "The Guardian",
@@ -144,6 +147,7 @@ object MetadataConfig {
     "Steve Bell"            -> "The Guardian",
     "Steven Appleby"        -> "The Guardian",
     "Ben Jennings"          -> "The Guardian",
+
     "Chris Riddell"         -> "The Observer",
     "David Foldvari"        -> "The Observer",
     "David Simonds"         -> "The Observer",
