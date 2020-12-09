@@ -53,7 +53,7 @@ async.service("queue", ['$timeout', ($timeout) => {
   console.log("queue created!");
   return createQueue({
     timeout: $timeout,
-    maxWorkers: 2
+    maxWorkers: 4
   });
 }]);
 
