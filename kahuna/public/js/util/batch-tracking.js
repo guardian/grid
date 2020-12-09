@@ -1,27 +1,29 @@
-import { createQueue } from "./queue";
-
 // TODO MRB: invoke function lazily, does it improve UI jank?
 export function trackAll($rootScope, key, input, fn) {
     let completed = 0;
     $rootScope.$broadcast("events:batch-operations:start",
-        { key, completed: 0, total: input.size ? input.size : input.length });
-  const queue = createQueue({ maxWorkers: 30 });
-  const results = input.map(item => {
-    return new Promise((resolve, reject) =>
-      queue.add({
-        func: () => fn(item).then(result => {
-          completed++;
-          $rootScope.$broadcast("events:batch-operations:progress", { key, completed });
-          return result;
-        }),
-        reject,
-        resolve
-      })
-    );
-  });
+      { key, completed: 0, total: input.size ? input.size : input.length });
 
+  const loop = async (tasks) => {
 
-    return Promise.all(results).finally(() => {
+    if (tasks.length === 0) {
+      return;
+    }
+
+    const head = tasks.slice(0, 30);;
+    const tail = tasks.slice(30);
+
+    await Promise.all(head.map(async (task) => {
+      await fn(task);
+      completed++;
+      $rootScope.$broadcast("events:batch-operations:progress", { key, completed });
+    }));
+
+    return loop(tail);
+  };
+
+    return loop(input).finally(() => {
         $rootScope.$broadcast("events:batch-operations:complete", { key });
     });
 }
+
