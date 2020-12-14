@@ -2,6 +2,7 @@ import play.sbt.PlayImport.PlayKeys._
 
 import scala.sys.process._
 import scala.util.control.NonFatal
+import scala.collection.JavaConverters._
 
 val commonSettings = Seq(
   scalaVersion := "2.12.10",
@@ -61,6 +62,18 @@ val awsSdkVersion = "1.11.302"
 val elastic4sVersion = "7.3.5"
 val okHttpVersion = "3.12.1"
 
+val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
+
+val bbcCommonLibSettings: SettingsDefinition = if (bbcBuildProcess) {
+  Seq(
+    // insert the BBC version of pan-domain-auth here
+  )
+} else {
+  Seq(
+    libraryDependencies ++= Seq("com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2")
+  )
+}
+
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
@@ -69,7 +82,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
     akkaHttpServer,
     ws,
-    "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2",
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -99,9 +111,10 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6"
-),
+  ),
+
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
-)
+).settings(bbcCommonLibSettings)
 
 lazy val auth = playProject("auth", 9011)
 
