@@ -58,14 +58,15 @@ async.factory("apiPoll", [
       console.log("WAIT");
       setTimeout(() => resolve(), 1000 * (n + 1));
     });
-    const queue = new PQueue({ concurrency: 30 });
+    const queue = new PQueue({ concurrency: 10 });
     const poll = async (func, n) => {
-      await wait();
 
       const [{status, value}] = await Promise.allSettled([func()]);
       if (status === 'fulfilled') {
         return value;
       }
+
+      await wait();
       const startWait = performance.mark("START");
 
       console.log('waited',performance.measure(startWait));
