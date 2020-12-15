@@ -5,9 +5,9 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-case class ImageMetadata(
-/* these are standard metadata fields that exist in multiple schemas,
+/* following are standard metadata fields that exist in multiple schemas,
 most canonical being https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata */
+case class ImageMetadata(
   dateTaken:           Option[DateTime] = None,
   description:         Option[String]   = None,
   credit:              Option[String]   = None,
