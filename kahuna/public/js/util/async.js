@@ -58,7 +58,7 @@ async.factory("apiPoll", [
       console.log("WAIT");
       setTimeout(() => resolve(), 1000 * (n + 1));
     });
-    const queue = new PQueue({ concurrency: 1 });
+    const queue = new PQueue({ concurrency: parseInt(Window.prompt("pick a number")) });
     const poll = async (func, n) => {
 
       const [{status, value}] = await Promise.allSettled([func()]);
