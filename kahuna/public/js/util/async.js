@@ -1,7 +1,9 @@
 import angular from "angular";
-import { createQueue } from "./queue";
+import PQueue from "p-queue";
 
 export var async = angular.module("util.async", []);
+
+
 
 /**
  * Return a lazy function that will yield before calling the input `func`.
@@ -49,21 +51,20 @@ async.factory("race", [
   }
 ]);
 
-async.service("queue", ['$timeout', ($timeout) => {
-  return createQueue({
-    timeout: $timeout
-  });
-}]);
 
 async.factory("apiPoll", [
-  "$q",
-  "queue",
-  ($q, queue) => {
-    return func => {
-      let {promise, resolve, reject} = $q.defer();
-      queue.add({ resolve, reject, func });
-      return promise;
+  "delay",
+  (delay) => {
+    const queue = new PQueue({ concurrency: 30 });
+    const poll = async (func, n) => {
+      const [{status, value}] = await Promise.allSettled([func()]);
+      if (status === 'fulfilled') {
+        return value;
+      }
+      await delay(1000 * n);
+      return queue.add(() => poll(func, n + 1));
     };
+    return func => queue.add(() => poll(func, 1));
   }
 ]);
 
