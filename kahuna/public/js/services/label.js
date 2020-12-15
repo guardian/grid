@@ -56,8 +56,8 @@ labelService.factory('labelService',
       return image.data.userMetadata.data.labels
         .post({ data: labels })
           .then(newLabels => {
-            console.log(labels, newLabels)
-           return  apiPoll(() => untilLabelsEqual(image, newLabels.data))
+            console.log(labels, newLabels);
+           return  apiPoll(() => untilLabelsEqual(image, newLabels.data));
           })
             .then(newImage => {
                 $rootScope.$emit('image-updated', newImage, image);
