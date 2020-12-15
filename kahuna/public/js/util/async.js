@@ -53,15 +53,22 @@ async.factory("race", [
 
 
 async.factory("apiPoll", [
-  "delay",
-  (delay) => {
+  () => {
+    const wait = (n) => new Promise(resolve => {
+      console.log("WAIT");
+      setTimeout(() => resolve(), 1000 * (n + 1));
+    });
     const queue = new PQueue({ concurrency: 30 });
     const poll = async (func, n) => {
+      await wait();
+
       const [{status, value}] = await Promise.allSettled([func()]);
       if (status === 'fulfilled') {
         return value;
       }
-      await delay(1000 * n);
+      const startWait = performance.mark("START");
+
+      console.log('waited',performance.measure(startWait));
       return queue.add(() => poll(func, n + 1));
     };
     return func => queue.add(() => poll(func, 1));
