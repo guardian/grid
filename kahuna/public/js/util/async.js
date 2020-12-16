@@ -52,9 +52,9 @@ async.factory("race", [
 ]);
 
 
+const queue = new PQueue({ concurrency: 10 });
 async.factory("apiPoll", [
   () => {
-    const queue = new PQueue({ concurrency: 10 });
     const wait = () => new Promise(resolve => {
       console.log("WAIT");
       setTimeout(() => resolve(), 4000);
@@ -62,7 +62,9 @@ async.factory("apiPoll", [
     const poll = async (func, n) => {
 
       const [{ status, value }] = await Promise.allSettled([
-        queue.add(()=>func())
+        queue.add(async () => {
+           return await func();
+        })
       ]);
       if (status === 'fulfilled') {
         return value;

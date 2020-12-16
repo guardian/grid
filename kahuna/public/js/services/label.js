@@ -1,11 +1,12 @@
 import angular from 'angular';
 import { trackAll } from '../util/batch-tracking';
+import PQueue from "p-queue";
 
 var labelService = angular.module('kahuna.services.label', []);
 
 labelService.factory('labelService',
-                     ['$rootScope', '$q', 'apiPoll', 'imageAccessor',
-                      function ($rootScope, $q, apiPoll, imageAccessor) {
+                     ['$rootScope', '$q', 'apiPoll', 'imageAccessor','$timeout',
+                      function ($rootScope, $q, apiPoll, imageAccessor, $timeout) {
 
     function readLabelName(label) {
         return label.data;
@@ -21,8 +22,7 @@ labelService.factory('labelService',
             readLabelsName(labelsB).sort()
         );
     }
-
-    function untilLabelsEqual(image, expectedLabels) {
+                        function untilLabelsEqual(image, expectedLabels) {
         return image.get().then(apiImage => {
             const apiLabels = imageAccessor.readLabels(apiImage);
             if (labelsEquals(apiLabels, expectedLabels)) {
@@ -61,7 +61,7 @@ labelService.factory('labelService',
           })
             .then(newImage => {
                 $rootScope.$emit('image-updated', newImage, image);
-                return image;
+              return image;
             });
     }
 
@@ -75,19 +75,26 @@ labelService.factory('labelService',
                               .post({ data: labels });
                           };
                           const checkAdd = (image, result) => {
-                            return apiPoll(() => untilLabelsEqual(image, result.data)).then(
-                              (newImage) => {
-                                $rootScope.$emit(
-                                  "image-updated",
-                                  newImage,
-                                  image
-                                );
-                                return image;
-                              }
-                            );
+                            return apiPoll(() => untilLabelsEqual(image, result.data));
                           };
+                          const queue = new PQueue({ concurrency: 1 });
+
+                          const updateGrid = async (image, newImage) => queue.add(()=>new Promise(resolve => {
+                            console.log(image, 'LOOK AT maxHeight: ');
+                            $timeout(() => {
+                              $rootScope.$emit(
+                                "image-updated",
+                                newImage,
+                                image
+                              );
+                              $timeout(() => {
+                                resolve();
+                              }, 60);
+                            },60);
+                            return newImage;
+                          }));
                           console.log(checkAdd);
-        return trackAll($rootScope, "label", images, sendAdd, checkAdd);
+        return trackAll($rootScope, "label", images, sendAdd, checkAdd, updateGrid);
     }
 
     function batchRemove (images, label) {
