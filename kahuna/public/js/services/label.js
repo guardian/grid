@@ -1,6 +1,5 @@
 import angular from 'angular';
 import { trackAll } from '../util/batch-tracking';
-// import PQueue from "p-queue";
 
 var labelService = angular.module('kahuna.services.label', []);
 
@@ -42,7 +41,7 @@ labelService.factory('labelService',
             return existingLabels[labelIndex]
                 .delete()
                 .then(newLabels => apiPoll(() => untilLabelsEqual(image, newLabels.data)))
-                .then(newImage => {
+              .then(newImage => {
                     $rootScope.$emit('image-updated', newImage, image);
                     return newImage;
                 });
@@ -79,24 +78,8 @@ labelService.factory('labelService',
                           const checkAdd = (image, result) => {
                             return apiPoll(() => untilLabelsEqual(image, result.data));
                           };
-                          // const queue = new PQueue({ concurrency: 1 });
 
-                          // const updateGrid = async (image, newImage) => queue.add(()=>new Promise(resolve => {
-                          //   console.log(image, 'LOOK AT maxHeight: ');
-                          //   $timeout(() => {
-                          //     $rootScope.$emit(
-                          //       "image-updated",
-                          //       newImage,
-                          //       image
-                          //     );
-                          //     $timeout(() => {
-                          //       resolve();
-                          //     }, 60);
-                          //   },60);
-                          //   return newImage;
-                          // }));
-                          console.log(checkAdd);
-                          return trackAll($rootScope, "label", images, sendAdd, checkAdd);//, updateGrid);
+                          return trackAll($rootScope, "label", images, [sendAdd, checkAdd], "image-updated");
     }
 
     function batchRemove (images, label) {
