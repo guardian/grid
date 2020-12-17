@@ -38,7 +38,7 @@ export function trackAll($rootScope, key, input, [fns], emit) {
     .then(result => {
       if (emit) {
         result.map(([old, neu]) => {
-          $rootScope.$emit(emit, old, neu);
+          $rootScope.$emit(emit, neu, old);
         });
       }
     }).finally(() => {
