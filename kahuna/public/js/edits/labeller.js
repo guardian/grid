@@ -29,7 +29,8 @@ labeller.controller('LabellerCtrl', [
         ctrl.labels = newLabels;
     });
 
-    function saveFailed() {
+     function saveFailed(e) {
+       console.error(e);
         $window.alert('Something went wrong when saving, please try again!');
     }
 

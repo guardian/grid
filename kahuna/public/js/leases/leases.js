@@ -92,10 +92,11 @@ leases.controller('LeasesCtrl', [
                   }
                 }
 
-                leaseService.batchAdd(ctrl.newLease, ctrl.images)
-                    .catch(() =>
-                        alertFailed('Something went wrong when saving, please try again.')
-                )
+              leaseService.batchAdd(ctrl.newLease, ctrl.images)
+                .catch((e) => {
+                  console.error(e);
+                  alertFailed('Something went wrong when saving, please try again.');
+                })
                 .finally(() => {
                     ctrl.resetLeaseForm();
                 });
