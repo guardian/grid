@@ -1,12 +1,14 @@
 import angular from 'angular';
 import { trackAll } from '../util/batch-tracking';
-import PQueue from "p-queue";
+// import PQueue from "p-queue";
 
 var labelService = angular.module('kahuna.services.label', []);
 
 labelService.factory('labelService',
                      ['$rootScope', '$q', 'apiPoll', 'imageAccessor','$timeout',
-                      function ($rootScope, $q, apiPoll, imageAccessor, $timeout) {
+                       // eslint-disable-next-line no-unused-vars
+                       function ($rootScope, $q, apiPoll, imageAccessor, $timeout) {
+
 
     function readLabelName(label) {
         return label.data;
