@@ -490,7 +490,6 @@ textarea.ng-invalid {
     width: 50px;
     height: 50px;
     background: url(/assets/images/grid-logo.svg) no-repeat center;
-    background-size: 32px;
     margin-right: 0;
     vertical-align: top;
     float: left;
