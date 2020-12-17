@@ -4,9 +4,9 @@ import { trackAll } from '../util/batch-tracking';
 var labelService = angular.module('kahuna.services.label', []);
 
 labelService.factory('labelService',
-                     ['$rootScope', '$q', 'apiPoll', 'imageAccessor','$timeout',
+                     ['$rootScope', '$q', 'apiPoll', 'imageAccessor',
                        // eslint-disable-next-line no-unused-vars
-                       function ($rootScope, $q, apiPoll, imageAccessor, $timeout) {
+                       function ($rootScope, $q, apiPoll, imageAccessor) {
 
 
     function readLabelName(label) {
@@ -35,35 +35,11 @@ labelService.factory('labelService',
     }
 
     function remove (image, label) {
-        var existingLabels = imageAccessor.readLabels(image);
-        var labelIndex = existingLabels.findIndex(lbl => lbl.data === label);
-        if (labelIndex !== -1) {
-            return existingLabels[labelIndex]
-                .delete()
-                .then(newLabels => apiPoll(() => untilLabelsEqual(image, newLabels.data)))
-              .then(newImage => {
-                    $rootScope.$emit('image-updated', newImage, image);
-                    return newImage;
-                });
-        }
-
-        // no-op
-        return Promise.resolve(image);
+      return batchRemove([image], label);
     }
 
     function add (image, labels) {
-        labels = labels.filter(label => label && label.trim().length > 0);
-
-      return image.data.userMetadata.data.labels
-        .post({ data: labels })
-          .then(newLabels => {
-            console.log(labels, newLabels);
-           return  apiPoll(() => untilLabelsEqual(image, newLabels.data));
-          })
-            .then(newImage => {
-                $rootScope.$emit('image-updated', newImage, image);
-              return image;
-            });
+      return batchAdd([image], labels);
     }
 
 
@@ -75,19 +51,31 @@ labelService.factory('labelService',
                             return image.data.userMetadata.data.labels
                               .post({ data: labels });
                           };
-                          const checkAdd = (image, result) => {
-                            return apiPoll(() => untilLabelsEqual(image, result.data));
+                          const checkAdd = async (image, result) => {
+                            const r = await apiPoll(() => untilLabelsEqual(image, result.data));
+                            console.log(r, "AAA");
+                            return r;
                           };
 
                           return trackAll($rootScope, "label", images, [sendAdd, checkAdd], "image-updated");
     }
 
-    function batchRemove (images, label) {
-        const affectedImages = images.filter(image =>
-            imageAccessor.readLabels(image).some(({ data }) => data === label)
-        );
+                         function batchRemove(images, label) {
 
-        return trackAll($rootScope, "label", affectedImages, image => remove(image, label));
+                           const imagesWithLabel = images.map(image => {
+                             const labels = imageAccessor.readLabels(image);
+                             const l = labels.find(({ data }) => data === label);
+                             return { image, label: l};
+                           }).filter(({label})=>label !== undefined);
+                           if (imagesWithLabel.length === 0) {
+                             return Promise.resolve();
+                           }
+
+                           return trackAll($rootScope, "label", imagesWithLabel, [
+                             ({ label }) => label.delete(),
+                             ({ image }, result) => apiPoll(() => untilLabelsEqual(image, result.data))
+                           ],
+                             'image-updated');
     }
 
     return {
