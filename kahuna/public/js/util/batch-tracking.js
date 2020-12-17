@@ -3,7 +3,7 @@ import PQueue from "p-queue";
 const concurrency = 30;
 
 // TODO MRB: invoke function lazily, does it improve UI jank?
-export function trackAll($rootScope, key, input, [fns], emit) {
+export function trackAll($rootScope, key, input, fns, emit) {
   const withQueues = (Array.isArray(fns) ? fns : [fns]).map((fn) => {
     const queue = new PQueue({ concurrency });
     return (item, result) => queue.add(() => fn(item, result));
@@ -17,6 +17,7 @@ export function trackAll($rootScope, key, input, [fns], emit) {
   });
 
   const process = async (item, result, [fn, ...remaining]) => {
+    console.log(fn, result);
 
     if (fn == undefined) {
       completed++;
@@ -25,20 +26,19 @@ export function trackAll($rootScope, key, input, [fns], emit) {
         completed
       });
       //TODO ^ Batch per fn
-      console.log([item, result]);
-      return [item, result];
+      return result;
     }
 
     return process(item,  await fn(item, result), remaining);
   };
 
-  const results = input.map((item) => process(item, undefined, withQueues));
+  const resultsPromises = input.map((item) => process(item, undefined, withQueues));
 
-  return Promise.all(results)
-    .then(result => {
+  return Promise.all(resultsPromises)
+    .then(results => {
       if (emit) {
-        result.map(([old, neu]) => {
-          $rootScope.$emit(emit, neu, old);
+        results.map((result) => {
+          $rootScope.$emit(emit, result);
         });
       }
     }).finally(() => {
