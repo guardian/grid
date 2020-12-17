@@ -77,24 +77,24 @@ labelService.factory('labelService',
                           const checkAdd = (image, result) => {
                             return apiPoll(() => untilLabelsEqual(image, result.data));
                           };
-                          const queue = new PQueue({ concurrency: 1 });
+                          // const queue = new PQueue({ concurrency: 1 });
 
-                          const updateGrid = async (image, newImage) => queue.add(()=>new Promise(resolve => {
-                            console.log(image, 'LOOK AT maxHeight: ');
-                            $timeout(() => {
-                              $rootScope.$emit(
-                                "image-updated",
-                                newImage,
-                                image
-                              );
-                              $timeout(() => {
-                                resolve();
-                              }, 60);
-                            },60);
-                            return newImage;
-                          }));
+                          // const updateGrid = async (image, newImage) => queue.add(()=>new Promise(resolve => {
+                          //   console.log(image, 'LOOK AT maxHeight: ');
+                          //   $timeout(() => {
+                          //     $rootScope.$emit(
+                          //       "image-updated",
+                          //       newImage,
+                          //       image
+                          //     );
+                          //     $timeout(() => {
+                          //       resolve();
+                          //     }, 60);
+                          //   },60);
+                          //   return newImage;
+                          // }));
                           console.log(checkAdd);
-        return trackAll($rootScope, "label", images, sendAdd, checkAdd, updateGrid);
+                          return trackAll($rootScope, "label", images, sendAdd, checkAdd);//, updateGrid);
     }
 
     function batchRemove (images, label) {
