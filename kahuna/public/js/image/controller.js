@@ -230,6 +230,8 @@ image.controller('ImageCtrl', [
     }
 
     const freeImageUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
+      console.log("image-update recvd in image controller");
+      console.log(e, updatedImage);
       if (ctrl.image.data.id === updatedImage.data.id) {
         ctrl.image = updatedImage;
       }

@@ -94,7 +94,8 @@ module.controller('grImageMetadataCtrl', [
             });
         }
 
-        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
+      const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
+        console.log('image update recvd in gr-image-metadata', e, updatedImage);
             ctrl.image = updatedImage;
             ctrl.usageRights = imageService(ctrl.image).usageRights;
             ctrl.metadata = updatedImage.data.metadata;

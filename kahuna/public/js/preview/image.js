@@ -39,8 +39,11 @@ image.controller('uiPreviewImageCtrl', [
         imageUsagesService) {
     var ctrl = this;
 
-    const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
+      const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
+        console.log("image-update recvd in image preview controller");
+        console.log(e, updatedImage);
         if (ctrl.image.data.id === updatedImage.data.id) {
+          console.log(e, updatedImage);
             ctrl.states = imageService(updatedImage).states;
             ctrl.image = updatedImage;
         }
