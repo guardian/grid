@@ -2,8 +2,26 @@ import PQueue from "p-queue";
 
 const concurrency = 30;
 
+const wait = (t) => new Promise(resolve => {
+  setTimeout(resolve, t);
+});
+
+const chunkSize = 1;
+const chunkWait = 1000;
+
+const chunkAndWait = async (f, l) => {
+  const head = l.slice(0, chunkSize);
+  const tail = l.slice(chunkSize);
+  if (head.length === 0) {
+    return;
+  }
+  await f(head);
+  await wait(chunkWait);
+  return chunkAndWait(f, tail);
+};
+
 // TODO MRB: invoke function lazily, does it improve UI jank?
-export function trackAll($rootScope, key, input, fns, emit) {
+export const trackAll = async ($rootScope, key, input, fns, emit) => {
   const withQueues = (Array.isArray(fns) ? fns : [fns]).map((fn) => {
     const queue = new PQueue({ concurrency });
     return (item, result) => queue.add(() => fn(item, result));
@@ -29,17 +47,22 @@ export function trackAll($rootScope, key, input, fns, emit) {
       return result;
     }
 
-    return process(item,  await fn(item, result), remaining);
+    return process(item, await fn(item, result), remaining);
   };
 
   const resultsPromises = input.map((item) => process(item, undefined, withQueues));
 
-  return Promise.all(resultsPromises)
-    .then(results => {
-      if (emit) {
-          $rootScope.$emit(emit, results);
-      }
-    }).finally(() => {
-    $rootScope.$broadcast("events:batch-operations:complete", { key });
-  });
-}
+  const results = await Promise.allSettled(resultsPromises);
+  const successes = results.filter(({ status }) => status === 'fulfilled').map(({ value }) => value);
+
+
+
+  $rootScope.$broadcast("events:batch-operations:complete", { key });
+  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: 100, completed: 100});
+
+  await chunkAndWait((l) => $rootScope.$emit(emit, l), successes);
+
+  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines.", total: 100, completed:0 });
+
+  return;
+};
