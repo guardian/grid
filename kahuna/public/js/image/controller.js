@@ -237,6 +237,13 @@ image.controller('ImageCtrl', [
       }
     });
 
+    const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+      const maybeUpdatedImage = updatedImages.some(updatedImage => ctrl.image.data.id === updatedImage.data.id);
+      if (maybeUpdatedImage) {
+        ctrl.image = maybeUpdatedImage;
+      }
+    });
+
     const freeImageDeleteListener = $rootScope.$on('images-deleted', () => {
       $state.go('search');
     });
@@ -251,7 +258,8 @@ image.controller('ImageCtrl', [
       }
     });
 
-    $scope.$on('$destroy', function() {
+    $scope.$on('$destroy', function () {
+      freeImagesUpdateListener();
       freeImageUpdateListener();
       freeImageDeleteListener();
       freeImageDeleteFailListener();

@@ -47,7 +47,16 @@ image.controller('uiPreviewImageCtrl', [
             ctrl.states = imageService(updatedImage).states;
             ctrl.image = updatedImage;
         }
-    });
+      });
+
+      const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+        const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
+        console.log(maybeUpdatedImage);
+        if (maybeUpdatedImage) {
+          ctrl.states = imageService(maybeUpdatedImage).states;
+            ctrl.image = maybeUpdatedImage;
+        }
+      });
 
     ctrl.states = imageService(ctrl.image).states;
 
@@ -66,7 +75,8 @@ image.controller('uiPreviewImageCtrl', [
     const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
 
     $scope.$on('$destroy', function() {
-        freeUpdateListener();
+      freeUpdateListener();
+      freeImagesUpdateListener();
     });
 
     inject$($scope, recentUsages$, ctrl, 'recentUsages');

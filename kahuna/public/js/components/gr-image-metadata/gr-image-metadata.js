@@ -13,94 +13,96 @@ export const module = angular.module('gr.imageMetadata', [
 ]);
 
 module.controller('grImageMetadataCtrl', [
-    '$rootScope',
-    '$scope',
-    '$window',
-    'imageService',
-    'editsService',
-    'mediaApi',
-    'editsApi',
-    'collections',
+  '$rootScope',
+  '$scope',
+  '$window',
+  'imageService',
+  'editsService',
+  'mediaApi',
+  'editsApi',
+  'collections',
 
-    function ($rootScope,
-              $scope,
-              $window,
-              imageService,
-              editsService,
-              mediaApi,
-              editsApi,
-              collections) {
+  function ($rootScope,
+    $scope,
+    $window,
+    imageService,
+    editsService,
+    mediaApi,
+    editsApi,
+    collections) {
 
-        let ctrl = this;
+    let ctrl = this;
 
-        ctrl.showUsageRights = false;
-        ctrl.usageRights = imageService(ctrl.image).usageRights;
+    ctrl.showUsageRights = false;
+    ctrl.usageRights = imageService(ctrl.image).usageRights;
 
-        // Alias for convenience in view
-        ctrl.metadata = ctrl.image.data.metadata;
-        ctrl.identifiers = ctrl.image.data.identifiers;
+    // Alias for convenience in view
+    ctrl.metadata = ctrl.image.data.metadata;
+    ctrl.identifiers = ctrl.image.data.identifiers;
 
-        ctrl.isUsefulMetadata = isUsefulMetadata;
+    ctrl.isUsefulMetadata = isUsefulMetadata;
 
-        ctrl.hasLocationInformation = ctrl.metadata.subLocation ||
-            ctrl.metadata.city ||
-            ctrl.metadata.state ||
-            ctrl.metadata.country;
+    ctrl.hasLocationInformation = ctrl.metadata.subLocation ||
+      ctrl.metadata.city ||
+      ctrl.metadata.state ||
+      ctrl.metadata.country;
 
-        // Map of metadata location field to query filter name
-        ctrl.locationFieldMap = {
-            'subLocation': 'location',
-            'city': 'city',
-            'state': 'state',
-            'country': 'country'
-        };
+    // Map of metadata location field to query filter name
+    ctrl.locationFieldMap = {
+      'subLocation': 'location',
+      'city': 'city',
+      'state': 'state',
+      'country': 'country'
+    };
 
-        const ignoredMetadata = [
-            'title', 'description', 'copyright', 'keywords', 'byline',
-            'credit', 'subLocation', 'city', 'state', 'country',
-            'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
-        ];
+    const ignoredMetadata = [
+      'title', 'description', 'copyright', 'keywords', 'byline',
+      'credit', 'subLocation', 'city', 'state', 'country',
+      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
+    ];
 
-        ctrl.metadataSearch = (field, q) => {
-            return mediaApi.metadataSearch(field,  { q }).then(resource => {
-                return resource.data.map(d => d.key);
-            });
-        };
+    ctrl.metadataSearch = (field, q) => {
+      return mediaApi.metadataSearch(field, { q }).then(resource => {
+        return resource.data.map(d => d.key);
+      });
+    };
 
-        ctrl.credits = function(searchText) {
-            return ctrl.metadataSearch('credit', searchText);
-        };
+    ctrl.credits = function (searchText) {
+      return ctrl.metadataSearch('credit', searchText);
+    };
 
-        ctrl.setUsageCategory = (cats, categoryCode) => {
-            const usageCategory = cats.find(cat => cat.value === categoryCode);
+    ctrl.setUsageCategory = (cats, categoryCode) => {
+      const usageCategory = cats.find(cat => cat.value === categoryCode);
 
-            ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
-        };
+      ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
+    };
 
-        editsApi.getUsageRightsCategories().then((cats) => {
-            ctrl.usageCategories = cats;
-            ctrl.setUsageCategory(cats, ctrl.usageRights.data.category);
-        });
+    editsApi.getUsageRightsCategories().then((cats) => {
+      ctrl.usageCategories = cats;
+      ctrl.setUsageCategory(cats, ctrl.usageRights.data.category);
+    });
 
-        updateAbilities(ctrl.image);
+    updateAbilities(ctrl.image);
 
-        function isUsefulMetadata(metadataKey) {
-            return ignoredMetadata.indexOf(metadataKey) === -1;
-        }
+    function isUsefulMetadata(metadataKey) {
+      return ignoredMetadata.indexOf(metadataKey) === -1;
+    }
 
-        function updateAbilities(image) {
-            editsService.canUserEdit(image).then(editable => {
-                ctrl.userCanEdit = editable;
-            });
-        }
+    function updateAbilities(image) {
+      editsService.canUserEdit(image).then(editable => {
+        ctrl.userCanEdit = editable;
+      });
+    }
 
-      const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
-        console.log('image update recvd in gr-image-metadata', e, updatedImage);
-            ctrl.image = updatedImage;
-            ctrl.usageRights = imageService(ctrl.image).usageRights;
-            ctrl.metadata = updatedImage.data.metadata;
-            ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
-        });
+    const freeUpdateHandler = (updatedImage) => {
+      console.log('image update recvd in gr-image-metadata', updatedImage);
+      ctrl.image = updatedImage;
+      ctrl.usageRights = imageService(ctrl.image).usageRights;
+      ctrl.metadata = updatedImage.data.metadata;
+      ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
+    };
+
+    const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => freeUpdateHandler(updatedImage));
 
         ctrl.updateMetadataField = function (field, value) {
             return editsService.updateMetadataField(ctrl.image, field, value)

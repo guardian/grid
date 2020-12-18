@@ -57,7 +57,7 @@ labelService.factory('labelService',
                             return r;
                           };
 
-                          return trackAll($rootScope, "label", images, [sendAdd, checkAdd], 'image-updated');
+                          return trackAll($rootScope, "label", images, [sendAdd, checkAdd], 'images-updated');
     }
 
                          function batchRemove(images, label) {

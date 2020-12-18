@@ -37,9 +37,7 @@ export function trackAll($rootScope, key, input, fns, emit) {
   return Promise.all(resultsPromises)
     .then(results => {
       if (emit) {
-        results.map((result) => {
-          $rootScope.$emit(emit, result);
-        });
+          $rootScope.$emit(emit, results);
       }
     }).finally(() => {
     $rootScope.$broadcast("events:batch-operations:complete", { key });
