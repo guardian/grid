@@ -22,7 +22,8 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
                      override val parser: BodyParser[AnyContent],
                      override val wsClient: WSClient,
                      override val controllerComponents: ControllerComponents,
-                     override val executionContext: ExecutionContext)
+                     override val executionContext: ExecutionContext,
+                     userValidator: UserValidator)
 
   extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers {
 
@@ -38,8 +39,6 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   val keyStore = new KeyStore(config.authKeyStoreBucket, config)
 
   keyStore.scheduleUpdates(actorSystem.scheduler)
-
-  private val userValidationEmailDomain = config.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
 
   override lazy val panDomainSettings = buildPandaSettings()
 
@@ -66,7 +65,7 @@ class Authentication(config: CommonConfig, actorSystem: ActorSystem,
   }
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+    userValidator.validateUser(authedUser, multifactorChecker)
   }
 
   def getOnBehalfOfPrincipal(principal: Principal, originalRequest: Request[_]): OnBehalfOfPrincipal = principal match {
@@ -113,10 +112,12 @@ object Authentication {
 
   def getIdentity(principal: Principal): String = principal.accessor.identity
 
-  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
-    val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
-    val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
+  def guardianUserValidator(userValidationEmailDomain: String): UserValidator = new UserValidator {
+    override def validateUser(authedUser: AuthenticatedUser, maybeMultiFactorChecker: Option[Google2FAGroupChecker]): Boolean = {
+      val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
+      val passesMultifactor = if(maybeMultiFactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
 
-    isValidDomain && passesMultifactor
+      isValidDomain && passesMultifactor
+    }
   }
 }

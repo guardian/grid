@@ -1,9 +1,11 @@
 package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.UserValidator
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogConfig}
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
+import com.gu.pandomainauth.model.AuthenticatedUser
 import play.api.ApplicationLoader.Context
 import play.api.{BuiltInComponentsFromContext, Configuration}
 import play.api.libs.ws.ahc.AhcWSComponents
@@ -42,5 +44,14 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)
-  val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
+
+  val userValidator: UserValidator = config.userValidator match {
+    case "bbc" =>
+      ???
+    case _ =>
+      val userEmailDomain = config.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
+      Authentication.guardianUserValidator(userEmailDomain)
+  }
+
+  val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext, userValidator)
 }
