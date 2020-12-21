@@ -53,12 +53,22 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
   const results = await Promise.allSettled(resultsPromises);
   const successes = results.filter(({ status }) => status === 'fulfilled').map(({ value }) => value);
 
-
+  results.forEach(({ status, reason }, i) => {
+    if (status === 'rejected') {
+      console.error("Error in batch ", input[i], reason);
+    }
+  });
 
   $rootScope.$broadcast("events:batch-operations:complete", { key });
-  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: 100, completed: 0});
 
-  await chunkAndWait((l) => $rootScope.$emit(emit, l), successes);
+  completed = 0;
+  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: 100, completed});
+
+  await chunkAndWait((l) => {
+    $rootScope.$emit(emit, l);
+    completed += l.length;
+    $rootScope.$broadcast("events:batch-operations:progress", { key: "Reticulating Splines.",total: 100, completed});
+  }, successes);
 
   $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines.", total: 100, completed:100 });
 
