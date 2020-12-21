@@ -6,7 +6,7 @@ const wait = (t) => new Promise(resolve => {
   setTimeout(resolve, t);
 });
 
-const chunkSize = 1;
+const chunkSize = 50;
 const chunkWait = 1000;
 
 const chunkAndWait = async (f, l) => {
