@@ -160,12 +160,12 @@ usageRightsEditor.controller(
 
     function save(data) {
       return trackAll($rootScope, "rights", ctrl.usageRights, [
-        (usageRights) => {
-          const image = usageRights.image;
+        ({ image }) => {
           const resource = image.data.userMetadata.data.usageRights;
           return editsService.update(resource, data, image, true);
         },
-        (_, response) => setMetadataFromUsageRights(response.data, true)
+        ({ image }) => setMetadataFromUsageRights(image, true),
+        ({ image }) => image.get()
       ],'images-updated');
     }
 
