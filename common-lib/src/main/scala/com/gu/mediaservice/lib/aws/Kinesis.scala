@@ -51,7 +51,7 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
       logger.info(s"Published kinesis message: $result")
     } catch {
       case e: Exception =>
-        logger.error(s"kinesis putRecord exception message: ${e.getMessage}")
+        logger.error(markers, s"kinesis putRecord exception message: ${e.getMessage}")
         // propagate error forward to the client
         throw e
     }
