@@ -12,10 +12,10 @@ const chunkWait = 1000;
 const chunkAndWait = async (f, l) => {
   const head = l.slice(0, chunkSize);
   const tail = l.slice(chunkSize);
-  if (head.length === 0) {
+  await f(head);
+  if (tail.length === 0) {
     return;
   }
-  await f(head);
   await wait(chunkWait);
   return chunkAndWait(f, tail);
 };
