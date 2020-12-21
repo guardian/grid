@@ -6,7 +6,7 @@ const wait = (t) => new Promise(resolve => {
   setTimeout(resolve, t);
 });
 
-const chunkSize = 50;
+const chunkSize = 70;
 const chunkWait = 1000;
 
 const chunkAndWait = async (f, l) => {
@@ -62,15 +62,16 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
   $rootScope.$broadcast("events:batch-operations:complete", { key });
 
   completed = 0;
-  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: 100, completed});
+
+  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: successes.length, completed});
 
   await chunkAndWait((l) => {
     $rootScope.$emit(emit, l);
     completed += l.length;
-    $rootScope.$broadcast("events:batch-operations:progress", { key: "Reticulating Splines.",total: 100, completed});
+    $rootScope.$broadcast("events:batch-operations:progress", { key: "Reticulating Splines.", completed});
   }, successes);
 
-  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines.", total: 100, completed:100 });
+  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines.",  completed:100 });
 
   return successes;
 };
