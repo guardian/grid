@@ -427,7 +427,7 @@ results.controller('SearchResultsCtrl', [
             }
       });
 
-      const freeUpdatesListener = $rootScope.$on('image-updated', (e, updatedImages) => {
+      const freeUpdatesListener = $rootScope.$on('images-updated', (e, updatedImages) => {
         console.log("images-update recvd in results");
         console.log(e, updatedImages);
         updatedImages.map(updatedImage => {

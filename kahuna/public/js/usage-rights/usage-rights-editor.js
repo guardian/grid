@@ -163,7 +163,7 @@ usageRightsEditor.controller(
         (usageRights) => {
           const image = usageRights.image;
           const resource = image.data.userMetadata.data.usageRights;
-          return editsService.update(resource, data, image);
+          return editsService.update(resource, data, image, true);
         },
         (_, response) => setMetadataFromUsageRights(response.data, true)
       ],'images-updated');

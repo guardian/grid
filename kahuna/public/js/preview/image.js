@@ -37,15 +37,20 @@ image.controller('uiPreviewImageCtrl', [
         $window,
         imageService,
         imageUsagesService) {
-    var ctrl = this;
+      var ctrl = this;
+
+      const updateImage = (updatedImage) => {
+        ctrl.states = imageService(updatedImage).states;
+        ctrl.image = updatedImage;
+        ctrl.flagState = ctrl.states.costState;
+      };
 
       const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
         console.log("image-update recvd in image preview controller");
         console.log(e, updatedImage);
         if (ctrl.image.data.id === updatedImage.data.id) {
-          console.log(e, updatedImage);
-            ctrl.states = imageService(updatedImage).states;
-            ctrl.image = updatedImage;
+          updateImage(updatedImage);
+
         }
       });
 
@@ -53,8 +58,7 @@ image.controller('uiPreviewImageCtrl', [
         const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
         console.log(maybeUpdatedImage);
         if (maybeUpdatedImage) {
-          ctrl.states = imageService(maybeUpdatedImage).states;
-            ctrl.image = maybeUpdatedImage;
+          updateImage(maybeUpdatedImage);
         }
       });
 
