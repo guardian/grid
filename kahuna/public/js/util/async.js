@@ -56,11 +56,12 @@ const queue = new PQueue({ concurrency: 10 });
 async.factory("apiPoll", [
   () => {
     const wait = () => new Promise(resolve => {
-      console.log("WAIT");
       setTimeout(() => resolve(), 4000);
     });
     const poll = async (func, n) => {
-
+      if (n > 1) {
+        console.log("repeated poll", n, func)
+      }
       const [{ status, value }] = await Promise.allSettled([
         queue.add(async () => {
            return await func();
@@ -69,13 +70,8 @@ async.factory("apiPoll", [
       if (status === 'fulfilled') {
         return value;
       }
-      console.log(func, n);
-      const startWait = performance.mark("START");
       await wait();
-
-      console.log('waited',performance.measure(startWait));
       return poll(func, n + 1);
-      //this absolutely fouls things up at n = 1
     };
     return func => poll(func, 1);
   }

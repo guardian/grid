@@ -51,11 +51,7 @@ labelService.factory('labelService',
                             return image.data.userMetadata.data.labels
                               .post({ data: labels });
                           };
-                          const checkAdd = async (image, result) => {
-                            const r = await apiPoll(() => untilLabelsEqual(image, result.data));
-                            console.log(r, "AAA");
-                            return r;
-                          };
+                          const checkAdd = (image, result) => apiPoll(() => untilLabelsEqual(image, result.data));
 
                           return trackAll($rootScope, "label", images, [sendAdd, checkAdd], 'images-updated');
     }
