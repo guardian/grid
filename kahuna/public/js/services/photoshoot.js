@@ -16,38 +16,38 @@ photoshootService.factory('photoshootService', [
         }
 
         function batchAdd({ data, images }) {
-            return trackAll($rootScope, "photoshoot", images, image =>
-                putPhotoshoot({data, image})
-            );
+          return trackAll(
+            $rootScope,
+            "photoshoot",
+            images,
+            [
+              (image) => imageAccessor.getPhotoshoot(image).put({ data }),
+              (image, newPhotoshoot) =>
+                apiPoll(() =>
+                  untilEqual({
+                    image,
+                    expectedPhotoshoot: newPhotoshoot.data,
+                  })
+                )
+            ],
+            "images-updated"
+          );
         }
 
         function batchRemove({ images }) {
-            return trackAll($rootScope, "photoshoot", images, image =>
-                deletePhotoshoot({ image })
-            );
-        }
-
-        function putPhotoshoot({ data, image }) {
-            return imageAccessor.getPhotoshoot(image)
-                .put({ data })
-                .then(newPhotoshoot => apiPoll(() => untilEqual({
-                    image,
-                    expectedPhotoshoot: newPhotoshoot.data
-                })))
-                .then(newImage => {
-                    $rootScope.$emit('image-updated', newImage, image);
-                    return newImage;
-                });
-        }
-
-        function deletePhotoshoot({ image }) {
-            return imageAccessor.getPhotoshoot(image)
-                .delete()
-                .then(() => apiPoll(() => untilEqual({image, expectedPhotoshoot: undefined })))
-                .then(newImage => {
-                    $rootScope.$emit('image-updated', newImage, image);
-                    return newImage;
-                });
+          return trackAll(
+            $rootScope,
+            "photoshoot",
+            images,
+            [
+              (image) => imageAccessor.getPhotoshoot(image).delete(),
+              (image) =>
+                apiPoll(() =>
+                  untilEqual({ image, expectedPhotoshoot: undefined })
+                )
+            ],
+            "images-updated"
+          );
         }
 
         function untilEqual({ image, expectedPhotoshoot }) {
