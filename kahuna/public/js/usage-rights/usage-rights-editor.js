@@ -159,13 +159,14 @@ usageRightsEditor.controller(
     ctrl.cancel = () => ctrl.onCancel();
 
     function save(data) {
-        return trackAll($rootScope, "rights", ctrl.usageRights, usageRights => {
-            const image = usageRights.image;
-            const resource = image.data.userMetadata.data.usageRights;
-            return editsService.update(resource, data, image).
-                then(resource => resource.data).
-                then(() => setMetadataFromUsageRights(image));
-        });
+      return trackAll($rootScope, "rights", ctrl.usageRights, [
+        (usageRights) => {
+          const image = usageRights.image;
+          const resource = image.data.userMetadata.data.usageRights;
+          return editsService.update(resource, data, image);
+        },
+        (_, response) => setMetadataFromUsageRights(response.data, true)
+      ],'images-updated');
     }
 
     function saveComplete() {
@@ -191,8 +192,8 @@ usageRightsEditor.controller(
     // HACK: This should probably live somewhere else, but it's the least intrusive
     // here. This updates the metadata based on the usage rights to stop users having
     // to enter content twice.
-    function setMetadataFromUsageRights(image) {
-        return editsService.updateMetadataFromUsageRights(image);
+    function setMetadataFromUsageRights(image, inBatch = false) {
+        return editsService.updateMetadataFromUsageRights(image, inBatch);
     }
 }]);
 
