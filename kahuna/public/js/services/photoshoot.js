@@ -26,7 +26,7 @@ photoshootService.factory('photoshootService', [
                 apiPoll(() =>
                   untilEqual({
                     image,
-                    expectedPhotoshoot: newPhotoshoot.data,
+                    expectedPhotoshoot: newPhotoshoot.data
                   })
                 )
             ],

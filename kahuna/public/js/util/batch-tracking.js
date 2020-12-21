@@ -58,11 +58,11 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
 
 
   $rootScope.$broadcast("events:batch-operations:complete", { key });
-  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: 100, completed: 100});
+  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: 100, completed: 0});
 
   await chunkAndWait((l) => $rootScope.$emit(emit, l), successes);
 
-  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines.", total: 100, completed:0 });
+  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines.", total: 100, completed:100 });
 
   return;
 };
