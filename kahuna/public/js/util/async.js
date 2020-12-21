@@ -60,7 +60,7 @@ async.factory("apiPoll", [
     });
     const poll = async (func, n) => {
       if (n > 1) {
-        console.log("repeated poll", n, func)
+        console.log("repeated poll", n, func);
       }
       const [{ status, value }] = await Promise.allSettled([
         queue.add(async () => {
