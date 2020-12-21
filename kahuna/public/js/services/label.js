@@ -75,7 +75,7 @@ labelService.factory('labelService',
                              ({ label }) => label.delete(),
                              ({ image }, result) => apiPoll(() => untilLabelsEqual(image, result.data))
                            ],
-                             'image-updated');
+                             'images-updated');
     }
 
     return {
