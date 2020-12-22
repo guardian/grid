@@ -39,28 +39,19 @@ image.controller('uiPreviewImageCtrl', [
         imageUsagesService) {
       var ctrl = this;
 
-      const updateImage = (updatedImage) => {
-        ctrl.states = imageService(updatedImage).states;
-        ctrl.image = updatedImage;
-        ctrl.flagState = ctrl.states.costState;
-      };
+    const updateImage = (updatedImage) => {
+      ctrl.states = imageService(updatedImage).states;
+      ctrl.image = updatedImage;
+      ctrl.flagState = ctrl.states.costState;
+    };
 
-      const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
-        console.log("image-update recvd in image preview controller");
-        console.log(e, updatedImage);
-        if (ctrl.image.data.id === updatedImage.data.id) {
-          updateImage(updatedImage);
-
-        }
-      });
-
-      const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
-        const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
-        console.log(maybeUpdatedImage);
-        if (maybeUpdatedImage) {
-          updateImage(maybeUpdatedImage);
-        }
-      });
+    const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+      const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
+      console.log(maybeUpdatedImage);
+      if (maybeUpdatedImage) {
+        updateImage(maybeUpdatedImage);
+      }
+    });
 
     ctrl.states = imageService(ctrl.image).states;
 
@@ -79,7 +70,6 @@ image.controller('uiPreviewImageCtrl', [
     const recentUsages$ = imageUsagesService.getUsages(ctrl.image).recentUsages$;
 
     $scope.$on('$destroy', function() {
-      freeUpdateListener();
       freeImagesUpdateListener();
     });
 

@@ -35,14 +35,14 @@ recentUploads.controller('RecentUploadsCtrl', [
                 // TODO: we shouldn't have to do this ;_;
                 // If an image is updated (e.g. label added,
                 // archived, etc), refresh the copy we hold
-                $rootScope.$on('image-updated', (e, updatedImage) => {
-                    const images = ctrl.myUploads.data;
-                    const updatedIndex = images.findIndex(image => {
-                        return image.data.id === updatedImage.data.id;
-                    });
-                    if (updatedIndex !== -1) {
-                        images[updatedIndex] = updatedImage;
+                $rootScope.$on('images-updated', (e, updatedImages) => {
+                  const images = ctrl.myUploads.data;
+                  images.forEach((originalImage, index) => {
+                    const maybeImage = updatedImages.find(updatedImage => originalImage.data.id === updatedImage.data.id);
+                    if (maybeImage) {
+                      images[index] = maybeImage;
                     }
+                  });
                 });
             });
         });

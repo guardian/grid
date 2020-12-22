@@ -102,67 +102,61 @@ module.controller('grImageMetadataCtrl', [
       ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
     };
 
-    const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => freeUpdateHandler(updatedImage));
+    const freeUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => updatedImages.map(updatedImage => freeUpdateHandler(updatedImage)));
 
-        ctrl.updateMetadataField = function (field, value) {
-            return editsService.updateMetadataField(ctrl.image, field, value)
-                .then((updatedImage) => {
-                    if (updatedImage) {
-                        ctrl.image = updatedImage;
-                        updateAbilities(updatedImage);
-                        $rootScope.$emit(
-                          'track:event',
-                          'Metadata',
-                          'Edit',
-                          'Success',
-                          null,
-                          {
-                            field: field,
-                            value: value
-                          }
-                        );
-                    }
-                })
-                .catch(() => {
-                  $rootScope.$emit(
-                    'track:event',
-                    'Metadata',
-                    'Edit',
-                    'Failure',
-                    null,
-                    {
-                      field: field,
-                      value: value
-                    }
-                  );
-
-                    /*
-                     Save failed.
-
-                     Per the angular-xeditable docs, returning a string indicates an error and will
-                     not update the local model, nor will the form close (so the edit is not lost).
-                     Instead, a message is shown and the field keeps focus for user to edit again.
-
-                     http://vitalets.github.io/angular-xeditable/#onbeforesave
-                     */
-                    return 'failed to save (press esc to cancel)';
-                });
-        };
-
-        ctrl.removeImageFromCollection = (collection) => {
-            ctrl.removingCollection = collection;
-            collections.removeImageFromCollection(collection, ctrl.image)
-                .then(() => ctrl.removingCollection = false);
-        };
-
-        ctrl.displayLeases = () => {
-            return ctrl.userCanEdit || ctrl.image.leases > 0;
-        };
-
-        $scope.$on('$destroy', function() {
-            freeUpdateListener();
-        });
-    }
+    ctrl.updateMetadataField = function (field, value) {
+        return editsService.updateMetadataField(ctrl.image, field, value)
+            .then((updatedImage) => {
+                if (updatedImage) {
+                    ctrl.image = updatedImage;
+                    updateAbilities(updatedImage);
+                    $rootScope.$emit(
+                      'track:event',
+                      'Metadata',
+                      'Edit',
+                      'Success',
+                      null,
+                      {
+                        field: field,
+                        value: value
+                      }
+                    );
+                }
+            })
+            .catch(() => {
+              $rootScope.$emit(
+                'track:event',
+                'Metadata',
+                'Edit',
+                'Failure',
+                null,
+                {
+                  field: field,
+                  value: value
+                }
+              );
+                /*
+                 Save failed.
+                 Per the angular-xeditable docs, returning a string indicates an error and will
+                 not update the local model, nor will the form close (so the edit is not lost).
+                 Instead, a message is shown and the field keeps focus for user to edit again.
+                 http://vitalets.github.io/angular-xeditable/#onbeforesave
+                 */
+                return 'failed to save (press esc to cancel)';
+            });
+    };
+    ctrl.removeImageFromCollection = (collection) => {
+        ctrl.removingCollection = collection;
+        collections.removeImageFromCollection(collection, ctrl.image)
+            .then(() => ctrl.removingCollection = false);
+    };
+    ctrl.displayLeases = () => {
+        return ctrl.userCanEdit || ctrl.image.leases > 0;
+    };
+    $scope.$on('$destroy', function() {
+        freeUpdateListener();
+    });
+}
 ]);
 
 module.directive('grImageMetadata', [function () {

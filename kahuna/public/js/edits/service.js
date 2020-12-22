@@ -122,7 +122,7 @@ service.factory('editsService',
         const promise = withWatcher(resource, requestPool.promise).
               then(({ edit, image }) => {
                 if (!inBatch) {
-                  $rootScope.$emit('image-updated', image, originalImage);
+                  $rootScope.$emit('images-updated', [image]);
                 }
                 return edit;
               });

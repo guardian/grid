@@ -408,24 +408,6 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-      const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
-        console.log("image-update recvd in results");
-        console.log(e, updatedImage);
-            var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
-            if (index !== -1) {
-                ctrl.images[index] = updatedImage;
-            }
-
-            var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
-            if (indexAll !== -1) {
-                ctrl.imagesAll[indexAll] = updatedImage;
-
-                // TODO: should not be needed here, the results list
-                // should listen to these events and update itself
-                // outside of any controller.
-                results.set(indexAll, updatedImage);
-            }
-      });
 
       const freeUpdatesListener = $rootScope.$on('images-updated', (e, updatedImages) => {
         console.log("images-update recvd in results");

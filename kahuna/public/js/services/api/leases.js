@@ -110,11 +110,10 @@ leaseService.factory('leaseService', [
       apiPoll(() => {
         return untilLeasesChange(images);
       }).then(results => {
-        return results.map(result => {
-          $rootScope.$emit('image-updated', result.image);
-          $rootScope.$emit('leases-updated');
-          return result.leases;
-        });
+        $rootScope.$emit('images-updated', results.map(({image})=>image));
+        $rootScope.$emit('leases-updated');
+
+        return results.map(({leases}) => leases);
       });
     }
 

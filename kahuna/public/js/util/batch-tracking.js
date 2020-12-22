@@ -71,7 +71,7 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
     $rootScope.$broadcast("events:batch-operations:progress", { key: "Reticulating Splines.", completed});
   }, successes);
 
-  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines.",  completed:100 });
+  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines." });
 
   return successes;
 };

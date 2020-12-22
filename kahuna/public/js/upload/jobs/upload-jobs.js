@@ -64,9 +64,10 @@ jobs.controller('UploadJobsCtrl', [
                 // TODO: we shouldn't have to do this ;_;
                 // If the image is updated (e.g. label added,
                 // archived, etc), refresh the copy we hold
-                $rootScope.$on('image-updated', (e, updatedImage) => {
-                    if (updatedImage.data.id === image.data.id) {
-                        jobItem.image = updatedImage;
+                $rootScope.$on('images-updated', (e, updatedImages) => {
+                  const maybeUpdateImage = updatedImages.find(updatedImage => updatedImage.data.id === image.data.id);
+                    if (maybeUpdateImage !== undefined) {
+                        jobItem.image = maybeUpdateImage;
                     }
                 });
 
