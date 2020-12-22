@@ -24,6 +24,7 @@ const chunkAndWait = async (f, l) => {
 export const trackAll = async ($rootScope, key, input, fns, emit) => {
   const withQueues = (Array.isArray(fns) ? fns : [fns]).map((fn) => {
     const queue = new PQueue({ concurrency });
+    console.log(fn, queue);
     return (item, result) => queue.add(() => fn(item, result));
   });
 
