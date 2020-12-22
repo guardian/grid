@@ -38,6 +38,10 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
   const process = async (item, result, [fn, ...remaining]) => {
     if (fn == undefined) {
       completed++;
+      console.log("COMPLETING", {
+        key,
+        completed
+      });
       $rootScope.$broadcast("events:batch-operations:progress", {
         key,
         completed
@@ -61,11 +65,13 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
   });
 
   $rootScope.$broadcast("events:batch-operations:complete", { key });
-
+  console.log("COMPLETE");
+  console.log(completed);
+  await wait(0);
   completed = 0;
 
   $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: successes.length, completed});
-
+  await wait(0);
   await chunkAndWait((l) => {
     $rootScope.$emit(emit, l);
     completed += l.length;
