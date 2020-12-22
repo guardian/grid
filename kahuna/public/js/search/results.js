@@ -425,7 +425,7 @@ results.controller('SearchResultsCtrl', [
             // TODO: should not be needed here, the results list
             // should listen to these events and update itself
             // outside of any controller.
-            results.set(indexAll, updatedImage);
+            // results.set(indexAll, updatedImage);
           }
         });
         });
