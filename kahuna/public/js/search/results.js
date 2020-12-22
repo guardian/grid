@@ -428,6 +428,10 @@ results.controller('SearchResultsCtrl', [
             // results.set(indexAll, updatedImage);
           }
         });
+        results.map(image => {
+          const maybeUpdated = updatedImages.find(i => i.data.id === image.data.id);
+          return maybeUpdated || image;
+        });
         });
 
         const updateImageArray = (images, image) => {
