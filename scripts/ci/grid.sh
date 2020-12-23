@@ -52,7 +52,7 @@ buildWatcher() {
 
 buildSbt() {
   echo "##teamcity[compilationStarted compiler='sbt']"
-  sbt clean test scripts/compile riffRaffUpload
+  docker-compose -f docker-compose.tests.yml up
   echo "##teamcity[compilationFinished compiler='sbt']"
 }
 
