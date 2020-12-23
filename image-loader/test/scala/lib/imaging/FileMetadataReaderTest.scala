@@ -18,7 +18,7 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   import test.lib.ResourceHelpers._
 
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit override val patienceConfig = PatienceConfig(timeout = Span(2000, Millis), interval = Span(100, Millis))
 
   it("should read the correct dimensions for a JPG image") {
     val image = fileAt("getty.jpg")
