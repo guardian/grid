@@ -1,6 +1,14 @@
 package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.permissions.PermissionDefinition
+
+case class ScriptToLoad(
+  host: String,
+  path: String,
+  async: Option[Boolean],
+  permission: Option[PermissionDefinition]
+)
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
@@ -21,4 +29,21 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
+  val connectSources: Set[String] = getStringSet("security.connectSources")
+
+  val scriptsToLoad: List[ScriptToLoad] = getConfigList("scriptsToLoad").map(entry => ScriptToLoad(
+    host = entry.getString("host"),
+    path = entry.getString("path"),
+    async = if (entry.hasPath("async")) Some(entry.getBoolean("async")) else None,
+    permission =
+      if (entry.hasPath("permission")) Some(
+        PermissionDefinition(
+          name = entry.getString("permission.name"),
+          app = entry.getString("permission.app")
+        )
+      )
+      else None
+  ))
+
 }
+

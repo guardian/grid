@@ -1,3 +1,5 @@
+@import lib.ScriptToLoad
+
 @(mediaApiUri: String,
   authApiUri: String,
   reauthUri: String,
@@ -7,7 +9,9 @@
   feedbackFormLink: Option[String],
   usageRightsHelpLink: Option[String],
   invalidSessionHelpLink: Option[String],
-  supportEmail: Option[String])
+  supportEmail: Option[String],
+  scriptsToLoad: List[ScriptToLoad]
+)
 <!DOCTYPE html>
 <html>
   <head>
@@ -63,6 +67,10 @@
     }
 
     <script src="@routes.Assets.versioned("dist/build.js")"></script>
+
+    @scriptsToLoad.map { scriptDetail =>
+      <script async="@scriptDetail.async" src="@scriptDetail.host/@scriptDetail.path"></script>
+    }
 
   </body>
 </html>

@@ -1,12 +1,12 @@
 package com.gu.mediaservice.lib.config
 
 import java.util.UUID
-
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
-import com.typesafe.config.ConfigException
+import com.typesafe.config.{Config, ConfigException}
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 
+import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.util.Try
 
 
@@ -66,6 +66,10 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
     case _:ConfigException.WrongType => configuration.get[String](key).split(",").toSeq.map(_.trim)
   }.map(_.toSet)
    .getOrElse(Set.empty)
+
+  def getConfigList(key:String): List[_ <: Config] =
+    if (configuration.has(key)) configuration.underlying.getConfigList(key).asScala.toList
+    else List.empty
 
   final def apply(key: String): String =
     string(key)
