@@ -55,7 +55,7 @@ class ImageLoaderConfig(playAppConfiguration: Configuration) extends CommonConfi
     */
   val imageProcessor: ComposedImageProcessor = {
     val processors = configuration
-      .get[Seq[ImageProcessor]]("image.processors")(ImageProcessorLoader.imageProcessorsConfigLoader)
+      .get[Seq[ImageProcessor]]("image.processors")(ImageProcessorLoader.imageProcessorsConfigLoader(configuration))
     ImageProcessor.compose("ImageConfigLoader-imageProcessor", processors:_*)
   }
 }

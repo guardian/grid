@@ -12,31 +12,31 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 object ImageProcessorLoader extends StrictLogging {
-  case class ImageProcessorConfigDetails(className: String, config: Option[Configuration], origin: ConfigOrigin, path: String)
+  case class ImageProcessorConfigDetails(className: String, config: Option[Configuration], moduleConfiguration: Configuration, origin: ConfigOrigin, path: String)
 
-  implicit val imageProcessorsConfigLoader: ConfigLoader[Seq[ImageProcessor]] = (config: Config, path: String) => {
+  def imageProcessorsConfigLoader(moduleConfiguration: Configuration): ConfigLoader[Seq[ImageProcessor]] = (config: Config, path: String) => {
     config
       .getList(path)
       .iterator()
       .asScala.map { configValue =>
-      parseConfigValue(configValue, path)
+      parseConfigValue(configValue, path, moduleConfiguration)
     }.map(loadImageProcessor).toList
   }
 
-  implicit val imageProcessorConfigLoader: ConfigLoader[ImageProcessor] = (config: Config, path: String) => {
-    val configDetails = parseConfigValue(config.getValue(path), path)
+  def imageProcessorConfigLoader(moduleConfiguration: Configuration): ConfigLoader[ImageProcessor] = (config: Config, path: String) => {
+    val configDetails = parseConfigValue(config.getValue(path), path, moduleConfiguration)
     loadImageProcessor(configDetails)
   }
 
-  private def parseConfigValue(configValue: ConfigValue, path: String): ImageProcessorConfigDetails = {
+  private def parseConfigValue(configValue: ConfigValue, path: String, moduleConfiguration: Configuration): ImageProcessorConfigDetails = {
     configValue match {
       case plainClass if plainClass.valueType == ConfigValueType.STRING =>
-        ImageProcessorConfigDetails(plainClass.unwrapped.asInstanceOf[String], None, plainClass.origin, path)
+        ImageProcessorConfigDetails(plainClass.unwrapped.asInstanceOf[String], None, moduleConfiguration,plainClass.origin, path)
       case withConfig:ConfigObject if validConfigObject(withConfig) =>
         val config = withConfig.toConfig
         val className = config.getString("className")
         val processorConfig = config.getConfig("config")
-        ImageProcessorConfigDetails(className, Some(Configuration(processorConfig)), withConfig.origin, path)
+        ImageProcessorConfigDetails(className, Some(Configuration(processorConfig)), moduleConfiguration, withConfig.origin, path)
       case _ =>
         throw new BadValue(configValue.origin, path, s"An image processor can either a class name (string) or object with className (string) and config (object) fields. This ${configValue.valueType} is not valid.")
     }
@@ -49,7 +49,7 @@ object ImageProcessorLoader extends StrictLogging {
 
   private def loadImageProcessor(details: ImageProcessorConfigDetails): ImageProcessor = {
     ImageProcessorLoader
-      .loadImageProcessor(details.className, details.config.getOrElse(Configuration.empty))
+      .loadImageProcessor(details.className, details.config.getOrElse(details.moduleConfiguration))
       .getOrElse { error =>
         val configError = s"Unable to instantiate image processor from config: $error"
         logger.error(configError)
@@ -72,23 +72,16 @@ object ImageProcessorLoader extends StrictLogging {
   }
 
   private def instantiate(imageProcessorClass: Class[_], config: Configuration): Either[String, ImageProcessor] = {
-    // Fail fast if config is provided but the specified image processor ignores it
-    def assertNoConfiguration[T](ok: Right[String, T]): Either[String, T] = {
-      if (config.keys.nonEmpty) {
-        Left(s"Attempt to initialise image processor ${imageProcessorClass.getCanonicalName} failed as configuration is provided but the constructor does not take configuration as an argument.")
-      } else {
-        ok
-      }
-    }
+
 
     val maybeCompanionObject = Try(imageProcessorClass.getField("MODULE$").get(imageProcessorClass)).toOption
     val maybeNoArgCtor = Try(imageProcessorClass.getDeclaredConstructor()).toOption
     val maybeConfigCtor = Try(imageProcessorClass.getDeclaredConstructor(classOf[Configuration])).toOption
     for {
       instance <- (maybeCompanionObject, maybeNoArgCtor, maybeConfigCtor) match {
-        case (Some(companionObject), _, _) => assertNoConfiguration(Right(companionObject))
+        case (Some(companionObject), _, _) => Right(companionObject)
         case (_, _, Some(configCtor)) => Right(configCtor.newInstance(config))
-        case (_, Some(noArgCtor), None) => assertNoConfiguration(Right(noArgCtor.newInstance()))
+        case (_, Some(noArgCtor), None) => Right(noArgCtor.newInstance())
         case (None, None, None) => Left(s"Unable to find a suitable constructor for ${imageProcessorClass.getCanonicalName}. Must either have a no arg constructor or a constructor taking one argument of type ImageProcessorConfig.")
       }
       castInstance <- try {
