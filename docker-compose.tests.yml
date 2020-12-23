@@ -1,0 +1,22 @@
+version: '3.7'
+services:
+  elasticsearch:
+    image: elasticsearch:7.5.2
+    volumes:
+      - "./dev/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
+    ports:
+      - "9200:9200"
+  test-container:
+    build: ./
+    container_name: grid_app
+    depends_on:
+      - elasticsearch
+    working_dir: /app
+    volumes:
+      - './:/app'
+      - '~/.ivy2:/root/.ivy2'
+      - '~/.sbt:/root/.sbt'
+    environment:
+      USE_DOCKER_FOR_TESTS: "false"
+      ES6_TEST_URL: http://elasticsearch:9200
+      LOCALSTACK_ENDPOINT: http://localstack:4566
