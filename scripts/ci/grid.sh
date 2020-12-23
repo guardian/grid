@@ -52,7 +52,7 @@ buildWatcher() {
 
 buildSbt() {
   echo "##teamcity[compilationStarted compiler='sbt']"
-  docker-compose -f docker-compose.tests.yml up
+  docker-compose -f docker-compose.tests.yml run test-container
   echo "##teamcity[compilationFinished compiler='sbt']"
 }
 
