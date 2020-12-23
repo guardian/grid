@@ -37,7 +37,12 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   ) else None
 
   override def beforeAll {
-    super.beforeAll()
+    // DockerTestKit will attempt to initialise a docker environment in beforeAll().
+    // If we call this and we're already in a Docker environment, the test will fail.
+    // @todo Once our tests run entirely within Docker, we should be able to remove this check.
+    if (useEsDocker) {
+      super.beforeAll()
+    }
     ES.ensureAliasAssigned()
   }
 
