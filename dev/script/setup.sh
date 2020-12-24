@@ -159,6 +159,21 @@ setupPermissionConfiguration() {
   echo "  uploaded file to $permissionsBucket"
 }
 
+setupPhotographersConfiguration() {
+  echo "setting up photographers configuration"
+
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="$ROOT_DIR/dev/config/photographers.json"
+
+  aws s3 cp "$target" \
+    "s3://$configBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $configBucket"
+}
+
+
 getStackResource() {
   stackName=$1
   resourceName=$2
@@ -250,7 +265,8 @@ main() {
     setupPermissionConfiguration
     setupPanDomainConfiguration
   fi
-
+  
+  setupPhotographersConfiguration
   setupDevNginx
   generateConfig
   uploadApiKey

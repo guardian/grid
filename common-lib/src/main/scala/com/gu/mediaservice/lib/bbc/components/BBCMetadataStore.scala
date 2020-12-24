@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.bbc
+package com.gu.mediaservice.lib.bbc.components
 
 import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, MetadataConfig](bucket, config)(ec) {
+  extends BaseStore[String, BBCMetadataConfig](bucket, config)(ec) {
 
   val metadataMapKey = "metadataConfig"
   val metadataStoreKey = "photographers.json"
@@ -28,9 +28,9 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
     }
   }
 
-  private def fetchAll: Option[Map[String, MetadataConfig]] = {
+  private def fetchAll: Option[Map[String, BBCMetadataConfig]] = {
     getS3Object(metadataStoreKey) match {
-      case Some(fileContents) => Try(Json.parse(fileContents).as[MetadataConfig]) match {
+      case Some(fileContents) => Try(Json.parse(fileContents).as[BBCMetadataConfig]) match {
         case Success(metadataConfigClass) => Some(Map(metadataMapKey -> metadataConfigClass))
         case Failure(_) => None
       }
@@ -38,7 +38,7 @@ class MetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execution
     }
   }
 
-  def get: MetadataConfig = store.get()(metadataMapKey)
+  def get: BBCMetadataConfig = store.get()(metadataMapKey)
 }
 
 object MetadataStore {

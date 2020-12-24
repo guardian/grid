@@ -1,0 +1,24 @@
+{
+    "externalStaffPhotographers": [
+      {
+        "name": "BBC",
+        "photographers": []
+      }
+    ],
+    "internalStaffPhotographers": [{
+      "name": "BBC",
+      "photographers": []
+    }],
+    "contractedPhotographers": [{
+      "name": "BBC",
+      "photographers": []
+    }],
+    "contractIllustrators": [{
+      "name": "BBC",
+      "photographers": []
+    }],
+    "staffIllustrators": [],
+    "creativeCommonsLicense": ["CC BY-4.0",
+      "CC BY-SA-4.0",
+      "CC BY-ND-4.0"]
+  }

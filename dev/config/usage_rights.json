@@ -1,0 +1,230 @@
+{
+    "supplierCreditMatches": [
+      {
+        "name": "AapParser",
+        "creditMatches": ["AAPIMAGE", "AAP IMAGE", "AAP"],
+        "sourceMatches": []
+      },
+      {
+        "name": "ActionImagesParser",
+        "creditMatches": ["Action Images", "Action Images via Reuters"],
+        "sourceMatches": []
+      },
+      {
+        "name": "AlamyParser",
+        "creditMatches": ["Alamy", "Alamy Stock Photo", "Alamy Live News/Alamy Live News", "Alamy Live News"],
+        "sourceMatches": ["https://www.alamy.com"]
+      },
+      {
+        "name": "AllStarParser",
+        "creditMatches": ["Allstar Picture Library"],
+        "sourceMatches": []
+      },
+      {
+        "name": "ApParser",
+        "creditMatches": ["ap", "associated press"],
+        "sourceMatches": []
+      },
+      {
+        "name": "BarcroftParser",
+        "creditMatches": ["barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars"],
+        "sourceMatches": ["barcroft media", "barcroft images", "barcroft india", "barcroft usa", "barcroft cars"]
+      },
+      {
+        "name": "BloombergParser",
+        "creditMatches": ["Bloomberg"],
+        "sourceMatches": []
+      },
+      {
+        "name": "CorbisParser",
+        "creditMatches": [],
+        "sourceMatches": ["Corbis"]
+      },
+      {
+        "name": "EpaParser",
+        "creditMatches": [".*\\bEPA\\b.*"],
+        "sourceMatches": []
+      },
+      {
+        "name": "GettyXmpParser",
+        "creditMatches": [],
+        "sourceMatches": []
+      },
+      {
+        "name": "GettyCreditParser",
+        "creditMatches": ["^(?!afp).*Getty Images.*", ".+ via Getty(?: .*)?", "^(?!afp).+/Getty(?: .*)?"],
+        "sourceMatches": []
+      },
+      {
+        "name": "PaParser",
+        "creditMatches": [
+          ".*/PA",
+          ".*/PA Wire",
+          "PA",
+          "PA WIRE",
+          "PA Wire/PA Images",
+          "PA Wire/PA Photos",
+          "PA Wire/Press Association Images",
+          "PA Archive/PA Photos",
+          "PA Archive/PA Images",
+          "PA Archive/Press Association Ima",
+          "PA Archive/Press Association Images",
+          "Press Association Images",
+          ".*/Press Association Images"
+        ],
+        "sourceMatches": ["PA", ".*/PA Wire", "PA Wire"]
+      },
+      {
+        "name": "ReutersParser",
+        "creditMatches": ["REUTERS", "Reuters", "REUTRS", "REUTER", "RETUERS", "REUTERS/", ".*via REUTERS", "Action Images/Reuters"],
+        "sourceMatches": []
+      },
+      {
+        "name": "RexParser",
+        "creditMatches": [".+/ Rex Features"],
+        "sourceMatches": ["Rex Features", "REX/Shutterstock"]
+      },
+      {
+        "name": "RonaldGrantParser",
+        "creditMatches": ["www.ronaldgrantarchive.com", "Ronald Grant Archive"],
+        "sourceMatches": []
+      },
+      {
+        "name": "AfpParser",
+        "creditMatches": ["AFP/.*"],
+        "sourceMatches": ["AFP"]
+      }
+    ],
+    "supplierParsers": [
+      "GettyXmp",
+      "GettyCredit",
+      "Aap",
+      "ActionImages",
+      "Alamy",
+      "AllStar",
+      "Ap",
+      "Barcroft",
+      "Bloomberg",
+      "Corbis",
+      "Pa",
+      "Reuters",
+      "Rex",
+      "Epa",
+      "RonaldGrant",
+      "Afp",
+      "Photographer"
+    ],
+    "usageRights": [
+      "NoRights",
+      "Handout",
+      "PrImage",
+      "Screengrab",
+      "SocialMedia",
+      "Agency",
+      "CommissionedAgency",
+      "Chargeable",
+      "Bylines",
+      "StaffPhotographer",
+      "ContractPhotographer",
+      "CommissionedPhotographer",
+      "CreativeCommons",
+      "Pool",
+      "CrownCopyright",
+      "Obituary",
+      "ContractIllustrator",
+      "CommissionedIllustrator",
+      "StaffIllustrator",
+      "Composite",
+      "PublicDomain"
+    ],
+    "freeSuppliers": [
+      "Alamy",
+      "AP",
+      "EPA",
+      "Getty Images",
+      "PA",
+      "Reuters",
+      "Rex Features",
+      "AFP",
+      "Action Images"
+    ],
+    "supplierCostings": {
+      "Rex Features"  : "pay",
+      "Alamy"         : "pay",
+      "Reuters"       : "conditional",
+      "EPA"           : "conditional",
+      "Getty Images"  : "conditional",
+      "AFP"           : "conditional",
+      "PA"            : "conditional",
+      "Action Images" : "conditional",
+      "AP"            : "conditional"
+    },
+    "suppliersCollectionExcl": {
+      "Getty Images": [
+        "Arnold Newman Collection",
+        "360cities.net Editorial",
+        "360cities.net RM",
+        "age fotostock RM",
+        "Alinari",
+        "Arnold Newman Collection",
+        "ASAblanca",
+        "Barcroft Media",
+        "Bloomberg",
+        "Bob Thomas Sports Photography",
+        "Carnegie Museum of Art",
+        "Catwalking",
+        "Contour",
+        "Contour RA",
+        "Corbis Premium Historical",
+        "Editorial Specials",
+        "Reportage Archive",
+        "Gamma-Legends",
+        "Genuine Japan Editorial Stills",
+        "Genuine Japan Creative Stills",
+        "George Steinmetz",
+        "Getty Images Sport Classic",
+        "Iconic Images",
+        "Iconica",
+        "Icon Sport",
+        "Kyodo News Stills",
+        "Lichfield Studios Limited",
+        "Lonely Planet Images",
+        "Lonely Planet RF",
+        "Masters",
+        "Major League Baseball Platinum",
+        "Moment Select",
+        "Mondadori Portfolio Premium",
+        "National Geographic",
+        "National Geographic RF",
+        "National Geographic Creative",
+        "National Geographic Magazines",
+        "NBA Classic",
+        "Neil Leifer Collection",
+        "Newspix",
+        "PA Images",
+        "Papixs",
+        "Paris Match Archive",
+        "Paris Match Collection",
+        "Pele 10",
+        "Photonica",
+        "Photonica World",
+        "Popperfoto",
+        "Popperfoto Creative",
+        "Premium Archive",
+        "Reportage Archive",
+        "SAMURAI JAPAN",
+        "Sports Illustrated",
+        "Sports Illustrated Classic",
+        "Sportsfile",
+        "Sygma Premium",
+        "Terry O'Neill",
+        "The Asahi Shimbun Premium",
+        "The LIFE Premium Collection",
+        "ullstein bild Premium",
+        "Ulrich Baumgarten",
+        "VII Premium",
+        "Vision Media",
+        "Xinhua News Agency"
+      ]
+    }
+  }

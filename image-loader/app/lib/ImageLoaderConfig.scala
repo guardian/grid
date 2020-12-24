@@ -50,8 +50,7 @@ class ImageLoaderConfig(playAppConfiguration: Configuration) extends CommonConfi
     * and the singleton instance added to the list. Classes will be looked up and will be examined for an appropriate
     * constructor. The constructor can either be no-arg or have a single argument of `play.api.Configuration`.
     *
-    * If configuration is specified but not used (a companion object or class with no arg constructor is specified)
-    * then loading the image processor will fail so as to avoid configuration errors.
+    * If a configuration is needed by is not provided by the config, the module configuration will be used instead.
     */
   val imageProcessor: ComposedImageProcessor = {
     val processors = configuration
