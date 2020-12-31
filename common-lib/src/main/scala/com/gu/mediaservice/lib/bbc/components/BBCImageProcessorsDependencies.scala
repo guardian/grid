@@ -9,10 +9,19 @@ import scala.concurrent.ExecutionContext
 object BBCImageProcessorsDependencies {
   implicit val ec = ExecutionContext.global
 
-  private def memoize[A, B](f: A => B): A => B = new mutable.HashMap[A, B]() {
-    override def apply(key: A) = getOrElseUpdate(key, f(key))
+  private def memoize[A, B](f: A => B): A => B = new ((A) => B) {
+    var save: Option[B] = None
+    override def apply(a: A): B = {
+      save match {
+        case Some(b) => b
+        case None => {
+          val process = f(a)
+          save = Some(process)
+          process
+        }
+      }
+    }
   }
-
   /*
   * The laziness here guarantees that the metadataStore will be only loaded if a BBC processor is instantiated.
   * */
