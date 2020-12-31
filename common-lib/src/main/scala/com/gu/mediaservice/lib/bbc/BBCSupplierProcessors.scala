@@ -7,6 +7,17 @@ import com.gu.mediaservice.lib.config.PhotographersList.caseInsensitiveLookup
 import com.gu.mediaservice.model.{ContractPhotographer, Image, Photographer, StaffPhotographer}
 import play.api.Configuration
 
+/*
+BBC Supplier processor.
+In order to use it, you will have to update application.conf
+image.processors = [
+  ...
+  "com.gu.mediaservice.lib.bbc.BBCSupplierProcessors$",
+  "com.gu.mediaservice.lib.bbc.BBCPhotographerParser"
+  ...
+]
+*/
+
 object BBCSupplierProcessors extends ComposeImageProcessors(
   GettyXmpParser,
   GettyCreditParser,
