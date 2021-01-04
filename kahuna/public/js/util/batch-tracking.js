@@ -47,10 +47,7 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
   });
 
   $rootScope.$broadcast("events:batch-operations:complete", { key });
-  console.log("COMPLETE");
-  console.log(completed);
-  await wait(1000);
-  completed = 0;
+
   $rootScope.$emit(emit, successes);
   return successes;
 };
