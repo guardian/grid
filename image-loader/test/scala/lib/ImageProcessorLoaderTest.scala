@@ -35,6 +35,9 @@ class ImageProcessorLoaderTest extends FreeSpec with Matchers with EitherValues 
   val testConfig: Configuration = Configuration.empty
   val testNonEmptyConfig: Configuration = Configuration.from(Map("someConfig" -> "my value"))
 
+  implicit val imageProcessorsConfigLoader = ImageProcessorLoader.imageProcessorsConfigLoader(testConfig)
+  implicit val imageProcessorConfigLoader = ImageProcessorLoader.imageProcessorConfigLoader(testConfig)
+
   "The class reflector" - {
     "should successfully load a no arg ImageProcessor instance" in {
       val instance = ImageProcessorLoader.loadImageProcessor(classOf[NoArgImageProcessor].getCanonicalName, testConfig)
@@ -65,27 +68,20 @@ class ImageProcessorLoaderTest extends FreeSpec with Matchers with EitherValues 
       val instance = ImageProcessorLoader.loadImageProcessor("scala.lib.ImageProcessorThatDoesntExist", testConfig)
       instance.left.value shouldBe "Unable to find image processor class scala.lib.ImageProcessorThatDoesntExist"
     }
-
-    "should fail to load a no arg processor that doesn't take configuration with non-empty configuration" in {
-      val instance = ImageProcessorLoader.loadImageProcessor(classOf[NoArgImageProcessor].getCanonicalName, testNonEmptyConfig)
-      instance.left.value shouldBe "Attempt to initialise image processor scala.lib.NoArgImageProcessor failed as configuration is provided but the constructor does not take configuration as an argument."
-    }
-
-    "should fail to load an object processor that doesn't take configuration with non-empty configuration" in {
-      val instance = ImageProcessorLoader.loadImageProcessor(ObjectImageProcessor.getClass.getCanonicalName, testNonEmptyConfig)
-      instance.left.value shouldBe "Attempt to initialise image processor scala.lib.ObjectImageProcessor$ failed as configuration is provided but the constructor does not take configuration as an argument."
-    }
+    
   }
 
   import ImageProcessorLoader._
 
   "The config loader" - {
+
     "should load an image processor from a classname" in {
       val conf:Configuration = Configuration.from(Map(
         "some.path" -> List(
           "scala.lib.NoArgImageProcessor"
         )
       ))
+
       val processors = conf.get[Seq[ImageProcessor]]("some.path")
       processors.head shouldBe a[NoArgImageProcessor]
     }
@@ -143,21 +139,6 @@ class ImageProcessorLoaderTest extends FreeSpec with Matchers with EitherValues 
       }
     }
 
-    "should fail to load multiple image processors if they don't meet the spec" in {
-      val conf:Configuration = Configuration.from(Map(
-        "some.path" -> List(
-          "scala.lib.NoArgImageProcessor",
-          Map(
-            "noClassName" -> "scala.lib.ConfigImageProcessor",
-            "config" -> Map("parameter" -> "value")
-          )
-        )
-      ))
-      val thrown = the[BadValue] thrownBy {
-        conf.get[Seq[ImageProcessor]]("some.path")
-      }
-      thrown.getMessage should include ("An image processor can either a class name (string) or object with className (string) and config (object) fields. This OBJECT is not valid.")
-    }
 
     "should fail to an image processors it isn't a string" in {
       val conf:Configuration = Configuration.from(Map(
