@@ -27,10 +27,10 @@ object BBCImageProcessorsDependencies {
   /*
   * The laziness here guarantees that the metadataStore will be only loaded if a BBC processor is instantiated.
   * */
-  lazy val metadataStore: ImageProcessorResources => MetadataStore = memoizeOnce { resources =>
+  lazy val metadataStore: ImageProcessorResources => BBCMetadataStore = memoizeOnce { resources =>
     val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
     val bucket = bbcImageProcessorConfig.configBucket
-    val metadataStore = new MetadataStore(bucket, resources.commonConfiguration)
+    val metadataStore = new BBCMetadataStore(bucket, resources.commonConfiguration)
     metadataStore.scheduleUpdates(resources.actorSystem.scheduler)
     metadataStore
   }
