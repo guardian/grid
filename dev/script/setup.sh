@@ -173,6 +173,20 @@ setupPhotographersConfiguration() {
   echo "  uploaded file to $configBucket"
 }
 
+setupUsageRightsConfiguration() {
+  echo "setting up usage rights configuration"
+
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="$ROOT_DIR/dev/config/usage_rights.json"
+
+  aws s3 cp "$target" \
+    "s3://$configBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $configBucket"
+}
+
 
 getStackResource() {
   stackName=$1
@@ -267,6 +281,7 @@ main() {
   fi
   
   setupPhotographersConfiguration
+  setupUsageRightsConfiguration
   setupDevNginx
   generateConfig
   uploadApiKey
