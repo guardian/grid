@@ -428,9 +428,16 @@ results.controller('SearchResultsCtrl', [
             // results.set(indexAll, updatedImage);
           }
         });
+        console.log(results);
         results.map(image => {
+          if (image == undefined){
+            return image;
+          }
           const maybeUpdated = updatedImages.find(i => i.data.id === image.data.id);
-          return maybeUpdated || image;
+          if (maybeUpdated !== undefined) {
+            return maybeUpdated;
+          }
+          return image;
         });
         });
 

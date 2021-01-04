@@ -2,25 +2,7 @@ import PQueue from "p-queue";
 
 const concurrency = 30;
 
-const wait = (t) => new Promise(resolve => {
-  setTimeout(resolve, t);
-});
 
-const chunkSize = 100;
-const chunkWait = 1000;
-
-const chunkAndWait = async (f, l) => {
-  const head = l.slice(0, chunkSize);
-  const tail = l.slice(chunkSize);
-  await f(head);
-  if (tail.length === 0) {
-    return;
-  }
-  await wait(chunkWait);
-  return chunkAndWait(f, tail);
-};
-
-// TODO MRB: invoke function lazily, does it improve UI jank?
 export const trackAll = async ($rootScope, key, input, fns, emit) => {
   const withQueues = (Array.isArray(fns) ? fns : [fns]).map((fn) => {
     const queue = new PQueue({ concurrency });
@@ -69,16 +51,6 @@ export const trackAll = async ($rootScope, key, input, fns, emit) => {
   console.log(completed);
   await wait(1000);
   completed = 0;
-
-  $rootScope.$broadcast("events:batch-operations:start", { key: "Reticulating Splines.",total: successes.length, completed});
-  await wait(1000);
-  await chunkAndWait((l) => {
-    $rootScope.$emit(emit, l);
-    completed += l.length;
-    $rootScope.$broadcast("events:batch-operations:progress", { key: "Reticulating Splines.", completed});
-  }, successes);
-
-  $rootScope.$broadcast("events:batch-operations:complete", { key: "Reticulating Splines." });
-
+  $rootScope.$emit(emit, successes);
   return successes;
 };
