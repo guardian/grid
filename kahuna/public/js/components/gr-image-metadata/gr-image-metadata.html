@@ -235,19 +235,34 @@
                 </span>
             </dd>
 
-            <dt ng:if="ctrl.metadata.peopleInImage.length > 0"
-                class="image-info__group--dl__key metadata-line__key image-info__wrap">
+            <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">
                 People
             </dt>
-            <dd ng:if="ctrl.metadata.peopleInImage.length > 0"
-                class="image-info__group--dl__value metadata-line__info">
+            <dd class="image-info__wrap image-info__group--dl__value metadata-line__info">
+                <button data-cy="it-edit-people-button"
+                        class="image-info__edit"
+                        ng-if="ctrl.userCanEdit"
+                        ng-click="peopleEditForm.$show()"
+                        ng-hide="peopleEditForm.$visible"
+                    >✎</button>
                 <span class="metadata-line__info">
+                    <span class="image-info__people"
+                          editable-text="ctrl.metadata.peopleInImage"
+                          ng-hide="peopleEditForm.$visible"
+                          onbeforesave="ctrl.updateMetadataField('peopleInImage', $data)"
+                          e:ng-class="{'image-info__editor--error': $error,
+                                        'image-info__editor--saving': peopleEditForm.$waiting,
+                                        'text-input': true}"
+                          e:form="peopleEditForm">
                     <span ng:repeat="person in ctrl.metadata.peopleInImage">
-                      <span class="metadata-line__info--nowrap">
-                        <a ui:sref="search.results({query: (person | queryFilter:'person')})">{{person}}</a><span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1">, </span>
+                        <span class="metadata-line__info--nowrap">
+                            <a ui:sref="search.results({query: (person | queryFilter:'person')})">{{person}}</a><span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1">, </span>
                       </span>
                     </span>
-                </span>
+                    <span ng-if="! ctrl.metadata.peopleInImage.length > 0">
+                        Unknown (click ✎ to add)
+                    </span>
+                  </span>
             </dd>
         </dl>
     </div>

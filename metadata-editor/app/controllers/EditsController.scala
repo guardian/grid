@@ -215,8 +215,8 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
   }
 
   // TODO: Move this to the dynamo lib
-  def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, String] =
-    Json.toJson[T](caseClass).as[JsObject].as[Map[String, String]]
+  def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, JsValue] =
+    Json.toJson[T](caseClass).as[JsObject].as[Map[String, JsValue]]
 
   def labelsCollection(id: String, labels: Set[String]): (URI, Seq[EmbeddedEntity[String]]) =
     (labelsUri(id), labels.map(setUnitEntity(id, "labels", _)).toSeq)
@@ -228,9 +228,9 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     edits
   }
 
-  // FIXME: At the moment we can't accept keywords as it is a list
-  def metadataAsMap(metadata: ImageMetadata) =
-    (Json.toJson(metadata).as[JsObject]-"keywords").as[Map[String, String]]
+  def metadataAsMap(metadata: ImageMetadata) = {
+    (Json.toJson(metadata).as[JsObject]).as[Map[String, JsValue]]
+  }
 
 
 }
