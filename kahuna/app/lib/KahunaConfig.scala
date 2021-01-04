@@ -1,9 +1,8 @@
 package lib
 
-import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.Configuration
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 
-class KahunaConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri
   val authUri: String = services.authBaseUri

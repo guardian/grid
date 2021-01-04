@@ -1,14 +1,12 @@
 package lib
 
 import java.io.File
-
 import com.gu.mediaservice.lib.cleanup.{ComposedImageProcessor, ImageProcessor}
-import com.gu.mediaservice.lib.config.{CommonConfig, ImageProcessorLoader}
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources, ImageProcessorLoader}
 import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.StrictLogging
-import play.api.Configuration
 
-class ImageLoaderConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) with StrictLogging {
+class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) with StrictLogging {
   val imageBucket: String = string("s3.image.bucket")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
@@ -53,8 +51,9 @@ class ImageLoaderConfig(playAppConfiguration: Configuration) extends CommonConfi
     * If a configuration is needed by is not provided by the config, the module configuration will be used instead.
     */
   val imageProcessor: ComposedImageProcessor = {
+    val configLoader = ImageProcessorLoader.imageProcessorsConfigLoader(this, resources.actorSystem)
     val processors = configuration
-      .get[Seq[ImageProcessor]]("image.processors")(ImageProcessorLoader.imageProcessorsConfigLoader(configuration))
+      .get[Seq[ImageProcessor]]("image.processors")(configLoader)
     ImageProcessor.compose("ImageConfigLoader-imageProcessor", processors:_*)
   }
 }

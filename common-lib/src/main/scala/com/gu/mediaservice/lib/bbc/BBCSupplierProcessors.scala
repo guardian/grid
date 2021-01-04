@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.bbc
 
 import com.gu.mediaservice.lib.bbc.components.BBCImageProcessorsDependencies
-import com.gu.mediaservice.lib.cleanup.{AapParser, ActionImagesParser, AlamyParser, AllStarParser, ApParser, ComposeImageProcessors, CorbisParser, EpaParser, GettyCreditParser, GettyXmpParser, ImageProcessor, PaParser, PhotographerParser, ReutersParser, RexParser, RonaldGrantParser}
-import com.gu.mediaservice.lib.config.KnownPhotographer
+import com.gu.mediaservice.lib.cleanup.{AapParser, ActionImagesParser, AlamyParser, AllStarParser, ApParser, ComposeImageProcessors, CorbisParser, EpaParser, GettyCreditParser, GettyXmpParser, ImageProcessor, ImageProcessorResources, PaParser, PhotographerParser, ReutersParser, RexParser, RonaldGrantParser}
+import com.gu.mediaservice.lib.config.{CommonConfig, KnownPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList.caseInsensitiveLookup
 import com.gu.mediaservice.model.{ContractPhotographer, Image, Photographer, StaffPhotographer}
 import play.api.Configuration
@@ -34,10 +34,10 @@ object BBCSupplierProcessors extends ComposeImageProcessors(
   RonaldGrantParser
 )
 
-class BBCPhotographerParser(configuration: Configuration) extends ImageProcessor {
+class BBCPhotographerParser(resources: ImageProcessorResources) extends ImageProcessor {
 
   import com.gu.mediaservice.lib.bbc.components.BBCMetadataConfig.companyPhotographersMap
-  val metadataStore = BBCImageProcessorsDependencies.metadataStore(configuration)
+  val metadataStore = BBCImageProcessorsDependencies.metadataStore(resources)
   lazy val staffPhotographersBBC = metadataStore.get.staffPhotographers
   lazy val contractedPhotographersBBC = metadataStore.get.contractedPhotographersMap
 
