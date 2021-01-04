@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.bbc.components
 
+import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.bbc.BBCImageProcessorConfig
 import com.gu.mediaservice.lib.cleanup.ImageProcessorResources
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -7,6 +8,18 @@ import play.api.Configuration
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+
+trait BBCDependenciesConfig {
+  def commonConfiguration: CommonConfig
+  def actorSystem: ActorSystem
+}
+
+object BBCDependenciesConfig {
+  def apply(resources: ImageProcessorResources): BBCDependenciesConfig = new BBCDependenciesConfig {
+    override def commonConfiguration: CommonConfig = resources.commonConfiguration
+    override def actorSystem: ActorSystem = resources.actorSystem
+  }
+}
 
 object BBCImageProcessorsDependencies {
   implicit val ec = ExecutionContext.global
@@ -24,10 +37,11 @@ object BBCImageProcessorsDependencies {
       }
     }
   }
+
   /*
   * The laziness here guarantees that the metadataStore will be only loaded if a BBC processor is instantiated.
   * */
-  lazy val metadataStore: ImageProcessorResources => BBCMetadataStore = memoizeOnce { resources =>
+  lazy val metadataStore: BBCDependenciesConfig => BBCMetadataStore = memoizeOnce { resources =>
     val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
     val bucket = bbcImageProcessorConfig.configBucket
     val metadataStore = new BBCMetadataStore(bucket, resources.commonConfiguration)
@@ -35,7 +49,7 @@ object BBCImageProcessorsDependencies {
     metadataStore
   }
 
-  lazy val usageRightsStore: ImageProcessorResources => BBCUsageRightsStore = memoizeOnce { resources =>
+  lazy val usageRightsStore: BBCDependenciesConfig => BBCUsageRightsStore = memoizeOnce { resources =>
     val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
     val bucket = bbcImageProcessorConfig.configBucket
     val usageRightsStore = new BBCUsageRightsStore(bucket, resources.commonConfiguration)

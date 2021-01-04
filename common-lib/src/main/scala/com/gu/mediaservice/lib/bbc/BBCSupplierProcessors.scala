@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.bbc
 
-import com.gu.mediaservice.lib.bbc.components.BBCImageProcessorsDependencies
+import com.gu.mediaservice.lib.bbc.components.{BBCDependenciesConfig, BBCImageProcessorsDependencies}
 import com.gu.mediaservice.lib.cleanup.{AapParser, ActionImagesParser, AlamyParser, AllStarParser, ApParser, ComposeImageProcessors, CorbisParser, EpaParser, GettyCreditParser, GettyXmpParser, ImageProcessor, ImageProcessorResources, PaParser, PhotographerParser, ReutersParser, RexParser, RonaldGrantParser}
 import com.gu.mediaservice.lib.config.{CommonConfig, KnownPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList.caseInsensitiveLookup
@@ -37,7 +37,8 @@ object BBCSupplierProcessors extends ComposeImageProcessors(
 class BBCPhotographerParser(resources: ImageProcessorResources) extends ImageProcessor {
 
   import com.gu.mediaservice.lib.bbc.components.BBCMetadataConfig.companyPhotographersMap
-  val metadataStore = BBCImageProcessorsDependencies.metadataStore(resources)
+  val config = BBCDependenciesConfig(resources)
+  val metadataStore = BBCImageProcessorsDependencies.metadataStore(config)
   lazy val staffPhotographersBBC = metadataStore.get.staffPhotographers
   lazy val contractedPhotographersBBC = metadataStore.get.contractedPhotographersMap
 
