@@ -57,7 +57,7 @@ object ImageProcessorLoader extends StrictLogging {
     val config = new ImageProcessorResources {
       override def processorConfiguration: Configuration = details.config.getOrElse(Configuration.empty)
       override def commonConfiguration: CommonConfig = details.commonConfiguration
-      override def actorSystem: ActorSystem = ???
+      override def actorSystem: ActorSystem = details.actorSystem
     }
     ImageProcessorLoader
       .loadImageProcessor(details.className, config)
