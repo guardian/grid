@@ -1,8 +1,7 @@
 package lib
 
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import org.joda.time.DateTime
-import play.api.Configuration
 
 import scala.util.Try
 
@@ -11,7 +10,7 @@ case class StoreConfig(
   storeKey: String
 )
 
-class MediaApiConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val configBucket: String = string("s3.config.bucket")
   val usageMailBucket: String = string("s3.usagemail.bucket")
 

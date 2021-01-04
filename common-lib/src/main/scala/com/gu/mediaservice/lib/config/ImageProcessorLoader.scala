@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.config
 
-import com.gu.mediaservice.lib.cleanup.ImageProcessor
+import akka.actor.ActorSystem
+import com.gu.mediaservice.lib.cleanup.{ImageProcessor, ImageProcessorResources}
 import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config.{Config, ConfigObject, ConfigOrigin, ConfigValue, ConfigValueType}
 import com.typesafe.scalalogging.StrictLogging
@@ -12,31 +13,36 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 object ImageProcessorLoader extends StrictLogging {
-  case class ImageProcessorConfigDetails(className: String, config: Option[Configuration], moduleConfiguration: Configuration, origin: ConfigOrigin, path: String)
+  case class ImageProcessorConfigDetails(className: String,
+                                         config: Option[Configuration],
+                                         commonConfiguration: CommonConfig,
+                                         actorSystem: ActorSystem,
+                                         origin: ConfigOrigin,
+                                         path: String)
 
-  def imageProcessorsConfigLoader(moduleConfiguration: Configuration): ConfigLoader[Seq[ImageProcessor]] = (config: Config, path: String) => {
+  def imageProcessorsConfigLoader(commonConfiguration: CommonConfig, actorSystem: ActorSystem): ConfigLoader[Seq[ImageProcessor]] = (config: Config, path: String) => {
     config
       .getList(path)
       .iterator()
       .asScala.map { configValue =>
-      parseConfigValue(configValue, path, moduleConfiguration)
+      parseConfigValue(configValue, path, commonConfiguration, actorSystem)
     }.map(loadImageProcessor).toList
   }
 
-  def imageProcessorConfigLoader(moduleConfiguration: Configuration): ConfigLoader[ImageProcessor] = (config: Config, path: String) => {
-    val configDetails = parseConfigValue(config.getValue(path), path, moduleConfiguration)
+  def imageProcessorConfigLoader(commonConfiguration: CommonConfig, actorSystem: ActorSystem): ConfigLoader[ImageProcessor] = (config: Config, path: String) => {
+    val configDetails = parseConfigValue(config.getValue(path), path, commonConfiguration, actorSystem)
     loadImageProcessor(configDetails)
   }
 
-  private def parseConfigValue(configValue: ConfigValue, path: String, moduleConfiguration: Configuration): ImageProcessorConfigDetails = {
+  private def parseConfigValue(configValue: ConfigValue, path: String, commonConfiguration: CommonConfig, actorSystem: ActorSystem): ImageProcessorConfigDetails = {
     configValue match {
       case plainClass if plainClass.valueType == ConfigValueType.STRING =>
-        ImageProcessorConfigDetails(plainClass.unwrapped.asInstanceOf[String], None, moduleConfiguration,plainClass.origin, path)
+        ImageProcessorConfigDetails(plainClass.unwrapped.asInstanceOf[String], None, commonConfiguration, actorSystem, plainClass.origin, path)
       case withConfig:ConfigObject if validConfigObject(withConfig) =>
         val config = withConfig.toConfig
         val className = config.getString("className")
         val processorConfig = config.getConfig("config")
-        ImageProcessorConfigDetails(className, Some(Configuration(processorConfig)), moduleConfiguration, withConfig.origin, path)
+        ImageProcessorConfigDetails(className, Some(Configuration(processorConfig)), commonConfiguration, actorSystem, withConfig.origin, path)
       case _ =>
         throw new BadValue(configValue.origin, path, s"An image processor can either a class name (string) or object with className (string) and config (object) fields. This ${configValue.valueType} is not valid.")
     }
@@ -48,8 +54,13 @@ object ImageProcessorLoader extends StrictLogging {
   }
 
   private def loadImageProcessor(details: ImageProcessorConfigDetails): ImageProcessor = {
+    val config = new ImageProcessorResources {
+      override def processorConfiguration: Configuration = details.config.getOrElse(Configuration.empty)
+      override def commonConfiguration: CommonConfig = details.commonConfiguration
+      override def actorSystem: ActorSystem = ???
+    }
     ImageProcessorLoader
-      .loadImageProcessor(details.className, details.config.getOrElse(details.moduleConfiguration))
+      .loadImageProcessor(details.className, config)
       .getOrElse { error =>
         val configError = s"Unable to instantiate image processor from config: $error"
         logger.error(configError)
@@ -57,7 +68,7 @@ object ImageProcessorLoader extends StrictLogging {
       }
   }
 
-  def loadImageProcessor(className: String, config: Configuration): Either[String, ImageProcessor] = {
+  def loadImageProcessor(className: String, config: ImageProcessorResources): Either[String, ImageProcessor] = {
     for {
       imageProcessorClass <- loadClass(className)
       imageProcessorInstance <- instantiate(imageProcessorClass, config)
@@ -71,17 +82,24 @@ object ImageProcessorLoader extends StrictLogging {
       s"Unknown error whilst loading $className, check logs"
   }
 
-  private def instantiate(imageProcessorClass: Class[_], config: Configuration): Either[String, ImageProcessor] = {
-
+  private def instantiate(imageProcessorClass: Class[_], resources: ImageProcessorResources): Either[String, ImageProcessor] = {
+    // Fail fast if processor config is provided but the specified image processor ignores it
+    def assertNoConfiguration[T](ok: Right[String, T]): Either[String, T] = {
+      if (resources.processorConfiguration.keys.nonEmpty) {
+        Left(s"Attempt to initialise image processor ${imageProcessorClass.getCanonicalName} failed as configuration is provided but the constructor does not take configuration as an argument.")
+      } else {
+        ok
+      }
+    }
 
     val maybeCompanionObject = Try(imageProcessorClass.getField("MODULE$").get(imageProcessorClass)).toOption
     val maybeNoArgCtor = Try(imageProcessorClass.getDeclaredConstructor()).toOption
-    val maybeConfigCtor = Try(imageProcessorClass.getDeclaredConstructor(classOf[Configuration])).toOption
+    val maybeConfigCtor = Try(imageProcessorClass.getDeclaredConstructor(classOf[ImageProcessorResources])).toOption
     for {
       instance <- (maybeCompanionObject, maybeNoArgCtor, maybeConfigCtor) match {
-        case (Some(companionObject), _, _) => Right(companionObject)
-        case (_, _, Some(configCtor)) => Right(configCtor.newInstance(config))
-        case (_, Some(noArgCtor), None) => Right(noArgCtor.newInstance())
+        case (Some(companionObject), _, _) => assertNoConfiguration(Right(companionObject))
+        case (_, _, Some(configCtor)) => Right(configCtor.newInstance(resources))
+        case (_, Some(noArgCtor), None) => assertNoConfiguration(Right(noArgCtor.newInstance()))
         case (None, None, None) => Left(s"Unable to find a suitable constructor for ${imageProcessorClass.getCanonicalName}. Must either have a no arg constructor or a constructor taking one argument of type ImageProcessorConfig.")
       }
       castInstance <- try {

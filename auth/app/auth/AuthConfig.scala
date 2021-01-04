@@ -1,11 +1,8 @@
 package auth
 
-import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.Configuration
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 
-import scala.concurrent.ExecutionContext
-
-class AuthConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+class AuthConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.authBaseUri
   val mediaApiUri: String = services.apiBaseUri
   val kahunaUri = services.kahunaBaseUri

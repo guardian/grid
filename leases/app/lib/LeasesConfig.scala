@@ -1,14 +1,12 @@
 package lib
 
-import java.net.URI
-
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.Configuration
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 
+import java.net.URI
 import scala.util.Try
 
-class LeasesConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+class LeasesConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val leasesTable = string("dynamo.tablename.leasesTable")
 
   val rootUri: String = services.leasesBaseUri

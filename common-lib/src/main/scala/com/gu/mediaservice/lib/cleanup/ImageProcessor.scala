@@ -1,12 +1,21 @@
 package com.gu.mediaservice.lib.cleanup
 
+import akka.actor.ActorSystem
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model.Image
+import play.api.Configuration
 
 /**
   * An image processor has a single apply method that takes an `Image` and returns an `Image`. This can be used
   * to modify the image in any number of ways and is primarily used to identify and allocate images from different
   * suppliers and also to clean and conform metadata.
   */
+trait ImageProcessorResources {
+  def processorConfiguration: Configuration
+  def commonConfiguration: CommonConfig
+  def actorSystem: ActorSystem
+}
+
 trait ImageProcessor {
   def apply(image: Image): Image
   def description: String = getClass.getCanonicalName

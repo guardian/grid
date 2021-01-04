@@ -1,6 +1,8 @@
 package com.gu.mediaservice.lib.bbc.components
 
 import com.gu.mediaservice.lib.bbc.BBCImageProcessorConfig
+import com.gu.mediaservice.lib.cleanup.ImageProcessorResources
+import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
 import scala.collection.mutable
@@ -25,19 +27,19 @@ object BBCImageProcessorsDependencies {
   /*
   * The laziness here guarantees that the metadataStore will be only loaded if a BBC processor is instantiated.
   * */
-  lazy val metadataStore: Configuration => MetadataStore = memoizeOnce { configuration =>
-    val bbcImageProcessorConfig = new BBCImageProcessorConfig(configuration)
+  lazy val metadataStore: ImageProcessorResources => MetadataStore = memoizeOnce { resources =>
+    val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
     val bucket = bbcImageProcessorConfig.configBucket
-    val metadataStore = new MetadataStore(bucket, bbcImageProcessorConfig)
-    metadataStore.update()
+    val metadataStore = new MetadataStore(bucket, resources.commonConfiguration)
+    metadataStore.scheduleUpdates(resources.actorSystem.scheduler)
     metadataStore
   }
 
-  lazy val usageRightsStore: Configuration => BBCUsageRightsStore = memoizeOnce { configuration =>
-    val bbcImageProcessorConfig = new BBCImageProcessorConfig(configuration)
+  lazy val usageRightsStore: ImageProcessorResources => BBCUsageRightsStore = memoizeOnce { resources =>
+    val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
     val bucket = bbcImageProcessorConfig.configBucket
-    val usageRightsStore = new BBCUsageRightsStore(bucket, bbcImageProcessorConfig)
-    usageRightsStore.update()
+    val usageRightsStore = new BBCUsageRightsStore(bucket, resources.commonConfiguration)
+    usageRightsStore.scheduleUpdates(resources.actorSystem.scheduler)
     usageRightsStore
   }
 }

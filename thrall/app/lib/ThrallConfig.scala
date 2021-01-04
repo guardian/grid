@@ -3,10 +3,9 @@ package lib
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
 import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import play.api.Configuration
 
 case class KinesisReceiverConfig(
   override val awsRegion: String,
@@ -29,7 +28,7 @@ object KinesisReceiverConfig {
   )
 }
 
-class ThrallConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+class ThrallConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val imageBucket: String = string("s3.image.bucket")
 
   val writeAlias: String = string("es.index.aliases.write")

@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
+import com.gu.mediaservice.lib.config.{GridConfigLoader, GridConfigResources}
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -49,12 +50,13 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     "grid.appName"
   )
 
-  private val mediaApiConfig = new MediaApiConfig(
+  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
     Configuration.from(Map(
       "es6.shards" -> 0,
       "es6.replicas" -> 0
-    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap)
-  )
+    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    null
+  ))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
   val elasticConfig = ElasticSearchConfig(alias = "readalias", url = es6TestUrl,
