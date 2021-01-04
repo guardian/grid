@@ -1,12 +1,11 @@
 package lib
 
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+
 import java.io.File
 
-import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.Configuration
 
-
-class CropperConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
+class CropperConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val imgPublishingBucket = string("publishing.image.bucket")
 
   val imgPublishingHost = string("publishing.image.host")

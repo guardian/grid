@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.AdminToolsCtr
 import lib.AdminToolsConfig
@@ -6,8 +7,8 @@ import play.api.Configuration
 import router.Routes
 
 object AdminToolsComponents {
-  def config(configuration: Configuration) = new AdminToolsConfig(
-    configuration ++ Configuration.from(Map(
+  def config(resources: GridConfigResources) = new AdminToolsConfig(
+    resources.configuration ++ Configuration.from(Map(
       "domain.root" -> "local.dev-gutools.co.uk",
       "auth.keystore.bucket" -> "not-used",
       "thrall.kinesis.stream.name"-> "not-used",

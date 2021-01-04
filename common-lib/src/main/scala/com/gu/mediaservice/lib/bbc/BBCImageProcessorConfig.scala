@@ -1,8 +1,7 @@
 package com.gu.mediaservice.lib.bbc
 
-import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
-class BBCImageProcessorConfig(config: Configuration) extends CommonConfig(config) {
-  val configBucket = string("s3.config.bucket")
+class BBCImageProcessorConfig(config: Configuration) {
+  val configBucket: String = config.get[String]("s3.config.bucket")
 }
