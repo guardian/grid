@@ -192,6 +192,9 @@ usageRightsEditor.controller(
     // HACK: This should probably live somewhere else, but it's the least intrusive
     // here. This updates the metadata based on the usage rights to stop users having
     // to enter content twice.
+    // ALSO: inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
     function setMetadataFromUsageRights(image, inBatch = false) {
         return editsService.updateMetadataFromUsageRights(image, inBatch);
     }

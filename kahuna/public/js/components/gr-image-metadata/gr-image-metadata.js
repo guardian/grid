@@ -94,7 +94,7 @@ module.controller('grImageMetadataCtrl', [
       });
     }
 
-    const freeUpdateHandler = (updatedImage) => {
+    const updateHandler = (updatedImage) => {
       console.log('image update recvd in gr-image-metadata', updatedImage);
       ctrl.image = updatedImage;
       ctrl.usageRights = imageService(ctrl.image).usageRights;
@@ -102,7 +102,12 @@ module.controller('grImageMetadataCtrl', [
       ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
     };
 
-    const freeUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => updatedImages.map(updatedImage => freeUpdateHandler(updatedImage)));
+    // It is not clear that this handler would handle multiple images in a meaningful way.
+    // This replicates the previous logic where the event handler handled a single image.
+    // Call it to "free" the listener
+    const freeUpdateListener = $rootScope.$on('images-updated',
+      (e, updatedImages) => updatedImages.map(updatedImage => updateHandler(updatedImage))
+      );
 
     ctrl.updateMetadataField = function (field, value) {
         return editsService.updateMetadataField(ctrl.image, field, value)

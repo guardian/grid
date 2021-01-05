@@ -117,6 +117,9 @@ service.factory('editsService',
     // update requests for a given Resource
     const updateRequestPools = new Map();
 
+    // inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
     function registerUpdateRequest(resource, originalImage, inBatch = false) {
         const requestPool = createRequestPool();
         const promise = withWatcher(resource, requestPool.promise).
@@ -139,10 +142,15 @@ service.factory('editsService',
         return newRequest;
     }
 
+    // inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
+
     /**
      * @param resource {Resource} resource to update
      * @param data {*} PUTs `data` and replaces old data
      * @param originalImage {Resource} the image used to check if we've re-indexed yet
+     * @param inBatch {Boolean} is this being called multiple times? (see comment)
      * @returns {Promise.<Resource>} completed when information is synced
      */
     function update(resource, data, originalImage, inBatch = false) {
@@ -159,6 +167,9 @@ service.factory('editsService',
 
     // HACK: This is a very specific action that we use the `updateRequestPool` ast this action
     // actually updates the metadata as a sideeffect.
+    // ALSO: inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
     function updateMetadataFromUsageRights(originalImage, inBatch = false) {
         const resource = originalImage.data.userMetadata.data.metadata;
         const newRequest = resource.perform('set-from-usage-rights').
@@ -236,7 +247,9 @@ service.factory('editsService',
     }
 
 
-
+    // inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
     function updateMetadataField (image, field, value, inBatch = false) {
         var metadata = image.data.metadata;
 
