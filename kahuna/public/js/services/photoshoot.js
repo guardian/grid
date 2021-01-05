@@ -18,12 +18,12 @@ photoshootService.factory('photoshootService', [
         function batchAdd({ data, images }) {
           const putPhotoshoot = (image) => imageAccessor.getPhotoshoot(image).put({ data });
           const waitForPhotoshootInApi = (image, newPhotoshoot) =>
-          apiPoll(() =>
-            untilEqual({
-              image,
-              expectedPhotoshoot: newPhotoshoot.data
-            })
-          )
+            apiPoll(() =>
+              untilEqual({
+                image,
+                expectedPhotoshoot: newPhotoshoot.data
+              })
+            );
           return trackAll(
             $rootScope,
             "photoshoot",
