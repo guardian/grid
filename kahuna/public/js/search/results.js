@@ -419,13 +419,12 @@ results.controller('SearchResultsCtrl', [
           var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
           if (indexAll !== -1) {
             ctrl.imagesAll[indexAll] = updatedImage;
-
-            // TODO: should not be needed here, the results list
-            // should listen to these events and update itself
-            // outside of any controller.
-            // results.set(indexAll, updatedImage);
           }
         });
+
+        // TODO: should not be needed here, the results list
+        // should listen to these events and update itself
+        // outside of any controller.
         results.map(image => {
           if (image == undefined){
             return image;
