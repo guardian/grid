@@ -410,8 +410,6 @@ results.controller('SearchResultsCtrl', [
 
 
       const freeUpdatesListener = $rootScope.$on('images-updated', (e, updatedImages) => {
-        console.log("images-update recvd in results");
-        console.log(e, updatedImages);
         updatedImages.map(updatedImage => {
           var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
           if (index !== -1) {
@@ -428,7 +426,6 @@ results.controller('SearchResultsCtrl', [
             // results.set(indexAll, updatedImage);
           }
         });
-        console.log(results);
         results.map(image => {
           if (image == undefined){
             return image;

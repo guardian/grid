@@ -47,7 +47,6 @@ image.controller('uiPreviewImageCtrl', [
 
     const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
       const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
-      console.log(maybeUpdatedImage);
       if (maybeUpdatedImage) {
         updateImage(maybeUpdatedImage);
       }

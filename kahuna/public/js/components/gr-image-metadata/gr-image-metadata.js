@@ -95,7 +95,6 @@ module.controller('grImageMetadataCtrl', [
     }
 
     const updateHandler = (updatedImage) => {
-      console.log('image update recvd in gr-image-metadata', updatedImage);
       ctrl.image = updatedImage;
       ctrl.usageRights = imageService(ctrl.image).usageRights;
       ctrl.metadata = updatedImage.data.metadata;

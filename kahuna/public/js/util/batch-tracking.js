@@ -21,7 +21,6 @@ const concurrency = 30;
 export const trackAll = async ($rootScope, key, input, tasks, emit) => {
   const withQueues = (Array.isArray(tasks) ? tasks : [tasks]).map((fn) => {
     const queue = new PQueue({ concurrency });
-    console.log(fn, queue);
     return (item, result) => queue.add(() => fn(item, result));
   });
 
