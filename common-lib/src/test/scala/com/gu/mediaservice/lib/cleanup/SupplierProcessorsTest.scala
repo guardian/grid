@@ -79,11 +79,25 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.credit should be(Some("Alamy"))
     }
 
-    it("should match 'Alamy Stock Photo' credit") {
+    it("should match 'Alamy Stock Photo' credit, and replace 'Alamy Stock Photo' with 'Alamy'") {
       val image = createImageFromMetadata("credit" -> "Alamy Stock Photo")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be (Agency("Alamy"))
-      processedImage.metadata.credit should be(Some("Alamy Stock Photo"))
+      processedImage.metadata.credit should be(Some("Alamy"))
+    }
+
+    it("should match credit with Alamy as a suffix with '/'") {
+      val image = createImageFromMetadata("credit" -> "Prod.DB/Alamy Stock Photo")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be (Agency("Alamy"))
+      processedImage.metadata.credit should be(Some("Prod.DB/Alamy"))
+    }
+
+    it("should not match credit with Alamy when the credit contains 'Alamy Live News', because we only have rights after 48 hours, and there's no provision to add a 'deny' lease for that period yet") {
+      val image = createImageFromMetadata("credit" -> "Alamy Live News/Alamy Live News")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be (NoRights)
+      processedImage.metadata.credit should be(Some("Alamy Live News/Alamy Live News"))
     }
   }
 
