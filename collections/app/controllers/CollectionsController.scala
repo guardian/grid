@@ -36,7 +36,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
 
-  def uri(u: String) = URI.create(u)
+def uri(u: String) = URI.create(u)
   val collectionUri = uri(s"${config.rootUri}/collections")
   def collectionUri(p: List[String] = Nil) = {
     val path = if(p.nonEmpty) s"/${pathToUri(p)}" else ""
@@ -123,6 +123,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
 
         store.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
+          logger.info(req.user.accessor, s"Adding collection ${path.mkString("/")}")
           respond(node, actions = getActions(node))
         } recover {
           case e: CollectionsStoreError => storeError(e.message)
@@ -157,6 +158,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
           s"$collectionPath has children, can't delete!"
         )
       } else {
+        logger.info(req.user.accessor, s"Deleting collection ${path.mkString("/")}")
         store.remove(path).map(_ => Accepted)
       }
     } recover {
