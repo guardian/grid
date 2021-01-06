@@ -39,7 +39,7 @@ object BBCImageProcessorsDependencies {
   }
 
   /*
-  * The laziness here guarantees that the metadataStore will be only loaded if a BBC processor is instantiated.
+  * The laziness here guarantees that only the used dependencies are loaded
   * */
   lazy val metadataStore: BBCDependenciesConfig => BBCMetadataStore = memoizeOnce { resources =>
     val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
