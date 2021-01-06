@@ -66,7 +66,7 @@ object ActionImagesParser extends ImageProcessor {
 
 object AlamyParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Alamy") | Some("Alamy Stock Photo") => image.copy(
+    case Some(credit) if credit.contains("Alamy") && !credit.contains("Alamy Live News") => image.copy(
       usageRights = Agencies.get("alamy")
     )
     case _ => image
