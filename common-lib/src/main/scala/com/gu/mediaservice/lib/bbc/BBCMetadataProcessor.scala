@@ -25,4 +25,6 @@ class BBCMetadataProcessor(resources: ImageProcessorResources) extends ImageProc
       val metaDataCleaner = new MetadataCleaners(allPhotographers)
       metaDataCleaner.apply(image)
   }
+
+  override def description: String = "BBC Metadata Processor"
 }

@@ -67,6 +67,7 @@ class BBCPhotographerParser(resources: ImageProcessorResources) extends ImagePro
     }
   }.getOrElse(image)
 
+  override def description: String = "BBC Supplier Processor"
 }
 
 
