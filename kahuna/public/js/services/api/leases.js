@@ -42,7 +42,7 @@ leaseService.factory('leaseService', [
         return currentLeases.then(() => {
           return image
               .perform('delete-leases').then(() => {
-              pollLeases(images, imageList.getLeases(images));
+              pollLeasesAndUpdateUI(images, imageList.getLeases(images));
           });
         });
     }
@@ -62,7 +62,7 @@ leaseService.factory('leaseService', [
             return image
               .perform('replace-leases', {body: updatedLeases})
               .then(() => {
-                  pollLeases(images);
+                  pollLeasesAndUpdateUI(images);
               });
         });
     }
@@ -79,8 +79,12 @@ leaseService.factory('leaseService', [
     }
 
     function batchAdd(lease, images) {
-      return trackAll($rootScope, "leases", images, image => add(image, lease)).then(() => {
-        pollLeases(images);
+      return trackAll($rootScope, "leases", images, [image => add(image, lease), image => {
+        apiPoll(() => {
+          return untilLeasesChange([image]);
+        });
+      }], 'images-changed').then(() => {
+            $rootScope.$emit('leases-updated');
       });
     }
 
@@ -95,16 +99,21 @@ leaseService.factory('leaseService', [
      */
     function deleteLease(lease, images) {
       return getLeasesRoot().follow('leases', {id: lease.id}).delete()
-        .then(() => pollLeases(images));
+        .then(() => pollLeasesAndUpdateUI(images));
     }
 
     function getByMediaId(image) {
       return getLeasesRoot().follow('by-media-id', {id: image.data.id}).get();
     }
 
-    function pollLeases(images) {
+    function pollLeasesAndUpdateUI(images) {
       apiPoll(() => {
         return untilLeasesChange(images);
+      }).then(results => {
+        $rootScope.$emit('images-updated', results.map(({image})=>image));
+        $rootScope.$emit('leases-updated');
+
+        return results.map(({leases}) => leases);
       });
     }
 
@@ -113,7 +122,7 @@ leaseService.factory('leaseService', [
       return $q.all(imagesArray.map(image => {
         return image.get().then(apiImage => {
           const apiImageAndApiLeases = getApiImageAndApiLeasesIfUpdated(image, apiImage);
-          if (apiImageAndApiLeases){
+          if (apiImageAndApiLeases) {
             image = apiImage;
             return apiImageAndApiLeases;
           } else {
@@ -122,13 +131,7 @@ leaseService.factory('leaseService', [
             return $q.reject();
           }
         });
-      })).then(results => {
-        return results.map(result => {
-          $rootScope.$emit('image-updated', result.image);
-          $rootScope.$emit('leases-updated');
-          return result.leases;
-        });
-      });
+      }));
     }
 
     function flattenLeases(leaseByMedias) {

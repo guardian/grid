@@ -18,7 +18,7 @@ services:
     ports:
       - "9090:9000"
   localstack:
-    image: localstack/localstack:0.11.6
+    image: localstack/localstack:0.12.3
     ports:
       - "4566:4566" # localstack's service proxy endpoint
       - "4572:4572" # localstack's direct S3 endpoint, needed for image and image-origin buckets (see nginx-mappings.yml)

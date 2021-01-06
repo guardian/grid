@@ -1,85 +1,97 @@
-import angular from 'angular';
-import { trackAll } from '../util/batch-tracking';
+import angular from "angular";
+import { trackAll } from "../util/batch-tracking";
 
-var labelService = angular.module('kahuna.services.label', []);
+var labelService = angular.module("kahuna.services.label", []);
 
-labelService.factory('labelService',
-                     ['$rootScope', '$q', 'apiPoll', 'imageAccessor',
-                      function ($rootScope, $q, apiPoll, imageAccessor) {
-
+labelService.factory("labelService", [
+  "$rootScope",
+  "$q",
+  "apiPoll",
+  "imageAccessor",
+  function ($rootScope, $q, apiPoll, imageAccessor) {
     function readLabelName(label) {
-        return label.data;
+      return label.data;
     }
 
     function readLabelsName(labels) {
-        return labels.map(readLabelName);
+      return labels.map(readLabelName);
     }
 
     function labelsEquals(labelsA, labelsB) {
-        return angular.equals(
-            readLabelsName(labelsA).sort(),
-            readLabelsName(labelsB).sort()
-        );
+      return angular.equals(
+        readLabelsName(labelsA).sort(),
+        readLabelsName(labelsB).sort()
+      );
     }
-
     function untilLabelsEqual(image, expectedLabels) {
-        return image.get().then(apiImage => {
-            const apiLabels = imageAccessor.readLabels(apiImage);
-            if (labelsEquals(apiLabels, expectedLabels)) {
-                return apiImage;
-            } else {
-                return $q.reject();
-            }
-        });
-    }
-
-    function remove (image, label) {
-        var existingLabels = imageAccessor.readLabels(image);
-        var labelIndex = existingLabels.findIndex(lbl => lbl.data === label);
-        if (labelIndex !== -1) {
-            return existingLabels[labelIndex]
-                .delete()
-                .then(newLabels => apiPoll(() => untilLabelsEqual(image, newLabels.data)))
-                .then(newImage => {
-                    $rootScope.$emit('image-updated', newImage, image);
-                    return newImage;
-                });
+      return image.get().then((apiImage) => {
+        const apiLabels = imageAccessor.readLabels(apiImage);
+        if (labelsEquals(apiLabels, expectedLabels)) {
+          return apiImage;
+        } else {
+          return $q.reject();
         }
-
-        // no-op
-        return Promise.resolve(image);
+      });
     }
 
-    function add (image, labels) {
-        labels = labels.filter(label => label && label.trim().length > 0);
-
-        return image.data.userMetadata.data.labels
-            .post({data: labels})
-            .then(newLabels => apiPoll(() => untilLabelsEqual(image, newLabels.data)))
-            .then(newImage => {
-                $rootScope.$emit('image-updated', newImage, image);
-                return image;
-            });
+    function remove(image, label) {
+      return batchRemove([image], label);
     }
 
-    function batchAdd (images, labels) {
-        return trackAll($rootScope, "label", images, image => add(image, labels));
+    function add(image, labels) {
+      return batchAdd([image], labels);
     }
 
-    function batchRemove (images, label) {
-        const affectedImages = images.filter(image =>
-            imageAccessor.readLabels(image).some(({ data }) => data === label)
-        );
+    function batchAdd(images, labels) {
+      const sendAdd = (image) => {
+        labels = labels.filter((label) => label && label.trim().length > 0);
 
-        return trackAll($rootScope, "label", affectedImages, image => remove(image, label));
+        return image.data.userMetadata.data.labels.post({ data: labels });
+      };
+      const checkAdd = (image, result) =>
+        apiPoll(() => untilLabelsEqual(image, result.data));
+
+      return trackAll(
+        $rootScope,
+        "label",
+        images,
+        [sendAdd, checkAdd],
+        "images-updated"
+      );
+    }
+
+    function batchRemove(images, label) {
+      const imagesWithLabel = images
+        .map((image) => {
+          const labels = imageAccessor.readLabels(image);
+          const l = labels.find(({ data }) => data === label);
+          return { image, label: l };
+        })
+        .filter(({ label }) => label !== undefined);
+      if (imagesWithLabel.length === 0) {
+        return Promise.resolve();
+      }
+
+      return trackAll(
+        $rootScope,
+        "label",
+        imagesWithLabel,
+        [
+          ({ label }) => label.delete(),
+          ({ image }, result) =>
+            apiPoll(() => untilLabelsEqual(image, result.data))
+        ],
+        "images-updated"
+      );
     }
 
     return {
-        add,
-        remove,
-        batchAdd,
-        batchRemove
+      add,
+      remove,
+      batchAdd,
+      batchRemove
     };
-}]);
+  }
+]);
 
 export default labelService;

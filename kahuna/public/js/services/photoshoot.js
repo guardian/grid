@@ -16,39 +16,36 @@ photoshootService.factory('photoshootService', [
         }
 
         function batchAdd({ data, images }) {
-            return trackAll($rootScope, "photoshoot", images, image =>
-                putPhotoshoot({data, image})
+          const putPhotoshoot = (image) => imageAccessor.getPhotoshoot(image).put({ data });
+          const waitForPhotoshootInApi = (image, newPhotoshoot) =>
+            apiPoll(() =>
+              untilEqual({
+                image,
+                expectedPhotoshoot: newPhotoshoot.data
+              })
             );
+          return trackAll(
+            $rootScope,
+            "photoshoot",
+            images,
+            [ putPhotoshoot, waitForPhotoshootInApi],
+            "images-updated"
+          );
         }
 
-        function batchRemove({ images }) {
-            return trackAll($rootScope, "photoshoot", images, image =>
-                deletePhotoshoot({ image })
-            );
-        }
-
-        function putPhotoshoot({ data, image }) {
-            return imageAccessor.getPhotoshoot(image)
-                .put({ data })
-                .then(newPhotoshoot => apiPoll(() => untilEqual({
-                    image,
-                    expectedPhotoshoot: newPhotoshoot.data
-                })))
-                .then(newImage => {
-                    $rootScope.$emit('image-updated', newImage, image);
-                    return newImage;
-                });
-        }
-
-        function deletePhotoshoot({ image }) {
-            return imageAccessor.getPhotoshoot(image)
-                .delete()
-                .then(() => apiPoll(() => untilEqual({image, expectedPhotoshoot: undefined })))
-                .then(newImage => {
-                    $rootScope.$emit('image-updated', newImage, image);
-                    return newImage;
-                });
-        }
+      function batchRemove({ images }) {
+        const removePhotoshoot = (image) =>
+          imageAccessor.getPhotoshoot(image).delete();
+        const waitForPhotoshootRemovedInApi = (image) =>
+          apiPoll(() => untilEqual({ image, expectedPhotoshoot: undefined }));
+        return trackAll(
+          $rootScope,
+          "photoshoot",
+          images,
+          [removePhotoshoot, waitForPhotoshootRemovedInApi],
+          "images-updated"
+        );
+      }
 
         function untilEqual({ image, expectedPhotoshoot }) {
             return image.get().then(apiImage => {

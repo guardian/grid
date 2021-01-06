@@ -229,9 +229,10 @@ image.controller('ImageCtrl', [
       });
     }
 
-    const freeImageUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
-      if (ctrl.image.data.id === updatedImage.data.id) {
-        ctrl.image = updatedImage;
+    const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+      const maybeUpdatedImage = updatedImages.some(updatedImage => ctrl.image.data.id === updatedImage.data.id);
+      if (maybeUpdatedImage) {
+        ctrl.image = maybeUpdatedImage;
       }
     });
 
@@ -249,8 +250,8 @@ image.controller('ImageCtrl', [
       }
     });
 
-    $scope.$on('$destroy', function() {
-      freeImageUpdateListener();
+    $scope.$on('$destroy', function () {
+      freeImagesUpdateListener();
       freeImageDeleteListener();
       freeImageDeleteFailListener();
     });

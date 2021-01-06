@@ -29,6 +29,10 @@ listFactory.value('listFactory', function() {
         return (list) => list.set(index, item);
     }
 
+    function map(f) {
+        return (list) => list.map(f);
+    }
+
     function removeAt(index) {
         return (list) => list.delete(index);
     }
@@ -49,6 +53,7 @@ listFactory.value('listFactory', function() {
 
         // Operations
         set(index, item) { queueOperation(set(index, item)); },
+        map(f)           { queueOperation(map(f));           },
         removeAt(index)  { queueOperation(removeAt(index));  },
         resize(length)   { queueOperation(resize(length));   },
         clear()          { queueOperation(clear());          }

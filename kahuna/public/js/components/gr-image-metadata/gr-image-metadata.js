@@ -13,153 +13,154 @@ export const module = angular.module('gr.imageMetadata', [
 ]);
 
 module.controller('grImageMetadataCtrl', [
-    '$rootScope',
-    '$scope',
-    '$window',
-    'imageService',
-    'editsService',
-    'mediaApi',
-    'editsApi',
-    'collections',
+  '$rootScope',
+  '$scope',
+  '$window',
+  'imageService',
+  'editsService',
+  'mediaApi',
+  'editsApi',
+  'collections',
 
-    function ($rootScope,
-              $scope,
-              $window,
-              imageService,
-              editsService,
-              mediaApi,
-              editsApi,
-              collections) {
+  function ($rootScope,
+    $scope,
+    $window,
+    imageService,
+    editsService,
+    mediaApi,
+    editsApi,
+    collections) {
 
-        let ctrl = this;
+    let ctrl = this;
 
-        ctrl.showUsageRights = false;
-        ctrl.usageRights = imageService(ctrl.image).usageRights;
+    ctrl.showUsageRights = false;
+    ctrl.usageRights = imageService(ctrl.image).usageRights;
 
-        // Alias for convenience in view
-        ctrl.metadata = ctrl.image.data.metadata;
-        ctrl.identifiers = ctrl.image.data.identifiers;
+    // Alias for convenience in view
+    ctrl.metadata = ctrl.image.data.metadata;
+    ctrl.identifiers = ctrl.image.data.identifiers;
 
-        ctrl.isUsefulMetadata = isUsefulMetadata;
+    ctrl.isUsefulMetadata = isUsefulMetadata;
 
-        ctrl.hasLocationInformation = ctrl.metadata.subLocation ||
-            ctrl.metadata.city ||
-            ctrl.metadata.state ||
-            ctrl.metadata.country;
+    ctrl.hasLocationInformation = ctrl.metadata.subLocation ||
+      ctrl.metadata.city ||
+      ctrl.metadata.state ||
+      ctrl.metadata.country;
 
-        // Map of metadata location field to query filter name
-        ctrl.locationFieldMap = {
-            'subLocation': 'location',
-            'city': 'city',
-            'state': 'state',
-            'country': 'country'
-        };
+    // Map of metadata location field to query filter name
+    ctrl.locationFieldMap = {
+      'subLocation': 'location',
+      'city': 'city',
+      'state': 'state',
+      'country': 'country'
+    };
 
-        const ignoredMetadata = [
-            'title', 'description', 'copyright', 'keywords', 'byline',
-            'credit', 'subLocation', 'city', 'state', 'country',
-            'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
-        ];
+    const ignoredMetadata = [
+      'title', 'description', 'copyright', 'keywords', 'byline',
+      'credit', 'subLocation', 'city', 'state', 'country',
+      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
+    ];
 
-        ctrl.metadataSearch = (field, q) => {
-            return mediaApi.metadataSearch(field,  { q }).then(resource => {
-                return resource.data.map(d => d.key);
-            });
-        };
+    ctrl.metadataSearch = (field, q) => {
+      return mediaApi.metadataSearch(field, { q }).then(resource => {
+        return resource.data.map(d => d.key);
+      });
+    };
 
-        ctrl.credits = function(searchText) {
-            return ctrl.metadataSearch('credit', searchText);
-        };
+    ctrl.credits = function (searchText) {
+      return ctrl.metadataSearch('credit', searchText);
+    };
 
-        ctrl.setUsageCategory = (cats, categoryCode) => {
-            const usageCategory = cats.find(cat => cat.value === categoryCode);
+    ctrl.setUsageCategory = (cats, categoryCode) => {
+      const usageCategory = cats.find(cat => cat.value === categoryCode);
 
-            ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
-        };
+      ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
+    };
 
-        editsApi.getUsageRightsCategories().then((cats) => {
-            ctrl.usageCategories = cats;
-            ctrl.setUsageCategory(cats, ctrl.usageRights.data.category);
-        });
+    editsApi.getUsageRightsCategories().then((cats) => {
+      ctrl.usageCategories = cats;
+      ctrl.setUsageCategory(cats, ctrl.usageRights.data.category);
+    });
 
-        updateAbilities(ctrl.image);
+    updateAbilities(ctrl.image);
 
-        function isUsefulMetadata(metadataKey) {
-            return ignoredMetadata.indexOf(metadataKey) === -1;
-        }
-
-        function updateAbilities(image) {
-            editsService.canUserEdit(image).then(editable => {
-                ctrl.userCanEdit = editable;
-            });
-        }
-
-        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
-            ctrl.image = updatedImage;
-            ctrl.usageRights = imageService(ctrl.image).usageRights;
-            ctrl.metadata = updatedImage.data.metadata;
-            ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
-        });
-
-        ctrl.updateMetadataField = function (field, value) {
-            return editsService.updateMetadataField(ctrl.image, field, value)
-                .then((updatedImage) => {
-                    if (updatedImage) {
-                        ctrl.image = updatedImage;
-                        updateAbilities(updatedImage);
-                        $rootScope.$emit(
-                          'track:event',
-                          'Metadata',
-                          'Edit',
-                          'Success',
-                          null,
-                          {
-                            field: field,
-                            value: value
-                          }
-                        );
-                    }
-                })
-                .catch(() => {
-                  $rootScope.$emit(
-                    'track:event',
-                    'Metadata',
-                    'Edit',
-                    'Failure',
-                    null,
-                    {
-                      field: field,
-                      value: value
-                    }
-                  );
-
-                    /*
-                     Save failed.
-
-                     Per the angular-xeditable docs, returning a string indicates an error and will
-                     not update the local model, nor will the form close (so the edit is not lost).
-                     Instead, a message is shown and the field keeps focus for user to edit again.
-
-                     http://vitalets.github.io/angular-xeditable/#onbeforesave
-                     */
-                    return 'failed to save (press esc to cancel)';
-                });
-        };
-
-        ctrl.removeImageFromCollection = (collection) => {
-            ctrl.removingCollection = collection;
-            collections.removeImageFromCollection(collection, ctrl.image)
-                .then(() => ctrl.removingCollection = false);
-        };
-
-        ctrl.displayLeases = () => {
-            return ctrl.userCanEdit || ctrl.image.leases > 0;
-        };
-
-        $scope.$on('$destroy', function() {
-            freeUpdateListener();
-        });
+    function isUsefulMetadata(metadataKey) {
+      return ignoredMetadata.indexOf(metadataKey) === -1;
     }
+
+    function updateAbilities(image) {
+      editsService.canUserEdit(image).then(editable => {
+        ctrl.userCanEdit = editable;
+      });
+    }
+
+    const updateHandler = (updatedImage) => {
+      ctrl.image = updatedImage;
+      ctrl.usageRights = imageService(ctrl.image).usageRights;
+      ctrl.metadata = updatedImage.data.metadata;
+      ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
+    };
+
+    // It is not clear that this handler would handle multiple images in a meaningful way.
+    // This replicates the previous logic where the event handler handled a single image.
+    // Call it to "free" the listener
+    const freeUpdateListener = $rootScope.$on('images-updated',
+      (e, updatedImages) => updatedImages.map(updatedImage => updateHandler(updatedImage))
+      );
+
+    ctrl.updateMetadataField = function (field, value) {
+        return editsService.updateMetadataField(ctrl.image, field, value)
+            .then((updatedImage) => {
+                if (updatedImage) {
+                    ctrl.image = updatedImage;
+                    updateAbilities(updatedImage);
+                    $rootScope.$emit(
+                      'track:event',
+                      'Metadata',
+                      'Edit',
+                      'Success',
+                      null,
+                      {
+                        field: field,
+                        value: value
+                      }
+                    );
+                }
+            })
+            .catch(() => {
+              $rootScope.$emit(
+                'track:event',
+                'Metadata',
+                'Edit',
+                'Failure',
+                null,
+                {
+                  field: field,
+                  value: value
+                }
+              );
+                /*
+                 Save failed.
+                 Per the angular-xeditable docs, returning a string indicates an error and will
+                 not update the local model, nor will the form close (so the edit is not lost).
+                 Instead, a message is shown and the field keeps focus for user to edit again.
+                 http://vitalets.github.io/angular-xeditable/#onbeforesave
+                 */
+                return 'failed to save (press esc to cancel)';
+            });
+    };
+    ctrl.removeImageFromCollection = (collection) => {
+        ctrl.removingCollection = collection;
+        collections.removeImageFromCollection(collection, ctrl.image)
+            .then(() => ctrl.removingCollection = false);
+    };
+    ctrl.displayLeases = () => {
+        return ctrl.userCanEdit || ctrl.image.leases > 0;
+    };
+    $scope.$on('$destroy', function() {
+        freeUpdateListener();
+    });
+}
 ]);
 
 module.directive('grImageMetadata', [function () {

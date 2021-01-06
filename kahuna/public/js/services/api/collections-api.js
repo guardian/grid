@@ -93,7 +93,7 @@ collectionsApi.factory('collections',
                 untilNewCollectionAppears(image, collectionAdded)
             ))
             .then(newImage => {
-                $rootScope.$emit('image-updated', newImage, image);
+              $rootScope.$emit('images-updated', [newImage]);
             });
     }
 
@@ -136,7 +136,7 @@ collectionsApi.factory('collections',
                 untilCollectionsEqual(image, getCollectionsIdsFromCollection(newImageCollections))
             ))
             .then(newImage => {
-                $rootScope.$emit('image-updated', newImage, image);
+              $rootScope.$emit('images-updated', [newImage]);
                 return newImage;
             });
     }

@@ -23,7 +23,7 @@ archiveService.factory('archiveService',
             .put({ data: archived })
             .then(newArchived => apiPoll(() => untilArchivedEqual(image, newArchived.data)))
             .then(newImage => {
-                $rootScope.$emit('image-updated', newImage, image);
+              $rootScope.$emit('images-updated', [newImage]);
             });
     }
 

@@ -42,16 +42,15 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
           ctrl.cropping = true;
           ctrl.needsConfirmation = false;
 
-          const cropImages = trackAll($rootScope, "crop", ctrl.images, image =>
-            mediaCropper.createFullCrop(image).then(crop => ({
+          const cropImages = trackAll($rootScope, "crop", ctrl.images, async (image) => {
+            const crop = await mediaCropper.createFullCrop(image);
+            return {
               image,
               crop
-            }))
-          );
+            };
+          }, 'events:crops-created');
 
-          cropImages.then(specs => {
-            $rootScope.$emit('events:crops-created', specs);
-          }).finally(() => {
+          cropImages.finally(() => {
             ctrl.cropping = false;
             ctrl.allHaveFullCrops = true;
           });

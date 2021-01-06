@@ -117,12 +117,17 @@ service.factory('editsService',
     // update requests for a given Resource
     const updateRequestPools = new Map();
 
-    function registerUpdateRequest(resource, originalImage) {
+    // inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
+    function registerUpdateRequest(resource, originalImage, inBatch = false) {
         const requestPool = createRequestPool();
         const promise = withWatcher(resource, requestPool.promise).
               then(({ edit, image }) => {
-                  $rootScope.$emit('image-updated', image, originalImage);
-                  return edit;
+                if (!inBatch) {
+                  $rootScope.$emit('images-updated', [image]);
+                }
+                return edit;
               });
 
         const newRequest = {
@@ -137,18 +142,23 @@ service.factory('editsService',
         return newRequest;
     }
 
+    // inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
+
     /**
      * @param resource {Resource} resource to update
      * @param data {*} PUTs `data` and replaces old data
      * @param originalImage {Resource} the image used to check if we've re-indexed yet
+     * @param inBatch {Boolean} is this being called multiple times? (see comment)
      * @returns {Promise.<Resource>} completed when information is synced
      */
-    function update(resource, data, originalImage) {
+    function update(resource, data, originalImage, inBatch = false) {
         const newRequest = resource.put({ data }).
               then(edit => getSynced(originalImage, newImage => matches(edit, newImage)));
 
         const existingRequestPool = updateRequestPools.get(resource) ||
-            registerUpdateRequest(resource, originalImage);
+            registerUpdateRequest(resource, originalImage, inBatch);
 
         existingRequestPool.registerPromise(newRequest);
 
@@ -157,13 +167,16 @@ service.factory('editsService',
 
     // HACK: This is a very specific action that we use the `updateRequestPool` ast this action
     // actually updates the metadata as a sideeffect.
-    function updateMetadataFromUsageRights(originalImage) {
+    // ALSO: inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
+    function updateMetadataFromUsageRights(originalImage, inBatch = false) {
         const resource = originalImage.data.userMetadata.data.metadata;
         const newRequest = resource.perform('set-from-usage-rights').
               then(edit => getSynced(originalImage, newImage => matches(edit, newImage)));
 
         const existingRequestPool = updateRequestPools.get(resource) ||
-            registerUpdateRequest(resource, originalImage);
+            registerUpdateRequest(resource, originalImage, inBatch);
 
         existingRequestPool.registerPromise(newRequest);
 
@@ -234,8 +247,10 @@ service.factory('editsService',
     }
 
 
-
-    function updateMetadataField (image, field, value) {
+    // inBatch determines whether the function chain should eventually emit an angular message
+    // as emitting multiple times is very performance heavy
+    // ideally this should be refactored out.
+    function updateMetadataField (image, field, value, inBatch = false) {
         var metadata = image.data.metadata;
 
         if (metadata[field] === value) {
@@ -267,8 +282,8 @@ service.factory('editsService',
 
         var changed = getMetadataDiff(image, proposedMetadata);
 
-        return update(image.data.userMetadata.data.metadata, changed, image)
-            .then(() => image.get());
+        return update(image.data.userMetadata.data.metadata, changed, image, inBatch)
+          .then(() => image.get());
     }
 
     function getNewFieldValue(image, field, value, editOption) {
@@ -286,8 +301,8 @@ service.factory('editsService',
     function batchUpdateMetadataField(images, field, value, editOption = overwrite.key) {
         return trackAll($rootScope, field, images, image => {
             const newFieldValue = getNewFieldValue(image, field, value, editOption);
-            return updateMetadataField(image, field, newFieldValue);
-        });
+            return updateMetadataField(image, field, newFieldValue, true);
+        },'images-updated');
     }
 
     return {

@@ -408,21 +408,33 @@ results.controller('SearchResultsCtrl', [
             }
         };
 
-        const freeUpdateListener = $rootScope.$on('image-updated', (e, updatedImage) => {
-            var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
-            if (index !== -1) {
-                ctrl.images[index] = updatedImage;
-            }
 
-            var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
-            if (indexAll !== -1) {
-                ctrl.imagesAll[indexAll] = updatedImage;
+      const freeUpdatesListener = $rootScope.$on('images-updated', (e, updatedImages) => {
+        updatedImages.map(updatedImage => {
+          var index = ctrl.images.findIndex(i => i.data.id === updatedImage.data.id);
+          if (index !== -1) {
+            ctrl.images[index] = updatedImage;
+          }
 
-                // TODO: should not be needed here, the results list
-                // should listen to these events and update itself
-                // outside of any controller.
-                results.set(indexAll, updatedImage);
-            }
+          var indexAll = ctrl.imagesAll.findIndex(i => i && i.data.id === updatedImage.data.id);
+          if (indexAll !== -1) {
+            ctrl.imagesAll[indexAll] = updatedImage;
+          }
+        });
+
+        // TODO: should not be needed here, the results list
+        // should listen to these events and update itself
+        // outside of any controller.
+        results.map(image => {
+          if (image == undefined){
+            return image;
+          }
+          const maybeUpdated = updatedImages.find(i => i.data.id === image.data.id);
+          if (maybeUpdated !== undefined) {
+            return maybeUpdated;
+          }
+          return image;
+        });
         });
 
         const updateImageArray = (images, image) => {
@@ -517,7 +529,7 @@ results.controller('SearchResultsCtrl', [
 
         $scope.$on('$destroy', () => {
             scrollPosition.save($stateParams);
-            freeUpdateListener();
+            freeUpdatesListener();
             freeImageDeleteListener();
             scopeGone = true;
         });
