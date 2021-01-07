@@ -18,6 +18,7 @@ import lib.ThrallMetrics
 import org.joda.time.DateTime
 import play.api.MarkerContext
 import play.api.libs.json._
+import java.time.LocalDateTime
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -123,6 +124,15 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
        | """)
 
     val lastModifiedParameter = lastModified.toOption.map(_.as[String])
+
+    def checkDateIsParseable(label: String, date: String, id: String) = try {
+      LocalDateTime.parse(date, ISO_DATE_TIME)
+    } catch {
+      case e: DateTimeParseException => throw new Exception(s"The $label date $lastModified on $id is not ISO 8601", e)
+    }
+
+    // Last modified param should be a string representation of a date
+    checkDateIsParseable("lastModified", lastModifiedParameter, id)
 
     val params = Map(
       "usages" -> usages.map(i => asNestedMap(Json.toJson(i))),
