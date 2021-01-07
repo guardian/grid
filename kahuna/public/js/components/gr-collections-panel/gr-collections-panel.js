@@ -102,7 +102,9 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     const pathId = ctrl.node.data.data.pathId;
 
+    //This filter remove child nodes with missing data, preventing display errors from occurring
     ctrl.children = ctrl.node.data.children.filter(node => !!node.data.data);
+
     ctrl.saving = false;
     ctrl.removing = false;
     ctrl.deletable = false;
