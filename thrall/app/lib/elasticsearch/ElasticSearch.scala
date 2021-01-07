@@ -19,8 +19,10 @@ import org.joda.time.DateTime
 import play.api.MarkerContext
 import play.api.libs.json._
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter,ISO_DATE_TIME
 
 import scala.concurrent.{ExecutionContext, Future}
+import java.time.format.DateTimeParseException
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
@@ -132,7 +134,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
 
     // Last modified param should be a string representation of a date
-    checkDateIsParseable("lastModified", lastModifiedParameter, id)
+    checkDateIsParseable("lastModified", lastModifiedParameter.getOrElse("None"), id)
 
     val params = Map(
       "usages" -> usages.map(i => asNestedMap(Json.toJson(i))),
