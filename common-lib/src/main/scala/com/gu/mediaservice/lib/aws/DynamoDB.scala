@@ -82,7 +82,7 @@ class DynamoDB(config: CommonConfig, tableName: String) {
     if (value) booleanSet(id, key, value)
     else removeKey(id, key)
 
-  def stringSet(id: String, key: String, value: JsValue)
+  def stringSet(id: String, key: String, value: String)
                 (implicit ex: ExecutionContext): Future[JsObject] =
     update(
       id,
@@ -121,7 +121,7 @@ class DynamoDB(config: CommonConfig, tableName: String) {
       get(id, key).map(item => asJsObject(item))
 
   // We cannot update, so make sure you send over the WHOLE document
-  def jsonAdd(id: String, key: String, value: Map[String, JsValue])
+  def jsonAdd(id: String, key: String, value: Map[String, String])
              (implicit ex: ExecutionContext): Future[JsObject] =
     update(
       id,
@@ -238,10 +238,10 @@ class DynamoDB(config: CommonConfig, tableName: String) {
     case value => value
   }
 
-  def valueMapWithNullForEmptyString(value: Map[String, JsValue]) = {
+  def valueMapWithNullForEmptyString(value: Map[String, String]) = {
     val valueMap = new ValueMap()
-    value.map     { case(k, v) => (k, if (v == JsNull) null else v) }
-         .foreach { case(k, v) => valueMap.withJSON(k, Json.stringify(v)) }
+    value.map     { case(k, v) => (k, if (v == "") null else v) }
+         .foreach { case(k, v) => valueMap.withString(k, v) }
 
     valueMap
   }

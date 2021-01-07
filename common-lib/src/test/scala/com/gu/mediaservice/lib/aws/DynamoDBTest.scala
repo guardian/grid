@@ -10,7 +10,7 @@ class DynamoDBTest extends FunSpec with Matchers {
 
   describe("jsonToValueMap") {
     it ("should convert a simple JsObject to a valueMap") {
-      val json = Json.toJson(SimpleDynamoDBObj("this is a string", 100, true, List("list"))).as[JsObject]
+      val json = Json.toJson(SimpleDynamoDBObj("this is a string", 100, true)).as[JsObject]
       val valueMap = DynamoDB.jsonToValueMap(json)
 
 
@@ -19,17 +19,15 @@ class DynamoDBTest extends FunSpec with Matchers {
       val s: String = valueMap.get("s").asInstanceOf[String]
       val d: BigDecimal = valueMap.get("d").asInstanceOf[java.math.BigDecimal]
       val b: Boolean = valueMap.get("b").asInstanceOf[Boolean]
-      val a: List[String] = List(valueMap.get("a").asInstanceOf[java.util.ArrayList[String]].toArray(): _*).asInstanceOf[List[String]]
 
 
       s should be ("this is a string")
       d should be (100)
       b should equal(true)
-      a should equal(List("list"))
     }
 
     it ("should convert a nested JsObject to a valueMap") {
-      val nestedObj = NestedDynamoDBObj("string", 100, false, SimpleDynamoDBObj("strang", 500, true, List("list")))
+      val nestedObj = NestedDynamoDBObj("string", 100, false, SimpleDynamoDBObj("strang", 500, true))
       val json = Json.toJson(nestedObj).as[JsObject]
       val valueMap = DynamoDB.jsonToValueMap(json)
 
@@ -42,7 +40,6 @@ class DynamoDBTest extends FunSpec with Matchers {
       val s: String = simpleMap.get("s").asInstanceOf[String]
       val d: BigDecimal = simpleMap.get("d").asInstanceOf[java.math.BigDecimal]
       val b: Boolean = simpleMap.get("b").asInstanceOf[Boolean]
-      val a: List[String] = List(simpleMap.get("a").asInstanceOf[java.util.ArrayList[String]].toArray: _*).asInstanceOf[List[String]]
 
 
       ss should be ("string")
@@ -52,7 +49,6 @@ class DynamoDBTest extends FunSpec with Matchers {
       s should be ("strang")
       d should be (500)
       b should equal(true)
-      a should equal(List("list"))
     }
 
     it ("should convert a Collection to ValueMap") {
@@ -73,7 +69,7 @@ class DynamoDBTest extends FunSpec with Matchers {
 
 }
 
-case class SimpleDynamoDBObj(s: String, d: BigDecimal, b: Boolean, a: List[String])
+case class SimpleDynamoDBObj(s: String, d: BigDecimal, b: Boolean)
 object SimpleDynamoDBObj {
   implicit def formats: Format[SimpleDynamoDBObj] = Json.format[SimpleDynamoDBObj]
 }

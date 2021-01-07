@@ -1,6 +1,3 @@
-const areSetsEqual = (a, b) => a.size === b.size && [...a].every(value => b.has(value));
-
-
 export const getMetadataDiff = (image, metadata) => {
   const diff = {};
   const originalMetadata = image.data.originalMetadata;
@@ -14,11 +11,9 @@ export const getMetadataDiff = (image, metadata) => {
       return;
     }
 
-    // Arrays cannot be compared with simple equality
+    //This only works with string fields and does not support arrays
     if (Array.isArray(metadata[key]) || Array.isArray(originalMetadata[key])) {
-      if (areSetsEqual(new Set(originalMetadata[key]), new Set(metadata[key]))) {
-        return;
-      }
+      return;
     }
 
     // if the user has provided an override of '' (e.g. they want remove the title),

@@ -273,13 +273,6 @@ service.factory('editsService',
         var proposedMetadata = angular.copy(metadata);
         proposedMetadata[field] = value;
 
-        // peopleInImage is a special case. This turns a comma-separated string into an array trimmed of whitespace
-        if (field === 'peopleInImage' || field === 'keywords' ) {
-          proposedMetadata[field] = value.toString().split(',')
-            .map(s => s.trim())
-            .filter(s => s !== "");
-        }
-
         var changed = getMetadataDiff(image, proposedMetadata);
 
         return update(image.data.userMetadata.data.metadata, changed, image, inBatch)
