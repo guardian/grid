@@ -13,7 +13,7 @@ trait ElasticSearchError {
 
 object ElasticSearchException {
 
-  def causes(c: ElasticError.CausedBy):Seq[(String, String)] = {
+  def causes(c: ElasticError.CausedBy):List[(String, Any)] = {
     val script = c.other("script").getOrElse("no script")
     val lang = c.other("lang").getOrElse("no language")
     List("causedBy" -> c.toString(), "scriptStack" ->  c.scriptStack.mkString("\n"), "script" -> script, "lang" -> lang )
@@ -30,7 +30,7 @@ object ElasticSearchException {
       case ElasticError(t, r, _, _, _, Seq(), Some(c), _, _, _) =>
         new Exception(s"query failed because: $r type: $t caused by $c") with ElasticSearchError {
           override def error: ElasticError = e
-          override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, causes(c):_*)
+          override def markerContents: Map[String, Any] = (List("reason" -> r, "type" -> t) ::: causes(c)).toMap
         }
       case ElasticError(t, r, _, _, _, s, None, _, _, _) =>
         new Exception(s"query failed because: $r type: $t root cause ${s.mkString(",\n ")}") with ElasticSearchError {
@@ -42,7 +42,7 @@ object ElasticSearchException {
         new Exception(s"query failed because: $r type: $t root cause ${s.mkString(", ")}, caused by $c") with ElasticSearchError {
           override def error: ElasticError = e
 
-          override def markerContents: Map[String, Any] = Map("reason" -> r, "type" -> t, "rootCause" -> s.mkString(",\n"), "causedBy" -> c.toString(), causes(c):_*)
+          override def markerContents: Map[String, Any] = (List("reason" -> r, "type" -> t, "rootCause" -> s.mkString(",\n"), "causedBy" -> c.toString()) ::: causes(c)).toMap
         }
       case _ => new Exception(s"query failed because: unknown error") with ElasticSearchError {
         override def error: ElasticError = e
