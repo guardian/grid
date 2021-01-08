@@ -68,6 +68,10 @@ async.factory("apiPoll", [
       if (status === 'fulfilled') {
         return $q.resolve(value);
       }
+      // Something has gone wrong, so we can let the user know
+      if (n > 100) {
+        throw new Error('failed');
+      }
       await wait();
       return poll(func, n + 1);
     };
