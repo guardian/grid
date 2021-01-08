@@ -66,7 +66,7 @@ val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains
 
 val bbcCommonLibSettings: SettingsDefinition = if (bbcBuildProcess) {
   Seq(
-    // insert the BBC version of pan-domain-auth here
+    libraryDependencies ++= Seq("com.gu" %% "pan-domain-auth-play_2-6" % "0.9.2-SNAPSHOT")
   )
 } else {
   Seq(
