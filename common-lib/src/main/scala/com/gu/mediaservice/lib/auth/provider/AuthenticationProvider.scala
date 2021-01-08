@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.auth.provider
 
 import akka.actor.ActorSystem
-import com.gu.mediaservice.lib.auth.provider.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 import play.api.libs.ws.{WSClient, WSRequest}
@@ -34,7 +34,7 @@ sealed trait AuthenticationProvider {
     * @param request The request header of the inflight call
     * @return A function that adds appropriate authentication headers to a WSRequest or returns a runtime error
     */
-  def onBehalfOf(request: RequestHeader): Either[String, WSRequest => WSRequest]
+  def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest]
 }
 
 trait UserAuthenticationProvider extends AuthenticationProvider {

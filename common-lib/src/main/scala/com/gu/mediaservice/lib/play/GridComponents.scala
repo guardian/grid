@@ -1,12 +1,12 @@
 package com.gu.mediaservice.lib.play
 
-import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
-import com.gu.mediaservice.lib.logging.{GridLogging, LogConfig}
+import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
-import play.api.{BuiltInComponentsFromContext, Configuration}
+import play.api.BuiltInComponentsFromContext
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
@@ -43,5 +43,6 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)
-  val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
+  val providers: AuthenticationProviders = ???
+  val auth = new Authentication(config, providers, controllerComponents.parsers.default, executionContext)
 }

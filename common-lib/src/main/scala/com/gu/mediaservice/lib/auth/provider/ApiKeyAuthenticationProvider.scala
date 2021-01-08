@@ -1,7 +1,8 @@
 package com.gu.mediaservice.lib.auth.provider
-import com.gu.mediaservice.lib.auth.provider.Authentication.ApiKeyAccessor
+import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
 import com.typesafe.scalalogging.StrictLogging
+import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.WSRequest
 import play.api.mvc.RequestHeader
 
@@ -10,6 +11,8 @@ object ApiKeyAuthenticationProvider {
 }
 
 class ApiKeyAuthenticationProvider(resources: AuthenticationProviderResources) extends ApiAuthenticationProvider with StrictLogging {
+  val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
+
   var keyStorePlaceholder: Option[KeyStore] = _
 
   // TODO: we should also shutdown the keystore but there isn't currently a hook
@@ -36,7 +39,8 @@ class ApiKeyAuthenticationProvider(resources: AuthenticationProviderResources) e
           // api key provided
           case Some(apiKey) =>
             // valid api key
-            val accessor = ApiKeyAccessor(apiKey)
+            val header = TypedEntry(ApiKeyHeader, ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)
+            val accessor = ApiKeyAccessor(apiKey, TypedMap(header))
             logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
             if (ApiAccessor.hasAccess(apiKey, request, resources.commonConfig.services)) {
               // valid api key which has access
@@ -59,10 +63,10 @@ class ApiKeyAuthenticationProvider(resources: AuthenticationProviderResources) e
     * @param request The request header of the inflight call
     * @return A function that adds appropriate data to a WSRequest
     */
-  override def onBehalfOf(request: RequestHeader): Either[String, WSRequest => WSRequest] = {
-    request.headers.get(ApiKeyAuthenticationProvider.apiKeyHeaderName) match {
-      case Some(key) => Right {
-        wsRequest: WSRequest => wsRequest.addHttpHeaders(ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)
+  override def onBehalfOf(principal: Principal): Either[String, WSRequest => WSRequest] = {
+    principal.attributes.get(ApiKeyHeader) match {
+      case Some(apiKeyHeaderTuple) => Right {
+        wsRequest: WSRequest => wsRequest.addHttpHeaders(apiKeyHeaderTuple)
       }
       case None => Left(s"API key not found in request, no header ${ApiKeyAuthenticationProvider.apiKeyHeaderName}")
     }

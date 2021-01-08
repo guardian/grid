@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.auth.provider
 
-import com.gu.mediaservice.lib.auth.provider.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 
 // statuses that directly extend this are for users only
 /** Status of a client's authentication */

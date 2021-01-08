@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
-import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, PandaUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, GridUser, Principal}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.permissions._
@@ -30,7 +30,7 @@ trait PermissionsHandler {
 
   def hasPermission(user: Principal, permission: PermissionDefinition): Boolean = {
     user match {
-      case PandaUser(u) => permissions.hasPermission(permission, u.email)
+      case GridUser(_, _, email, _) => permissions.hasPermission(permission, email)
       // think about only allowing certain services i.e. on `service.name`?
       case service: ApiKeyAccessor if service.accessor.tier == Internal => true
       case _ => false

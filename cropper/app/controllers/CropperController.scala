@@ -1,13 +1,11 @@
 package controllers
 
-import java.net.URI
-
 import _root_.play.api.Logger
 import _root_.play.api.libs.json._
 import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfApiKey, OnBehalfOfUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
@@ -16,8 +14,9 @@ import com.gu.mediaservice.model._
 import lib._
 import model._
 import org.joda.time.DateTime
-import play.api.libs.ws.{WSClient, WSCookie}
+import play.api.libs.ws.WSClient
 
+import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -48,7 +47,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   def export = auth.async(parse.json) { httpRequest =>
     httpRequest.body.validate[ExportRequest] map { exportRequest =>
       val user = httpRequest.user
-      val onBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user, httpRequest)
+      val onBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user)
 
       executeRequest(exportRequest, user, onBehalfOfPrincipal).map { case (imageId, export) =>
         val cropJson = Json.toJson(export).as[JsObject]
@@ -151,13 +150,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       .withQueryStringParameters("include" -> "fileMetadata")
       .withHttpHeaders(Authentication.originalServiceHeaderName -> "cropper")
 
-    val request = onBehalfOfPrincipal match {
-      case OnBehalfOfApiKey(service) =>
-        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.accessor.identity)
-
-      case OnBehalfOfUser(_, cookie) =>
-        baseRequest.addCookies(cookie)
-    }
+    val request = onBehalfOfPrincipal(baseRequest)
 
     val responseFuture = request.get.map { r =>
       HttpClientResponse(r.status, r.statusText, Json.parse(r.body))
