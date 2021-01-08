@@ -1,5 +1,8 @@
 package com.gu.mediaservice.lib.guardian.auth
 
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.argo.model.Link
+import com.gu.mediaservice.lib.auth.ApiAccessor.respondError
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.{GridUser, Principal}
 import com.gu.mediaservice.lib.auth.provider._
@@ -8,19 +11,25 @@ import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.{AuthenticatedUser, User, Authenticated => PandaAuthenticated, Expired => PandaExpired, GracePeriod => PandaGracePeriod, InvalidCookie => PandaInvalidCookie, NotAuthenticated => PandaNotAuthenticated, NotAuthorized => PandaNotAuthorised}
 import com.gu.pandomainauth.service.OAuthException
+import com.typesafe.scalalogging.StrictLogging
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSClient, WSRequest}
-import play.api.mvc.{ControllerComponents, Cookie, RequestHeader, Result}
+import play.api.mvc.{ControllerComponents, Cookie, RequestHeader, Result, Results}
 
 import scala.concurrent.Future
 import scala.util.Try
 
-class PandaAuthenticationProvider(resources: AuthenticationProviderResources) extends UserAuthenticationProvider with AuthActions {
+class PandaAuthenticationProvider(resources: AuthenticationProviderResources)
+  extends UserAuthenticationProvider with AuthActions with StrictLogging with ArgoHelpers {
 
   final override def authCallbackUrl: String = s"${resources.commonConfig.services.authBaseUri}/oauthCallback"
   override lazy val panDomainSettings: PanDomainAuthSettingsRefresher = buildPandaSettings()
   override def wsClient: WSClient = resources.wsClient
   override def controllerComponents: ControllerComponents = resources.controllerComponents
+
+  val loginLinks = List(
+    Link("login", resources.commonConfig.services.loginUriTemplate)
+  )
 
   /**
     * Establish the authentication status of the given request header. This can return an authenticated user or a number
@@ -60,24 +69,22 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources) ex
     * used to set a cookie or similar to ensure that a subsequent call to authenticateRequest will succeed. If
     * authentication failed then this should return an appropriate 4xx result.
     */
-  override def processAuthentication: Option[RequestHeader => Future[Result]] = Some(
-    // TODO: note from the previous implementation
+  override def processAuthentication: Option[RequestHeader => Future[Result]] = Some({ requestHeader: RequestHeader =>
     // We use the `Try` here as the `GoogleAuthException` are thrown before we
     // get to the asynchronicity of the `Future` it returns.
     // We then have to flatten the Future[Future[T]]. Fiddly...
-//    Future.fromTry(Try(auth.processOAuthCallback())).flatten.recover {
-//      // This is when session session args are missing
-//      case e: OAuthException => respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)
-//
-//      // Class `missing anti forgery token` as a 4XX
-//      // see https://github.com/guardian/pan-domain-authentication/blob/master/pan-domain-auth-play_2-6/src/main/scala/com/gu/pandomainauth/service/GoogleAuth.scala#L63
-//      case e: IllegalArgumentException if e.getMessage == "The anti forgery token did not match" => {
-//        logger.error(e.getMessage)
-//        respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)
-//      }
-//    }
-    processOAuthCallback()(_)
-  )
+    Future.fromTry(Try(processOAuthCallback()(requestHeader))).flatten.recover {
+      // This is when session session args are missing
+      case e: OAuthException => respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
+
+      // Class `missing anti forgery token` as a 4XX
+      // see https://github.com/guardian/pan-domain-authentication/blob/master/pan-domain-auth-play_2-6/src/main/scala/com/gu/pandomainauth/service/GoogleAuth.scala#L63
+      case e: IllegalArgumentException if e.getMessage == "The anti forgery token did not match" => {
+        logger.error("Anti-forgery exception encountered", e)
+        respondError(BadRequest, "google-auth-exception", e.getMessage, loginLinks)
+      }
+    }(controllerComponents.executionContext)
+  })
 
   /**
     * If this provider is able to clear user tokens (i.e. by clearing cookies) then it should provide a function to

@@ -23,6 +23,7 @@ class Authentication(config: CommonConfig,
   // make the execution context implicit so it will be picked up appropriately
   implicit val ec: ExecutionContext = executionContext
 
+  // TODO: SAH / Evaluate MB's suggestion that this moves to the provider
   val loginLinks = List(
     Link("login", config.services.loginUriTemplate)
   )
