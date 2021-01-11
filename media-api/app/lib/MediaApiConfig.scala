@@ -32,6 +32,8 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
   val imageBucket: String = string("s3.image.bucket")
   val thumbBucket: String = string("s3.thumb.bucket")
 
+  lazy val quarantineNotificationSqsQueueUrl= string("quarantine.notification.sqs.queue.url")
+
   val cloudFrontPrivateKeyLocations: Seq[String] = Seq(
     "/etc/grid/ssl/private/cloudfront.pem",
     "/etc/gu/ssl/private/cloudfront.pem" // TODO - remove once migrated away from

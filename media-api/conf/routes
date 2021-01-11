@@ -39,3 +39,6 @@ GET     /management/imageCounts                       com.gu.mediaservice.lib.ma
 
 # Shoo robots away
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots
+
+#Quarantine Notification
+GET     /quarantine/notification                               controllers.NotificationController.getQuarantineNotification

@@ -1,0 +1,16 @@
+.quarantine-notification {
+  margin-top: 6px;
+  margin-right: -50px;
+  float: right;
+  padding: 8px;
+}
+
+.hide-quarantine-notification{
+    -webkit-transition: opacity 5s ease-in-out;
+    -moz-transition: opacity 5s ease-in-out;
+    -ms-transition: opacity 5s ease-in-out;
+    -o-transition: opacity 5s ease-in-out;
+     opacity: 0;
+}
+
+

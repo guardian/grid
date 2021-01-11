@@ -134,6 +134,16 @@ Resources:
         Protocol: sqs
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
+
+  ImageQuarantineTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt 'ImageQuarantineQueue.Arn'
+          Protocol: sqs
+  ImageQuarantineQueue:
+    Type: AWS::SQS::Queue
+
   UsageRecordTable:
     Type: AWS::DynamoDB::Table
     Properties:

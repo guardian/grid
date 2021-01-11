@@ -112,6 +112,7 @@ function getMediaApiConfig(config) {
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
         |image.record.download=false
+        |quarantine.notification.sqs.queue.url=${config.coreStackProps.ImageQuarantineQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
         |`;
 }
 
@@ -121,7 +122,7 @@ function getMetadataEditorConfig(config) {
         |s3.collections.bucket="${config.coreStackProps.CollectionsBucket}"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |dynamo.table.edits="EditsTable"
-        |indexed.images.sqs.queue.url="${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
+        |indexed.images.sqs.queue.url=${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
         |`;

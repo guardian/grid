@@ -6,6 +6,7 @@ import '../../image/service';
 import '../../edits/service';
 import '../../services/label';
 import '../../services/preset-label';
+import "./upload-jobs.css";
 
 export var jobs = angular.module('kahuna.upload.jobs', [
     'kahuna.preview.image',
@@ -25,6 +26,7 @@ jobs.controller('UploadJobsCtrl', [
     'labelService',
     'presetLabelService',
     'editsService',
+    'mediaApi',
 
     function($rootScope,
             $scope,
@@ -33,11 +35,37 @@ jobs.controller('UploadJobsCtrl', [
             imageService,
             labelService,
             presetLabelService,
-            editsService) {
+            editsService,
+            mediaApi) {
 
     var ctrl = this;
     const presetLabels = presetLabelService.getLabels();
 
+    const quarantineNotificationResource = mediaApi.createResource("/quarantine/notification");
+    const quarantineNotificationDiv = document.getElementById("quarantine-notification");
+
+    let jobsCount = ctrl.jobs.length;
+    let retryAttempt = jobsCount * 4;
+    let waitTime = 3000;
+    let getQuarantineNotificationInterval;
+
+    const getQuarantineNotification = async () => {
+          if (jobsCount >= 0 && retryAttempt > 0) {
+            quarantineNotificationResource
+              .get()
+              .then((status) => {
+                quarantineNotificationDiv.innerHTML = status.message;
+                jobsCount--;
+              })
+              .catch((error) => {
+                console.log(error.status);
+              });
+          } else {
+              clearInterval(getQuarantineNotificationInterval);
+              quarantineNotificationDiv.classList.add(".hide-quarantine-notification");
+           }
+          retryAttempt--;
+        };
     // State machine-esque async transitions
     const eventName = 'Image upload';
 
@@ -56,6 +84,7 @@ jobs.controller('UploadJobsCtrl', [
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
+                jobsCount--;
 
                 imageService(image).states.canDelete.then(deletable => {
                     jobItem.canBeDeleted = deletable;
@@ -160,6 +189,7 @@ jobs.controller('UploadJobsCtrl', [
         freeImageDeleteListener();
         freeImageDeleteFailListener();
     });
+    getQuarantineNotificationInterval = setInterval(getQuarantineNotification, waitTime);
 }]);
 
 

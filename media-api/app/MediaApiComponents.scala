@@ -43,5 +43,9 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, elasticSearch)
   val healthcheckController = new ManagementWithPermissions(controllerComponents, mediaApi, buildInfo)
 
-  override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, elasticSearchHealthCheck, healthcheckController)
+  val metrics = new MediaApiMetrics(config)
+  val quarantineNotificationSqsConsumer = new QuarantineNotificationSqsConsumer(config, metrics)
+  val notificationController = new NotificationController(auth, quarantineNotificationSqsConsumer, config, controllerComponents)
+
+  override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, elasticSearchHealthCheck, healthcheckController, notificationController)
 }

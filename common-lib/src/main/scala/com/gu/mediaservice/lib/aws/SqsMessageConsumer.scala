@@ -66,17 +66,17 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
   private def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
     f.foreach { _ => deleteMessage(msg) }
 
-  private def getMessages(waitTime: Int, maxMessages: Int): Seq[SQSMessage] =
+  def getMessages(waitTime: Int, maxMessages: Int): Seq[SQSMessage] =
     client.receiveMessage(
       new ReceiveMessageRequest(queueUrl)
         .withWaitTimeSeconds(waitTime)
         .withMaxNumberOfMessages(maxMessages)
     ).getMessages.asScala.toList
 
-  private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
+  def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
     Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
 
-  private def deleteMessage(message: SQSMessage): Unit =
+  def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
 }
 
