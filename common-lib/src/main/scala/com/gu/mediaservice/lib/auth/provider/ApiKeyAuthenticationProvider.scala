@@ -2,22 +2,26 @@ package com.gu.mediaservice.lib.auth.provider
 import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
 import com.typesafe.scalalogging.StrictLogging
+import play.api.Configuration
 import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
 import play.api.libs.ws.WSRequest
 import play.api.mvc.RequestHeader
+
+import scala.concurrent.ExecutionContext
 
 object ApiKeyAuthenticationProvider {
   val apiKeyHeaderName = "X-Gu-Media-Key"
 }
 
-class ApiKeyAuthenticationProvider(resources: AuthenticationProviderResources) extends ApiAuthenticationProvider with StrictLogging {
+class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging {
   val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
 
+  implicit val executionContext: ExecutionContext = resources.controllerComponents.executionContext
   var keyStorePlaceholder: Option[KeyStore] = _
 
   // TODO: we should also shutdown the keystore but there isn't currently a hook
   override def initialise(): Unit = {
-    val store = new KeyStore(resources.config.get[String]("authKeyStoreBucket"), resources.commonConfig)(resources.context)
+    val store = new KeyStore(configuration.get[String]("authKeyStoreBucket"), resources.commonConfig)
     store.scheduleUpdates(resources.actorSystem.scheduler)
     keyStorePlaceholder = Some(store)
   }

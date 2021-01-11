@@ -3,24 +3,20 @@ package com.gu.mediaservice.lib.auth.provider
 import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.config.CommonConfig
-import play.api.Configuration
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, RequestHeader, Result}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 /**
   * Case class containing useful resources for authentication providers to allow concurrent processing and external
   * API calls to be conducted.
-  * @param config the tree of configuration for this provider
   * @param commonConfig the Grid common config object
   * @param context an execution context
   * @param actorSystem an actor system
   * @param wsClient a play WSClient for making API calls
   */
-case class AuthenticationProviderResources(config: Configuration,
-                                           commonConfig: CommonConfig,
-                                           context: ExecutionContext,
+case class AuthenticationProviderResources(commonConfig: CommonConfig,
                                            actorSystem: ActorSystem,
                                            wsClient: WSClient,
                                            controllerComponents: ControllerComponents)
@@ -69,7 +65,7 @@ trait UserAuthenticationProvider extends AuthenticationProvider {
   def flushToken: Option[RequestHeader => Result]
 }
 
-trait ApiAuthenticationProvider extends AuthenticationProvider {
+trait MachineAuthenticationProvider extends AuthenticationProvider {
   /**
     * Establish the authentication status of the given request header. This can return an authenticated user or a number
     * of reasons why a user is not authenticated.
