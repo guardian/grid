@@ -80,6 +80,7 @@ object AllStarParser extends ImageProcessor {
 
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Allstar Picture Library") => withAllstarRights(image)(None)
+    case Some("Allstar")                 => withAllstarRights(image)(None)
     case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
     case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
     case _ => image
