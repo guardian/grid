@@ -527,11 +527,13 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
   private val refreshUsageRightsScript = """
                                    | if (ctx._source.userMetadata != null && ctx._source.userMetadata.usageRights != null) {
-                                   |   ctx._source.usageRights = ctx._source.userMetadata.usageRights.clone();
+                                   |   ctx._source.usageRights = {}
+                                   |   ctx._source.usageRights.putAll(ctx._source.userMetadata.usageRights);
                                    | } else if (ctx._source.originalUsageRights == null){
                                    |   ctx._source.usageRights = null;
                                    | } else {
-                                   |   ctx._source.usageRights = ctx._source.originalUsageRights.clone();
+                                   |   ctx._source.usageRights = {}
+                                   |   ctx._source.usageRights.putAll(ctx._source.originalUsageRights);
                                    | }
                                  """.stripMargin
 
