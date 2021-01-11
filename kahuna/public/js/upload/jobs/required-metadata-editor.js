@@ -23,9 +23,10 @@ jobs.controller('RequiredMetadataEditorCtrl',
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
     ctrl.saveOnTime = 750; // ms
-    // We do this check to ensure the copyright field doesn't disappear
-    // if we set it to "".
+    // We do this check to ensure the copyright and peopleInImage fields don't disappear
+    // if we set them to "".
     ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
+    ctrl.peopleInImageWasInitiallyThere = !!ctrl.originalMetadata.peopleInImage;
 
     ctrl.save = function() {
         ctrl.saving = true;
@@ -77,7 +78,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
             credit: originalMetadata.credit,
             copyright: originalMetadata.copyright,
             specialInstructions: originalMetadata.specialInstructions,
-            description: originalMetadata.description
+            description: originalMetadata.description,
+            peopleInImage: originalMetadata.peopleInImage
         };
     }
 }]);
