@@ -518,11 +518,14 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   }
 
   private val refreshMetadataScript = """
-      | ctx._source.metadata = ctx._source.originalMetadata.clone();
+      | ctx._source.metadata = new HashMap();
+      | if (ctx._source.originalMetadata != null) {
+      |   ctx._source.metadata.putAll(ctx._source.originalMetadata);
+      | }
       | if (ctx._source.userMetadata != null && ctx._source.userMetadata.metadata != null) {
       |   ctx._source.metadata.putAll(ctx._source.userMetadata.metadata);
-      |   ctx._source.metadata = ctx._source.metadata.entrySet().stream().filter(x -> x.value != "").collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
       | }
+      | ctx._source.metadata = ctx._source.metadata.entrySet().stream().filter(x -> x.value != "").collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     """.stripMargin
 
   private val refreshUsageRightsScript = """
