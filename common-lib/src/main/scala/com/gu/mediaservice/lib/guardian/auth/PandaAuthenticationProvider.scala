@@ -2,7 +2,6 @@ package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.{GridUser, Principal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
@@ -10,7 +9,7 @@ import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
 import com.gu.pandomainauth.action.AuthActions
 import com.gu.pandomainauth.model.{AuthenticatedUser, User, Authenticated => PandaAuthenticated, Expired => PandaExpired, GracePeriod => PandaGracePeriod, InvalidCookie => PandaInvalidCookie, NotAuthenticated => PandaNotAuthenticated, NotAuthorized => PandaNotAuthorised}
-import com.gu.pandomainauth.service.OAuthException
+import com.gu.pandomainauth.service.{Google2FAGroupChecker, OAuthException}
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 import play.api.http.HeaderNames
@@ -152,7 +151,14 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
   private val userValidationEmailDomain = resources.commonConfig.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+    validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+  }
+
+  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
+    val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
+    val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
+
+    isValidDomain && passesMultifactor
   }
 
 }

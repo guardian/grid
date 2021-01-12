@@ -3,10 +3,8 @@ package com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, GridUser, OnBehalfOfPrincipal, Principal}
-import com.gu.mediaservice.lib.auth.provider.{Authenticated, AuthenticationProvider, AuthenticationProviders, Expired, GracePeriod, Invalid, NotAuthenticated, NotAuthorised}
+import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.pandomainauth.model.AuthenticatedUser
-import com.gu.pandomainauth.service.Google2FAGroupChecker
 import play.api.libs.typedmap.TypedMap
 import play.api.libs.ws.WSRequest
 import play.api.mvc.Security.AuthenticatedRequest
@@ -100,11 +98,4 @@ object Authentication {
   val originalServiceHeaderName = "X-Gu-Original-Service"
 
   def getIdentity(principal: Principal): String = principal.accessor.identity
-
-  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
-    val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
-    val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
-
-    isValidDomain && passesMultifactor
-  }
 }
