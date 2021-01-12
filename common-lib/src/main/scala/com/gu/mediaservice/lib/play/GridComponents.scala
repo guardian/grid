@@ -54,5 +54,10 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources)),
     apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.api")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources))
   )
+  providers.userProvider.initialise()
+  applicationLifecycle.addStopHook(() => providers.userProvider.shutdown())
+  providers.apiProvider.initialise()
+  applicationLifecycle.addStopHook(() => providers.apiProvider.shutdown())
+
   val auth = new Authentication(config, providers, controllerComponents.parsers.default, executionContext)
 }
