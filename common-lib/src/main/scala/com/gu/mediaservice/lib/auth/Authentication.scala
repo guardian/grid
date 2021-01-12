@@ -38,23 +38,25 @@ class Authentication(config: CommonConfig,
     Future.successful(respondError(Forbidden, "principal-not-authorised", "Principal not authorised", loginLinks))
   }
 
-  def authenticationStatus(requestHeader: RequestHeader, providers: AuthenticationProviders) = {
-    def sendForAuth(maybePrincipal: Option[Principal]): Future[Result] = {
-      providers.userProvider.sendForAuthentication.fold(unauthorised("No path to authenticate user"))(_(requestHeader, maybePrincipal))
-    }
+  def expired(user: GridUser): Future[Result] = {
+    logger.info(s"User token expired for ${user.email}, return 419")
+    Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
+  }
 
+  def authenticationStatus(requestHeader: RequestHeader, providers: AuthenticationProviders) = {
     def flushToken(resultWhenAbsent: Result): Result = {
       providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader))
     }
 
+    // Authenticate request. Try with API authenticator first and then with user authenticator
     providers.apiProvider.authenticateRequest(requestHeader) match {
       case Authenticated(authedUser) => Right(authedUser)
       case Invalid(message, throwable) => Left(unauthorised(message, throwable))
       case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
       case NotAuthenticated =>
         providers.userProvider.authenticateRequest(requestHeader) match {
-          case NotAuthenticated => Left(sendForAuth(None))
-          case Expired(principal) => Left(sendForAuth(Some(principal)))
+          case NotAuthenticated => Left(unauthorised("Not authenticated"))
+          case Expired(principal) => Left(expired(principal))
           case GracePeriod(authedUser) => Right(authedUser)
           case Authenticated(authedUser) => Right(authedUser)
           case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
@@ -64,7 +66,6 @@ class Authentication(config: CommonConfig,
   }
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
-    // Authenticate request. Try with API authenticator first and then with user authenticator
     authenticationStatus(request, providers) match {
       // we have a principal, so process the block
       case Right(principal) => block(new AuthenticatedRequest(principal, request))

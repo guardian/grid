@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, GridUser}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
 import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
 import play.api.libs.json.Json
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.{BaseController, ControllerComponents, Result}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -70,31 +70,44 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     uri.getHost.endsWith(config.domainRoot) && uri.getScheme == "https"
   }
   def isValidDomain(inputUri: String): Boolean = {
-    Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess
+    val success = Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess
+    if (!success) logger.warn(s"Provided login redirect URI is invalid: $inputUri")
+    success
   }
+
+  // Play session key used to store the URI to redirect to during login
+  val REDIRECT_SESSION_KEY = "gridRedirectUri"
 
   // Trigger the auth cycle
   // If a redirectUri is provided, redirect the browser there once auth'd,
   // else return a dummy page (e.g. for automatically re-auth'ing in the background)
-  // FIXME: validate redirectUri before doing the auth
-  def doLogin(redirectUri: Option[String] = None) = auth { req =>
-    redirectUri map {
-      case uri if isValidDomain(uri) => Redirect(uri)
-      case _ => Ok("logged in (not redirecting to external redirectUri)")
-    } getOrElse Ok("logged in")
+  def doLogin(redirectUri: Option[String] = None) = Action.async { implicit req =>
+    val checkedRedirectUri = redirectUri collect {
+      case uri if isValidDomain(uri) => uri
+    }
+    providers.userProvider.sendForAuthentication match {
+      case Some(authCallback) =>
+        authCallback(req).map(_.addingToSession(checkedRedirectUri.map(REDIRECT_SESSION_KEY -> _).toSeq:_*))
+      case None =>
+        Future.successful(InternalServerError("Login not supported by configured authentication provider"))
+    }
   }
 
   def oauthCallback = Action.async { implicit request =>
     providers.userProvider.processAuthentication match {
-      case Some(callback) => callback(request)
-      case None => Future.successful(InternalServerError("No callback for configured authentication provider"))
+      case Some(callback) =>
+        val maybeRedirectUri = request.session.get(REDIRECT_SESSION_KEY)
+        callback(request, maybeRedirectUri).map(_.removingFromSession(REDIRECT_SESSION_KEY))
+      case None =>
+        Future.successful(InternalServerError("No callback for configured authentication provider"))
     }
   }
 
   def logout = Action { implicit request =>
-    providers.userProvider.flushToken match {
+    val result: Result = providers.userProvider.flushToken match {
       case Some(callback) => callback(request)
       case None => InternalServerError("Logout not supported by configured authentication provider")
     }
+    result.withNewSession
   }
 }
