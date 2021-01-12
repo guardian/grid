@@ -208,12 +208,28 @@ getStackResource() {
 
 createCoreStack() {
   echo "creating local core cloudformation stack"
+  set -x
+  stackNames=$(
+    aws cloudformation list-stacks \
+      --endpoint-url http://localhost:4566 | \
+      jq -r '.StackSummaries[].StackName'
+  )
+  if echo ${stackNames} | grep -q '^grid-dev-core$'; then
+    aws cloudformation update-stack \
+      --stack-name "$CORE_STACK_NAME" \
+      --template-body "file://$CORE_STACK_FILE" \
+      --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
+    echo "  updated stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
+  else
+    aws cloudformation create-stack \
+      --stack-name "$CORE_STACK_NAME" \
+      --template-body "file://$CORE_STACK_FILE" \
+      --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
+    echo "  created stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
+  fi
+  set +x
 
-  aws cloudformation create-stack \
-    --stack-name "$CORE_STACK_NAME" \
-    --template-body "file://$CORE_STACK_FILE" \
-    --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
-  echo "  created stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
+  # TODO - this should wait until the stack operation has completed
 }
 
 createLocalAuthStack() {
@@ -279,7 +295,7 @@ main() {
     setupPermissionConfiguration
     setupPanDomainConfiguration
   fi
-  
+
   setupPhotographersConfiguration
   setupUsageRightsConfiguration
   setupDevNginx
