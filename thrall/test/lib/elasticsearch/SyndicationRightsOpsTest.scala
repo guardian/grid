@@ -15,7 +15,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
   def withImage(image: Image)(test: Image => Unit): Unit = {
     implicit val logMarker: LogMarker = MarkerMap()
 
-    ES.indexImage(image.id, Json.toJson(image))
+    ES.indexImage(image.id, image)
     Thread.sleep(1000)
     test(image)
   }
@@ -25,7 +25,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
     val images = (1 to 5).map { _ =>
       val image = imageWithPhotoshoot(photoshoot)
-      ES.indexImage(image.id, Json.toJson(image))
+      ES.indexImage(image.id, image)
       image
     }.toList
     Thread.sleep(1000)

@@ -44,7 +44,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).
             copy(userMetadata = userMetadata)
 
-          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+          Await.result(Future.sequence(ES.indexImage(id, image)), fiveSeconds)
 
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 

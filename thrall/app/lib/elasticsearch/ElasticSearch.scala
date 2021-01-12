@@ -54,7 +54,8 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(response.map(_ => ElasticSearchBulkUpdateResponse()))
   }
 
-  def indexImage(id: String, image: JsValue)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+  def indexImage(id: String, image: Image)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+    val imageAsJson = Json.toJson(image)
     val painlessSource = loadPainless(
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
       """
@@ -78,14 +79,14 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
 
     val params = Map(
-      "update_doc" -> asNestedMap(asImageUpdate(image)),
+      "update_doc" -> asNestedMap(asImageUpdate(imageAsJson)),
       "lastModified" -> currentIsoDateString
     )
 
     val script = Script(script = scriptSource).lang("painless").params(params)
 
     val indexRequest = updateById(imagesAlias, id).
-      upsert(Json.stringify(image)).
+      upsert(Json.stringify(imageAsJson)).
       script(script)
 
     val indexResponse = executeAndLog(indexRequest, s"ES6 indexing image $id")
