@@ -102,6 +102,9 @@ grCollectionsPanel.controller('GrNodeCtrl',
 
     const pathId = ctrl.node.data.data.pathId;
 
+    //This filter remove child nodes with missing data, preventing display errors from occurring
+    ctrl.children = ctrl.node.data.children.filter(node => !!node.data.data);
+
     ctrl.saving = false;
     ctrl.removing = false;
     ctrl.deletable = false;
@@ -174,7 +177,7 @@ grCollectionsPanel.controller('GrNodeCtrl',
 grCollectionsPanel.directive('grNode', ['$parse', '$compile', function($parse, $compile) {
     const templateString = `<gr-nodes
                                 ng:if="ctrl.showChildren && ctrl.node.data.children.length > 0"
-                                gr:nodes="ctrl.node.data.children"
+                                gr:nodes="ctrl.children"
                                 ></gr-nodes>`;
     return {
         restrict: 'E',
