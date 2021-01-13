@@ -1,4 +1,5 @@
 import PQueue from "p-queue";
+import { idleTimeout } from "./idleTimeout";
 
 const concurrency = 30;
 
@@ -58,5 +59,6 @@ export const trackAll = async ($rootScope, key, input, tasks, emit) => {
   $rootScope.$broadcast("events:batch-operations:complete", { key });
 
   $rootScope.$emit(emit, successes);
+  idleTimeout(() => { $rootScope.$apply(()=>console.log("HEY")); });
   return successes;
 };
