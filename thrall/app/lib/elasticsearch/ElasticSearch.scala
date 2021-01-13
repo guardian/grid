@@ -548,7 +548,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
   // Script that updates the "lastModified" property using the "lastModified" parameter
   private val updateLastModifiedScript =
-    """|  ctx._source.lastModified = ctx._source.lastModified < params.lastModified ? params.lastModified : ctx._source.lastModified;
+    """|  if (ctx._source.lastModified < params.lastModified) {ctx._source.lastModified = params.lastModified }
     """.stripMargin
 
   private def asNestedMap(sr: SyndicationRights) = { // TODO not great; there must be a better way to flatten a case class into a Map
