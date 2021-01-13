@@ -56,7 +56,7 @@ const queue = new PQueue({ concurrency: 10 });
 async.factory("apiPoll", [
   () => {
     const wait = () => new Promise(resolve => {
-      setTimeout(() => resolve(), 4000);
+      setTimeout(() => resolve(), 500);
     });
     const poll = async (func, n) => {
       const [{ status, value }] = await Promise.allSettled([
