@@ -59,7 +59,7 @@ labeller.controller('LabellerCtrl', [
             })
             .catch(saveFailed)
             .finally(() => {
-                ctrl.labelsBeingRemoved.remove(label);
+                ctrl.labelsBeingRemoved.delete(label);
             });
     };
 
