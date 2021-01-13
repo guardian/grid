@@ -21,7 +21,7 @@ trait Fixtures {
                  ): Image =
     Image(
      id = id,
-     uploadTime = DateTime.now(DateTimeZone.UTC),
+     uploadTime = now,
      uploadedBy = "yellow.giraffe@theguardian.com",
      lastModified = None,
      identifiers = Map.empty,
@@ -71,8 +71,10 @@ trait Fixtures {
     createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"), Some(syndicationRights), leaseByMedia, usages, fileMetadata = fileMetadata)
   }
 
+  private def now = DateTime.now(DateTimeZone.UTC)
+
   def someSyndRights = Some(SyndicationRights(
-    published = Some(DateTime.now()),
+    published = Some(now),
     suppliers = List(Supplier(supplierName = Some("supplier"), supplierId = Some("supplier-id"), prAgreement = Some(true))),
     rights = List(Right(rightCode = "code", acquired = Some(true), properties = Seq.empty)),
     isInferred = false))
@@ -87,7 +89,7 @@ trait Fixtures {
     Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
   }
 
-  def usage(id: String = UUID.randomUUID().toString) = Usage(id, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, DateTime.now)
+  def usage(id: String = UUID.randomUUID().toString) = Usage(id, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, now)
 
   def stringLongerThan(i: Int): String = {
     var out = ""

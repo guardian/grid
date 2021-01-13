@@ -676,6 +676,13 @@ class ElasticSearchTest extends ElasticSearchTestBase {
     }
   }
 
+  "date checks" - {
+    "correct zone" in {
+      import com.gu.mediaservice.lib.formatting.parseOptDateTime
+      val parsedDate = parseOptDateTime(Some("2021-01-13T15:26:27.234Z"))
+      parsedDate.get.getZone shouldEqual(DateTimeZone.UTC)
+    }
+  }
 
   private def now = DateTime.now(DateTimeZone.UTC)
 }

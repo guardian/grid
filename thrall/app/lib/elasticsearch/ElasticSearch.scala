@@ -56,7 +56,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   def indexImage(id: String, image: Image, lastModified: DateTime)
                 (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val imageAsJson = Json.toJson(image)
-    val painlessSource = loadPainless(
+    val painlessSource =
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
       """
         | if (ctx._source.identifiers != null) {
@@ -69,14 +69,12 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
         | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
         |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
         | }
-      """)
+      """
 
-    val scriptSource = loadPainless(s"""
-                                       |   $painlessSource
-                                       |   $refreshEditsScript
-                                       |   $updateLastModifiedScript
+    val scriptSource = loadUpdatingModificationPainless(s"""
+                                       |$painlessSource
+                                       |$refreshEditsScript
                                        | """)
-
 
     val params = Map(
       "update_doc" -> asNestedMap(asImageUpdate(imageAsJson)),
@@ -111,28 +109,20 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
   def updateImageUsages(id: String, usages: Seq[Usage], lastModified: DateTime)
                        (implicit ex: ExecutionContext,logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-    val replaceUsagesScript = """
-      | def dtf = DateTimeFormatter.ISO_DATE_TIME;
-      | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
-      | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(dtf.parse(ctx._source.usagesLastModified))) : null;
-      |
-      | if (lastUpdatedDate == null || updateDate.after(lastUpdatedDate)) {
+    val replaceUsagesScript = loadUpdatingModificationPainless(s"""
+      | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.usagesLastModified))) : null;
+      | if (lastUpdatedDate == null || modificationDate.after(lastUpdatedDate)) {
       |   ctx._source.usages = params.usages;
       |   ctx._source.usagesLastModified = params.lastModified;
       | }
-    """
-
-    val scriptSource = loadPainless(s"""
-       |   $replaceUsagesScript
-       |   $updateLastModifiedScript
-       | """)
+    """)
 
     val params = Map(
       "usages" -> usages.map(i => asNestedMap(Json.toJson(i))),
       "lastModified" -> printDateTime(lastModified)
     )
 
-    val updateRequest: UpdateRequest = prepareUpdateRequest(id, scriptSource, params)
+    val updateRequest: UpdateRequest = prepareUpdateRequest(id, replaceUsagesScript, params)
 
     val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 updating usages on image $id")
       .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
@@ -158,10 +148,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       "lastModified" -> printDateTime(lastModified)
     )
 
-    val scriptSource = loadPainless(s"""
-         | $replaceSyndicationRightsScript
-         | $updateLastModifiedScript
-        """)
+    val scriptSource = loadUpdatingModificationPainless(replaceSyndicationRightsScript)
 
     val updateRequest: UpdateRequest = prepareUpdateRequest(id, scriptSource, params)
 
@@ -184,18 +171,18 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       "lastModified" -> printDateTime(lastModified)
     )
 
-    val scriptSource = loadPainless(
+    val replaceUserMetadata =
+      """
+        | def lastUpdatedDate = ctx._source.userMetadataLastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.userMetadataLastModified))) : null;
+        | if (lastUpdatedDate == null || modificationDate.after(lastUpdatedDate)) {
+        |   ctx._source.userMetadata = params.userMetadata;
+        |   ctx._source.userMetadataLastModified = params.lastModified;
+        | }
+        | """
+
+    val scriptSource = loadUpdatingModificationPainless(
       s"""
-          | def dtf = DateTimeFormatter.ISO_DATE_TIME;
-          | def updateDate = Date.from(Instant.from(dtf.parse(params.lastModified)));
-          | def lastUpdatedDate = ctx._source.userMetadataLastModified != null ? Date.from(Instant.from(dtf.parse(ctx._source.userMetadataLastModified))) : null;
-          |
-          | if (lastUpdatedDate == null || updateDate.after(lastUpdatedDate)) {
-          |   ctx._source.userMetadata = params.userMetadata;
-          |   ctx._source.userMetadataLastModified = params.lastModified;
-          |   $updateLastModifiedScript
-          | }
-          |
+          | $replaceUserMetadata
           | $refreshEditsScript
           | $photoshootSuggestionScript
        """
@@ -290,11 +277,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   def deleteAllImageUsages(id: String,
                            lastModified: DateTime)
                           (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-    val deleteUsagesScript = loadPainless(
-      s"""
-         | ctx._source.remove('usages');
-         | $updateLastModifiedScript
-         | """)
+    val deleteUsagesScript = loadUpdatingModificationPainless("ctx._source.remove('usages');")
 
     val updateRequest = prepareUpdateRequest(id, deleteUsagesScript, lastModified)
 
@@ -307,9 +290,10 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   def deleteSyndicationRights(id: String, lastModified: DateTime)
                              (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val deleteSyndicationRightsScript = s"""
+        | $modificationDateFormatting
         | ctx._source.remove('syndicationRights');
         | $updateLastModifiedScript
-      """
+      """.stripMargin
 
     val params = Map(
       "lastModified" -> printDateTime(lastModified)
@@ -336,6 +320,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     )
 
     val scriptSource = loadPainless(s"""
+                                       |   $modificationDateFormatting
                                        |   $replaceLeasesScript
                                        |   $updateLastModifiedScript
                                        | """)
@@ -365,16 +350,17 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   def addImageLease(id: String, lease: MediaLease, lastModified: DateTime)
                    (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
-    val addLeaseScript = loadPainless(
+    val addLeaseScript =
       """| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
          |   ctx._source.leases = ["leases": [params.lease], "lastModified": params.lastModified];
          | } else {
          |   ctx._source.leases.leases.add(params.lease);
          |   ctx._source.leases.lastModified = params.lastModified;
          | }
-    """.stripMargin)
+    """.stripMargin
 
     val scriptSource = loadPainless(s"""
+                                       |   $modificationDateFormatting
                                        |   $addLeaseScript
                                        |   $updateLastModifiedScript
                                        | """)
@@ -409,6 +395,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val scriptSource = loadPainless(
       s"""
+         |   $modificationDateFormatting
          |   $removeLeaseScript
          |   $updateLastModifiedScript
          | """)
@@ -445,6 +432,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val scriptSource = loadPainless(
       s"""
+         |   $modificationDateFormatting
          |   $addExportsScript
          |   $updateLastModifiedScript
          | """)
@@ -476,6 +464,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val scriptSource = loadPainless(
       s"""
+         |   $modificationDateFormatting
          |   $deleteExportsScript
          |   $updateLastModifiedScript
          | """)
@@ -496,8 +485,10 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
                         (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     // TODO rename to setImageCollections
     val setCollectionsScript = loadPainless(
-      """
+      s"""
+        | $modificationDateFormatting
         | ctx._source.collections = params.collections;
+        | $updateLastModifiedScript
       """)
 
     val collectionsParameter = JsDefined(Json.toJson(collections)).toOption.map { cs: JsValue =>
@@ -545,10 +536,21 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   private val refreshEditsScript = refreshMetadataScript + refreshUsageRightsScript
 
   private def loadPainless(str: String) = str.stripMargin.split('\n').map(_.trim.filter(_ >= ' ')).mkString // remove ctrl chars and leading, trailing whitespace
+  private def loadUpdatingModificationPainless(str: String) = loadPainless(modificationDateFormatting + str + updateLastModifiedScript)
+
+  private val modificationDateFormatting =
+    """
+      | def modificationDate = Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(params.lastModified)));
+      """
 
   // Script that updates the "lastModified" property using the "lastModified" parameter
   private val updateLastModifiedScript =
-    """|  if (ctx._source.lastModified == null || ctx._source.lastModified < params.lastModified) {ctx._source.lastModified = params.lastModified }
+    """
+      | def lastModifiedDate = ctx._source.lastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.lastModified))) : null;
+      | if (lastModifiedDate == null || modificationDate.after(lastModifiedDate)) {
+      |   ctx._source.lastModified = params.lastModified;
+      | }
+      |
     """.stripMargin
 
   private def asNestedMap(sr: SyndicationRights) = { // TODO not great; there must be a better way to flatten a case class into a Map
