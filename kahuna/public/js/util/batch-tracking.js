@@ -59,6 +59,6 @@ export const trackAll = async ($rootScope, key, input, tasks, emit) => {
   $rootScope.$broadcast("events:batch-operations:complete", { key });
 
   $rootScope.$emit(emit, successes);
-  idleTimeout(() => { $rootScope.$apply(()=>console.log("HEY")); });
+  idleTimeout(() => { $rootScope.$apply(); });
   return successes;
 };
