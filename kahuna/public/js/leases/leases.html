@@ -29,7 +29,7 @@
       ng-show="!ctrl.adding && ctrl.editing"
       ng-submit="ctrl.save()">
 
-  <select id="access-select" ng-model="ctrl.access" ng-required="required">
+  <select ng-model="ctrl.access" ng-required="required">
       <option ng-selected="true" value="">Please select access</option>
       <optgroup label="Cropping">
           <option value="allow-use">Allow cropping</option>
