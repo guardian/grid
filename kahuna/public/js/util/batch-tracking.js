@@ -59,6 +59,8 @@ export const trackAll = async ($rootScope, key, input, tasks, emit) => {
   $rootScope.$broadcast("events:batch-operations:complete", { key });
 
   $rootScope.$emit(emit, successes);
+  //As this is a promise and not an angular js magical promise:
+  //we need to convince angular that it's time to run the dispatch loop.
   idleTimeout(() => { $rootScope.$apply(); });
   return successes;
 };
