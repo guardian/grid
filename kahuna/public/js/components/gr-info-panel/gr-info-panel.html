@@ -325,7 +325,7 @@
 
                         <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.copyright)">
                             <span ng-if="ctrl.metadata.copyright">
-                                <a ui-sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'by')})">{{ctrl.metadata.copyright}}</a>
+                                <a ui-sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
                             </span>
 
                             <span ng-if="!ctrl.metadata.copyright && ctrl.userCanEdit">Unknown (click ✎ to add the copyright)</span>
