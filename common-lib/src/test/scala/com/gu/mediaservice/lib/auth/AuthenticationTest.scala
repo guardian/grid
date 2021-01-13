@@ -6,7 +6,7 @@ import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import org.scalatest.{FunSuite, MustMatchers}
 
 class AuthenticationTest extends FunSuite with MustMatchers {
-  import Authentication.validateUser
+  import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider.validateUser
 
   val user = AuthenticatedUser(User("Barry", "Chuckle", "barry.chuckle@guardian.co.uk", None),
     "media-service", Set("media-service"), Instant.now().plusSeconds(100).toEpochMilli, multiFactor = true)

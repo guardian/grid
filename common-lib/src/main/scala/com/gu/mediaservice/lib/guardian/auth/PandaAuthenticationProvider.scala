@@ -151,14 +151,15 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
   private val userValidationEmailDomain = resources.commonConfig.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
 
   final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+    PandaAuthenticationProvider.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
   }
+}
 
+object PandaAuthenticationProvider {
   def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
     val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
     val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
 
     isValidDomain && passesMultifactor
   }
-
 }
