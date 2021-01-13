@@ -230,7 +230,7 @@ image.controller('ImageCtrl', [
     }
 
     const freeImagesUpdateListener = $rootScope.$on('images-updated', (e, updatedImages) => {
-      const maybeUpdatedImage = updatedImages.some(updatedImage => ctrl.image.data.id === updatedImage.data.id);
+      const maybeUpdatedImage = updatedImages.find(updatedImage => ctrl.image.data.id === updatedImage.data.id);
       if (maybeUpdatedImage) {
         ctrl.image = maybeUpdatedImage;
       }
