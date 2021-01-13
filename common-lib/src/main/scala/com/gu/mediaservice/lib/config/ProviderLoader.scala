@@ -5,7 +5,7 @@ import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
 import play.api.{ConfigLoader, Configuration}
 
-import java.lang.reflect.Constructor
+import java.lang.reflect.{Constructor, InvocationTargetException}
 import scala.collection.JavaConverters.asScalaIteratorConverter
 import scala.reflect.ClassTag
 import scala.util.Try
@@ -55,6 +55,7 @@ class ProviderLoader[ProviderType, ResourcesType](providerDescription: String)(i
   }
 
   private def loadProvider(details: ConfigDetails): ProviderType = {
+    logger.info(s"Dynamically loading provider from ${details.className} as specified by config path ${details.path}")
     val config = ProviderResources(details.config.getOrElse(Configuration.empty), details.resources)
     loadProvider(details.className, config) match {
       case Right(provider) => provider
@@ -143,7 +144,17 @@ class ProviderLoader[ProviderType, ResourcesType](providerDescription: String)(i
     for {
       instance <- providerType match {
         case ProviderCompanionObject(companionObject) => Right(companionObject)
-        case ProviderConstructor(ctor) => Right(ctor.newInstance(paramsFor(ctor, resources):_*))
+        case ProviderConstructor(ctor) => catchNonFatal(ctor.newInstance(paramsFor(ctor, resources):_*)){
+          case ite: InvocationTargetException =>
+            val cause = Option(ite.getCause)
+            val error = s"${cause.map(_.getClass.getName).getOrElse("Unknown exception")} thrown when executing constructor ${ctor.getClass.getCanonicalName}${constructorParamsString(ctor)}. Search logs for stack trace."
+            logger.error(error, cause.getOrElse(ite))
+            error
+          case NonFatal(other) =>
+            val error = s"${other.getClass.getName} thrown whilst creating a new instance using constructor ${ctor.getClass.getCanonicalName}${constructorParamsString(ctor)}. Search logs for stack trace."
+            logger.error(error, other)
+            error
+        }
       }
       castInstance <- castProvider(instance)
     } yield castInstance

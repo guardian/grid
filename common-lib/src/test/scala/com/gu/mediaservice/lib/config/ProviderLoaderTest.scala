@@ -36,6 +36,11 @@ case class ResourceConfigTestProvider(resources: TestProviderResources, config: 
   override def info: String = s"resource-config-test-provider ${resources.aResource} ${config.hashCode}"
 }
 
+case class BadTestProvider(resources: TestProviderResources, config: Configuration) extends TestProvider {
+  throw new IllegalArgumentException("Oh dear, something went wrong")
+  override def info: String = s"resource-config-test-provider ${resources.aResource} ${config.hashCode}"
+}
+
 class NotATestProvider {
   def monkey: String = "not-test-provider"
 }
@@ -113,6 +118,11 @@ class ProviderLoaderTest extends FreeSpec with Matchers with EitherValues {
     "should fail to load an object processor that doesn't take configuration with non-empty configuration" in {
       val instance = TestProviderLoader.loadProvider(ObjectTestProvider.getClass.getCanonicalName, nonEmptyConfigProviderResources)
       instance.left.value shouldBe "Configuration provided but com.gu.mediaservice.lib.config.ObjectTestProvider$ is a companion object and doesn't take configuration."
+    }
+
+    "should fail to load a provider if the constructor throws an exception" in {
+      val instance = TestProviderLoader.loadProvider(classOf[BadTestProvider].getCanonicalName, providerResources)
+      instance.left.value shouldBe "java.lang.IllegalArgumentException thrown when executing constructor java.lang.reflect.Constructor(com.gu.mediaservice.lib.config.TestProviderResources, play.api.Configuration). Search logs for stack trace."
     }
   }
 
