@@ -4,7 +4,7 @@ import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Inside.inside
 import org.scalatest.{EitherValues, FreeSpec, Matchers}
-import play.api.Configuration
+import play.api.{ConfigLoader, Configuration}
 
 trait TestProvider {
   def info: String
@@ -46,7 +46,7 @@ class NotATestProvider {
 }
 
 class TestProviderWithStringConstructor(configString: String) extends TestProvider {
-  def info: String = "not-test-provider"
+  def info: String = s"not-test-provider $configString"
 }
 
 object TestProviderLoader extends ProviderLoader[TestProvider, TestProviderResources]("test provider")
@@ -129,8 +129,8 @@ class ProviderLoaderTest extends FreeSpec with Matchers with EitherValues {
   "The config loader" - {
     val resources = TestProviderResources("sausages")
 
-    implicit val testProviderConfigLoader = TestProviderLoader.singletonConfigLoader(resources)
-    implicit val testProvidersConfigLoader = TestProviderLoader.seqConfigLoader(resources)
+    implicit val testProviderConfigLoader: ConfigLoader[TestProvider] = TestProviderLoader.singletonConfigLoader(resources)
+    implicit val testProvidersConfigLoader: ConfigLoader[Seq[TestProvider]] = TestProviderLoader.seqConfigLoader(resources)
 
     "should load an image processor from a classname" in {
       val conf:Configuration = Configuration.from(Map(

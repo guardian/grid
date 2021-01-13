@@ -1,14 +1,14 @@
-package com.gu.mediaservice.lib.auth
-
-import java.time.Instant
+package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
 import org.scalatest.{FunSuite, MustMatchers}
 
-class AuthenticationTest extends FunSuite with MustMatchers {
+import java.time.Instant
+
+class PandaAuthenticationProviderTest extends FunSuite with MustMatchers {
   import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider.validateUser
 
-  val user = AuthenticatedUser(User("Barry", "Chuckle", "barry.chuckle@guardian.co.uk", None),
+  val user: AuthenticatedUser = AuthenticatedUser(User("Barry", "Chuckle", "barry.chuckle@guardian.co.uk", None),
     "media-service", Set("media-service"), Instant.now().plusSeconds(100).toEpochMilli, multiFactor = true)
 
   test("user fails email domain validation") {
