@@ -35,11 +35,11 @@ labelService.factory("labelService", [
     }
 
     function remove(image, label) {
-      return batchRemove([image], label);
+      return batchRemove([image], label).then(([image])=>image);
     }
 
     function add(image, labels) {
-      return batchAdd([image], labels);
+      return batchAdd([image], labels).then(([image])=>image);
     }
 
     function batchAdd(images, labels) {
