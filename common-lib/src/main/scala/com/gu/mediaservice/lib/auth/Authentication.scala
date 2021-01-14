@@ -21,10 +21,11 @@ class Authentication(config: CommonConfig,
   // make the execution context implicit so it will be picked up appropriately
   implicit val ec: ExecutionContext = executionContext
 
-  // TODO: SAH / Evaluate MB's suggestion that this moves to the provider
-  val loginLinks = List(
-    Link("login", config.services.loginUriTemplate)
-  )
+  val loginLinks: List[Link] = providers.userProvider.loginLink match {
+    case DisableLoginLink => Nil
+    case BuiltInAuthService => List(Link("login", config.services.loginUriTemplate))
+    case ExternalLoginLink(link) => List(Link("login", link))
+  }
 
   def unauthorised(errorMessage: String, throwable: Option[Throwable] = None): Future[Result] = {
     logger.info(s"Authentication failure $errorMessage", throwable.orNull)

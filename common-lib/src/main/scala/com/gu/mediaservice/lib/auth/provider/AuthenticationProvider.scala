@@ -22,6 +22,11 @@ case class AuthenticationProviderResources(commonConfig: CommonConfig,
                                            wsClient: WSClient,
                                            controllerComponents: ControllerComponents)
 
+sealed trait LoginLink
+case object BuiltInAuthService extends LoginLink
+case object DisableLoginLink extends LoginLink
+case class ExternalLoginLink(link: String) extends LoginLink
+
 sealed trait AuthenticationProvider {
   def initialise(): Unit = {}
   def shutdown(): Future[Unit] = Future.successful(())
@@ -74,6 +79,16 @@ trait UserAuthenticationProvider extends AuthenticationProvider {
     * This function takes the request header and a result to modify and returns the modified result.
     */
   def flushToken: Option[(RequestHeader, Result) => Result]
+
+  /**
+    * The login link is provided to the client to tell them where to go if they are
+    * not authenticated. By default the Grid provides a link to the authentication
+    * microservice but this behaviour can be modified. If it is not possible to login
+    * or authentication is handled by a proxy you can set this to DisableLoginLink.
+    * Alternatively if you are using an alternative external service to do authentication
+    * then this can be explicitly set to an alternative URL using ExternalLoginLink.
+    */
+  def loginLink: LoginLink = BuiltInAuthService
 }
 
 trait MachineAuthenticationProvider extends AuthenticationProvider {
