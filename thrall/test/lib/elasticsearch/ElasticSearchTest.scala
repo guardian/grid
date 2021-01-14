@@ -16,7 +16,7 @@ import scala.concurrent.{Await, Future}
 
 class ElasticSearchTest extends ElasticSearchTestBase {
   "Elasticsearch" - {
-   implicit val logMarker: LogMarker = MarkerMap()
+     implicit val logMarker: LogMarker = MarkerMap()
 
 
     "images" - {

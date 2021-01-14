@@ -8,7 +8,7 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import lib._
 import lib.elasticsearch._
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,12 +46,10 @@ class MessageProcessor(es: ElasticSearch,
     implicit val lm: LogMarker = logMarker
     withId(message) { id =>
       withUsageNotice(message) { usageNotice =>
-        withLastModified(message) { lastModifed =>
-          val usages = usageNotice.usageJson.as[Seq[Usage]]
-          Future.traverse(es.updateImageUsages(id, usages, lastModifed))(_.recoverWith {
-            case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
-          })
-        }
+        val usages = usageNotice.usageJson.as[Seq[Usage]]
+        Future.traverse(es.updateImageUsages(id, usages, message.lastModified))(_.recoverWith {
+          case ElasticNotFoundException => Future.successful(ElasticSearchUpdateResponse())
+        })
       }
     }
   }
@@ -63,55 +61,46 @@ class MessageProcessor(es: ElasticSearch,
 
   private def indexImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withImage(message)(i =>
-      withLastModified(message)(lastModified =>
-        Future.sequence(
-          es.indexImage(i.id, i, lastModified)(ec,logMarker)
-        )
+      Future.sequence(
+        es.indexImage(i.id, i, message.lastModified)(ec,logMarker)
       )
     )
 
   private def updateImageExports(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withId(message)(id =>
       withCrops(message)(crops =>
-        withLastModified(message)(lastModified =>
-          Future.sequence(
-            es.updateImageExports(id, crops, lastModified)(ec,logMarker)))))
+        Future.sequence(
+          es.updateImageExports(id, crops, message.lastModified)(ec,logMarker))))
 
   private def deleteImageExports(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withId(message)(id =>
-      withLastModified(message)(lastModified =>
-        Future.sequence(
-          es.deleteImageExports(id, lastModified)(ec, logMarker))))
+      Future.sequence(
+        es.deleteImageExports(id, message.lastModified)(ec, logMarker)))
 
   private def updateImageUserMetadata(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withEdits(message)( edits =>
       withId(message)(id =>
-        withLastModified(message)(lastModified =>
-          Future.sequence(es.applyImageMetadataOverride(id, edits, lastModified)(ec,logMarker)))))
+        Future.sequence(es.applyImageMetadataOverride(id, edits, message.lastModified)(ec,logMarker))))
 
   private def replaceImageLeases(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withId(message)(id =>
       withLeases(message)(leases =>
-        withLastModified(message)(lastModified =>
-          Future.sequence(es.replaceImageLeases(id, leases, lastModified)(ec, logMarker)))))
+        Future.sequence(es.replaceImageLeases(id, leases, message.lastModified)(ec, logMarker))))
 
   private def addImageLease(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withId(message)(id =>
       withLease(message)( mediaLease =>
-        withLastModified(message)(lastModified =>
-          Future.sequence(es.addImageLease(id, mediaLease, lastModified)(ec, logMarker)))))
+        Future.sequence(es.addImageLease(id, mediaLease, message.lastModified)(ec, logMarker))))
 
   private def removeImageLease(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] =
     withId(message)(id =>
       withLeaseId(message)( leaseId =>
-        withLastModified(message)(lastModified =>
-          Future.sequence(es.removeImageLease(id, Some(leaseId), lastModified)(ec, logMarker)))))
+        Future.sequence(es.removeImageLease(id, Some(leaseId), message.lastModified)(ec, logMarker))))
 
   private def setImageCollections(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withId(message)(id =>
       withCollections(message)(collections =>
-        withLastModified(message)(lastModified =>
-          Future.sequence(es.setImageCollection(id, collections, lastModified)(ec, logMarker)))))
+        Future.sequence(es.setImageCollection(id, collections, message.lastModified)(ec, logMarker))))
 
   private def deleteImage(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     Future.sequence(
@@ -140,51 +129,46 @@ class MessageProcessor(es: ElasticSearch,
 
   private def deleteAllUsages(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withId(message)(id =>
-      withLastModified(message)(lastModified =>
-        Future.sequence(es.deleteAllImageUsages(id, lastModified)(ec, logMarker))))
+      Future.sequence(es.deleteAllImageUsages(id, message.lastModified)(ec, logMarker)))
 
   def upsertSyndicationRights(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] =
     withId(message){ id =>
       implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
-      withLastModified(message)(lastModified =>
-        withSyndicationRights(message)(syndicationRights =>
-          es.getImage(id) map {
-            case Some(image) =>
-              val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-              logger.info(marker, s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
-              syndicationRightsOps.upsertOrRefreshRights(
-                image = image.copy(syndicationRights = Some(syndicationRights)),
-                currentPhotoshootOpt = photoshoot,
-                None,
-                lastModified
-              )
-            case _ => logger.info(marker, s"Image $id not found")
-          }
-        )
+      withSyndicationRights(message)(syndicationRights =>
+        es.getImage(id) map {
+          case Some(image) =>
+            val photoshoot = image.userMetadata.flatMap(_.photoshoot)
+            logger.info(marker, s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
+            syndicationRightsOps.upsertOrRefreshRights(
+              image = image.copy(syndicationRights = Some(syndicationRights)),
+              currentPhotoshootOpt = photoshoot,
+              None,
+              message.lastModified
+            )
+          case _ => logger.info(marker, s"Image $id not found")
+        }
       )
     }
 
   def updateImagePhotoshoot(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
     withId(message) { id =>
       implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
-      withLastModified(message)(lastModified =>
-        withEdits(message) { upcomingEdits =>
-          for {
-            imageOpt <- es.getImage(id)
-            prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
-            _ <- updateImageUserMetadata(message, logMarker)
-            _ <- {
-              logger.info(marker, s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
-              syndicationRightsOps.upsertOrRefreshRights(
-                image = imageOpt.get,
-                currentPhotoshootOpt = upcomingEdits.photoshoot,
-                previousPhotoshootOpt = prevPhotoshootOpt,
-                lastModified
-              )
-            }
-          } yield logger.info(marker, s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}")
-        }
-      )
+      withEdits(message) { upcomingEdits =>
+        for {
+          imageOpt <- es.getImage(id)
+          prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
+          _ <- updateImageUserMetadata(message, logMarker)
+          _ <- {
+            logger.info(marker, s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
+            syndicationRightsOps.upsertOrRefreshRights(
+              image = imageOpt.get,
+              currentPhotoshootOpt = upcomingEdits.photoshoot,
+              previousPhotoshootOpt = prevPhotoshootOpt,
+              message.lastModified
+            )
+          }
+        } yield logger.info(marker, s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}")
+      }
     }
   }
 
@@ -233,12 +217,6 @@ class MessageProcessor(es: ElasticSearch,
   private def withLeaseId[A](message: UpdateMessage)(f: String => A): A = {
     message.leaseId.map(f).getOrElse {
       sys.error(s"No lease id present in message: $message")
-    }
-  }
-
-  private def withLastModified[A](message: UpdateMessage)(f: DateTime => A): A = {
-    message.lastModified.map(f).getOrElse {
-      sys.error(s"No lastModified present in message: $message")
     }
   }
 
