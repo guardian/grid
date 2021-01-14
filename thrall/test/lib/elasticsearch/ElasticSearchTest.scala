@@ -89,16 +89,6 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           reloadedImage(id).get.fileMetadata.exif("Green TRC").length shouldBe reallyLongTRC.length
         }
 
-        "initial indexing does not set the last modified date because scripts do not run on initial upserts" in { // TODO is this intentional?
-          val id = UUID.randomUUID().toString
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
-          val lastModified = reloadedImage(id).get.lastModified
-
-          lastModified.nonEmpty shouldBe false
-        }
-
         "initial indexing does not add lastModified to the leases object" in {
           val id = UUID.randomUUID().toString
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
@@ -415,6 +405,69 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       }
     }
 
+    "dates" - {
+
+      "initial write populates last modified" in {
+        val id = UUID.randomUUID().toString
+        val image = createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+
+        val date = now.withSecondOfMinute(0)
+
+        // Write  date
+        Await.result(Future.sequence(ES.indexImage(id, image, date)), fiveSeconds)
+
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
+          val image = reloadedImage(id)
+          image.get.lastModified.get shouldBe date
+        })
+      }
+
+      "last modified gets updated in normal order" in {
+        val id = UUID.randomUUID().toString
+        val image = createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+
+        val earlierDate = now.withSecondOfMinute(0)
+        val laterDate = earlierDate.withSecondOfMinute(30)  // Clearly thirty seconds later.
+
+        // Write first date first
+        Await.result(Future.sequence(ES.indexImage(id, image, earlierDate)), fiveSeconds)
+        // Write second date second
+        Await.result(Future.sequence(ES.indexImage(id, image, laterDate)), fiveSeconds)
+
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
+          val image = reloadedImage(id)
+          image.get.lastModified.get shouldBe laterDate
+        })
+      }
+
+      "last modified does not get updated in wrong order" in {
+        val id = UUID.randomUUID().toString
+        val image = createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+
+        val earlierDate = now.withSecondOfMinute(0)
+        val laterDate = earlierDate.withSecondOfMinute(30)  // Clearly thirty seconds later.
+
+        // Write second date first
+        Await.result(Future.sequence(ES.indexImage(id, image, laterDate)), fiveSeconds)
+
+        val updatedImage = eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
+          val image = reloadedImage(id)
+          image.get
+        })
+          .copy(lastModified = Some(earlierDate))
+          .copy(usageRights = StaffPhotographer("Dr. Pamela Lillian Isley", "Poison Ivy Inc."))
+
+        // Write first date second
+        Await.result(Future.sequence(ES.indexImage(id, updatedImage, earlierDate)), fiveSeconds)
+
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
+          val image =  reloadedImage(id)
+          image.get.lastModified.get shouldBe laterDate
+        })
+      }
+
+    }
+
     "usages" - {
 
       "can delete all usages for an image" in {
@@ -674,7 +727,6 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         // TODO how to assert that the suggestion was added?
       }
     }
-  }
 
   "date checks" - {
     "correct zone" in {
@@ -684,5 +736,6 @@ class ElasticSearchTest extends ElasticSearchTestBase {
     }
   }
 
+  }
   private def now = DateTime.now(DateTimeZone.UTC)
 }

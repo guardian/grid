@@ -55,7 +55,14 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
   def indexImage(id: String, image: Image, lastModified: DateTime)
                 (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
-    val imageAsJson = Json.toJson(image)
+    // On insert, we know we will not have a lastModified to consider, so we always take the one we get
+    val insertImage = image.copy(lastModified = Some(lastModified))
+    val insertImageAsJson = Json.toJson(insertImage)
+
+    // On update, we do not want to take the one we have been given unless it is newer - see updateLastModifiedScript script
+    val updateImage = image.copy(lastModified = None)
+    val upsertImageAsJson = Json.toJson(updateImage)
+
     val painlessSource =
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
       """
@@ -77,14 +84,14 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
                                        | """)
 
     val params = Map(
-      "update_doc" -> asNestedMap(asImageUpdate(imageAsJson)),
+      "update_doc" -> asNestedMap(asImageUpdate(upsertImageAsJson)),
       "lastModified" -> printDateTime(lastModified)
     )
 
     val script: Script = prepareScript(scriptSource, params)
 
     val indexRequest = updateById(imagesAlias, id).
-      upsert(Json.stringify(imageAsJson)).
+      upsert(Json.stringify(insertImageAsJson)).
       script(script)
 
     val indexResponse = executeAndLog(indexRequest, s"ES6 indexing image $id")
@@ -550,7 +557,6 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       | if (lastModifiedDate == null || modificationDate.after(lastModifiedDate)) {
       |   ctx._source.lastModified = params.lastModified;
       | }
-      |
     """.stripMargin
 
   private def asNestedMap(sr: SyndicationRights) = { // TODO not great; there must be a better way to flatten a case class into a Map
