@@ -197,7 +197,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def parseMimeType(expr: String): Value = {
     val translateMimetype = expr match {
-      case s if s.contains("tif") || s.contains("tiff") => "image/tiff"
+      case s if s.contains("tif") => "image/tiff"
       case s if s.contains("jpg") || s.contains("jpeg") => "image/jpeg"
       case s if s.contains("png") => "image/png"
       case _ => expr
