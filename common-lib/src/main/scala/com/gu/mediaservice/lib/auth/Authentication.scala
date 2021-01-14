@@ -41,7 +41,7 @@ class Authentication(config: CommonConfig,
     Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
   }
 
-  def authenticationStatus(requestHeader: RequestHeader, providers: AuthenticationProviders) = {
+  def authenticationStatus(requestHeader: RequestHeader) = {
     def flushToken(resultWhenAbsent: Result): Result = {
       providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
     }
@@ -64,7 +64,7 @@ class Authentication(config: CommonConfig,
   }
 
   override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
-    authenticationStatus(request, providers) match {
+    authenticationStatus(request) match {
       // we have a principal, so process the block
       case Right(principal) => block(new AuthenticatedRequest(principal, request))
       // no principal so return a result which will either be an error or a form of redirect
