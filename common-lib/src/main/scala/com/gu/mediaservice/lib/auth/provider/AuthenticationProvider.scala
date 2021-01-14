@@ -63,7 +63,7 @@ trait UserAuthenticationProvider extends AuthenticationProvider {
     * The function should take the Play request header and the redirect URI that the user should be
     * sent to on successful completion of the authentication.
     */
-  def processAuthentication: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]]
+  def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]]
 
   /**
     * If this provider is able to clear user tokens (i.e. by clearing cookies) then it should provide a function to

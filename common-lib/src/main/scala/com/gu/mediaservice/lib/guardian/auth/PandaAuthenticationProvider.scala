@@ -77,7 +77,7 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
     * used to set a cookie or similar to ensure that a subsequent call to authenticateRequest will succeed. If
     * authentication failed then this should return an appropriate 4xx result.
     */
-  override def processAuthentication: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
+  override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] =
     Some({ (requestHeader: RequestHeader, maybeUri: Option[RedirectUri]) =>
       // We use the `Try` here as the `GoogleAuthException` are thrown before we
       // get to the asynchronicity of the `Future` it returns.

@@ -78,7 +78,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
         }
 
         override def sendForAuthentication: Option[RequestHeader => Future[Result]] = ???
-        override def processAuthentication: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = ???
+        override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = ???
         override def flushToken: Option[(RequestHeader, Result) => Result] = Some({(_: RequestHeader, result: Result) =>
           result.discardingCookies(DiscardingCookie(COOKIE_NAME))
         })
@@ -175,7 +175,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
       new UserAuthenticationProvider {
         override def authenticateRequest(request: RequestHeader): AuthenticationStatus = ???
         override def sendForAuthentication: Option[RequestHeader => Future[Result]] = ???
-        override def processAuthentication: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = ???
+        override def sendForAuthenticationCallback: Option[(RequestHeader, Option[RedirectUri]) => Future[Result]] = ???
         override def flushToken: Option[(RequestHeader, Result) => Result] = ???
         override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = request match {
           case GridUser(_,_,_,attributes) if attributes.contains(CookieKey) => Right(req => req.addCookies(DefaultWSCookie(COOKIE_NAME, attributes.get(CookieKey).get.value)))

@@ -94,7 +94,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   }
 
   def oauthCallback = Action.async { implicit request =>
-    providers.userProvider.processAuthentication match {
+    providers.userProvider.sendForAuthenticationCallback match {
       case Some(callback) =>
         val maybeRedirectUri = request.session.get(REDIRECT_SESSION_KEY)
         callback(request, maybeRedirectUri).map(_.removingFromSession(REDIRECT_SESSION_KEY))
