@@ -107,7 +107,7 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
     *
     * @return
     */
-  override def flushToken: Option[RequestHeader => Result] = Some(processLogout(_))
+  override def flushToken: Option[(RequestHeader, Result) => Result] = Some((rh, _) => processLogout(rh))
 
   val PandaCookieKey: TypedKey[Cookie] = TypedKey[Cookie]("PandaCookie")
 

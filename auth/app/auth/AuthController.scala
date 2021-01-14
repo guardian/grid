@@ -105,7 +105,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
 
   def logout = Action { implicit request =>
     val result: Result = providers.userProvider.flushToken match {
-      case Some(callback) => callback(request)
+      case Some(callback) => callback(request, Ok("Logged out"))
       case None => InternalServerError("Logout not supported by configured authentication provider")
     }
     result.withNewSession

@@ -68,8 +68,9 @@ trait UserAuthenticationProvider extends AuthenticationProvider {
   /**
     * If this provider is able to clear user tokens (i.e. by clearing cookies) then it should provide a function to
     * do that here which will be used to log users out and also if the token is invalid.
+    * This function takes the request header and a result to modify and returns the modified result.
     */
-  def flushToken: Option[RequestHeader => Result]
+  def flushToken: Option[(RequestHeader, Result) => Result]
 }
 
 trait MachineAuthenticationProvider extends AuthenticationProvider {

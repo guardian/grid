@@ -43,7 +43,7 @@ class Authentication(config: CommonConfig,
 
   def authenticationStatus(requestHeader: RequestHeader, providers: AuthenticationProviders) = {
     def flushToken(resultWhenAbsent: Result): Result = {
-      providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader))
+      providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
     }
 
     // Authenticate request. Try with API authenticator first and then with user authenticator
