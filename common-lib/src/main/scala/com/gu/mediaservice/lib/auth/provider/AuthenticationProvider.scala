@@ -35,11 +35,11 @@ sealed trait AuthenticationProvider {
     * A function that allows downstream API calls to be made using the credentials of the current principal.
     * It is recommended that any data required for this downstream request enrichment is put into the principal's
     * attribute map when the principal is created in the authenticateRequest call.
-    * @param request The principal for the current request
+    * @param principal The principal for the current request
     * @return Either a function that adds appropriate authentication headers to a WSRequest or an error string explaining
     *         why it wasn't possible to create a function.
     */
-  def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest]
+  def onBehalfOf(principal: Principal): Either[String, WSRequest => WSRequest]
 }
 
 object AuthenticationProvider {
