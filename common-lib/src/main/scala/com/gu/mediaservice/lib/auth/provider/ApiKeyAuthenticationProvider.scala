@@ -3,11 +3,11 @@ import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
-import play.api.libs.typedmap.{TypedEntry, TypedKey, TypedMap}
+import play.api.libs.typedmap.{TypedKey, TypedMap}
 import play.api.libs.ws.WSRequest
 import play.api.mvc.RequestHeader
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 object ApiKeyAuthenticationProvider {
   val apiKeyHeaderName = "X-Gu-Media-Key"
@@ -19,11 +19,14 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
   implicit val executionContext: ExecutionContext = resources.controllerComponents.executionContext
   var keyStorePlaceholder: Option[KeyStore] = _
 
-  // TODO: we should also shutdown the keystore but there isn't currently a hook
   override def initialise(): Unit = {
     val store = new KeyStore(configuration.get[String]("authKeyStoreBucket"), resources.commonConfig)
     store.scheduleUpdates(resources.actorSystem.scheduler)
     keyStorePlaceholder = Some(store)
+  }
+
+  override def shutdown(): Future[Unit] = Future {
+    keyStorePlaceholder.foreach(_.stopUpdates())
   }
 
   def keyStore: KeyStore = keyStorePlaceholder.getOrElse(throw new IllegalStateException("Not initialised"))
@@ -43,15 +46,15 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
           // api key provided
           case Some(apiKey) =>
             // valid api key
-            val header = TypedEntry(ApiKeyHeader, ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)
-            val accessor = ApiKeyAccessor(apiKey, TypedMap(header))
-            logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
             if (ApiAccessor.hasAccess(apiKey, request, resources.commonConfig.services)) {
               // valid api key which has access
+              // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
+              val accessor = ApiKeyAccessor(apiKey, TypedMap(ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
+              logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
               Authenticated(accessor)
             } else {
               // valid api key which doesn't have access
-              NotAuthorised("API key valid but not authorised")
+              NotAuthorised(s"API key ${apiKey.identity} valid but not authorised for this request")
             }
           // provided api key not known
           case None => Invalid("API key not valid")
@@ -61,12 +64,6 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
     }
   }
 
-  /**
-    * A function that allows downstream API calls to be made using the credentials of the inflight request
-    *
-    * @param request The request header of the inflight call
-    * @return A function that adds appropriate data to a WSRequest
-    */
   override def onBehalfOf(principal: Principal): Either[String, WSRequest => WSRequest] = {
     principal.attributes.get(ApiKeyHeader) match {
       case Some(apiKeyHeaderTuple) => Right {

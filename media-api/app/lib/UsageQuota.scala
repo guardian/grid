@@ -30,7 +30,12 @@ class UsageQuota(config: MediaApiConfig, scheduler: Scheduler) {
     usageStore.scheduleUpdates(scheduler)
   }
 
-  def isOverQuota(rights: UsageRights, waitMillis: Int = 100) = Try {
+  def stopUpdates(): Unit = {
+    quotaStore.stopUpdates()
+    usageStore.stopUpdates()
+  }
+
+  def isOverQuota(rights: UsageRights, waitMillis: Int = 100): Boolean = Try {
     Await.result(
       usageStore.getUsageStatusForUsageRights(rights),
       waitMillis.millis)

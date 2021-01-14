@@ -1,8 +1,7 @@
 package com.gu.mediaservice.lib
 
 import java.io.InputStream
-
-import akka.actor.Scheduler
+import akka.actor.{Cancellable, Scheduler}
 import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -42,8 +41,14 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
     }
   }
 
+  private var cancellable: Option[Cancellable] = None
+
   def scheduleUpdates(scheduler: Scheduler) {
-    scheduler.schedule(0.seconds, 10.minutes)(update())
+    cancellable = Some(scheduler.schedule(0.seconds, 10.minutes)(update()))
+  }
+
+  def stopUpdates(): Unit = {
+    cancellable.foreach(_.cancel())
   }
 
   def update(): Unit
