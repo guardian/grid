@@ -6,8 +6,8 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.LogstashMarker
-import org.joda.time.DateTime
-import play.api.libs.json.{JodaWrites, Json}
+import org.joda.time.{DateTime, DateTimeZone}
+import play.api.libs.json.{JodaReads, JodaWrites, Json}
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
 class ThrallMessageSender(config: KinesisSenderConfig) {
@@ -29,9 +29,12 @@ object BulkIndexRequest {
 }
 
 object UpdateMessage {
+  implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
   implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
   implicit val unw = Json.writes[UsageNotice]
+  implicit val unr = Json.reads[UsageNotice]
   implicit val writes = Json.writes[UpdateMessage]
+  implicit val reads = Json.reads[UpdateMessage]
 }
 
 // TODO add RequestID
@@ -41,7 +44,7 @@ case class UpdateMessage(
   id: Option[String] = None,
   usageNotice: Option[UsageNotice] = None,
   edits: Option[Edits] = None,
-  lastModified: Option[DateTime] = None,
+  lastModified: DateTime = DateTime.now(DateTimeZone.UTC),
   collections: Option[Seq[Collection]] = None,
   leaseId: Option[String] = None,
   crops: Option[Seq[Crop]] = None,
