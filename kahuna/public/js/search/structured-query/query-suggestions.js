@@ -16,6 +16,7 @@ export const filterFields = [
     'country',
     'credit',
     'description',
+    'fileType',
     'illustrator',
     'in',
     'keyword',

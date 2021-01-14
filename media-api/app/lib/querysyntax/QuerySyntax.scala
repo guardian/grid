@@ -33,6 +33,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     ScopedMatch ~> Match | HashMatch | CollectionRule |
     DateConstraintMatch |
     DateRangeMatch ~> Match | AtMatch |
+    FileTypeMatch ~> Match |
     AnyMatch
   }
 
@@ -154,9 +155,21 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     MatchDateField ~ ':' ~ MatchDateRangeValue
   }
 
+  def FileTypeMatch = rule {
+    MatchMimeTypeField ~ ':' ~ MatchMimeTypeValue
+  }
+
   def AtMatch = rule { '@' ~ MatchDateRangeValue ~> (range => Match(SingleField(getFieldPath("uploadTime")), range)) }
 
   def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
+
+  def MatchMimeTypeField = rule {
+    capture("fileType") ~> resolveMimeTypeField _
+  }
+
+  def resolveMimeTypeField(name: String): Field = name match {
+    case "fileType" => SingleField(getFieldPath("mimeType"))
+  }
 
   def resolveDateField(name: String): Field = name match {
     case "date" | "uploaded" => SingleField("uploadTime")
@@ -176,6 +189,20 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     (QuotedString | String) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => {
       test(d.isDefined) ~ push(d.get)
     })
+  }
+
+  def MatchMimeTypeValue = rule {
+    (QuotedString | String) ~> parseMimeType _
+  }
+
+  def parseMimeType(expr: String): Value = {
+    val translateMimetype = expr match {
+      case s if s.contains("tif") || s.contains("tiff") => "image/tiff"
+      case s if s.contains("jpg") || s.contains("jpeg") => "image/jpeg"
+      case s if s.contains("png") => "image/png"
+      case _ => expr
+    }
+    Words(translateMimetype)
   }
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")

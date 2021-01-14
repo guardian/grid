@@ -7,7 +7,7 @@ trait MatchFields extends ImageFields {
 
   def config: MediaApiConfig
 
-  val matchFields: Seq[String] = Seq("id") ++
+  val matchFields: Seq[String] = Seq("id") ++ Seq("mimeType").map(sourceField) ++
     Seq("description", "title", "byline", "source", "credit", "keywords",
       "subLocation", "city", "state", "country", "suppliersReference",
       "peopleInImage", "englishAnalysedCatchAll").map(metadataField) ++
