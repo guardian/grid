@@ -11,11 +11,6 @@ import scala.util.Try
 
 
 abstract class CommonConfig(val configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
-  final val elasticsearchStack = "media-service"
-
-  final val elasticsearchApp = "elasticsearch"
-  final val elasticsearch6App = "elasticsearch6"
-
   final val stackName = "media-service"
 
   final val sessionId = UUID.randomUUID().toString
