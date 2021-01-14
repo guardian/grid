@@ -13,9 +13,9 @@ import scala.concurrent.Future
   * Case class containing useful resources for authentication providers to allow concurrent processing and external
   * API calls to be conducted.
   * @param commonConfig the Grid common config object
-  * @param context an execution context
   * @param actorSystem an actor system
   * @param wsClient a play WSClient for making API calls
+  * @param controllerComponents play components, including the execution context for example
   */
 case class AuthenticationProviderResources(commonConfig: CommonConfig,
                                            actorSystem: ActorSystem,
@@ -27,9 +27,12 @@ sealed trait AuthenticationProvider {
   def shutdown(): Future[Unit] = Future.successful(())
 
   /**
-    * A function that allows downstream API calls to be made using the credentials of the inflight request
-    * @param request The request header of the inflight call
-    * @return A function that adds appropriate authentication headers to a WSRequest or returns a runtime error
+    * A function that allows downstream API calls to be made using the credentials of the current principal.
+    * It is recommended that any data required for this downstream request enrichment is put into the principal's
+    * attribute map when the principal is created in the authenticateRequest call.
+    * @param request The principal for the current request
+    * @return Either a function that adds appropriate authentication headers to a WSRequest or an error string explaining
+    *         why it wasn't possible to create a function.
     */
   def onBehalfOf(request: Principal): Either[String, WSRequest => WSRequest]
 }
