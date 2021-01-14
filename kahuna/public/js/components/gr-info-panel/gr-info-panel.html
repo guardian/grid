@@ -358,8 +358,8 @@
                         </span>
 
                         <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.peopleInImage)">
-                            <span ng-if="ctrl.metadata.peopleInImage">
-                                <a ui-sref="search.results({query: (ctrl.metadata.peopleInImage | queryFilter:'by')})">{{ctrl.metadata.peopleInImage}}</a>
+                            <span ng:repeat="person in ctrl.metadata.peopleInImage">
+                                <a ui:sref="search.results({query: (person | queryFilter:'person')})">{{person}}</a><span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1">
                             </span>
 
                             <span ng-if="!ctrl.metadata.peopleInImage && ctrl.userCanEdit">Unknown (click ✎ to add the people)</span>
