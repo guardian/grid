@@ -159,6 +159,41 @@ setupPermissionConfiguration() {
   echo "  uploaded file to $permissionsBucket"
 }
 
+setupValidEmailsConfiguration() {
+  if [[ $LOCAL_AUTH != true || $BUILD_ORG != "bbc" ]]; then
+    return
+  fi
+
+  echo "setting up valid emails configuration for local auth in bbc"
+
+  permissionsBucket=$(getStackResource "$AUTH_STACK_NAME" PermissionsBucket)
+
+  target="$ROOT_DIR/dev/config/valid_emails.json"
+
+  sed -e "s/@EMAIL_DOMAIN/$EMAIL_DOMAIN/g" \
+    "$target.template" > "$target"
+
+  aws s3 cp "$target" \
+    "s3://$permissionsBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $permissionsBucket"
+}
+
+setupApplicationConfiguration() {
+  if [[ $BUILD_ORG != "bbc" ]]; then
+    return
+  fi
+
+  echo "setting up valid application.conf for bbc"
+
+  panDomainBucket=$(getStackResource "$AUTH_STACK_NAME" PanDomainBucket)
+
+  target="$ROOT_DIR/common-lib/src/main/resources/application.conf"
+
+  sed -i "s/@BBC_PANDA_BUCKETNAME/$panDomainBucket/g" "$target"
+}
+
 setupPhotographersConfiguration() {
   echo "setting up photographers configuration"
 
@@ -293,7 +328,9 @@ main() {
   if [[ $LOCAL_AUTH == true ]]; then
     createLocalAuthStack
     setupPermissionConfiguration
+    setupValidEmailsConfiguration
     setupPanDomainConfiguration
+    setupApplicationConfiguration
   fi
 
   setupPhotographersConfiguration

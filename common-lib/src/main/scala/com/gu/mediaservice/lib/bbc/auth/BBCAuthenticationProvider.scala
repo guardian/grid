@@ -38,13 +38,11 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
   }
 
 
-  // Should this go here?
   val validEmailsStore = new BBCValidEmailsStore(resources.commonConfig.permissionsBucket, resources.commonConfig)
 
   validEmailsStore.scheduleUpdates(resources.actorSystem.scheduler)
 
   private val usePermissionsValidation = resources.commonConfig.stringOpt("panda.usePermissionsValidation").getOrElse("false").toBoolean
-  /////////////////////////////////////////////
 
 
   val loginLinks = List(
