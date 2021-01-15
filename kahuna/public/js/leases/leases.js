@@ -87,8 +87,10 @@ leases.controller('LeasesCtrl', [
                     : "This image already has a syndication lease. It will be overwritten. " +
                       "Do you wish to proceed?";
                   const shouldApplyLeases = $window.confirm(confirmText);
-                  if (!shouldApplyLeases) {
-                    return;
+                    if (!shouldApplyLeases) {
+                      //We're not saving it if the user cancels, so clear up
+                      ctrl.adding = false;
+                      return;
                   }
                 }
 
@@ -108,10 +110,25 @@ leases.controller('LeasesCtrl', [
         const batchRemoveLeasesEvent = 'events:batch-apply:remove-leases';
 
         if (Boolean(ctrl.withBatch)) {
-            $scope.$on(batchAddLeasesEvent,
-                    (e, leases) => leaseService.replace(ctrl.images[0], leases));
+          $scope.$on(batchAddLeasesEvent,
+              (e, leases) => {
+                  ctrl.adding = true;
+                  leaseService.replace(ctrl.images[0], leases).then((a) => {
+                //These get run before the lease is shown in the UI. Fix.
+                    ctrl.adding = false;
+                });
+            });
             $scope.$on(batchRemoveLeasesEvent,
-                    () => leaseService.clear(ctrl.images[0]));
+                () => {
+                  ctrl.adding = true;
+
+                    leaseService.clear(ctrl.images[0]).then((a) => {
+                        //Shown before leases updated. Fix.
+                        ctrl.adding = false;
+
+
+                    });
+                });
 
             ctrl.batchApplyLeases = () => {
               if (ctrl.leases.leases.length > 0) {
