@@ -4,7 +4,7 @@ import '../../services/image-list';
 
 import {service} from '../../edits/service';
 import { trackAll } from '../../util/batch-tracking';
-import { getApiImageAndApiLeasesIfUpdated } from './leases-helper';
+import { getApiImageAndApiLeasesIfUpdated, readLeases } from './leases-helper';
 
 var leaseService = angular.module('kahuna.services.lease', [
   service.name
@@ -26,6 +26,13 @@ leaseService.factory('leaseService', [
         }
         return leasesRoot;
     }
+
+      // Compare a lease from the server with one created here
+      function sameLease(a, b) {
+          return a.startDate == b.startDate &&
+              a.endDate == b.endDate &&
+              a.access == b.access;
+      }
 
     function getLeases(images) {
       // search page has fancy image list
@@ -49,15 +56,19 @@ leaseService.factory('leaseService', [
 
     function replace(image, leases) {
         const images = [image];
-        const currentLeases = getLeases(images);
+        const currentLeasesPromise = getLeases(images);
 
-        return currentLeases.then(() => {
+        return currentLeasesPromise.then((currentLeases) => {
 
             const updatedLeases = leases.map((lease) => {
                 var newLease = angular.copy(lease);
                 newLease.mediaId = image.data.id;
                 return newLease;
             });
+            if (JSON.stringify(currentLeases.leases) === JSON.stringify(updatedLeases)) {
+                console.log("THE SAME");
+                return image;
+            }
 
             return image
               .perform('replace-leases', {body: updatedLeases})
@@ -78,14 +89,15 @@ leaseService.factory('leaseService', [
       return image.perform('add-lease', {body: newLease});
     }
 
-    function batchAdd(lease, images) {
-      return trackAll($rootScope, "leases", images, [image => add(image, lease), image => {
-        apiPoll(() => {
-          return untilLeasesChange([image]);
-        });
-      }], 'images-changed').then(() => {
-            $rootScope.$emit('leases-updated');
-      });
+      function batchAdd(lease, images) {
+          console.log(lease);
+        return trackAll($q, $rootScope, "leases", images, [image => { return add(image, lease); }, image =>
+            apiPoll(() => untilLeasesMatch(image, (apiLeases) => {
+                console.log(apiLeases.some(apiLease => sameLease(apiLease, lease)), "AAAA");
+                return apiLeases.some(apiLease => sameLease(apiLease, lease));
+            })),
+            (_,[{image}])=> image
+        ], ['images-updated', 'leases-updated']);
     }
 
     function canUserEdit(image){
@@ -117,6 +129,7 @@ leaseService.factory('leaseService', [
       });
     }
 
+      //This is a race condition, but I think it's a rare one.
     function untilLeasesChange(images) {
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
@@ -133,6 +146,28 @@ leaseService.factory('leaseService', [
         });
       }));
     }
+
+      //This fails when two identical leases are addded.
+      function untilLeasesMatch(image, predicate) {
+        return image.get().then(apiImage => {
+
+            const leases = apiImage.data.leases.data;
+            console.log(leases, predicate(leases.leases));
+            if (predicate(leases.leases)) {
+                console.log("I WORKED");
+                return ({ image: apiImage, leases });
+            } else {
+
+
+                // returning $q.reject() will make apiPoll function to poll again
+                // until api call will return image with updated leases
+                return $q.reject();
+            }
+
+          });
+
+      }
+
 
     function flattenLeases(leaseByMedias) {
       return {
