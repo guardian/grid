@@ -100,7 +100,7 @@ class MessageProcessor(es: ElasticSearch,
   private def setImageCollections(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     withId(message)(id =>
       withCollections(message)(collections =>
-        Future.sequence(es.setImageCollection(id, collections, message.lastModified)(ec, logMarker))))
+        Future.sequence(es.setImageCollections(id, collections, message.lastModified)(ec, logMarker))))
 
   private def deleteImage(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     Future.sequence(

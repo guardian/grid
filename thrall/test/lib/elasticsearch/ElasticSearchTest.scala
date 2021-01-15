@@ -255,7 +255,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         val collections = List(collection, anotherCollection)
 
-        Await.result(Future.sequence(ES.setImageCollection(id, collections, now)), fiveSeconds)
+        Await.result(Future.sequence(ES.setImageCollections(id, collections, now)), fiveSeconds)
 
         reloadedImage(id).get.collections.size shouldBe 2
         reloadedImage(id).get.collections.head.description shouldEqual "A test collection"
