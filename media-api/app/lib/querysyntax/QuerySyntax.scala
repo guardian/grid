@@ -1,6 +1,7 @@
 package lib.querysyntax
 
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import org.joda.time.DateTime
 import org.parboiled2._
 
@@ -192,18 +193,18 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   }
 
   def MatchMimeTypeValue = rule {
-    (QuotedString | String) ~> parseMimeType _
+    capture(AllowedFileTypesValues) ~> parseMimeType _
   }
 
-  def parseMimeType(expr: String): Value = {
-    val translateMimetype = expr match {
-      case s if s.contains("tif") => "image/tiff"
-      case s if s.contains("jpg") || s.contains("jpeg") => "image/jpeg"
-      case s if s.contains("png") => "image/png"
-      case _ => expr
-    }
-    Words(translateMimetype)
+  def AllowedFileTypesValues = rule { "tif" | "tiff" | "jpg" | "jpeg" | "png" }
+
+  def translateMimeType(expr: String): MimeType = expr match {
+    case s if s.contains("tif") => Tiff
+    case s if s.contains("jpg") || s.contains("jpeg") => Jpeg
+    case s if s.contains("png") => Png
   }
+
+  def parseMimeType(expr: String): Value = Words(translateMimeType(expr).toString)
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
 
