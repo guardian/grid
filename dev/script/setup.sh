@@ -181,7 +181,7 @@ setupValidEmailsConfiguration() {
 }
 
 setupApplicationConfiguration() {
-  if [[ $BUILD_ORG != "bbc" ]]; then
+  if [[ $LOCAL_AUTH != true || $BUILD_ORG != "bbc" ]]; then
     return
   fi
 
@@ -191,7 +191,13 @@ setupApplicationConfiguration() {
 
   target="$ROOT_DIR/common-lib/src/main/resources/application.conf"
 
-  sed -i "s/@BBC_PANDA_BUCKETNAME/$panDomainBucket/g" "$target"
+  guardianProviderClassName="com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider"
+
+  bbcProviderClassName="com.gu.mediaservice.lib.bbc.auth.BBCAuthenticationProvider"
+
+  sed -i "s/$guardianProviderClassName/$bbcProviderClassName/g" "$target"
+
+  sed -i "s/# panda.bucketName = <s3-bucket-with-config>/panda.bucketName = \"$panDomainBucket\"/g" "$target"
 }
 
 setupPhotographersConfiguration() {
