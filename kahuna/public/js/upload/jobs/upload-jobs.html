@@ -1,3 +1,7 @@
+<div class="flex-container section-heading current-uploads">
+    <h2 class="flex-spacer">Your current uploads <em ng-if="ctrl.remaining">({{ctrl.remaining}} remaining)</em></h2>
+    <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
+</div>
 <ul>
     <li ng-repeat="job in ctrl.jobs | orderBy: 'name'"  class="upload-result">
 
