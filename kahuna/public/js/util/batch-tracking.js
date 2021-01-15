@@ -1,4 +1,5 @@
 import PQueue from "p-queue";
+
 import { idleTimeout } from "./idleTimeout";
 
 const concurrency = 30;
@@ -17,9 +18,9 @@ const concurrency = 30;
  * @param {string} key name your operations
  * @param {*} input the things you want to run the tasks against
  * @param {(Task | Task[])} tasks that you want to run on the input, return awaitable.
- * @param {*} emit the name of the event you want emitted (with the results of the final function in the chain in an array)
+ * @param {string| string[]} emit the name of the event you want emitted (with the results of the final function in the chain in an array)
  */
-export const trackAll = async ($rootScope, key, input, tasks, emit) => {
+export const trackAll = async ($q, $rootScope, key, input, tasks, emit) => {
   const withQueues = (Array.isArray(tasks) ? tasks : [tasks]).map((fn) => {
     const queue = new PQueue({ concurrency });
     return (item, result) => queue.add(() => fn(item, result));
@@ -31,7 +32,6 @@ export const trackAll = async ($rootScope, key, input, tasks, emit) => {
     completed,
     total: input.size ? input.size : input.length
   });
-
   const process = async (item, result, [fn, ...remaining]) => {
     if (fn == undefined) {
       completed++;
@@ -41,7 +41,6 @@ export const trackAll = async ($rootScope, key, input, tasks, emit) => {
       });
       return result;
     }
-
     return process(item, await fn(item, result), remaining);
   };
 
@@ -58,9 +57,8 @@ export const trackAll = async ($rootScope, key, input, tasks, emit) => {
 
   $rootScope.$broadcast("events:batch-operations:complete", { key });
 
-  $rootScope.$emit(emit, successes);
-  //As this is a promise and not an angular js magical promise:
-  //we need to convince angular that it's time to run the dispatch loop.
+  const emitNames = Array.isArray(emit) ? emit : [emit];
+  emitNames.map(name => $rootScope.$emit(name, successes));
   idleTimeout(() => { $rootScope.$apply(); });
-  return successes;
+  return $q.resolve(successes);
 };

@@ -36,7 +36,7 @@ archiveService.factory('archiveService',
     }
 
     function batchArchive (images) {
-        return trackAll($rootScope, "library", images, image => {
+        return trackAll($q, $rootScope, "library", images, image => {
             // only make a PUT request to images that are not archived
             if (! imageAccessor.isArchived(image)) {
                 return archive(image);
@@ -47,7 +47,7 @@ archiveService.factory('archiveService',
     }
 
     function batchUnarchive (images) {
-        return trackAll($rootScope, "library", images, image => {
+        return trackAll($q, $rootScope, "library", images, image => {
             // only make a PUT request to images that are archived
             if (imageAccessor.isArchived(image)) {
                 return unarchive(image);

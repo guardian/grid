@@ -25,6 +25,7 @@ photoshootService.factory('photoshootService', [
               })
             );
           return trackAll(
+            $q,
             $rootScope,
             "photoshoot",
             images,
@@ -39,6 +40,7 @@ photoshootService.factory('photoshootService', [
         const waitForPhotoshootRemovedInApi = (image) =>
           apiPoll(() => untilEqual({ image, expectedPhotoshoot: undefined }));
         return trackAll(
+          $q,
           $rootScope,
           "photoshoot",
           images,

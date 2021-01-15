@@ -52,6 +52,7 @@ labelService.factory("labelService", [
         apiPoll(() => untilLabelsEqual(image, result.data));
 
       return trackAll(
+        $q,
         $rootScope,
         "label",
         images,
@@ -73,6 +74,7 @@ labelService.factory("labelService", [
       }
 
       return trackAll(
+        $q,
         $rootScope,
         "label",
         imagesWithLabel,
