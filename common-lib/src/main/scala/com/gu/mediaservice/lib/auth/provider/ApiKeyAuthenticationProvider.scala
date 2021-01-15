@@ -1,5 +1,5 @@
 package com.gu.mediaservice.lib.auth.provider
-import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
@@ -49,7 +49,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
             if (ApiAccessor.hasAccess(apiKey, request, resources.commonConfig.services)) {
               // valid api key which has access
               // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
-              val accessor = ApiKeyAccessor(apiKey, TypedMap(ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
+              val accessor = MachinePrincipal(apiKey, TypedMap(ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
               logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
               Authenticated(accessor)
             } else {

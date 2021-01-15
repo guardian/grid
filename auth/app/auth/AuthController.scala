@@ -3,7 +3,7 @@ package auth
 import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, GridUser}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
 import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
 import play.api.libs.json.Json
@@ -34,7 +34,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   def session = auth { request =>
     val showPaid = hasPermission(request.user, Permissions.ShowPaid)
     request.user match {
-      case GridUser(firstName, lastName, email, _) =>
+      case UserPrincipal(firstName, lastName, email, _) =>
 
         respond(
           Json.obj("user" ->
@@ -50,7 +50,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
             )
           )
         )
-      case ApiKeyAccessor(accessor, _) => respond(
+      case MachinePrincipal(accessor, _) => respond(
         Json.obj("api-key" ->
           Json.obj(
             "name" -> accessor.identity,

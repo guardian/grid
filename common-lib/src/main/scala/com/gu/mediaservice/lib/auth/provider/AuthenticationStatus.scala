@@ -1,15 +1,15 @@
 package com.gu.mediaservice.lib.auth.provider
 
-import com.gu.mediaservice.lib.auth.Authentication.{GridUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{UserPrincipal, Principal}
 
 // statuses that directly extend this are for users only
 /** Status of a client's authentication */
 sealed trait AuthenticationStatus
 
 /** User authentication is valid but expired */
-case class Expired(authedUser: GridUser) extends AuthenticationStatus
+case class Expired(authedUser: UserPrincipal) extends AuthenticationStatus
 /** User authentication is valid and expired but the expiry is within a grace period */
-case class GracePeriod(authedUser: GridUser) extends AuthenticationStatus
+case class GracePeriod(authedUser: UserPrincipal) extends AuthenticationStatus
 
 // statuses that extend this can be used by both users and machines
 /** Status of an API client's authentication */

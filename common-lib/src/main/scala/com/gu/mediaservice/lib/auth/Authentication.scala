@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{ApiKeyAccessor, GridUser, OnBehalfOfPrincipal, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal, OnBehalfOfPrincipal, Principal}
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.libs.typedmap.TypedMap
@@ -37,7 +37,7 @@ class Authentication(config: CommonConfig,
     Future.successful(respondError(Forbidden, "principal-not-authorised", "Principal not authorised", loginLinks))
   }
 
-  def expired(user: GridUser): Future[Result] = {
+  def expired(user: UserPrincipal): Future[Result] = {
     logger.info(s"User token expired for ${user.email}, return 419")
     Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
   }
@@ -75,8 +75,8 @@ class Authentication(config: CommonConfig,
 
   def getOnBehalfOfPrincipal(principal: Principal): OnBehalfOfPrincipal = {
     val provider: AuthenticationProvider = principal match {
-      case _:ApiKeyAccessor => providers.apiProvider
-      case _:GridUser      => providers.userProvider
+      case _:MachinePrincipal => providers.apiProvider
+      case _:UserPrincipal      => providers.userProvider
     }
     val maybeEnrichFn: Either[String, WSRequest => WSRequest] = provider.onBehalfOf(principal)
     maybeEnrichFn.fold(error => throw new IllegalStateException(error), identity)
@@ -88,10 +88,13 @@ object Authentication {
     def accessor: ApiAccessor
     def attributes: TypedMap
   }
-  case class GridUser(firstName: String, lastName: String, email: String, attributes: TypedMap = TypedMap.empty) extends Principal {
+  /** A human user with a name */
+  case class UserPrincipal(firstName: String, lastName: String, email: String, attributes: TypedMap = TypedMap.empty) extends Principal {
     def accessor: ApiAccessor = ApiAccessor(identity = email, tier = Internal)
   }
-  case class ApiKeyAccessor(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal
+  /** A machine user doing work automatically for its human programmers */
+  case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal
+
   type Request[A] = AuthenticatedRequest[A, Principal]
 
   type OnBehalfOfPrincipal = WSRequest => WSRequest

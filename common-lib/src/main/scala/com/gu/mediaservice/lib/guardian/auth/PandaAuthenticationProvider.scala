@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{GridUser, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{UserPrincipal, Principal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.aws.S3Ops
@@ -64,7 +64,7 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
     val maybePrincipal = authenticateRequest(requestHeader) match {
       case Expired(principal) => Some(principal)
       case GracePeriod(principal) => Some(principal)
-      case Authenticated(principal: GridUser) => Some(principal)
+      case Authenticated(principal: UserPrincipal) => Some(principal)
       case _ => None
     }
     val email = maybePrincipal.map(_.email)
@@ -127,10 +127,10 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
     }
   }
 
-  private def gridUserFrom(pandaUser: User, request: RequestHeader): GridUser = {
+  private def gridUserFrom(pandaUser: User, request: RequestHeader): UserPrincipal = {
     val maybePandaCookie: Option[TypedEntry[Cookie]] = request.cookies.get(panDomainSettings.settings.cookieSettings.cookieName).map(TypedEntry[Cookie](PandaCookieKey, _))
     val attributes = TypedMap.empty + (maybePandaCookie.toSeq:_*)
-    GridUser(
+    UserPrincipal(
       firstName = pandaUser.firstName,
       lastName = pandaUser.lastName,
       email = pandaUser.email,

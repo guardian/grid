@@ -93,13 +93,13 @@ class MediaApi(
     permission: PermissionDefinition
   ) = {
     request.user match {
-      case user: GridUser =>
+      case user: UserPrincipal =>
         if (user.email.toLowerCase == image.uploadedBy.toLowerCase) {
           true
         } else {
           hasPermission(user, permission)
         }
-      case service: ApiKeyAccessor if service.accessor.tier == Internal => true
+      case service: MachinePrincipal if service.accessor.tier == Internal => true
       case _ => false
     }
   }
