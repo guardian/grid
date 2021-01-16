@@ -4,13 +4,16 @@
 ## How can success be measured?
 
 
-## Screenshots (if applicable)
+## Screenshots
+<!--  If applicable, otherwise delete the header.
+      i.e. this is a visible frontend change -->
 
 
 ## Who should look at this?
-<!-- reach the team with @guardian/digital-cms -->
+<!-- Reach the team with @guardian/digital-cms -->
 
 
 ## Tested?
-- [ ] locally
-- [ ] on TEST
+- [ ] locally by committer
+- [ ] locally by Guardian reviewer
+- [ ] on the Guardian's TEST environment
