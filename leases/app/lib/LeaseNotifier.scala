@@ -14,13 +14,13 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessa
 
   def sendAddLease(mediaLease: MediaLease) = {
     val addImageLease = "add-image-lease"
-    val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId), lastModified = Some(DateTime.now()))
+    val updateMessage = UpdateMessage(subject = addImageLease, mediaLease = Some(mediaLease), id = Some(mediaLease.mediaId))
     publish(updateMessage)
   }
 
   def sendAddLeases(mediaLeases: List[MediaLease], mediaId: String) = {
     val replaceImageLeases = "replace-image-leases"
-    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(mediaLeases), id = Some(mediaId), lastModified = Some(DateTime.now()))
+    val updateMessage = UpdateMessage(subject = replaceImageLeases, leases = Some(mediaLeases), id = Some(mediaId))
     publish(updateMessage)
   }
 
@@ -28,7 +28,7 @@ class LeaseNotifier(config: LeasesConfig, store: LeaseStore) extends ThrallMessa
     val removeImageLease = "remove-image-lease"
 
     val updateMessage = UpdateMessage(subject = removeImageLease, id = Some(mediaId),
-      leaseId = Some(leaseId), lastModified = Some(DateTime.now())
+      leaseId = Some(leaseId)
     )
     publish(updateMessage)
   }

@@ -4,9 +4,8 @@ import java.util.UUID
 
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.{Image, Photoshoot, SyndicationRights}
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.time.{Millis, Seconds, Span}
-import play.api.libs.json.Json
 
 class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
@@ -15,7 +14,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
   def withImage(image: Image)(test: Image => Unit): Unit = {
     implicit val logMarker: LogMarker = MarkerMap()
 
-    ES.indexImage(image.id, Json.toJson(image))
+    ES.indexImage(image.id, image, now)
     Thread.sleep(1000)
     test(image)
   }
@@ -25,7 +24,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
     val images = (1 to 5).map { _ =>
       val image = imageWithPhotoshoot(photoshoot)
-      ES.indexImage(image.id, Json.toJson(image))
+      ES.indexImage(image.id, image, now)
       image
     }.toList
     Thread.sleep(1000)
@@ -36,8 +35,8 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
   private def makeSyndicationRightsInferred(imageWithRights: Image): Option[SyndicationRights] = imageWithRights.syndicationRights.map(_.copy(isInferred = true))
 
-  implicit val logMarker = MarkerMap()
-  implicit val defaultPatience = PatienceConfig(timeout = Span(30, Seconds), interval = Span(250, Millis))
+  implicit val logMarker: MarkerMap = MarkerMap()
+  implicit val defaultPatience: PatienceConfig = PatienceConfig(timeout = Span(30, Seconds), interval = Span(250, Millis))
 
   "SyndicationRightsOps" - {
     "General logic" - {
@@ -53,7 +52,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
       val syndRights = someSyndRights
       "save rights on image" in {
         withImage(imageWithNoSyndRights) { image =>
-          whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(image, syndRights))) { _ =>
+          whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(image, syndRights), currentPhotoshootOpt = None, previousPhotoshootOpt = None, lastModified = now)) { _ =>
             whenReady(ES.getImage(image.id)) { optImg =>
               optImg.get.syndicationRights shouldBe defined
               optImg.get.syndicationRights shouldBe syndRights
@@ -69,7 +68,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
         withPhotoshoot(photoshootTitle) { images =>
           withImage(imageWithSyndRights) { imageWithRights =>
-            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
               images.foreach { img =>
                 whenReady(ES.getImage(img.id)) { optImg =>
                   optImg.get.syndicationRights shouldBe makeSyndicationRightsInferred(imageWithRights)
@@ -85,7 +84,7 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
         withPhotoshoot(photoshootTitle) { images =>
           withImage(imageWithNoSyndRights) { imageWithNoRights =>
-            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithNoRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithNoRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
               images.foreach { img =>
                 whenReady(ES.getImage(img.id)) { optImg =>
                   optImg.get.syndicationRights shouldBe None
@@ -109,7 +108,8 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
             syndRightsOps.upsertOrRefreshRights(
               image = imageWithRights,
               previousPhotoshootOpt = None,
-              currentPhotoshootOpt = Some(photoshootTitle))
+              currentPhotoshootOpt = Some(photoshootTitle),
+              lastModified = now)
           ) { _ =>
             whenReady(ES.getImage(imageWithNoRights.id)) { img =>
               withClue("the original image should have syndication rights") {
@@ -135,8 +135,8 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
         withPhotoshoot(photoshootTitle) { images =>
           withImage(imageWithSyndRights) { imageWithRights1 =>
             withImage(imageWithSyndRights) { imageWithRights2 =>
-              whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights1, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-                whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights2, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+              whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights1, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
+                whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights2, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
                   images.foreach { img =>
                     whenReady(ES.getImage(img.id)) { optImg =>
                       optImg.get.syndicationRights shouldBe makeSyndicationRightsInferred(imageWithRights2)
@@ -156,9 +156,9 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
           val imageWithNoRights = images.head
           val syndRights = someSyndRights
           val imageWithRights = addSyndicationRights(imageWithNoRights, syndRights)
-          whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+          whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
             withImage(imageWithNoSyndRights) { imageWithNoRights =>
-              whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithNoRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
+              whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithNoRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
                 (images.tail :+ imageWithNoRights).foreach { img =>
                   whenReady(ES.getImage(img.id)) { optImg =>
                     optImg.get.syndicationRights shouldBe makeSyndicationRightsInferred(imageWithRights)
@@ -175,8 +175,8 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
         withPhotoshoot(photoshootTitle) { images =>
           withImage(imageWithSyndRights) { imageWithRights =>
-            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-              whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = Some(photoshootTitle), currentPhotoshootOpt = None)) { _ =>
+            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
+              whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = Some(photoshootTitle), currentPhotoshootOpt = None, lastModified = now)) { _ =>
                 images.foreach { img =>
                   whenReady(ES.getImage(img.id)) { optImg =>
                     optImg.get.syndicationRights shouldBe None
@@ -196,8 +196,8 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
 
         withPhotoshoot(photoshootTitle) { images =>
           withImage(imageWithSyndRights) { imageWithRights =>
-            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle))) { _ =>
-              whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(images.head, makeSyndicationRightsInferred(imageWithRights)), previousPhotoshootOpt = Some(photoshootTitle), currentPhotoshootOpt = None)) { _ =>
+            whenReady(syndRightsOps.upsertOrRefreshRights(image = imageWithRights, previousPhotoshootOpt = None, currentPhotoshootOpt = Some(photoshootTitle), lastModified = now)) { _ =>
+              whenReady(syndRightsOps.upsertOrRefreshRights(image = addSyndicationRights(images.head, makeSyndicationRightsInferred(imageWithRights)), previousPhotoshootOpt = Some(photoshootTitle), currentPhotoshootOpt = None, lastModified = now)) { _ =>
                 images.tail.foreach { img =>
                   whenReady(ES.getImage(img.id)) { optImg =>
                     optImg.get.syndicationRights shouldBe makeSyndicationRightsInferred(imageWithRights)
@@ -213,4 +213,6 @@ class SyndicationRightsOpsTest extends ElasticSearchTestBase {
       }
     }
   }
+
+  private def now = DateTime.now(DateTimeZone.UTC)
 }

@@ -2,23 +2,22 @@ package lib.kinesis
 
 import java.util.UUID
 
-import com.gu.mediaservice.lib.aws.{BulkIndexRequest, UpdateMessage}
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.MarkerMap
-import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, SyndicationRights}
+import com.gu.mediaservice.model.{Edits, ImageMetadata}
 import lib.{MetadataEditorNotifications, ThrallStore}
 import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
-import org.joda.time.DateTime
-import org.scalatestplus.mockito.MockitoSugar
-import play.api.libs.json.{JsArray, Json}
+import org.joda.time.{DateTime, DateTimeZone}
+import org.scalatest.mockito.MockitoSugar
+import play.api.libs.json.JsArray
 
 import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
 
 
 class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
-  implicit val logMarker = MarkerMap()
+  implicit val logMarker: MarkerMap = MarkerMap()
   "MessageProcessor" - {
     val messageProcessor = new MessageProcessor(
       es = ES,
@@ -41,10 +40,10 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             specialInstructions = Some("Testing")
           )))
 
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(DateTime.now()), None).
+          val image = createImageForSyndication(id = UUID.randomUUID().toString, rightsAcquired = true, Some(DateTime.now()), None).
             copy(userMetadata = userMetadata)
 
-          Await.result(Future.sequence(ES.indexImage(id, Json.toJson(image))), fiveSeconds)
+          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
 
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
@@ -54,7 +53,6 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             id = Some(id),
             usageNotice = Some(UsageNotice(id, JsArray())),
             edits = None,
-            lastModified = Some(new DateTime()),
             collections = None,
             leaseId = None,
             crops = None,
@@ -63,7 +61,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-          (Try(Await.result(messageProcessor.updateImageUsages(message, logMarker), fiveSeconds))  ) shouldBe expected
+          Try(Await.result(messageProcessor.updateImageUsages(message, logMarker), fiveSeconds)) shouldBe expected
         }
         "not crash for an image that doesn't exist 👻🖼" in {
           val expected: Success[List[ElasticSearchUpdateResponse]] = Success(List(ElasticSearchUpdateResponse()))
@@ -75,7 +73,6 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             id = Some(id),
             usageNotice = Some(UsageNotice(id, JsArray())),
             edits = None,
-            lastModified = Some(new DateTime()),
             collections = None,
             leaseId = None,
             crops = None,
@@ -89,4 +86,5 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
       }
     }
   }
+  private def now = DateTime.now(DateTimeZone.UTC)
 }

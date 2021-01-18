@@ -2,7 +2,6 @@ package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticError
-import net.logstash.logback.marker.LogstashMarker
 
 trait ElasticSearchError {
   self: Throwable =>

@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.lib.formatting.parseOptDateTime
 import org.joda.time.DateTime
 import play.api.libs.json.JodaReads.jodaDateReads
 import play.api.libs.json.JodaWrites.jodaDateWrites
@@ -19,7 +20,12 @@ object SyndicationRights {
   implicit val dateWrites = jodaDateWrites("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
   implicit val dateReads = jodaDateReads("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
 
-  val reads: Reads[SyndicationRights] = Json.using[Json.WithDefaultValues].reads[SyndicationRights]
+  val reads: Reads[SyndicationRights] =
+    (
+      (__ \ "published").readNullable[String].map(parseOptDateTime) ~
+      (__ \ "suppliers").read[Seq[Supplier]] ~
+      (__ \ "rights").read[Seq[Right]] ~
+      (__ \ "isInferred").read[Boolean])(SyndicationRights.apply _)
 
   val writes: Writes[SyndicationRights] = (
     (__ \ "published").writeNullable[DateTime] ~
