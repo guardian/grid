@@ -56,7 +56,6 @@ class Authentication(config: CommonConfig,
         providers.userProvider.authenticateRequest(requestHeader) match {
           case NotAuthenticated => Left(unauthorised("Not authenticated"))
           case Expired(principal) => Left(expired(principal))
-          case GracePeriod(authedUser) => Right(authedUser)
           case Authenticated(authedUser) => Right(authedUser)
           case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
           case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))

@@ -48,7 +48,7 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
       case PandaNotAuthenticated => NotAuthenticated
       case PandaInvalidCookie(e) => Invalid("error checking user's auth, clear cookie and re-auth", Some(e))
       case PandaExpired(authedUser) => Expired(gridUserFrom(authedUser.user, request))
-      case PandaGracePeriod(authedUser) => GracePeriod(gridUserFrom(authedUser.user, request))
+      case PandaGracePeriod(authedUser) => Authenticated(gridUserFrom(authedUser.user, request))
       case PandaNotAuthorised(authedUser) => NotAuthorised(s"${authedUser.user.email} not authorised to use application")
       case PandaAuthenticated(authedUser) => Authenticated(gridUserFrom(authedUser.user, request))
     }
@@ -63,7 +63,6 @@ class PandaAuthenticationProvider(resources: AuthenticationProviderResources, pr
   override def sendForAuthentication: Option[RequestHeader => Future[Result]] = Some({ requestHeader: RequestHeader =>
     val maybePrincipal = authenticateRequest(requestHeader) match {
       case Expired(principal) => Some(principal)
-      case GracePeriod(principal) => Some(principal)
       case Authenticated(principal: UserPrincipal) => Some(principal)
       case _ => None
     }

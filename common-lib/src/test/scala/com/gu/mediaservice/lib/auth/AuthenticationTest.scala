@@ -69,7 +69,6 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
             case Some(cookie) =>
               parseCookie(cookie) match {
                 case None => Invalid("Token not valid")
-                case Some(token@AuthToken(_, _, _, true, false)) => GracePeriod(token.user)
                 case Some(token@AuthToken(_, _, _, _, true)) => Expired(token.user)
                 case Some(token) if token.email == "test@user" => Authenticated(token.user)
                 case Some(token) => NotAuthorised(s"${token.email} not authorised")

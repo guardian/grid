@@ -8,8 +8,6 @@ sealed trait AuthenticationStatus
 
 /** User authentication is valid but expired */
 case class Expired(authedUser: UserPrincipal) extends AuthenticationStatus
-/** User authentication is valid and expired but the expiry is within a grace period */
-case class GracePeriod(authedUser: UserPrincipal) extends AuthenticationStatus
 
 // statuses that extend this can be used by both users and machines
 /** Status of an API client's authentication */
