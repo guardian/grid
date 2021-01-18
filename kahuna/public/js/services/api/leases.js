@@ -85,12 +85,19 @@ leaseService.factory('leaseService', [
         function batchAdd(lease, images) {
             //We check whether the leases in the image have a later lastModified date,
             //so make sure that we don't have anything in the pipeline.
+                        // search page has fancy image list
+                        if (angular.isDefined(images.toArray)) {
+                            images = images.toArray();
+                        }
             console.log(images);
-            return refreshImages(images).then(updatedImages =>
-                trackAll($q, $rootScope, "leases", updatedImages, [
+            return refreshImages(images).then(updatedImages => {
+                console.log(images);
+                console.log(images.map);
+                return trackAll($q, $rootScope, "leases", updatedImages, [
                     image => add(image, lease),
-                    image => apiPoll(() => untilLeasesChange([image])).then(([{ image }]) => image ) //Extract the image from untilLeasesChange
+                    image => apiPoll(() => untilLeasesChange([image])).then(([{ image }]) => image) //Extract the image from untilLeasesChange
                 ], ['images-updated', 'leases-updated'])
+            }
             );
     }
 
@@ -104,6 +111,10 @@ leaseService.factory('leaseService', [
      * uuid will only ever match one lease.
      */
         function deleteLease(lease, images) {
+                        // search page has fancy image list
+                        if (angular.isDefined(images.toArray)) {
+                            images = images.toArray();
+                        }
         return refreshImages(images).then(images =>
        getLeasesRoot().follow('leases', {id: lease.id}).delete()
                 .then(() => pollLeasesAndUpdateUI(images)));
