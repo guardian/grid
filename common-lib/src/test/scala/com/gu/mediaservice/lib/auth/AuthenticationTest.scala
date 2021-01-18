@@ -2,13 +2,13 @@ package com.gu.mediaservice.lib.auth
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal, OnBehalfOfPrincipal}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, OnBehalfOfPrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.{CommonConfig, TestProvider}
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
 import org.scalatestplus.play.PlaySpec
-import play.api.Configuration
+import play.api.{Configuration, Environment}
 import play.api.http.Status
 import play.api.libs.json.{Format, Json}
 import play.api.libs.typedmap.{TypedKey, TypedMap}
@@ -45,13 +45,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
   }
 
   def makeAuthenticationInstance(testProviders: AuthenticationProviders): Authentication = {
-    val config = new CommonConfig(Configuration.from(Map(
-      "grid.stage" -> "TEST",
-      "grid.appName" -> "test",
-      "thrall.kinesis.stream.name" -> "not-used",
-      "thrall.kinesis.lowPriorityStream.name" -> "not-used",
-      "domain.root" -> "notused.example.com"
-    ))) {}
+    val config = new CommonConfig(Configuration.load(Environment.simple())) {}
     new Authentication(
       config = config,
       providers = testProviders,

@@ -10,12 +10,11 @@ import play.api.mvc.RequestHeader
 import scala.concurrent.{ExecutionContext, Future}
 
 object ApiKeyAuthenticationProvider {
+  val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
   val apiKeyHeaderName = "X-Gu-Media-Key"
 }
 
 class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging {
-  val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
-
   implicit val executionContext: ExecutionContext = resources.controllerComponents.executionContext
   var keyStorePlaceholder: Option[KeyStore] = _
 
@@ -49,7 +48,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
             if (ApiAccessor.hasAccess(apiKey, request, resources.commonConfig.services)) {
               // valid api key which has access
               // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
-              val accessor = MachinePrincipal(apiKey, TypedMap(ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
+              val accessor = MachinePrincipal(apiKey, TypedMap(ApiKeyAuthenticationProvider.ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
               logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
               Authenticated(accessor)
             } else {
@@ -65,7 +64,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
   }
 
   override def onBehalfOf(principal: Principal): Either[String, WSRequest => WSRequest] = {
-    principal.attributes.get(ApiKeyHeader) match {
+    principal.attributes.get(ApiKeyAuthenticationProvider.ApiKeyHeader) match {
       case Some(apiKeyHeaderTuple) => Right {
         wsRequest: WSRequest => wsRequest.addHttpHeaders(apiKeyHeaderTuple)
       }
