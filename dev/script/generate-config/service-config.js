@@ -11,7 +11,7 @@ function getCorsAllowedOriginString(config) {
 
 function getCommonConfig(config) {
   return `domain.root="${config.DOMAIN}"
-        |auth.keystore.bucket="${config.coreStackProps.KeyBucket}"
+        |authentication.providers.machine.config.authKeyStoreBucket="${config.coreStackProps.KeyBucket}"
         |thrall.kinesis.stream.name="${config.coreStackProps.ThrallMessageStream}"
         |thrall.kinesis.lowPriorityStream.name="${config.coreStackProps.ThrallLowPriorityMessageStream}"
         |`;
