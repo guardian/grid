@@ -30,8 +30,6 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   override val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint") else None
 
-  val authKeyStoreBucket = string("auth.keystore.bucket")
-
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
   val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")

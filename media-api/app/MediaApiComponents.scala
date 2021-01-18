@@ -9,6 +9,8 @@ import lib.elasticsearch.ElasticSearch
 import play.api.ApplicationLoader.Context
 import router.Routes
 
+import scala.concurrent.Future
+
 class MediaApiComponents(context: Context) extends GridComponents(context, new MediaApiConfig(_)) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
@@ -30,6 +32,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)
   usageQuota.quotaStore.update()
   usageQuota.scheduleUpdates()
+  applicationLifecycle.addStopHook(() => Future{usageQuota.stopUpdates()})
 
   val elasticSearch = new ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies)
   elasticSearch.ensureAliasAssigned()

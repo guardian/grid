@@ -2,10 +2,10 @@ package com.gu.mediaservice
 
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent}
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{JsString, Json}
+import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -94,7 +94,7 @@ class ImageProjectionLambdaHandler extends LazyLogging {
   private def getAuthKeyFrom(headers: Map[String, String]) = {
     // clients like curl or API gateway may lowerCases custom header names, yay!
     headers.find {
-      case (k, _) => k.equalsIgnoreCase(Authentication.apiKeyHeaderName)
+      case (k, _) => k.equalsIgnoreCase(ApiKeyAuthenticationProvider.apiKeyHeaderName)
     }.map(_._2)
   }
 }

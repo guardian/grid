@@ -1,122 +1,104 @@
 package com.gu.mediaservice.lib.auth
 
-import akka.actor.ActorSystem
-import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{Request => _, _}
-import com.gu.mediaservice.lib.aws.S3Ops
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal, OnBehalfOfPrincipal, Principal}
+import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.pandomainauth.PanDomainAuthSettingsRefresher
-import com.gu.pandomainauth.action.{AuthActions, UserRequest}
-import com.gu.pandomainauth.model.{AuthenticatedUser, User}
-import com.gu.pandomainauth.service.Google2FAGroupChecker
-import play.api.libs.ws.{DefaultWSCookie, WSClient, WSCookie}
+import play.api.libs.typedmap.TypedMap
+import play.api.libs.ws.WSRequest
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class Authentication(config: CommonConfig, actorSystem: ActorSystem,
+class Authentication(config: CommonConfig,
+                     providers: AuthenticationProviders,
                      override val parser: BodyParser[AnyContent],
-                     override val wsClient: WSClient,
-                     override val controllerComponents: ControllerComponents,
                      override val executionContext: ExecutionContext)
+  extends ActionBuilder[Authentication.Request, AnyContent] with ArgoHelpers {
 
-  extends ActionBuilder[Authentication.Request, AnyContent] with AuthActions with ArgoHelpers {
-
+  // make the execution context implicit so it will be picked up appropriately
   implicit val ec: ExecutionContext = executionContext
 
-  val loginLinks = List(
-    Link("login", config.services.loginUriTemplate)
-  )
+  val loginLinks: List[Link] = providers.userProvider.loginLink match {
+    case DisableLoginLink => Nil
+    case BuiltInAuthService => List(Link("login", config.services.loginUriTemplate))
+    case ExternalLoginLink(link) => List(Link("login", link))
+  }
 
-  // API key errors
-  def invalidApiKeyResult = respondError(Unauthorized, "invalid-api-key", "Invalid API key provided", loginLinks)
+  def unauthorised(errorMessage: String, throwable: Option[Throwable] = None): Future[Result] = {
+    logger.info(s"Authentication failure $errorMessage", throwable.orNull)
+    Future.successful(respondError(Unauthorized, "authentication-failure", "Authentication failure", loginLinks))
+  }
 
-  val keyStore = new KeyStore(config.authKeyStoreBucket, config)
+  def forbidden(errorMessage: String): Future[Result] = {
+    logger.info(s"User not authorised: $errorMessage")
+    Future.successful(respondError(Forbidden, "principal-not-authorised", "Principal not authorised", loginLinks))
+  }
 
-  keyStore.scheduleUpdates(actorSystem.scheduler)
+  def expired(user: UserPrincipal): Future[Result] = {
+    logger.info(s"User token expired for ${user.email}, return 419")
+    Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
+  }
 
-  private val userValidationEmailDomain = config.stringOpt("panda.userDomain").getOrElse("guardian.co.uk")
+  def authenticationStatus(requestHeader: RequestHeader) = {
+    def flushToken(resultWhenAbsent: Result): Result = {
+      providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
+    }
 
-  override lazy val panDomainSettings = buildPandaSettings()
-
-  final override def authCallbackUrl: String = s"${config.services.authBaseUri}/oauthCallback"
-
-  override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
-    // Try to auth by API key, and failing that, with Panda
-    request.headers.get(Authentication.apiKeyHeaderName) match {
-      case Some(key) =>
-        keyStore.lookupIdentity(key) match {
-          case Some(apiKey) =>
-            logger.info(s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}", apiKey)
-            if (ApiAccessor.hasAccess(apiKey, request, config.services))
-              block(new AuthenticatedRequest(ApiKeyAccessor(apiKey), request))
-            else
-              Future.successful(ApiAccessor.unauthorizedResult)
-          case None => Future.successful(invalidApiKeyResult)
+    // Authenticate request. Try with API authenticator first and then with user authenticator
+    providers.apiProvider.authenticateRequest(requestHeader) match {
+      case Authenticated(authedUser) => Right(authedUser)
+      case Invalid(message, throwable) => Left(unauthorised(message, throwable))
+      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
+      case NotAuthenticated =>
+        providers.userProvider.authenticateRequest(requestHeader) match {
+          case NotAuthenticated => Left(unauthorised("Not authenticated"))
+          case Expired(principal) => Left(expired(principal))
+          case Authenticated(authedUser) => Right(authedUser)
+          case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
+          case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
         }
-      case None =>
-        APIAuthAction.invokeBlock(request, (userRequest: UserRequest[A]) => {
-          block(new AuthenticatedRequest(PandaUser(userRequest.user), request))
-        })
     }
   }
 
-  final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
-    Authentication.validateUser(authedUser, userValidationEmailDomain, multifactorChecker)
+  override def invokeBlock[A](request: Request[A], block: Authentication.Request[A] => Future[Result]): Future[Result] = {
+    authenticationStatus(request) match {
+      // we have a principal, so process the block
+      case Right(principal) => block(new AuthenticatedRequest(principal, request))
+      // no principal so return a result which will either be an error or a form of redirect
+      case Left(result) => result
+    }
   }
 
-  def getOnBehalfOfPrincipal(principal: Principal, originalRequest: Request[_]): OnBehalfOfPrincipal = principal match {
-    case service: ApiKeyAccessor =>
-      OnBehalfOfApiKey(service)
-
-    case user: PandaUser =>
-      val cookieName = panDomainSettings.settings.cookieSettings.cookieName
-
-      originalRequest.cookies.get(cookieName) match {
-        case Some(cookie) => OnBehalfOfUser(user, DefaultWSCookie(cookieName, cookie.value))
-        case None => throw new IllegalStateException(s"Unable to generate cookie header on behalf of ${principal.accessor}. Missing original cookie $cookieName")
-      }
-  }
-
-  private def buildPandaSettings() = {
-    new PanDomainAuthSettingsRefresher(
-      domain = config.services.domainRoot,
-      system = config.stringOpt("panda.system").getOrElse("media-service"),
-      bucketName = config.stringOpt("panda.bucketName").getOrElse("pan-domain-auth-settings"),
-      settingsFileKey = config.stringOpt("panda.settingsFileKey").getOrElse(s"${config.services.domainRoot}.settings"),
-      s3Client = S3Ops.buildS3Client(config, localstackAware=config.useLocalAuth)
-    )
+  def getOnBehalfOfPrincipal(principal: Principal): OnBehalfOfPrincipal = {
+    val provider: AuthenticationProvider = principal match {
+      case _:MachinePrincipal => providers.apiProvider
+      case _:UserPrincipal      => providers.userProvider
+    }
+    val maybeEnrichFn: Either[String, WSRequest => WSRequest] = provider.onBehalfOf(principal)
+    maybeEnrichFn.fold(error => throw new IllegalStateException(error), identity)
   }
 }
 
 object Authentication {
   sealed trait Principal {
     def accessor: ApiAccessor
+    def attributes: TypedMap
   }
-  case class PandaUser(user: User) extends Principal {
-    def accessor: ApiAccessor = ApiAccessor(identity = user.email, tier = Internal)
+  /** A human user with a name */
+  case class UserPrincipal(firstName: String, lastName: String, email: String, attributes: TypedMap = TypedMap.empty) extends Principal {
+    def accessor: ApiAccessor = ApiAccessor(identity = email, tier = Internal)
   }
-  case class ApiKeyAccessor(accessor: ApiAccessor) extends Principal
+  /** A machine user doing work automatically for its human programmers */
+  case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal
 
   type Request[A] = AuthenticatedRequest[A, Principal]
 
-  sealed trait OnBehalfOfPrincipal { def principal: Principal }
-  case class OnBehalfOfUser(override val principal: PandaUser, cookie: WSCookie) extends OnBehalfOfPrincipal
-  case class OnBehalfOfApiKey(override val principal: ApiKeyAccessor) extends OnBehalfOfPrincipal
+  type OnBehalfOfPrincipal = WSRequest => WSRequest
 
-  val apiKeyHeaderName = "X-Gu-Media-Key"
   val originalServiceHeaderName = "X-Gu-Original-Service"
 
   def getIdentity(principal: Principal): String = principal.accessor.identity
-
-  def validateUser(authedUser: AuthenticatedUser, userValidationEmailDomain: String, multifactorChecker: Option[Google2FAGroupChecker]): Boolean = {
-    val isValidDomain = authedUser.user.email.endsWith("@" + userValidationEmailDomain)
-    val passesMultifactor = if(multifactorChecker.nonEmpty) { authedUser.multiFactor } else { true }
-
-    isValidDomain && passesMultifactor
-  }
 }

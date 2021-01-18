@@ -13,7 +13,7 @@ import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsArray, JsString}

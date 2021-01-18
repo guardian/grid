@@ -2,13 +2,12 @@ package com.gu.mediaservice
 
 import java.io.IOException
 import java.net.URL
-
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider
 import com.typesafe.scalalogging.LazyLogging
 import okhttp3._
 import play.api.libs.json.{JsValue, Json}
-import scala.util.{Try, Success, Failure}
 
+import scala.util.{Failure, Success, Try}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 object ClientResponse {
@@ -52,7 +51,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
     .build()
 
   def makeGetRequestSync(url: URL, apiKey: String): ResponseWrapper = {
-    val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, apiKey).build
+    val request = new Request.Builder().url(url).header(ApiKeyAuthenticationProvider.apiKeyHeaderName, apiKey).build
     val response = httpClient.newCall(request).execute
     processResponse(response, url)
   }
@@ -128,7 +127,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
   }
 
   private def makeRequestAsync(url: URL, apiKey: String): Future[Response] = {
-    val request = new Request.Builder().url(url).header(Authentication.apiKeyHeaderName, apiKey).build
+    val request = new Request.Builder().url(url).header(ApiKeyAuthenticationProvider.apiKeyHeaderName, apiKey).build
     val promise = Promise[Response]()
     httpClient.newCall(request).enqueue(new Callback {
       override def onFailure(call: Call, e: IOException): Unit = promise.failure(e)
