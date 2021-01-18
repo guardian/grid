@@ -196,12 +196,12 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     capture(AllowedFileTypesValues) ~> parseMimeType _
   }
 
-  def AllowedFileTypesValues = rule { "tif" | "tiff" | "jpg" | "jpeg" | "png" }
+  def AllowedFileTypesValues = rule { "tiff" | "tif" | "jpg" | "jpeg" | "png" }
 
   def translateMimeType(expr: String): MimeType = expr match {
-    case s if s.contains("tif") => Tiff
-    case s if s.contains("jpg") || s.contains("jpeg") => Jpeg
-    case s if s.contains("png") => Png
+    case s if s.equals("tif") || s.equals("tiff") => Tiff
+    case s if s.equals("jpg") || s.equals("jpeg") => Jpeg
+    case s if s.equals("png") => Png
   }
 
   def parseMimeType(expr: String): Value = Words(translateMimeType(expr).toString)
