@@ -46,16 +46,23 @@ leases.controller('LeasesCtrl', [
         ctrl.editing = false;
         ctrl.adding = false;
         ctrl.showCalendar = false;
+        ctrl.receivingBatch = false;
+        console.log("HEY");
 
         ctrl.midnightTomorrow = moment().add(1, 'days').startOf('day').toDate();
 
-        ctrl.cancel = () => ctrl.editing = false;
+        ctrl.cancel = () => {
+            ctrl.editing = false;
+            ctrl.updateLeases();
+        };
 
         ctrl.save = () => {
             if (!ctrl.accessDefined()) {
                 $window.alert('Please select an access type (Allow or Deny)');
             } else {
                 ctrl.adding = true;
+                ctrl.editing = false;
+
                 ctrl.newLease.createdAt = new Date();
                 ctrl.newLease.access = ctrl.access;
 
@@ -89,42 +96,50 @@ leases.controller('LeasesCtrl', [
                   const shouldApplyLeases = $window.confirm(confirmText);
                     if (!shouldApplyLeases) {
                       //We're not saving it if the user cancels, so clear up
-                      ctrl.adding = false;
-                      return;
+                    //   return ctrl.updateLeases();
+                    ctrl.adding = false;
+                    return;
                   }
                 }
+
+
 
               leaseService.batchAdd(ctrl.newLease, ctrl.images)
                 .catch((e) => {
                   console.error(e);
                   alertFailed('Something went wrong when saving, please try again.');
                 })
-                .finally(() => {
+                  .finally(() => {
+                      console.log("HELO");
                     ctrl.resetLeaseForm();
                 });
             }
         };
 
         // These events allow this control to work as a hybrid on the upload page
+        // Update from future: not very well.
         const batchAddLeasesEvent = 'events:batch-apply:add-leases';
         const batchRemoveLeasesEvent = 'events:batch-apply:remove-leases';
 
         if (Boolean(ctrl.withBatch)) {
           $scope.$on(batchAddLeasesEvent,
               (e, leases) => {
-                  ctrl.adding = true;
+                  ctrl.receivingBatch = true;
                   leaseService.replace(ctrl.images[0], leases).then((a) => {
                 //These get run before the lease is shown in the UI. Fix.
-                    ctrl.adding = false;
+                      console.log(a);
+                    // ctrl.adding = false;
                 });
             });
             $scope.$on(batchRemoveLeasesEvent,
                 () => {
-                  ctrl.adding = true;
+                    ctrl.receivingBatch = true;
+
 
                     leaseService.clear(ctrl.images[0]).then((a) => {
                         //Shown before leases updated. Fix.
-                        ctrl.adding = false;
+                        console.log(a);
+                        // ctrl.adding = false;
 
 
                     });
@@ -149,12 +164,17 @@ leases.controller('LeasesCtrl', [
         }
 
         ctrl.updateLeases = () => {
-            leaseService.getLeases(ctrl.images)
+            if (!ctrl.editing) {
+                return leaseService.getLeases(ctrl.images)
                 .then((leaseByMedias) => {
+                    console.log("HELLO!");
+                    ctrl.leases = leaseService.flattenLeases(leaseByMedias);
                     ctrl.editing = false;
                     ctrl.adding = false;
-                    ctrl.leases = leaseService.flattenLeases(leaseByMedias);
-                });
+                    ctrl.receivingBatch = false;
+                    });
+            }
+            console.log("update while editing!");
         };
 
         ctrl.accessDefined = () => {
@@ -248,11 +268,13 @@ leases.controller('LeasesCtrl', [
         }
 
         $rootScope.$on('leases-updated', () => {
+            console.log('event');
             ctrl.updateLeases();
         });
 
         $scope.$watchCollection(() => Array.from(ctrl.images), (images) => {
             ctrl.totalImages = images.length;
+            console.log('watch', ctrl.images, images);
             ctrl.updateLeases();
         });
 

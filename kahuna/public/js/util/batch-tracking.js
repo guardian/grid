@@ -32,7 +32,8 @@ export const trackAll = async ($q, $rootScope, key, input, tasks, emit) => {
     completed,
     total: input.size ? input.size : input.length
   });
-  const process = async (item, result, [fn, ...remaining]) => {
+    const process = async (item, result, [fn, ...remaining]) => {
+        console.log(fn, remaining);
     if (fn == undefined) {
       completed++;
       $rootScope.$broadcast("events:batch-operations:progress", {
@@ -56,7 +57,7 @@ export const trackAll = async ($q, $rootScope, key, input, tasks, emit) => {
   });
 
   $rootScope.$broadcast("events:batch-operations:complete", { key });
-
+console.log("DONE");
   const emitNames = Array.isArray(emit) ? emit : [emit];
   emitNames.map(name => $rootScope.$emit(name, successes));
   idleTimeout(() => { $rootScope.$apply(); });
