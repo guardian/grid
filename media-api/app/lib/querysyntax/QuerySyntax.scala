@@ -1,6 +1,7 @@
 package lib.querysyntax
 
 import com.gu.mediaservice.lib.ImageFields
+import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import org.joda.time.DateTime
 import org.parboiled2._
 
@@ -33,6 +34,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     ScopedMatch ~> Match | HashMatch | CollectionRule |
     DateConstraintMatch |
     DateRangeMatch ~> Match | AtMatch |
+    FileTypeMatch ~> Match |
     AnyMatch
   }
 
@@ -154,9 +156,21 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     MatchDateField ~ ':' ~ MatchDateRangeValue
   }
 
+  def FileTypeMatch = rule {
+    MatchMimeTypeField ~ ':' ~ MatchMimeTypeValue
+  }
+
   def AtMatch = rule { '@' ~ MatchDateRangeValue ~> (range => Match(SingleField(getFieldPath("uploadTime")), range)) }
 
   def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
+
+  def MatchMimeTypeField = rule {
+    capture("fileType") ~> resolveMimeTypeField _
+  }
+
+  def resolveMimeTypeField(name: String): Field = name match {
+    case "fileType" => SingleField(getFieldPath("mimeType"))
+  }
 
   def resolveDateField(name: String): Field = name match {
     case "date" | "uploaded" => SingleField("uploadTime")
@@ -177,6 +191,20 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
       test(d.isDefined) ~ push(d.get)
     })
   }
+
+  def MatchMimeTypeValue = rule {
+    capture(AllowedFileTypesValues) ~> parseMimeType _
+  }
+
+  def AllowedFileTypesValues = rule { "tiff" | "tif" | "jpg" | "jpeg" | "png" }
+
+  def translateMimeType(expr: String): MimeType = expr match {
+    case s if s.equals("tif") || s.equals("tiff") => Tiff
+    case s if s.equals("jpg") || s.equals("jpeg") => Jpeg
+    case s if s.equals("png") => Png
+  }
+
+  def parseMimeType(expr: String): Value = Words(translateMimeType(expr).toString)
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
 
