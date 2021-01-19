@@ -450,4 +450,56 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
       ))
     }
   }
+
+  describe("fileType filter") {
+    it("should find jpegs images") {
+      Parser.run("fileType:jpeg") should be (List(
+        Match(SingleField(getFieldPath("mimeType")), Words("image/jpeg"))
+      ))
+    }
+
+    it("should find png images") {
+      Parser.run("fileType:png") should be (List(
+        Match(SingleField(getFieldPath("mimeType")), Words("image/png"))
+      ))
+    }
+
+    it("should find tiff images when searching for file type 'tif'") {
+      Parser.run("fileType:tif") should be (List(
+        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff"))
+      ))
+    }
+
+    it("should find tiff images when searching for file type 'tiff'") {
+      Parser.run("fileType:tiff") should be (List(
+        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff"))
+      ))
+    }
+
+    it("should match multiple terms and the fileType query") {
+      Parser.run("fileType:tiff cats dogs") should be (List(
+        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff")),
+        Match(AnyField, Words("cats dogs"))
+      ))
+    }
+
+    it("should match negated fileType queries") {
+      Parser.run("-fileType:jpeg") should be (List(
+        Negation(Match(SingleField(getFieldPath("mimeType")), Words("image/jpeg")))
+      ))
+    }
+
+    it("should match aliases and a fileType query") {
+      Parser.run("by:cats fileType:tiff") should be (List(
+        Match(bylineField, Words("cats")),
+        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff"))
+      ))
+    }
+
+    it("should not match unrelated file types") {
+      Parser.run("fileType:catsdogs") should be (List(
+        Match(AnyField, Words("fileType:catsdogs"))
+      ))
+    }
+  }
 }

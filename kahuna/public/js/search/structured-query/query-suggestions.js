@@ -16,6 +16,7 @@ export const filterFields = [
     'country',
     'credit',
     'description',
+    'fileType',
     'illustrator',
     'in',
     'keyword',
@@ -61,6 +62,12 @@ const subjects = [
     'sport',
     'war',
     'weather'
+];
+
+const fileTypes = [
+    'jpeg',
+    'tiff',
+    'png'
 ];
 
 const isSearch = [
@@ -155,6 +162,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'usages@status': return ['published', 'pending', 'removed'];
         case 'usages@platform': return ['print', 'digital'];
         case 'subject':  return prefixFilter(value)(subjects);
+        case 'fileType': return prefixFilter(value)(fileTypes);
         case 'label':    return suggestLabels(value);
         case 'credit':   return suggestCredit(value);
         case 'source':   return suggestSource(value);
