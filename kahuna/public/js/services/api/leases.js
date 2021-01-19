@@ -83,21 +83,22 @@ leaseService.factory('leaseService', [
         }
 
         function batchAdd(lease, images) {
-            //We check whether the leases in the image have a later lastModified date,
-            //so make sure that we don't have anything in the pipeline.
-                        // search page has fancy image list
-                        if (angular.isDefined(images.toArray)) {
-                            images = images.toArray();
-                        }
-            console.log(images);
-            return refreshImages(images).then(updatedImages => {
-                console.log(images);
-                console.log(images.map);
-                return trackAll($q, $rootScope, "leases", updatedImages, [
+
+          // search page has fancy image list
+          if (angular.isDefined(images.toArray)) {
+            images = images.toArray();
+          };
+
+          // We check whether the leases in the image have a later lastModified date,
+          // If the leases have updated in the background, or we haven't yet integrated
+          // the users changes into the model (somewhat eager).
+          // We should just update the images we do have so that untilLeasesChange doesn't
+          // immediately return without the user's expected change.
+          return refreshImages(images).then(updatedImages =>
+            trackAll($q, $rootScope, "leases", updatedImages, [
                     image => add(image, lease),
                     image => apiPoll(() => untilLeasesChange([image])).then(([{ image }]) => image) //Extract the image from untilLeasesChange
                 ], ['images-updated', 'leases-updated'])
-            }
             );
     }
 
@@ -110,14 +111,15 @@ leaseService.factory('leaseService', [
      * This method does not support batch deletion, because a
      * uuid will only ever match one lease.
      */
-        function deleteLease(lease, images) {
-                        // search page has fancy image list
-                        if (angular.isDefined(images.toArray)) {
-                            images = images.toArray();
-                        }
-        return refreshImages(images).then(images =>
+    function deleteLease(lease, images) {
+      // search page has fancy image list
+      if (angular.isDefined(images.toArray)) {
+        images = images.toArray();
+      }
+      return refreshImages(images).then(images =>
        getLeasesRoot().follow('leases', {id: lease.id}).delete()
-                .then(() => pollLeasesAndUpdateUI(images)));
+          .then(() => pollLeasesAndUpdateUI(images))
+      );
     }
 
     function getByMediaId(image) {
@@ -128,22 +130,18 @@ leaseService.factory('leaseService', [
       apiPoll(() => {
         return untilLeasesChange(images);
       }).then(results => {
-          console.log(results);
           return results.map(({ image, leases }) => {
               emitLeaseUpdate(leases);
-              console.log(images, leases);
-                emitImageUpdate(image);
+              emitImageUpdate(image);
           });
       });
     }
 
     const imageUpdates$ = new Subject();
         imageUpdates$.bufferWithTime(1000).subscribe((images) => {
-            if (images.length == 0) {
-                return;
+            if (images.length > 0) {
+              $rootScope.$emit('images-updated', images);
             }
-            console.log(images);
-            $rootScope.$emit('images-updated', images);
         });
 
     function emitImageUpdate(lease) {
@@ -151,17 +149,19 @@ leaseService.factory('leaseService', [
     }
     const leaseUpdates$ = new Subject();
         leaseUpdates$.bufferWithTime(1000).subscribe((leases) => {
-            if (leases.length == 0) { return; }
-            console.log("DUCK", leases, leases.length);
+          if (leases.length > 0) {
             $rootScope.$emit('leases-updated');
+          }
     });
 
     function emitLeaseUpdate(lease) {
         leaseUpdates$.onNext(lease);
     }
 
-      //This is a race condition, but I think it's a rare one.
-        //Mitigate by refreshing images with refreshImages before posting.
+    // If the leases have changed without being updated in the model
+    // then the user will see this immediately returned without their update
+    // And as this might return the edit on the first call
+    // You must call refreshImages before you make any changes this watches for.
     function untilLeasesChange(images) {
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
@@ -169,7 +169,6 @@ leaseService.factory('leaseService', [
           const apiImageAndApiLeases = getApiImageAndApiLeasesIfUpdated(image, apiImage);
           if (apiImageAndApiLeases) {
               image = apiImage;
-              console.log(apiImageAndApiLeases);
             return apiImageAndApiLeases;
           } else {
             // returning $q.reject() will make apiPoll function to poll again
@@ -180,11 +179,9 @@ leaseService.factory('leaseService', [
       }));
     }
 
-        // untilLeasesChange checks lastModified, make sure we always have the latest image before starting
+    // See comment on untilLeasesChange
     function refreshImages(images) {
-        const x = $q.all(images.map(_ => _.get()));
-        console.log(x);
-        return x;
+      return $q.all(images.map(_ => _.get()));
     }
 
     function flattenLeases(leaseByMedias) {

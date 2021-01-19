@@ -47,7 +47,6 @@ leases.controller('LeasesCtrl', [
         ctrl.adding = false;
         ctrl.showCalendar = false;
         ctrl.receivingBatch = false;
-        console.log("HEY");
 
         ctrl.midnightTomorrow = moment().add(1, 'days').startOf('day').toDate();
 
@@ -94,11 +93,8 @@ leases.controller('LeasesCtrl', [
                     : "This image already has a syndication lease. It will be overwritten. " +
                       "Do you wish to proceed?";
                   const shouldApplyLeases = $window.confirm(confirmText);
-                    if (!shouldApplyLeases) {
-                      //We're not saving it if the user cancels, so clear up
-                    //   return ctrl.updateLeases();
-                    ctrl.adding = false;
-                    return;
+                  if (!shouldApplyLeases) {
+                    return; // User has cancelled save.
                   }
                 }
 
@@ -110,7 +106,6 @@ leases.controller('LeasesCtrl', [
                   alertFailed('Something went wrong when saving, please try again.');
                 })
                   .finally(() => {
-                      console.log("HELO");
                     ctrl.resetLeaseForm();
                 });
             }
@@ -118,32 +113,29 @@ leases.controller('LeasesCtrl', [
 
         // These events allow this control to work as a hybrid on the upload page
         // Update from future: not very well.
+        // Elaboration:
+        // Firing this event causes every instance of this to respond,
+        // After that response, each one sends the leases-updated message
+        // Putting us in a quadratic quandry that's solved by making the handlers
+        // debounce their sends, (see api/leases.js)
+        // which also isn't ideal, but isn't quadratic either.
         const batchAddLeasesEvent = 'events:batch-apply:add-leases';
         const batchRemoveLeasesEvent = 'events:batch-apply:remove-leases';
 
         if (Boolean(ctrl.withBatch)) {
           $scope.$on(batchAddLeasesEvent,
               (e, leases) => {
-                  ctrl.receivingBatch = true;
-                  leaseService.replace(ctrl.images[0], leases).then((a) => {
-                //These get run before the lease is shown in the UI. Fix.
-                      console.log(a);
-                    // ctrl.adding = false;
-                });
+                ctrl.receivingBatch = true;
+                leaseService.replace(ctrl.images[0], leases);
+                // As the lease is about to be updated by the leases-updated event
+                // we don't want to reintegrate the result of this.
             });
             $scope.$on(batchRemoveLeasesEvent,
-                () => {
-                    ctrl.receivingBatch = true;
-
-
-                    leaseService.clear(ctrl.images[0]).then((a) => {
-                        //Shown before leases updated. Fix.
-                        console.log(a);
-                        // ctrl.adding = false;
-
-
-                    });
-                });
+              () => {
+                ctrl.receivingBatch = true;
+                leaseService.clear(ctrl.images[0]);
+                // See above.
+              });
 
             ctrl.batchApplyLeases = () => {
               if (ctrl.leases.leases.length > 0) {
@@ -167,14 +159,12 @@ leases.controller('LeasesCtrl', [
             if (!ctrl.editing) {
                 return leaseService.getLeases(ctrl.images)
                 .then((leaseByMedias) => {
-                    console.log("HELLO!");
                     ctrl.leases = leaseService.flattenLeases(leaseByMedias);
                     ctrl.editing = false;
                     ctrl.adding = false;
                     ctrl.receivingBatch = false;
                     });
             }
-            console.log("update while editing!");
         };
 
         ctrl.accessDefined = () => {
@@ -197,13 +187,11 @@ leases.controller('LeasesCtrl', [
         };
 
         ctrl.inactiveLeases = (leases) => {
-            console.log(leases)
             leases.leases.filter((l) => !ctrl.isCurrent(l)).length;
-        }
+        };
         ctrl.activeLeases = (leases) => {
-            console.log(leases)
             leases.leases.filter((l) => ctrl.isCurrent(l)).length;
-        }
+        };
 
         ctrl.resetLeaseForm = () => {
             ctrl.newLease = {
@@ -273,14 +261,14 @@ leases.controller('LeasesCtrl', [
             ctrl.adding = false;
         }
 
+        // When this is called, every image component refeshes itself.
+        // Consider matching first.
         $rootScope.$on('leases-updated', () => {
-            console.log('event');
             ctrl.updateLeases();
         });
 
         $scope.$watchCollection(() => Array.from(ctrl.images), (images) => {
             ctrl.totalImages = images.length;
-            console.log('watch', ctrl.images, images);
             ctrl.updateLeases();
         });
 
