@@ -123,8 +123,12 @@ grCollectionsPanel.controller('GrNodeCtrl',
     ctrl.getCollectionQuery = path => getCollection(path);
 
     $scope.$watch('ctrl.showChildren', onValChange(show => {
-            collectionsTreeState.setState(pathId, show);
+      collectionsTreeState.setState(pathId, show);
     }));
+
+    $scope.$watch('ctrl.node.data.children', children => {
+      ctrl.children = children.filter(node => !!node.data.data);
+    });
 
     ctrl.init = function(grCollectionTreeCtrl) {
         const selectedImages$ = grCollectionTreeCtrl.selectedImages$;
