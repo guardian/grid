@@ -123,10 +123,17 @@ class S3(config: CommonConfig) extends GridLogging {
       cacheControl.foreach(metadata.setCacheControl)
       metadata.setUserMetadata(meta.asJava)
 
+      val fileMarkers = Map(
+        "bucket" -> bucket,
+        "fileName" -> id,
+        "mimeType" -> mimeType.getOrElse("none"),
+      )
+      val markers = logMarker ++ fileMarkers
+
       val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
       Stopwatch(s"S3 client.putObject ($req)"){
         client.putObject(req)
-      }
+      }(markers)
     }
 
   def list(bucket: Bucket, prefixDir: String)
