@@ -103,7 +103,12 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const pathId = ctrl.node.data.data.pathId;
 
     //This filter remove child nodes with missing data, preventing display errors from occurring
-    ctrl.children = ctrl.node.data.children.filter(node => !!node.data.data);
+    $scope.filterChildren = children => children.filter(node => !!node.data.data);
+
+    ctrl.children = $scope.filterChildren(ctrl.node.data.children);
+    $scope.$watch('ctrl.node.data.children', children => {
+      ctrl.children = $scope.filterChildren(children);
+    });
 
     ctrl.saving = false;
     ctrl.removing = false;
@@ -125,10 +130,6 @@ grCollectionsPanel.controller('GrNodeCtrl',
     $scope.$watch('ctrl.showChildren', onValChange(show => {
       collectionsTreeState.setState(pathId, show);
     }));
-
-    $scope.$watch('ctrl.node.data.children', children => {
-      ctrl.children = children.filter(node => !!node.data.data);
-    });
 
     ctrl.init = function(grCollectionTreeCtrl) {
         const selectedImages$ = grCollectionTreeCtrl.selectedImages$;
