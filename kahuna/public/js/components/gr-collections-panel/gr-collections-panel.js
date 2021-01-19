@@ -103,11 +103,11 @@ grCollectionsPanel.controller('GrNodeCtrl',
     const pathId = ctrl.node.data.data.pathId;
 
     //This filter remove child nodes with missing data, preventing display errors from occurring
-    $scope.filterChildren = children => children.filter(node => !!node.data.data);
+    ctrl.filterChildren = children => children.filter(node => !!node.data.data);
 
-    ctrl.children = $scope.filterChildren(ctrl.node.data.children);
+    ctrl.children = ctrl.filterChildren(ctrl.node.data.children);
     $scope.$watch('ctrl.node.data.children', children => {
-      ctrl.children = $scope.filterChildren(children);
+      ctrl.children = ctrl.filterChildren(children);
     });
 
     ctrl.saving = false;
