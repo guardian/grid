@@ -46,6 +46,9 @@ object GridConfigLoader extends StrictLogging {
   private def loadConfiguration(file: File): Configuration = {
     if (file.exists) {
       logger.info(s"Loading config from $file")
+      if (file.getPath.endsWith(".properties")) {
+        logger.warn(s"Configuring the Grid with Java properties files is deprecated as of #3011, please switch to .conf files. See #3037 for a conversion utility.")
+      }
       Configuration(ConfigFactory.parseFile(file))
     } else {
       logger.info(s"Skipping config file $file as it doesn't exist")
