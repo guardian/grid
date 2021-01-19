@@ -2,8 +2,7 @@ package lib
 
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.model._
-import org.scalatestplus.mockito.MockitoSugar
-
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FunSpec, Matchers}
 
 class CropsTest extends FunSpec with Matchers with MockitoSugar {
