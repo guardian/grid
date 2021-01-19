@@ -1,12 +1,12 @@
 package com.gu.mediaservice.lib.play
 
-import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
-import com.gu.mediaservice.lib.logging.{GridLogging, LogConfig}
+import com.gu.mediaservice.lib.auth.provider.{MachineAuthenticationProvider, AuthenticationProviderResources, AuthenticationProviders, UserAuthenticationProvider}
+import com.gu.mediaservice.lib.config.{ApiAuthenticationProviderLoader, CommonConfig, GridConfigResources, UserAuthenticationProviderLoader}
+import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
-import play.api.{BuiltInComponentsFromContext, Configuration}
+import play.api.BuiltInComponentsFromContext
 import play.api.libs.ws.ahc.AhcWSComponents
 import play.api.mvc.EssentialFilter
 import play.filters.HttpFiltersComponents
@@ -43,5 +43,21 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)
-  val auth = new Authentication(config, actorSystem, defaultBodyParser, wsClient, controllerComponents, executionContext)
+  private val authProviderResources = AuthenticationProviderResources(
+    commonConfig = config,
+    actorSystem = actorSystem,
+    wsClient = wsClient,
+    controllerComponents = controllerComponents
+  )
+
+  val providers: AuthenticationProviders = AuthenticationProviders(
+    userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources)),
+    apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.machine")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources))
+  )
+  providers.userProvider.initialise()
+  applicationLifecycle.addStopHook(() => providers.userProvider.shutdown())
+  providers.apiProvider.initialise()
+  applicationLifecycle.addStopHook(() => providers.apiProvider.shutdown())
+
+  val auth = new Authentication(config, providers, controllerComponents.parsers.default, executionContext)
 }

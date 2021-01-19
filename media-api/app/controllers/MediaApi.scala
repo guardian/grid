@@ -93,13 +93,13 @@ class MediaApi(
     permission: PermissionDefinition
   ) = {
     request.user match {
-      case user: PandaUser =>
-        if (user.user.email.toLowerCase == image.uploadedBy.toLowerCase) {
+      case user: UserPrincipal =>
+        if (user.email.toLowerCase == image.uploadedBy.toLowerCase) {
           true
         } else {
           hasPermission(user, permission)
         }
-      case service: ApiKeyAccessor if service.accessor.tier == Internal => true
+      case service: MachinePrincipal if service.accessor.tier == Internal => true
       case _ => false
     }
   }
@@ -217,7 +217,7 @@ class MediaApi(
         val entity = HttpEntity.Streamed(file, image.source.size, image.source.mimeType.map(_.name))
 
         if(config.recordDownloadAsUsage) {
-          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
+          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
         }
 
           Future.successful(
@@ -244,7 +244,7 @@ class MediaApi(
           }))
 
         if(config.recordDownloadAsUsage) {
-          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user, request), id, Authentication.getIdentity(request.user))
+          postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), id, Authentication.getIdentity(request.user))
         }
 
         Future.successful(
@@ -261,13 +261,7 @@ class MediaApi(
         HttpHeaders.ORIGIN -> config.rootUri,
         HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
 
-    val request = onBehalfOfPrincipal match {
-      case OnBehalfOfApiKey(service) =>
-        print(service.accessor.identity)
-        baseRequest.addHttpHeaders(Authentication.apiKeyHeaderName -> service.accessor.identity)
-      case OnBehalfOfUser(_, cookie) =>
-        baseRequest.addCookies(cookie)
-    }
+    val request = onBehalfOfPrincipal(baseRequest)
 
     val usagesMetadata = Map("mediaId" -> mediaId,
       "dateAdded" -> printDateTime(DateTime.now()),

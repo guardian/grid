@@ -1,20 +1,18 @@
 package auth
 
 import java.net.URI
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.PandaUser
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
 import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
-import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.pandomainauth.service.OAuthException
 import play.api.libs.json.Json
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.{BaseController, ControllerComponents, Result}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class AuthController(auth: Authentication, val config: AuthConfig,
+class AuthController(auth: Authentication, providers: AuthenticationProviders, val config: AuthConfig,
                      override val controllerComponents: ControllerComponents)(implicit ec: ExecutionContext)
   extends BaseController
   with ArgoHelpers
@@ -31,30 +29,40 @@ class AuthController(auth: Authentication, val config: AuthConfig,
     respond(indexData, indexLinks)
   }
 
-  def index = auth.AuthAction { indexResponse }
+  def index = auth { indexResponse }
 
-  def session = auth.AuthAction { request =>
-    val user = request.user
-    val firstName = user.firstName
-    val lastName = user.lastName
+  def session = auth { request =>
+    val showPaid = hasPermission(request.user, Permissions.ShowPaid)
+    request.user match {
+      case UserPrincipal(firstName, lastName, email, _) =>
 
-    val showPaid = hasPermission(PandaUser(request.user), Permissions.ShowPaid)
-
-    respond(
-      Json.obj("user" ->
-        Json.obj(
-          "name" -> s"$firstName $lastName",
-          "firstName" -> firstName,
-          "lastName" -> lastName,
-          "email" -> user.email,
-          "avatarUrl" -> user.avatarUrl,
-          "permissions" ->
+        respond(
+          Json.obj("user" ->
             Json.obj(
-              "showPaid" -> showPaid
+              "name" -> s"$firstName $lastName",
+              "firstName" -> firstName,
+              "lastName" -> lastName,
+              "email" -> email,
+              "permissions" ->
+                Json.obj(
+                  "showPaid" -> showPaid
+                )
             )
+          )
+        )
+      case MachinePrincipal(accessor, _) => respond(
+        Json.obj("api-key" ->
+          Json.obj(
+            "name" -> accessor.identity,
+            "tier" -> accessor.tier.toString,
+            "permissions" ->
+              Json.obj(
+                "showPaid" -> showPaid
+              )
+          )
         )
       )
-    )
+    }
   }
 
 
@@ -62,39 +70,44 @@ class AuthController(auth: Authentication, val config: AuthConfig,
     uri.getHost.endsWith(config.domainRoot) && uri.getScheme == "https"
   }
   def isValidDomain(inputUri: String): Boolean = {
-    Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess
+    val success = Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess
+    if (!success) logger.warn(s"Provided login redirect URI is invalid: $inputUri")
+    success
   }
 
+  // Play session key used to store the URI to redirect to during login
+  val REDIRECT_SESSION_KEY = "gridRedirectUri"
 
   // Trigger the auth cycle
   // If a redirectUri is provided, redirect the browser there once auth'd,
   // else return a dummy page (e.g. for automatically re-auth'ing in the background)
-  // FIXME: validate redirectUri before doing the auth
-  def doLogin(redirectUri: Option[String] = None) = auth.AuthAction { req =>
-    redirectUri map {
-      case uri if isValidDomain(uri) => Redirect(uri)
-      case _ => Ok("logged in (not redirecting to external redirectUri)")
-    } getOrElse Ok("logged in")
+  def doLogin(redirectUri: Option[String] = None) = Action.async { implicit req =>
+    val checkedRedirectUri = redirectUri collect {
+      case uri if isValidDomain(uri) => uri
+    }
+    providers.userProvider.sendForAuthentication match {
+      case Some(authCallback) =>
+        authCallback(req).map(_.addingToSession(checkedRedirectUri.map(REDIRECT_SESSION_KEY -> _).toSeq:_*))
+      case None =>
+        Future.successful(InternalServerError("Login not supported by configured authentication provider"))
+    }
   }
 
   def oauthCallback = Action.async { implicit request =>
-    // We use the `Try` here as the `GoogleAuthException` are thrown before we
-    // get to the asynchronicity of the `Future` it returns.
-    // We then have to flatten the Future[Future[T]]. Fiddly...
-    Future.fromTry(Try(auth.processOAuthCallback())).flatten.recover {
-      // This is when session session args are missing
-      case e: OAuthException => respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)
-
-      // Class `missing anti forgery token` as a 4XX
-      // see https://github.com/guardian/pan-domain-authentication/blob/master/pan-domain-auth-play_2-6/src/main/scala/com/gu/pandomainauth/service/GoogleAuth.scala#L63
-      case e: IllegalArgumentException if e.getMessage == "The anti forgery token did not match" => {
-        logger.error(e.getMessage)
-        respondError(BadRequest, "google-auth-exception", e.getMessage, auth.loginLinks)
-      }
+    providers.userProvider.sendForAuthenticationCallback match {
+      case Some(callback) =>
+        val maybeRedirectUri = request.session.get(REDIRECT_SESSION_KEY)
+        callback(request, maybeRedirectUri).map(_.removingFromSession(REDIRECT_SESSION_KEY))
+      case None =>
+        Future.successful(InternalServerError("No callback for configured authentication provider"))
     }
   }
 
   def logout = Action { implicit request =>
-    auth.processLogout
+    val result: Result = providers.userProvider.flushToken match {
+      case Some(callback) => callback(request, Ok("Logged out"))
+      case None => InternalServerError("Logout not supported by configured authentication provider")
+    }
+    result.withNewSession
   }
 }

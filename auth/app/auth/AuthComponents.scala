@@ -12,7 +12,7 @@ class AuthComponents(context: Context) extends GridComponents(context, new AuthC
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new AuthController(auth, config, controllerComponents)
+  val controller = new AuthController(auth, providers, config, controllerComponents)
   val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, controller, buildInfo)
 
   override val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)

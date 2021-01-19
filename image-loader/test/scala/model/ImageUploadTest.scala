@@ -14,7 +14,7 @@ import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, Uploa
 import lib.imaging.MimeTypeDetection
 import model.upload.{OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import org.scalatest.{Assertion, AsyncFunSuite, Matchers}
 import test.lib.ResourceHelpers
 
