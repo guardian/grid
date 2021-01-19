@@ -9,7 +9,7 @@ import com.gu.mediaservice.model.{Edits, ImageMetadata}
 import lib.{MetadataEditorNotifications, ThrallStore}
 import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
 import org.joda.time.{DateTime, DateTimeZone}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.JsArray
 
 import scala.concurrent.{Await, Future}
