@@ -39,8 +39,8 @@ recentUploads.controller('RecentUploadsCtrl', [
                   const images = ctrl.myUploads.data;
                   images.forEach((originalImage, index) => {
                     const maybeImage = updatedImages.find(updatedImage => originalImage.data.id === updatedImage.data.id);
-                    if (maybeImage) {
-                      images[index] = maybeImage;
+                      if (maybeImage) {
+                        images[index] = maybeImage;
                     }
                   });
                 });

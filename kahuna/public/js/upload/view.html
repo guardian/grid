@@ -13,10 +13,7 @@
     <section class="section"
              ng-if="ctrl.latestJob && ctrl.latestJob.length > 0">
 
-        <div class="flex-container section-heading current-uploads">
-            <h2 class="flex-spacer">Your current uploads</h2>
-            <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
-        </div>
+
 
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>

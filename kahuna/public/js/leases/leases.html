@@ -1,6 +1,9 @@
+<span>
+    <span ng-if="ctrl.receivingBatch">Updating...</span>
+ </span>
 <button ng-class="{'small': ctrl.grSmall}"
         ng-click="ctrl.editing = true"
-        ng-if="ctrl.userCanEdit"
+        ng-if="ctrl.userCanEdit && !ctrl.receivingBatch"
         gr-tooltip="Add lease"
         gr-tooltip-position="bottom">
 
@@ -112,7 +115,7 @@
 </form>
 
 
-<div class="leases__wrapper image-info__wrap">
+<div class="leases__wrapper image-info__wrap" ng-if="!ctrl.receivingBatch">
   <div class="image-info__lease" ng-if="ctrl.totalImages > 1">
     {{ctrl.activeLeases(ctrl.leases)}} current leases + {{ctrl.inactiveLeases(ctrl.leases)}} inactive leases
   </div>

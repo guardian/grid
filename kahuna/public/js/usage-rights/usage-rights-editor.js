@@ -159,7 +159,7 @@ usageRightsEditor.controller(
     ctrl.cancel = () => ctrl.onCancel();
 
     function save(data) {
-      return trackAll($rootScope, "rights", ctrl.usageRights, [
+      return trackAll($q, $rootScope, "rights", ctrl.usageRights, [
         ({ image }) => {
           const resource = image.data.userMetadata.data.usageRights;
           return editsService.update(resource, data, image, true);

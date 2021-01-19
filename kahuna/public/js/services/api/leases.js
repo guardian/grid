@@ -5,87 +5,101 @@ import '../../services/image-list';
 import {service} from '../../edits/service';
 import { trackAll } from '../../util/batch-tracking';
 import { getApiImageAndApiLeasesIfUpdated } from './leases-helper';
+import { Subject } from 'rx';
 
 var leaseService = angular.module('kahuna.services.lease', [
   service.name
   ]);
 
 leaseService.factory('leaseService', [
-  '$rootScope',
-  '$q',
-  'imageAccessor',
-  'imageList',
-  'mediaApi',
-  'editsService',
-  'apiPoll',
-  function ($rootScope, $q, imageAccessor, imageList, mediaApi, editsService, apiPoll) {
-    let leasesRoot;
-    function getLeasesRoot() {
-        if (!leasesRoot) {
-            leasesRoot = mediaApi.root.follow('leases');
+    '$rootScope',
+    '$q',
+    'imageAccessor',
+    'imageList',
+    'mediaApi',
+    'editsService',
+    'apiPoll',
+    function ($rootScope, $q, imageAccessor, imageList, mediaApi, editsService, apiPoll) {
+        let leasesRoot;
+        function getLeasesRoot() {
+            if (!leasesRoot) {
+                leasesRoot = mediaApi.root.follow('leases');
+            }
+            return leasesRoot;
         }
-        return leasesRoot;
-    }
 
-    function getLeases(images) {
-      // search page has fancy image list
-      if (angular.isDefined(images.toArray)) {
-        images = images.toArray();
-      }
-      return $q.all(images.map(i => i.get()))
-          .then((images) => imageList.getLeases(images));
-      }
+        function getLeases(images) {
+            // search page has fancy image list
+            if (angular.isDefined(images.toArray)) {
+                images = images.toArray();
+            }
+            return $q.all(images.map(i => i.get()))
+                .then((images) => imageList.getLeases(images));
+        }
 
-    function clear(image) {
-        const images = [image];
-        const currentLeases = getLeases(images);
-        return currentLeases.then(() => {
-          return image
-              .perform('delete-leases').then(() => {
-              pollLeasesAndUpdateUI(images, imageList.getLeases(images));
-          });
-        });
-    }
-
-    function replace(image, leases) {
-        const images = [image];
-        const currentLeases = getLeases(images);
-
-        return currentLeases.then(() => {
-
-            const updatedLeases = leases.map((lease) => {
-                var newLease = angular.copy(lease);
-                newLease.mediaId = image.data.id;
-                return newLease;
+        function clear(image) {
+            return refreshImages([image]).then(images => {
+                const currentLeases = getLeases(images);
+                return currentLeases.then(() => {
+                    return image
+                        .perform('delete-leases').then(() => {
+                            pollLeasesAndUpdateUI(images, imageList.getLeases(images));
+                        });
+                });
             });
+        }
 
-            return image
-              .perform('replace-leases', {body: updatedLeases})
-              .then(() => {
-                  pollLeasesAndUpdateUI(images);
-              });
-        });
-    }
+        function replace(image, leases) {
+            const images = [image];
+            const currentLeasesPromise = getLeases(images);
 
-    function add(image, lease) {
-      const newLease = angular.copy(lease);
-      newLease.mediaId = image.data.id;
+            return currentLeasesPromise.then((currentLeases) => {
 
-      if (angular.isDefined(newLease.notes) && newLease.notes.trim().length === 0) {
-        newLease.notes = null;
-      }
+                const updatedLeases = leases.map((lease) => {
+                    var newLease = angular.copy(lease);
+                    newLease.mediaId = image.data.id;
+                    return newLease;
+                });
 
-      return image.perform('add-lease', {body: newLease});
-    }
+                // Don't update the leases if they're "the same"
+                if (JSON.stringify(currentLeases.leases) === JSON.stringify(updatedLeases)) {
+                    return image;
+                }
 
-    function batchAdd(lease, images) {
-      return trackAll($rootScope, "leases", images, [image => add(image, lease), image => {
-        apiPoll(() => {
-          return untilLeasesChange([image]);
-        });
-      }], 'images-changed').then(() => {
-            $rootScope.$emit('leases-updated');
-      });
+                return image
+                    .perform('replace-leases', { body: updatedLeases })
+                    .then(() => pollLeasesAndUpdateUI(images));
+            });
+        }
+
+        function add(image, lease) {
+            const newLease = angular.copy(lease);
+            newLease.mediaId = image.data.id;
+
+            if (angular.isDefined(newLease.notes) && newLease.notes.trim().length === 0) {
+                newLease.notes = null;
+            }
+            return image.perform('add-lease', { body: newLease });
+        }
+
+        function batchAdd(lease, images) {
+
+          // search page has fancy image list
+          if (angular.isDefined(images.toArray)) {
+            images = images.toArray();
+          };
+
+          // We check whether the leases in the image have a later lastModified date,
+          // If the leases have updated in the background, or we haven't yet integrated
+          // the users changes into the model (somewhat eager).
+          // We should just update the images we do have so that untilLeasesChange doesn't
+          // immediately return without the user's expected change.
+          return refreshImages(images).then(updatedImages =>
+            trackAll($q, $rootScope, "leases", updatedImages, [
+                    image => add(image, lease),
+                    image => apiPoll(() => untilLeasesChange([image])).then(([{ image }]) => image) //Extract the image from untilLeasesChange
+                ], ['images-updated', 'leases-updated'])
+            );
     }
 
     function canUserEdit(image){
@@ -98,8 +112,14 @@ leaseService.factory('leaseService', [
      * uuid will only ever match one lease.
      */
     function deleteLease(lease, images) {
-      return getLeasesRoot().follow('leases', {id: lease.id}).delete()
-        .then(() => pollLeasesAndUpdateUI(images));
+      // search page has fancy image list
+      if (angular.isDefined(images.toArray)) {
+        images = images.toArray();
+      }
+      return refreshImages(images).then(images =>
+       getLeasesRoot().follow('leases', {id: lease.id}).delete()
+          .then(() => pollLeasesAndUpdateUI(images))
+      );
     }
 
     function getByMediaId(image) {
@@ -110,20 +130,45 @@ leaseService.factory('leaseService', [
       apiPoll(() => {
         return untilLeasesChange(images);
       }).then(results => {
-        $rootScope.$emit('images-updated', results.map(({image})=>image));
-        $rootScope.$emit('leases-updated');
-
-        return results.map(({leases}) => leases);
+          return results.map(({ image, leases }) => {
+              emitLeaseUpdate(leases);
+              emitImageUpdate(image);
+          });
       });
     }
 
+    const imageUpdates$ = new Subject();
+        imageUpdates$.bufferWithTime(1000).subscribe((images) => {
+            if (images.length > 0) {
+              $rootScope.$emit('images-updated', images);
+            }
+        });
+
+    function emitImageUpdate(lease) {
+        imageUpdates$.onNext(lease);
+    }
+    const leaseUpdates$ = new Subject();
+        leaseUpdates$.bufferWithTime(1000).subscribe((leases) => {
+          if (leases.length > 0) {
+            $rootScope.$emit('leases-updated');
+          }
+    });
+
+    function emitLeaseUpdate(lease) {
+        leaseUpdates$.onNext(lease);
+    }
+
+    // If the leases have changed without being updated in the model
+    // then the user will see this immediately returned without their update
+    // And as this might return the edit on the first call
+    // You must call refreshImages before you make any changes this watches for.
     function untilLeasesChange(images) {
       const imagesArray = images.toArray ? images.toArray() : images;
       return $q.all(imagesArray.map(image => {
         return image.get().then(apiImage => {
           const apiImageAndApiLeases = getApiImageAndApiLeasesIfUpdated(image, apiImage);
           if (apiImageAndApiLeases) {
-            image = apiImage;
+              image = apiImage;
             return apiImageAndApiLeases;
           } else {
             // returning $q.reject() will make apiPoll function to poll again
@@ -132,6 +177,11 @@ leaseService.factory('leaseService', [
           }
         });
       }));
+    }
+
+    // See comment on untilLeasesChange
+    function refreshImages(images) {
+      return $q.all(images.map(_ => _.get()));
     }
 
     function flattenLeases(leaseByMedias) {

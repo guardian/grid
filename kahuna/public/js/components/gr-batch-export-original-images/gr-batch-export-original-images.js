@@ -6,8 +6,8 @@ import { trackAll } from '../../util/batch-tracking';
 export const batchExportOriginalImages = angular.module('gr.batchExportOriginalImages', []);
 
 batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
-    '$scope', '$rootScope', '$state', 'mediaCropper',
-    function($scope, $rootScope, $state, mediaCropper) {
+    '$q', '$scope', '$rootScope', '$state', 'mediaCropper',
+    function($q, $scope, $rootScope, $state, mediaCropper) {
         let ctrl = this;
 
         const checkForFullCrops = () => ctrl.images.every(
@@ -42,7 +42,7 @@ batchExportOriginalImages.controller('grBatchExportOriginalImagesCtrl', [
           ctrl.cropping = true;
           ctrl.needsConfirmation = false;
 
-          const cropImages = trackAll($rootScope, "crop", ctrl.images, async (image) => {
+          const cropImages = trackAll($q, $rootScope, "crop", ctrl.images, async (image) => {
             const crop = await mediaCropper.createFullCrop(image);
             return {
               image,

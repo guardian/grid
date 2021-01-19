@@ -54,7 +54,8 @@ async.factory("race", [
 
 const queue = new PQueue({ concurrency: 10 });
 async.factory("apiPoll", [
-  () => {
+  "$q",
+  ($q) => {
     const wait = () => new Promise(resolve => {
       setTimeout(() => resolve(), 500);
     });
@@ -65,7 +66,7 @@ async.factory("apiPoll", [
         })
       ]);
       if (status === 'fulfilled') {
-        return value;
+        return $q.resolve(value);
       }
       await wait();
       return poll(func, n + 1);

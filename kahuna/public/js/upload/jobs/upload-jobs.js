@@ -38,6 +38,8 @@ jobs.controller('UploadJobsCtrl', [
     var ctrl = this;
     const presetLabels = presetLabelService.getLabels();
 
+    ctrl.remaining = ctrl.jobs.length;
+
     // State machine-esque async transitions
     const eventName = 'Image upload';
 
@@ -56,6 +58,8 @@ jobs.controller('UploadJobsCtrl', [
                 jobItem.status = 'uploaded';
                 jobItem.image = image;
                 jobItem.thumbnail = image.data.thumbnail;
+
+                ctrl.remaining -= 1;
 
                 imageService(image).states.canDelete.then(deletable => {
                     jobItem.canBeDeleted = deletable;

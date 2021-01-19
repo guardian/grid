@@ -1,5 +1,3 @@
-import moment from 'moment';
-
 function readLeases(image) {
   return image.data.leases.data;
 }
@@ -18,9 +16,9 @@ export function getApiImageAndApiLeasesIfUpdated(image, apiImage) {
       }
     } else {
       const apiImageLeasesAreUpdated = function() {
-        const currentLastModified = moment(apiLeases.lastModified);
-        const previousLastModified = moment(leases.lastModified);
-        return currentLastModified.isAfter(previousLastModified);
+        const currentLastModified = new Date(apiLeases.lastModified);
+        const previousLastModified = new Date(leases.lastModified);
+        return currentLastModified > previousLastModified;
       };
       if (apiImageLeasesAreUpdated()) {
         return apiImageAndApiLeases;
