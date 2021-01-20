@@ -70,7 +70,7 @@ async.factory("apiPoll", [
       }
       // Something has gone wrong, so we can let the user know
       if (n > 100) {
-        throw new Error('failed');
+        throw new Error('apiPoll failed - Please try again.');
       }
       await wait();
       return poll(func, n + 1);
