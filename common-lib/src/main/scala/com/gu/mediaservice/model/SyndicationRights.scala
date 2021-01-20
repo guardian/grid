@@ -25,7 +25,8 @@ object SyndicationRights {
       (__ \ "published").readNullable[String].map(parseOptDateTime) ~
       (__ \ "suppliers").read[Seq[Supplier]] ~
       (__ \ "rights").read[Seq[Right]] ~
-      (__ \ "isInferred").read[Boolean])(SyndicationRights.apply _)
+      (__ \ "isInferred").readNullable[Boolean].map(_.getOrElse(false))
+    )(SyndicationRights.apply _)
 
   val writes: Writes[SyndicationRights] = (
     (__ \ "published").writeNullable[DateTime] ~
