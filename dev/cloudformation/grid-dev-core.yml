@@ -181,6 +181,7 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
 
+
   PreviewContentPollTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -194,6 +195,23 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
+
+  UploadStatusTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: UploadStatusTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+      TimeToLiveSpecification:
+        AttributeName: expires
+        Enabled: true
 
 Outputs:
   ImageBucket:
@@ -234,3 +252,5 @@ Outputs:
     Value: !Ref 'LiveContentPollTable'
   PreviewContentPollTable:
     Value: !Ref 'PreviewContentPollTable'
+  UploadStatusTable:
+    Value: !Ref 'UploadStatusTable'

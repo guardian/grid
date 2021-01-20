@@ -110,7 +110,8 @@ lazy val commonLib = project("common-lib").settings(
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
-    "org.codehaus.janino" % "janino" % "3.0.6"
+    "org.codehaus.janino" % "janino" % "3.0.6",
+    "com.gu" %% "scanamo" % "1.0.0-M8"
   ),
 
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
@@ -131,11 +132,7 @@ lazy val imageLoader = playProject("image-loader", 9003).settings {
 
 lazy val kahuna = playProject("kahuna", 9005)
 
-lazy val leases = playProject("leases", 9012).settings(
-  libraryDependencies ++= Seq(
-    "com.gu" %% "scanamo" % "1.0.0-M8"
-  )
-)
+lazy val leases = playProject("leases", 9012)
 
 lazy val mediaApi = playProject("media-api", 9001).settings(
   libraryDependencies ++= Seq(
