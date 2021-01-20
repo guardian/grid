@@ -163,20 +163,21 @@ class BBCAuthenticationProvider(resources: AuthenticationProviderResources, prov
 
   private val userValidationEmailDomain = resources.commonConfig.stringOpt("panda.userDomain").getOrElse("bbc.co.uk")
 
-  final override def validateUser(authedUser: AuthenticatedUser): Boolean =
-    BBCAuthenticationProvider.validateUser(authedUser, validEmailsStore, multifactorChecker, usePermissionsValidation, userValidationEmailDomain, logger)
+  final override def validateUser(authedUser: AuthenticatedUser): Boolean = {
+    val validEmails = validEmailsStore.getValidEmails
+    BBCAuthenticationProvider.validateUser(authedUser, validEmails, multifactorChecker, usePermissionsValidation, userValidationEmailDomain, logger)
+  }
 }
 
 object BBCAuthenticationProvider {
   def validateUser(
                     authedUser: AuthenticatedUser,
-                    validEmailsStore: BBCValidEmailsStore,
+                    validEmails: Option[List[String]],
                     multifactorChecker: Option[Google2FAGroupChecker],
                     usePermissionsValidation: Boolean,
                     userValidationEmailDomain: String,
                     logger: Logger
                   ): Boolean = {
-    val validEmails = validEmailsStore.getValidEmails
     val isValidEmail = validEmails match {
       case Some(emails) => emails.contains(authedUser.user.email.toLowerCase)
       case _ => false
