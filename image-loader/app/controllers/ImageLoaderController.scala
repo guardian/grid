@@ -13,7 +13,7 @@ import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, Uploader, QuarantineUploader}
+import model.{Projector, UploadStatus, Uploader, QuarantineUploader}
 import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -25,6 +25,7 @@ import scala.util.control.NonFatal
 class ImageLoaderController(auth: Authentication,
                             downloader: Downloader,
                             store: ImageLoaderStore,
+                            uploadStatusTable: UploadStatusTable,
                             notifications: Notifications,
                             config: ImageLoaderConfig,
                             uploader: Uploader,
@@ -49,7 +50,7 @@ class ImageLoaderController(auth: Authentication,
   def quarantineOrStoreImage(uploadRequest: UploadRequest)(implicit logMarker: LogMarker) = {
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(uploader.storeFile(uploadRequest))
   }
-  
+
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
 
     implicit val context: RequestLoggingContext = RequestLoggingContext(
@@ -69,6 +70,8 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
+      uploadStatusTable.setStatus(UploadStatus(req.body.digest, context.initialMarkers("uploadedBy"),
+        context.initialMarkers("filename"), UploadStatus.PENDING))
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
@@ -85,16 +88,22 @@ class ImageLoaderController(auth: Authentication,
       result map { r =>
         val result = Accepted(r).as(ArgoMediaType)
         logger.info("loadImage request end")
+        if(!config.uploadToQuarantineEnabled){
+        uploadStatusTable.setStatus(UploadStatus(req.body.digest, context.initialMarkers("uploadedBy"),
+          context.initialMarkers("filename"), UploadStatus.COMPLETED))
+        }
         result
       } recover {
         case e =>
           logger.error("loadImage request ended with a failure", e)
+          uploadStatusTable.setStatus(UploadStatus(req.body.digest, context.initialMarkers("uploadedBy"),
+            context.initialMarkers("filename"), UploadStatus.FAILED))
           (e match {
             case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
             case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
             case e: java.io.IOException => FailureResponse.badImage(e).as(ArgoMediaType)
-            case _ => 
-              logger.error("Failed upload", e) 
+            case _ =>
+              logger.error("Failed upload", e)
               InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
           }).as(ArgoMediaType)
       }
@@ -170,6 +179,8 @@ class ImageLoaderController(auth: Authentication,
         .map {
           r => {
             logger.info("importImage request end")
+            uploadStatusTable.setStatus(UploadStatus(uri.split("/").last, uploadedBy.getOrElse(FALLBACK),
+              filename.getOrElse(FALLBACK), UploadStatus.COMPLETED))
             // NB This return code (202) is explicitly required by s3-watcher
             // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
             Accepted(r).as(ArgoMediaType)

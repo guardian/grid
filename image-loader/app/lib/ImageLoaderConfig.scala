@@ -25,6 +25,8 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val transcodedMimeTypes: List[MimeType] = getStringSet("transcoded.mime.types").toList.map(MimeType(_))
   val supportedMimeTypes: List[MimeType] = List(Jpeg, Png) ::: transcodedMimeTypes
 
+  val uploadStatusTable = string("dynamo.table.upload.status")
+
   /**
     * Load in the chain of image processors from config. This can be a list of
     * companion objects, class names, both with and without config.
