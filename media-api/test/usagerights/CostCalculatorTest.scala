@@ -3,7 +3,7 @@ package lib.usagerights
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 import org.scalatest.{FunSpec, Matchers}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 
 class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
 

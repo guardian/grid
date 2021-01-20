@@ -1,10 +1,10 @@
 package com.gu.mediaservice.model
 
+import org.scalatest.prop.{Checkers, PropertyChecks}
 import org.scalatest.{FreeSpec, Matchers}
-import org.scalatestplus.scalacheck.{Checkers, ScalaCheckPropertyChecks}
 import play.api.libs.json.Json
 
-class FileMetadataTest extends FreeSpec with Matchers with Checkers with ScalaCheckPropertyChecks {
+class FileMetadataTest extends FreeSpec with Matchers with Checkers with PropertyChecks {
 
   "Dehydrate a non-empty object" - {
     "Leave all short values alone" in {
