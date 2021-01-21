@@ -20,4 +20,5 @@ services:
       USE_DOCKER_FOR_TESTS: "false"
       ES6_TEST_URL: http://elasticsearch:9200
       LOCALSTACK_ENDPOINT: http://localstack:4566
+      TEAMCITY_BRANCH: ${TEAMCITY_BRANCH}
     command: "clean test scripts/compile riffRaffUpload"
