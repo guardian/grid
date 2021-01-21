@@ -468,7 +468,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   it("should cope with year month date formats") {
     ImageMetadataConverter.parseRandomDate("20012") should be (Some(day(2001, 2)))
   }
-  it("should cope with year dash month dash day date formats 17") {
+  it("should cope with year dash month dash day date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03") should be (Some(day(2001, 2, 3)))
   }
   it("should cope with invalid dates and return None") {
