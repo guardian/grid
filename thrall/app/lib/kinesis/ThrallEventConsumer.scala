@@ -57,7 +57,7 @@ class ThrallEventConsumer(es: ElasticSearch,
     }
   }
 
-  def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
+  def processUpdateMessage(updateMessage: UpdateMessage, priority: Priority): Future[UpdateMessage]  = {
     val marker = updateMessage
 
     val stopwatch = Stopwatch.start

@@ -20,21 +20,21 @@ class MessageProcessor(es: ElasticSearch,
                        syndicationRightsOps: SyndicationRightsOps
                       ) extends GridLogging {
 
-  def process(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
+  def process(updateMessage: UpdateMessage, logMarker: LogMarker, priority: Priority)(implicit ec: ExecutionContext): Future[Any] = {
     updateMessage.subject match {
       case "image" => indexImage(updateMessage, logMarker)
       case "reingest-image" => indexImage(updateMessage, logMarker)
-      case "delete-image" => deleteImage(updateMessage, logMarker)
+      case "delete-image" => deleteImage(updateMessage, logMarker, priority)
       case "update-image" => indexImage(updateMessage, logMarker)
-      case "delete-image-exports" => deleteImageExports(updateMessage, logMarker)
+      case "delete-image-exports" => deleteImageExports(updateMessage, logMarker, priority)
       case "update-image-exports" => updateImageExports(updateMessage, logMarker)
       case "update-image-user-metadata" => updateImageUserMetadata(updateMessage, logMarker)
       case "update-image-usages" => updateImageUsages(updateMessage, logMarker)
       case "replace-image-leases" => replaceImageLeases(updateMessage, logMarker)
       case "add-image-lease" => addImageLease(updateMessage, logMarker)
-      case "remove-image-lease" => removeImageLease(updateMessage, logMarker)
+      case "remove-image-lease" => removeImageLease(updateMessage, logMarker, priority)
       case "set-image-collections" => setImageCollections(updateMessage, logMarker)
-      case "delete-usages" => deleteAllUsages(updateMessage, logMarker)
+      case "delete-usages" => deleteAllUsages(updateMessage, logMarker, priority)
       case "upsert-rcs-rights" => upsertSyndicationRights(updateMessage, logMarker)
       case "update-image-photoshoot" => updateImagePhotoshoot(updateMessage, logMarker)
       case unknownSubject => Future.failed(ProcessorNotFoundException(unknownSubject))
@@ -72,7 +72,7 @@ class MessageProcessor(es: ElasticSearch,
         Future.sequence(
           es.updateImageExports(id, crops, message.lastModified)(ec,logMarker))))
 
-  private def deleteImageExports(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+  private def deleteImageExports(message: UpdateMessage, logMarker: LogMarker, priority: Priority)(implicit ec: ExecutionContext) =
     withId(message)(id =>
       Future.sequence(
         es.deleteImageExports(id, message.lastModified)(ec, logMarker)))
@@ -92,7 +92,7 @@ class MessageProcessor(es: ElasticSearch,
       withLease(message)( mediaLease =>
         Future.sequence(es.addImageLease(id, mediaLease, message.lastModified)(ec, logMarker))))
 
-  private def removeImageLease(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] =
+  private def removeImageLease(message: UpdateMessage, logMarker: LogMarker, priority: Priority)(implicit ec: ExecutionContext): Future[List[ElasticSearchUpdateResponse]] =
     withId(message)(id =>
       withLeaseId(message)( leaseId =>
         Future.sequence(es.removeImageLease(id, Some(leaseId), message.lastModified)(ec, logMarker))))
@@ -102,7 +102,7 @@ class MessageProcessor(es: ElasticSearch,
       withCollections(message)(collections =>
         Future.sequence(es.setImageCollections(id, collections, message.lastModified)(ec, logMarker))))
 
-  private def deleteImage(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+  private def deleteImage(updateMessage: UpdateMessage, logMarker: LogMarker, priority: Priority)(implicit ec: ExecutionContext) = {
     Future.sequence(
       withId(updateMessage) { id =>
         implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
@@ -127,7 +127,7 @@ class MessageProcessor(es: ElasticSearch,
     )
   }
 
-  private def deleteAllUsages(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+  private def deleteAllUsages(message: UpdateMessage, logMarker: LogMarker, priority: Priority)(implicit ec: ExecutionContext) =
     withId(message)(id =>
       Future.sequence(es.deleteAllImageUsages(id, message.lastModified)(ec, logMarker)))
 

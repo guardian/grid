@@ -260,16 +260,22 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   }
 
   def deleteAllImageUsages(id: String,
-                           lastModified: DateTime)
+                           lastModified: DateTime,
+                           notFoundSuccessful: Boolean)
                           (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val deleteUsagesScript = loadUpdatingModificationPainless("ctx._source.remove('usages');")
 
     val updateRequest = prepareUpdateRequest(id, deleteUsagesScript, lastModified)
 
-    val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing all usages on image $id")
+    val eventualUpdateResponse = executeAndLog(updateRequest, s"ES6 removing all usages on image $id", notFoundSuccessful)
       .incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    List(eventualUpdateResponse.map(response => {
+      if(response.status == 404){
+        logger.warn("Attempted to delete usages for non-existant image.")
+      }
+      ElasticSearchUpdateResponse()
+    }))
   }
 
   def deleteSyndicationRights(id: String, lastModified: DateTime)
