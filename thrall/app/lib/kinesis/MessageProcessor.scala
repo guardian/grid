@@ -129,7 +129,7 @@ class MessageProcessor(es: ElasticSearch,
 
   private def deleteAllUsages(message: UpdateMessage, logMarker: LogMarker, priority: Priority)(implicit ec: ExecutionContext) =
     withId(message)(id =>
-      Future.sequence(es.deleteAllImageUsages(id, message.lastModified)(ec, logMarker)))
+      Future.sequence(es.deleteAllImageUsages(id, message.lastModified, priority == LowPriority)(ec, logMarker)))
 
   def upsertSyndicationRights(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] =
     withId(message){ id =>
