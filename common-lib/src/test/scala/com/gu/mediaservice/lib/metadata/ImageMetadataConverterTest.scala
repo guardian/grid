@@ -420,58 +420,58 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
       .withSecondOfMinute(s)
       .withMillisOfSecond(ss)
 
-  it("should cope with full date formats and return None otherwise ") {
+  it("should cope with full date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06.007Z") should be(Some(day(2001, 2, 3, 4, 5, 6, 7)))
   }
-  it("should cope with offset with space date formats and return None otherwise") {
+  it("should cope with offset with space date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06 +00:00") should be (Some(day(2001, 2, 3, 4, 5, 6)))
   }
-  it("should cope with offset without space date formats and return None otherwise") {
+  it("should cope with offset without space date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06+00:00") should be (Some(day(2001, 2, 3, 4, 5, 6)))
   }
-  it("should cope with no offset date formats and return None otherwise") {
+  it("should cope with no offset date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06") should be (Some(day(2001, 2, 3, 4, 5, 6)))
   }
-  it("should cope with nbo offset, no millis date formats and return None otherwise") {
+  it("should cope with nbo offset, no millis date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03T04:05:06.007") should be (Some(day(2001, 2, 3, 4, 5, 6, 7)))
   }
-  it("should cope with long seconds date formats and return None otherwise") {
+  it("should cope with long seconds date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03T04:05.006+00:00") should be (Some(day(2001, 2, 3, 4, 5, 0, 6)))
   }
-  it("should cope with no seconds date formats and return None otherwise") {
+  it("should cope with no seconds date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02-03T04:05+00:00") should be (Some(day(2001, 2, 3, 4, 5)))
   }
-  it("should cope with full, textual zone, date formats and return None otherwise") {
+  it("should cope with full, textual zone, date formats") {
     ImageMetadataConverter.parseRandomDate("Sat Feb 03 04:05:06.007 UTC 2001") should be (Some(day(2001, 2, 3, 4, 5, 6, 7)))
   }
-  it("should cope with full, textual zone, no millis date formats and return None otherwise") {
+  it("should cope with full, textual zone, no millis date formats") {
     ImageMetadataConverter.parseRandomDate("Sat Feb 03 04:05:06 UTC 2001") should be (Some(day(2001, 2, 3, 4, 5, 6)))
   }
-  it("should cope with full, textual zone, non-UTC date formats and return None otherwise") {
+  it("should cope with full, textual zone, non-UTC date formats") {
     ImageMetadataConverter.parseRandomDate("Tue Jul 03 04:05:06.007 BST 2001") should be (Some(day(2001, 7, 3, 3, 5, 6, 7)))
   }
-  it("should cope with full, textual zone, non-UTC, no millis expected date formats and return None otherwise") {
+  it("should cope with full, textual zone, non-UTC, no millis expected date formats") {
     ImageMetadataConverter.parseRandomDate("Tue Jul 03 04:05:06 BST 2001") should be (Some(day(2001, 7, 3, 3, 5, 6)))
   }
-  it("should cope with just year date formats and return None otherwise") {
+  it("should cope with just year date formats") {
     ImageMetadataConverter.parseRandomDate("2001") should be (Some(day(2001)))
   }
-  it("should cope with year, dash, month date formats and return None otherwise") {
+  it("should cope with year, dash, month date formats") {
     ImageMetadataConverter.parseRandomDate("2001-02") should be (Some(day(2001, 2)))
   }
-  it("should cope with year month day date formats and return None otherwise") {
+  it("should cope with year month day date formats") {
     ImageMetadataConverter.parseRandomDate("20010203") should be (Some(day(2001, 2, 3)))
   }
-  it("should cope with US-style year day month date formats and return None otherwise") {
+  it("should cope with US-style year day month date formats") {
     ImageMetadataConverter.parseRandomDate("20012802") should be (Some(day(2001, 2, 28)))
   }
-  it("should cope with year month date formats and return None otherwise") {
+  it("should cope with year month date formats") {
     ImageMetadataConverter.parseRandomDate("20012") should be (Some(day(2001, 2)))
   }
-  it("should cope with year dash month dash day date formats and return None otherwise 17") {
+  it("should cope with year dash month dash day date formats 17") {
     ImageMetadataConverter.parseRandomDate("2001-02-03") should be (Some(day(2001, 2, 3)))
   }
-  it("should cope with invalid dates and return None otherwise") {
+  it("should cope with invalid dates and return None") {
     ImageMetadataConverter.parseRandomDate("2000-02-31") should be(None)
   }
 
