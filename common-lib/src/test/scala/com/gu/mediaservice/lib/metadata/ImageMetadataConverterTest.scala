@@ -475,8 +475,4 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     ImageMetadataConverter.parseRandomDate("2000-02-31") should be(None)
   }
 
-  it("whatever") {
-    DateTimeFormat.forPattern("yyyyMMdd").parseDateTime("20010203").withZone(DateTimeZone.UTC) should be (day(2001, 2, 3))
-  }
-
 }
