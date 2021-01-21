@@ -17,6 +17,13 @@ class ThrallMessageSenderTest extends FunSpec with Matchers {
       m2 shouldEqual m
     }
 
+    it ("should convert a message from an external source which does not have last modified") {
+      val subject = "test"
+      val j = s"""{"subject":"$subject"}"""
+      val m = Json.parse(j).as[UpdateMessage]
+      m.lastModified.getZone.toString should be ("UTC")
+    }
+
     it ("should convert a message last modified with an offset timezone to UTC") {
       val now = DateTime.now(DateTimeZone.forOffsetHours(9))
       val nowUtc = new DateTime(now.getMillis()).toDateTime(DateTimeZone.UTC)
