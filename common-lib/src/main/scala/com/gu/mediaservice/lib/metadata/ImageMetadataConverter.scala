@@ -126,6 +126,9 @@ object ImageMetadataConverter extends GridLogging {
     DateTimeFormat.forPattern("E MMM dd HH:mm:ss.SSS 'BST' yyyy").withZone(DateTimeZone.forOffsetHours(1)),
     DateTimeFormat.forPattern("E MMM dd HH:mm:ss 'BST' yyyy").withZone(DateTimeZone.forOffsetHours(1)),
 
+    DateTimeFormat.forPattern("yyyyMMdd"),
+    DateTimeFormat.forPattern("yyyyMM"),
+    DateTimeFormat.forPattern("yyyyddMM"),
     DateTimeFormat.forPattern("yyyy"),
     DateTimeFormat.forPattern("yyyy-MM"),
 
