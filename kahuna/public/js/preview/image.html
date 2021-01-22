@@ -80,7 +80,9 @@
         </div>
 
         <p class="preview__description"
-           title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}">
+           title="{{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title}}
+      By: {{ctrl.image.data.metadata.byline || '[none]'}}
+Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
             <!-- Ensure contents in P to maintain height -->
             {{ctrl.image.data.metadata.description || ctrl.image.data.metadata.title || '&nbsp;'}}
         </p>
