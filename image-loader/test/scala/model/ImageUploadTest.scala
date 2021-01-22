@@ -109,28 +109,28 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     })
   }
 
-  ignore("A jpg which is suitable for UI viewing") {
+  test("A jpg which is suitable for UI viewing") {
     imageUpload("rubbish.jpg", Jpeg)
   }
-  ignore("An opaque tiff file which requires optimising for UI") {
+  test("An opaque tiff file which requires optimising for UI") {
     imageUpload("lighthouse.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("A layered tiff file (will require renaming extracted file) which requires optimising for UI") {
+  test("A layered tiff file (will require renaming extracted file) which requires optimising for UI") {
     imageUpload("tiff_8bpc_layered_withTransparency.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("Another opaque tiff file which requires optimising for UI") {
+  test("Another opaque tiff file which requires optimising for UI") {
     imageUpload("tiff_8bpc_flat.tif", Tiff, expectOptimisedFile = true)
   }
-  ignore("A png which is suitable for UI viewing") {
+  test("A png which is suitable for UI viewing") {
     imageUpload("IndexedColor.png", Png)
   }
-  ignore("A png which is not suitable (too many colours + transparency) for UI viewing") {
+  test("A png which is not suitable (too many colours + transparency) for UI viewing") {
     imageUpload("bgan6a16_TrueColorWithAlpha_16bit.png", Png, expectOptimisedFile = true)
   }
-  ignore("A png which is not suitable (too many colours) for UI viewing") {
+  test("A png which is not suitable (too many colours) for UI viewing") {
     imageUpload("basn2c16_TrueColor_16bit.png", Png, expectOptimisedFile = true)
   }
-  ignore("not an image but looks like one") {
+  test("not an image but looks like one") {
     imageUpload("thisisnotanimage.jpg", Png, expectOptimisedFile = true).transformWith{
       case Success(_) => fail("Should have thrown an error")
       case Failure(e) => e match {
@@ -138,7 +138,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
       }
     }
   }
-  ignore("not an image and does not look like one") {
+  test("not an image and does not look like one") {
     // this exception is thrown before the futures are resolved, and so does not need transformWith
     val caught = the [Exception] thrownBy
         imageUpload("thisisnotanimage.stupid", Png, expectOptimisedFile = true)
