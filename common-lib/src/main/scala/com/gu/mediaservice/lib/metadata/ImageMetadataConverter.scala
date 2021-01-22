@@ -40,7 +40,7 @@ object ImageMetadataConverter extends GridLogging {
     (xmpIptcPeople ++ xmpGettyPeople).toSet
   }
 
-  def fromFileMetadata(fileMetadata: FileMetadata): ImageMetadata = {
+  def fromFileMetadata(fileMetadata: FileMetadata, currentDateTime: Option[DateTime] = None): ImageMetadata = {
     val xmp = fileMetadata.xmp
     val readXmpHeadStringProp: String => Option[String] = (name: String) => {
       val res = xmp.get(name) match {
@@ -52,7 +52,6 @@ object ImageMetadataConverter extends GridLogging {
       res
     }
 
-    val currentDateTime = Some(DateTime.now(DateTimeZone.UTC))  // We expect dateTaken to be before this date.
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap (parseRandomDate(_, currentDateTime))) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap (parseRandomDate(_, currentDateTime))) orElse
