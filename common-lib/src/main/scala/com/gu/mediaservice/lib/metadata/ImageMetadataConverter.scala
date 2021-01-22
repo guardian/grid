@@ -40,7 +40,7 @@ object ImageMetadataConverter extends GridLogging {
     (xmpIptcPeople ++ xmpGettyPeople).toSet
   }
 
-  def fromFileMetadata(fileMetadata: FileMetadata, currentDateTime: Option[DateTime] = None): ImageMetadata = {
+  def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None): ImageMetadata = {
     val xmp = fileMetadata.xmp
     val readXmpHeadStringProp: String => Option[String] = (name: String) => {
       val res = xmp.get(name) match {
@@ -53,9 +53,9 @@ object ImageMetadataConverter extends GridLogging {
     }
 
     ImageMetadata(
-      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap (parseRandomDate(_, currentDateTime))) orElse
-                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap (parseRandomDate(_, currentDateTime))) orElse
-                            (readXmpHeadStringProp("photoshop:DateCreated") flatMap (parseRandomDate(_, currentDateTime))),
+      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
+                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
+                            (readXmpHeadStringProp("photoshop:DateCreated") flatMap (parseRandomDate(_, latestAllowedDateTime))),
       description         = readXmpHeadStringProp("dc:description") orElse
                             fileMetadata.iptc.get("Caption/Abstract") orElse
                             fileMetadata.exif.get("Image Description"),
