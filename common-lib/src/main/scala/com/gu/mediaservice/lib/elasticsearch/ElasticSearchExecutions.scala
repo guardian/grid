@@ -24,7 +24,10 @@ trait ElasticSearchExecutions extends GridLogging {
         r.isSuccess match {
           case true => Success(r)
           case false => r.status match {
-            case 404 if notFoundSuccessful => Success(r)
+            case 404 if notFoundSuccessful => {
+                   logger.warn(s"No image found for $message.")
+                   Success(r)
+            }
             case 404 => Failure(ElasticNotFoundException)
             case _ => Failure(ElasticSearchException(r.error))
           }
