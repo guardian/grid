@@ -244,7 +244,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       nestedQuery("usages").query(existsQuery("usages"))
     )
 
-    val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id",true).flatMap { r =>
+    val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id").flatMap { r =>
       val deleteFuture = r.result.count match {
         case 1 => executeAndLog(deleteById(imagesAlias, id), s"ES6 deleting image $id")
         case _ => Future.failed(ImageNotDeletable)

@@ -56,7 +56,7 @@ class ThrallStreamProcessor(
       val stopwatch = Stopwatch.start
       result match {
         case (record, Some(updateMessage)) =>
-          consumer.processUpdateMessage(updateMessage, record.priority)
+          consumer.processUpdateMessage(updateMessage)
             .recover { case _ => () }
             .map(_ => (record, stopwatch, Some(updateMessage)))
         case (record, _) => Future.successful((record, stopwatch, None))
