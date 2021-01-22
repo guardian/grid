@@ -1,13 +1,13 @@
 package com.gu.mediaservice.lib.aws
 
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.LogstashMarker
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.functional.syntax.toFunctionalBuilderOps
+import play.api.libs.functional.syntax.{toFunctionalBuilderOps, unlift}
 import play.api.libs.json.{JodaReads, JodaWrites, Json, __}
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
@@ -29,7 +29,7 @@ object BulkIndexRequest {
   implicit val writes = Json.writes[BulkIndexRequest]
 }
 
-object UpdateMessage {
+object UpdateMessage extends GridLogging {
   implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
   implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
   implicit val unw = Json.writes[UsageNotice]
@@ -43,7 +43,13 @@ object UpdateMessage {
         (__ \ "usageNotice").readNullable[UsageNotice] ~
         (__ \ "edits").readNullable[Edits] ~
         // We seem to get messages from _somewhere which don't have last modified on them.
-        (__ \ "lastModified").readNullable[DateTime].map(_.getOrElse(DateTime.now(DateTimeZone.UTC))) ~
+        (__ \ "lastModified").readNullable[DateTime].map{ d => d match {
+          case Some(date) => date
+          case None => {
+            logger.warn("Message received without a last modified date", __.toJsonString)
+            DateTime.now(DateTimeZone.UTC)
+          }
+        }} ~
         (__ \ "collections").readNullable[Seq[Collection]] ~
         (__ \ "leaseId").readNullable[String] ~
         (__ \ "crops").readNullable[Seq[Crop]] ~
