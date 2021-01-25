@@ -47,7 +47,7 @@ class ThrallEventConsumer(es: ElasticSearch,
         Some(updateMessage)
       }
       case Success(None)=> {
-        logger.error(s"No message present in record at $timestamp")
+        logger.warn(s"No message present in record at $timestamp", new String(r))
         None //No message received
       }
       case Failure(e) => {
