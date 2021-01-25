@@ -36,10 +36,6 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> main
   def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
     val marker = updateMessage
 
