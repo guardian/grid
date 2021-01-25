@@ -288,6 +288,11 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         reloadedImage(id).get.exports.isEmpty shouldBe true
       }
 
+      "deleting exports for a non-existant image is not an error" in {
+        val id = UUID.randomUUID().toString
+        val result = Await.result(Future.sequence(ES.deleteImageExports(id, now)), fiveSeconds)
+        result should have length 1
+      }
     }
 
     "leases" - {
@@ -329,6 +334,14 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
 
         reloadedImage(id).get.leases.leases.isEmpty shouldBe true
+      }
+
+      "can remove image lease for an image which doesn't exist" in {
+        val lease = model.leases.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val id = UUID.randomUUID().toString
+
+        val result = Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
+        result should have length 1
       }
 
       "removing a lease should update the leases last modified time" in {
@@ -470,6 +483,14 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
     "usages" - {
 
+      "can delete all usages for an image which does not exist" in {
+        val id = UUID.randomUUID().toString
+
+        val result = Await.result(Future.sequence(ES.deleteAllImageUsages(id, now)), fiveSeconds)
+
+        result should have length 1
+      }
+
       "can delete all usages for an image" in {
         val id = UUID.randomUUID().toString
         val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(usages = List(usage()))
@@ -566,6 +587,14 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(Future.sequence(ES.deleteSyndicationRights(id, now)), fiveSeconds)
 
         reloadedImage(id).get.syndicationRights.isEmpty shouldBe true
+      }
+
+      "can delete syndication rights from an image which does not exist" in {
+        val id = UUID.randomUUID().toString
+
+        val result = Await.result(Future.sequence(ES.deleteSyndicationRights(id, now)), fiveSeconds)
+
+        result should have length 1
       }
     }
 

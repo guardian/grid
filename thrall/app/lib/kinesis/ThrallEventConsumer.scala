@@ -36,27 +36,6 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def parseRecord(r: Array[Byte], timestamp: Instant):Option[UpdateMessage] = {
-    implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads
-    implicit val unr = Json.reads[UsageNotice]
-    implicit val umr = Json.reads[UpdateMessage]
-
-    Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
-      case Success(Some(updateMessage: UpdateMessage)) => {
-        logger.info(updateMessage.toLogMarker, s"Received ${updateMessage.subject} message at $timestamp")
-        Some(updateMessage)
-      }
-      case Success(None)=> {
-        logger.error(s"No message present in record at $timestamp")
-        None //No message received
-      }
-      case Failure(e) => {
-        logger.error(s"Exception during process record block at $timestamp", e)
-        None
-      }
-    }
-  }
-
   def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
     val marker = updateMessage
 
@@ -104,4 +83,24 @@ class ThrallEventConsumer(es: ElasticSearch,
         }
       }
 
+}
+
+object ThrallEventConsumer extends GridLogging {
+
+  def parseRecord(r: Array[Byte], timestamp: Instant):Option[UpdateMessage] = {
+    Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
+      case Success(Some(updateMessage: UpdateMessage)) => {
+        logger.info(updateMessage.toLogMarker, s"Received ${updateMessage.subject} message at $timestamp")
+        Some(updateMessage)
+      }
+      case Success(None)=> {
+        logger.warn(s"No message present in record at $timestamp", new String(r))
+        None //No message received
+      }
+      case Failure(e) => {
+        logger.error(s"Exception during process record block at $timestamp", e)
+        None
+      }
+    }
+  }
 }
