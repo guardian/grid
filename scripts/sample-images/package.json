@@ -4,7 +4,7 @@
   "description": "Upload images from Unsplash into Grid for demonstration",
   "main": "index.js",
   "dependencies": {
-    "es6-promise": "^4.2.6",
+    "es6-promise": "^4.2.8",
     "isomorphic-fetch": "^2.2.1",
     "unsplash-js": "^5.0.0"
   },
