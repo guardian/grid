@@ -137,16 +137,12 @@ object ImageMetadataConverter extends GridLogging {
   private[metadata] def parseRandomDate(str: String, maxDate: Option[DateTime] = None): Option[DateTime] = {
     dateTimeFormatters.foldLeft[Option[DateTime]](None){
       case (successfulDate@Some(_), _) => successfulDate
-      case (None, formatter) => safeParsing(
-        formatter.parseDateTime(str) match {
-          // NB We refuse parse results which result in future dates, if a max date is provided.
-          // eg If we get a pic today (22nd January 2021) with a date string of 20211201 we can be pretty sure
-          // that it should be parsed as (eg) US (12th Jan 2021), not EU (1st Dec 2021).
-          // So we refuse the (apparently successful) EU parse result.
-          case d if maxDate.forall(d.isBefore(_)) => d
-          case d => throw new IllegalArgumentException(s"Date $d is after $maxDate")
-        }
-      )
+      // NB We refuse parse results which result in future dates, if a max date is provided.
+      // eg If we get a pic today (22nd January 2021) with a date string of 20211201 we can be pretty sure
+      // that it should be parsed as (eg) US (12th Jan 2021), not EU (1st Dec 2021).
+      // So we refuse the (apparently successful) EU parse result.
+      case (None, formatter) => safeParsing(formatter.parseDateTime(str))
+        .filter(d => maxDate.forall(md => d.isBefore(md)))  
     }.map(_.withZone(DateTimeZone.UTC))
   }
 
