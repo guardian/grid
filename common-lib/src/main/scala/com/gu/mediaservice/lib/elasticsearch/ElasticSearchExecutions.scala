@@ -9,7 +9,7 @@ trait ElasticSearchExecutions extends GridLogging {
 
   def client: ElasticClient
 
-  def executeAndLog[T, U](request: T, message: String)(implicit
+  def executeAndLog[T, U](request: T, message: String, notFoundSuccessful: Boolean = false)(implicit
                                                        functor: Functor[Future],
                                                        executor: Executor[Future],
                                                        handler: Handler[T, U],
@@ -24,6 +24,10 @@ trait ElasticSearchExecutions extends GridLogging {
         r.isSuccess match {
           case true => Success(r)
           case false => r.status match {
+            case 404 if notFoundSuccessful => {
+                   logger.warn(s"No image found for $message.")
+                   Success(r)
+            }
             case 404 => Failure(ElasticNotFoundException)
             case _ => Failure(ElasticSearchException(r.error))
           }
@@ -55,6 +59,5 @@ trait ElasticSearchExecutions extends GridLogging {
     }
     result
   }
-
 
 }

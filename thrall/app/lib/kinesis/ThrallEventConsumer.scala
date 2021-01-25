@@ -36,6 +36,10 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> main
   def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
     val marker = updateMessage
 
@@ -86,7 +90,6 @@ class ThrallEventConsumer(es: ElasticSearch,
 }
 
 object ThrallEventConsumer extends GridLogging {
-
 
   def parseRecord(r: Array[Byte], timestamp: Instant):Option[UpdateMessage] = {
     Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
