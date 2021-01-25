@@ -445,5 +445,15 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
 
   }
 
+  it("should refuse future dates, if a 'maximum' date is provided which is before the image date") {
+    val yesterday = ImageMetadataConverter.parseRandomDate("2020-12-31").get
+    val parsedDate = ImageMetadataConverter.parseRandomDate("2021-01-01", Some(yesterday))
+    parsedDate.isDefined should be (false)
+  }
 
+  it("should accept past dates, if a 'maximum' date is provided which is after the image date") {
+    val tomorrow = ImageMetadataConverter.parseRandomDate("2021-01-01").get
+    val parsedDate = ImageMetadataConverter.parseRandomDate("2020-12-31", Some(tomorrow))
+    parsedDate.isDefined should be (true)
+  }
 }

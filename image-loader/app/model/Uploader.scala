@@ -159,7 +159,7 @@ object Uploader extends GridLogging {
       colourModel <- colourModelFuture
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
-      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata)
+      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
 
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
