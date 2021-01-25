@@ -142,7 +142,7 @@ object ImageMetadataConverter extends GridLogging {
       // that it should be parsed as (eg) US (12th Jan 2021), not EU (1st Dec 2021).
       // So we refuse the (apparently successful) EU parse result.
       case (None, formatter) => safeParsing(formatter.parseDateTime(str))
-        .filter(d => maxDate.forall(md => d.isBefore(md)))  
+        .filter(d => maxDate.forall(md => d.isBefore(md)))
     }.map(_.withZone(DateTimeZone.UTC))
   }
 
