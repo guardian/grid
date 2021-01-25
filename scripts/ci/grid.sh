@@ -54,8 +54,7 @@ buildSbt() {
   echo "##teamcity[compilationStarted compiler='sbt']"
   # We run our tests in docker to provide dependencies that
   # aren't natively available in CI
-  docker-compose -f docker-compose.tests.yml run test-container
-  sbt clean scripts/compile riffRaffUpload
+  docker-compose -f docker-compose.tests.yml run test-container && sbt clean scripts/compile riffRaffUpload
   echo "##teamcity[compilationFinished compiler='sbt']"
 }
 
