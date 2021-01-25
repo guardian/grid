@@ -4,4 +4,4 @@
 # for any changes to BBC specific logic they should have sign off too
 # (we assume that it is BBC logic if it is under a package/directory
 # called bbc)
-bbc/ @bbc/cpw-grid-development
+bbc/ @RichardLe @wainaina @ochiengolanga
