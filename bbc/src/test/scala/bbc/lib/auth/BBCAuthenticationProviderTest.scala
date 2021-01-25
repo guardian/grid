@@ -1,13 +1,13 @@
-package com.gu.mediaservice.lib.bbc.auth
+package bbc.lib.auth
 
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
-import com.typesafe.scalalogging.{Logger, StrictLogging}
+import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{FunSuite, MustMatchers}
 
 import java.time.Instant
 
 class BBCAuthenticationProviderTest extends FunSuite with MustMatchers with StrictLogging {
-  import com.gu.mediaservice.lib.bbc.auth.BBCAuthenticationProvider.validateUser
+  import bbc.lib.auth.BBCAuthenticationProvider.validateUser
 
   val user: AuthenticatedUser = AuthenticatedUser(User("Barry", "Chuckle", "barry.chuckle@bbc.co.uk", None),
     "media-service", Set("media-service"), Instant.now().plusSeconds(100).toEpochMilli, multiFactor = true)

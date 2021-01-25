@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.bbc.components
+package bbc.lib.components
 
 import com.gu.mediaservice.lib.BaseStore
 import com.gu.mediaservice.lib.config.CommonConfig
