@@ -51,7 +51,7 @@ class ThrallStreamProcessor(
 
   def createStream(): Source[(TaggedRecord, Stopwatch, Option[UpdateMessage]), NotUsed] = {
     mergedKinesisSource.map{ taggedRecord =>
-      taggedRecord -> consumer.parseRecord(taggedRecord.record.data.toArray, taggedRecord.record.approximateArrivalTimestamp)
+      taggedRecord -> ThrallEventConsumer.parseRecord(taggedRecord.record.data.toArray, taggedRecord.record.approximateArrivalTimestamp)
     }.mapAsync(1) { result =>
       val stopwatch = Stopwatch.start
       result match {
