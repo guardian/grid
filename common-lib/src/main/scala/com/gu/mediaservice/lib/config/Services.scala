@@ -11,7 +11,9 @@ case class ServiceHosts(
   usagePrefix: String,
   collectionsPrefix: String,
   leasesPrefix: String,
-  authPrefix: String
+  authPrefix: String,
+  loginURI: Option[String],
+  logoutURI: Option[String]
 )
 
 object ServiceHosts {
@@ -31,7 +33,9 @@ object ServiceHosts {
       usagePrefix = s"$rootAppName-usage.",
       collectionsPrefix = s"$rootAppName-collections.",
       leasesPrefix = s"$rootAppName-leases.",
-      authPrefix = s"$rootAppName-auth."
+      authPrefix = s"$rootAppName-auth.",
+      None,
+      None
     )
   }
 }
@@ -65,7 +69,9 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
 
   val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri)
 
-  val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
+  val loginUriTemplate = hosts.loginURI.getOrElse(s"$authBaseUri/login{?redirectUri}")
+
+  val logoutUri = hosts.logoutURI
 
   def baseUri(host: String) = s"https://$host"
 }

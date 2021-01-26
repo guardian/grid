@@ -23,7 +23,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     val indexLinks = List(
       Link("root",          config.mediaApiUri),
       Link("login",         config.services.loginUriTemplate),
-      Link("ui:logout",     s"${config.rootUri}/logout"),
+      Link("ui:logout",     config.services.logoutUri.getOrElse(s"${config.rootUri}/logout")),
       Link("session",       s"${config.rootUri}/session")
     )
     respond(indexData, indexLinks)
