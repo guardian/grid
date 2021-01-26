@@ -22,9 +22,9 @@ object IndexSettings {
     )
 
     val filters: List[TokenFilter] = List(
-// I (Justin) don't think we need to specify these, but can just refer to them by name (below)
-//      LowercaseTokenFilter,
-//      AsciiFoldingTokenFilter,
+      // I (Justin) don't think we need to specify these, but can just refer to them by name (below)
+      // LowercaseTokenFilter,
+      // AsciiFoldingTokenFilter,
       StemmerTokenFilter(name = english_possessive_stemmer, lang = "possessive_english"),
       StopTokenFilter(name = gu_stopwords, stopwords = Seq("_english_")),
       StemmerTokenFilter(name = s_stemmer, lang = "minimal_english")
