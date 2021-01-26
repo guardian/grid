@@ -58,9 +58,7 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
     stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
     stringDefault("hosts.collectionsPrefix", s"$rootAppName-collections."),
     stringDefault("hosts.leasesPrefix", s"$rootAppName-leases."),
-    stringDefault("hosts.authPrefix", s"$rootAppName-auth."),
-    stringOpt("app.loginURI"),
-    stringOpt("app.logoutURI")
+    stringDefault("hosts.authPrefix", s"$rootAppName-auth.")
   )
 
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
