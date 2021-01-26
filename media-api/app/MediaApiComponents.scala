@@ -39,12 +39,12 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
 
-  val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient)
+  val mediaApi = new MediaApi(auth, messageSender, elasticSearch, imageResponse, config, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisationProvider)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)
   val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, elasticSearch)
-  val healthcheckController = new ManagementWithPermissions(controllerComponents, mediaApi, buildInfo)
+  val healthcheckController = new ManagementWithPermissions(controllerComponents, authorisationProvider, buildInfo)
 
   override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, elasticSearchHealthCheck, healthcheckController)
 }

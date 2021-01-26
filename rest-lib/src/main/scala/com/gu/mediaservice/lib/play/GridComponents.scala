@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.provider.{MachineAuthenticationProvider, AuthenticationProviderResources, AuthenticationProviders, UserAuthenticationProvider}
-import com.gu.mediaservice.lib.config.{ApiAuthenticationProviderLoader, CommonConfig, GridConfigResources, UserAuthenticationProviderLoader}
+import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviderResources, AuthenticationProviders, AuthorisationProvider, AuthorisationProviderResources, MachineAuthenticationProvider, UserAuthenticationProvider}
+import com.gu.mediaservice.lib.config.{ApiAuthenticationProviderLoader, AuthorisationProviderLoader, CommonConfig, GridConfigResources, UserAuthenticationProviderLoader}
 import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
@@ -43,12 +43,17 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)
+
+  private val authorisationProviderResources = AuthorisationProviderResources(commonConfig = config, wsClient = wsClient)
+  val authorisationProvider: AuthorisationProvider = config.configuration.get[AuthorisationProvider]("authorisation.provider")(AuthorisationProviderLoader.singletonConfigLoader(authorisationProviderResources))
+
   private val authProviderResources = AuthenticationProviderResources(
     commonConfig = config,
     actorSystem = actorSystem,
     wsClient = wsClient,
     controllerComponents = controllerComponents
   )
+
 
   val providers: AuthenticationProviders = AuthenticationProviders(
     userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources)),

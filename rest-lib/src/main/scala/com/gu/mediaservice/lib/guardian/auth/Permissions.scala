@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.auth
+package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.permissions.PermissionDefinition
 
