@@ -20,8 +20,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   private def makeMultiQuery(value: Value, fields: Seq[String]): MultiMatchQuery = value match {
     case Words(value) => ElasticDsl.multiMatchQuery(value).fields(fields).
       operator(Operator.AND).
-      matchType(MultiMatchQueryBuilderType.CROSS_FIELDS).
-      analyzer(IndexSettings.englishSStemmerAnalyzerName)
+      matchType(MultiMatchQueryBuilderType.CROSS_FIELDS)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case e => throw InvalidQuery(s"Cannot do multiQuery on $e")

@@ -111,7 +111,6 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
       multiMatchClause.text shouldBe "cats dogs"
       multiMatchClause.fields.map(_.field) shouldBe matchFields
       multiMatchClause.operator shouldBe Some(Operator.AND)
-      multiMatchClause.analyzer shouldBe Some("english_s_stemmer")
       multiMatchClause.`type` shouldBe Some(MultiMatchQueryBuilderType.CROSS_FIELDS)
     }
 
