@@ -373,7 +373,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
     }
 
     it("should match aliases to multiple fields") {
-      Parser.run("in:berlin") should be (List(Match(MultipleField(List("location", "city", "state", "country").map(getFieldPath)), Words("berlin"))))
+      Parser.run("in:berlin") should be (List(Match(MultipleField(List("subLocation", "city", "state", "country").map(getFieldPath)), Words("berlin"))))
     }
 
     it("should match #terms as labels") {
