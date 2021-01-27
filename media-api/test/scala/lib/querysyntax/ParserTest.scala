@@ -498,7 +498,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
 
     it("should not match unrelated file types") {
       Parser.run("fileType:catsdogs") should be (List(
-        Match(AnyField, Words("fileType:catsdogs"))
+        Match(ArbitraryField("fileType"),ArbitraryFieldSearch("catsdogs"))
       ))
     }
   }

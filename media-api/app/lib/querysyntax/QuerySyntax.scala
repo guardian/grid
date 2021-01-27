@@ -267,7 +267,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Whitespace = rule { oneOrMore(' ') }
   def Chars = rule { oneOrMore(visibleChars) }
-  def NotColon = rule { oneOrMore(charsSpaceMinusColon) }
+  def NotColon = rule { oneOrMore(charsMinusColon) }
 
   // Note: this is a somewhat arbitrarily list of common Unicode ranges that we
   // expect people to want to use (e.g. Latin1 accented characters, curly quotes, etc).
@@ -280,7 +280,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   val extraVisibleCharacters = latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
 
   val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
-  val charsSpaceMinusColon = visibleChars ++ ' ' -- ':'
+  val charsMinusColon = visibleChars -- ':'
 
 }
 
