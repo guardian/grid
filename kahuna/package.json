@@ -8,7 +8,7 @@
     "angular-messages": "1.6.10",
     "angular-ui-bootstrap": "^2.5.6",
     "angular-ui-router": "angular-ui/ui-router#0.4.3",
-    "angular-xeditable": "^0.8.1",
+    "angular-xeditable": "^0.10.2",
     "any-http-angular": "^0.1.0",
     "any-promise-angular": "^0.1.1",
     "cropperjs": "^0.7.0",
