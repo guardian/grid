@@ -135,7 +135,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "publication" => MultipleField(List("publicationName", "publicationCode"))
     case "section" => MultipleField(List("sectionId","sectionCode"))
     case "reference" => MultipleField(List("references.uri", "references.name").map(usagesField))
-    case "in" => MultipleField(List("location", "city", "state", "country").map(getFieldPath))
+    case "in" => MultipleField(List("subLocation", "city", "state", "country").map(getFieldPath))
     case field => SingleField(getFieldPath(field))
   }
 
