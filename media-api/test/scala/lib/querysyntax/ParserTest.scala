@@ -345,7 +345,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
       // TODO: or better, return parse error to client?
       it("should ignore an invalid date argument") {
         Parser.run("date:NAZGUL") should be (List(
-          Match(AnyField, Words("date:NAZGUL"))
+          Match(ArbitraryField("date"),ArbitraryFieldSearch("NAZGUL"))
         ))
       }
 
