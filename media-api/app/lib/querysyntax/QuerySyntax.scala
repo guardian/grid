@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import org.joda.time.DateTime
 import org.parboiled2._
+import shapeless.HNil
 
 case class InvalidQuery(message: String) extends Exception(message)
 
@@ -35,6 +36,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     DateConstraintMatch |
     DateRangeMatch ~> Match | AtMatch |
     FileTypeMatch ~> Match |
+    SearchArbitraryFieldMatch ~> Match |
     AnyMatch
   }
 
@@ -42,6 +44,16 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def HasMatchField = rule { capture(HasFieldName) ~> (_ => HasField) }
   def HasFieldName = rule { "has" }
   def HasMatchValue = rule { String ~> HasValue }
+
+  //}
+  def SearchArbitraryFieldMatch =  rule { 2.times(QuotedString | StringWithoutColon).separatedBy(":") ~ EOI ~> (
+    (terms: Seq[String]) => {
+      val field = terms(0)
+      val value = terms(1)
+      ArbitraryField(field) :: ArbitraryFieldSearch(value) :: HNil
+      }
+  )}
+
 
   def IsMatch = rule { IsMatchField ~ ':' ~ IsMatchValue }
   def IsMatchField = rule { capture(IsFieldName) ~> (_ => IsField) }
@@ -148,6 +160,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def String = rule { capture(Chars) }
 
+  def StringWithoutColon = rule { capture(NotColon) }
+
   def DateMatch = rule {
     MatchDateField ~ ':' ~ MatchDateValue ~> ((field, date) => Match(field, Date(date)))
   }
@@ -253,7 +267,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Whitespace = rule { oneOrMore(' ') }
   def Chars = rule { oneOrMore(visibleChars) }
-
+  def NotColon = rule { oneOrMore(charsSpaceMinusColon) }
 
   // Note: this is a somewhat arbitrarily list of common Unicode ranges that we
   // expect people to want to use (e.g. Latin1 accented characters, curly quotes, etc).
@@ -266,6 +280,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   val extraVisibleCharacters = latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
 
   val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
+  val charsSpaceMinusColon = visibleChars ++ ' ' -- ':'
 
 }
 
