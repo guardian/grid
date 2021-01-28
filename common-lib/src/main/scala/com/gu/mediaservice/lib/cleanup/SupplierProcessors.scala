@@ -77,19 +77,24 @@ object AlamyParser extends ImageProcessor {
 object AllStarParser extends ImageProcessor {
   val SlashAllstar = """(.+)/Allstar""".r
   val AllstarSlash = """Allstar/(.+)""".r
+  val AllstarMiddle = """(.+)/Allstar/(.+)""".r
+  val AllstarSuffix = "/Allstar"
+  val Slash = "/"
 
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Allstar Picture Library") => withAllstarRights(image)(None)
     case Some("Allstar")                 => withAllstarRights(image)(None)
     case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
     case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
+    case Some(AllstarMiddle(prefix, suffix)) => withAllstarRights(image)(None)
     case _ => image
   }
 
   def withAllstarRights(image: Image) =
     (asAllstarAgency(image, _: Option[String])) andThen
       stripAllstarFromByline andThen
-      stripDuplicateByline
+      stripDuplicateByline andThen
+      makeAllStarCreditSuffix
 
   def asAllstarAgency(image: Image, suppliersCollection: Option[String]) = image.copy(
     usageRights = Agency("Allstar Picture Library", suppliersCollection)
@@ -103,6 +108,14 @@ object AllStarParser extends ImageProcessor {
     case SlashAllstar(name) => name
     case _ => byline
   }
+
+  def makeAllStarCreditSuffix(image: Image): Image = image.copy(
+    metadata = image.metadata.copy(credit = image.metadata.credit.map(credit => credit match {
+      case AllstarSlash(suffix) => suffix.concat(AllstarSuffix)
+      case AllstarMiddle(prefix, suffix) => suffix.concat(Slash.concat(prefix.concat(AllstarSuffix)))
+      case _ => credit
+    }))
+  )
 
   // If suppliersCollection same as byline, remove byline but its byline casing for suppliersCollection and credit,
   // as they otherwise tend to be in ugly uppercase
