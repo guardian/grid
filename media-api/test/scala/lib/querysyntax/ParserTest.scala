@@ -502,4 +502,30 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
       ))
     }
   }
+
+  describe("quoted field search") {
+    it("should match a quoted field search") {
+      Parser.run("\"fieldDogs\":cats") should be (List(
+        Match(SingleField("fieldDogs"), Words("cats"))
+      ))
+    }
+
+    it("should match a quoted field search with  colons") {
+      Parser.run("\"fieldDogs:dinosaur:lemur\":cats") should be (List(
+        Match(SingleField("fieldDogs:dinosaur:lemur"), Words("cats"))
+      ))
+    }
+
+    it("should match a quoted field search colons, and a search term with quotes and colons") {
+      Parser.run("\"fieldDogs\":\"cats:are:fun\"") should be (List(
+        Match(SingleField("fieldDogs"), Phrase("cats:are:fun"))
+      ))
+    }
+
+    it("should match a quoted field search with colons and spaces") {
+      Parser.run("\"fieldDogs : dinosaur : lemur\":cats") should be (List(
+        Match(SingleField("fieldDogs : dinosaur : lemur"), Words("cats"))
+      ))
+    }
+  }
 }

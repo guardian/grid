@@ -92,7 +92,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def ParentField = rule { capture(AllowedParentFieldName)  ~> resolveNamedField _ }
   def NestedField = rule { capture(AllowedNestedFieldName) ~> resolveNamedField _ }
-  def MatchField = rule { (capture(AllowedFieldName) | StringWithoutColon | QuotedString) ~> resolveNamedField _ }
+  def MatchField = rule { (capture(AllowedFieldName) | QuotedString | StringWithoutColon) ~> resolveNamedField _ }
 
   def AllowedParentFieldName = rule { "usages" }
   def AllowedNestedFieldName = rule {
