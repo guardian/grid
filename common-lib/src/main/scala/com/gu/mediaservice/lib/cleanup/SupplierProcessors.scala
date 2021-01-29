@@ -77,17 +77,19 @@ object AlamyParser extends ImageProcessor {
 object AllStarParser extends ImageProcessor {
   val SlashAllstar = """(.+)/Allstar""".r
   val AllstarSlash = """Allstar/(.+)""".r
-  val AllstarMiddle = """(.+)/Allstar/(.+)""".r
-  val AllstarSuffix = "/Allstar"
+  val AllstarMiddle = """(.+)/Allstar(/.+)""".r
+  val Allstar = "Allstar"
   val Slash = "/"
 
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Allstar Picture Library") => withAllstarRights(image)(None)
-    case Some("Allstar")                 => withAllstarRights(image)(None)
-    case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
-    case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
-    case Some(AllstarMiddle(prefix, suffix)) => withAllstarRights(image)(None)
-    case _ => image
+  def apply(image: Image): Image = moveAllstarFromBylineToCredit(moveAllstarCredit(image))
+
+  def moveAllstarCredit(image: Image) = image.metadata.credit match {
+      case Some("Allstar Picture Library") => withAllstarRights(image)(None)
+      case Some("Allstar")                 => withAllstarRights(image)(None) // TODO: change to use variable?
+      case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
+      case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
+      case Some(AllstarMiddle(prefix, suffix)) => withAllstarRights(image)(Some(prefix + suffix))
+      case _ => image
   }
 
   def withAllstarRights(image: Image) =
@@ -109,10 +111,26 @@ object AllStarParser extends ImageProcessor {
     case _ => byline
   }
 
+  def moveAllstarFromBylineToCredit(image: Image) = { println(image.metadata.byline); image.metadata.byline match {
+    case Some(s) if s == Allstar => {
+      println("here!");
+      image.copy(
+        metadata = image.metadata.copy(
+          byline = None,
+          credit = image.metadata.credit match {
+            case None => Some(Allstar)
+            case Some(s) => Some(s + Slash + Allstar)
+          }
+        )
+      )
+    }
+    case _ => image
+  } }
+
   def makeAllStarCreditSuffix(image: Image): Image = image.copy(
     metadata = image.metadata.copy(credit = image.metadata.credit.map(credit => credit match {
-      case AllstarSlash(suffix) => suffix.concat(AllstarSuffix)
-      case AllstarMiddle(prefix, suffix) => suffix.concat(Slash.concat(prefix.concat(AllstarSuffix)))
+      case AllstarSlash(suffix) => suffix.concat(Slash.concat(Allstar))
+      case AllstarMiddle(prefix, suffix) => suffix.concat(Slash.concat(prefix.concat(Slash.concat(Allstar))))
       case _ => credit
     }))
   )

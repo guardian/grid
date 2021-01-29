@@ -116,18 +116,18 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.credit should be(Some("Sportsphoto Ltd./Allstar"))
     }
 
-    it("should match 'Allstar/UNIVERSAL' credit") {
+    it("should remove a prefix of 'Allstar' from a credit and append it to the end of the credit") {
       val image = createImageFromMetadata("credit" -> "Allstar/UNIVERSAL")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be (Agency("Allstar Picture Library", Some("UNIVERSAL")))
-      processedImage.metadata.credit should be(Some("Allstar/UNIVERSAL"))
+      processedImage.metadata.credit should be(Some("UNIVERSAL/Allstar"))
     }
 
     it("should strip redundant byline but use it as canonical casing for credit") {
       val image = createImageFromMetadata("credit" -> "Allstar/UNIVERSAL PICTURES", "byline" -> "Universal Pictures")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be (Agency("Allstar Picture Library", Some("Universal Pictures")))
-      processedImage.metadata.credit should be(Some("Allstar/Universal Pictures"))
+      processedImage.metadata.credit should be(Some("Universal Pictures/Allstar"))
       processedImage.metadata.byline should be(None)
     }
 
@@ -136,7 +136,15 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       val processedImage = applyProcessors(image)
       processedImage.metadata.byline should be(Some("David Gadd"))
     }
+
+    it ("should strip out 'Allstar' from byline and append it to the credit") {
+      val image = createImageFromMetadata("credit" -> "THE RANK ORGANISATION/Sportsphoto Ltd.", "byline" -> "Allstar")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be (Some("THE RANK ORGANISATION/Sportsphoto Ltd./Allstar"))
+      processedImage.metadata.byline should be (None)
+    }
   }
+
 
 
   describe("AP") {
