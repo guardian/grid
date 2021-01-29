@@ -92,7 +92,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def ParentField = rule { capture(AllowedParentFieldName)  ~> resolveNamedField _ }
   def NestedField = rule { capture(AllowedNestedFieldName) ~> resolveNamedField _ }
-  def MatchField = rule { (capture(AllowedFieldName) | QuotedString | StringWithoutColon) ~> resolveNamedField _ }
+  def MatchField = rule { (capture(AllowedFieldName) | QuotedString | String) ~> resolveNamedField _ }
 
   def AllowedParentFieldName = rule { "usages" }
   def AllowedNestedFieldName = rule {
@@ -147,8 +147,6 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
 
   def String = rule { capture(Chars) }
-
-  def StringWithoutColon = rule { capture(NotColon) }
 
   def DateMatch = rule {
     MatchDateField ~ ':' ~ MatchDateValue ~> ((field, date) => Match(field, Date(date)))
@@ -255,7 +253,6 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Whitespace = rule { oneOrMore(' ') }
   def Chars = rule { oneOrMore(visibleChars) }
-  def NotColon = rule { oneOrMore(charsMinusColon) }
 
   // Note: this is a somewhat arbitrarily list of common Unicode ranges that we
   // expect people to want to use (e.g. Latin1 accented characters, curly quotes, etc).
@@ -268,7 +265,6 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   val extraVisibleCharacters = latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
 
   val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
-  val charsMinusColon = visibleChars -- ':'
 
 }
 
