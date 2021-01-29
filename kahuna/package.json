@@ -14,7 +14,7 @@
     "cropperjs": "^0.7.0",
     "immutable": "^3.7.5",
     "javascript-detect-element-resize": "^0.5.3",
-    "jszip": "2.6.0",
+    "jszip": "2.6.1",
     "moment": "^2.29.1",
     "p-queue": "^6.6.2",
     "panda-session": "0.1.6",
