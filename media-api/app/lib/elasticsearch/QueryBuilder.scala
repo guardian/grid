@@ -45,10 +45,6 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       case HasValue(value) => boolQuery().filter(existsQuery(getFieldPath(value)))
       case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
     }
-    case ArbitraryField(field) => condition.value match {
-      case ArbitraryFieldSearch(value) => matchQuery(getFieldPath(field), value).operator(Operator.AND)
-      case _ => throw InvalidQuery(s"Cannot perform arbitrary search on ${condition.value}")
-    }
     case IsField => condition.value match {
       case IsValue(value) => IsQueryFilter.apply(value, overQuotaAgencies) match {
         case Some(isQuery) => isQuery.query
