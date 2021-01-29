@@ -25,6 +25,8 @@ export var lazyTable = angular.module('gu.lazyTable', [
     'util.seq'
 ]);
 
+// Set in ElasticSearchModel.scala
+const maxSize = 200;
 
 
 function asInt(string) {
@@ -97,6 +99,13 @@ lazyTable.controller('GuLazyTableCtrl', ['range', function(range) {
             filter(({$start, $end}) => $start !== -1 && $end !== -1).
             // Ignore if $start after $end (incomplete combine$ state)
             filter(({$start, $end}) => $start <= $end).
+            // Max query size
+            map(({$start, $end})=> {
+              if (($end - $start) < maxSize) {
+                return {$start, $end};
+              }
+              return {$start, $end: $start + maxSize - 1};
+            }).
             distinctUntilChanged(({$start, $end}) => `${$start}-${$end}`);
 
         // Placeholders

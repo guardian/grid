@@ -189,6 +189,8 @@ object SearchParams {
 
   type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
   type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
+
+  // Also adjust in gu-lazy-table.js
   val maxSize = 200
 
   def validate(searchParams: SearchParams): SearchParamValidations = {
