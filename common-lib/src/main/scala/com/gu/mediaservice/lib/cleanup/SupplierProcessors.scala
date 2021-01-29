@@ -78,6 +78,7 @@ object AllStarParser extends ImageProcessor {
   val SlashAllstar = """(.+)/Allstar""".r
   val AllstarSlash = """Allstar/(.+)""".r
   val AllstarMiddle = """(.+)/Allstar(/.+)""".r
+  val AllstarAnywhere = """.*Allstar.*""".r
   val Allstar = "Allstar"
   val Slash = "/"
 
@@ -113,21 +114,23 @@ object AllStarParser extends ImageProcessor {
     case _ => byline
   }
 
-  def moveAllstarFromBylineToCredit(image: Image) = { println(image.metadata.byline); image.metadata.byline match {
+  def moveAllstarFromBylineToCredit(image: Image) = image.metadata.byline match {
     case Some(s) if s == Allstar => {
-      println("here!");
       image.copy(
         metadata = image.metadata.copy(
           byline = None,
           credit = image.metadata.credit match {
             case None => Some(Allstar)
-            case Some(s) => Some(s + Slash + Allstar)
+            case Some(s) => s match {
+              case AllstarAnywhere() => Some(s)
+              case _ => Some(s + Slash + Allstar)
+            }
           }
         )
       )
     }
     case _ => image
-  } }
+  }
 
   def makeAllStarCreditSuffix(image: Image): Image = image.copy(
     metadata = image.metadata.copy(credit = image.metadata.credit.map(credit => credit match {

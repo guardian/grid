@@ -143,6 +143,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.credit should be (Some("THE RANK ORGANISATION/Sportsphoto Ltd./Allstar"))
       processedImage.metadata.byline should be (None)
     }
+
+    it ("should strip out 'Allstar' from byline and not append it to the credit if credit contains 'Allstar'") {
+      val image = createImageFromMetadata("credit" -> "THE RANK ORGANISATION/Sportsphoto Ltd./Allstar", "byline" -> "Allstar")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be (Some("THE RANK ORGANISATION/Sportsphoto Ltd./Allstar"))
+      processedImage.metadata.byline should be (None)
+    }
   }
 
 
