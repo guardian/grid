@@ -84,23 +84,25 @@ object AllStarParser extends ImageProcessor {
   def apply(image: Image): Image = moveAllstarFromBylineToCredit(moveAllstarCredit(image))
 
   def moveAllstarCredit(image: Image) = image.metadata.credit match {
-      case Some("Allstar Picture Library") => withAllstarRights(image)(None)
-      case Some("Allstar")                 => withAllstarRights(image)(None) // TODO: change to use variable?
-      case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
-      case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
-      case Some(AllstarMiddle(prefix, suffix)) => withAllstarRights(image)(Some(prefix + suffix))
-      case _ => image
+    case Some("Allstar Picture Library")     => withAllstarRights(image, None)
+    case Some("Allstar")                     => withAllstarRights(image, None) // TODO: change to use variable?
+    case Some(SlashAllstar(prefix))          => withAllstarRights(image, Some(prefix))
+    case Some(AllstarSlash(suffix))          => withAllstarRights(image, Some(suffix))
+    case Some(AllstarMiddle(prefix, suffix)) => withAllstarRights(image, Some(prefix + suffix))
+    case _ => image
   }
 
-  def withAllstarRights(image: Image) =
-    (asAllstarAgency(image, _: Option[String])) andThen
+  def withAllstarRights: ((Image, Option[String])) => Image =
+    asAllstarAgency _ andThen
       stripAllstarFromByline andThen
       stripDuplicateByline andThen
       makeAllStarCreditSuffix
 
-  def asAllstarAgency(image: Image, suppliersCollection: Option[String]) = image.copy(
-    usageRights = Agency("Allstar Picture Library", suppliersCollection)
-  )
+  def asAllstarAgency(i: (Image, Option[String])): Image = i match {
+    case (image, suppliersCollection) => image.copy(
+      usageRights = Agency("Allstar Picture Library", suppliersCollection)
+    )
+  }
 
   def stripAllstarFromByline(image: Image) = image.copy(
     metadata = image.metadata.copy(byline = image.metadata.byline.map(stripAllstarSuffix))
