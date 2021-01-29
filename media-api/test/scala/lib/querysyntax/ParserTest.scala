@@ -498,7 +498,53 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
 
     it("should not match unrelated file types") {
       Parser.run("fileType:catsdogs") should be (List(
-        Match(ArbitraryField("fileType"),ArbitraryFieldSearch("catsdogs"))
+        Match(ArbitraryField("fileType"), ArbitraryFieldSearch("catsdogs"))
+      ))
+    }
+  }
+
+  describe("arbitrary field search") {
+    it("should match an arbitrary field") {
+      Parser.run("fieldDogs:cats") should be (List(
+        Match(ArbitraryField("fieldDogs"), ArbitraryFieldSearch("cats"))
+      ))
+    }
+
+
+    it("should match an arbitrary field with quotes") {
+      Parser.run("\"fieldDogs\":cats") should be (List(
+        Match(ArbitraryField("fieldDogs"), ArbitraryFieldSearch("cats"))
+      ))
+    }
+
+    it("should match an arbitrary field with quotes and colons") {
+      Parser.run("\"fieldDogs:dinosaur:lemur\":cats") should be (List(
+        Match(ArbitraryField("fieldDogs:dinosaur:lemur"), ArbitraryFieldSearch("cats"))
+      ))
+    }
+
+    it("should match an arbitrary field with quotes ands colons, and a search term with quotes and colons") {
+      Parser.run("\"fieldDogs\":\"cats:are:fun\"") should be (List(
+        Match(ArbitraryField("fieldDogs"), ArbitraryFieldSearch("cats:are:fun"))
+      ))
+    }
+
+    it("should match an arbitrary field with quotes, colons and spaces") {
+      Parser.run("\"fieldDogs : dinosaur : lemur\":cats") should be (List(
+        Match(ArbitraryField("fieldDogs : dinosaur : lemur"), ArbitraryFieldSearch("cats"))
+      ))
+    }
+
+    it("should match multiple terms and the search and the arbitrary field search") {
+      Parser.run("dinosaur:lemur cats dogs") should be (List(
+        Match(ArbitraryField("dinosaur"), ArbitraryFieldSearch("lemur")),
+        Match(AnyField, Words("cats dogs"))
+      ))
+    }
+
+    it("should match negated arbitrary field search") {
+      Parser.run("-dinosaur:lemur") should be (List(
+        Negation(Match(ArbitraryField("dinosaur"), ArbitraryFieldSearch("lemur")))
       ))
     }
   }

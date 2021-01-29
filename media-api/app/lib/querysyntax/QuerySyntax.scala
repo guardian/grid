@@ -45,15 +45,14 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def HasFieldName = rule { "has" }
   def HasMatchValue = rule { String ~> HasValue }
 
-  //}
-  def SearchArbitraryFieldMatch =  rule { 2.times(QuotedString | StringWithoutColon).separatedBy(":") ~ EOI ~> (
+
+  def SearchArbitraryFieldMatch =  rule { 2.times(QuotedString | StringWithoutColon).separatedBy(":") ~> (
     (terms: Seq[String]) => {
       val field = terms(0)
       val value = terms(1)
       ArbitraryField(field) :: ArbitraryFieldSearch(value) :: HNil
       }
   )}
-
 
   def IsMatch = rule { IsMatchField ~ ':' ~ IsMatchValue }
   def IsMatchField = rule { capture(IsFieldName) ~> (_ => IsField) }
