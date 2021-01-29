@@ -345,7 +345,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
       // TODO: or better, return parse error to client?
       it("should ignore an invalid date argument") {
         Parser.run("date:NAZGUL") should be (List(
-          Match(SingleField("date"), Words("NAZGUL"))
+          Match(AnyField, Words("date:NAZGUL"))
         ))
       }
 
@@ -498,7 +498,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
 
     it("should not match unrelated file types") {
       Parser.run("fileType:catsdogs") should be (List(
-        Match(SingleField("fileType"), Words("catsdogs"))
+        Match(AnyField, Words("fileType:catsdogs"))
       ))
     }
   }
@@ -525,6 +525,18 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
     it("should match a quoted field search with colons and spaces") {
       Parser.run(""""fieldDogs : dinosaur : lemur":cats""") should be (List(
         Match(SingleField("fieldDogs : dinosaur : lemur"), Words("cats"))
+      ))
+    }
+
+    it("should match an unquoted field with colons with an unquoted value") {
+      Parser.run("""fieldDogs:dinosaur:cats""") should be (List(
+        Match(SingleField("fieldDogs:dinosaur"), Words("cats"))
+      ))
+    }
+
+    it("should match an unquoted field with colons with a quoted value") {
+      Parser.run("""fieldDogs:dinosaur:"cats"""") should be (List(
+        Match(SingleField("fieldDogs:dinosaur"), Words("cats"))
       ))
     }
   }
