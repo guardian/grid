@@ -92,7 +92,7 @@ object ImageMetadataConverter extends GridLogging {
       country             = readXmpHeadStringProp("photoshop:Country") orElse
                             fileMetadata.iptc.get("Country/Primary Location Name") orElse
                             readXmpHeadStringProp("Iptc4xmpCore:CountryCode") orElse
-                            fileMetadata.iptc.get("Country/Primary Location Code") orElse,
+                            fileMetadata.iptc.get("Country/Primary Location Code"),
       subjects            = extractSubjects(fileMetadata),
       peopleInImage       = extractPeople(fileMetadata)
     )
