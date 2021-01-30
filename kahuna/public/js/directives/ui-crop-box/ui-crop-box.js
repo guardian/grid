@@ -58,7 +58,7 @@ cropBox.directive('uiCropBox', [
                     responsive: false,
                     autoCropArea: 1,
                     crop: update,
-                    ready: getRatio
+                    built: getRatio
                 };
 
                 cropper = new Cropper(image, options);
