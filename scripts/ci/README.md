@@ -13,4 +13,4 @@ being built.
 
 Deploys are performed with Riff Raff. Look for projects prefixed with `media-service::grid::`. 
 
-Continuous deployment is **on** for `master` in `TEST`.
+Continuous deployment is **on** for `main` in `TEST`.
