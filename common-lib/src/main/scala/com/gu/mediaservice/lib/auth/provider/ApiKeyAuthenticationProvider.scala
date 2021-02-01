@@ -9,9 +9,21 @@ import play.api.mvc.RequestHeader
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object ApiKeyAuthenticationProvider {
-  val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
-  val apiKeyHeaderName = "X-Gu-Media-Key"
+object ApiKeyAuthenticationProvider extends StrictLogging{
+  val ApiKeyHeader: TypedKey[(String, String)] =try {
+    TypedKey[(String, String)]("ApiKeyHeader")
+  } catch {
+    case e: Throwable =>
+      logger.error("Exception whilst initialising typed key object", e)
+      throw e
+  }
+  val apiKeyHeaderName: String = try {
+    "X-Gu-Media-Key"
+  } catch {
+    case e: Throwable =>
+      logger.error("Exception whilst initialising typed key object", e)
+      throw e
+  }
 }
 
 class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging {
