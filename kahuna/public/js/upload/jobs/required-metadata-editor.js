@@ -50,27 +50,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
         editsService.
             update(ctrl.resource, cleanMetadata, ctrl.image).
-          then(resource => {
-            let data = {};
-            Object.keys(resource.data).forEach(key => {
-              if (Array.isArray(resource.data[key])) {
-                const sent = cleanMetadata[key];
-                const received = resource.data[key];
-                //Response from server for Arrays in metadata potentially differently sorted.
-                const differs = sent.length !== received.length || sent.some((val) =>
-                !received.includes(val)
-                );
-
-                console.log(sent,received, differs)
-                data[key] = differs ? received : sent;
-
-                return;
-              }
-              data[key] = resource[key];
-            });
-
-            ctrl.resource = { ...resource, data };
-            console.log(ctrl.resource);
+            then(resource => {
+              ctrl.resource = resource;
             }).
             finally(() => ctrl.saving = false);
     };
