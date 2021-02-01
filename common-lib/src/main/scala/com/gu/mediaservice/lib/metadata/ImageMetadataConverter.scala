@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.metadata
 
+import com.gu.mediaservice.lib.cleanup.CountryCode
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format._
@@ -34,6 +35,7 @@ object ImageMetadataConverter extends GridLogging {
   }
 
 
+
   private def extractPeople(fileMetadata: FileMetadata): Set[String] = {
     val xmpIptcPeople = extractXMPArrayStrings("Iptc4xmpExt:PersonInImage", fileMetadata)
     val xmpGettyPeople = extractXMPArrayStrings("GettyImagesGIFT:Personality", fileMetadata)
@@ -42,7 +44,7 @@ object ImageMetadataConverter extends GridLogging {
 
   def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None): ImageMetadata = {
     val xmp = fileMetadata.xmp
-    val readXmpHeadStringProp: String => Option[String] = (name: String) => {
+    val readXmpHeadStringProp: (String) => Option[String] = (name: String) => {
       val res = xmp.get(name) match {
         case Some(JsString(value)) => Some(value.toString)
         case Some(JsArray(value)) =>
@@ -52,6 +54,16 @@ object ImageMetadataConverter extends GridLogging {
       res
     }
 
+    val country: Option[String] = {
+      val maybeCountries = List(
+        readXmpHeadStringProp("photoshop:Country"),
+        fileMetadata.iptc.get("Country/Primary Location Name"),
+        readXmpHeadStringProp("Iptc4xmpCore:CountryCode"),
+        fileMetadata.iptc.get("Country/Primary Location Code")
+      )
+      val foundCountry = maybeCountries.flatten.flatMap(CountryCode.getCountryName).headOption
+      foundCountry.orElse(maybeCountries.headOption)
+    }
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
@@ -89,10 +101,7 @@ object ImageMetadataConverter extends GridLogging {
                             fileMetadata.iptc.get("City"),
       state               = readXmpHeadStringProp("photoshop:State") orElse
                             fileMetadata.iptc.get("Province/State"),
-      country             = readXmpHeadStringProp("photoshop:Country") orElse
-                            fileMetadata.iptc.get("Country/Primary Location Name") orElse
-                            readXmpHeadStringProp("Iptc4xmpCore:CountryCode") orElse
-                            fileMetadata.iptc.get("Country/Primary Location Code"),
+      country             = country,
       subjects            = extractSubjects(fileMetadata),
       peopleInImage       = extractPeople(fileMetadata)
     )

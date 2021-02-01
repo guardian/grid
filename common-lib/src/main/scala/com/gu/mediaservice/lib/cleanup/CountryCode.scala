@@ -8,37 +8,46 @@ import com.gu.mediaservice.model.ImageMetadata
 /**
   * Cleaner that maps 2/3 letter country codes onto country names
   */
-object CountryCode extends MetadataCleaner with GridLogging {
+object CountryCode extends GridLogging {
 
+  case class CountryWithCodes(twoCode: String, threeCode: String, displayName: String)
   val TwoLetterCode   = """([A-Z]{2})""".r
   val ThreeLetterCode = """([A-Z]{3})""".r
 
   val allLocales = Locale.getISOCountries.map(new Locale("", _))
 
-  def mapTwoLetterCode(code: String): String = {
-    new Locale("", canonicalTwoLetterCode(code)).getDisplayName
+  val codes = Locale.getISOCountries.map(twoCode => {
+    val locale = new Locale("",twoCode)
+    CountryWithCodes(twoCode, locale.getISO3Country, locale.getDisplayName)
+  }).toList
+
+  val twoCodes = codes.map(c => c.twoCode -> c.displayName).toMap ++ Map("UK"->"United Kingdom", "GB" -> "United Kingdom")
+  val threeCodes = codes.map(c => c.threeCode -> c.displayName).toMap
+
+  def mapTwoLetterCode(code: String): Option[String] = {
+     twoCodes.get(code) match {
+       case None => {      logger.warn(s"Failed to map two-letter code to country name: $code")
+None
+      }
+      case Some(string) => Some(string)
+     }
+
   }
 
-  def mapThreeLetterCode(code: String): String = {
-    // Rather inefficient O(n) lookup, seemingly no built-in lookup for ISO3 codes
-    val matchingLocale = allLocales.find(_.getISO3Country == code)
-    matchingLocale.map(_.getDisplayName) getOrElse {
-      logger.warn(s"Failed to map three-letter code to country name: $code")
-      code
+  def mapThreeLetterCode(code: String): Option[String] = {
+    threeCodes.get(code) match {
+      case None => {
+        logger.warn(s"Failed to map three-letter code to country name: $code")
+        None
+      }
+      case Some(country) => Some(country)
     }
   }
 
-  def canonicalTwoLetterCode(code: String): String = code match {
-    // Map erroneous "UK" code to its correct equivalent
-    case "UK" => "GB"
-    case c    => c
-  }
-
-  override def clean(metadata: ImageMetadata): ImageMetadata = metadata.country match {
-    case Some(TwoLetterCode(code))   => metadata.copy(country = Some(mapTwoLetterCode(code)))
-    case Some(ThreeLetterCode(code)) => metadata.copy(country = Some(mapThreeLetterCode(code)))
+  def getCountryName(countryOrCode: String): Option[String] = countryOrCode match {
+    case TwoLetterCode(countryOrCode)   => mapTwoLetterCode(countryOrCode)
+    case ThreeLetterCode(countryOrCode) => mapThreeLetterCode(countryOrCode)
     // No country or not a code, just pass through
-    case Some(country) => metadata
-    case None          => metadata
+    case _ => None
   }
 }
