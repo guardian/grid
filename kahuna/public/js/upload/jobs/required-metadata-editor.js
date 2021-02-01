@@ -22,7 +22,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
-    ctrl.saveOnTime = 750; // ms
+    ctrl.saveOnTime = 1500; // ms
     // We do this check to ensure the copyright and peopleInImage fields don't disappear
     // if we set them to "".
     ctrl.copyrightWasInitiallyThere = !!ctrl.originalMetadata.copyright;
@@ -33,16 +33,44 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
         // If there has been a change in the metadata, save it as an override
         var cleanMetadata = {};
-        Object.keys(ctrl.metadata).forEach(key => {
-            if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
-                cleanMetadata[key] = ctrl.metadata[key] || '';
+        Object.keys(ctrl.metadata).forEach((key) => {
+          if (ctrl.metadata[key] !== ctrl.saveWhenChangedFrom[key]) {
+            if (key === "peopleInImage" || key === "keywords") {
+              cleanMetadata[key] = ctrl.metadata[key]
+                .toString()
+                .split(",")
+                .map((s) => s.trim())
+                .filter((s) => s !== "");
+              console.log("HELLLOO");
+            } else {
+              cleanMetadata[key] = ctrl.metadata[key] || "";
             }
+          }
         });
 
         editsService.
             update(ctrl.resource, cleanMetadata, ctrl.image).
-            then(resource => {
-                ctrl.resource = resource;
+          then(resource => {
+            let data = {};
+            Object.keys(resource.data).forEach(key => {
+              if (Array.isArray(resource.data[key])) {
+                const sent = cleanMetadata[key];
+                const received = resource.data[key];
+                //Response from server for Arrays in metadata potentially differently sorted.
+                const differs = sent.length !== received.length || sent.some((val) =>
+                !received.includes(val)
+                );
+
+                console.log(sent,received, differs)
+                data[key] = differs ? received : sent;
+
+                return;
+              }
+              data[key] = resource[key];
+            });
+
+            ctrl.resource = { ...resource, data };
+            console.log(ctrl.resource);
             }).
             finally(() => ctrl.saving = false);
     };
