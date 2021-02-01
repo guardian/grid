@@ -9,14 +9,16 @@ import play.api.libs.json.Json
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-class BBCUsageRightsStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, BBCUsageRightsConfig](bucket, config)(ec) {
+class BBCUsageRightsStore(bucket: String, config: CommonConfig)(implicit
+    ec: ExecutionContext
+) extends BaseStore[String, BBCUsageRightsConfig](bucket, config)(ec) {
 
   val usageRightsMapKey = "usageRights"
   val usageRightsStoreKey = "usage_rights.json"
 
   def apply() = fetchAll match {
-    case Some(_) => Logger.info("Usage Rights config read in from config bucket")
+    case Some(_) =>
+      Logger.info("Usage Rights config read in from config bucket")
     case None => throw FailedToLoadUsageRightsConfigJson
   }
 
@@ -24,7 +26,10 @@ class BBCUsageRightsStore(bucket: String, config: CommonConfig)(implicit ec: Exe
     lastUpdated.send(_ => DateTime.now())
     fetchAll match {
       case Some(config) => store.send(_ => config)
-      case None => Logger.warn("Could not parse usage rights config JSON into UsageRightsConfig class")
+      case None =>
+        Logger.warn(
+          "Could not parse usage rights config JSON into UsageRightsConfig class"
+        )
     }
   }
 
@@ -32,7 +37,8 @@ class BBCUsageRightsStore(bucket: String, config: CommonConfig)(implicit ec: Exe
     getS3Object(usageRightsStoreKey) match {
       case Some(fileContents) => {
         Try(Json.parse(fileContents).as[BBCUsageRightsConfig]) match {
-          case Success(usageRightsConfigClass) => Some(Map(usageRightsMapKey -> usageRightsConfigClass))
+          case Success(usageRightsConfigClass) =>
+            Some(Map(usageRightsMapKey -> usageRightsConfigClass))
           case Failure(e) => None
         }
       }
@@ -45,14 +51,20 @@ class BBCUsageRightsStore(bucket: String, config: CommonConfig)(implicit ec: Exe
 }
 
 object UsageRightsStore {
-  def apply(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext): BBCUsageRightsStore = {
+  def apply(bucket: String, config: CommonConfig)(implicit
+      ec: ExecutionContext
+  ): BBCUsageRightsStore = {
     val store = new BBCUsageRightsStore(bucket, config)(ec)
     store.fetchAll match {
-      case Some(_) => Logger.info("Usage rights config read in from config bucket")
+      case Some(_) =>
+        Logger.info("Usage rights config read in from config bucket")
       case None => throw FailedToLoadMetadataConfigJson
     }
     store
   }
 }
 
-case object FailedToLoadUsageRightsConfigJson extends Exception("Failed to load UsageRightsConfig from S3 config bucket on start up")
+case object FailedToLoadUsageRightsConfigJson
+    extends Exception(
+      "Failed to load UsageRightsConfig from S3 config bucket on start up"
+    )

@@ -8,13 +8,13 @@ class PropertyTest extends FunSpec with Matchers {
     val property = Property("foo", None, None)
     val actual = Json.stringify(Json.toJson(property))
     val expected = """{"propertyCode":"foo"}"""
-    actual should be (expected)
+    actual should be(expected)
   }
 
   it("should write optional fields that have a value") {
     val property = Property("foo", None, Some("bar"))
     val actual = Json.stringify(Json.toJson(property))
     val expected = """{"propertyCode":"foo","value":"bar"}"""
-    actual should be (expected)
+    actual should be(expected)
   }
 }

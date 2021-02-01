@@ -3,17 +3,30 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.model.Image._
-import com.gu.mediaservice.{FullImageProjectionFailed, FullImageProjectionSuccess, ImageDataMerger, ImageDataMergerConfig}
+import com.gu.mediaservice.{
+  FullImageProjectionFailed,
+  FullImageProjectionSuccess,
+  ImageDataMerger,
+  ImageDataMergerConfig
+}
 import lib.AdminToolsConfig
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+class AdminToolsCtr(
+    config: AdminToolsConfig,
+    override val controllerComponents: ControllerComponents
+)(implicit val ec: ExecutionContext)
+    extends BaseController
+    with ArgoHelpers {
 
-  private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot, imageLoaderEndpointOpt = None)
+  private val cfg = ImageDataMergerConfig(
+    apiKey = config.apiKey,
+    domainRoot = config.domainRoot,
+    imageLoaderEndpointOpt = None
+  )
 
   private val merger = new ImageDataMerger(cfg)
 
@@ -39,13 +52,23 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
           case Some(img) =>
             Ok(Json.toJson(img)).as(ArgoMediaType)
           case _ =>
-            respondError(NotFound, "not-found", s"image with mediaId: $mediaId not found")
+            respondError(
+              NotFound,
+              "not-found",
+              s"image with mediaId: $mediaId not found"
+            )
         }
       case FullImageProjectionFailed(expMessage, downstreamMessage) =>
-        respondError(InternalServerError, "image-projection-failed", Json.obj(
-          "errorMessage" -> expMessage,
-          "downstreamErrorMessage" -> downstreamMessage
-        ).toString)
+        respondError(
+          InternalServerError,
+          "image-projection-failed",
+          Json
+            .obj(
+              "errorMessage" -> expMessage,
+              "downstreamErrorMessage" -> downstreamMessage
+            )
+            .toString
+        )
     }
   }
 }

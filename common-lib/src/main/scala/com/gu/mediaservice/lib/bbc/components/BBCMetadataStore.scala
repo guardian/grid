@@ -9,31 +9,37 @@ import play.api.libs.json.Json
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
-class BBCMetadataStore(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends BaseStore[String, BBCMetadataConfig](bucket, config)(ec) {
+class BBCMetadataStore(bucket: String, config: CommonConfig)(implicit
+    ec: ExecutionContext
+) extends BaseStore[String, BBCMetadataConfig](bucket, config)(ec) {
 
   val metadataMapKey = "metadataConfig"
   val metadataStoreKey = "photographers.json"
 
   def apply() = fetchAll match {
     case Some(_) => Logger.info("Metadata config read in from config bucket")
-    case None => throw FailedToLoadMetadataConfigJson
+    case None    => throw FailedToLoadMetadataConfigJson
   }
 
   def update() {
     lastUpdated.send(_ => DateTime.now())
     fetchAll match {
       case Some(config) => store.send(_ => config)
-      case None => Logger.warn("Could not parse metadata config JSON into MetadataConfig class")
+      case None =>
+        Logger.warn(
+          "Could not parse metadata config JSON into MetadataConfig class"
+        )
     }
   }
 
   private def fetchAll: Option[Map[String, BBCMetadataConfig]] = {
     getS3Object(metadataStoreKey) match {
-      case Some(fileContents) => Try(Json.parse(fileContents).as[BBCMetadataConfig]) match {
-        case Success(metadataConfigClass) => Some(Map(metadataMapKey -> metadataConfigClass))
-        case Failure(_) => None
-      }
+      case Some(fileContents) =>
+        Try(Json.parse(fileContents).as[BBCMetadataConfig]) match {
+          case Success(metadataConfigClass) =>
+            Some(Map(metadataMapKey -> metadataConfigClass))
+          case Failure(_) => None
+        }
       case None => None
     }
   }
@@ -42,14 +48,19 @@ class BBCMetadataStore(bucket: String, config: CommonConfig)(implicit ec: Execut
 }
 
 object BBCMetadataStore {
-  def apply(bucket: String, config: CommonConfig)(implicit ec: ExecutionContext): BBCMetadataStore = {
+  def apply(bucket: String, config: CommonConfig)(implicit
+      ec: ExecutionContext
+  ): BBCMetadataStore = {
     val store = new BBCMetadataStore(bucket, config)(ec)
     store.fetchAll match {
       case Some(_) => Logger.info("Metadata config read in from config bucket")
-      case None => throw FailedToLoadMetadataConfigJson
+      case None    => throw FailedToLoadMetadataConfigJson
     }
     store
   }
 }
 
-case object FailedToLoadMetadataConfigJson extends Exception("Failed to load metadataConfig from S3 config bucket on start up")
+case object FailedToLoadMetadataConfigJson
+    extends Exception(
+      "Failed to load metadataConfig from S3 config bucket on start up"
+    )

@@ -20,8 +20,8 @@ class ThrallMessageSender(config: KinesisSenderConfig) {
 }
 
 case class BulkIndexRequest(
-  bucket: String,
-  key: String
+    bucket: String,
+    key: String
 )
 
 object BulkIndexRequest {
@@ -30,7 +30,8 @@ object BulkIndexRequest {
 }
 
 object UpdateMessage extends GridLogging {
-  implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
+  implicit val yourJodaDateReads =
+    JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
   implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
   implicit val unw = Json.writes[UsageNotice]
   implicit val unr = Json.reads[UsageNotice]
@@ -43,13 +44,18 @@ object UpdateMessage extends GridLogging {
         (__ \ "usageNotice").readNullable[UsageNotice] ~
         (__ \ "edits").readNullable[Edits] ~
         // We seem to get messages from _somewhere which don't have last modified on them.
-        (__ \ "lastModified").readNullable[DateTime].map{ d => d match {
-          case Some(date) => date
-          case None => {
-            logger.warn("Message received without a last modified date", __.toJsonString)
-            DateTime.now(DateTimeZone.UTC)
+        (__ \ "lastModified").readNullable[DateTime].map { d =>
+          d match {
+            case Some(date) => date
+            case None => {
+              logger.warn(
+                "Message received without a last modified date",
+                __.toJsonString
+              )
+              DateTime.now(DateTimeZone.UTC)
+            }
           }
-        }} ~
+        } ~
         (__ \ "collections").readNullable[Seq[Collection]] ~
         (__ \ "leaseId").readNullable[String] ~
         (__ \ "crops").readNullable[Seq[Crop]] ~
@@ -62,23 +68,23 @@ object UpdateMessage extends GridLogging {
 
 // TODO add RequestID
 case class UpdateMessage(
-  subject: String,
-  image: Option[Image] = None,
-  id: Option[String] = None,
-  usageNotice: Option[UsageNotice] = None,
-  edits: Option[Edits] = None,
-  lastModified: DateTime = DateTime.now(DateTimeZone.UTC),
-  collections: Option[Seq[Collection]] = None,
-  leaseId: Option[String] = None,
-  crops: Option[Seq[Crop]] = None,
-  mediaLease: Option[MediaLease] = None,
-  leases: Option[Seq[MediaLease]] = None,
-  syndicationRights: Option[SyndicationRights] = None,
-  bulkIndexRequest: Option[BulkIndexRequest] = None
+    subject: String,
+    image: Option[Image] = None,
+    id: Option[String] = None,
+    usageNotice: Option[UsageNotice] = None,
+    edits: Option[Edits] = None,
+    lastModified: DateTime = DateTime.now(DateTimeZone.UTC),
+    collections: Option[Seq[Collection]] = None,
+    leaseId: Option[String] = None,
+    crops: Option[Seq[Crop]] = None,
+    mediaLease: Option[MediaLease] = None,
+    leases: Option[Seq[MediaLease]] = None,
+    syndicationRights: Option[SyndicationRights] = None,
+    bulkIndexRequest: Option[BulkIndexRequest] = None
 ) extends LogMarker {
   override def markerContents = {
     val message = Json.stringify(Json.toJson(this))
-    Map (
+    Map(
       "subject" -> subject,
       "id" -> id.getOrElse(image.map(_.id).getOrElse("none")),
       "size" -> message.getBytes.length,

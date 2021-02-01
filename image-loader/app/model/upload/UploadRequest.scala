@@ -10,17 +10,19 @@ import org.joda.time.{DateTime, DateTimeZone}
 import scala.collection.JavaConverters._
 
 case class UploadRequest(
-                          requestId: UUID,
-                          imageId: String,
-                          tempFile: File,
-                          mimeType: Option[MimeType],
-                          uploadTime: DateTime,
-                          uploadedBy: String,
-                          identifiers: Map[String, String],
-                          uploadInfo: UploadInfo
-                        ) {
+    requestId: UUID,
+    imageId: String,
+    tempFile: File,
+    mimeType: Option[MimeType],
+    uploadTime: DateTime,
+    uploadedBy: String,
+    identifiers: Map[String, String],
+    uploadInfo: UploadInfo
+) {
 
-  val identifiersMeta: Map[String, String] = identifiers.map { case (k, v) => (s"identifier!$k", v) }
+  val identifiersMeta: Map[String, String] = identifiers.map { case (k, v) =>
+    (s"identifier!$k", v)
+  }
 
   def toLogMarker: LogstashMarker = {
     val fallback = "none"
@@ -29,7 +31,9 @@ case class UploadRequest(
       "requestId" -> requestId,
       "imageId" -> imageId,
       "mimeType" -> mimeType.getOrElse(fallback),
-      "uploadTime" -> ISODateTimeFormat.dateTime.print(uploadTime.withZone(DateTimeZone.UTC)),
+      "uploadTime" -> ISODateTimeFormat.dateTime.print(
+        uploadTime.withZone(DateTimeZone.UTC)
+      ),
       "uploadedBy" -> uploadedBy,
       "filename" -> uploadInfo.filename.getOrElse(fallback),
       "filesize" -> tempFile.length

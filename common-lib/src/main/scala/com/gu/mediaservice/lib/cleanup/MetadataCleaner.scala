@@ -6,31 +6,33 @@ import com.gu.mediaservice.model.{Image, ImageMetadata}
 trait MetadataCleaner extends ImageProcessor {
   def clean(metadata: ImageMetadata): ImageMetadata
 
-  override def apply(image: Image): Image = image.copy(metadata = clean(image.metadata))
+  override def apply(image: Image): Image =
+    image.copy(metadata = clean(image.metadata))
 }
 
-class GuardianMetadataCleaners extends MetadataCleaners(MetadataConfig.allPhotographersMap)
+class GuardianMetadataCleaners
+    extends MetadataCleaners(MetadataConfig.allPhotographersMap)
 
 class MetadataCleaners(creditBylineMap: Map[String, List[String]])
-  extends ComposeImageProcessors(
-    CleanRubbishLocation,
-    StripCopyrightPrefix,
-    RedundantTokenRemover,
-    BylineCreditReorganise,
-    UseCanonicalGuardianCredit,
-    ExtractGuardianCreditFromByline,
-    AttributeCreditFromByline.fromCreditBylineMap(creditBylineMap),
-    CountryCode,
-    GuardianStyleByline,
-    CapitaliseByline,
-    InitialJoinerByline,
-    CapitaliseCountry,
-    CapitaliseState,
-    CapitaliseCity,
-    CapitaliseSubLocation,
-    DropRedundantTitle,
-    PhotographerRenamer
-  )
+    extends ComposeImageProcessors(
+      CleanRubbishLocation,
+      StripCopyrightPrefix,
+      RedundantTokenRemover,
+      BylineCreditReorganise,
+      UseCanonicalGuardianCredit,
+      ExtractGuardianCreditFromByline,
+      AttributeCreditFromByline.fromCreditBylineMap(creditBylineMap),
+      CountryCode,
+      GuardianStyleByline,
+      CapitaliseByline,
+      InitialJoinerByline,
+      CapitaliseCountry,
+      CapitaliseState,
+      CapitaliseCity,
+      CapitaliseSubLocation,
+      DropRedundantTitle,
+      PhotographerRenamer
+    )
 
 // By vague order of importance:
 

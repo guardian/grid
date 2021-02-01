@@ -9,13 +9,23 @@ import com.gu.mediaservice.model.MimeType
 
 import scala.concurrent.Future
 
-class ImageQuarantineOperations(quarantineBucket: String, config: CommonConfig, isVersionedS3: Boolean = false)
-  extends S3ImageStorage(config) {
+class ImageQuarantineOperations(
+    quarantineBucket: String,
+    config: CommonConfig,
+    isVersionedS3: Boolean = false
+) extends S3ImageStorage(config) {
 
-  def storeQuarantineImage(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
-                       (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(quarantineBucket, ImageIngestOperations.fileKeyFromId(id), file, mimeType, meta)
+  def storeQuarantineImage(
+      id: String,
+      file: File,
+      mimeType: Option[MimeType],
+      meta: Map[String, String] = Map.empty
+  )(implicit logMarker: LogMarker): Future[S3Object] =
+    storeImage(
+      quarantineBucket,
+      ImageIngestOperations.fileKeyFromId(id),
+      file,
+      mimeType,
+      meta
+    )
 }
-
-
-

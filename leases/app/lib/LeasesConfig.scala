@@ -6,7 +6,8 @@ import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import java.net.URI
 import scala.util.Try
 
-class LeasesConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
+class LeasesConfig(resources: GridConfigResources)
+    extends CommonConfig(resources.configuration) {
   val leasesTable = string("dynamo.tablename.leasesTable")
 
   val rootUri: String = services.leasesBaseUri
@@ -17,8 +18,12 @@ class LeasesConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   private val leasesUri = uri(s"$rootUri/leases")
 
-  def leaseUri(leaseId: String): Option[URI] = Try { URI.create(s"$leasesUri/$leaseId") }.toOption
-  def leasesMediaUri(mediaId: String) = Try { URI.create(s"$leasesUri/media/$mediaId") }.toOption
+  def leaseUri(leaseId: String): Option[URI] = Try {
+    URI.create(s"$leasesUri/$leaseId")
+  }.toOption
+  def leasesMediaUri(mediaId: String) = Try {
+    URI.create(s"$leasesUri/media/$mediaId")
+  }.toOption
 
   private def mediaApiUri(id: String) = s"${services.apiBaseUri}/images/$id"
   def mediaApiLink(id: String) = Link("media", mediaApiUri(id))

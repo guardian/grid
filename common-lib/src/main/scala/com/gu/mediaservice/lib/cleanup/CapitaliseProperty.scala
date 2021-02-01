@@ -7,7 +7,8 @@ import com.gu.mediaservice.model.ImageMetadata
  */
 object CapitaliseByline extends MetadataCleaner with CapitalisationFixer {
   // Note: probably not exhaustive list
-  override val joinWords = List("van", "der", "den", "dem", "von", "de", "du", "la", "et")
+  override val joinWords =
+    List("van", "der", "den", "dem", "von", "de", "du", "la", "et")
 
   def clean(metadata: ImageMetadata) =
     metadata.copy(byline = metadata.byline.map(fixNameCapitalisation))
@@ -44,8 +45,6 @@ object CapitaliseSubLocation extends MetadataCleaner with CapitalisationFixer {
     metadata.copy(subLocation = metadata.subLocation.map(fixCapitalisation))
 }
 
-
-
 trait CapitalisationFixer {
 
   def fixCapitalisation(s: String): String =
@@ -79,7 +78,6 @@ trait CapitalisationFixer {
 
   def capitaliseAround(s: String, delimiter: String): String =
     s.split(delimiter).map(_.capitalize).mkString(delimiter)
-
 
   def isAllUpperCase(s: String): Boolean = s == s.toUpperCase
   def isAllLowerCase(s: String): Boolean = s == s.toLowerCase

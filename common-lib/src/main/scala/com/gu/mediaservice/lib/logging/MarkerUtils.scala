@@ -12,25 +12,33 @@ trait LogMarker {
   def markerContents: Map[String, Any]
 
   def +(marker: (String, Any)): LogMarker = MarkerMap(markerContents + marker)
-  def ++(marker: Map[String, Any]): LogMarker = MarkerMap(markerContents ++ marker)
+  def ++(marker: Map[String, Any]): LogMarker = MarkerMap(
+    markerContents ++ marker
+  )
 }
 
 case class MarkerMap(markerContents: Map[String, Any]) extends LogMarker
 
 object MarkerMap {
-  def apply(entries: (String, Any)*):MarkerMap = MarkerMap(entries.toMap)
+  def apply(entries: (String, Any)*): MarkerMap = MarkerMap(entries.toMap)
 }
 
 trait MarkerUtils {
   val FALLBACK: String = "unknown"
-  def combineMarkers(markers: LogMarker*): LogMarker = MarkerMap(markers.flatMap(_.markerContents.toSeq).toMap)
+  def combineMarkers(markers: LogMarker*): LogMarker = MarkerMap(
+    markers.flatMap(_.markerContents.toSeq).toMap
+  )
 
-  def addLogMarkers(markers: LogMarker*)(implicit marker: LogMarker): LogMarker = combineMarkers(markers :+ marker:_*)
+  def addLogMarkers(markers: LogMarker*)(implicit
+      marker: LogMarker
+  ): LogMarker = combineMarkers(markers :+ marker: _*)
 
-  def addMarkers(markers: (String, Any)*)(implicit marker: LogMarker): LogMarker = {
+  def addMarkers(
+      markers: (String, Any)*
+  )(implicit marker: LogMarker): LogMarker = {
     combineMarkers(MarkerMap(markers.toMap), marker)
   }
 
-  implicit def fromLogMarker(logMarker: LogMarker):MarkerContext = MarkerContext(logMarker.toLogMarker)
+  implicit def fromLogMarker(logMarker: LogMarker): MarkerContext =
+    MarkerContext(logMarker.toLogMarker)
 }
-

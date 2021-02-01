@@ -2,7 +2,10 @@ package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.auth.PermissionsHandler
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchImageCounts}
+import com.gu.mediaservice.lib.elasticsearch.{
+  ElasticSearchClient,
+  ElasticSearchImageCounts
+}
 import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.json.{Format, Json}
 import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
@@ -19,7 +22,10 @@ trait HealthCheck extends BaseController {
   }
 }
 
-trait ManagementController extends HealthCheck with BaseController with ArgoHelpers {
+trait ManagementController
+    extends HealthCheck
+    with BaseController
+    with ArgoHelpers {
   def buildInfo: BuildInfo
 
   def disallowRobots = Action {
@@ -31,11 +37,18 @@ trait ManagementController extends HealthCheck with BaseController with ArgoHelp
   }
 }
 
-class Management(override val controllerComponents: ControllerComponents, override val buildInfo: BuildInfo) extends ManagementController
+class Management(
+    override val controllerComponents: ControllerComponents,
+    override val buildInfo: BuildInfo
+) extends ManagementController
 
-class ManagementWithPermissions(override val controllerComponents: ControllerComponents, permissionedController: PermissionsHandler, override val buildInfo: BuildInfo) extends ManagementController {
+class ManagementWithPermissions(
+    override val controllerComponents: ControllerComponents,
+    permissionedController: PermissionsHandler,
+    override val buildInfo: BuildInfo
+) extends ManagementController {
   override def healthCheck = Action {
-    if(permissionedController.storeIsEmpty) {
+    if (permissionedController.storeIsEmpty) {
       ServiceUnavailable("Permissions store is empty")
     } else {
       Ok("ok")
@@ -43,8 +56,12 @@ class ManagementWithPermissions(override val controllerComponents: ControllerCom
   }
 }
 
-class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext)
-  extends HealthCheck with GridLogging {
+class ElasticSearchHealthCheck(
+    override val controllerComponents: ControllerComponents,
+    elasticsearch: ElasticSearchClient
+)(implicit val ec: ExecutionContext)
+    extends HealthCheck
+    with GridLogging {
 
   override def healthCheck: Action[AnyContent] = Action.async {
     elasticHealth.map {

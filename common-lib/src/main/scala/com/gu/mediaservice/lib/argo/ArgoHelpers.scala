@@ -8,34 +8,41 @@ import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.typesafe.scalalogging.Logger
 
-
 trait ArgoHelpers extends Results with GridLogging {
 
   val ArgoMediaType = "application/vnd.argo+json"
 
   // FIXME: DSL to append links and actions?
-  def respond[T](data: T, links: List[Link] = Nil, actions: List[Action] = Nil, uri: Option[URI] = None)
-                (implicit writes: Writes[T]): Result = {
+  def respond[T](
+      data: T,
+      links: List[Link] = Nil,
+      actions: List[Action] = Nil,
+      uri: Option[URI] = None
+  )(implicit writes: Writes[T]): Result = {
     val response = EntityResponse(
-      uri     = uri,
-      data    = data,
-      links   = links,
+      uri = uri,
+      data = data,
+      links = links,
       actions = actions
     )
 
     serializeAndWrap(response, Ok)
   }
 
-  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None,
-                           links: List[Link] = Nil, uri: Option[URI] = None)
-                          (implicit writes: Writes[T]): Result = {
+  def respondCollection[T](
+      data: Seq[T],
+      offset: Option[Long] = None,
+      total: Option[Long] = None,
+      links: List[Link] = Nil,
+      uri: Option[URI] = None
+  )(implicit writes: Writes[T]): Result = {
     val response = CollectionResponse(
-      uri    = uri,
+      uri = uri,
       offset = offset,
       length = Some(data.size),
-      total  = total,
-      data   = data,
-      links  = links
+      total = total,
+      data = data,
+      links = links
     )
 
     serializeAndWrap(response, Ok)
@@ -55,13 +62,20 @@ trait ArgoHelpers extends Results with GridLogging {
 //  }
 
   // TODO: find a nicer way to serialise ErrorResponse[Nothing] without this hack
-  def respondError(errorStatus: Status, errorKey: String, errorMessage: String, links: List[Link] = Nil): Result = {
-    logger.warn(s"[$errorKey] Responding with error status ${errorStatus.header.status}, $errorMessage")
+  def respondError(
+      errorStatus: Status,
+      errorKey: String,
+      errorMessage: String,
+      links: List[Link] = Nil
+  ): Result = {
+    logger.warn(
+      s"[$errorKey] Responding with error status ${errorStatus.header.status}, $errorMessage"
+    )
     val response = ErrorResponse[Int](
-      errorKey     = errorKey,
+      errorKey = errorKey,
       errorMessage = errorMessage,
-      data         = None,
-      links        = links
+      data = None,
+      links = links
     )
 
     serializeAndWrap(response, errorStatus)
@@ -69,17 +83,18 @@ trait ArgoHelpers extends Results with GridLogging {
 
   def respondNotFound(errorMessage: String): Result = {
     val response = ErrorResponse[Int](
-      errorKey     = "not-found",
+      errorKey = "not-found",
       errorMessage = errorMessage,
-      data         = None,
-      links        = Nil
+      data = None,
+      links = Nil
     )
 
     serializeAndWrap(response, Status(404))
   }
 
-
-  private def serializeAndWrap[T](response: T, status: Status)(implicit writes: Writes[T]): Result = {
+  private def serializeAndWrap[T](response: T, status: Status)(implicit
+      writes: Writes[T]
+  ): Result = {
     val json = Json.toJson(response)
     status(json).as(ArgoMediaType)
   }

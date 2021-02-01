@@ -2,7 +2,10 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease}
+import com.gu.mediaservice.model.leases.{
+  AllowSyndicationLease,
+  DenySyndicationLease
+}
 import com.gu.mediaservice.model.usage.SyndicationUsage
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
@@ -12,13 +15,15 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
 
   val isSyndicationDateFilterActive = config.isProd
 
-  private def syndicationRightsAcquired(acquired: Boolean): Query = filters.boolTerm(
-    field = "syndicationRights.rights.acquired",
-    value = acquired
-  )
+  private def syndicationRightsAcquired(acquired: Boolean): Query =
+    filters.boolTerm(
+      field = "syndicationRights.rights.acquired",
+      value = acquired
+    )
 
   private val noRightsAcquired: Query = filters.or(
-    filters.existsOrMissing("syndicationRights.rights.acquired", exists = false),
+    filters
+      .existsOrMissing("syndicationRights.rights.acquired", exists = false),
     syndicationRightsAcquired(false)
   )
 
@@ -57,24 +62,27 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
   private val syndicatableCategory: Query = IsOwnedPhotograph.query
 
   def statusFilter(status: SyndicationStatus): Query = status match {
-    case SentForSyndication => filters.and(
-      hasRightsAcquired,
-      hasAllowLease,
-      hasSyndicationUsage
-    )
-    case QueuedForSyndication => filters.and(
-      hasRightsAcquired,
-      filters.mustNot(hasSyndicationUsage),
+    case SentForSyndication =>
       filters.and(
+        hasRightsAcquired,
         hasAllowLease,
-        leaseHasStarted,
-        syndicationRightsPublished
+        hasSyndicationUsage
       )
-    )
-    case BlockedForSyndication => filters.and(
-      hasRightsAcquired,
-      hasDenyLease
-    )
+    case QueuedForSyndication =>
+      filters.and(
+        hasRightsAcquired,
+        filters.mustNot(hasSyndicationUsage),
+        filters.and(
+          hasAllowLease,
+          leaseHasStarted,
+          syndicationRightsPublished
+        )
+      )
+    case BlockedForSyndication =>
+      filters.and(
+        hasRightsAcquired,
+        hasDenyLease
+      )
     case AwaitingReviewForSyndication => {
       val rightsAcquiredNoLeaseFilter = filters.and(
         hasRightsAcquired,
@@ -89,10 +97,11 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
       )
 
       config.syndicationStartDate match {
-        case Some(date) if config.isProd => filters.and(
-          filters.date("uploadTime", Some(date), None).get,
-          rightsAcquiredNoLeaseFilter
-        )
+        case Some(date) if config.isProd =>
+          filters.and(
+            filters.date("uploadTime", Some(date), None).get,
+            rightsAcquiredNoLeaseFilter
+          )
         case _ => rightsAcquiredNoLeaseFilter
       }
     }

@@ -19,18 +19,32 @@ trait CloudFrontDistributable {
 
   private def expiresAt: Date = DateTime.now.plusMinutes(validForMinutes).toDate
   private lazy val privateKeyFile: File =
-    privateKeyLocations.map { location =>
-      new File(location)
-    }.find(_.exists).get
+    privateKeyLocations
+      .map { location =>
+        new File(location)
+      }
+      .find(_.exists)
+      .get
 
-  def signedCloudFrontUrl(cloudFrontDomain: String, s3ObjectPath: String): Option[String] = Try {
+  def signedCloudFrontUrl(
+      cloudFrontDomain: String,
+      s3ObjectPath: String
+  ): Option[String] = Try {
     CloudFrontUrlSigner.getSignedURLWithCannedPolicy(
-      protocol, cloudFrontDomain, privateKeyFile, s3ObjectPath, keyPairId.get, expiresAt)
+      protocol,
+      cloudFrontDomain,
+      privateKeyFile,
+      s3ObjectPath,
+      keyPairId.get,
+      expiresAt
+    )
   }.toOption
 }
 
-class S3Client(config: MediaApiConfig) extends S3(config) with CloudFrontDistributable {
-  lazy val privateKeyLocations: Seq[String] = config.cloudFrontPrivateKeyLocations
+class S3Client(config: MediaApiConfig)
+    extends S3(config)
+    with CloudFrontDistributable {
+  lazy val privateKeyLocations: Seq[String] =
+    config.cloudFrontPrivateKeyLocations
   lazy val keyPairId: Option[String] = config.cloudFrontKeyPairId
 }
-

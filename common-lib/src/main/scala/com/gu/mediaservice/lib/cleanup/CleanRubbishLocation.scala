@@ -13,13 +13,13 @@ object CleanRubbishLocation extends MetadataCleaner {
   override def clean(metadata: ImageMetadata): ImageMetadata =
     metadata.copy(
       subLocation = metadata.subLocation.flatMap(cleanRubbish),
-      city        = metadata.city.flatMap(cleanRubbish),
-      state       = metadata.state.flatMap(cleanRubbish),
-      country     = metadata.country.flatMap(cleanRubbish)
+      city = metadata.city.flatMap(cleanRubbish),
+      state = metadata.state.flatMap(cleanRubbish),
+      country = metadata.country.flatMap(cleanRubbish)
     )
 
   def cleanRubbish(s: String): Option[String] = s match {
     case Rubbish(_) => None
-    case _ => Some(s)
+    case _          => Some(s)
   }
 }

@@ -6,13 +6,21 @@ import java.util.UUID
 import com.amazonaws.auth._
 import com.amazonaws.auth.InstanceProfileCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
-import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.{
+  IRecordProcessor,
+  IRecordProcessorFactory
+}
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{
+  InitialPositionInStream,
+  KinesisClientLibConfiguration,
+  Worker
+}
 import com.gu.mediaservice.lib.logging.GridLogging
 
 class CrierStreamReader(config: UsageConfig) extends GridLogging {
 
-  lazy val workerId: String = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
+  lazy val workerId: String =
+    InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
   val credentialsProvider = new AWSCredentialsProviderChain(
     new ProfileCredentialsProvider("media-service"),
@@ -24,10 +32,12 @@ class CrierStreamReader(config: UsageConfig) extends GridLogging {
   lazy val sessionId: String = "session" + Math.random()
   val initialPosition = InitialPositionInStream.TRIM_HORIZON
 
-  private def kinesisCredentialsProvider(arn: String)  = new AWSCredentialsProviderChain(
-    new ProfileCredentialsProvider("capi"),
-    new STSAssumeRoleSessionCredentialsProvider.Builder(arn, sessionId).build()
-  )
+  private def kinesisCredentialsProvider(arn: String) =
+    new AWSCredentialsProviderChain(
+      new ProfileCredentialsProvider("capi"),
+      new STSAssumeRoleSessionCredentialsProvider.Builder(arn, sessionId)
+        .build()
+    )
 
   private def kinesisClientLibConfig(kinesisReaderConfig: KinesisReaderConfig) =
     new KinesisClientLibConfiguration(
@@ -38,7 +48,7 @@ class CrierStreamReader(config: UsageConfig) extends GridLogging {
       credentialsProvider,
       workerId
     ).withInitialPositionInStream(initialPosition)
-     .withRegionName(config.awsRegionName)
+      .withRegionName(config.awsRegionName)
 
   private lazy val liveConfig =
     config.liveKinesisReaderConfig.map(kinesisClientLibConfig)
@@ -56,8 +66,18 @@ class CrierStreamReader(config: UsageConfig) extends GridLogging {
       new CrierPreviewEventProcessor(config)
   }
 
-  lazy val liveWorker = liveConfig.map(new Worker.Builder().recordProcessorFactory(LiveEventProcessorFactory).config(_).build())
-  lazy val previewWorker = previewConfig.map(new Worker.Builder().recordProcessorFactory(PreviewEventProcessorFactory).config(_).build())
+  lazy val liveWorker = liveConfig.map(
+    new Worker.Builder()
+      .recordProcessorFactory(LiveEventProcessorFactory)
+      .config(_)
+      .build()
+  )
+  lazy val previewWorker = previewConfig.map(
+    new Worker.Builder()
+      .recordProcessorFactory(PreviewEventProcessorFactory)
+      .config(_)
+      .build()
+  )
 
   private def makeThread(worker: Runnable) =
     new Thread(worker, s"${getClass.getSimpleName}-$workerId")

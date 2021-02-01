@@ -38,7 +38,7 @@ class UsageQuota(config: MediaApiConfig, scheduler: Scheduler) {
   def isOverQuota(rights: UsageRights, waitMillis: Int = 100): Boolean = Try {
     Await.result(
       usageStore.getUsageStatusForUsageRights(rights),
-      waitMillis.millis)
+      waitMillis.millis
+    )
   }.toOption.exists(_.exceeded) && FeatureToggle.get("usage-quota-ui")
 }
-

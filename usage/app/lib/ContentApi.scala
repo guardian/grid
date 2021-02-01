@@ -13,9 +13,11 @@ trait ContentHelpers {
 
 }
 
-class LiveContentApi(config: UsageConfig) extends ContentApiRequestBuilder(config) {
+class LiveContentApi(config: UsageConfig)
+    extends ContentApiRequestBuilder(config) {
   override val targetUrl = config.capiLiveUrl
 }
 
-class ContentApiRequestBuilder(config: UsageConfig) extends GuardianContentClient(apiKey = config.capiApiKey) with ContentHelpers
-
+class ContentApiRequestBuilder(config: UsageConfig)
+    extends GuardianContentClient(apiKey = config.capiApiKey)
+    with ContentHelpers

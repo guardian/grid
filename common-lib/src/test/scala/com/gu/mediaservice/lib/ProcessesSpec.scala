@@ -21,11 +21,12 @@ object ProcessesSpec extends Properties("Processes") {
 
   val smallPosInt = choose(1, 10)
 
-  property("emitEveryNth") = forAll(listOf(arbitrary[Int]), smallPosInt) { (xs, n) =>
-    val p = Process(xs: _*)
-    val ys = p.pipe(emitEveryNth(n)).toList
-    val counts = xs.foldMap(x => Map(x -> 1))
-    xs.forall(x => counts(x) / n == ys.count(_ == x))
+  property("emitEveryNth") = forAll(listOf(arbitrary[Int]), smallPosInt) {
+    (xs, n) =>
+      val p = Process(xs: _*)
+      val ys = p.pipe(emitEveryNth(n)).toList
+      val counts = xs.foldMap(x => Map(x -> 1))
+      xs.forall(x => counts(x) / n == ys.count(_ == x))
   }
 
 }

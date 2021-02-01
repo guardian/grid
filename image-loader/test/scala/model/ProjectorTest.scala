@@ -21,20 +21,33 @@ import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ProjectorTest extends FunSuite with Matchers with ScalaFutures with MockitoSugar {
+class ProjectorTest
+    extends FunSuite
+    with Matchers
+    with ScalaFutures
+    with MockitoSugar {
 
   import ResourceHelpers.fileAt
 
-  implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit override val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
   private val ctxPath = new File("image-loader/").getAbsolutePath
 
   private val imageOperations = new ImageOperations(ctxPath)
 
-  private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
+  private val config = ImageUploadOpsCfg(
+    new File("/tmp"),
+    256,
+    85d,
+    Nil,
+    "img-bucket",
+    "thumb-bucket"
+  )
 
   private val s3 = mock[AmazonS3]
-  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity)
+  private val projector =
+    new Projector(config, s3, imageOperations, ImageProcessor.identity)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources
@@ -44,7 +57,8 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
     val testFile = fileAt("resources/getty.jpg")
     val fileDigest = DigestedFile(testFile, "id123")
     val uploadedBy = "test"
-    val uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)
+    val uploadTime =
+      new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)
     val uploadFileName = Some("getty.jpg")
 
     // expected
@@ -85,27 +99,37 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
     val xmp = Map(
       "GettyImagesGIFT:ImageRank" -> JsString("3"),
       "GettyImagesGIFT:OriginalFilename" -> JsString("43885812_SEA.jpg"),
-      "dc:title" -> JsArray(Seq(
-        JsString("536991815"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
+      "dc:title" -> JsArray(
+        Seq(
+          JsString("536991815"),
+          JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
+        )
+      ),
       "dc:creator" -> JsArray(Seq(JsString("CHRISTOF STACHE"))),
       "photoshop:SupplementalCategories" -> JsArray(Seq(JsString("SKI"))),
-      "photoshop:Headline" -> JsString("Austria's Matthias Mayer attends the men"),
+      "photoshop:Headline" -> JsString(
+        "Austria's Matthias Mayer attends the men"
+      ),
       "photoshop:TransmissionReference" -> JsString("-"),
       "photoshop:AuthorsPosition" -> JsString("Stringer"),
       "photoshop:CaptionWriter" -> JsString("CS/IW"),
       "plus:ImageSupplierImageId" -> JsString("DV1945213"),
-      "dc:description" -> JsArray(Seq(
-        JsString("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
+      "dc:description" -> JsArray(
+        Seq(
+          JsString(
+            "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
+          ),
+          JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
+        )
+      ),
       "photoshop:City" -> JsString("KITZBUEHEL"),
       "GettyImagesGIFT:ExclusiveCoverage" -> JsString("False"),
       "photoshop:DateCreated" -> JsString("2015-01-22T00:00:00.000Z"),
       "photoshop:Credit" -> JsString("AFP/Getty Images"),
       "dc:Rights" -> JsString("CHRISTOF STACHE"),
-      "GettyImagesGIFT:OriginalCreateDateTime" -> JsString("0001-01-01T00:00:00.000Z"),
+      "GettyImagesGIFT:OriginalCreateDateTime" -> JsString(
+        "0001-01-01T00:00:00.000Z"
+      ),
       "Iptc4xmpCore:CountryCode" -> JsString("AUT"),
       "GettyImagesGIFT:CallForImage" -> JsString("False"),
       "photoshop:Country" -> JsString("AUSTRIA"),
@@ -113,38 +137,89 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
       "photoshop:Category" -> JsString("S")
     )
 
-    val gettyFileMetadataExpected = FileMetadata(iptc = iptc, exif = exif, xmp = xmp, getty = getty, colourModel = Some("RGB"))
+    val gettyFileMetadataExpected = FileMetadata(
+      iptc = iptc,
+      exif = exif,
+      xmp = xmp,
+      getty = getty,
+      colourModel = Some("RGB")
+    )
 
     val expected = Image(
       id = "id123",
-      uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC),
+      uploadTime =
+        new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC),
       uploadedBy = "test",
-      lastModified = Some(new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)),
+      lastModified = Some(
+        new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)
+      ),
       identifiers = Map(),
       uploadInfo = UploadInfo(Some("getty.jpg")),
-      source = Asset(new URI("http://img-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
+      source = Asset(
+        new URI("http://img-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
         Some(12666),
         Some(Jpeg),
-        Some(Dimensions(100, 60)), None),
-      thumbnail = Some(Asset(new URI("http://thumb-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
-        Some(6404),
-        Some(Jpeg),
-        Some(Dimensions(256, 154)), None)),
+        Some(Dimensions(100, 60)),
+        None
+      ),
+      thumbnail = Some(
+        Asset(
+          new URI("http://thumb-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
+          Some(6404),
+          Some(Jpeg),
+          Some(Dimensions(256, 154)),
+          None
+        )
+      ),
       optimisedPng = None,
       fileMetadata = gettyFileMetadataExpected,
       userMetadata = None,
       metadata = ImageMetadata(
-        Some(new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)),
-        Some("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
+        Some(
+          new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)
+        ),
+        Some(
+          "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
+        ),
         Some("AFP/Getty Images"),
-        None, Some("Christof Stache"), Some("Stringer"), None, Some("CHRISTOF STACHE"),
-        Some("-"), Some("AFP"), None, Nil, None, Some("Kitzbuehel"), None, Some("Austria"), List("sport")),
+        None,
+        Some("Christof Stache"),
+        Some("Stringer"),
+        None,
+        Some("CHRISTOF STACHE"),
+        Some("-"),
+        Some("AFP"),
+        None,
+        Nil,
+        None,
+        Some("Kitzbuehel"),
+        None,
+        Some("Austria"),
+        List("sport")
+      ),
       originalMetadata = ImageMetadata(
-        Some(new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)),
-        Some("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-        Some("AFP/Getty Images"), None, Some("Christof Stache"), Some("Stringer"),
-        None, Some("CHRISTOF STACHE"), Some("-"),
-        Some("AFP"), None, Nil, None, Some("Kitzbuehel"), None, Some("Austria"), List("sport")),
+        Some(
+          new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)
+        ),
+        Some(
+          "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
+        ),
+        Some("AFP/Getty Images"),
+        None,
+        Some("Christof Stache"),
+        Some("Stringer"),
+        None,
+        Some("CHRISTOF STACHE"),
+        Some("-"),
+        Some("AFP"),
+        None,
+        Nil,
+        None,
+        Some("Kitzbuehel"),
+        None,
+        Some("Austria"),
+        List("sport")
+      ),
       usageRights = Agency("Getty Images", Some("AFP"), None),
       originalUsageRights = Agency("Getty Images", Some("AFP"), None),
       exports = Nil,
@@ -159,12 +234,13 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
       uploadedBy = uploadedBy,
       uploadTime = uploadTime,
       uploadFileName = uploadFileName,
-      picdarUrn = None,
+      picdarUrn = None
     )
 
     implicit val requestLoggingContext = RequestLoggingContext()
 
-    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID())
+    val actualFuture =
+      projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID())
 
     whenReady(actualFuture) { actual =>
       actual shouldEqual expected
@@ -172,4 +248,3 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
   }
 
 }
-

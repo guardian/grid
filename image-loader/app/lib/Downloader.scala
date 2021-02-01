@@ -25,7 +25,7 @@ class Downloader(implicit ec: ExecutionContext) extends GridLogging {
     val request = new Request.Builder().url(uri.toString).build()
     val response = client.newCall(request).execute()
 
-    val maybeExpectedSize = Try{response.header("Content-Length").toInt}
+    val maybeExpectedSize = Try { response.header("Content-Length").toInt }
 
     maybeExpectedSize match {
       case Failure(exception) => {

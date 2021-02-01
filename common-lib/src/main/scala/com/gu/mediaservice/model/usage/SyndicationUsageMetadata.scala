@@ -3,7 +3,7 @@ package com.gu.mediaservice.model.usage
 import play.api.libs.json._
 
 case class SyndicationUsageMetadata(
-  partnerName: String
+    partnerName: String
 ) extends UsageMetadata {
   override def toMap: Map[String, Any] = Map(
     "partnerName" -> partnerName
@@ -11,6 +11,8 @@ case class SyndicationUsageMetadata(
 }
 
 object SyndicationUsageMetadata {
-  implicit val reader: Reads[SyndicationUsageMetadata] = Json.reads[SyndicationUsageMetadata]
-  implicit val writer: Writes[SyndicationUsageMetadata] = Json.writes[SyndicationUsageMetadata]
+  implicit val reader: Reads[SyndicationUsageMetadata] =
+    Json.reads[SyndicationUsageMetadata]
+  implicit val writer: Writes[SyndicationUsageMetadata] =
+    Json.writes[SyndicationUsageMetadata]
 }

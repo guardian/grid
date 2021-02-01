@@ -1,7 +1,18 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.sksamuel.elastic4s.requests.analysis.{Analysis, CustomAnalyzer, PathHierarchyTokenizer, StandardTokenizer, StemmerTokenFilter, StopTokenFilter, TokenFilter}
-import com.sksamuel.elastic4s.requests.analyzers.{AsciiFoldingTokenFilter, LowercaseTokenFilter}
+import com.sksamuel.elastic4s.requests.analysis.{
+  Analysis,
+  CustomAnalyzer,
+  PathHierarchyTokenizer,
+  StandardTokenizer,
+  StemmerTokenFilter,
+  StopTokenFilter,
+  TokenFilter
+}
+import com.sksamuel.elastic4s.requests.analyzers.{
+  AsciiFoldingTokenFilter,
+  LowercaseTokenFilter
+}
 import org.elasticsearch.index.analysis.ASCIIFoldingTokenFilterFactory
 
 object IndexSettings {
@@ -25,7 +36,10 @@ object IndexSettings {
       // I (Justin) don't think we need to specify these, but can just refer to them by name (below)
       // LowercaseTokenFilter,
       // AsciiFoldingTokenFilter,
-      StemmerTokenFilter(name = english_possessive_stemmer, lang = "possessive_english"),
+      StemmerTokenFilter(
+        name = english_possessive_stemmer,
+        lang = "possessive_english"
+      ),
       StopTokenFilter(name = gu_stopwords, stopwords = Seq("_english_")),
       StemmerTokenFilter(name = s_stemmer, lang = "minimal_english")
     )
@@ -55,7 +69,7 @@ object IndexSettings {
     Analysis(
       analyzers,
       tokenizers,
-      filters,
+      filters
     )
   }
 

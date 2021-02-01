@@ -2,7 +2,6 @@ package com.gu.mediaservice.model
 
 import play.api.libs.json._
 
-
 sealed trait UsageRights {
   // These two properties are used to infer cost
   // TODO: Remove these as they have nothing to do with the model really
@@ -24,23 +23,43 @@ sealed trait UsageRightsSpec {
 
 object UsageRights {
   val all = List(
-    NoRights, Handout, PrImage, Screengrab, SocialMedia,
-    Agency, CommissionedAgency, Chargeable, Bylines,
-    StaffPhotographer, ContractPhotographer, CommissionedPhotographer,
-    CreativeCommons, GuardianWitness, Pool, CrownCopyright, Obituary,
-    ContractIllustrator, CommissionedIllustrator, StaffIllustrator,
-    Composite, PublicDomain
+    NoRights,
+    Handout,
+    PrImage,
+    Screengrab,
+    SocialMedia,
+    Agency,
+    CommissionedAgency,
+    Chargeable,
+    Bylines,
+    StaffPhotographer,
+    ContractPhotographer,
+    CommissionedPhotographer,
+    CreativeCommons,
+    GuardianWitness,
+    Pool,
+    CrownCopyright,
+    Obituary,
+    ContractIllustrator,
+    CommissionedIllustrator,
+    StaffIllustrator,
+    Composite,
+    PublicDomain
   )
 
-  val photographer: List[UsageRightsSpec] = List(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
-  val illustrator: List[UsageRightsSpec] = List(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
+  val photographer: List[UsageRightsSpec] =
+    List(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
+  val illustrator: List[UsageRightsSpec] =
+    List(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)
   val whollyOwned: List[UsageRightsSpec] = photographer ++ illustrator
 
   // this is a convenience method so that we use the same formatting for all subtypes
   // i.e. use the standard `Json.writes`. I still can't find a not have to pass the `f:Format[T]`
   // explicitly and inferring the type, but I think that has to do with the reflection that's used
   // in the serialisation.
-  def subtypeFormat[T <: UsageRights](category: String)(f: Format[T]): Format[T] = {
+  def subtypeFormat[T <: UsageRights](
+      category: String
+  )(f: Format[T]): Format[T] = {
     val writes = Writes[T] { u =>
       Json.obj("category" -> category) ++ f.writes(u).as[JsObject]
     }
@@ -57,73 +76,77 @@ object UsageRights {
   // TODO: I haven't figured out why Json.toJson[T](o) doesn't work here, it'd
   // be good to know though.
   implicit def jsonWrites[T <: UsageRights]: Writes[T] = Writes[T] {
-    case o: Chargeable => Chargeable.formats.writes(o)
-    case o: Agency => Agency.formats.writes(o)
-    case o: CommissionedAgency => CommissionedAgency.formats.writes(o)
-    case o: PrImage => PrImage.formats.writes(o)
-    case o: Handout => Handout.formats.writes(o)
-    case o: Screengrab => Screengrab.formats.writes(o)
-    case o: GuardianWitness => GuardianWitness.formats.writes(o)
-    case o: SocialMedia => SocialMedia.formats.writes(o)
-    case o: Bylines => Bylines.formats.writes(o)
-    case o: Obituary => Obituary.formats.writes(o)
-    case o: StaffPhotographer => StaffPhotographer.formats.writes(o)
+    case o: Chargeable           => Chargeable.formats.writes(o)
+    case o: Agency               => Agency.formats.writes(o)
+    case o: CommissionedAgency   => CommissionedAgency.formats.writes(o)
+    case o: PrImage              => PrImage.formats.writes(o)
+    case o: Handout              => Handout.formats.writes(o)
+    case o: Screengrab           => Screengrab.formats.writes(o)
+    case o: GuardianWitness      => GuardianWitness.formats.writes(o)
+    case o: SocialMedia          => SocialMedia.formats.writes(o)
+    case o: Bylines              => Bylines.formats.writes(o)
+    case o: Obituary             => Obituary.formats.writes(o)
+    case o: StaffPhotographer    => StaffPhotographer.formats.writes(o)
     case o: ContractPhotographer => ContractPhotographer.formats.writes(o)
-    case o: CommissionedPhotographer => CommissionedPhotographer.formats.writes(o)
-    case o: Pool => Pool.formats.writes(o)
-    case o: CrownCopyright => CrownCopyright.formats.writes(o)
-    case o: ContractIllustrator => ContractIllustrator.formats.writes(o)
-    case o: StaffIllustrator => StaffIllustrator.formats.writes(o)
+    case o: CommissionedPhotographer =>
+      CommissionedPhotographer.formats.writes(o)
+    case o: Pool                    => Pool.formats.writes(o)
+    case o: CrownCopyright          => CrownCopyright.formats.writes(o)
+    case o: ContractIllustrator     => ContractIllustrator.formats.writes(o)
+    case o: StaffIllustrator        => StaffIllustrator.formats.writes(o)
     case o: CommissionedIllustrator => CommissionedIllustrator.formats.writes(o)
-    case o: CreativeCommons => CreativeCommons.formats.writes(o)
-    case o: Composite => Composite.formats.writes(o)
-    case o: PublicDomain => PublicDomain.formats.writes(o)
-    case o: NoRights.type => NoRights.jsonWrites.writes(o)
+    case o: CreativeCommons         => CreativeCommons.formats.writes(o)
+    case o: Composite               => Composite.formats.writes(o)
+    case o: PublicDomain            => PublicDomain.formats.writes(o)
+    case o: NoRights.type           => NoRights.jsonWrites.writes(o)
   }
 
   implicit val jsonReads: Reads[UsageRights] = Reads[UsageRights] { json =>
-      val category = (json \ "category").asOpt[String]
+    val category = (json \ "category").asOpt[String]
 
-      // We use supplier as an indicator that an image is an Agency
-      // image as some images have been indexed without a category.
-      // TODO: Fix with reindex
-      val supplier = (json \ "supplier").asOpt[String]
+    // We use supplier as an indicator that an image is an Agency
+    // image as some images have been indexed without a category.
+    // TODO: Fix with reindex
+    val supplier = (json \ "supplier").asOpt[String]
 
-      (category flatMap {
-        case Chargeable.category => json.asOpt[Chargeable]
-        case Agency.category => json.asOpt[Agency]
-        case CommissionedAgency.category => json.asOpt[CommissionedAgency]
-        case PrImage.category => json.asOpt[PrImage]
-        case Handout.category => json.asOpt[Handout]
-        case Screengrab.category => json.asOpt[Screengrab]
-        case GuardianWitness.category => json.asOpt[GuardianWitness]
-        case SocialMedia.category => json.asOpt[SocialMedia]
-        case Bylines.category => json.asOpt[Bylines]
-        case Obituary.category => json.asOpt[Obituary]
-        case StaffPhotographer.category => json.asOpt[StaffPhotographer]
-        case ContractPhotographer.category => json.asOpt[ContractPhotographer]
-        case CommissionedPhotographer.category => json.asOpt[CommissionedPhotographer]
-        case Pool.category => json.asOpt[Pool]
-        case CrownCopyright.category => json.asOpt[CrownCopyright]
-        case ContractIllustrator.category => json.asOpt[ContractIllustrator]
-        case StaffIllustrator.category => json.asOpt[StaffIllustrator]
-        case CommissionedIllustrator.category => json.asOpt[CommissionedIllustrator]
-        case CreativeCommons.category => json.asOpt[CreativeCommons]
-        case Composite.category => json.asOpt[Composite]
-        case PublicDomain.category => json.asOpt[PublicDomain]
-        case _ => None
-      })
-        .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
-        .orElse(json.asOpt[NoRights.type])
-        .map(JsSuccess(_))
-        .getOrElse(JsError(s"No such usage rights category: ${category.getOrElse("None")}"))
-    }
+    (category flatMap {
+      case Chargeable.category           => json.asOpt[Chargeable]
+      case Agency.category               => json.asOpt[Agency]
+      case CommissionedAgency.category   => json.asOpt[CommissionedAgency]
+      case PrImage.category              => json.asOpt[PrImage]
+      case Handout.category              => json.asOpt[Handout]
+      case Screengrab.category           => json.asOpt[Screengrab]
+      case GuardianWitness.category      => json.asOpt[GuardianWitness]
+      case SocialMedia.category          => json.asOpt[SocialMedia]
+      case Bylines.category              => json.asOpt[Bylines]
+      case Obituary.category             => json.asOpt[Obituary]
+      case StaffPhotographer.category    => json.asOpt[StaffPhotographer]
+      case ContractPhotographer.category => json.asOpt[ContractPhotographer]
+      case CommissionedPhotographer.category =>
+        json.asOpt[CommissionedPhotographer]
+      case Pool.category                => json.asOpt[Pool]
+      case CrownCopyright.category      => json.asOpt[CrownCopyright]
+      case ContractIllustrator.category => json.asOpt[ContractIllustrator]
+      case StaffIllustrator.category    => json.asOpt[StaffIllustrator]
+      case CommissionedIllustrator.category =>
+        json.asOpt[CommissionedIllustrator]
+      case CreativeCommons.category => json.asOpt[CreativeCommons]
+      case Composite.category       => json.asOpt[Composite]
+      case PublicDomain.category    => json.asOpt[PublicDomain]
+      case _                        => None
+    })
+      .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
+      .orElse(json.asOpt[NoRights.type])
+      .map(JsSuccess(_))
+      .getOrElse(
+        JsError(s"No such usage rights category: ${category.getOrElse("None")}")
+      )
+  }
 }
 
 // We have a custom writes and reads for NoRights as it is represented by `{}`
 // in the DB layer.
-case object NoRights
-  extends UsageRights with UsageRightsSpec {
+case object NoRights extends UsageRights with UsageRightsSpec {
   val category = ""
   val defaultCost = None
   val restrictions = None
@@ -137,13 +160,15 @@ case object NoRights
   lazy val jsonVal = Json.obj()
 
   implicit val jsonReads: Reads[NoRights.type] = Reads[NoRights.type] { json =>
-    if (json == jsonVal) JsSuccess(NoRights) else JsError("Value should be {} for no rights")
+    if (json == jsonVal) JsSuccess(NoRights)
+    else JsError("Value should be {} for no rights")
   }
-  implicit val jsonWrites: Writes[NoRights.type] = Writes[NoRights.type](_ => jsonVal)
+  implicit val jsonWrites: Writes[NoRights.type] =
+    Writes[NoRights.type](_ => jsonVal)
 }
 
-
-final case class Chargeable(restrictions: Option[String] = None) extends UsageRights {
+final case class Chargeable(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = Chargeable.defaultCost
 }
 object Chargeable extends UsageRightsSpec {
@@ -170,17 +195,22 @@ object Agencies {
   def get(id: String) = all.getOrElse(id, Agency(id))
 
   def lookupId(lookupSupplierName: String): Option[String] = all.collectFirst {
-    case (id, Agency(supplierName, _, _)) if lookupSupplierName == supplierName => { id }
+    case (id, Agency(supplierName, _, _))
+        if lookupSupplierName == supplierName => { id }
   }
 
   def getWithCollection(id: String, suppliersCollection: Option[String]) =
-    all.get(id)
+    all
+      .get(id)
       .map(_.copy(suppliersCollection = suppliersCollection))
       .getOrElse(Agency(id, suppliersCollection))
 }
 
-final case class Agency(supplier: String, suppliersCollection: Option[String] = None,
-                        restrictions: Option[String] = None) extends UsageRights  {
+final case class Agency(
+    supplier: String,
+    suppliersCollection: Option[String] = None,
+    restrictions: Option[String] = None
+) extends UsageRights {
   val defaultCost = Agency.defaultCost
   def id: Option[String] = Agencies.lookupId(supplier)
 }
@@ -195,8 +225,10 @@ object Agency extends UsageRightsSpec {
     UsageRights.subtypeFormat(Agency.category)(Json.format[Agency])
 }
 
-
-final case class CommissionedAgency(supplier: String, restrictions: Option[String] = None) extends UsageRights {
+final case class CommissionedAgency(
+    supplier: String,
+    restrictions: Option[String] = None
+) extends UsageRights {
   val defaultCost = CommissionedAgency.defaultCost
 }
 object CommissionedAgency extends UsageRightsSpec {
@@ -206,11 +238,13 @@ object CommissionedAgency extends UsageRightsSpec {
   val description = "Images commissioned from agencies on an ad hoc basis."
 
   implicit val formats: Format[CommissionedAgency] =
-    UsageRights.subtypeFormat(CommissionedAgency.category)(Json.format[CommissionedAgency])
+    UsageRights.subtypeFormat(CommissionedAgency.category)(
+      Json.format[CommissionedAgency]
+    )
 }
 
-
-final case class PrImage(restrictions: Option[String] = None) extends UsageRights {
+final case class PrImage(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = PrImage.defaultCost
 }
 object PrImage extends UsageRightsSpec {
@@ -222,14 +256,16 @@ object PrImage extends UsageRightsSpec {
       "promotional images, etc."
 
   override val caution =
-    Some("For use only within the context originally provided for (please state it below).")
+    Some(
+      "For use only within the context originally provided for (please state it below)."
+    )
 
   implicit val formats: Format[PrImage] =
     UsageRights.subtypeFormat(PrImage.category)(Json.format[PrImage])
 }
 
-
-final case class Handout(restrictions: Option[String] = None) extends UsageRights {
+final case class Handout(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = Handout.defaultCost
 }
 object Handout extends UsageRightsSpec {
@@ -241,16 +277,20 @@ object Handout extends UsageRightsSpec {
       "stories, family shots in biographical pieces, etc."
 
   override val caution =
-    Some("For use only within the context originally provided for (please state it below).")
+    Some(
+      "For use only within the context originally provided for (please state it below)."
+    )
 
   implicit val formats: Format[Handout] =
     UsageRights.subtypeFormat(Handout.category)(Json.format[Handout])
 }
 
-
 // TODO: `source` should not be an Option, but because we added it later, we would need to backfill
 // the data
-final case class Screengrab(source: Option[String], restrictions: Option[String] = None) extends UsageRights {
+final case class Screengrab(
+    source: Option[String],
+    restrictions: Option[String] = None
+) extends UsageRights {
   val defaultCost = Screengrab.defaultCost
 }
 object Screengrab extends UsageRightsSpec {
@@ -265,8 +305,8 @@ object Screengrab extends UsageRightsSpec {
     UsageRights.subtypeFormat(Screengrab.category)(Json.format[Screengrab])
 }
 
-
-final case class GuardianWitness(restrictions: Option[String] = None) extends UsageRights {
+final case class GuardianWitness(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = GuardianWitness.defaultCost
 }
 object GuardianWitness extends UsageRightsSpec {
@@ -277,11 +317,13 @@ object GuardianWitness extends UsageRightsSpec {
     "Images provided by readers in response to callouts and assignments on GuardianWitness."
 
   implicit val formats: Format[GuardianWitness] =
-    UsageRights.subtypeFormat(GuardianWitness.category)(Json.format[GuardianWitness])
+    UsageRights.subtypeFormat(GuardianWitness.category)(
+      Json.format[GuardianWitness]
+    )
 }
 
-
-final case class SocialMedia(restrictions: Option[String] = None) extends UsageRights {
+final case class SocialMedia(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = SocialMedia.defaultCost
 }
 object SocialMedia extends UsageRightsSpec {
@@ -293,13 +335,16 @@ object SocialMedia extends UsageRightsSpec {
       "from usual sources."
 
   override val caution =
-    Some("Approval needed from senior editor if permission from owner cannot be acquired")
+    Some(
+      "Approval needed from senior editor if permission from owner cannot be acquired"
+    )
 
   implicit val formats: Format[SocialMedia] =
     UsageRights.subtypeFormat(SocialMedia.category)(Json.format[SocialMedia])
 }
 
-final case class Bylines(restrictions: Option[String] = None) extends UsageRights {
+final case class Bylines(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = Bylines.defaultCost
 }
 object Bylines extends UsageRightsSpec {
@@ -313,7 +358,8 @@ object Bylines extends UsageRightsSpec {
     UsageRights.subtypeFormat(Bylines.category)(Json.format[Bylines])
 }
 
-final case class Obituary(restrictions: Option[String] = None) extends UsageRights {
+final case class Obituary(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = Obituary.defaultCost
 }
 object Obituary extends UsageRightsSpec {
@@ -327,9 +373,11 @@ object Obituary extends UsageRightsSpec {
     UsageRights.subtypeFormat(Obituary.category)(Json.format[Obituary])
 }
 
-
-final case class StaffPhotographer(photographer: String, publication: String,
-                             restrictions: Option[String] = None) extends Photographer {
+final case class StaffPhotographer(
+    photographer: String,
+    publication: String,
+    restrictions: Option[String] = None
+) extends Photographer {
   val defaultCost = StaffPhotographer.defaultCost
 }
 object StaffPhotographer extends UsageRightsSpec {
@@ -340,12 +388,16 @@ object StaffPhotographer extends UsageRightsSpec {
     "Images from photographers who are or were members of staff."
 
   implicit val formats: Format[StaffPhotographer] =
-    UsageRights.subtypeFormat(StaffPhotographer.category)(Json.format[StaffPhotographer])
+    UsageRights.subtypeFormat(StaffPhotographer.category)(
+      Json.format[StaffPhotographer]
+    )
 }
 
-
-final case class ContractPhotographer(photographer: String, publication: Option[String] = None,
-                                restrictions: Option[String] = None) extends Photographer {
+final case class ContractPhotographer(
+    photographer: String,
+    publication: Option[String] = None,
+    restrictions: Option[String] = None
+) extends Photographer {
   val defaultCost = ContractPhotographer.defaultCost
 }
 object ContractPhotographer extends UsageRightsSpec {
@@ -356,12 +408,16 @@ object ContractPhotographer extends UsageRightsSpec {
     "Images from freelance photographers on fixed-term contracts."
 
   implicit val formats: Format[ContractPhotographer] =
-    UsageRights.subtypeFormat(ContractPhotographer.category)(Json.format[ContractPhotographer])
+    UsageRights.subtypeFormat(ContractPhotographer.category)(
+      Json.format[ContractPhotographer]
+    )
 }
 
-
-final case class CommissionedPhotographer(photographer: String, publication: Option[String] = None,
-                                    restrictions: Option[String] = None) extends Photographer {
+final case class CommissionedPhotographer(
+    photographer: String,
+    publication: Option[String] = None,
+    restrictions: Option[String] = None
+) extends Photographer {
   val defaultCost = CommissionedPhotographer.defaultCost
 }
 object CommissionedPhotographer extends UsageRightsSpec {
@@ -372,9 +428,10 @@ object CommissionedPhotographer extends UsageRightsSpec {
     "Images commissioned from freelance photographers on an ad hoc basis."
 
   implicit val formats: Format[CommissionedPhotographer] =
-    UsageRights.subtypeFormat(CommissionedPhotographer.category)(Json.format[CommissionedPhotographer])
+    UsageRights.subtypeFormat(CommissionedPhotographer.category)(
+      Json.format[CommissionedPhotographer]
+    )
 }
-
 
 final case class Pool(restrictions: Option[String] = None) extends UsageRights {
   val defaultCost = Pool.defaultCost
@@ -391,8 +448,8 @@ object Pool extends UsageRightsSpec {
     UsageRights.subtypeFormat(Pool.category)(Json.format[Pool])
 }
 
-
-final case class CrownCopyright(restrictions: Option[String] = None) extends UsageRights {
+final case class CrownCopyright(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = CrownCopyright.defaultCost
 }
 object CrownCopyright extends UsageRightsSpec {
@@ -404,11 +461,15 @@ object CrownCopyright extends UsageRightsSpec {
       "acknowledgement."
 
   implicit val formats: Format[CrownCopyright] =
-    UsageRights.subtypeFormat(CrownCopyright.category)(Json.format[CrownCopyright])
+    UsageRights.subtypeFormat(CrownCopyright.category)(
+      Json.format[CrownCopyright]
+    )
 }
 
-final case class StaffIllustrator(creator: String, restrictions: Option[String] = None)
-  extends Illustrator {
+final case class StaffIllustrator(
+    creator: String,
+    restrictions: Option[String] = None
+) extends Illustrator {
   val defaultCost = StaffIllustrator.defaultCost
 }
 object StaffIllustrator extends UsageRightsSpec {
@@ -419,11 +480,16 @@ object StaffIllustrator extends UsageRightsSpec {
     "Images from illustrators who are or were members of staff."
 
   implicit val formats: Format[StaffIllustrator] =
-    UsageRights.subtypeFormat(StaffIllustrator.category)(Json.format[StaffIllustrator])
+    UsageRights.subtypeFormat(StaffIllustrator.category)(
+      Json.format[StaffIllustrator]
+    )
 }
 
-final case class ContractIllustrator(creator: String, publication: Option[String] = None, restrictions: Option[String] = None)
-  extends Illustrator {
+final case class ContractIllustrator(
+    creator: String,
+    publication: Option[String] = None,
+    restrictions: Option[String] = None
+) extends Illustrator {
   val defaultCost = ContractIllustrator.defaultCost
 }
 object ContractIllustrator extends UsageRightsSpec {
@@ -434,11 +500,16 @@ object ContractIllustrator extends UsageRightsSpec {
     "Illustrations from freelance illustrators on fixed-term contracts."
 
   implicit val formats: Format[ContractIllustrator] =
-    UsageRights.subtypeFormat(ContractIllustrator.category)(Json.format[ContractIllustrator])
+    UsageRights.subtypeFormat(ContractIllustrator.category)(
+      Json.format[ContractIllustrator]
+    )
 }
 
-final case class CommissionedIllustrator(creator: String, publication: Option[String] = None, restrictions: Option[String] = None)
-  extends Illustrator {
+final case class CommissionedIllustrator(
+    creator: String,
+    publication: Option[String] = None,
+    restrictions: Option[String] = None
+) extends Illustrator {
   val defaultCost = CommissionedIllustrator.defaultCost
 }
 object CommissionedIllustrator extends UsageRightsSpec {
@@ -449,12 +520,18 @@ object CommissionedIllustrator extends UsageRightsSpec {
     "Illustrations commissioned from freelance illustrators on an ad hoc basis."
 
   implicit val formats: Format[CommissionedIllustrator] =
-    UsageRights.subtypeFormat(CommissionedIllustrator.category)(Json.format[CommissionedIllustrator])
+    UsageRights.subtypeFormat(CommissionedIllustrator.category)(
+      Json.format[CommissionedIllustrator]
+    )
 }
 
-
-final case class CreativeCommons(licence: String, source: String, creator: String, contentLink: String,
-                           restrictions: Option[String] = None) extends UsageRights {
+final case class CreativeCommons(
+    licence: String,
+    source: String,
+    creator: String,
+    contentLink: String,
+    restrictions: Option[String] = None
+) extends UsageRights {
   val defaultCost = CreativeCommons.defaultCost
 }
 object CreativeCommons extends UsageRightsSpec {
@@ -465,14 +542,20 @@ object CreativeCommons extends UsageRightsSpec {
     "Images made available by rights holders on open licence terms that grant third parties " +
       "permission to use and share copyright material for free."
 
-  override val caution = Some("This only applies to COMMERCIAL creative commons licences.")
+  override val caution = Some(
+    "This only applies to COMMERCIAL creative commons licences."
+  )
 
   implicit val formats: Format[CreativeCommons] =
-    UsageRights.subtypeFormat(CreativeCommons.category)(Json.format[CreativeCommons])
+    UsageRights.subtypeFormat(CreativeCommons.category)(
+      Json.format[CreativeCommons]
+    )
 }
 
-
-final case class Composite(suppliers: String, restrictions: Option[String] = None) extends UsageRights {
+final case class Composite(
+    suppliers: String,
+    restrictions: Option[String] = None
+) extends UsageRights {
   val defaultCost = Composite.defaultCost
 }
 object Composite extends UsageRightsSpec {
@@ -482,13 +565,16 @@ object Composite extends UsageRightsSpec {
   val description =
     "Any restricted images within the composite must be identified."
 
-  override val caution = Some("All images should be free to use, or restrictions applied")
+  override val caution = Some(
+    "All images should be free to use, or restrictions applied"
+  )
 
   implicit val formats: Format[Composite] =
     UsageRights.subtypeFormat(Composite.category)(Json.format[Composite])
 }
 
-final case class PublicDomain(restrictions: Option[String] = None) extends UsageRights {
+final case class PublicDomain(restrictions: Option[String] = None)
+    extends UsageRights {
   val defaultCost = PublicDomain.defaultCost
 }
 object PublicDomain extends UsageRightsSpec {
@@ -498,7 +584,9 @@ object PublicDomain extends UsageRightsSpec {
   val description =
     "Images out of copyright or bequeathed to the public."
 
-  override val caution = Some("ONLY use if out of copyright or bequeathed to public")
+  override val caution = Some(
+    "ONLY use if out of copyright or bequeathed to public"
+  )
 
   implicit val formats: Format[PublicDomain] =
     UsageRights.subtypeFormat(PublicDomain.category)(Json.format[PublicDomain])

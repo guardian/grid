@@ -38,20 +38,20 @@ trait ImageFields {
   val collectionsFields = List("path", "pathId", "pathHierarchy")
   val usagesFields = List("status", "platform", "dateAdded")
 
-  def identifierField(field: String)  = s"identifiers.$field"
-  def metadataField(field: String)    = s"metadata.$field"
-  def editsField(field: String)       = s"userMetadata.$field"
+  def identifierField(field: String) = s"identifiers.$field"
+  def metadataField(field: String) = s"metadata.$field"
+  def editsField(field: String) = s"userMetadata.$field"
   def usageRightsField(field: String) = s"usageRights.$field"
   def collectionsField(field: String) = s"collections.$field"
-  def usagesField(field: String)      = s"usages.$field"
-  def sourceField(field: String)      = s"source.$field"
+  def usagesField(field: String) = s"usages.$field"
+  def sourceField(field: String) = s"source.$field"
   def photoshootField(field: String) = editsField(s"photoshoot.$field")
 
   val aliases = Map(
-    "crops"     -> "exports",
+    "crops" -> "exports",
     "croppedBy" -> "exports.author",
-    "filename"  -> "uploadInfo.filename",
-    "photoshoot"-> photoshootField("title"),
+    "filename" -> "uploadInfo.filename",
+    "photoshoot" -> photoshootField("title"),
     "leases" -> "leases.leases",
     "leasedBy" -> "leases.leases.leasedBy",
     "people" -> metadataField("peopleInImage")
@@ -64,7 +64,7 @@ trait ImageFields {
     case f if collectionsFields.contains(f) => collectionsField(f)
     case f if usagesFields.contains(f)      => usagesField(f)
     case f if sourceFields.contains(f)      => sourceField(f)
-    case f => aliases.getOrElse(f, f)
+    case f                                  => aliases.getOrElse(f, f)
   }
 
 }

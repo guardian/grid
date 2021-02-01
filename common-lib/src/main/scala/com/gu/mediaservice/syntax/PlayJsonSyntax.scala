@@ -19,12 +19,13 @@ trait PlayJsonSyntax {
 
   implicit val uriReads = new Reads[URI] {
     override def reads(json: JsValue): JsResult[URI] = json match {
-      case JsString(uriInJson) => Try {
-        new URI(uriInJson)
-      } match {
-        case Success(uri) => JsSuccess(uri)
-        case Failure(_) => JsError(s"Could not parse $uriInJson as valid URI")
-      }
+      case JsString(uriInJson) =>
+        Try {
+          new URI(uriInJson)
+        } match {
+          case Success(uri) => JsSuccess(uri)
+          case Failure(_)   => JsError(s"Could not parse $uriInJson as valid URI")
+        }
       case _ => JsError("URI as String expected")
     }
   }

@@ -15,10 +15,12 @@ trait BBCDependenciesConfig {
 }
 
 object BBCDependenciesConfig {
-  def apply(resources: ImageProcessorResources): BBCDependenciesConfig = new BBCDependenciesConfig {
-    override def commonConfiguration: CommonConfig = resources.commonConfiguration
-    override def actorSystem: ActorSystem = resources.actorSystem
-  }
+  def apply(resources: ImageProcessorResources): BBCDependenciesConfig =
+    new BBCDependenciesConfig {
+      override def commonConfiguration: CommonConfig =
+        resources.commonConfiguration
+      override def actorSystem: ActorSystem = resources.actorSystem
+    }
 }
 
 object BBCImageProcessorsDependencies {
@@ -39,21 +41,27 @@ object BBCImageProcessorsDependencies {
   }
 
   /*
-  * The laziness here guarantees that only the used dependencies are loaded
-  * */
-  lazy val metadataStore: BBCDependenciesConfig => BBCMetadataStore = memoizeOnce { resources =>
-    val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
-    val bucket = bbcImageProcessorConfig.configBucket
-    val metadataStore = new BBCMetadataStore(bucket, resources.commonConfiguration)
-    metadataStore.scheduleUpdates(resources.actorSystem.scheduler)
-    metadataStore
-  }
+   * The laziness here guarantees that only the used dependencies are loaded
+   * */
+  lazy val metadataStore: BBCDependenciesConfig => BBCMetadataStore =
+    memoizeOnce { resources =>
+      val bbcImageProcessorConfig =
+        new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
+      val bucket = bbcImageProcessorConfig.configBucket
+      val metadataStore =
+        new BBCMetadataStore(bucket, resources.commonConfiguration)
+      metadataStore.scheduleUpdates(resources.actorSystem.scheduler)
+      metadataStore
+    }
 
-  lazy val usageRightsStore: BBCDependenciesConfig => BBCUsageRightsStore = memoizeOnce { resources =>
-    val bbcImageProcessorConfig = new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
-    val bucket = bbcImageProcessorConfig.configBucket
-    val usageRightsStore = new BBCUsageRightsStore(bucket, resources.commonConfiguration)
-    usageRightsStore.scheduleUpdates(resources.actorSystem.scheduler)
-    usageRightsStore
-  }
+  lazy val usageRightsStore: BBCDependenciesConfig => BBCUsageRightsStore =
+    memoizeOnce { resources =>
+      val bbcImageProcessorConfig =
+        new BBCImageProcessorConfig(resources.commonConfiguration.configuration)
+      val bucket = bbcImageProcessorConfig.configBucket
+      val usageRightsStore =
+        new BBCUsageRightsStore(bucket, resources.commonConfiguration)
+      usageRightsStore.scheduleUpdates(resources.actorSystem.scheduler)
+      usageRightsStore
+    }
 }

@@ -17,13 +17,22 @@ import play.api.libs.json.JsString
 import scala.concurrent.duration._
 import scala.util.Properties
 
-trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
-
+trait ElasticSearchTestBase
+    extends FunSpec
+    with BeforeAndAfterAll
+    with Matchers
+    with ScalaFutures
+    with Fixtures
+    with DockerKit
+    with DockerTestKit
+    with DockerKitSpotify
+    with ConditionFixtures {
 
   val interval = Interval(Span(100, Milliseconds))
   val timeout = Timeout(Span(10, Seconds))
 
-  val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
+  val useEsDocker =
+    Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
   val es6TestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
 
   def esContainer: Option[DockerContainer]
@@ -42,19 +51,23 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
     createImage("iron-suit", CommissionedPhotographer("Iron Man")),
     createImage("green-giant", StaffIllustrator("Hulk")),
     createImage("hammer-hammer-hammer", ContractIllustrator("Thor")),
-    createImage("green-leaf", StaffPhotographer("Yellow Giraffe", "The Guardian")),
-    createImage(UUID.randomUUID().toString, Handout(), usages = List(createDigitalUsage())),
-
-    createImageUploadedInThePast("persisted-because-edited").copy(
-      userMetadata = Some(Edits(metadata = ImageMetadata(credit = Some("author"))))
+    createImage(
+      "green-leaf",
+      StaffPhotographer("Yellow Giraffe", "The Guardian")
     ),
-
+    createImage(
+      UUID.randomUUID().toString,
+      Handout(),
+      usages = List(createDigitalUsage())
+    ),
+    createImageUploadedInThePast("persisted-because-edited").copy(
+      userMetadata =
+        Some(Edits(metadata = ImageMetadata(credit = Some("author"))))
+    ),
     createImageUploadedInThePast("test-image-14-unedited"),
-
     createImageUploadedInThePast("persisted-because-usage").copy(
       usages = List(createPrintUsage())
     ),
-
     // available for syndication
     createImageForSyndication(
       id = "test-image-1",
@@ -62,7 +75,6 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(DateTime.parse("2018-01-01T00:00:00")),
       Some(createSyndicationLease(allowed = true, "test-image-1"))
     ),
-
     // has a digital usage, still eligible for syndication
     createImageForSyndication(
       id = "test-image-2",
@@ -71,7 +83,6 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(createSyndicationLease(allowed = true, "test-image-2")),
       List(createDigitalUsage())
     ),
-
     // has syndication usage, not available for syndication
     createImageForSyndication(
       id = "test-image-3",
@@ -80,7 +91,6 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(createSyndicationLease(allowed = true, "test-image-3")),
       List(createDigitalUsage(), createSyndicationUsage())
     ),
-
     // rights acquired, explicit allow syndication lease and unknown publish date, available for syndication
     createImageForSyndication(
       id = "test-image-4",
@@ -88,7 +98,6 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       None,
       Some(createSyndicationLease(allowed = true, "test-image-4"))
     ),
-
     // explicit deny syndication lease with no end date, not available for syndication
     createImageForSyndication(
       id = "test-image-5",
@@ -96,15 +105,19 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       None,
       Some(createSyndicationLease(allowed = false, "test-image-5"))
     ),
-
     // explicit deny syndication lease with end date before now, available for syndication
     createImageForSyndication(
       id = "test-image-6",
       rightsAcquired = true,
       Some(DateTime.parse("2018-01-01T00:00:00")),
-      Some(createSyndicationLease(allowed = false, "test-image-6", endDate = Some(DateTime.parse("2018-01-01T00:00:00"))))
+      Some(
+        createSyndicationLease(
+          allowed = false,
+          "test-image-6",
+          endDate = Some(DateTime.parse("2018-01-01T00:00:00"))
+        )
+      )
     ),
-
     // images published after "today", not available for syndication
     createImageForSyndication(
       id = "test-image-7",
@@ -112,22 +125,28 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       Some(DateTime.parse("2018-07-02T00:00:00")),
       Some(createSyndicationLease(allowed = false, "test-image-7"))
     ),
-
     // with fileMetadata
     createImageForSyndication(
       id = "test-image-8",
       rightsAcquired = true,
       Some(DateTime.parse("2018-07-03T00:00:00")),
       None,
-      fileMetadata = Some(FileMetadata(xmp = Map(
-        "foo" -> JsString("bar"),
-        "toolong" -> JsString(stringLongerThan(100000))
-      )))
+      fileMetadata = Some(
+        FileMetadata(xmp =
+          Map(
+            "foo" -> JsString("bar"),
+            "toolong" -> JsString(stringLongerThan(100000))
+          )
+        )
+      )
     ),
-
     // no rights acquired, not available for syndication
-    createImageForSyndication("test-image-13", rightsAcquired = false, None, None),
-
+    createImageForSyndication(
+      "test-image-13",
+      rightsAcquired = false,
+      None,
+      None
+    ),
     // Agency image with published usage yesterday
     createImageForSyndication(
       id = "test-image-9",
@@ -137,7 +156,6 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       usageRights = agency,
       usages = List(createDigitalUsage(date = DateTime.now.minusDays(1)))
     ),
-
     // Agency image with published just now
     createImageForSyndication(
       id = "test-image-10",
@@ -147,7 +165,6 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       usageRights = agency,
       usages = List(createDigitalUsage(date = DateTime.now))
     ),
-
     // Screen grab with rights acquired, not eligible for syndication review
     createImageForSyndication(
       id = "test-image-11",
@@ -157,7 +174,6 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       usageRights = screengrab,
       usages = List(createDigitalUsage(date = DateTime.now))
     ),
-
     // Staff photographer with rights acquired, eligible for syndication review
     createImageForSyndication(
       id = "test-image-12",
@@ -166,7 +182,7 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       lease = None,
       usageRights = staffPhotographer,
       usages = List(createDigitalUsage(date = DateTime.now))
-    ),
+    )
 
     // TODO this test image *should* be in `AwaitingReviewForSyndication` but instead its in `BlockedForSyndication`
     // see https://www.elastic.co/guide/en/elasticsearch/reference/current/nested.html to understand why

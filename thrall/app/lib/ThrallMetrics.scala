@@ -2,7 +2,8 @@ package lib
 
 import com.gu.mediaservice.lib.metrics.CloudWatchMetrics
 
-class ThrallMetrics(config: ThrallConfig) extends CloudWatchMetrics(s"${config.stage}/Thrall", config) {
+class ThrallMetrics(config: ThrallConfig)
+    extends CloudWatchMetrics(s"${config.stage}/Thrall", config) {
 
   val indexedImages = new CountMetric("IndexedImages")
 
@@ -18,7 +19,9 @@ class ThrallMetrics(config: ThrallConfig) extends CloudWatchMetrics(s"${config.s
 
   val failedUsagesUpdates = new CountMetric("FailedUsagesUpdates")
 
-  val failedSyndicationRightsUpdates = new CountMetric("FailedSyndicationRightsUpdates")
+  val failedSyndicationRightsUpdates = new CountMetric(
+    "FailedSyndicationRightsUpdates"
+  )
 
   val failedQueryUpdates = new CountMetric("FailedQueryUpdates")
 

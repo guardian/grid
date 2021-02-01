@@ -7,7 +7,11 @@ import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
 import akka.actor.ActorSystem
 import com.amazonaws.services.cloudwatch.model.Dimension
-import com.amazonaws.services.sqs.model.{DeleteMessageRequest, ReceiveMessageRequest, Message => SQSMessage}
+import com.amazonaws.services.sqs.model.{
+  DeleteMessageRequest,
+  ReceiveMessageRequest,
+  Message => SQSMessage
+}
 import com.amazonaws.services.sqs.{AmazonSQS, AmazonSQSClientBuilder}
 import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -22,7 +26,11 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric: Metric[Long]) extends ImageId {
+abstract class SqsMessageConsumer(
+    queueUrl: String,
+    config: CommonConfig,
+    metric: Metric[Long]
+) extends ImageId {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
@@ -31,7 +39,8 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
   def startSchedule(): Unit =
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
 
-  lazy val client: AmazonSQS = config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
+  lazy val client: AmazonSQS =
+    config.withAWSCredentials(AmazonSQSClientBuilder.standard()).build()
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Any]]
 
@@ -42,11 +51,15 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
     // http://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-long-polling.html
     for (msg <- getMessages(waitTime = 20, maxMessages = 1)) {
       val future = for {
-        message <- Future(extractSNSMessage(msg) getOrElse sys.error("Invalid message structure (not via SNS?)"))
+        message <- Future(
+          extractSNSMessage(msg) getOrElse sys.error(
+            "Invalid message structure (not via SNS?)"
+          )
+        )
         processor = message.subject.flatMap(chooseProcessor)
         _ <- processor.fold(
-          sys.error(s"Unrecognised message subject ${message.subject}"))(
-            _.apply(message.body))
+          sys.error(s"Unrecognised message subject ${message.subject}")
+        )(_.apply(message.body))
         _ = recordMessageCount(message)
       } yield ()
       future |> deleteOnSuccess(msg)
@@ -57,8 +70,9 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
 
   private def recordMessageCount(message: SNSMessage) = {
     val dimensions = message.subject match {
-      case Some(subject) => List(new Dimension().withName("subject").withValue(subject))
-      case None          => List()
+      case Some(subject) =>
+        List(new Dimension().withName("subject").withValue(subject))
+      case None => List()
     }
     metric.runRecordOne(1L, dimensions)
   }
@@ -67,17 +81,25 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
     f.foreach { _ => deleteMessage(msg) }
 
   private def getMessages(waitTime: Int, maxMessages: Int): Seq[SQSMessage] =
-    client.receiveMessage(
-      new ReceiveMessageRequest(queueUrl)
-        .withWaitTimeSeconds(waitTime)
-        .withMaxNumberOfMessages(maxMessages)
-    ).getMessages.asScala.toList
+    client
+      .receiveMessage(
+        new ReceiveMessageRequest(queueUrl)
+          .withWaitTimeSeconds(waitTime)
+          .withMaxNumberOfMessages(maxMessages)
+      )
+      .getMessages
+      .asScala
+      .toList
 
   private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
-    Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
+    Json.fromJson[SNSMessage](
+      Json.parse(sqsMessage.getBody)
+    ) <| logParseErrors |> (_.asOpt)
 
   private def deleteMessage(message: SQSMessage): Unit =
-    client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
+    client.deleteMessage(
+      new DeleteMessageRequest(queueUrl, message.getReceiptHandle)
+    )
 }
 
 // TODO: improve and use this (for logging especially) else where.
@@ -85,12 +107,12 @@ case class EsResponse(message: String)
 case class SNSBodyParseError(message: String) extends Exception
 
 case class SNSMessage(
-  messageType: String,
-  messageId: String,
-  topicArn: String,
-  subject: Option[String],
-  timestamp: DateTime,
-  body: JsValue
+    messageType: String,
+    messageId: String,
+    topicArn: String,
+    subject: Option[String],
+    timestamp: DateTime,
+    body: JsValue
 )
 
 object SNSMessage {
@@ -105,5 +127,5 @@ object SNSMessage {
         (__ \ "Subject").readNullable[String] ~
         (__ \ "Timestamp").read[String].map(parseTimestamp) ~
         (__ \ "Message").read[String].map(Json.parse)
-      )(SNSMessage(_, _, _, _, _, _))
+    )(SNSMessage(_, _, _, _, _, _))
 }

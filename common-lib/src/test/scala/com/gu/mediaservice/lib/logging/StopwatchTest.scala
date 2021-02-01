@@ -14,6 +14,8 @@ class StopwatchTest extends FunSpec with Matchers {
 
     markers.contains("start") shouldBe true
     markers.contains("end") shouldBe true
-    markers("duration").toString.toLong should be >= fiveSeconds // >= as time is needed to call the function
+    markers(
+      "duration"
+    ).toString.toLong should be >= fiveSeconds // >= as time is needed to call the function
   }
 }

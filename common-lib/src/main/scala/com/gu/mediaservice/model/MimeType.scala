@@ -8,7 +8,7 @@ class UnsupportedMimeTypeException(val mimeType: String) extends Exception
 sealed trait MimeType {
   def name: String = this match {
     case Jpeg => "image/jpeg"
-    case Png => "image/png"
+    case Png  => "image/png"
     case Tiff => "image/tiff"
   }
 
@@ -20,7 +20,7 @@ sealed trait MimeType {
 object MimeType extends GridLogging {
   def apply(value: String): MimeType = value.toLowerCase match {
     case "image/jpeg" => Jpeg
-    case "image/png" => Png
+    case "image/png"  => Png
     case "image/tiff" => Tiff
 
     // Support crops created in the early years of Grid (~2016) which state mime type w/out an 'image/' prefix
@@ -42,7 +42,8 @@ object MimeType extends GridLogging {
 
   implicit val reads: Reads[MimeType] = JsPath.read[String].map(MimeType(_))
 
-  implicit val writer: Writes[MimeType] = (mimeType: MimeType) => JsString(mimeType.toString)
+  implicit val writer: Writes[MimeType] = (mimeType: MimeType) =>
+    JsString(mimeType.toString)
 }
 
 object Jpeg extends MimeType {

@@ -1,15 +1,28 @@
 package lib
 
-import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageMetadata, Photographer, UsageRights}
+import com.gu.mediaservice.model.{
+  CommissionedAgency,
+  Illustrator,
+  Image,
+  ImageMetadata,
+  Photographer,
+  UsageRights
+}
 
 import scala.collection.mutable.ListBuffer
 
 object ImagePersistenceReasons {
-  def apply(persistedRootCollections: List[String], persistenceIdentifier: String): ImagePersistenceReasons =
+  def apply(
+      persistedRootCollections: List[String],
+      persistenceIdentifier: String
+  ): ImagePersistenceReasons =
     new ImagePersistenceReasons(persistedRootCollections, persistenceIdentifier)
 }
 
-class ImagePersistenceReasons(persistedRootCollections: List[String], persistenceIdentifier: String) {
+class ImagePersistenceReasons(
+    persistedRootCollections: List[String],
+    persistenceIdentifier: String
+) {
 
   def getImagePersistenceReasons(image: Image) = {
     val reasons = ListBuffer[String]()
@@ -53,15 +66,20 @@ class ImagePersistenceReasons(persistedRootCollections: List[String], persistenc
     reasons.toList
   }
 
-  private def isInPersistedCollection(image: Image, persistedRootCollections: List[String]): Boolean = {
+  private def isInPersistedCollection(
+      image: Image,
+      persistedRootCollections: List[String]
+  ): Boolean = {
     // list of the first element of each collection's `path`, i.e all the root collections
-    val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
+    val collectionPaths: List[String] =
+      image.collections.flatMap(_.path.headOption)
 
     // is image in at least one persisted collection?
     (collectionPaths diff persistedRootCollections).length < collectionPaths.length
   }
 
-  private def hasLabels(image: Image) = image.userMetadata.exists(_.labels.nonEmpty)
+  private def hasLabels(image: Image) =
+    image.userMetadata.exists(_.labels.nonEmpty)
 
   private def hasUserEdits(image: Image) =
     image.userMetadata.exists(ed => ed.metadata != ImageMetadata.empty)
@@ -69,24 +87,28 @@ class ImagePersistenceReasons(persistedRootCollections: List[String], persistenc
   private def isIllustratorCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _: Illustrator => true
-      case _ => false
+      case _              => false
     }
 
   private def isAgencyCommissionedCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _: CommissionedAgency => true
-      case _ => false
+      case _                     => false
     }
 
   private def isPhotographerCategory[T <: UsageRights](usageRights: T) =
     usageRights match {
       case _: Photographer => true
-      case _ => false
+      case _               => false
     }
 
-  private def hasPhotoshoot(image: Image): Boolean = image.userMetadata.exists(_.photoshoot.isDefined)
+  private def hasPhotoshoot(image: Image): Boolean =
+    image.userMetadata.exists(_.photoshoot.isDefined)
 
-  private def hasPersistenceIdentifier(image: Image, persistenceIdentifier: String) = {
+  private def hasPersistenceIdentifier(
+      image: Image,
+      persistenceIdentifier: String
+  ) = {
     image.identifiers.contains(persistenceIdentifier)
   }
 

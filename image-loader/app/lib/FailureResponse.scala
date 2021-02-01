@@ -19,19 +19,35 @@ object FailureResponse extends ArgoHelpers {
 
   val failedUriDownload: Result = {
     logger.warn("importImage request failed")
-    respondError(BadRequest, "failed-uri-download", s"The provided 'uri' could not be downloaded")
+    respondError(
+      BadRequest,
+      "failed-uri-download",
+      s"The provided 'uri' could not be downloaded"
+    )
   }
 
-  def unsupportedMimeType(unsupported: UnsupportedMimeTypeException, supportedMimeTypes: List[MimeType]): Result = {
-    logger.info(s"Rejected request to load file: mime-type is not supported", unsupported)
+  def unsupportedMimeType(
+      unsupported: UnsupportedMimeTypeException,
+      supportedMimeTypes: List[MimeType]
+  ): Result = {
+    logger.info(
+      s"Rejected request to load file: mime-type is not supported",
+      unsupported
+    )
     respondError(
       UnsupportedMediaType,
       "unsupported-type",
       s"Unsupported mime-type: ${unsupported.mimeType}. Supported: ${supportedMimeTypes.mkString(", ")}"
     )
   }
-  def notAnImage(exception: Exception, supportedMimeTypes: List[MimeType]): Result = {
-    logger.info(s"Rejected request to load file: file type is not supported", exception)
+  def notAnImage(
+      exception: Exception,
+      supportedMimeTypes: List[MimeType]
+  ): Result = {
+    logger.info(
+      s"Rejected request to load file: file type is not supported",
+      exception
+    )
 
     respondError(
       UnsupportedMediaType,
@@ -41,7 +57,10 @@ object FailureResponse extends ArgoHelpers {
   }
 
   def badImage(exception: Exception): Result = {
-    logger.info(s"Rejected request to load file: image file is not good", exception)
+    logger.info(
+      s"Rejected request to load file: image file is not good",
+      exception
+    )
 
     respondError(
       UnsupportedMediaType,

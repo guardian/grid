@@ -11,9 +11,9 @@ case object Syndication extends Tier
 
 object Tier {
   def apply(value: String): Tier = value.toLowerCase match {
-    case "internal" => Internal
+    case "internal"    => Internal
     case "syndication" => Syndication
-    case _ => ReadOnly // readonly by default
+    case _             => ReadOnly // readonly by default
   }
 }
 
@@ -26,9 +26,15 @@ object ApiAccessor extends ArgoHelpers {
     ApiAccessor(name, tier)
   }
 
-  def hasAccess(apiKey: ApiAccessor, request: RequestHeader, services: Services): Boolean = apiKey.tier match {
+  def hasAccess(
+      apiKey: ApiAccessor,
+      request: RequestHeader,
+      services: Services
+  ): Boolean = apiKey.tier match {
     case Internal => true
     case ReadOnly => request.method == "GET"
-    case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")
+    case Syndication =>
+      request.method == "GET" && request.host == services.apiHost && request.path
+        .startsWith("/images")
   }
 }

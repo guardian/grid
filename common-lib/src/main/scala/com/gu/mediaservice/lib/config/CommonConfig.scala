@@ -9,8 +9,9 @@ import play.api.Configuration
 
 import scala.util.Try
 
-
-abstract class CommonConfig(val configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
+abstract class CommonConfig(val configuration: Configuration)
+    extends AwsClientBuilderUtils
+    with StrictLogging {
   final val elasticsearchStack = "media-service"
 
   final val elasticsearchApp = "elasticsearch"
@@ -28,19 +29,26 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   override val awsRegion: String = stringDefault("aws.region", "eu-west-1")
 
-  override val awsLocalEndpoint: Option[String] = if(isDev) stringOpt("aws.local.endpoint") else None
+  override val awsLocalEndpoint: Option[String] =
+    if (isDev) stringOpt("aws.local.endpoint") else None
 
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
-  val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
+  val permissionsBucket: String =
+    stringDefault("permissions.bucket", "permissions-cache")
 
-  val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
+  val localLogShipping: Boolean =
+    sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   val thrallKinesisStream = string("thrall.kinesis.stream.name")
-  val thrallKinesisLowPriorityStream = string("thrall.kinesis.lowPriorityStream.name")
+  val thrallKinesisLowPriorityStream = string(
+    "thrall.kinesis.lowPriorityStream.name"
+  )
 
   val thrallKinesisStreamConfig = getKinesisConfigForStream(thrallKinesisStream)
-  val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(thrallKinesisLowPriorityStream)
+  val thrallKinesisLowPriorityStreamConfig = getKinesisConfigForStream(
+    thrallKinesisLowPriorityStream
+  )
 
   val requestMetricsEnabled: Boolean = boolean("metrics.request.enabled")
 
@@ -61,18 +69,27 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
     stringDefault("hosts.authPrefix", s"$rootAppName-auth.")
   )
 
-  val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
+  val corsAllowedOrigins: Set[String] = getStringSet(
+    "security.cors.allowedOrigins"
+  )
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
-  private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
+  private def getKinesisConfigForStream(streamName: String) =
+    KinesisSenderConfig(
+      awsRegion,
+      awsCredentials,
+      awsLocalEndpoint,
+      isDev,
+      streamName
+    )
 
   final def getStringSet(key: String): Set[String] = Try {
     configuration.get[Seq[String]](key)
-  }.recover {
-    case _:ConfigException.WrongType => configuration.get[String](key).split(",").toSeq.map(_.trim)
+  }.recover { case _: ConfigException.WrongType =>
+    configuration.get[String](key).split(",").toSeq.map(_.trim)
   }.map(_.toSet)
-   .getOrElse(Set.empty)
+    .getOrElse(Set.empty)
 
   final def apply(key: String): String =
     string(key)
@@ -83,7 +100,8 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
   final def stringDefault(key: String, default: String): String =
     configuration.getOptional[String](key) getOrElse default
 
-  final def stringOpt(key: String): Option[String] = configuration.getOptional[String](key)
+  final def stringOpt(key: String): Option[String] =
+    configuration.getOptional[String](key)
 
   final def int(key: String): Int =
     configuration.getOptional[Int](key) getOrElse missing(key, "integer")

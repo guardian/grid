@@ -5,7 +5,8 @@ import com.gu.mediaservice.lib.DateTimeUtils
 
 import scala.concurrent.duration._
 
-case class DurationForLogging(startTime: ZonedDateTime, duration: Duration) extends LogMarker {
+case class DurationForLogging(startTime: ZonedDateTime, duration: Duration)
+    extends LogMarker {
   def toMillis: Long = duration.toMillis
   override def markerContents: Map[String, Any] = Map(
     "start" -> DateTimeUtils.toString(startTime),
@@ -17,7 +18,7 @@ case class DurationForLogging(startTime: ZonedDateTime, duration: Duration) exte
 
 }
 
-class Stopwatch  {
+class Stopwatch {
 
   // This method can only be used to measure elapsed time and is not related to any other notion of system or wall-clock time.
   // Therefore we additionally have `startTime` to track the time.
@@ -26,7 +27,8 @@ class Stopwatch  {
 
   private val startTime = DateTimeUtils.now()
 
-  def elapsed: DurationForLogging = DurationForLogging(startTime, (System.nanoTime() - startedAt).nanos)
+  def elapsed: DurationForLogging =
+    DurationForLogging(startTime, (System.nanoTime() - startedAt).nanos)
 }
 
 object Stopwatch extends GridLogging {
@@ -37,12 +39,17 @@ object Stopwatch extends GridLogging {
     val stopwatch = new Stopwatch
     try {
       val result = body
-      logger.info(addMarkers("elapsed" -> stopwatch.elapsed.duration.toString).toLogMarker, s"Stopwatch: $label")
+      logger.info(
+        addMarkers(
+          "elapsed" -> stopwatch.elapsed.duration.toString
+        ).toLogMarker,
+        s"Stopwatch: $label"
+      )
       result
     } catch {
-      case e: Exception => logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e
+      case e: Exception =>
+        logger.error(s"Stopwatch: $label ${stopwatch.elapsed} ns", e); throw e
     }
   }
 
 }
-

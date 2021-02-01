@@ -18,6 +18,6 @@ object UsageTableFullKey {
   def build(combinedKey: String): Option[UsageTableFullKey] = {
     val pair = combinedKey.split(keyDelimiter)
 
-    Try { pair match { case Array(h,r) => UsageTableFullKey(h, r) } }.toOption
+    Try { pair match { case Array(h, r) => UsageTableFullKey(h, r) } }.toOption
   }
 }

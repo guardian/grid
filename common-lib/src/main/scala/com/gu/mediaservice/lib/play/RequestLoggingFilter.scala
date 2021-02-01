@@ -10,11 +10,15 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class RequestLoggingFilter(override val mat: Materializer)(implicit ec: ExecutionContext) extends Filter {
+class RequestLoggingFilter(override val mat: Materializer)(implicit
+    ec: ExecutionContext
+) extends Filter {
 
   private val logger = Logger("request")
 
-  override def apply(next: (RequestHeader) => Future[Result])(rh: RequestHeader): Future[Result] = {
+  override def apply(
+      next: (RequestHeader) => Future[Result]
+  )(rh: RequestHeader): Future[Result] = {
     val start = System.currentTimeMillis()
     val result = next(rh)
 
@@ -31,10 +35,16 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     result
   }
 
-  private def logSuccess(request: RequestHeader, response: Result, duration: Long): Unit = {
-    val originIp = request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
+  private def logSuccess(
+      request: RequestHeader,
+      response: Result,
+      duration: Long
+  ): Unit = {
+    val originIp =
+      request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
     val referer = request.headers.get("Referer").getOrElse("")
-    val originalService = request.headers.get(Authentication.originalServiceHeaderName)
+    val originalService =
+      request.headers.get(Authentication.originalServiceHeaderName)
     val length = response.header.headers.getOrElse("Content-Length", 0)
 
     val mandatoryMarkers = Map(
@@ -46,17 +56,27 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     )
 
     val optionalMarkers = originalService
-      .map { s => Map(Authentication.originalServiceHeaderName -> s ) }
+      .map { s => Map(Authentication.originalServiceHeaderName -> s) }
       .getOrElse(Map.empty)
 
-    val markers = MarkerContext(appendEntries((mandatoryMarkers ++ optionalMarkers).asJava))
-    logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ${response.header.status} $length "$referer" ${duration}ms""")(markers)
+    val markers = MarkerContext(
+      appendEntries((mandatoryMarkers ++ optionalMarkers).asJava)
+    )
+    logger.info(
+      s"""$originIp - "${request.method} ${request.uri} ${request.version}" ${response.header.status} $length "$referer" ${duration}ms"""
+    )(markers)
   }
 
-  private def logFailure(request: RequestHeader, throwable: Throwable, duration: Long): Unit = {
-    val originIp = request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
+  private def logFailure(
+      request: RequestHeader,
+      throwable: Throwable,
+      duration: Long
+  ): Unit = {
+    val originIp =
+      request.headers.get("X-Forwarded-For").getOrElse(request.remoteAddress)
     val referer = request.headers.get("Referer").getOrElse("")
-    val originalService = request.headers.get(Authentication.originalServiceHeaderName)
+    val originalService =
+      request.headers.get(Authentication.originalServiceHeaderName)
 
     val mandatoryMarkers = Map(
       "origin" -> originIp,
@@ -66,11 +86,15 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
     )
 
     val optionalMarkers = originalService
-      .map { s => Map(Authentication.originalServiceHeaderName -> s ) }
+      .map { s => Map(Authentication.originalServiceHeaderName -> s) }
       .getOrElse(Map.empty)
 
-    val markers = MarkerContext(appendEntries((mandatoryMarkers ++ optionalMarkers).asJava))
-    logger.info(s"""$originIp - "${request.method} ${request.uri} ${request.version}" ERROR "$referer" ${duration}ms""")(markers)
+    val markers = MarkerContext(
+      appendEntries((mandatoryMarkers ++ optionalMarkers).asJava)
+    )
+    logger.info(
+      s"""$originIp - "${request.method} ${request.uri} ${request.version}" ERROR "$referer" ${duration}ms"""
+    )(markers)
     logger.error(s"Error for ${request.method} ${request.uri}", throwable)
   }
 }

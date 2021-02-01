@@ -9,22 +9,22 @@ import scala.collection.JavaConverters._
 import org.joda.time.DateTime
 
 case class UsageRecord(
-  hashKey: String,
-  rangeKey: String,
-  mediaId: Option[String] = None,
-  usageType: Option[UsageType] = None,
-  mediaType: Option[String] = None,
-  lastModified: Option[DateTime] = None,
-  usageStatus: Option[String] = None,
-  printUsageMetadata: Option[PrintUsageMetadata] = None,
-  digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
-  syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
-  frontUsageMetadata: Option[FrontUsageMetadata] = None,
-  downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
-  dateAdded: Option[DateTime] = None,
-  // Either is used here to represent 3 possible states:
-  // remove-date, add-date and no-date
-  dateRemoved: Either[String, Option[DateTime]] = Right(None)
+    hashKey: String,
+    rangeKey: String,
+    mediaId: Option[String] = None,
+    usageType: Option[UsageType] = None,
+    mediaType: Option[String] = None,
+    lastModified: Option[DateTime] = None,
+    usageStatus: Option[String] = None,
+    printUsageMetadata: Option[PrintUsageMetadata] = None,
+    digitalUsageMetadata: Option[DigitalUsageMetadata] = None,
+    syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
+    frontUsageMetadata: Option[FrontUsageMetadata] = None,
+    downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
+    dateAdded: Option[DateTime] = None,
+    // Either is used here to represent 3 possible states:
+    // remove-date, add-date and no-date
+    dateRemoved: Either[String, Option[DateTime]] = Right(None)
 ) {
   def toXSpec = {
     (new ExpressionSpecBuilder() <| (xspec => {
@@ -34,11 +34,21 @@ case class UsageRecord(
         mediaType.filter(_.nonEmpty).map(S("media_type").set(_)),
         lastModified.map(lastMod => N("last_modified").set(lastMod.getMillis)),
         usageStatus.filter(_.nonEmpty).map(S("usage_status").set(_)),
-        printUsageMetadata.map(_.toMap).map(map => M("print_metadata").set(map.asJava)),
-        digitalUsageMetadata.map(_.toMap).map(map => M("digital_metadata").set(map.asJava)),
-        syndicationUsageMetadata.map(_.toMap).map(map => M("syndication_metadata").set(map.asJava)),
-        frontUsageMetadata.map(_.toMap).map(map => M("front_metadata").set(map.asJava)),
-        downloadUsageMetadata.map(_.toMap).map(map => M("download_metadata").set(map.asJava)),
+        printUsageMetadata
+          .map(_.toMap)
+          .map(map => M("print_metadata").set(map.asJava)),
+        digitalUsageMetadata
+          .map(_.toMap)
+          .map(map => M("digital_metadata").set(map.asJava)),
+        syndicationUsageMetadata
+          .map(_.toMap)
+          .map(map => M("syndication_metadata").set(map.asJava)),
+        frontUsageMetadata
+          .map(_.toMap)
+          .map(map => M("front_metadata").set(map.asJava)),
+        downloadUsageMetadata
+          .map(_.toMap)
+          .map(map => M("download_metadata").set(map.asJava)),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
         dateRemoved.fold(
           _ => Some(N("date_removed").remove),

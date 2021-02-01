@@ -15,7 +15,9 @@ class UsageMetadataBuilder(config: UsageConfig) {
       Try(URI.create(s"${config.composerContentBaseUrl}/$composerId")).toOption
     })
 
-  def buildDownload(metadataMap: Map[String, Any]): Option[DownloadUsageMetadata] = {
+  def buildDownload(
+      metadataMap: Map[String, Any]
+  ): Option[DownloadUsageMetadata] = {
     Try {
       DownloadUsageMetadata(
         metadataMap("downloadedBy").asInstanceOf[String]

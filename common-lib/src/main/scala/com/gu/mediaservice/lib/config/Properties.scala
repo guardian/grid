@@ -25,7 +25,8 @@ object Properties {
 
   def fromStream(stream: InputStream): Map[String, String] = {
     val props = new java.util.Properties
-    try props.load(stream) finally stream.close()
+    try props.load(stream)
+    finally stream.close()
     props.asScala.toMap
   }
 }

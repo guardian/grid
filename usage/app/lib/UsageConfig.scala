@@ -8,10 +8,11 @@ import com.gu.mediaservice.lib.net.URI.ensureSecure
 
 import scala.util.Try
 
-
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) with GridLogging {
+class UsageConfig(resources: GridConfigResources)
+    extends CommonConfig(resources.configuration)
+    with GridLogging {
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val usageUri: String = services.usageBaseUri
@@ -23,14 +24,16 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
   val defaultMaxPrintRequestSizeInKb = 500
   val defaultDateLimit = "2016-01-01T00:00:00+00:00"
 
-  val maxPrintRequestLengthInKb: Int = intDefault("api.setPrint.maxLength", defaultMaxPrintRequestSizeInKb)
+  val maxPrintRequestLengthInKb: Int =
+    intDefault("api.setPrint.maxLength", defaultMaxPrintRequestSizeInKb)
 
   val capiLiveUrl = string("capi.live.url")
   val capiApiKey = string("capi.apiKey")
   val capiPageSize: Int = intDefault("capi.page.size", defaultPageSize)
   val capiMaxRetries: Int = intDefault("capi.maxRetries", defaultMaxRetries)
 
-  val usageDateLimit: String = stringDefault("usage.dateLimit", defaultDateLimit)
+  val usageDateLimit: String =
+    stringDefault("usage.dateLimit", defaultDateLimit)
 
   private val composerBaseUrlProperty: String = string("composer.baseUrl")
   private val composerBaseUrl = ensureSecure(composerBaseUrlProperty)
@@ -58,14 +61,17 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
     previewArn <- crierPreviewArn
   } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
 
-  private val iamClient: AmazonIdentityManagement = withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()
+  private val iamClient: AmazonIdentityManagement =
+    withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()
 
   val postfix: String = if (isDev) {
     try {
       iamClient.getUser.getUser.getUserName
     } catch {
-      case e:com.amazonaws.AmazonServiceException=>
-        logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names")
+      case e: com.amazonaws.AmazonServiceException =>
+        logger.warn(
+          "Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names"
+        )
         "tempcredentials"
     }
   } else {

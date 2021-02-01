@@ -3,23 +3,23 @@ package lib
 import com.gu.mediaservice.model.usage._
 import model._
 
-
 object MediaUsageBuilder {
 
-  def build(printUsage: PrintUsageRecord, usageId: UsageId, grouping: String) = MediaUsage(
-    usageId,
-    grouping,
-    printUsage.mediaId,
-    PrintUsage,
-    "image",
-    printUsage.usageStatus,
-    Some(printUsage.printUsageMetadata),
-    None,
-    None,
-    None,
-    None,
-    printUsage.dateAdded
-  )
+  def build(printUsage: PrintUsageRecord, usageId: UsageId, grouping: String) =
+    MediaUsage(
+      usageId,
+      grouping,
+      printUsage.mediaId,
+      PrintUsage,
+      "image",
+      printUsage.usageStatus,
+      Some(printUsage.printUsageMetadata),
+      None,
+      None,
+      None,
+      None,
+      printUsage.dateAdded
+    )
 
   def build(mediaWrapper: MediaWrapper): MediaUsage = {
     val usageId = UsageIdBuilder.build(mediaWrapper)
@@ -40,7 +40,10 @@ object MediaUsageBuilder {
     )
   }
 
-  def build(syndicationUsageRequest: SyndicationUsageRequest, groupId: String): MediaUsage = {
+  def build(
+      syndicationUsageRequest: SyndicationUsageRequest,
+      groupId: String
+  ): MediaUsage = {
     val usageId = UsageIdBuilder.build(syndicationUsageRequest)
     MediaUsage(
       usageId,
@@ -58,7 +61,10 @@ object MediaUsageBuilder {
     )
   }
 
-  def build(frontUsageRequest: FrontUsageRequest, groupId: String): MediaUsage = {
+  def build(
+      frontUsageRequest: FrontUsageRequest,
+      groupId: String
+  ): MediaUsage = {
     val usageId = UsageIdBuilder.build(frontUsageRequest)
 
     MediaUsage(
@@ -77,10 +83,13 @@ object MediaUsageBuilder {
     )
   }
 
-  def build(downloadUsageRequest: DownloadUsageRequest, groupId: String): MediaUsage = {
+  def build(
+      downloadUsageRequest: DownloadUsageRequest,
+      groupId: String
+  ): MediaUsage = {
     val usageId = UsageIdBuilder.build(downloadUsageRequest)
 
-    MediaUsage (
+    MediaUsage(
       usageId,
       groupId,
       downloadUsageRequest.mediaId,

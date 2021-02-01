@@ -1,7 +1,10 @@
 package com.gu.mediaservice.lib.metrics
 
 import com.amazonaws.services.cloudwatch.model._
-import com.amazonaws.services.cloudwatch.{AmazonCloudWatch, AmazonCloudWatchClientBuilder}
+import com.amazonaws.services.cloudwatch.{
+  AmazonCloudWatch,
+  AmazonCloudWatchClientBuilder
+}
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.slf4j.LoggerFactory
 import scalaz.concurrent.Task
@@ -46,14 +49,17 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
 
   class CountMetric(name: String) extends CloudWatchMetric[Long](name) {
 
-    protected def toDatum(a: Long, dimensions: List[Dimension]) = datum(StandardUnit.Count, a, dimensions)
+    protected def toDatum(a: Long, dimensions: List[Dimension]) =
+      datum(StandardUnit.Count, a, dimensions)
 
-    def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Task[Unit] = recordOne(n, dimensions)
+    def increment(dimensions: List[Dimension] = Nil, n: Long = 1): Task[Unit] =
+      recordOne(n, dimensions)
 
   }
 
   class TimeMetric(name: String) extends CloudWatchMetric[Long](name) {
-    protected def toDatum(a: Long, dimensions: List[Dimension]) = datum(StandardUnit.Milliseconds, a, dimensions)
+    protected def toDatum(a: Long, dimensions: List[Dimension]) =
+      datum(StandardUnit.Milliseconds, a, dimensions)
   }
 
   private lazy val logger = LoggerFactory.getLogger(getClass)
@@ -61,46 +67,73 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
   private val topic: Topic[MetricDatum] = async.topic[MetricDatum]()
 
   private val sink: Sink[Task, Seq[MetricDatum]] = constant { data =>
-    putData(data).handle { case e: RuntimeException => logger.error(s"Error while publishing metrics", e) }
+    putData(data).handle { case e: RuntimeException =>
+      logger.error(s"Error while publishing metrics", e)
+    }
   }
 
-  private val client: AmazonCloudWatch = config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
+  private val client: AmazonCloudWatch =
+    config.withAWSCredentials(AmazonCloudWatchClientBuilder.standard()).build()
 
   private def putData(data: Seq[MetricDatum]): Task[Unit] = Task {
 
     val aggregatedMetrics: Seq[MetricDatum] = data
       .groupBy(metric => (metric.getMetricName, metric.getDimensions))
       .map { case (_, values) =>
-        values.reduce((m1, m2) => m1.clone()
-          .withValue(null)
-          .withStatisticValues(aggregateMetricStats(m1,m2)))
+        values.reduce((m1, m2) =>
+          m1.clone()
+            .withValue(null)
+            .withStatisticValues(aggregateMetricStats(m1, m2))
+        )
       }
       .toSeq
 
-    aggregatedMetrics.grouped(20).foreach(chunkedMetrics => { //can only send max 20 metrics to CW at a time
-      client.putMetricData(new PutMetricDataRequest()
-        .withNamespace(namespace)
-        .withMetricData(chunkedMetrics.asJava))
-      }
-    )
+    aggregatedMetrics
+      .grouped(20)
+      .foreach(
+        chunkedMetrics => { //can only send max 20 metrics to CW at a time
+          client.putMetricData(
+            new PutMetricDataRequest()
+              .withNamespace(namespace)
+              .withMetricData(chunkedMetrics.asJava)
+          )
+        }
+      )
 
-    logger.info(s"Put ${data.size} metric data points (aggregated to ${aggregatedMetrics.size} points) to namespace $namespace")
+    logger.info(
+      s"Put ${data.size} metric data points (aggregated to ${aggregatedMetrics.size} points) to namespace $namespace"
+    )
   }
 
-  private def aggregateMetricStats(metricDatumOriginal: MetricDatum, metricDatumNew: MetricDatum): StatisticSet = {
+  private def aggregateMetricStats(
+      metricDatumOriginal: MetricDatum,
+      metricDatumNew: MetricDatum
+  ): StatisticSet = {
     metricDatumOriginal.getStatisticValues match {
       case stats if stats == null =>
         new StatisticSet()
-          .withMinimum(Math.min(metricDatumOriginal.getValue, metricDatumNew.getValue))
-          .withMaximum(Math.max(metricDatumOriginal.getValue, metricDatumNew.getValue))
+          .withMinimum(
+            Math.min(metricDatumOriginal.getValue, metricDatumNew.getValue)
+          )
+          .withMaximum(
+            Math.max(metricDatumOriginal.getValue, metricDatumNew.getValue)
+          )
           .withSum(metricDatumOriginal.getValue + metricDatumNew.getValue)
-          .withSampleCount(if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString)) 1d else 2d)
+          .withSampleCount(
+            if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString))
+              1d
+            else 2d
+          )
       case stats =>
         new StatisticSet()
           .withMinimum(Math.min(stats.getMinimum, metricDatumNew.getValue))
           .withMaximum(Math.max(stats.getMinimum, metricDatumNew.getValue))
           .withSum(stats.getSum + metricDatumNew.getValue)
-          .withSampleCount(if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString)) 1d else stats.getSampleCount + 1)
+          .withSampleCount(
+            if (metricDatumOriginal.getUnit.equals(StandardUnit.Count.toString))
+              1d
+            else stats.getSampleCount + 1
+          )
     }
   }
 
@@ -109,21 +142,32 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
     final def recordOne(a: A, dimensions: List[Dimension] = Nil): Task[Unit] =
       topic.publishOne(toDatum(a, dimensions).withTimestamp(new java.util.Date))
 
-    final def recordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Task[Unit] =
-      emitAll(as map (a => toDatum(a, dimensions).withTimestamp(new java.util.Date)))
-        .toSource.to(topic.publish).run
+    final def recordMany(
+        as: Seq[A],
+        dimensions: List[Dimension] = Nil
+    ): Task[Unit] =
+      emitAll(
+        as map (a => toDatum(a, dimensions).withTimestamp(new java.util.Date))
+      ).toSource.to(topic.publish).run
 
     final def runRecordOne(a: A, dimensions: List[Dimension] = Nil): Unit =
       recordOne(a, dimensions).runAsync(loggingErrors)
 
-    final def runRecordMany(as: Seq[A], dimensions: List[Dimension] = Nil): Unit =
+    final def runRecordMany(
+        as: Seq[A],
+        dimensions: List[Dimension] = Nil
+    ): Unit =
       recordMany(as, dimensions).runAsync(loggingErrors)
 
     /** Must be implemented to provide a way to turn an `A` into a `MetricDatum` */
     protected def toDatum(a: A, dimensions: List[Dimension]): MetricDatum
 
     /** Convenience method for instantiating a `MetricDatum` with this metric's `name` and `dimension` */
-    protected def datum(unit: StandardUnit, value: Double, dimensions: List[Dimension]): MetricDatum =
+    protected def datum(
+        unit: StandardUnit,
+        value: Double,
+        dimensions: List[Dimension]
+    ): MetricDatum =
       new MetricDatum()
         .withMetricName(name)
         .withUnit(unit)
@@ -135,6 +179,10 @@ abstract class CloudWatchMetrics(namespace: String, config: CommonConfig) {
   import com.gu.mediaservice.lib.Processes._
 
   /** Subscribe the metric publishing sink to the topic */
-  topic.subscribe.chunkTimed(maxAge, maxChunkSize).to(sink).run.runAsync(loggingErrors)
+  topic.subscribe
+    .chunkTimed(maxAge, maxChunkSize)
+    .to(sink)
+    .run
+    .runAsync(loggingErrors)
 
 }

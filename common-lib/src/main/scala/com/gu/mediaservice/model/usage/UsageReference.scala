@@ -5,9 +5,9 @@ import play.api.libs.json._
 import com.gu.mediaservice.syntax._
 
 case class UsageReference(
-  `type`: UsageReferenceType,
-  uri: Option[URI] = None,
-  name: Option[String] = None
+    `type`: UsageReferenceType,
+    uri: Option[URI] = None,
+    name: Option[String] = None
 )
 object UsageReference {
   implicit val writes: Writes[UsageReference] = Json.writes[UsageReference]

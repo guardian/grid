@@ -2,8 +2,7 @@ package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.ImageMetadata
 
-/**
-  * TODO: Split this into two cleaners?
+/** TODO: Split this into two cleaners?
   */
 object GuardianStyleByline extends MetadataCleaner {
   override def clean(metadata: ImageMetadata): ImageMetadata = {
@@ -12,7 +11,7 @@ object GuardianStyleByline extends MetadataCleaner {
     )
   }
 
-  private def applyCleaners(byline: String): String =  {
+  private def applyCleaners(byline: String): String = {
     val curly = replaceStraightQuoteWithCurly(byline)
     cleanInitials(curly)
   }

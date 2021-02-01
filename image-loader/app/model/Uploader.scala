@@ -9,14 +9,26 @@ import java.util.UUID
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.{BrowserViewableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.lib.{
+  BrowserViewableImage,
+  StorableOptimisedImage,
+  StorableOriginalImage,
+  StorableThumbImage
+}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
-import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners, SupplierProcessors}
+import com.gu.mediaservice.lib.cleanup.{
+  ImageProcessor,
+  MetadataCleaners,
+  SupplierProcessors
+}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging._
-import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
+import com.gu.mediaservice.lib.metadata.{
+  FileMetadataHelper,
+  ImageMetadataConverter
+}
 import com.gu.mediaservice.model._
 import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
@@ -31,10 +43,18 @@ import scala.concurrent.{ExecutionContext, Future}
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
 case object ImageUpload {
-  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
+  val metadataCleaners = new MetadataCleaners(
+    MetadataConfig.allPhotographersMap
+  )
 
-  def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
-                  fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {
+  def createImage(
+      uploadRequest: UploadRequest,
+      source: Asset,
+      thumbnail: Asset,
+      png: Option[Asset],
+      fileMetadata: FileMetadata,
+      metadata: ImageMetadata
+  ): Image = {
     val usageRights = NoRights
     Image(
       uploadRequest.imageId,
@@ -59,20 +79,20 @@ case object ImageUpload {
 }
 
 case class ImageUploadOpsCfg(
-  tempDir: File,
-  thumbWidth: Int,
-  thumbQuality: Double,
-  transcodedMimeTypes: List[MimeType],
-  originalFileBucket: String,
-  thumbBucket: String
+    tempDir: File,
+    thumbWidth: Int,
+    thumbQuality: Double,
+    transcodedMimeTypes: List[MimeType],
+    originalFileBucket: String,
+    thumbBucket: String
 )
 
 case class ImageUploadOpsDependencies(
-                                       config: ImageUploadOpsCfg,
-                                       imageOps: ImageOperations,
-                                       storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
-                                       storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
-                                       storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object]
+    config: ImageUploadOpsCfg,
+    imageOps: ImageOperations,
+    storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
+    storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
+    storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object]
 )
 
 object Uploader extends GridLogging {
@@ -88,14 +108,21 @@ object Uploader extends GridLogging {
     )
   }
 
-  def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies, processor: ImageProcessor)
-                             (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
+  def fromUploadRequestShared(
+      uploadRequest: UploadRequest,
+      deps: ImageUploadOpsDependencies,
+      processor: ImageProcessor
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
 
     import deps._
 
     logger.info("Starting image ops")
 
-    val fileMetadataFuture = toFileMetadata(uploadRequest.tempFile, uploadRequest.imageId, uploadRequest.mimeType)
+    val fileMetadataFuture = toFileMetadata(
+      uploadRequest.tempFile,
+      uploadRequest.imageId,
+      uploadRequest.mimeType
+    )
 
     logger.info("Have read file headers")
 
@@ -108,30 +135,41 @@ object Uploader extends GridLogging {
         uploadRequest,
         deps,
         fileMetadata,
-        processor)(ec, addLogMarkers(fileMetadata.toLogMarker))
+        processor
+      )(ec, addLogMarkers(fileMetadata.toLogMarker))
     })
   }
 
-  private[model] def uploadAndStoreImage(storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
-                                         storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
-                                         storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
-                                         optimiseOps: OptimiseOps,
-                                         uploadRequest: UploadRequest,
-                                         deps: ImageUploadOpsDependencies,
-                                         fileMetadata: FileMetadata,
-                                         processor: ImageProcessor)
-                  (implicit ec: ExecutionContext, logMarker: LogMarker) = {
+  private[model] def uploadAndStoreImage(
+      storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
+      storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
+      storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
+      optimiseOps: OptimiseOps,
+      uploadRequest: UploadRequest,
+      deps: ImageUploadOpsDependencies,
+      fileMetadata: FileMetadata,
+      processor: ImageProcessor
+  )(implicit ec: ExecutionContext, logMarker: LogMarker) = {
     val originalMimeType = uploadRequest.mimeType
-      .orElse(MimeTypeDetection.guessMimeType(uploadRequest.tempFile).toOption)
-    match {
+      .orElse(
+        MimeTypeDetection.guessMimeType(uploadRequest.tempFile).toOption
+      ) match {
       case Some(a) => a
-      case None => throw new Exception("File of unknown and undetectable mime type")
+      case None =>
+        throw new Exception("File of unknown and undetectable mime type")
     }
 
-    val makeNewDirInTempDirHere: File = Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
+    val makeNewDirInTempDirHere: File =
+      Files.createTempDirectory(deps.config.tempDir.toPath, "upload").toFile
 
-    val colourModelFuture = ImageOperations.identifyColourModel(uploadRequest.tempFile, originalMimeType)
-    val sourceDimensionsFuture = FileMetadataReader.dimensions(uploadRequest.tempFile, Some(originalMimeType))
+    val colourModelFuture = ImageOperations.identifyColourModel(
+      uploadRequest.tempFile,
+      originalMimeType
+    )
+    val sourceDimensionsFuture = FileMetadataReader.dimensions(
+      uploadRequest.tempFile,
+      Some(originalMimeType)
+    )
 
     val storableOriginalImage = StorableOriginalImage(
       uploadRequest.imageId,
@@ -140,32 +178,61 @@ object Uploader extends GridLogging {
       toMetaMap(uploadRequest)
     )
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
-    val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, makeNewDirInTempDirHere, deps)
-
+    val eventualBrowserViewableImage = createBrowserViewableFileFuture(
+      uploadRequest,
+      makeNewDirInTempDirHere,
+      deps
+    )
 
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
-      optimisedFileMetadata <- FileMetadataReader.fromIPTCHeadersWithColorInfo(browserViewableImage)
-      thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps)
+      optimisedFileMetadata <- FileMetadataReader.fromIPTCHeadersWithColorInfo(
+        browserViewableImage
+      )
+      thumbViewableImage <- createThumbFuture(
+        optimisedFileMetadata,
+        colourModelFuture,
+        browserViewableImage,
+        deps
+      )
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
-      maybeStorableOptimisedImage <- getStorableOptimisedImage(makeNewDirInTempDirHere, optimiseOps, browserViewableImage, optimisedFileMetadata)
+      maybeStorableOptimisedImage <- getStorableOptimisedImage(
+        makeNewDirInTempDirHere,
+        optimiseOps,
+        browserViewableImage,
+        optimisedFileMetadata
+      )
       s3PngOption <- maybeStorableOptimisedImage match {
-        case Some(storableOptimisedImage) => storeOrProjectOptimisedFile(storableOptimisedImage).map(a=>Some(a))
+        case Some(storableOptimisedImage) =>
+          storeOrProjectOptimisedFile(storableOptimisedImage).map(a => Some(a))
         case None => Future.successful(None)
       }
       sourceDimensions <- sourceDimensionsFuture
-      thumbDimensions <- FileMetadataReader.dimensions(thumbViewableImage.file, Some(Jpeg))
+      thumbDimensions <- FileMetadataReader.dimensions(
+        thumbViewableImage.file,
+        Some(Jpeg)
+      )
       colourModel <- colourModelFuture
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
-      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
+      val metadata = ImageMetadataConverter.fromFileMetadata(
+        fullFileMetadata,
+        s3Source.metadata.objectMetadata.lastModified
+      )
 
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
 
       val pngAsset = s3PngOption.map(Asset.fromS3Object(_, sourceDimensions))
-      val baseImage = ImageUpload.createImage(uploadRequest, sourceAsset, thumbAsset, pngAsset, fullFileMetadata, metadata)
+      val baseImage = ImageUpload.createImage(
+        uploadRequest,
+        sourceAsset,
+        thumbAsset,
+        pngAsset,
+        fullFileMetadata,
+        metadata
+      )
 
       val processedImage = processor(baseImage)
 
@@ -176,7 +243,7 @@ object Uploader extends GridLogging {
         originalUsageRights = processedImage.usageRights
       )
     }
-    eventualImage.onComplete{ _ =>
+    eventualImage.onComplete { _ =>
       makeNewDirInTempDirHere.listFiles().map(f => f.delete())
       makeNewDirInTempDirHere.delete()
     }
@@ -184,15 +251,33 @@ object Uploader extends GridLogging {
   }
 
   private def getStorableOptimisedImage(
-                                         tempDir: File,
-                                         optimiseOps: OptimiseOps,
-                                         browserViewableImage: BrowserViewableImage,
-                                         optimisedFileMetadata: FileMetadata)
-           (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[StorableOptimisedImage]] = {
-    if (optimiseOps.shouldOptimise(Some(browserViewableImage.mimeType), optimisedFileMetadata)) {
+      tempDir: File,
+      optimiseOps: OptimiseOps,
+      browserViewableImage: BrowserViewableImage,
+      optimisedFileMetadata: FileMetadata
+  )(implicit
+      ec: ExecutionContext,
+      logMarker: LogMarker
+  ): Future[Option[StorableOptimisedImage]] = {
+    if (
+      optimiseOps.shouldOptimise(
+        Some(browserViewableImage.mimeType),
+        optimisedFileMetadata
+      )
+    ) {
       for {
-        (optimisedFile: File, optimisedMimeType: MimeType) <- optimiseOps.toOptimisedFile(browserViewableImage.file, browserViewableImage, tempDir)
-      } yield Some(browserViewableImage.copy(file = optimisedFile).copy(mimeType = optimisedMimeType).asStorableOptimisedImage)
+        (optimisedFile: File, optimisedMimeType: MimeType) <- optimiseOps
+          .toOptimisedFile(
+            browserViewableImage.file,
+            browserViewableImage,
+            tempDir
+          )
+      } yield Some(
+        browserViewableImage
+          .copy(file = optimisedFile)
+          .copy(mimeType = optimisedMimeType)
+          .asStorableOptimisedImage
+      )
     } else if (browserViewableImage.mustUpload) {
       Future.successful(Some(browserViewableImage.asStorableOptimisedImage))
     } else
@@ -206,42 +291,69 @@ object Uploader extends GridLogging {
     ) ++ uploadRequest.identifiersMeta
 
     uploadRequest.uploadInfo.filename match {
-      case Some(f) => baseMeta ++ Map("file_name" -> URLEncoder.encode(f, StandardCharsets.UTF_8.name()))
+      case Some(f) =>
+        baseMeta ++ Map(
+          "file_name" -> URLEncoder.encode(f, StandardCharsets.UTF_8.name())
+        )
       case _ => baseMeta
     }
   }
 
-  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
+  private def toFileMetadata(
+      f: File,
+      imageId: String,
+      mimeType: Option[MimeType]
+  ): Future[FileMetadata] = {
     mimeType match {
-      case Some(Png | Tiff) => FileMetadataReader.fromIPTCHeadersWithColorInfo(f, imageId, mimeType.get)
+      case Some(Png | Tiff) =>
+        FileMetadataReader.fromIPTCHeadersWithColorInfo(
+          f,
+          imageId,
+          mimeType.get
+        )
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
     }
   }
 
-  private def createThumbFuture(fileMetadata: FileMetadata,
-                                colourModelFuture: Future[Option[String]],
-                                browserViewableImage: BrowserViewableImage,
-                                deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
+  private def createThumbFuture(
+      fileMetadata: FileMetadata,
+      colourModelFuture: Future[Option[String]],
+      browserViewableImage: BrowserViewableImage,
+      deps: ImageUploadOpsDependencies
+  )(implicit ec: ExecutionContext) = {
     import deps._
     for {
       colourModel <- colourModelFuture
       iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
       (thumb, thumbMimeType) <- imageOps
-        .createThumbnail(browserViewableImage.file, Some(browserViewableImage.mimeType), config.thumbWidth,
-          config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
+        .createThumbnail(
+          browserViewableImage.file,
+          Some(browserViewableImage.mimeType),
+          config.thumbWidth,
+          config.thumbQuality,
+          config.tempDir,
+          iccColourSpace,
+          colourModel
+        )
     } yield browserViewableImage
       .copy(file = thumb, mimeType = thumbMimeType)
       .asStorableThumbImage
   }
 
-  private def createBrowserViewableFileFuture(uploadRequest: UploadRequest,
-                                              tempDir: File,
-                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[BrowserViewableImage] = {
+  private def createBrowserViewableFileFuture(
+      uploadRequest: UploadRequest,
+      tempDir: File,
+      deps: ImageUploadOpsDependencies
+  )(implicit ec: ExecutionContext): Future[BrowserViewableImage] = {
     import deps._
     uploadRequest.mimeType match {
       case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
         for {
-          (file, mimeType) <- imageOps.transformImage(uploadRequest.tempFile, uploadRequest.mimeType, tempDir)
+          (file, mimeType) <- imageOps.transformImage(
+            uploadRequest.tempFile,
+            uploadRequest.mimeType,
+            tempDir
+          )
         } yield BrowserViewableImage(
           uploadRequest.imageId,
           file = file,
@@ -253,52 +365,76 @@ object Uploader extends GridLogging {
           BrowserViewableImage(
             uploadRequest.imageId,
             file = uploadRequest.tempFile,
-            mimeType = mimeType)
+            mimeType = mimeType
+          )
         )
-      case None => Future.failed(new Exception("This file is not an image with an identifiable mime type"))
+      case None =>
+        Future.failed(
+          new Exception(
+            "This file is not an image with an identifiable mime type"
+          )
+        )
     }
   }
 }
 
-class Uploader(val store: ImageLoaderStore,
-               val config: ImageLoaderConfig,
-               val imageOps: ImageOperations,
-               val notifications: Notifications)
-              (implicit val ec: ExecutionContext) extends ArgoHelpers {
+class Uploader(
+    val store: ImageLoaderStore,
+    val config: ImageLoaderConfig,
+    val imageOps: ImageOperations,
+    val notifications: Notifications
+)(implicit val ec: ExecutionContext)
+    extends ArgoHelpers {
 
-
-
-
-  def fromUploadRequest(uploadRequest: UploadRequest)
-                       (implicit logMarker: LogMarker): Future[ImageUpload] = {
-    val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
-      storeSource, storeThumbnail, storeOptimisedImage)
-    val finalImage = fromUploadRequestShared(uploadRequest, sideEffectDependencies, config.imageProcessor)
-    finalImage.map(img => Stopwatch("finalImage"){ImageUpload(uploadRequest, img)})
+  def fromUploadRequest(
+      uploadRequest: UploadRequest
+  )(implicit logMarker: LogMarker): Future[ImageUpload] = {
+    val sideEffectDependencies = ImageUploadOpsDependencies(
+      toImageUploadOpsCfg(config),
+      imageOps,
+      storeSource,
+      storeThumbnail,
+      storeOptimisedImage
+    )
+    val finalImage = fromUploadRequestShared(
+      uploadRequest,
+      sideEffectDependencies,
+      config.imageProcessor
+    )
+    finalImage.map(img =>
+      Stopwatch("finalImage") { ImageUpload(uploadRequest, img) }
+    )
   }
 
-  private def storeSource(storableOriginalImage: StorableOriginalImage)
-                         (implicit logMarker: LogMarker) = store.store(storableOriginalImage)
+  private def storeSource(storableOriginalImage: StorableOriginalImage)(implicit
+      logMarker: LogMarker
+  ) = store.store(storableOriginalImage)
 
-  private def storeThumbnail(storableThumbImage: StorableThumbImage)
-                            (implicit logMarker: LogMarker) = store.store(storableThumbImage)
+  private def storeThumbnail(storableThumbImage: StorableThumbImage)(implicit
+      logMarker: LogMarker
+  ) = store.store(storableThumbImage)
 
-  private def storeOptimisedImage(storableOptimisedImage: StorableOptimisedImage)
-                                 (implicit logMarker: LogMarker) = store.store(storableOptimisedImage)
+  private def storeOptimisedImage(
+      storableOptimisedImage: StorableOptimisedImage
+  )(implicit logMarker: LogMarker) = store.store(storableOptimisedImage)
 
-  def loadFile(digestedFile: DigestedFile,
-               user: Principal,
-               uploadedBy: Option[String],
-               identifiers: Option[String],
-               uploadTime: DateTime,
-               filename: Option[String],
-               requestId: UUID)
-              (implicit ec:ExecutionContext,
-               logMarker: LogMarker): Future[UploadRequest] = Future {
+  def loadFile(
+      digestedFile: DigestedFile,
+      user: Principal,
+      uploadedBy: Option[String],
+      identifiers: Option[String],
+      uploadTime: DateTime,
+      filename: Option[String],
+      requestId: UUID
+  )(implicit
+      ec: ExecutionContext,
+      logMarker: LogMarker
+  ): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
 
     // TODO: should error if the JSON parsing failed
-    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
+    val identifiersMap =
+      identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>
@@ -319,15 +455,18 @@ class Uploader(val store: ImageLoaderStore,
     }
   }
 
-  def storeFile(uploadRequest: UploadRequest)
-               (implicit ec:ExecutionContext,
-                logMarker: LogMarker): Future[JsObject] = {
+  def storeFile(
+      uploadRequest: UploadRequest
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[JsObject] = {
 
     logger.info("Storing file")
 
     for {
       imageUpload <- fromUploadRequest(uploadRequest)
-      updateMessage = UpdateMessage(subject = "image", image = Some(imageUpload.image))
+      updateMessage = UpdateMessage(
+        subject = "image",
+        image = Some(imageUpload.image)
+      )
       _ <- Future { notifications.publish(updateMessage) }
       // TODO: centralise where all these URLs are constructed
       uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
@@ -338,4 +477,3 @@ class Uploader(val store: ImageLoaderStore,
   }
 
 }
-

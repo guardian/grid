@@ -25,17 +25,17 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def NestedFilter = rule {
     NestedMatch ~> Nested |
-    NestedDateMatch
+      NestedDateMatch
   }
 
   def Filter = rule {
     HasMatch ~> Match |
-    IsMatch ~> Match |
-    ScopedMatch ~> Match | HashMatch | CollectionRule |
-    DateConstraintMatch |
-    DateRangeMatch ~> Match | AtMatch |
-    FileTypeMatch ~> Match |
-    AnyMatch
+      IsMatch ~> Match |
+      ScopedMatch ~> Match | HashMatch | CollectionRule |
+      DateConstraintMatch |
+      DateRangeMatch ~> Match | AtMatch |
+      FileTypeMatch ~> Match |
+      AnyMatch
   }
 
   def HasMatch = rule { HasMatchField ~ ':' ~ HasMatchValue }
@@ -48,26 +48,31 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def IsFieldName = rule { "is" }
   def IsMatchValue = rule { String ~> IsValue }
 
-  def NestedMatch = rule { ParentField ~ "@" ~ NestedField ~ ':' ~ ExactMatchValue }
-  def NestedDateMatch = rule { ParentField ~ "@" ~ DateConstraintMatch ~> (
-    (parentField: Field, dateMatch: Match) => {
-      Nested(parentField, dateMatch.field, dateMatch.value)
-    }
-  )}
+  def NestedMatch = rule {
+    ParentField ~ "@" ~ NestedField ~ ':' ~ ExactMatchValue
+  }
+  def NestedDateMatch = rule {
+    ParentField ~ "@" ~ DateConstraintMatch ~> (
+      (parentField: Field, dateMatch: Match) => {
+        Nested(parentField, dateMatch.field, dateMatch.value)
+      }
+    )
+  }
 
-  def DateConstraintMatch = rule { DateConstraint ~ DateMatch ~> (
-    (constraint: String, dateMatch: Match) => {
-      val dateRange  = dateMatch.value match {
-        case Date(d) => constraint match {
-          case ">" => DateRange(d, tomorrow)
-          case "<" => DateRange(beginningOfTime, d)
-        }
+  def DateConstraintMatch = rule {
+    DateConstraint ~ DateMatch ~> ((constraint: String, dateMatch: Match) => {
+      val dateRange = dateMatch.value match {
+        case Date(d) =>
+          constraint match {
+            case ">" => DateRange(d, tomorrow)
+            case "<" => DateRange(beginningOfTime, d)
+          }
         case _ => throw new InvalidQuery("No date for date constraint!")
       }
 
       Match(dateMatch.field, dateRange)
-    }
-  )}
+    })
+  }
 
   def DateConstraint = rule { capture(AllowedDateConstraints) }
   def AllowedDateConstraints = rule {
@@ -76,22 +81,30 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def ScopedMatch = rule { MatchField ~ ':' ~ MatchValue }
 
-  def HashMatch = rule { '#' ~ MatchValue ~> (
-    label => Match(
-      SingleField(getFieldPath("labels")),
-      label
+  def HashMatch = rule {
+    '#' ~ MatchValue ~> (label =>
+      Match(
+        SingleField(getFieldPath("labels")),
+        label
+      )
     )
-  )}
+  }
 
-  def CollectionRule = rule { '~' ~ ExactMatchValue ~> (
-    collection => Match(
-      HierarchyField,
-      Phrase(collection.string.toLowerCase)
+  def CollectionRule = rule {
+    '~' ~ ExactMatchValue ~> (collection =>
+      Match(
+        HierarchyField,
+        Phrase(collection.string.toLowerCase)
+      )
     )
-  )}
+  }
 
-  def ParentField = rule { capture(AllowedParentFieldName)  ~> resolveNamedField _ }
-  def NestedField = rule { capture(AllowedNestedFieldName) ~> resolveNamedField _ }
+  def ParentField = rule {
+    capture(AllowedParentFieldName) ~> resolveNamedField _
+  }
+  def NestedField = rule {
+    capture(AllowedNestedFieldName) ~> resolveNamedField _
+  }
   def MatchField = rule { capture(AllowedFieldName) ~> resolveNamedField _ }
 
   def AllowedParentFieldName = rule { "usages" }
@@ -100,24 +113,24 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   }
   def AllowedFieldName = rule {
     "illustrator" |
-    "uploader" |
-    "location" | "city" | "state" | "country" | "in" |
-    "byline" | "by" | "photographer" |
-    "description" |
-    "credit" |
-    "copyright" |
-    "source" |
-    "category" |
-    "subject" |
-    "supplier" |
-    "collection" |
-    "keyword" |
-    "label" |
-    "croppedBy" |
-    "filename" |
-    "photoshoot" |
-    "leasedBy" |
-    "person"
+      "uploader" |
+      "location" | "city" | "state" | "country" | "in" |
+      "byline" | "by" | "photographer" |
+      "description" |
+      "credit" |
+      "copyright" |
+      "source" |
+      "category" |
+      "subject" |
+      "supplier" |
+      "collection" |
+      "keyword" |
+      "label" |
+      "croppedBy" |
+      "filename" |
+      "photoshoot" |
+      "leasedBy" |
+      "person"
   }
 
   def resolveNamedField(name: String): Field = (name match {
@@ -132,10 +145,15 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     case "person"              => "peopleInImage"
     case fieldName             => fieldName
   }) match {
-    case "publication" => MultipleField(List("publicationName", "publicationCode"))
-    case "section" => MultipleField(List("sectionId","sectionCode"))
-    case "reference" => MultipleField(List("references.uri", "references.name").map(usagesField))
-    case "in" => MultipleField(List("subLocation", "city", "state", "country").map(getFieldPath))
+    case "publication" =>
+      MultipleField(List("publicationName", "publicationCode"))
+    case "section" => MultipleField(List("sectionId", "sectionCode"))
+    case "reference" =>
+      MultipleField(List("references.uri", "references.name").map(usagesField))
+    case "in" =>
+      MultipleField(
+        List("subLocation", "city", "state", "country").map(getFieldPath)
+      )
     case field => SingleField(getFieldPath(field))
   }
 
@@ -149,7 +167,9 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def String = rule { capture(Chars) }
 
   def DateMatch = rule {
-    MatchDateField ~ ':' ~ MatchDateValue ~> ((field, date) => Match(field, Date(date)))
+    MatchDateField ~ ':' ~ MatchDateValue ~> ((field, date) =>
+      Match(field, Date(date))
+    )
   }
 
   def DateRangeMatch = rule {
@@ -160,9 +180,15 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     MatchMimeTypeField ~ ':' ~ MatchMimeTypeValue
   }
 
-  def AtMatch = rule { '@' ~ MatchDateRangeValue ~> (range => Match(SingleField(getFieldPath("uploadTime")), range)) }
+  def AtMatch = rule {
+    '@' ~ MatchDateRangeValue ~> (range =>
+      Match(SingleField(getFieldPath("uploadTime")), range)
+    )
+  }
 
-  def MatchDateField = rule { capture(AllowedDateFieldName) ~> resolveDateField _ }
+  def MatchDateField = rule {
+    capture(AllowedDateFieldName) ~> resolveDateField _
+  }
 
   def MatchMimeTypeField = rule {
     capture("fileType") ~> resolveMimeTypeField _
@@ -187,9 +213,11 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   }
 
   def MatchDateRangeValue = rule {
-    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (d => {
-      test(d.isDefined) ~ push(d.get)
-    })
+    (QuotedString | String) ~> normaliseDateExpr _ ~> parseDateRange _ ~> (
+      d => {
+        test(d.isDefined) ~ push(d.get)
+      }
+    )
   }
 
   def MatchMimeTypeValue = rule {
@@ -201,23 +229,25 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def translateMimeType(expr: String): MimeType = expr match {
     case s if s.equals("tif") || s.equals("tiff") => Tiff
     case s if s.equals("jpg") || s.equals("jpeg") => Jpeg
-    case s if s.equals("png") => Png
+    case s if s.equals("png")                     => Png
   }
 
-  def parseMimeType(expr: String): Value = Words(translateMimeType(expr).toString)
+  def parseMimeType(expr: String): Value = Words(
+    translateMimeType(expr).toString
+  )
 
   def normaliseDateExpr(expr: String): String = expr.replaceAll("\\.", " ")
 
-  val todayParser      = DateAliasParser("today", today, tomorrow)
-  val yesterdayParser  = DateAliasParser("yesterday", yesterday, today)
+  val todayParser = DateAliasParser("today", today, tomorrow)
+  val yesterdayParser = DateAliasParser("yesterday", yesterday, today)
 
-  val humanDateParser  = DateFormatParser("dd MMMMM YYYY")
-  val slashDateParser  = DateFormatParser("d/M/YYYY")
+  val humanDateParser = DateFormatParser("dd MMMMM YYYY")
+  val slashDateParser = DateFormatParser("d/M/YYYY")
   val paddedslashDateParser = DateFormatParser("dd/MM/YYYY")
-  val isoDateParser    = DateFormatParser("YYYY-MM-dd")
+  val isoDateParser = DateFormatParser("YYYY-MM-dd")
 
   val humanMonthParser = DateFormatParser("MMMMM YYYY", Some(_.plusMonths(1)))
-  val yearParser       = DateFormatParser("YYYY", Some(_.plusYears(1)))
+  val yearParser = DateFormatParser("YYYY", Some(_.plusYears(1)))
 
   val dateParsers: List[DateParser] = List(
     todayParser,
@@ -245,15 +275,16 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   // Quoted strings
   def SingleQuote = "'"
   def DoubleQuote = "\""
-  def QuotedString = rule { SingleQuote ~ capture(NotSingleQuote) ~ SingleQuote |
-                            DoubleQuote ~ capture(NotDoubleQuote) ~ DoubleQuote }
+  def QuotedString = rule {
+    SingleQuote ~ capture(NotSingleQuote) ~ SingleQuote |
+      DoubleQuote ~ capture(NotDoubleQuote) ~ DoubleQuote
+  }
   // TODO: unless escaped?
   def NotSingleQuote = rule { oneOrMore(noneOf(SingleQuote)) }
   def NotDoubleQuote = rule { oneOrMore(noneOf(DoubleQuote)) }
 
   def Whitespace = rule { oneOrMore(' ') }
   def Chars = rule { oneOrMore(visibleChars) }
-
 
   // Note: this is a somewhat arbitrarily list of common Unicode ranges that we
   // expect people to want to use (e.g. Latin1 accented characters, curly quotes, etc).
@@ -263,7 +294,8 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   val latin1ExtendedB = CharPredicate('\u0180' to '\u024f')
   val generalPunctuation = CharPredicate('\u2010' to '\u203d')
   val latin1ExtendedAdditional = CharPredicate('\u1e00' to '\u1eff')
-  val extraVisibleCharacters = latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
+  val extraVisibleCharacters =
+    latin1SupplementSubset ++ latin1ExtendedA ++ latin1ExtendedB ++ generalPunctuation
 
   val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
 

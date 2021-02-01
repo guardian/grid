@@ -8,7 +8,11 @@ import play.api.libs.functional.syntax._
 
 import com.gu.mediaservice.lib.collections.CollectionsManager
 
-case class Collection private (path: List[String], actionData: ActionData, description: String) {
+case class Collection private (
+    path: List[String],
+    actionData: ActionData,
+    description: String
+) {
   // We lowercase on pathId so that we can search case-insensitively
   val pathId = CollectionsManager.pathToPathId(path)
 }
@@ -17,10 +21,12 @@ object Collection {
   val reads: Reads[Collection] = Json.reads[Collection]
   val writes: Writes[Collection] = (
     (__ \ "path").write[List[String]] ~
-    (__ \ "pathId").write[String] ~
-    (__ \ "description").write[String] ~
-    (__ \ "actionData").write[ActionData]
-  ){ col: Collection => (col.path, col.pathId, col.description, col.actionData) }
+      (__ \ "pathId").write[String] ~
+      (__ \ "description").write[String] ~
+      (__ \ "actionData").write[ActionData]
+  ) { col: Collection =>
+    (col.path, col.pathId, col.description, col.actionData)
+  }
 
   implicit val formats: Format[Collection] = Format(reads, writes)
 

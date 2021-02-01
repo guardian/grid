@@ -17,11 +17,11 @@ class BatchIndexLambdaHandler {
     threshold = sys.env.get("LATENCY_THRESHOLD").map(t => Integer.parseInt(t)),
     maxSize = sys.env("MAX_SIZE").toInt,
     startState = IndexInputCreation.get(sys.env("START_STATE").toInt),
-    checkerStartState = IndexInputCreation.get(sys.env("CHECKER_START_STATE").toInt)
+    checkerStartState =
+      IndexInputCreation.get(sys.env("CHECKER_START_STATE").toInt)
   )
 
   private val batchIndex = new BatchIndexHandler(cfg)
-
 
   def handleRequest() = {
     batchIndex.processImages()

@@ -4,26 +4,27 @@ import play.api.libs.json._
 
 sealed trait UsageStatus {
   override def toString = this match {
-    case PendingUsageStatus => "pending"
-    case PublishedUsageStatus => "published"
-    case RemovedUsageStatus => "removed"
+    case PendingUsageStatus    => "pending"
+    case PublishedUsageStatus  => "published"
+    case RemovedUsageStatus    => "removed"
     case SyndicatedUsageStatus => "syndicated"
     case DownloadedUsageStatus => "downloaded"
-    case UnknownUsageStatus => "unknown"
+    case UnknownUsageStatus    => "unknown"
   }
 }
 
 object UsageStatus {
   def apply(status: String): UsageStatus = status.toLowerCase match {
-    case "pending" => PendingUsageStatus
-    case "published" => PublishedUsageStatus
-    case "removed" => RemovedUsageStatus
+    case "pending"    => PendingUsageStatus
+    case "published"  => PublishedUsageStatus
+    case "removed"    => RemovedUsageStatus
     case "syndicated" => SyndicatedUsageStatus
     case "downloaded" => DownloadedUsageStatus
-    case "unknown" => UnknownUsageStatus
+    case "unknown"    => UnknownUsageStatus
   }
 
-  implicit val reads: Reads[UsageStatus] = JsPath.read[String].map(UsageStatus(_))
+  implicit val reads: Reads[UsageStatus] =
+    JsPath.read[String].map(UsageStatus(_))
 
   implicit val writer = new Writes[UsageStatus] {
     def writes(usageStatus: UsageStatus) = JsString(usageStatus.toString)

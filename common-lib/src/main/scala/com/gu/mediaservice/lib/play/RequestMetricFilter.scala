@@ -8,8 +8,13 @@ import play.api.mvc.{Filter, RequestHeader, Result}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class RequestMetricFilter(val config: CommonConfig, override val mat: Materializer)(implicit ec: ExecutionContext) extends Filter {
-  val namespace: String = s"${config.stage}/${config.appName.split('-').map(_.toLowerCase.capitalize).mkString("")}"
+class RequestMetricFilter(
+    val config: CommonConfig,
+    override val mat: Materializer
+)(implicit ec: ExecutionContext)
+    extends Filter {
+  val namespace: String =
+    s"${config.stage}/${config.appName.split('-').map(_.toLowerCase.capitalize).mkString("")}"
   val enabled: Boolean = config.requestMetricsEnabled
 
   object RequestMetrics extends CloudWatchMetrics(namespace, config) {
@@ -19,7 +24,9 @@ class RequestMetricFilter(val config: CommonConfig, override val mat: Materializ
     val requestDuration = new TimeMetric("RequestDuration")
   }
 
-  override def apply(next: RequestHeader => Future[Result])(rh: RequestHeader): Future[Result] = {
+  override def apply(
+      next: RequestHeader => Future[Result]
+  )(rh: RequestHeader): Future[Result] = {
     val start = System.currentTimeMillis()
     val result = next(rh)
 
@@ -45,7 +52,7 @@ class RequestMetricFilter(val config: CommonConfig, override val mat: Materializ
   def shouldRecord(request: RequestHeader): Boolean = {
     request.path match {
       case "/management/healthcheck" => false
-      case _ => true
+      case _                         => true
     }
   }
 }

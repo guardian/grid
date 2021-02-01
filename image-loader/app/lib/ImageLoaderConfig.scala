@@ -1,12 +1,22 @@
 package lib
 
 import java.io.File
-import com.gu.mediaservice.lib.cleanup.{ComposedImageProcessor, ImageProcessor, ImageProcessorResources}
-import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources, ImageProcessorLoader}
+import com.gu.mediaservice.lib.cleanup.{
+  ComposedImageProcessor,
+  ImageProcessor,
+  ImageProcessorResources
+}
+import com.gu.mediaservice.lib.config.{
+  CommonConfig,
+  GridConfigResources,
+  ImageProcessorLoader
+}
 import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.StrictLogging
 
-class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) with StrictLogging {
+class ImageLoaderConfig(resources: GridConfigResources)
+    extends CommonConfig(resources.configuration)
+    with StrictLogging {
   val imageBucket: String = string("s3.image.bucket")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
@@ -22,11 +32,12 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
   val apiUri: String = services.apiBaseUri
   val loginUriTemplate: String = services.loginUriTemplate
 
-  val transcodedMimeTypes: List[MimeType] = getStringSet("transcoded.mime.types").toList.map(MimeType(_))
-  val supportedMimeTypes: List[MimeType] = List(Jpeg, Png) ::: transcodedMimeTypes
+  val transcodedMimeTypes: List[MimeType] =
+    getStringSet("transcoded.mime.types").toList.map(MimeType(_))
+  val supportedMimeTypes: List[MimeType] =
+    List(Jpeg, Png) ::: transcodedMimeTypes
 
-  /**
-    * Load in the chain of image processors from config. This can be a list of
+  /** Load in the chain of image processors from config. This can be a list of
     * companion objects, class names, both with and without config.
     * For example:
     * {{{
@@ -53,9 +64,11 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
     * If a configuration is needed by is not provided by the config, the module configuration will be used instead.
     */
   val imageProcessor: ComposedImageProcessor = {
-    val configLoader = ImageProcessorLoader.seqConfigLoader(ImageProcessorResources(this, resources.actorSystem))
+    val configLoader = ImageProcessorLoader.seqConfigLoader(
+      ImageProcessorResources(this, resources.actorSystem)
+    )
     val processors = configuration
       .get[Seq[ImageProcessor]]("image.processors")(configLoader)
-    ImageProcessor.compose("ImageConfigLoader-imageProcessor", processors:_*)
+    ImageProcessor.compose("ImageConfigLoader-imageProcessor", processors: _*)
   }
 }

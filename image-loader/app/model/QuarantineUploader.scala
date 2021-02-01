@@ -1,6 +1,5 @@
 package model
 
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
@@ -22,12 +21,15 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import scala.concurrent.{ExecutionContext, Future}
 
-class QuarantineUploader(val store: QuarantineStore,
-               val config: ImageLoaderConfig)
-              (implicit val ec: ExecutionContext) extends ArgoHelpers {
+class QuarantineUploader(
+    val store: QuarantineStore,
+    val config: ImageLoaderConfig
+)(implicit val ec: ExecutionContext)
+    extends ArgoHelpers {
 
-  private def storeQuarantineFile(uploadRequest: UploadRequest)
-                         (implicit logMarker: LogMarker) = {
+  private def storeQuarantineFile(
+      uploadRequest: UploadRequest
+  )(implicit logMarker: LogMarker) = {
     val meta = Uploader.toMetaMap(uploadRequest)
     store.storeQuarantineImage(
       uploadRequest.imageId,
@@ -36,10 +38,10 @@ class QuarantineUploader(val store: QuarantineStore,
       meta
     )
   }
-  
-  def quarantineFile(uploadRequest: UploadRequest)(
-    implicit ec: ExecutionContext,
-    logMarker: LogMarker): Future[JsObject] = {
+
+  def quarantineFile(
+      uploadRequest: UploadRequest
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[JsObject] = {
 
     logger.info("Quarantining file")
 

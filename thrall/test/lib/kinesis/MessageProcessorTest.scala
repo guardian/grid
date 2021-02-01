@@ -7,14 +7,17 @@ import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model.usage.UsageNotice
 import com.gu.mediaservice.model.{Edits, ImageMetadata}
 import lib.{MetadataEditorNotifications, ThrallStore}
-import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
+import lib.elasticsearch.{
+  ElasticSearchTestBase,
+  ElasticSearchUpdateResponse,
+  SyndicationRightsOps
+}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.JsArray
 
 import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
-
 
 class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
   implicit val logMarker: MarkerMap = MarkerMap()
@@ -23,29 +26,44 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
       es = ES,
       store = mock[ThrallStore],
       metadataEditorNotifications = mock[MetadataEditorNotifications],
-      syndicationRightsOps = mock[SyndicationRightsOps])
+      syndicationRightsOps = mock[SyndicationRightsOps]
+    )
 
     "usages" - {
 
       "adds usages" - {
         "for an image that exists" in {
-          val expected: Success[List[ElasticSearchUpdateResponse]] = Success(List(ElasticSearchUpdateResponse()))
+          val expected: Success[List[ElasticSearchUpdateResponse]] =
+            Success(List(ElasticSearchUpdateResponse()))
 
           val id = UUID.randomUUID().toString
 
-          val userMetadata = Some(Edits(metadata = ImageMetadata(
-            description = Some("My boring image"),
-            title = Some("User supplied title"),
-            subjects = List("foo", "bar"),
-            specialInstructions = Some("Testing")
-          )))
+          val userMetadata = Some(
+            Edits(metadata =
+              ImageMetadata(
+                description = Some("My boring image"),
+                title = Some("User supplied title"),
+                subjects = List("foo", "bar"),
+                specialInstructions = Some("Testing")
+              )
+            )
+          )
 
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, rightsAcquired = true, Some(DateTime.now()), None).
-            copy(userMetadata = userMetadata)
+          val image = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            rightsAcquired = true,
+            Some(DateTime.now()),
+            None
+          ).copy(userMetadata = userMetadata)
 
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
 
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(image.id)
+          )
 
           val message = UpdateMessage(
             "update-image-usages",
@@ -61,10 +79,16 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-          Try(Await.result(messageProcessor.updateImageUsages(message, logMarker), fiveSeconds)) shouldBe expected
+          Try(
+            Await.result(
+              messageProcessor.updateImageUsages(message, logMarker),
+              fiveSeconds
+            )
+          ) shouldBe expected
         }
         "not crash for an image that doesn't exist 👻🖼" in {
-          val expected: Success[List[ElasticSearchUpdateResponse]] = Success(List(ElasticSearchUpdateResponse()))
+          val expected: Success[List[ElasticSearchUpdateResponse]] =
+            Success(List(ElasticSearchUpdateResponse()))
           val id = UUID.randomUUID().toString
 
           val message = UpdateMessage(
@@ -81,7 +105,12 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
             syndicationRights = None,
             bulkIndexRequest = None
           )
-         Try(Await.result(messageProcessor.updateImageUsages(message, logMarker), fiveSeconds))  shouldBe expected
+          Try(
+            Await.result(
+              messageProcessor.updateImageUsages(message, logMarker),
+              fiveSeconds
+            )
+          ) shouldBe expected
         }
       }
     }

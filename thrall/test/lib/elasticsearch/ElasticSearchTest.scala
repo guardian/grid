@@ -16,36 +16,61 @@ import scala.concurrent.{Await, Future}
 
 class ElasticSearchTest extends ElasticSearchTestBase {
   "Elasticsearch" - {
-     implicit val logMarker: LogMarker = MarkerMap()
-
+    implicit val logMarker: LogMarker = MarkerMap()
 
     "images" - {
 
       "bulk inserting" - {
         "can bulk insert images" in {
-          val imageOne = createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")).copy(
-            userMetadata = Some(Edits(labels = List("foo", "bar"), metadata = ImageMetadata(description = Some("my description"))))
+          val imageOne = createImage(
+            "batman",
+            StaffPhotographer("Bruce Wayne", "Wayne Enterprises")
+          ).copy(
+            userMetadata = Some(
+              Edits(
+                labels = List("foo", "bar"),
+                metadata = ImageMetadata(description = Some("my description"))
+              )
+            )
           )
 
-          val imageTwo = createImage("superman", StaffPhotographer("Clark Kent", "Kent Farm")).copy(
+          val imageTwo = createImage(
+            "superman",
+            StaffPhotographer("Clark Kent", "Kent Farm")
+          ).copy(
             usages = List(usage())
           )
 
           val images: List[Image] = List(imageOne, imageTwo)
 
           // in a clean index, we should have 0 documents
-          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe 0
+          ES.client
+            .execute(ElasticDsl.count(ES.initialImagesIndex))
+            .await
+            .result
+            .count shouldBe 0
 
           Await.result(Future.sequence(ES.bulkInsert(images)), fiveSeconds)
 
           // force ES to refresh https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-refresh.html
-          Await.result(ES.client.execute(ElasticDsl.refreshIndex(ES.initialImagesIndex)), fiveSeconds)
+          Await.result(
+            ES.client.execute(ElasticDsl.refreshIndex(ES.initialImagesIndex)),
+            fiveSeconds
+          )
 
           // after bulk inserting, we should have 2 documents
-          ES.client.execute(ElasticDsl.count(ES.initialImagesIndex)).await.result.count shouldBe images.length
+          ES.client
+            .execute(ElasticDsl.count(ES.initialImagesIndex))
+            .await
+            .result
+            .count shouldBe images.length
 
-          Json.toJson(reloadedImage("batman").get) shouldBe Json.toJson(imageOne)
-          Json.toJson(reloadedImage("superman").get) shouldBe Json.toJson(imageTwo)
+          Json.toJson(reloadedImage("batman").get) shouldBe Json.toJson(
+            imageOne
+          )
+          Json.toJson(reloadedImage("superman").get) shouldBe Json.toJson(
+            imageTwo
+          )
         }
       }
 
@@ -53,19 +78,32 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         "can index and retrieve images by id" in {
           val id = UUID.randomUUID().toString
 
-          val userMetadata = Some(Edits(metadata = ImageMetadata(
-            description = Some("My boring image"),
-            title = Some("User supplied title"),
-            subjects = List("foo", "bar"),
-            specialInstructions = Some("Testing")
-          )))
+          val userMetadata = Some(
+            Edits(metadata =
+              ImageMetadata(
+                description = Some("My boring image"),
+                title = Some("User supplied title"),
+                subjects = List("foo", "bar"),
+                specialInstructions = Some("Testing")
+              )
+            )
+          )
 
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).
-            copy(userMetadata = userMetadata)
+          val image = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            true,
+            Some(now),
+            None
+          ).copy(userMetadata = userMetadata)
 
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
 
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(image.id)
+          )
 
           reloadedImage(id).get.id shouldBe image.id
         }
@@ -73,37 +111,73 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         "file metadata fields longer than the index keyword limit are still persisted" in {
           val id = UUID.randomUUID().toString
           val reallyLongTRC = stringLongerThan(250000)
-          val fileMetadata = FileMetadata(xmp = Map("foo" -> JsString("bar")), exif = Map("Green TRC" -> reallyLongTRC))
+          val fileMetadata = FileMetadata(
+            xmp = Map("foo" -> JsString("bar")),
+            exif = Map("Green TRC" -> reallyLongTRC)
+          )
 
-          val imageWithReallyLongMetadataField = createImageForSyndication(id = UUID.randomUUID().toString,
+          val imageWithReallyLongMetadataField = createImageForSyndication(
+            id = UUID.randomUUID().toString,
             rightsAcquired = true,
             rcsPublishDate = Some(now),
-            lease = None, fileMetadata = Some(fileMetadata))
+            lease = None,
+            fileMetadata = Some(fileMetadata)
+          )
 
-          Await.result(Future.sequence(ES.indexImage(id, imageWithReallyLongMetadataField, now)), fiveSeconds)
+          Await.result(
+            Future.sequence(
+              ES.indexImage(id, imageWithReallyLongMetadataField, now)
+            ),
+            fiveSeconds
+          )
 
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithReallyLongMetadataField.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(
+              imageWithReallyLongMetadataField.id
+            )
+          )
 
           reloadedImage(id).get.id shouldBe imageWithReallyLongMetadataField.id
 
-          reloadedImage(id).get.fileMetadata.exif("Green TRC").length shouldBe reallyLongTRC.length
+          reloadedImage(id).get.fileMetadata
+            .exif("Green TRC")
+            .length shouldBe reallyLongTRC.length
         }
 
         "initial indexing does not add lastModified to the leases object" in {
           val id = UUID.randomUUID().toString
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+          val image = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            true,
+            Some(now),
+            None
+          )
 
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
           val loadedImage = reloadedImage(id).get
           loadedImage.leases.lastModified shouldBe None
         }
 
         "updating an existing image should set the last modified date" in {
           val id = UUID.randomUUID().toString
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+          val image = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            true,
+            Some(now),
+            None
+          )
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
 
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
           val lastModified = reloadedImage(id).get.lastModified
 
           lastModified.nonEmpty shouldBe true
@@ -111,11 +185,24 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         "initial index calls do not refresh metadata from user metadata" in {
           val id = UUID.randomUUID().toString
-          val originalUserMetadata = Some(Edits(metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
-          val imageWithBoringMetadata = createImageForSyndication(id = id, true, Some(now), None).copy(userMetadata = originalUserMetadata)
+          val originalUserMetadata = Some(
+            Edits(metadata =
+              ImageMetadata(
+                description = Some("My boring image"),
+                title = Some("User supplied title")
+              )
+            )
+          )
+          val imageWithBoringMetadata =
+            createImageForSyndication(id = id, true, Some(now), None)
+              .copy(userMetadata = originalUserMetadata)
 
           ES.indexImage(id, imageWithBoringMetadata, now)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(
+              imageWithBoringMetadata.id
+            )
+          )
 
           reloadedImage(id).get.metadata.title shouldBe Some("Test image " + id)
           reloadedImage(id).get.metadata.description shouldBe None
@@ -123,43 +210,98 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         "reindex calls refresh metadata from user metadata" in {
           val id = UUID.randomUUID().toString
-          val originalUserMetadata = Some(Edits(metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
-          val imageWithBoringMetadata = createImageForSyndication(id = id, true, Some(now), None).copy(userMetadata = originalUserMetadata)
+          val originalUserMetadata = Some(
+            Edits(metadata =
+              ImageMetadata(
+                description = Some("My boring image"),
+                title = Some("User supplied title")
+              )
+            )
+          )
+          val imageWithBoringMetadata =
+            createImageForSyndication(id = id, true, Some(now), None)
+              .copy(userMetadata = originalUserMetadata)
           ES.indexImage(id, imageWithBoringMetadata, now)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(
+              imageWithBoringMetadata.id
+            )
+          )
 
           ES.indexImage(id, imageWithBoringMetadata, now)
 
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.metadata.title shouldBe Some("User supplied title"))
-          reloadedImage(id).get.metadata.description shouldBe Some("My boring image")
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).get.metadata.title shouldBe Some(
+              "User supplied title"
+            )
+          )
+          reloadedImage(id).get.metadata.description shouldBe Some(
+            "My boring image"
+          )
         }
 
         "empty user metadata fields should be omitted from updated user metadata" in {
           val id = UUID.randomUUID().toString
-          val originalUserMetadata = Some(Edits(metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"), credit = Some(""))))
-          val image = createImageForSyndication(id = id, true, Some(now), None).copy(userMetadata = originalUserMetadata)
+          val originalUserMetadata = Some(
+            Edits(metadata =
+              ImageMetadata(
+                description = Some("My boring image"),
+                title = Some("User supplied title"),
+                credit = Some("")
+              )
+            )
+          )
+          val image = createImageForSyndication(id = id, true, Some(now), None)
+            .copy(userMetadata = originalUserMetadata)
           ES.indexImage(id, image, now)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(image.id)
+          )
 
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
 
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.metadata.title shouldBe Some("User supplied title"))
-          reloadedImage(id).get.metadata.description shouldBe Some("My boring image")
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).get.metadata.title shouldBe Some(
+              "User supplied title"
+            )
+          )
+          reloadedImage(id).get.metadata.description shouldBe Some(
+            "My boring image"
+          )
           reloadedImage(id).get.metadata.credit shouldBe None
         }
 
         "reindex calls refresh usage rights from user metadata" in {
           val id = UUID.randomUUID().toString
 
-          val updatedUsageRights: UsageRights = StaffPhotographer("Test", "Testing")
-          val usageMetadata = Some(Edits(usageRights = Some(updatedUsageRights), metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
-          val image = createImageForSyndication(id = id, true, Some(now), None).copy(userMetadata = usageMetadata)
+          val updatedUsageRights: UsageRights =
+            StaffPhotographer("Test", "Testing")
+          val usageMetadata = Some(
+            Edits(
+              usageRights = Some(updatedUsageRights),
+              metadata = ImageMetadata(
+                description = Some("My boring image"),
+                title = Some("User supplied title")
+              )
+            )
+          )
+          val image = createImageForSyndication(id = id, true, Some(now), None)
+            .copy(userMetadata = usageMetadata)
           ES.indexImage(id, image, now)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(image.id)
+          )
 
           ES.indexImage(id, image, now)
 
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldBe "Test")
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).get.usageRights
+              .asInstanceOf[StaffPhotographer]
+              .photographer shouldBe "Test"
+          )
         }
 
         "reindexing should preserve existing identifiers" in {
@@ -173,21 +315,34 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         "reindexing does not over write certain existing uploadTime, userMetadata, exports, uploadedBy, collections, leases and usages fields" in {
           val id = UUID.randomUUID().toString
 
-          val updatedUsageRights: UsageRights = StaffPhotographer("Test", "Testing")
-          val usageMetadata = Some(Edits(usageRights = Some(updatedUsageRights), metadata = ImageMetadata(description = Some("My boring image"), title = Some("User supplied title"))))
-          val image = createImageForSyndication(id = id, true, Some(now), None).copy(userMetadata = usageMetadata)
+          val updatedUsageRights: UsageRights =
+            StaffPhotographer("Test", "Testing")
+          val usageMetadata = Some(
+            Edits(
+              usageRights = Some(updatedUsageRights),
+              metadata = ImageMetadata(
+                description = Some("My boring image"),
+                title = Some("User supplied title")
+              )
+            )
+          )
+          val image = createImageForSyndication(id = id, true, Some(now), None)
+            .copy(userMetadata = usageMetadata)
           ES.indexImage(id, image, now)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(image.id)
+          )
 
           val attemptedOverwrite = image.copy(
             uploadTime = DateTime.now,
             uploadedBy = "someone else"
-
           )
 
           ES.indexImage(id, attemptedOverwrite, now)
 
-          reloadedImage(id).get.uploadTime.getMillis shouldBe image.uploadTime.getMillis
+          reloadedImage(
+            id
+          ).get.uploadTime.getMillis shouldBe image.uploadTime.getMillis
           reloadedImage(id).get.uploadedBy shouldBe image.uploadedBy
         }
 
@@ -196,9 +351,19 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "deleting" - {
         "can delete image" in {
           val id = UUID.randomUUID().toString
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(indexedImage(id).map(_.id) shouldBe Some(image.id))
+          val image = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            true,
+            Some(now),
+            None
+          )
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            indexedImage(id).map(_.id) shouldBe Some(image.id)
+          )
 
           Await.result(Future.sequence(ES.deleteImage(id)), fiveSeconds)
 
@@ -207,9 +372,19 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         "failed deletes are indiciated with a failed future" in {
           val id = UUID.randomUUID().toString
-          val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+          val image = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            true,
+            Some(now),
+            None
+          )
+          Await.result(
+            Future.sequence(ES.indexImage(id, image, now)),
+            fiveSeconds
+          )
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(image.id)
+          )
 
           val unknownImage = UUID.randomUUID().toString
 
@@ -220,9 +395,19 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         "should not delete images with usages" in {
           val id = UUID.randomUUID().toString
-          val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(usages = List(usage()))
-          Await.result(Future.sequence(ES.indexImage(id, imageWithUsages, now)), fiveSeconds)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsages.id))
+          val imageWithUsages = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            true,
+            Some(now),
+            None
+          ).copy(usages = List(usage()))
+          Await.result(
+            Future.sequence(ES.indexImage(id, imageWithUsages, now)),
+            fiveSeconds
+          )
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(imageWithUsages.id)
+          )
 
           whenReady(ES.deleteImage(id).head.failed) { ex =>
             ex shouldBe ImageNotDeletable
@@ -231,9 +416,19 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         "should not delete images with exports" in {
           val id = UUID.randomUUID().toString
-          val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(exports = List(crop))
-          Await.result(Future.sequence(ES.indexImage(id, imageWithExports, now)), fiveSeconds)
-          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithExports.id))
+          val imageWithExports = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            true,
+            Some(now),
+            None
+          ).copy(exports = List(crop))
+          Await.result(
+            Future.sequence(ES.indexImage(id, imageWithExports, now)),
+            fiveSeconds
+          )
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+            reloadedImage(id).map(_.id) shouldBe Some(imageWithExports.id)
+          )
 
           whenReady(ES.deleteImage(id).head.failed) { ex =>
             ex shouldBe ImageNotDeletable
@@ -247,18 +442,39 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "can set image collections" in {
         val id = UUID.randomUUID().toString
-        val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(exports = List(crop))
-        Await.result(Future.sequence(ES.indexImage(id, imageWithExports, now)), fiveSeconds)
+        val imageWithExports = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        ).copy(exports = List(crop))
+        Await.result(
+          Future.sequence(ES.indexImage(id, imageWithExports, now)),
+          fiveSeconds
+        )
 
-        val collection = Collection(path = List("/somewhere"), actionData = ActionData("Test author", DateTime.now), "A test collection")
-        val anotherCollection = Collection(path = List("/somewhere-else"), actionData = ActionData("Test author", DateTime.now), "Another test collection")
+        val collection = Collection(
+          path = List("/somewhere"),
+          actionData = ActionData("Test author", DateTime.now),
+          "A test collection"
+        )
+        val anotherCollection = Collection(
+          path = List("/somewhere-else"),
+          actionData = ActionData("Test author", DateTime.now),
+          "Another test collection"
+        )
 
         val collections = List(collection, anotherCollection)
 
-        Await.result(Future.sequence(ES.setImageCollections(id, collections, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.setImageCollections(id, collections, now)),
+          fiveSeconds
+        )
 
         reloadedImage(id).get.collections.size shouldBe 2
-        reloadedImage(id).get.collections.head.description shouldEqual "A test collection"
+        reloadedImage(
+          id
+        ).get.collections.head.description shouldEqual "A test collection"
       }
     }
 
@@ -266,12 +482,23 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "can add exports" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
         reloadedImage(id).get.exports.isEmpty shouldBe true
         val exports = List(crop)
 
-        Await.result(Future.sequence(ES.updateImageExports(id, exports, now)), fiveSeconds) // TODO rename to add
+        Await.result(
+          Future.sequence(ES.updateImageExports(id, exports, now)),
+          fiveSeconds
+        ) // TODO rename to add
 
         reloadedImage(id).get.exports.nonEmpty shouldBe true
         reloadedImage(id).get.exports.head.id shouldBe crop.id
@@ -279,18 +506,32 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "can delete exports" in {
         val id = UUID.randomUUID().toString
-        val imageWithExports = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(exports = List(crop))
-        Await.result(Future.sequence(ES.indexImage(id, imageWithExports, now)), fiveSeconds)
+        val imageWithExports = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        ).copy(exports = List(crop))
+        Await.result(
+          Future.sequence(ES.indexImage(id, imageWithExports, now)),
+          fiveSeconds
+        )
         reloadedImage(id).get.exports.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.deleteImageExports(id, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.deleteImageExports(id, now)),
+          fiveSeconds
+        )
 
         reloadedImage(id).get.exports.isEmpty shouldBe true
       }
 
       "deleting exports for a non-existant image is not an error" in {
         val id = UUID.randomUUID().toString
-        val result = Await.result(Future.sequence(ES.deleteImageExports(id, now)), fiveSeconds)
+        val result = Await.result(
+          Future.sequence(ES.deleteImageExports(id, now)),
+          fiveSeconds
+        )
         result should have length 1
       }
     }
@@ -305,8 +546,12 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           true,
           Some(now),
           None,
-          leasesLastModified = Some(timeBeforeEdit))
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+          leasesLastModified = Some(timeBeforeEdit)
+        )
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
         reloadedImage(id).get.leases.leases.isEmpty shouldBe true
 
         val lease = model.leases.MediaLease(
@@ -316,7 +561,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           mediaId = UUID.randomUUID().toString
         )
 
-        Await.result(Future.sequence(ES.addImageLease(id, lease, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.addImageLease(id, lease, now)),
+          fiveSeconds
+        )
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.nonEmpty shouldBe true
@@ -325,40 +573,70 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       }
 
       "can remove image lease" in {
-        val lease = model.leases.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val lease = model.leases.MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("A test lease"),
+          mediaId = UUID.randomUUID().toString
+        )
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id, true, Some(now), lease = Some(lease))
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        val image =
+          createImageForSyndication(id, true, Some(now), lease = Some(lease))
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
         reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.removeImageLease(id, lease.id, now)),
+          fiveSeconds
+        )
 
         reloadedImage(id).get.leases.leases.isEmpty shouldBe true
       }
 
       "can remove image lease for an image which doesn't exist" in {
-        val lease = model.leases.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val lease = model.leases.MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("A test lease"),
+          mediaId = UUID.randomUUID().toString
+        )
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
+        val result = Await.result(
+          Future.sequence(ES.removeImageLease(id, lease.id, now)),
+          fiveSeconds
+        )
         result should have length 1
       }
 
       "removing a lease should update the leases last modified time" in {
-        val lease = model.leases.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val lease = model.leases.MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("A test lease"),
+          mediaId = UUID.randomUUID().toString
+        )
         val timeBeforeEdit = DateTime.now
         val id = UUID.randomUUID().toString
         val image = createImageForSyndication(
           id = UUID.randomUUID().toString,
-
           true,
           Some(now),
           lease = Some(lease)
         )
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
         reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.removeImageLease(id, lease.id, now)),
+          fiveSeconds
+        )
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.isEmpty shouldBe true
@@ -366,7 +644,12 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       }
 
       "can replace leases" in {
-        val lease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val lease = MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("A test lease"),
+          mediaId = UUID.randomUUID().toString
+        )
         val id = UUID.randomUUID().toString
         val timeBeforeEdit = DateTime.now
         val image = createImageForSyndication(
@@ -376,14 +659,30 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           lease = Some(lease),
           leasesLastModified = Some(timeBeforeEdit)
         )
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
 
-        val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
-        val anotherUpdatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("Another updated lease"), mediaId = UUID.randomUUID().toString)
+        val updatedLease = MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("An updated lease"),
+          mediaId = UUID.randomUUID().toString
+        )
+        val anotherUpdatedLease = MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("Another updated lease"),
+          mediaId = UUID.randomUUID().toString
+        )
         val updatedLeases = Seq(updatedLease, anotherUpdatedLease)
         updatedLeases.size shouldBe 2
 
-        Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.replaceImageLeases(id, updatedLeases, now)),
+          fiveSeconds
+        )
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.size shouldBe 2
@@ -392,7 +691,12 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       }
 
       "can replace leases when they are empty" in {
-        val lease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
+        val lease = MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("A test lease"),
+          mediaId = UUID.randomUUID().toString
+        )
         val id = UUID.randomUUID().toString
         val timeBeforeEdit = DateTime.now
         val image = createImageForSyndication(
@@ -402,14 +706,30 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           lease = None,
           leasesLastModified = Some(timeBeforeEdit)
         ).copy(leases = LeasesByMedia.empty)
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
 
-        val updatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("An updated lease"), mediaId = UUID.randomUUID().toString)
-        val anotherUpdatedLease = MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("Another updated lease"), mediaId = UUID.randomUUID().toString)
+        val updatedLease = MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("An updated lease"),
+          mediaId = UUID.randomUUID().toString
+        )
+        val anotherUpdatedLease = MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          leasedBy = None,
+          notes = Some("Another updated lease"),
+          mediaId = UUID.randomUUID().toString
+        )
         val updatedLeases = Seq(updatedLease, anotherUpdatedLease)
         updatedLeases.size shouldBe 2
 
-        Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.replaceImageLeases(id, updatedLeases, now)),
+          fiveSeconds
+        )
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.size shouldBe 2
@@ -422,14 +742,18 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "initial write populates last modified" in {
         val id = UUID.randomUUID().toString
-        val image = createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+        val image =
+          createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
 
         val date = now.withSecondOfMinute(0)
 
         // Write  date
-        Await.result(Future.sequence(ES.indexImage(id, image, date)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, date)),
+          fiveSeconds
+        )
 
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))({
           val image = reloadedImage(id)
           image.get.lastModified.get shouldBe date
         })
@@ -437,17 +761,25 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "last modified gets updated in normal order" in {
         val id = UUID.randomUUID().toString
-        val image = createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+        val image =
+          createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
 
         val earlierDate = now.withSecondOfMinute(0)
-        val laterDate = earlierDate.withSecondOfMinute(30)  // Clearly thirty seconds later.
+        val laterDate =
+          earlierDate.withSecondOfMinute(30) // Clearly thirty seconds later.
 
         // Write first date first
-        Await.result(Future.sequence(ES.indexImage(id, image, earlierDate)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, earlierDate)),
+          fiveSeconds
+        )
         // Write second date second
-        Await.result(Future.sequence(ES.indexImage(id, image, laterDate)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, laterDate)),
+          fiveSeconds
+        )
 
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))({
           val image = reloadedImage(id)
           image.get.lastModified.get shouldBe laterDate
         })
@@ -455,26 +787,37 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "last modified does not get updated in wrong order" in {
         val id = UUID.randomUUID().toString
-        val image = createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
+        val image =
+          createImage(id, StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
 
         val earlierDate = now.withSecondOfMinute(0)
-        val laterDate = earlierDate.withSecondOfMinute(30)  // Clearly thirty seconds later.
+        val laterDate =
+          earlierDate.withSecondOfMinute(30) // Clearly thirty seconds later.
 
         // Write second date first
-        Await.result(Future.sequence(ES.indexImage(id, image, laterDate)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, laterDate)),
+          fiveSeconds
+        )
 
-        val updatedImage = eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
-          val image = reloadedImage(id)
-          image.get
-        })
-          .copy(lastModified = Some(earlierDate))
-          .copy(usageRights = StaffPhotographer("Dr. Pamela Lillian Isley", "Poison Ivy Inc."))
+        val updatedImage =
+          eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))({
+            val image = reloadedImage(id)
+            image.get
+          })
+            .copy(lastModified = Some(earlierDate))
+            .copy(usageRights =
+              StaffPhotographer("Dr. Pamela Lillian Isley", "Poison Ivy Inc.")
+            )
 
         // Write first date second
-        Await.result(Future.sequence(ES.indexImage(id, updatedImage, earlierDate)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.indexImage(id, updatedImage, earlierDate)),
+          fiveSeconds
+        )
 
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))( {
-          val image =  reloadedImage(id)
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))({
+          val image = reloadedImage(id)
           image.get.lastModified.get shouldBe laterDate
         })
       }
@@ -486,42 +829,83 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "can delete all usages for an image which does not exist" in {
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(Future.sequence(ES.deleteAllImageUsages(id, now)), fiveSeconds)
+        val result = Await.result(
+          Future.sequence(ES.deleteAllImageUsages(id, now)),
+          fiveSeconds
+        )
 
         result should have length 1
       }
 
       "can delete all usages for an image" in {
         val id = UUID.randomUUID().toString
-        val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(usages = List(usage()))
-        Await.result(Future.sequence(ES.indexImage(id, imageWithUsages, now)), fiveSeconds)
+        val imageWithUsages = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        ).copy(usages = List(usage()))
+        Await.result(
+          Future.sequence(ES.indexImage(id, imageWithUsages, now)),
+          fiveSeconds
+        )
 
-        Await.result(Future.sequence(ES.deleteAllImageUsages(id, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.deleteAllImageUsages(id, now)),
+          fiveSeconds
+        )
 
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usages.isEmpty shouldBe true)
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).get.usages.isEmpty shouldBe true
+        )
       }
 
       "can update usages" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
 
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(usage()), now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.updateImageUsages(id, List(usage()), now)),
+          fiveSeconds
+        )
 
         reloadedImage(id).get.usages.size shouldBe 1
       }
 
       "can update usages if the modification date of the update is new than the existing one" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
 
         val existingUsage = usage(id = "existing")
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(existingUsage), now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.updateImageUsages(id, List(existingUsage), now)),
+          fiveSeconds
+        )
         reloadedImage(id).get.usages.head.id shouldEqual ("existing")
 
         val moreRecentUsage = usage(id = "most-recent")
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(moreRecentUsage), now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.updateImageUsages(id, List(moreRecentUsage), now)),
+          fiveSeconds
+        )
 
         reloadedImage(id).get.usages.size shouldBe 1
         reloadedImage(id).get.usages.head.id shouldEqual ("most-recent")
@@ -529,15 +913,31 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "should ignore usage update requests when the proposed last modified date is older than the current" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
-        Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
+        Await.result(
+          Future.sequence(ES.indexImage(id, image, now)),
+          fiveSeconds
+        )
 
         val mostRecentUsage = usage(id = "recent")
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(mostRecentUsage), now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.updateImageUsages(id, List(mostRecentUsage), now)),
+          fiveSeconds
+        )
 
         val staleUsage = usage(id = "stale")
         val staleLastModified = DateTime.now.minusWeeks(1)
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(staleUsage), staleLastModified)), fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.updateImageUsages(id, List(staleUsage), staleLastModified)
+          ),
+          fiveSeconds
+        )
 
         reloadedImage(id).get.usages.head.id shouldEqual ("recent")
       }
@@ -546,15 +946,33 @@ class ElasticSearchTest extends ElasticSearchTestBase {
     "syndication rights" - {
       "updated syndication rights should be persisted" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
         ES.indexImage(id, image, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(image.id)
+        )
 
-        val newSyndicationRights = SyndicationRights(published = Some(now), suppliers = Seq.empty, rights = Seq.empty)
+        val newSyndicationRights = SyndicationRights(
+          published = Some(now),
+          suppliers = Seq.empty,
+          rights = Seq.empty
+        )
 
-        Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)), fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).flatMap(_.syndicationRights) shouldEqual Some(newSyndicationRights)
+        reloadedImage(id).flatMap(_.syndicationRights) shouldEqual Some(
+          newSyndicationRights
+        )
       }
 
       "updating syndication rights should update last modified date" in {
@@ -568,23 +986,45 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           leasesLastModified = Some(beforeUpdate)
         )
         ES.indexImage(id, image, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(image.id)
+        )
 
-        val newSyndicationRights = SyndicationRights(published = Some(now.minusWeeks(1)), suppliers = Seq.empty, rights = Seq.empty)
+        val newSyndicationRights = SyndicationRights(
+          published = Some(now.minusWeeks(1)),
+          suppliers = Seq.empty,
+          rights = Seq.empty
+        )
 
-        Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)), fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).get.lastModified.get.isAfter(beforeUpdate) shouldEqual true
+        reloadedImage(id).get.lastModified.get
+          .isAfter(beforeUpdate) shouldEqual true
       }
 
       "can delete syndication rights" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
         ES.indexImage(id, image, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(image.id)
+        )
         reloadedImage(id).get.syndicationRights.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.deleteSyndicationRights(id, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(ES.deleteSyndicationRights(id, now)),
+          fiveSeconds
+        )
 
         reloadedImage(id).get.syndicationRights.isEmpty shouldBe true
       }
@@ -592,7 +1032,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "can delete syndication rights from an image which does not exist" in {
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(Future.sequence(ES.deleteSyndicationRights(id, now)), fiveSeconds)
+        val result = Await.result(
+          Future.sequence(ES.deleteSyndicationRights(id, now)),
+          fiveSeconds
+        )
 
         result should have length 1
       }
@@ -601,169 +1044,331 @@ class ElasticSearchTest extends ElasticSearchTestBase {
     "user metadata" - {
       "can update user metadata for an existing image" in {
         val id = UUID.randomUUID().toString
-        val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val imageWithBoringMetadata = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
 
         ES.indexImage(id, imageWithBoringMetadata, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id)
+        )
 
-        val updatedMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("An interesting image")))
+        val updatedMetadata = Edits(metadata =
+          imageWithBoringMetadata.metadata.copy(description =
+            Some("An interesting image")
+          )
+        )
         val updatedLastModifiedDate = DateTime.now
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            updatedMetadata,
-            updatedLastModifiedDate)),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              updatedMetadata,
+              updatedLastModifiedDate
+            )
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldBe Some("An interesting image")
+        reloadedImage(id).flatMap(
+          _.userMetadata.get.metadata.description
+        ) shouldBe Some("An interesting image")
       }
 
       "updating user metadata should update the image and user meta data last modified dates" in {
         val id = UUID.randomUUID().toString
-        val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val imageWithBoringMetadata = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
 
         ES.indexImage(id, imageWithBoringMetadata, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id)
+        )
 
-        val updatedMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("An updated image")))
+        val updatedMetadata = Edits(metadata =
+          imageWithBoringMetadata.metadata.copy(description =
+            Some("An updated image")
+          )
+        )
         val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            updatedMetadata,
-            updatedLastModifiedDate)),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              updatedMetadata,
+              updatedLastModifiedDate
+            )
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
-        reloadedImage(id).flatMap(_.lastModified) shouldEqual Some(updatedLastModifiedDate)
+        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(
+          updatedLastModifiedDate
+        )
+        reloadedImage(id).flatMap(_.lastModified) shouldEqual Some(
+          updatedLastModifiedDate
+        )
       }
 
       "original metadata is unchanged by a user metadata edit" in {
         val id = UUID.randomUUID().toString
-        val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val imageWithBoringMetadata = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
 
         ES.indexImage(id, imageWithBoringMetadata, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id)
+        )
 
-        val updatedMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("An interesting image")))
+        val updatedMetadata = Edits(metadata =
+          imageWithBoringMetadata.metadata.copy(description =
+            Some("An interesting image")
+          )
+        )
         val updatedLastModifiedDate = DateTime.now
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            updatedMetadata,
-            updatedLastModifiedDate)),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              updatedMetadata,
+              updatedLastModifiedDate
+            )
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).map(_.originalMetadata) shouldEqual Some(imageWithBoringMetadata.originalMetadata)
+        reloadedImage(id).map(_.originalMetadata) shouldEqual Some(
+          imageWithBoringMetadata.originalMetadata
+        )
       }
 
       "should apply metadata update if user metadata is set but before new modified date" in {
         val id = UUID.randomUUID().toString
-        val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val image = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
 
         ES.indexImage(id, image, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(image.id)
+        )
 
-        val userMetadata = ImageMetadata(description = Some("An updated image"), subjects = List("sausages"))
+        val userMetadata = ImageMetadata(
+          description = Some("An updated image"),
+          subjects = List("sausages")
+        )
         val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            Edits(labels = List("foo"), metadata = userMetadata),
-            updatedLastModifiedDate)),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              Edits(labels = List("foo"), metadata = userMetadata),
+              updatedLastModifiedDate
+            )
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
-        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages")
+        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(
+          updatedLastModifiedDate
+        )
+        reloadedImage(
+          id
+        ).get.userMetadata.get.metadata.subjects shouldEqual List("sausages")
         reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo")
 
-        val furtherUpdatedMetadata = userMetadata.copy(description = Some("A further updated image"), subjects = List("sausages", "chips"))
+        val furtherUpdatedMetadata = userMetadata.copy(
+          description = Some("A further updated image"),
+          subjects = List("sausages", "chips")
+        )
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            Edits(labels = List("foo", "bar"), metadata = furtherUpdatedMetadata),
-            updatedLastModifiedDate.plusSeconds(1))),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              Edits(
+                labels = List("foo", "bar"),
+                metadata = furtherUpdatedMetadata
+              ),
+              updatedLastModifiedDate.plusSeconds(1)
+            )
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldEqual Some("A further updated image")
-        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages", "chips")
-        reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo", "bar")
+        reloadedImage(id).flatMap(
+          _.userMetadata.get.metadata.description
+        ) shouldEqual Some("A further updated image")
+        reloadedImage(
+          id
+        ).get.userMetadata.get.metadata.subjects shouldEqual List(
+          "sausages",
+          "chips"
+        )
+        reloadedImage(id).get.userMetadata.get.labels shouldEqual List(
+          "foo",
+          "bar"
+        )
       }
 
       "should ignore update if the proposed modification date is older than the current user metadata last modified date" in {
         val id = UUID.randomUUID().toString
-        val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val imageWithBoringMetadata = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
 
         ES.indexImage(id, imageWithBoringMetadata, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id)
+        )
 
-        val latestMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("Latest edit")))
+        val latestMetadata = Edits(metadata =
+          imageWithBoringMetadata.metadata.copy(description =
+            Some("Latest edit")
+          )
+        )
         val latestLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            latestMetadata,
-            latestLastModifiedDate)),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              latestMetadata,
+              latestLastModifiedDate
+            )
+          ),
+          fiveSeconds
+        )
 
-        val staleMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("A stale edit")))
+        val staleMetadata = Edits(metadata =
+          imageWithBoringMetadata.metadata.copy(description =
+            Some("A stale edit")
+          )
+        )
         val staleLastModifiedDate = latestLastModifiedDate.minusSeconds(1)
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            staleMetadata,
-            staleLastModifiedDate)),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              staleMetadata,
+              staleLastModifiedDate
+            )
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldBe Some("Latest edit")
-        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(latestLastModifiedDate)
+        reloadedImage(id).flatMap(
+          _.userMetadata.get.metadata.description
+        ) shouldBe Some("Latest edit")
+        reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(
+          latestLastModifiedDate
+        )
       }
 
       "updating user metadata with new usage rights should update usage rights" in {
         val id = UUID.randomUUID().toString
-        val imageWithUsageRights = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val imageWithUsageRights = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
 
         ES.indexImage(id, imageWithUsageRights, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsageRights.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(imageWithUsageRights.id)
+        )
 
-        val newPhotographer = StaffPhotographer(photographer = "Test Photographer", publication = "Testing")
+        val newPhotographer = StaffPhotographer(
+          photographer = "Test Photographer",
+          publication = "Testing"
+        )
 
-        val metadataWithUpdatedUsageRights = Edits(usageRights = Some(newPhotographer), metadata = imageWithUsageRights.metadata)
+        val metadataWithUpdatedUsageRights = Edits(
+          usageRights = Some(newPhotographer),
+          metadata = imageWithUsageRights.metadata
+        )
 
-        Await.result(Future.sequence(
-          ES.applyImageMetadataOverride(id,
-            metadataWithUpdatedUsageRights,
-            DateTime.now.withZone(DateTimeZone.UTC))),
-          fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(
+              id,
+              metadataWithUpdatedUsageRights,
+              DateTime.now.withZone(DateTimeZone.UTC)
+            )
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldEqual "Test Photographer"
+        reloadedImage(id).get.usageRights
+          .asInstanceOf[StaffPhotographer]
+          .photographer shouldEqual "Test Photographer"
       }
 
       "updating user metadata should update photoshoot suggestions" in {
         val id = UUID.randomUUID().toString
-        val imageWithBoringMetadata = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
+        val imageWithBoringMetadata = createImageForSyndication(
+          id = UUID.randomUUID().toString,
+          true,
+          Some(now),
+          None
+        )
 
         ES.indexImage(id, imageWithBoringMetadata, now)
-        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id))
+        eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(
+          reloadedImage(id).map(_.id) shouldBe Some(imageWithBoringMetadata.id)
+        )
 
         val newPhotoshoot = Photoshoot("Test photoshoot")
 
-        val updatedMetadata = Edits(photoshoot = Some(newPhotoshoot), metadata = imageWithBoringMetadata.metadata.copy())
+        val updatedMetadata = Edits(
+          photoshoot = Some(newPhotoshoot),
+          metadata = imageWithBoringMetadata.metadata.copy()
+        )
 
-        Await.result(Future.sequence(ES.applyImageMetadataOverride(id, updatedMetadata, now)), fiveSeconds)
+        Await.result(
+          Future.sequence(
+            ES.applyImageMetadataOverride(id, updatedMetadata, now)
+          ),
+          fiveSeconds
+        )
 
-        reloadedImage(id).flatMap(_.userMetadata.get.photoshoot.map(_.title)) shouldEqual Some("Test photoshoot")
+        reloadedImage(id).flatMap(
+          _.userMetadata.get.photoshoot.map(_.title)
+        ) shouldEqual Some("Test photoshoot")
         // TODO how to assert that the suggestion was added?
       }
     }
 
-  "date checks" - {
-    "correct zone" in {
-      import com.gu.mediaservice.lib.formatting.parseOptDateTime
-      val parsedDate = parseOptDateTime(Some("2021-01-13T15:26:27.234Z"))
-      parsedDate.get.getZone shouldEqual(DateTimeZone.UTC)
+    "date checks" - {
+      "correct zone" in {
+        import com.gu.mediaservice.lib.formatting.parseOptDateTime
+        val parsedDate = parseOptDateTime(Some("2021-01-13T15:26:27.234Z"))
+        parsedDate.get.getZone shouldEqual (DateTimeZone.UTC)
+      }
     }
-  }
 
   }
   private def now = DateTime.now(DateTimeZone.UTC)

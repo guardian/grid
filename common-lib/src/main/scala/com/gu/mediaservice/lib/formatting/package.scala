@@ -14,16 +14,14 @@ package object formatting {
       ISODateTimeFormat.dateTime,
       ISODateTimeFormat.dateTimeNoMillis
     ).map(_.getParser)
-    new DateTimeFormatterBuilder().
-      append(null, parsers).
-      toFormatter.
-      withZoneUTC
+    new DateTimeFormatterBuilder().append(null, parsers).toFormatter.withZoneUTC
   }
 
   val dateTimeFormat = parseDateTimeFormat.withZoneUTC
 
   def printDateTime(date: DateTime): String = date.toString()
-  def printOptDateTime(date: Option[DateTime]): Option[String] = date.map(printDateTime)
+  def printOptDateTime(date: Option[DateTime]): Option[String] =
+    date.map(printDateTime)
 
   // Only use this on dates that have been confidently written using printDateTime
   def unsafeParseDateTime(string: String): DateTime =
@@ -31,11 +29,14 @@ package object formatting {
 
   def parseDateTime(string: String): Option[DateTime] =
     Try(parseDateTimeFormat.parseDateTime(string)).toOption
-  def parseOptDateTime(string: Option[String]): Option[DateTime] = string.flatMap(parseDateTime)
+  def parseOptDateTime(string: Option[String]): Option[DateTime] =
+    string.flatMap(parseDateTime)
 
   /** Parses either a UTC timestamp, or a duration before the current time (e.g. "30.days") */
   def parseDateFromQuery(string: String): Option[DateTime] =
-    parseDateTime(string) orElse (parseDuration(string) map (DateTime.now minus _.toMillis))
+    parseDateTime(string) orElse (parseDuration(
+      string
+    ) map (DateTime.now minus _.toMillis))
 
   def parseDuration(string: String): Option[Duration] =
     Try(Duration(string)).toOption

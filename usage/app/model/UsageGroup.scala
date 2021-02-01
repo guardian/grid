@@ -4,63 +4,92 @@ import play.api.libs.json._
 import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.{Atom, AtomData}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, MediaUsage, PublishedUsageStatus, UsageStatus}
+import com.gu.mediaservice.model.usage.{
+  DigitalUsageMetadata,
+  MediaUsage,
+  PublishedUsageStatus,
+  UsageStatus
+}
 import lib.{LiveContentApi, MD5, UsageConfig, UsageMetadataBuilder}
 import org.joda.time.DateTime
 import lib.MediaUsageBuilder
 
 case class UsageGroup(
-  usages: Set[MediaUsage],
-  grouping: String,
-  status: UsageStatus,
-  lastModified: DateTime,
-  isReindex: Boolean = false
+    usages: Set[MediaUsage],
+    grouping: String,
+    status: UsageStatus,
+    lastModified: DateTime,
+    isReindex: Boolean = false
 )
-class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWrapperOps: MediaWrapperOps)
-  extends GridLogging {
+class UsageGroupOps(
+    config: UsageConfig,
+    liveContentApi: LiveContentApi,
+    mediaWrapperOps: MediaWrapperOps
+) extends GridLogging {
 
   def buildId(contentWrapper: ContentWrapper) = contentWrapper.id
-  def buildId(printUsage: PrintUsageRecord) = s"print/${MD5.hash(List(
-    Some(printUsage.mediaId),
-    Some(printUsage.printUsageMetadata.pageNumber),
-    Some(printUsage.printUsageMetadata.sectionCode),
-    Some(printUsage.printUsageMetadata.issueDate)
-  ).flatten.map(_.toString).mkString("_"))}"
+  def buildId(printUsage: PrintUsageRecord) = s"print/${MD5.hash(
+    List(
+      Some(printUsage.mediaId),
+      Some(printUsage.printUsageMetadata.pageNumber),
+      Some(printUsage.printUsageMetadata.sectionCode),
+      Some(printUsage.printUsageMetadata.issueDate)
+    ).flatten.map(_.toString).mkString("_")
+  )}"
 
-  def buildId(syndicationUsageRequest: SyndicationUsageRequest): String = s"syndication/${
-    MD5.hash(List(
-      syndicationUsageRequest.metadata.partnerName,
-      syndicationUsageRequest.mediaId
-    ).mkString("_"))
-  }"
+  def buildId(syndicationUsageRequest: SyndicationUsageRequest): String =
+    s"syndication/${MD5.hash(
+      List(
+        syndicationUsageRequest.metadata.partnerName,
+        syndicationUsageRequest.mediaId
+      ).mkString("_")
+    )}"
 
-  def buildId(frontUsageRequest: FrontUsageRequest): String = s"front/${
-    MD5.hash(List(
-      frontUsageRequest.mediaId,
-      frontUsageRequest.metadata.front
-    ).mkString("_"))
-  }"
+  def buildId(frontUsageRequest: FrontUsageRequest): String =
+    s"front/${MD5.hash(
+      List(
+        frontUsageRequest.mediaId,
+        frontUsageRequest.metadata.front
+      ).mkString("_")
+    )}"
 
-  def buildId(downloadUsageRequest: DownloadUsageRequest): String = s"download/${
-    MD5.hash(List(
-      downloadUsageRequest.mediaId,
-      downloadUsageRequest.metadata.downloadedBy
-    ).mkString("_"))
-  }"
+  def buildId(downloadUsageRequest: DownloadUsageRequest): String =
+    s"download/${MD5.hash(
+      List(
+        downloadUsageRequest.mediaId,
+        downloadUsageRequest.metadata.downloadedBy
+      ).mkString("_")
+    )}"
 
-  def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean) =
-    ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
-      val usages = createUsages(contentWrapper, isReindex)
-      logger.info(s"Built UsageGroup: ${contentWrapper.id}")
-      UsageGroup(usages.toSet, contentWrapper.id, status, lastModified, isReindex)
-    })
+  def build(
+      content: Content,
+      status: UsageStatus,
+      lastModified: DateTime,
+      isReindex: Boolean
+  ) =
+    ContentWrapper
+      .build(content, status, lastModified)
+      .map(contentWrapper => {
+        val usages = createUsages(contentWrapper, isReindex)
+        logger.info(s"Built UsageGroup: ${contentWrapper.id}")
+        UsageGroup(
+          usages.toSet,
+          contentWrapper.id,
+          status,
+          lastModified,
+          isReindex
+        )
+      })
 
   def build(printUsageRecords: List[PrintUsageRecord]) =
     printUsageRecords.map(printUsageRecord => {
       val usageId = UsageIdBuilder.build(printUsageRecord)
 
       UsageGroup(
-        Set(MediaUsageBuilder.build(printUsageRecord, usageId, buildId(printUsageRecord))),
+        Set(
+          MediaUsageBuilder
+            .build(printUsageRecord, usageId, buildId(printUsageRecord))
+        ),
         usageId.toString,
         printUsageRecord.usageStatus,
         printUsageRecord.dateAdded
@@ -106,20 +135,34 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
 
     logger.info(s"Extracting images (job-$uuid) from ${content.id}")
 
-    val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).zipWithIndex.flatMap { case (atom, index) =>
-      getImageId(atom) match {
-        case Some(id) =>
-          val mediaWrapper = mediaWrapperOps.build(index, id, contentWrapper, buildId(contentWrapper))
+    val mediaAtomsUsages =
+      extractMediaAtoms(uuid, content, usageStatus, isReindex).zipWithIndex
+        .flatMap { case (atom, index) =>
+          getImageId(atom) match {
+            case Some(id) =>
+              val mediaWrapper = mediaWrapperOps.build(
+                index,
+                id,
+                contentWrapper,
+                buildId(contentWrapper)
+              )
+              val usage = MediaUsageBuilder.build(mediaWrapper)
+              Seq(createUsagesLogging(usage))
+            case None => Seq.empty
+          }
+        }
+    val imageElementUsages =
+      extractImageElements(uuid, content, usageStatus, isReindex).zipWithIndex
+        .map { case (element, index) =>
+          val mediaWrapper = mediaWrapperOps.build(
+            index,
+            element.id,
+            contentWrapper,
+            buildId(contentWrapper)
+          )
           val usage = MediaUsageBuilder.build(mediaWrapper)
-          Seq(createUsagesLogging(usage))
-        case None => Seq.empty
-      }
-    }
-    val imageElementUsages = extractImageElements(uuid, content, usageStatus, isReindex).zipWithIndex.map { case (element, index) =>
-      val mediaWrapper = mediaWrapperOps.build(index, element.id, contentWrapper, buildId(contentWrapper))
-      val usage = MediaUsageBuilder.build(mediaWrapper)
-      createUsagesLogging(usage)
-    }
+          createUsagesLogging(usage)
+        }
 
     mediaAtomsUsages ++ imageElementUsages
   }
@@ -137,16 +180,25 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     usage
   }
 
-  private def isNewContent(content: Content, usageStatus: UsageStatus): Boolean = {
+  private def isNewContent(
+      content: Content,
+      usageStatus: UsageStatus
+  ): Boolean = {
     val dateLimit = new DateTime(config.usageDateLimit)
     val contentFirstPublished = liveContentApi.getContentFirstPublished(content)
     usageStatus match {
-      case PublishedUsageStatus => contentFirstPublished.exists(_.isAfter(dateLimit))
+      case PublishedUsageStatus =>
+        contentFirstPublished.exists(_.isAfter(dateLimit))
       case _ => true
     }
   }
 
-  private def extractMediaAtoms(uuid: String, content: Content, usageStatus: UsageStatus, isReindex: Boolean) = {
+  private def extractMediaAtoms(
+      uuid: String,
+      content: Content,
+      usageStatus: UsageStatus,
+      isReindex: Boolean
+  ) = {
     val isNew = isNewContent(content, usageStatus)
     val shouldRecordUsages = isNew || isReindex
 
@@ -157,13 +209,19 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       if (groupedMediaAtoms.isEmpty) {
         logger.info(s"No Matching media atoms found (job-$uuid)")
       } else {
-        logger.info(s"${groupedMediaAtoms.length} media atoms found (job-$uuid)")
-        groupedMediaAtoms.foreach(atom => logger.info(s"Matching media atom ${atom.id} found (job-$uuid)"))
+        logger.info(
+          s"${groupedMediaAtoms.length} media atoms found (job-$uuid)"
+        )
+        groupedMediaAtoms.foreach(atom =>
+          logger.info(s"Matching media atom ${atom.id} found (job-$uuid)")
+        )
       }
 
       groupedMediaAtoms
     } else {
-      logger.info(s"Failed shouldRecordUsages for media atoms: isNew-$isNew isReindex-$isReindex (job-$uuid)")
+      logger.info(
+        s"Failed shouldRecordUsages for media atoms: isNew-$isNew isReindex-$isReindex (job-$uuid)"
+      )
       Seq.empty
     }
   }
@@ -173,7 +231,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       case Some(atoms) =>
         atoms.media match {
           case Some(mediaAtoms) => filterOutAtomsWithNoImage(mediaAtoms)
-          case _ => Seq.empty
+          case _                => Seq.empty
         }
       case _ => Seq.empty
     }
@@ -192,7 +250,8 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     try {
       val posterImage = atom.data.asInstanceOf[AtomData.Media].media.posterImage
       posterImage match {
-        case Some(image) => Some(image.mediaId.replace(s"${config.apiUri}/images/", ""))
+        case Some(image) =>
+          Some(image.mediaId.replace(s"${config.apiUri}/images/", ""))
         case _ => None
       }
     } catch {
@@ -200,7 +259,12 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     }
   }
 
-  private def extractImageElements(uuid: String, content: Content, usageStatus: UsageStatus, isReindex: Boolean): Seq[Element] = {
+  private def extractImageElements(
+      uuid: String,
+      content: Content,
+      usageStatus: UsageStatus,
+      isReindex: Boolean
+  ): Seq[Element] = {
     val isNew = isNewContent(content, usageStatus)
     val shouldRecordUsages = isNew || isReindex
 
@@ -213,22 +277,28 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       } else {
         groupedElements.foreach(elements => {
           logger.info(s"${elements.length} elements found (job-$uuid)")
-          elements.foreach(element => logger.info(s"Matching element ${element.id} found (job-$uuid)"))
+          elements.foreach(element =>
+            logger.info(s"Matching element ${element.id} found (job-$uuid)")
+          )
         })
       }
 
       groupedElements.getOrElse(Seq.empty)
     } else {
-      logger.info(s"Failed shouldRecordUsages: isNew-$isNew isReindex-$isReindex (job-$uuid)")
+      logger.info(
+        s"Failed shouldRecordUsages: isNew-$isNew isReindex-$isReindex (job-$uuid)"
+      )
       Seq.empty
     }
   }
 
   private def groupImageElements(content: Content): Option[Seq[Element]] = {
     content.elements.map(elements => {
-      elements.filter(_.`type` == ElementType.Image)
+      elements
+        .filter(_.`type` == ElementType.Image)
         .groupBy(_.id)
-        .map(_._2.head).to[collection.immutable.Seq]
+        .map(_._2.head)
+        .to[collection.immutable.Seq]
     })
   }
 }
@@ -239,11 +309,24 @@ case class MediaWrapper(
     usageGroupId: String,
     contentStatus: UsageStatus,
     usageMetadata: DigitalUsageMetadata,
-    lastModified: DateTime)
+    lastModified: DateTime
+)
 
 class MediaWrapperOps(usageMetadataBuilder: UsageMetadataBuilder) {
-  def build(index: Int, mediaId: String, contentWrapper: ContentWrapper, usageGroupId: String): MediaWrapper = {
+  def build(
+      index: Int,
+      mediaId: String,
+      contentWrapper: ContentWrapper,
+      usageGroupId: String
+  ): MediaWrapper = {
     val usageMetadata = usageMetadataBuilder.build(contentWrapper.content)
-    MediaWrapper(index, mediaId, usageGroupId, contentWrapper.status, usageMetadata, contentWrapper.lastModified)
+    MediaWrapper(
+      index,
+      mediaId,
+      usageGroupId,
+      contentWrapper.status,
+      usageMetadata,
+      contentWrapper.lastModified
+    )
   }
 }

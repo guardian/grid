@@ -2,4 +2,5 @@ package lib
 
 import com.gu.mediaservice.lib.aws.DynamoDB
 
-class EditsStore(config: EditsConfig) extends DynamoDB(config, config.editsTable)
+class EditsStore(config: EditsConfig)
+    extends DynamoDB(config, config.editsTable)

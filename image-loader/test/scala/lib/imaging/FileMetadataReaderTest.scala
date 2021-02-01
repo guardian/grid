@@ -7,18 +7,18 @@ import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString, JsValue}
 
-/**
- * Test that the Reader returns the expected FileMetadata.
- *
- * This is somewhat akin to a unit test of the drew metadata
- * library (and our thin integration above it). It is meant to help
- * highlight differences and integration issues when upgrading the library.
- */
+/** Test that the Reader returns the expected FileMetadata.
+  *
+  * This is somewhat akin to a unit test of the drew metadata
+  * library (and our thin integration above it). It is meant to help
+  * highlight differences and integration issues when upgrading the library.
+  */
 class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   import test.lib.ResourceHelpers._
 
-  implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit override val patienceConfig =
+    PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
   it("should read the correct dimensions for a JPG image") {
     val image = fileAt("getty.jpg")
@@ -91,27 +91,37 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       val xmp = Map(
         "GettyImagesGIFT:ImageRank" -> JsString("3"),
         "GettyImagesGIFT:OriginalFilename" -> JsString("43885812_SEA.jpg"),
-        "dc:title" -> JsArray(Seq(
-          JsString("536991815"),
-          JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-        )),
+        "dc:title" -> JsArray(
+          Seq(
+            JsString("536991815"),
+            JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
+          )
+        ),
         "dc:creator" -> JsArray(Seq(JsString("CHRISTOF STACHE"))),
         "photoshop:SupplementalCategories" -> JsArray(Seq(JsString("SKI"))),
-        "photoshop:Headline" -> JsString("Austria's Matthias Mayer attends the men"),
+        "photoshop:Headline" -> JsString(
+          "Austria's Matthias Mayer attends the men"
+        ),
         "photoshop:TransmissionReference" -> JsString("-"),
         "photoshop:AuthorsPosition" -> JsString("Stringer"),
         "photoshop:CaptionWriter" -> JsString("CS/IW"),
         "plus:ImageSupplierImageId" -> JsString("DV1945213"),
-        "dc:description" -> JsArray(Seq(
-          JsString("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-          JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-        )),
+        "dc:description" -> JsArray(
+          Seq(
+            JsString(
+              "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
+            ),
+            JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
+          )
+        ),
         "photoshop:City" -> JsString("KITZBUEHEL"),
         "GettyImagesGIFT:ExclusiveCoverage" -> JsString("False"),
         "photoshop:DateCreated" -> JsString("2015-01-22T00:00:00.000Z"),
         "photoshop:Credit" -> JsString("AFP/Getty Images"),
         "dc:Rights" -> JsString("CHRISTOF STACHE"),
-        "GettyImagesGIFT:OriginalCreateDateTime" -> JsString("0001-01-01T00:00:00.000Z"),
+        "GettyImagesGIFT:OriginalCreateDateTime" -> JsString(
+          "0001-01-01T00:00:00.000Z"
+        ),
         "Iptc4xmpCore:CountryCode" -> JsString("AUT"),
         "GettyImagesGIFT:CallForImage" -> JsString("False"),
         "photoshop:Country" -> JsString("AUSTRIA"),
@@ -127,7 +137,9 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     }
   }
 
-  it("should read the xmp metadata as stored in the image (process image using GettyImagesGIFT prefix first)") {
+  it(
+    "should read the xmp metadata as stored in the image (process image using GettyImagesGIFT prefix first)"
+  ) {
     val rawPrefix0Xmp: Map[String, String] = Map(
       "GettyImagesGIFT:ImageRank" -> "3",
       "GettyImagesGIFT:OriginalFilename" -> "2008208_81774706JM148_England_v_Cze.jpg",
@@ -188,40 +200,54 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
     // `getty.jpg` uses the `GettyImagesGIFT` prefix, processing it first will populate the `XMPSchemaRegistry` cache,
     // resulting in `cech.jpg` to be read differently from the content in the file which uses the `prefix0` prefix.
-    val gettyGiftXmpFuture = FileMetadataReader.fromIPTCHeaders(fileAt("getty.jpg"), "dummy")
+    val gettyGiftXmpFuture =
+      FileMetadataReader.fromIPTCHeaders(fileAt("getty.jpg"), "dummy")
     whenReady(gettyGiftXmpFuture) { _ =>
-      val prefix0MetadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
+      val prefix0MetadataFuture =
+        FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
       whenReady(prefix0MetadataFuture) { metadata =>
         sameMaps(metadata.xmp, expected)
       }
     }
   }
 
-  it("should read the xmp metadata as stored in the image (process  image using prefix0 prefix first)") {
+  it(
+    "should read the xmp metadata as stored in the image (process  image using prefix0 prefix first)"
+  ) {
     val gettyGiftXmp: Map[String, JsValue] = Map(
       "GettyImagesGIFT:ImageRank" -> JsString("3"),
       "GettyImagesGIFT:OriginalFilename" -> JsString("43885812_SEA.jpg"),
       "dc:creator" -> JsArray(Seq(JsString("CHRISTOF STACHE"))),
-      "dc:title" -> JsArray(Seq(
-        JsString("536991815"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
+      "dc:title" -> JsArray(
+        Seq(
+          JsString("536991815"),
+          JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
+        )
+      ),
       "photoshop:SupplementalCategories" -> JsArray(Seq(JsString("SKI"))),
-      "photoshop:Headline" -> JsString("Austria's Matthias Mayer attends the men"),
+      "photoshop:Headline" -> JsString(
+        "Austria's Matthias Mayer attends the men"
+      ),
       "photoshop:TransmissionReference" -> JsString("-"),
       "photoshop:AuthorsPosition" -> JsString("Stringer"),
       "photoshop:CaptionWriter" -> JsString("CS/IW"),
       "plus:ImageSupplierImageId" -> JsString("DV1945213"),
-      "dc:description" -> JsArray(Seq(
-        JsString("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-        JsArray(Seq(JsString("{'xml:lang':'x-default'}"))),
-      )),
+      "dc:description" -> JsArray(
+        Seq(
+          JsString(
+            "Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"
+          ),
+          JsArray(Seq(JsString("{'xml:lang':'x-default'}")))
+        )
+      ),
       "photoshop:City" -> JsString("KITZBUEHEL"),
       "GettyImagesGIFT:ExclusiveCoverage" -> JsString("False"),
       "photoshop:DateCreated" -> JsString("2015-01-22T00:00:00.000Z"),
       "photoshop:Credit" -> JsString("AFP/Getty Images"),
       "dc:Rights" -> JsString("CHRISTOF STACHE"),
-      "GettyImagesGIFT:OriginalCreateDateTime" -> JsString("0001-01-01T00:00:00.000Z"),
+      "GettyImagesGIFT:OriginalCreateDateTime" -> JsString(
+        "0001-01-01T00:00:00.000Z"
+      ),
       "Iptc4xmpCore:CountryCode" -> JsString("AUT"),
       "GettyImagesGIFT:CallForImage" -> JsString("False"),
       "photoshop:Country" -> JsString("AUSTRIA"),
@@ -231,16 +257,20 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
     // `cech.jpg` uses the `prefix0` prefix, processing it first will populate the `XMPSchemaRegistry` cache,
     // resulting in `getty.jpg` to be read differently from the content in the file which uses the `GettyImagesGIFT` prefix.
-    val prefix0MetadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
+    val prefix0MetadataFuture =
+      FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
     whenReady(prefix0MetadataFuture) { _ =>
-      val gettyGiftXmpFuture = FileMetadataReader.fromIPTCHeaders(fileAt("getty.jpg"), "dummy")
+      val gettyGiftXmpFuture =
+        FileMetadataReader.fromIPTCHeaders(fileAt("getty.jpg"), "dummy")
       whenReady(gettyGiftXmpFuture) { metadata =>
         sameMaps(metadata.xmp, gettyGiftXmp)
       }
     }
   }
 
-  it("should always use the GettyImagesGIFT namespace for XMP metadata using the Getty schema") {
+  it(
+    "should always use the GettyImagesGIFT namespace for XMP metadata using the Getty schema"
+  ) {
     val rawExpected: Map[String, String] = Map(
       "GettyImagesGIFT:ImageRank" -> "3",
       "GettyImagesGIFT:OriginalFilename" -> "2008208_81774706JM148_England_v_Cze.jpg",
@@ -298,9 +328,9 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     )
     val aggExpected = FileMetadataAggregator.aggregateMetadataMap(rawExpected)
 
-    val metadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
+    val metadataFuture =
+      FileMetadataReader.fromIPTCHeaders(fileAt("cech.jpg"), "dummy")
     whenReady(metadataFuture) { metadata =>
-
       sameMaps(metadata.xmp, aggExpected)
     }
   }
@@ -596,7 +626,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a grayscale png") {
     val image = fileAt("schaik.com_pngsuite/basn0g08.png")
-    val metadataFuture = FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture =
+      FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "Greyscale"
@@ -606,7 +637,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct metadata for a colour 8bit paletted png") {
     val image = fileAt("schaik.com_pngsuite/basn3p08.png")
-    val metadataFuture = FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture =
+      FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "Indexed Color"
@@ -614,9 +646,12 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     }
   }
 
-  it("should read the correct metadata for a truecolour png without alpha channel") {
+  it(
+    "should read the correct metadata for a truecolour png without alpha channel"
+  ) {
     val image = fileAt("schaik.com_pngsuite/basn2c08.png")
-    val metadataFuture = FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture =
+      FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "True Color"
@@ -624,9 +659,12 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
     }
   }
 
-  it("should read the correct metadata for a truecolour pnd with alpha channel") {
+  it(
+    "should read the correct metadata for a truecolour pnd with alpha channel"
+  ) {
     val image = fileAt("schaik.com_pngsuite/basn6a08.png")
-    val metadataFuture = FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
+    val metadataFuture =
+      FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Png)
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "colorType" -> "True Color with Alpha"
@@ -636,7 +674,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct colour metadata for a greyscale tiff") {
     val image = fileAt("flower.tif")
-    val metadataFuture = FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Tiff)
+    val metadataFuture =
+      FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Tiff)
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "photometricInterpretation" -> "BlackIsZero"
@@ -646,7 +685,8 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   it("should read the correct colour metadata for an alpha tiff") {
     val image = fileAt("lighthouse.tif")
-    val metadataFuture = FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Tiff)
+    val metadataFuture =
+      FileMetadataReader.fromIPTCHeadersWithColorInfo(image, "dummy", Tiff)
     whenReady(metadataFuture) { metadata =>
       metadata.colourModelInformation should contain(
         "photometricInterpretation" -> "RGB"

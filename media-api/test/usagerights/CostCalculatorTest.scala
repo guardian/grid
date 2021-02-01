@@ -25,7 +25,7 @@ class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
       val usageRights = Obituary()
       val cost = Costing.getCost(usageRights)
 
-      cost should be (Free)
+      cost should be(Free)
     }
 
     it("should be conditional with a free category and restrictions") {
@@ -34,28 +34,28 @@ class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
       )
       val cost = Costing.getCost(usageRights)
 
-      cost should be (Conditional)
+      cost should be(Conditional)
     }
 
     it("should be free with a free supplier") {
       val usageRights = Agency("Getty Images")
       val cost = Costing.getCost(usageRights)
 
-      cost should be (Free)
+      cost should be(Free)
     }
 
     it("should be overquota with an overquota supplier") {
       val usageRights = Agency("Getty Images")
       val cost = OverQuotaCosting.getCost(usageRights)
 
-      cost should be (Overquota)
+      cost should be(Overquota)
     }
 
     it("should not be pay-for with a free supplier but excluded collection") {
       val usageRights = Agency("Getty Images", Some("Terry O'Neill"))
       val cost = Costing.getCost(usageRights)
 
-      cost should be (Pay)
+      cost should be(Pay)
     }
   }
 }

@@ -1,7 +1,10 @@
 package com.gu.mediaservice
 
 import com.amazonaws.services.lambda.runtime.Context
-import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent}
+import com.amazonaws.services.lambda.runtime.events.{
+  APIGatewayProxyRequestEvent,
+  APIGatewayProxyResponseEvent
+}
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
@@ -12,7 +15,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class ImageProjectionLambdaHandler extends LazyLogging {
 
-  def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
+  def handleRequest(
+      event: APIGatewayProxyRequestEvent,
+      context: Context
+  ): APIGatewayProxyResponseEvent = {
 
     logger.info(s"handleImageProjection event: $event")
 
@@ -27,14 +33,19 @@ class ImageProjectionLambdaHandler extends LazyLogging {
 
     apiKey match {
       case Some(key) =>
-        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot, imageLoaderEndpointOpt = imageLoaderEndpoint)
+        val cfg: ImageDataMergerConfig = ImageDataMergerConfig(
+          apiKey = key,
+          domainRoot = domainRoot,
+          imageLoaderEndpointOpt = imageLoaderEndpoint
+        )
         if (!cfg.isValidApiKey()) return getUnauthorisedResponse
 
         logger.info(s"starting handleImageProjection for mediaId=$mediaId")
         logger.info(s"with config: $cfg")
 
         val merger = new ImageDataMerger(cfg)
-        val result: FullImageProjectionResult = merger.getMergedImageData(mediaId.asInstanceOf[String])
+        val result: FullImageProjectionResult =
+          merger.getMergedImageData(mediaId.asInstanceOf[String])
         result match {
           case FullImageProjectionSuccess(mayBeImage) =>
             mayBeImage match {
@@ -60,7 +71,8 @@ class ImageProjectionLambdaHandler extends LazyLogging {
   }
 
   private def getNotFoundResponse(mediaId: String) = {
-    val emptyRes = Json.obj("message" -> s"image with id=$mediaId not-found").toString
+    val emptyRes =
+      Json.obj("message" -> s"image with id=$mediaId not-found").toString
     logger.info(s"image not projected \n $emptyRes")
     new APIGatewayProxyResponseEvent()
       .withStatusCode(404)
@@ -68,11 +80,18 @@ class ImageProjectionLambdaHandler extends LazyLogging {
       .withBody(emptyRes)
   }
 
-  private def getErrorFoundResponse(message: String, downstreamMessage: String) = {
-    val res = Json.obj("message" -> Json.obj(
-      "errorMessage" -> message,
-      "downstreamErrorMessage" -> downstreamMessage
-    )).toString
+  private def getErrorFoundResponse(
+      message: String,
+      downstreamMessage: String
+  ) = {
+    val res = Json
+      .obj(
+        "message" -> Json.obj(
+          "errorMessage" -> message,
+          "downstreamErrorMessage" -> downstreamMessage
+        )
+      )
+      .toString
 
     logger.info(s"image not projected due to error \n $res")
 
@@ -83,7 +102,8 @@ class ImageProjectionLambdaHandler extends LazyLogging {
   }
 
   private def getUnauthorisedResponse = {
-    val res = Json.obj("message" -> s"missing or invalid api key header").toString
+    val res =
+      Json.obj("message" -> s"missing or invalid api key header").toString
 
     new APIGatewayProxyResponseEvent()
       .withStatusCode(401)
@@ -93,8 +113,10 @@ class ImageProjectionLambdaHandler extends LazyLogging {
 
   private def getAuthKeyFrom(headers: Map[String, String]) = {
     // clients like curl or API gateway may lowerCases custom header names, yay!
-    headers.find {
-      case (k, _) => k.equalsIgnoreCase(ApiKeyAuthenticationProvider.apiKeyHeaderName)
-    }.map(_._2)
+    headers
+      .find { case (k, _) =>
+        k.equalsIgnoreCase(ApiKeyAuthenticationProvider.apiKeyHeaderName)
+      }
+      .map(_._2)
   }
 }

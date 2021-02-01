@@ -20,12 +20,12 @@ case class SupplierUsageQuota(agency: Agency, count: Int)
 object SupplierUsageQuota {
   implicit val writes: Writes[SupplierUsageQuota] = (
     (__ \ "agency").write[String].contramap((a: Agency) => a.supplier) ~
-    (__ \ "count").write[Int]
+      (__ \ "count").write[Int]
   )(unlift(SupplierUsageQuota.unapply))
 
   implicit val customReads: Reads[SupplierUsageQuota] = (
     (__ \ "agency").read[String].map(Agency(_)) ~
-    (__ \ "count").read[Int]
+      (__ \ "count").read[Int]
   )(SupplierUsageQuota.apply _)
 }
 
@@ -33,20 +33,20 @@ case class SupplierUsageSummary(agency: Agency, count: Long)
 object SupplierUsageSummary {
   implicit val customReads: Reads[SupplierUsageSummary] = (
     (__ \ "Supplier").read[String].map(Agency(_)) ~
-    (__ \ "Usage").read[Long]
+      (__ \ "Usage").read[Long]
   )(SupplierUsageSummary.apply _)
 
   implicit val writes: Writes[SupplierUsageSummary] = (
     (__ \ "agency").write[String].contramap((a: Agency) => a.supplier) ~
-    (__ \ "count").write[Long]
+      (__ \ "count").write[Long]
   )(unlift(SupplierUsageSummary.unapply))
 }
 
 case class UsageStatus(
-  exceeded: Boolean,
-  fractionOfQuota: Float,
-  usage: SupplierUsageSummary,
-  quota: Option[SupplierUsageQuota]
+    exceeded: Boolean,
+    fractionOfQuota: Float,
+    usage: SupplierUsageSummary,
+    quota: Option[SupplierUsageQuota]
 )
 object UsageStatus {
   implicit val writes: Writes[UsageStatus] = Json.writes[UsageStatus]
@@ -66,10 +66,13 @@ object UsageStore extends GridLogging {
 
     message.getContent match {
       case content: MimeMultipart =>
-        val parts = for(n <- 0 until content.getCount) yield content.getBodyPart(n)
+        val parts =
+          for (n <- 0 until content.getCount) yield content.getBodyPart(n)
 
         val part = parts
-          .collectFirst { case part: MimeBodyPart if part.getEncoding == "base64" => part }
+          .collectFirst {
+            case part: MimeBodyPart if part.getEncoding == "base64" => part
+          }
           .map(_.getContent)
 
         part match {
@@ -95,7 +98,7 @@ object UsageStore extends GridLogging {
       .map(_.map(stripQuotes))
       .map(_.toList)
 
-    if(lines.exists(_.length != 2)) {
+    if (lines.exists(_.length != 2)) {
       logger.error("CSV header error. Expected 2 columns")
       throw new IllegalArgumentException("CSV header error. Expected 2 columns")
     }
@@ -108,34 +111,47 @@ object UsageStore extends GridLogging {
 
           case _ =>
             logger.error("CSV body error. Expected 2 columns")
-            throw new IllegalArgumentException("CSV body error. Expected 2 columns")
+            throw new IllegalArgumentException(
+              "CSV body error. Expected 2 columns"
+            )
         }
 
       case other =>
-        logger.error(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
-        throw new IllegalArgumentException(s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]")
+        logger.error(
+          s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]"
+        )
+        throw new IllegalArgumentException(
+          s"Unexpected CSV headers [${other.mkString(",")}]. Expected [CproName, Id]"
+        )
     }
   }
 }
 
 class UsageStore(
-  bucket: String,
-  config: MediaApiConfig,
-  quotaStore: QuotaStore
-)(implicit val ec: ExecutionContext) extends BaseStore[String, UsageStatus](bucket, config) with GridLogging {
+    bucket: String,
+    config: MediaApiConfig,
+    quotaStore: QuotaStore
+)(implicit val ec: ExecutionContext)
+    extends BaseStore[String, UsageStatus](bucket, config)
+    with GridLogging {
   import UsageStore._
 
-  def getUsageStatusForUsageRights(usageRights: UsageRights): Future[UsageStatus] = {
+  def getUsageStatusForUsageRights(
+      usageRights: UsageRights
+  ): Future[UsageStatus] = {
     usageRights match {
-      case agency: Agency => Future.successful(store.get().getOrElse(agency.supplier, { throw NoUsageQuota() }))
+      case agency: Agency =>
+        Future.successful(
+          store.get().getOrElse(agency.supplier, { throw NoUsageQuota() })
+        )
       case _ => Future.failed(new Exception("Image is not supplied by Agency"))
     }
   }
 
   def getUsageStatus(): Future[StoreAccess] = Future.successful((for {
-      s <- store
-      l <- lastUpdated
-    } yield StoreAccess(s,l)).get())
+    s <- store
+    l <- lastUpdated
+  } yield StoreAccess(s, l)).get())
 
   def overQuotaAgencies: List[Agency] = store.get.collect {
     case (_, status) if status.exceeded => status.usage.agency
@@ -156,36 +172,47 @@ class UsageStore(
         logger.info(s"Last usage file has ${lines.length} lines")
         val summary: List[SupplierUsageSummary] = csvParser(lines)
 
-        def copyAgency(supplier: SupplierUsageSummary, id: String) = Agencies.all.get(id)
-          .map(a => supplier.copy(agency = a))
-          .getOrElse(supplier)
+        def copyAgency(supplier: SupplierUsageSummary, id: String) =
+          Agencies.all
+            .get(id)
+            .map(a => supplier.copy(agency = a))
+            .getOrElse(supplier)
 
         val cleanedSummary = summary
           .map {
-            case s if s.agency.supplier.contains("Rex Features") => copyAgency(s, "rex")
-            case s if s.agency.supplier.contains("Getty Images") => copyAgency(s, "getty")
-            case s if s.agency.supplier.contains("Australian Associated Press") => copyAgency(s, "aap")
-            case s if s.agency.supplier.contains("Alamy") => copyAgency(s, "alamy")
+            case s if s.agency.supplier.contains("Rex Features") =>
+              copyAgency(s, "rex")
+            case s if s.agency.supplier.contains("Getty Images") =>
+              copyAgency(s, "getty")
+            case s
+                if s.agency.supplier.contains("Australian Associated Press") =>
+              copyAgency(s, "aap")
+            case s if s.agency.supplier.contains("Alamy") =>
+              copyAgency(s, "alamy")
             case s => s
           }
 
-        quotaStore.getQuota.map { supplierQuota => {
-          cleanedSummary
-            .groupBy(_.agency.supplier)
-            .mapValues(_.head)
-            .mapValues((summary: SupplierUsageSummary) => {
-              val quota = summary.agency.id.flatMap(id => supplierQuota.get(id))
-              val exceeded = quota.exists(q => summary.count > q.count)
-              val fractionOfQuota: Float = quota.map(q => summary.count.toFloat / q.count).getOrElse(0F)
+        quotaStore.getQuota.map { supplierQuota =>
+          {
+            cleanedSummary
+              .groupBy(_.agency.supplier)
+              .mapValues(_.head)
+              .mapValues((summary: SupplierUsageSummary) => {
+                val quota =
+                  summary.agency.id.flatMap(id => supplierQuota.get(id))
+                val exceeded = quota.exists(q => summary.count > q.count)
+                val fractionOfQuota: Float =
+                  quota.map(q => summary.count.toFloat / q.count).getOrElse(0f)
 
-              UsageStatus(
-                exceeded,
-                fractionOfQuota,
-                summary,
-                quota
-              )
-            })
-        }}
+                UsageStatus(
+                  exceeded,
+                  fractionOfQuota,
+                  summary,
+                  quota
+                )
+              })
+          }
+        }
       }
       case _ => Future.successful(Map.empty)
     }
@@ -193,18 +220,22 @@ class UsageStore(
 }
 
 class QuotaStore(
-  quotaFile: String,
-  bucket: String,
-  config: MediaApiConfig
-)(implicit ec: ExecutionContext) extends BaseStore[String, SupplierUsageQuota](bucket, config)(ec) {
+    quotaFile: String,
+    bucket: String,
+    config: MediaApiConfig
+)(implicit ec: ExecutionContext)
+    extends BaseStore[String, SupplierUsageQuota](bucket, config)(ec) {
 
-  def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
+  def getQuota: Future[Map[String, SupplierUsageQuota]] =
+    Future.successful(store.get())
 
   def update() {
     if (config.quotaUpdateEnabled) {
       store.send(_ => fetchQuota)
     } else {
-      logger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
+      logger.info(
+        "Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable."
+      )
     }
   }
 
@@ -215,8 +246,8 @@ class QuotaStore(
       .parse(quotaFileString)
       .as[List[SupplierUsageQuota]]
 
-      summary.foldLeft(Map[String,SupplierUsageQuota]())((memo, quota) => {
-        memo + (quota.agency.supplier -> quota)
-      })
+    summary.foldLeft(Map[String, SupplierUsageQuota]())((memo, quota) => {
+      memo + (quota.agency.supplier -> quota)
+    })
   }
 }

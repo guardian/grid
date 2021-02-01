@@ -13,7 +13,6 @@ class OrderedFutureRunnerTest extends FlatSpec with Matchers {
   private var current = 0
   implicit val executionContext = ExecutionContext.Implicits.global
 
-
   "OrderedFutureRunner.run" should "execute the futures in order" in {
     def runner(n: Int) = {
       val x = current
@@ -41,8 +40,10 @@ class OrderedFutureRunnerTest extends FlatSpec with Matchers {
       }
     }
 
-    noException should be thrownBy OrderedFutureRunner.run(runner, Duration(1, SECONDS))(list)
-
+    noException should be thrownBy OrderedFutureRunner.run(
+      runner,
+      Duration(1, SECONDS)
+    )(list)
 
   }
 }

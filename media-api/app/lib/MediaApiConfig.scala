@@ -6,11 +6,12 @@ import org.joda.time.DateTime
 import scala.util.Try
 
 case class StoreConfig(
-  storeBucket: String,
-  storeKey: String
+    storeBucket: String,
+    storeKey: String
 )
 
-class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
+class MediaApiConfig(resources: GridConfigResources)
+    extends CommonConfig(resources.configuration) {
   val configBucket: String = string("s3.config.bucket")
   val usageMailBucket: String = string("s3.usagemail.bucket")
 
@@ -18,13 +19,14 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
   val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
   // quota updates can only be turned off in DEV
-  val quotaUpdateEnabled: Boolean = if (isDev) boolean("quota.update.enabled") else true
+  val quotaUpdateEnabled: Boolean =
+    if (isDev) boolean("quota.update.enabled") else true
 
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
 
   val imagesAlias: String = string("es.index.aliases.read")
 
-  val elasticsearch6Url: String =  string("es6.url")
+  val elasticsearch6Url: String = string("es6.url")
   val elasticsearch6Cluster: String = string("es6.cluster")
   val elasticsearch6Shards: Int = string("es6.shards").toInt
   val elasticsearch6Replicas: Int = string("es6.replicas").toInt
@@ -37,9 +39,13 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
     "/etc/gu/ssl/private/cloudfront.pem" // TODO - remove once migrated away from
   )
 
-  val cloudFrontDomainImageBucket: Option[String] = stringOpt("cloudfront.domain.imagebucket")
-  val cloudFrontDomainThumbBucket: Option[String] = stringOpt("cloudfront.domain.thumbbucket")
-  val cloudFrontKeyPairId: Option[String]         = stringOpt("cloudfront.keypair.id")
+  val cloudFrontDomainImageBucket: Option[String] = stringOpt(
+    "cloudfront.domain.imagebucket"
+  )
+  val cloudFrontDomainThumbBucket: Option[String] = stringOpt(
+    "cloudfront.domain.thumbbucket"
+  )
+  val cloudFrontKeyPairId: Option[String] = stringOpt("cloudfront.keypair.id")
 
   val rootUri: String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
@@ -59,14 +65,18 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
   val persistenceIdentifier = string("persistence.identifier")
   val queriableIdentifiers = Seq(persistenceIdentifier)
 
-  val persistedRootCollections: List[String] = stringOpt("persistence.collections") match {
+  val persistedRootCollections: List[String] = stringOpt(
+    "persistence.collections"
+  ) match {
     case Some(collections) => collections.split(',').toList
-    case None => List("GNM Archive")
+    case None              => List("GNM Archive")
   }
 
   def convertToInt(s: String): Option[Int] = Try { s.toInt }.toOption
 
   val syndicationStartDate: Option[DateTime] = Try {
-    stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
+    stringOpt("syndication.start").map(d =>
+      DateTime.parse(d).withTimeAtStartOfDay()
+    )
   }.toOption.flatten
 }

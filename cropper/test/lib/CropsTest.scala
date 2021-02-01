@@ -15,11 +15,15 @@ class CropsTest extends FunSpec with Matchers with MockitoSugar {
     Crops.cropType(Png, "Monkey", hasAlpha = true) shouldBe Png
   }
 
-  it("should return PNG when the input type is PNG and it has alpha even if it is True Color") {
+  it(
+    "should return PNG when the input type is PNG and it has alpha even if it is True Color"
+  ) {
     Crops.cropType(Png, "True Color", hasAlpha = true) shouldBe Png
   }
 
-  it("should return PNG when the input type is PNG and it is NOT true color (a graphic)") {
+  it(
+    "should return PNG when the input type is PNG and it is NOT true color (a graphic)"
+  ) {
     Crops.cropType(Png, "Monkey", hasAlpha = false) shouldBe Png
   }
 
@@ -31,18 +35,28 @@ class CropsTest extends FunSpec with Matchers with MockitoSugar {
     Crops.cropType(Tiff, "Monkey", hasAlpha = true) shouldBe Png
   }
 
-  it("should return PNG when the input type is TIFF and it doesn't have alpha or is true color") {
+  it(
+    "should return PNG when the input type is TIFF and it doesn't have alpha or is true color"
+  ) {
     Crops.cropType(Tiff, "Monkey", hasAlpha = false) shouldBe Png
   }
 
-  it("should return JPEG when the input type is TIFF and it doesn't have alpha and it is true color") {
+  it(
+    "should return JPEG when the input type is TIFF and it doesn't have alpha and it is true color"
+  ) {
     Crops.cropType(Tiff, "TrueColor", hasAlpha = false) shouldBe Jpeg
   }
 
   private val config = mock[CropperConfig]
   private val store = mock[CropStore]
   private val imageOperations: ImageOperations = mock[ImageOperations]
-  private val source: SourceImage = SourceImage("test", mock[Asset], valid = true, mock[ImageMetadata], mock[FileMetadata])
+  private val source: SourceImage = SourceImage(
+    "test",
+    mock[Asset],
+    valid = true,
+    mock[ImageMetadata],
+    mock[FileMetadata]
+  )
   private val bounds: Bounds = Bounds(10, 20, 30, 40)
   private val outputWidth = 1234
 

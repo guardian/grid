@@ -8,24 +8,24 @@ import play.api.libs.json._
 /* following are standard metadata fields that exist in multiple schemas,
 most canonical being https://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata */
 case class ImageMetadata(
-  dateTaken:           Option[DateTime] = None,
-  description:         Option[String]   = None,
-  credit:              Option[String]   = None,
-  creditUri:           Option[String]   = None,
-  byline:              Option[String]   = None,
-  bylineTitle:         Option[String]   = None,
-  title:               Option[String]   = None,
-  copyright:           Option[String]   = None,
-  suppliersReference:  Option[String]   = None,
-  source:              Option[String]   = None,
-  specialInstructions: Option[String]   = None,
-  keywords:            List[String]     = Nil,
-  subLocation:         Option[String]   = None,
-  city:                Option[String]   = None,
-  state:               Option[String]   = None,
-  country:             Option[String]   = None,
-  subjects:            List[String]     = Nil,
-  peopleInImage:       Set[String]      = Set(),
+    dateTaken: Option[DateTime] = None,
+    description: Option[String] = None,
+    credit: Option[String] = None,
+    creditUri: Option[String] = None,
+    byline: Option[String] = None,
+    bylineTitle: Option[String] = None,
+    title: Option[String] = None,
+    copyright: Option[String] = None,
+    suppliersReference: Option[String] = None,
+    source: Option[String] = None,
+    specialInstructions: Option[String] = None,
+    keywords: List[String] = Nil,
+    subLocation: Option[String] = None,
+    city: Option[String] = None,
+    state: Option[String] = None,
+    country: Option[String] = None,
+    subjects: List[String] = Nil,
+    peopleInImage: Set[String] = Set()
 )
 
 object ImageMetadata {
@@ -50,7 +50,7 @@ object ImageMetadata {
       (__ \ "country").readNullable[String] ~
       (__ \ "subjects").readNullable[List[String]].map(_ getOrElse Nil) ~
       (__ \ "peopleInImage").readNullable[Set[String]].map(_ getOrElse Set())
-    )(ImageMetadata.apply _)
+  )(ImageMetadata.apply _)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] = (
     (__ \ "dateTaken").writeNullable[String].contramap(printOptDateTime) ~
@@ -64,13 +64,19 @@ object ImageMetadata {
       (__ \ "suppliersReference").writeNullable[String] ~
       (__ \ "source").writeNullable[String] ~
       (__ \ "specialInstructions").writeNullable[String] ~
-      (__ \ "keywords").writeNullable[List[String]].contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
+      (__ \ "keywords")
+        .writeNullable[List[String]]
+        .contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
       (__ \ "subLocation").writeNullable[String] ~
       (__ \ "city").writeNullable[String] ~
       (__ \ "state").writeNullable[String] ~
       (__ \ "country").writeNullable[String] ~
-      (__ \ "subjects").writeNullable[List[String]].contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
-      (__ \ "peopleInImage").writeNullable[Set[String]].contramap((l: Set[String]) => if (l.isEmpty) None else Some(l))
-    )(unlift(ImageMetadata.unapply))
+      (__ \ "subjects")
+        .writeNullable[List[String]]
+        .contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
+      (__ \ "peopleInImage")
+        .writeNullable[Set[String]]
+        .contramap((l: Set[String]) => if (l.isEmpty) None else Some(l))
+  )(unlift(ImageMetadata.unapply))
 
 }

@@ -7,7 +7,8 @@ import scala.collection.JavaConverters._
 
 object ImagesGroupByProgressState extends App with LazyLogging {
 
-  if (args.isEmpty) throw new IllegalArgumentException("please provide dynamo table name")
+  if (args.isEmpty)
+    throw new IllegalArgumentException("please provide dynamo table name")
 
   import InputIdsStore._
 
@@ -19,7 +20,8 @@ object ImagesGroupByProgressState extends App with LazyLogging {
 
     def stateNameToCount(progressType: ProduceProgress): (String, Int) = {
       logger.info(s"calculating stateNameToCount for $progressType")
-      val queryRes = stateIndex.query(getAllMediaIdsWithinProgressQuery(progressType))
+      val queryRes =
+        stateIndex.query(getAllMediaIdsWithinProgressQuery(progressType))
       val result = progressType.name -> queryRes.iterator.asScala.length
       logger.info(s"result=$result")
       result
@@ -42,7 +44,7 @@ object ImagesGroupByProgressState extends App with LazyLogging {
       stateNameToCount(NotFound),
       stateNameToCount(KnownError),
       stateNameToCount(NotStarted),
-      stateNameToCount(InProgress),
+      stateNameToCount(InProgress)
     ).mkString("\n")
 
     logger.info(s"results from dynamoTable=$dynamoTable")

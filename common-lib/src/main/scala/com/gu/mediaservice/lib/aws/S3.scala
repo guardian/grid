@@ -19,9 +19,16 @@ import scala.concurrent.{ExecutionContext, Future}
 
 case class S3Object(uri: URI, size: Long, metadata: S3Metadata)
 
-case class S3Metadata(userMetadata: Map[String, String], objectMetadata: S3ObjectMetadata)
+case class S3Metadata(
+    userMetadata: Map[String, String],
+    objectMetadata: S3ObjectMetadata
+)
 
-case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime] = None)
+case class S3ObjectMetadata(
+    contentType: Option[MimeType],
+    cacheControl: Option[String],
+    lastModified: Option[DateTime] = None
+)
 
 class S3(config: CommonConfig) extends GridLogging {
   type Bucket = String
@@ -32,7 +39,8 @@ class S3(config: CommonConfig) extends GridLogging {
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   // also create a legacy client that uses v2 signatures for URL signing
-  private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
+  private lazy val legacySigningClient: AmazonS3 =
+    S3Ops.buildS3Client(config, forceV2Sigs = true)
   private val log = LoggerFactory.getLogger(getClass)
 
   private def removeExtension(filename: String): String = {
@@ -40,11 +48,15 @@ class S3(config: CommonConfig) extends GridLogging {
     regex.replaceAllIn(filename, "")
   }
 
-  private def getContentDispositionFilename(image: Image, imageType: ImageType, charset: Charset): String = {
+  private def getContentDispositionFilename(
+      image: Image,
+      imageType: ImageType,
+      charset: Charset
+  ): String = {
 
     val asset = imageType match {
-      case Source => image.source
-      case Thumbnail => image.thumbnail.getOrElse(image.source)
+      case Source       => image.source
+      case Thumbnail    => image.thumbnail.getOrElse(image.source)
       case OptimisedPng => image.optimisedPng.getOrElse(image.source)
     }
 
@@ -57,7 +69,7 @@ class S3(config: CommonConfig) extends GridLogging {
 
     val baseFilename: String = image.uploadInfo.filename match {
       case Some(f) => s"${removeExtension(f)} (${image.id})$extension"
-      case _ => s"${image.id}$extension"
+      case _       => s"${image.id}$extension"
     }
 
     charset.displayName() match {
@@ -73,24 +85,43 @@ class S3(config: CommonConfig) extends GridLogging {
     // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
     // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
     // See http://tools.ietf.org/html/rfc6266#section-5
-    s"""attachment; filename="${getContentDispositionFilename(image, imageType, StandardCharsets.ISO_8859_1)}"; filename*=UTF-8''${getContentDispositionFilename(image, imageType, StandardCharsets.UTF_8)}"""
+    s"""attachment; filename="${getContentDispositionFilename(
+      image,
+      imageType,
+      StandardCharsets.ISO_8859_1
+    )}"; filename*=UTF-8''${getContentDispositionFilename(
+      image,
+      imageType,
+      StandardCharsets.UTF_8
+    )}"""
   }
 
-  private def roundDateTime(t: DateTime, d: Duration): DateTime = t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
+  private def roundDateTime(t: DateTime, d: Duration): DateTime =
+    t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)
 
   // Round expiration time to try and hit the cache as much as possible
   // TODO: do we really need these expiration tokens? they kill our ability to cache...
-  private def defaultExpiration: DateTime = roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
+  private def defaultExpiration: DateTime =
+    roundDateTime(DateTime.now, Duration.standardMinutes(10)).plusMinutes(20)
 
-  def signUrl(bucket: Bucket, url: URI, image: Image, expiration: DateTime = defaultExpiration, imageType: ImageType = Source): String = {
+  def signUrl(
+      bucket: Bucket,
+      url: URI,
+      image: Image,
+      expiration: DateTime = defaultExpiration,
+      imageType: ImageType = Source
+  ): String = {
     // get path and remove leading `/`
     val key: Key = url.getPath.drop(1)
 
     val contentDisposition = getContentDisposition(image, imageType)
 
-    val headers = new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
+    val headers =
+      new ResponseHeaderOverrides().withContentDisposition(contentDisposition)
 
-    val request = new GeneratePresignedUrlRequest(bucket, key).withExpiration(expiration.toDate).withResponseHeaders(headers)
+    val request = new GeneratePresignedUrlRequest(bucket, key)
+      .withExpiration(expiration.toDate)
+      .withResponseHeaders(headers)
     legacySigningClient.generatePresignedUrl(request).toExternalForm
   }
 
@@ -109,14 +140,19 @@ class S3(config: CommonConfig) extends GridLogging {
       case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
         log.warn(s"Cannot find key: $key in bucket: $bucket")
         None
-    }
-    finally {
+    } finally {
       stream.close()
     }
   }
 
-  def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
-           (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Unit] =
+  def store(
+      bucket: Bucket,
+      id: Key,
+      file: File,
+      mimeType: Option[MimeType],
+      meta: UserMetadata = Map.empty,
+      cacheControl: Option[String] = None
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Unit] =
     Future {
       val metadata = new ObjectMetadata
       mimeType.foreach(m => metadata.setContentType(m.name))
@@ -126,26 +162,38 @@ class S3(config: CommonConfig) extends GridLogging {
       val fileMarkers = Map(
         "bucket" -> bucket,
         "fileName" -> id,
-        "mimeType" -> mimeType.getOrElse("none"),
+        "mimeType" -> mimeType.getOrElse("none")
       )
       val markers = logMarker ++ fileMarkers
 
       val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
-      Stopwatch(s"S3 client.putObject ($req)"){
+      Stopwatch(s"S3 client.putObject ($req)") {
         client.putObject(req)
       }(markers)
     }
 
-  def list(bucket: Bucket, prefixDir: String)
-          (implicit ex: ExecutionContext): Future[List[S3Object]] =
+  def list(bucket: Bucket, prefixDir: String)(implicit
+      ex: ExecutionContext
+  ): Future[List[S3Object]] =
     Future {
-      val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixDir/")
+      val req = new ListObjectsRequest()
+        .withBucketName(bucket)
+        .withPrefix(s"$prefixDir/")
       val listing = client.listObjects(req)
       val summaries = listing.getObjectSummaries.asScala
-      summaries.map(summary => (summary.getKey, summary)).foldLeft(List[S3Object]()) {
-        case (memo: List[S3Object], (key: String, summary: S3ObjectSummary)) =>
-          S3Object(objectUrl(bucket, key), summary.getSize, getMetadata(bucket, key)) :: memo
-      }
+      summaries
+        .map(summary => (summary.getKey, summary))
+        .foldLeft(List[S3Object]()) {
+          case (
+                memo: List[S3Object],
+                (key: String, summary: S3ObjectSummary)
+              ) =>
+            S3Object(
+              objectUrl(bucket, key),
+              summary.getSize,
+              getMetadata(bucket, key)
+            ) :: memo
+        }
     }
 
   def getMetadata(bucket: Bucket, key: Key): S3Metadata = {
@@ -165,7 +213,9 @@ class S3(config: CommonConfig) extends GridLogging {
     client.getObjectMetadata(bucket, key).getUserMetadata.asScala.toMap
 
   def syncFindKey(bucket: Bucket, prefixName: String): Option[Key] = {
-    val req = new ListObjectsRequest().withBucketName(bucket).withPrefix(s"$prefixName-")
+    val req = new ListObjectsRequest()
+      .withBucketName(bucket)
+      .withPrefix(s"$prefixName-")
     val listing = client.listObjects(req)
     val summaries = listing.getObjectSummaries.asScala
     summaries.headOption.map(_.getKey)
@@ -178,7 +228,11 @@ object S3Ops {
   // TODO: Make this region aware - i.e. RegionUtils.getRegion(region).getServiceEndpoint(AmazonS3.ENDPOINT_PREFIX)
   private val s3Endpoint = "s3.amazonaws.com"
 
-  def buildS3Client(config: CommonConfig, forceV2Sigs: Boolean = false, localstackAware: Boolean = true): AmazonS3 = {
+  def buildS3Client(
+      config: CommonConfig,
+      forceV2Sigs: Boolean = false,
+      localstackAware: Boolean = true
+  ): AmazonS3 = {
 
     val clientConfig = new ClientConfiguration()
     // Option to disable v4 signatures (https://github.com/aws/aws-sdk-java/issues/372) which is required by imgops
@@ -193,7 +247,8 @@ object S3Ops {
         //  see https://github.com/localstack/localstack/issues/1512
         AmazonS3ClientBuilder.standard().withPathStyleAccessEnabled(true)
       }
-      case _ => AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
+      case _ =>
+        AmazonS3ClientBuilder.standard().withClientConfiguration(clientConfig)
     }
 
     config.withAWSCredentials(builder, localstackAware).build()
@@ -204,7 +259,13 @@ object S3Ops {
     new URI("http", bucketUrl, s"/$key", null)
   }
 
-  def projectFileAsS3Object(url: URI, file: File, mimeType: Option[MimeType], meta: Map[String, String], cacheControl: Option[String]): S3Object = {
+  def projectFileAsS3Object(
+      url: URI,
+      file: File,
+      mimeType: Option[MimeType],
+      meta: Map[String, String],
+      cacheControl: Option[String]
+  ): S3Object = {
     S3Object(
       url,
       file.length,
@@ -218,7 +279,20 @@ object S3Ops {
     )
   }
 
-  def projectFileAsS3Object(bucket: String, key: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
-    projectFileAsS3Object(objectUrl(bucket, key), file, mimeType, meta, cacheControl)
+  def projectFileAsS3Object(
+      bucket: String,
+      key: String,
+      file: File,
+      mimeType: Option[MimeType],
+      meta: Map[String, String] = Map.empty,
+      cacheControl: Option[String] = None
+  ): S3Object = {
+    projectFileAsS3Object(
+      objectUrl(bucket, key),
+      file,
+      mimeType,
+      meta,
+      cacheControl
+    )
   }
 }

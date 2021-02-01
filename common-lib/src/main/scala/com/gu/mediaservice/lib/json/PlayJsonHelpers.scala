@@ -7,7 +7,6 @@ import scala.PartialFunction.condOpt
 import play.api.libs.json._
 import play.api.libs.json.JsString
 
-
 trait PlayJsonHelpers {
 
   protected def logger: Logger
@@ -15,9 +14,12 @@ trait PlayJsonHelpers {
   def logParseErrors(parseResult: JsResult[_]): Unit =
     parseResult.fold(
       _ map { case (path, errors) =>
-        logger.error(s"Validation errors at $path: [${errors.map(_.message).mkString(", ")}]")
+        logger.error(
+          s"Validation errors at $path: [${errors.map(_.message).mkString(", ")}]"
+        )
       },
-      _ => ())
+      _ => ()
+    )
 
   def string(v: JsValue): Option[String] =
     condOpt(v) { case JsString(s) => s }

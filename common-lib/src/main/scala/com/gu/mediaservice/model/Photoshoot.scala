@@ -3,7 +3,7 @@ package com.gu.mediaservice.model
 import play.api.libs.json._
 
 case class Photoshoot(
-  title: String
+    title: String
 )
 
 object Photoshoot {

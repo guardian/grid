@@ -18,7 +18,8 @@ trait MetadataHelper {
       lastModified = None,
       identifiers = Map(),
       uploadInfo = UploadInfo(),
-      source = Asset(URI.create("http://example.com/image.jpg"), Some(0), None, None),
+      source =
+        Asset(URI.create("http://example.com/image.jpg"), Some(0), None, None),
       thumbnail = None,
       optimisedPng = None,
       fileMetadata = FileMetadata(),
@@ -36,20 +37,20 @@ trait MetadataHelper {
 
   def createImageMetadata(metadata: Map[String, String]): ImageMetadata =
     ImageMetadata(
-      dateTaken           = None,
-      description         = metadata.get("description"),
-      credit              = metadata.get("credit"),
-      byline              = metadata.get("byline"),
-      bylineTitle         = metadata.get("bylineTitle"),
-      title               = metadata.get("title"),
-      copyright           = metadata.get("copyright"),
-      suppliersReference  = metadata.get("suppliersReference"),
-      source              = metadata.get("source"),
+      dateTaken = None,
+      description = metadata.get("description"),
+      credit = metadata.get("credit"),
+      byline = metadata.get("byline"),
+      bylineTitle = metadata.get("bylineTitle"),
+      title = metadata.get("title"),
+      copyright = metadata.get("copyright"),
+      suppliersReference = metadata.get("suppliersReference"),
+      source = metadata.get("source"),
       specialInstructions = metadata.get("specialInstructions"),
-      keywords            = List(),
-      subLocation         = metadata.get("subLocation"),
-      city                = metadata.get("city"),
-      state               = metadata.get("state"),
-      country             = metadata.get("country"),
+      keywords = List(),
+      subLocation = metadata.get("subLocation"),
+      city = metadata.get("city"),
+      state = metadata.get("state"),
+      country = metadata.get("country")
     )
 }

@@ -7,22 +7,28 @@ import play.api.{Configuration, Environment}
 import play.api.http.HttpConfiguration
 import router.Routes
 
-class AuthComponents(context: Context) extends GridComponents(context, new AuthConfig(_)) {
-  final override lazy val httpConfiguration = AuthHttpConfig(configuration, context.environment)
+class AuthComponents(context: Context)
+    extends GridComponents(context, new AuthConfig(_)) {
+  final override lazy val httpConfiguration =
+    AuthHttpConfig(configuration, context.environment)
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new AuthController(auth, providers, config, controllerComponents)
-  val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, controller, buildInfo)
+  val controller =
+    new AuthController(auth, providers, config, controllerComponents)
+  val permissionsAwareManagement =
+    new ManagementWithPermissions(controllerComponents, controller, buildInfo)
 
-  override val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)
+  override val router =
+    new Routes(httpErrorHandler, controller, permissionsAwareManagement)
 }
 
 object AuthHttpConfig {
-  def apply(playConfig: Configuration, environment: Environment): HttpConfiguration = {
+  def apply(
+      playConfig: Configuration,
+      environment: Environment
+  ): HttpConfiguration = {
     val base = HttpConfiguration.fromConfiguration(playConfig, environment)
-    base.copy(session =
-      base.session.copy(sameSite = None)
-    )
+    base.copy(session = base.session.copy(sameSite = None))
   }
 }

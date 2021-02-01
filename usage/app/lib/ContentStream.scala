@@ -21,5 +21,13 @@ trait ContentContainer {
   val isReindex: Boolean
 }
 
-case class LiveContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer
-case class PreviewContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer
+case class LiveContentItem(
+    content: Content,
+    lastModified: DateTime,
+    isReindex: Boolean = false
+) extends ContentContainer
+case class PreviewContentItem(
+    content: Content,
+    lastModified: DateTime,
+    isReindex: Boolean = false
+) extends ContentContainer

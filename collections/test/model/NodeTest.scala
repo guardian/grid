@@ -38,7 +38,12 @@ class NodeTest extends FunSpec with Matchers with OptionValues {
     it("should have second level children") {
       val tree = buildTree
       val g2 = tree.children.find(_.basename == "g2").value
-      g2.children.map(_.basename).toSet shouldEqual Set("features", "food", "health", "lifestyle")
+      g2.children.map(_.basename).toSet shouldEqual Set(
+        "features",
+        "food",
+        "health",
+        "lifestyle"
+      )
     }
 
     it("should attach the content to the Node if available") {
@@ -55,7 +60,6 @@ class NodeTest extends FunSpec with Matchers with OptionValues {
 
   }
 
-
   describe("hackmap") {
     val wrongList = List(
       TestNodeData(List("all"), "All"),
@@ -63,24 +67,31 @@ class NodeTest extends FunSpec with Matchers with OptionValues {
       TestNodeData(List("all", "lower", "case"), "CaSe")
     )
 
-    val wrongTree = Node.fromList[TestNodeData](wrongList, (d) => d.path, (d) => d.right)
+    val wrongTree =
+      Node.fromList[TestNodeData](wrongList, (d) => d.path, (d) => d.right)
 
     val rightTree = wrongTree hackmap { node =>
       val correctedData = node.data.map(d => d.copy(path = node.correctPath))
-      Node(node.basename, node.children, node.fullPath, node.correctPath, correctedData)
+      Node(
+        node.basename,
+        node.children,
+        node.fullPath,
+        node.correctPath,
+        correctedData
+      )
     }
 
     val rightTreeList = rightTree.toList(Nil)
 
-
     rightTreeList(0) shouldEqual TestNodeData(List("All"), "All")
     rightTreeList(1) shouldEqual TestNodeData(List("All", "LOWER"), "LOWER")
-    rightTreeList(2) shouldEqual TestNodeData(List("All", "LOWER", "CaSe"), "CaSe")
+    rightTreeList(2) shouldEqual TestNodeData(
+      List("All", "LOWER", "CaSe"),
+      "CaSe"
+    )
 
   }
 
-
 }
-
 
 case class TestNodeData(path: List[String], right: String)

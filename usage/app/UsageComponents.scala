@@ -7,7 +7,8 @@ import router.Routes
 
 import scala.concurrent.Future
 
-class UsageComponents(context: Context) extends GridComponents(context, new UsageConfig(_)) {
+class UsageComponents(context: Context)
+    extends GridComponents(context, new UsageConfig(_)) {
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
@@ -19,10 +20,16 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageMetrics = new UsageMetrics(config)
   val usageNotifier = new UsageNotifier(config, usageTable)
   val usageStream = new UsageStream(usageGroup)
-  val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageStream, usageNotifier, usageNotifier)
+  val usageRecorder = new UsageRecorder(
+    usageMetrics,
+    usageTable,
+    usageStream,
+    usageNotifier,
+    usageNotifier
+  )
   val notifications = new Notifications(config)
 
-  if(!config.apiOnly) {
+  if (!config.apiOnly) {
     val crierReader = new CrierStreamReader(config)
     crierReader.start()
   }
@@ -33,7 +40,18 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
     Future.successful(())
   })
 
-  val controller = new UsageApi(auth, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
+  val controller = new UsageApi(
+    auth,
+    usageTable,
+    usageGroup,
+    notifications,
+    config,
+    usageRecorder,
+    liveContentApi,
+    controllerComponents,
+    playBodyParsers
+  )
 
-  override lazy val router = new Routes(httpErrorHandler, controller, management)
+  override lazy val router =
+    new Routes(httpErrorHandler, controller, management)
 }

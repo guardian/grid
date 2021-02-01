@@ -14,21 +14,21 @@ class CollectionsStore(config: CollectionsConfig) {
 
   def getAll: Future[List[Collection]] = dynamo.scan map { jsonList =>
     jsonList.flatMap(json => (json \ "collection").asOpt[Collection])
-  } recover {
-    case e => throw CollectionsStoreError(e)
+  } recover { case e =>
+    throw CollectionsStoreError(e)
   }
 
   def add(collection: Collection): Future[Collection] = {
     dynamo.objPut(collection.pathId, "collection", collection)
-  } recover {
-    case e => throw CollectionsStoreError(e)
+  } recover { case e =>
+    throw CollectionsStoreError(e)
   }
 
   def remove(collectionPath: List[String]): Future[Unit] = {
     val path = CollectionsManager.pathToPathId(collectionPath)
     dynamo.deleteItem(path)
-  } recover {
-    case e => throw CollectionsStoreError(e)
+  } recover { case e =>
+    throw CollectionsStoreError(e)
   }
 }
 

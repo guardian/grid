@@ -2,7 +2,6 @@ package com.gu.mediaservice.lib.cleanup
 
 import org.scalatest.{FunSpec, Matchers}
 
-
 class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
 
   it("should not apply capitalisation to single words") {
@@ -60,7 +59,6 @@ class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
     expectUnchanged("KGC-03")
   }
 
-
   // Helpers
 
   def expectUnchanged(in: String): Unit = {
@@ -68,11 +66,10 @@ class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
   }
 
   def expectCleaned(in: String, out: String): Unit = {
-    val cleaned = CapitaliseByline.clean(createImageMetadata("byline" -> in)).byline
+    val cleaned =
+      CapitaliseByline.clean(createImageMetadata("byline" -> in)).byline
 
-    cleaned should be (Some(out))
+    cleaned should be(Some(out))
   }
 
 }
-
-

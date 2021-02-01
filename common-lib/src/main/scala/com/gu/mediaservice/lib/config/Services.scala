@@ -1,17 +1,17 @@
 package com.gu.mediaservice.lib.config
 
 case class ServiceHosts(
-  kahunaPrefix: String,
-  apiPrefix: String,
-  loaderPrefix: String,
-  cropperPrefix: String,
-  adminToolsPrefix: String,
-  metadataPrefix: String,
-  imgopsPrefix: String,
-  usagePrefix: String,
-  collectionsPrefix: String,
-  leasesPrefix: String,
-  authPrefix: String
+    kahunaPrefix: String,
+    apiPrefix: String,
+    loaderPrefix: String,
+    cropperPrefix: String,
+    adminToolsPrefix: String,
+    metadataPrefix: String,
+    imgopsPrefix: String,
+    usagePrefix: String,
+    collectionsPrefix: String,
+    leasesPrefix: String,
+    authPrefix: String
 )
 
 object ServiceHosts {
@@ -36,30 +36,34 @@ object ServiceHosts {
   }
 }
 
-class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: Set[String]) {
-  val kahunaHost: String      = s"${hosts.kahunaPrefix}$domainRoot"
-  val apiHost: String         = s"${hosts.apiPrefix}$domainRoot"
-  val loaderHost: String      = s"${hosts.loaderPrefix}$domainRoot"
-  val cropperHost: String     = s"${hosts.cropperPrefix}$domainRoot"
-  val metadataHost: String    = s"${hosts.metadataPrefix}$domainRoot"
-  val imgopsHost: String      = s"${hosts.imgopsPrefix}$domainRoot"
-  val usageHost: String       = s"${hosts.usagePrefix}$domainRoot"
+class Services(
+    val domainRoot: String,
+    hosts: ServiceHosts,
+    corsAllowedOrigins: Set[String]
+) {
+  val kahunaHost: String = s"${hosts.kahunaPrefix}$domainRoot"
+  val apiHost: String = s"${hosts.apiPrefix}$domainRoot"
+  val loaderHost: String = s"${hosts.loaderPrefix}$domainRoot"
+  val cropperHost: String = s"${hosts.cropperPrefix}$domainRoot"
+  val metadataHost: String = s"${hosts.metadataPrefix}$domainRoot"
+  val imgopsHost: String = s"${hosts.imgopsPrefix}$domainRoot"
+  val usageHost: String = s"${hosts.usagePrefix}$domainRoot"
   val collectionsHost: String = s"${hosts.collectionsPrefix}$domainRoot"
-  val leasesHost: String      = s"${hosts.leasesPrefix}$domainRoot"
-  val authHost: String        = s"${hosts.authPrefix}$domainRoot"
-  val adminToolsHost: String  = s"${hosts.adminToolsPrefix}$domainRoot"
+  val leasesHost: String = s"${hosts.leasesPrefix}$domainRoot"
+  val authHost: String = s"${hosts.authPrefix}$domainRoot"
+  val adminToolsHost: String = s"${hosts.adminToolsPrefix}$domainRoot"
 
-  val kahunaBaseUri      = baseUri(kahunaHost)
-  val apiBaseUri         = baseUri(apiHost)
-  val loaderBaseUri      = baseUri(loaderHost)
-  val cropperBaseUri     = baseUri(cropperHost)
-  val metadataBaseUri    = baseUri(metadataHost)
-  val imgopsBaseUri      = baseUri(imgopsHost)
-  val usageBaseUri       = baseUri(usageHost)
+  val kahunaBaseUri = baseUri(kahunaHost)
+  val apiBaseUri = baseUri(apiHost)
+  val loaderBaseUri = baseUri(loaderHost)
+  val cropperBaseUri = baseUri(cropperHost)
+  val metadataBaseUri = baseUri(metadataHost)
+  val imgopsBaseUri = baseUri(imgopsHost)
+  val usageBaseUri = baseUri(usageHost)
   val collectionsBaseUri = baseUri(collectionsHost)
-  val leasesBaseUri      = baseUri(leasesHost)
-  val authBaseUri        = baseUri(authHost)
-  val adminToolsBaseUri  = baseUri(adminToolsHost)
+  val leasesBaseUri = baseUri(leasesHost)
+  val authBaseUri = baseUri(authHost)
+  val adminToolsBaseUri = baseUri(adminToolsHost)
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 

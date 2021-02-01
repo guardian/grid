@@ -18,30 +18,45 @@ import scalaz.syntax.id._
 
 import scala.util.Try
 
-
 object LogConfig {
 
-  val rootLogger: LogbackLogger = LoggerFactory.getLogger(SLFLogger.ROOT_LOGGER_NAME).asInstanceOf[LogbackLogger]
+  val rootLogger: LogbackLogger = LoggerFactory
+    .getLogger(SLFLogger.ROOT_LOGGER_NAME)
+    .asInstanceOf[LogbackLogger]
 
   private val BUFFER_SIZE = 1000
 
-  case class KinesisAppenderConfig(stream: String, region: String, roleArn: String, bufferSize: Int)
+  case class KinesisAppenderConfig(
+      stream: String,
+      region: String,
+      roleArn: String,
+      bufferSize: Int
+  )
 
   private def makeCustomFields(config: CommonConfig): String = {
     val instanceId = Option(EC2MetadataUtils.getInstanceId).getOrElse("unknown")
 
-    Json.toJson(Map(
-      "stack" -> config.stackName,
-      "stage" -> config.stage.toUpperCase,
-      "app"   -> config.appName,
-      "sessionId" -> config.sessionId,
-      "instanceId" -> instanceId
-    )).toString()
+    Json
+      .toJson(
+        Map(
+          "stack" -> config.stackName,
+          "stage" -> config.stage.toUpperCase,
+          "app" -> config.appName,
+          "sessionId" -> config.sessionId,
+          "instanceId" -> instanceId
+        )
+      )
+      .toString()
   }
 
-  private def makeLayout(customFields: String) = new LogstashLayout() <| (_.setCustomFields(customFields))
+  private def makeLayout(customFields: String) =
+    new LogstashLayout() <| (_.setCustomFields(customFields))
 
-  private def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) =
+  private def makeKinesisAppender(
+      layout: LogstashLayout,
+      context: LoggerContext,
+      appenderConfig: KinesisAppenderConfig
+  ) =
     new KinesisAppender[ILoggingEvent]() <| { a =>
       a.setStreamName(appenderConfig.stream)
       a.setRegion(appenderConfig.region)
@@ -53,9 +68,12 @@ object LogConfig {
 
       layout.start()
       a.start()
-  }
+    }
 
-  private def makeLogstashAppender(config: CommonConfig, context: LoggerContext): LogstashTcpSocketAppender = {
+  private def makeLogstashAppender(
+      config: CommonConfig,
+      context: LoggerContext
+  ): LogstashTcpSocketAppender = {
     val customFields = makeCustomFields(config)
 
     new LogstashTcpSocketAppender() <| { appender =>
@@ -73,14 +91,14 @@ object LogConfig {
   }
 
   def initLocalLogShipping(config: CommonConfig): Unit = {
-    if(config.isDev && config.localLogShipping) {
+    if (config.isDev && config.localLogShipping) {
       Try {
         rootLogger.info("Configuring local logstash log shipping")
         val appender = makeLogstashAppender(config, rootLogger.getLoggerContext)
         rootLogger.addAppender(appender)
         rootLogger.info("Local logstash log shipping configured")
-      } recover {
-        case e => rootLogger.error("LogConfig Failed!", e)
+      } recover { case e =>
+        rootLogger.error("LogConfig Failed!", e)
       }
     }
   }
@@ -94,10 +112,12 @@ object LogConfig {
         rootLogger.info("Configuring Logback")
 
         val customFields = makeCustomFields(config)
-        val context      = rootLogger.getLoggerContext
-        val layout       = makeLayout(customFields)
+        val context = rootLogger.getLoggerContext
+        val layout = makeLayout(customFields)
 
-        val appender     = makeKinesisAppender(layout, context,
+        val appender = makeKinesisAppender(
+          layout,
+          context,
           KinesisAppenderConfig(
             config.string("logger.kinesis.stream"),
             config.string("logger.kinesis.region"),
@@ -108,8 +128,8 @@ object LogConfig {
 
         rootLogger.addAppender(appender)
         rootLogger.info("Configured Logback")
-      } recover {
-        case e => rootLogger.error("LogConfig Failed!", e)
+      } recover { case e =>
+        rootLogger.error("LogConfig Failed!", e)
       }
     }
   }

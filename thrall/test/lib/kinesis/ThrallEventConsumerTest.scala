@@ -32,4 +32,3 @@ class ThrallEventConsumerTest extends ElasticSearchTestBase with MockitoSugar {
     }
   }
 }
-

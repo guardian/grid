@@ -1,6 +1,6 @@
 package lib
 
-import org.scalatest.{ FunSpec, Matchers }
+import org.scalatest.{FunSpec, Matchers}
 
 class AspectRatioTest extends FunSpec with Matchers {
 
@@ -34,20 +34,25 @@ class AspectRatioTest extends FunSpec with Matchers {
     (9001, 1337)
   )
 
-  val allExamples = fiveThreeExamples ++ twoThreeExamples ++ sixteenNineExamples ++ squareExamples
+  val allExamples =
+    fiveThreeExamples ++ twoThreeExamples ++ sixteenNineExamples ++ squareExamples
 
   describe("calculate") {
-    allExamples.foreach( r =>
-      it(s"should correctly identify ${r.width} / ${r.height} as ${r.friendly}"){
-        AspectRatio.calculate(r.width, r.height, 6).map(_.friendly) shouldEqual Some(r.friendly)
-     }
+    allExamples.foreach(r =>
+      it(
+        s"should correctly identify ${r.width} / ${r.height} as ${r.friendly}"
+      ) {
+        AspectRatio
+          .calculate(r.width, r.height, 6)
+          .map(_.friendly) shouldEqual Some(r.friendly)
+      }
     )
 
-    it("should return None for unknown ratios"){
-      unknownRatios.foreach( r =>
+    it("should return None for unknown ratios") {
+      unknownRatios.foreach(r =>
         AspectRatio.calculate(r._1, r._2, 6) shouldEqual None
       )
     }
 
- }
+  }
 }

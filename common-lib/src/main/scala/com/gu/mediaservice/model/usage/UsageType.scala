@@ -4,22 +4,23 @@ import play.api.libs.json._
 
 trait UsageType {
   override def toString = this match {
-    case PrintUsage => "print"
-    case DigitalUsage => "digital"
+    case PrintUsage       => "print"
+    case DigitalUsage     => "digital"
     case SyndicationUsage => "syndication"
-    case DownloadUsage => "download"
+    case DownloadUsage    => "download"
   }
 }
 
 object UsageType {
   implicit val reads: Reads[UsageType] = JsPath.read[String].map(UsageType(_))
-  implicit val writer: Writes[UsageType] = (usageType: UsageType) => JsString(usageType.toString)
+  implicit val writer: Writes[UsageType] = (usageType: UsageType) =>
+    JsString(usageType.toString)
 
   def apply(usageType: String): UsageType = usageType.toLowerCase match {
-    case "print" => PrintUsage
-    case "digital" => DigitalUsage
+    case "print"       => PrintUsage
+    case "digital"     => DigitalUsage
     case "syndication" => SyndicationUsage
-    case "download" => DownloadUsage
+    case "download"    => DownloadUsage
   }
 }
 

@@ -3,7 +3,10 @@ package lib
 import java.nio.ByteBuffer
 import java.util.{List => JList}
 
-import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
+import com.amazonaws.services.kinesis.clientlibrary.interfaces.{
+  IRecordProcessor,
+  IRecordProcessorCheckpointer
+}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream
@@ -20,7 +23,9 @@ import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
-abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with GridLogging {
+abstract class EventProcessor(config: UsageConfig)
+    extends IRecordProcessor
+    with GridLogging {
 
   implicit val codec = Event
 
@@ -30,10 +35,15 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with
     logger.debug(s"Initialized an event processor for shard $shardId")
   }
 
-  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit
+  override def processRecords(
+      records: JList[Record],
+      checkpointer: IRecordProcessorCheckpointer
+  ): Unit
 
-
-  override def shutdown(checkpointer: IRecordProcessorCheckpointer, reason: ShutdownReason): Unit = {
+  override def shutdown(
+      checkpointer: IRecordProcessorCheckpointer,
+      reason: ShutdownReason
+  ): Unit = {
     if (reason == ShutdownReason.TERMINATE) {
       checkpointer.checkpoint()
     }
@@ -41,24 +51,24 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with
 
   def getContentItem(content: Content, time: DateTime): ContentContainer
 
-
   def processEvent(event: Event): Unit = {
 
     val dateTime: DateTime = new DateTime(event.dateTime)
 
     event.eventType match {
       case EventType.Update =>
-
         event.payload match {
           case Some(content: EventPayload.Content) =>
             val container = getContentItem(content.content, dateTime)
             contentStream.observable.onNext(container)
-          case _ => logger.debug(s"Received crier update for ${event.payloadId} without payload")
+          case _ =>
+            logger.debug(
+              s"Received crier update for ${event.payloadId} without payload"
+            )
         }
       case EventType.Delete =>
-        //TODO: how do we deal with a piece of content that has been deleted?
+      //TODO: how do we deal with a piece of content that has been deleted?
       case EventType.RetrievableUpdate =>
-
         event.payload match {
           case Some(retrievableContent: EventPayload.RetrievableContent) =>
             val capiUrl = retrievableContent.retrievableContent.capiUrl
@@ -67,17 +77,24 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with
 
             val query = ItemQuery(capiUrl, Map())
 
-            capi.getResponse(query).map(response => {
+            capi
+              .getResponse(query)
+              .map(response => {
 
-              response.content match {
-                case Some(content) =>
-
-                  val container = new LiveContentItem(content, dateTime)
-                  LiveCrierContentStream.observable.onNext(container)
-                case _ => logger.debug(s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
-              }
-            })
-          case _ => logger.debug(s"Received crier update for ${event.payloadId} without payload")
+                response.content match {
+                  case Some(content) =>
+                    val container = new LiveContentItem(content, dateTime)
+                    LiveCrierContentStream.observable.onNext(container)
+                  case _ =>
+                    logger.debug(
+                      s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content"
+                    )
+                }
+              })
+          case _ =>
+            logger.debug(
+              s"Received crier update for ${event.payloadId} without payload"
+            )
         }
 
       case _ => logger.debug(s"Unsupported event type $EventType")
@@ -85,16 +102,20 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with
   }
 }
 
-private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+private class CrierLiveEventProcessor(config: UsageConfig)
+    extends EventProcessor(config) {
 
   val contentStream = LiveCrierContentStream
 
-  def getContentItem(content: Content, date: DateTime): ContentContainer = LiveContentItem(content, date)
+  def getContentItem(content: Content, date: DateTime): ContentContainer =
+    LiveContentItem(content, date)
 
-  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+  override def processRecords(
+      records: JList[Record],
+      checkpointer: IRecordProcessorCheckpointer
+  ): Unit = {
 
     records.asScala.map { record =>
-
       val buffer: Array[Byte] = record.getData.array()
       ThriftDeserializer.deserialize(buffer).map(processEvent)
 
@@ -104,16 +125,20 @@ private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcesso
   }
 }
 
-private class CrierPreviewEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+private class CrierPreviewEventProcessor(config: UsageConfig)
+    extends EventProcessor(config) {
 
   val contentStream = PreviewCrierContentStream
 
-  def getContentItem(content: Content, date: DateTime): ContentContainer = PreviewContentItem(content, date)
+  def getContentItem(content: Content, date: DateTime): ContentContainer =
+    PreviewContentItem(content, date)
 
-  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+  override def processRecords(
+      records: JList[Record],
+      checkpointer: IRecordProcessorCheckpointer
+  ): Unit = {
 
     records.asScala.map { record =>
-
       val buffer: Array[Byte] = record.getData.array()
       ThriftDeserializer.deserialize(buffer).map(processEvent)
 

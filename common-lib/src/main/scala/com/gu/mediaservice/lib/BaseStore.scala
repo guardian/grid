@@ -13,20 +13,25 @@ import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-
-abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonConfig)(implicit ec: ExecutionContext)
-  extends GridLogging {
+abstract class BaseStore[TStoreKey, TStoreVal](
+    bucket: String,
+    config: CommonConfig
+)(implicit ec: ExecutionContext)
+    extends GridLogging {
 
   val s3 = new S3(config)
 
   protected val store: Box[Map[TStoreKey, TStoreVal]] = Box(Map.empty)
   protected val lastUpdated: Box[DateTime] = Box(DateTime.now())
 
-  protected def getS3Object(key: String): Option[String] = s3.getObjectAsString(bucket, key)
+  protected def getS3Object(key: String): Option[String] =
+    s3.getObjectAsString(bucket, key)
 
   protected def getLatestS3Stream: Option[InputStream] = {
     val objects = s3.client
-      .listObjects(bucket).getObjectSummaries.asScala
+      .listObjects(bucket)
+      .getObjectSummaries
+      .asScala
       .filterNot(_.getKey == "AMAZON_SES_SETUP_NOTIFICATION")
 
     if (objects.nonEmpty) {
@@ -53,4 +58,3 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
 
   def update(): Unit
 }
-

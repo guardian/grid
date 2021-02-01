@@ -1,3 +1,4 @@
 import com.gu.mediaservice.lib.play.GridAppLoader
 
-class AppLoader extends GridAppLoader("metadata-editor", new MetadataEditorComponents(_))
+class AppLoader
+    extends GridAppLoader("metadata-editor", new MetadataEditorComponents(_))

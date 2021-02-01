@@ -3,14 +3,24 @@ package com.gu.mediaservice.model
 import java.net.URI
 import java.util.UUID
 
-import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.leases.{
+  AllowSyndicationLease,
+  DenySyndicationLease,
+  LeasesByMedia,
+  MediaLease
+}
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 import org.scalatest.{FunSpec, Matchers}
 
 class ImageTest extends FunSpec with Matchers {
 
-  def createImage(id: String = UUID.randomUUID().toString, usages: List[Usage] = List(), leases: Option[LeasesByMedia] = None, syndicationRights: Option[SyndicationRights] = None): Image = {
+  def createImage(
+      id: String = UUID.randomUUID().toString,
+      usages: List[Usage] = List(),
+      leases: Option[LeasesByMedia] = None,
+      syndicationRights: Option[SyndicationRights] = None
+  ): Image = {
     Image(
       id = id,
       uploadTime = DateTime.now(),
@@ -29,12 +39,15 @@ class ImageTest extends FunSpec with Matchers {
       optimisedPng = None,
       fileMetadata = FileMetadata(),
       userMetadata = None,
-      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = List()),
+      metadata = ImageMetadata(
+        dateTaken = None,
+        title = Some(s"Test image $id"),
+        keywords = List()
+      ),
       originalMetadata = ImageMetadata(),
       usageRights = StaffPhotographer("T. Hanks", "The Guardian"),
       originalUsageRights = StaffPhotographer("T. Hanks", "The Guardian"),
       exports = Nil,
-
       syndicationRights = syndicationRights,
       usages = usages,
       leases = leases.getOrElse(LeasesByMedia.build(Nil))
@@ -63,8 +76,10 @@ class ImageTest extends FunSpec with Matchers {
     DateTime.now()
   )
 
-  val rightsAcquired = SyndicationRights(None, Nil, List(Right("rights-code", Some(true), Nil)))
-  val noRightsAcquired = SyndicationRights(None, Nil, List(Right("rights-code", Some(false), Nil)))
+  val rightsAcquired =
+    SyndicationRights(None, Nil, List(Right("rights-code", Some(true), Nil)))
+  val noRightsAcquired =
+    SyndicationRights(None, Nil, List(Right("rights-code", Some(false), Nil)))
 
   describe("Image syndication status") {
     it("should be UnsuitableForSyndication by default") {
@@ -77,7 +92,9 @@ class ImageTest extends FunSpec with Matchers {
       image.syndicationStatus shouldBe UnsuitableForSyndication
     }
 
-    it("should be AwaitingReviewForSyndication if syndication rights are acquired") {
+    it(
+      "should be AwaitingReviewForSyndication if syndication rights are acquired"
+    ) {
       val image = createImage(
         syndicationRights = Some(rightsAcquired)
       )
@@ -85,7 +102,9 @@ class ImageTest extends FunSpec with Matchers {
       image.syndicationStatus shouldBe AwaitingReviewForSyndication
     }
 
-    it("should be UnsuitableForSyndication if syndication rights are not acquired") {
+    it(
+      "should be UnsuitableForSyndication if syndication rights are not acquired"
+    ) {
       val image = createImage(
         syndicationRights = Some(noRightsAcquired)
       )
@@ -102,13 +121,15 @@ class ImageTest extends FunSpec with Matchers {
       )
 
       val leaseByMedia = LeasesByMedia.build(
-        leases = List(MediaLease(
-          id = None,
-          leasedBy = None,
-          access = AllowSyndicationLease,
-          notes = None,
-          mediaId = imageId
-        ))
+        leases = List(
+          MediaLease(
+            id = None,
+            leasedBy = None,
+            access = AllowSyndicationLease,
+            notes = None,
+            mediaId = imageId
+          )
+        )
       )
 
       val image = createImage(
@@ -135,16 +156,22 @@ class ImageTest extends FunSpec with Matchers {
     }
   }
 
-  it("should be QueuedForSyndication if there is an allow syndication lease and no syndication usage") {
+  it(
+    "should be QueuedForSyndication if there is an allow syndication lease and no syndication usage"
+  ) {
     val imageId = UUID.randomUUID().toString
 
-    val leaseByMedia = LeasesByMedia.build(leases = List(MediaLease(
-      id = None,
-      leasedBy = None,
-      access = AllowSyndicationLease,
-      notes = None,
-      mediaId = imageId
-    )))
+    val leaseByMedia = LeasesByMedia.build(leases =
+      List(
+        MediaLease(
+          id = None,
+          leasedBy = None,
+          access = AllowSyndicationLease,
+          notes = None,
+          mediaId = imageId
+        )
+      )
+    )
 
     val usages = List(
       digitalUsage
@@ -160,17 +187,21 @@ class ImageTest extends FunSpec with Matchers {
     image.syndicationStatus shouldBe QueuedForSyndication
   }
 
-  it("should be BlockedForSyndication if there is a deny syndication lease and no syndication usage") {
+  it(
+    "should be BlockedForSyndication if there is a deny syndication lease and no syndication usage"
+  ) {
     val imageId = UUID.randomUUID().toString
 
     val leaseByMedia = LeasesByMedia.build(
-      leases = List(MediaLease(
-        id = None,
-        leasedBy = None,
-        access = DenySyndicationLease,
-        notes = None,
-        mediaId = imageId
-      ))
+      leases = List(
+        MediaLease(
+          id = None,
+          leasedBy = None,
+          access = DenySyndicationLease,
+          notes = None,
+          mediaId = imageId
+        )
+      )
     )
 
     val usages = List(

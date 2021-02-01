@@ -8,11 +8,16 @@ import org.joda.time.DateTime
 
 import scala.concurrent.ExecutionContext
 
-class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTable) {
+class LeaseStore(config: LeasesConfig)
+    extends DynamoDB(config, config.leasesTable) {
   implicit val dateTimeFormat =
-    DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](DateTime.parse)(_.toString)
+    DynamoFormat.coercedXmap[DateTime, String, IllegalArgumentException](
+      DateTime.parse
+    )(_.toString)
   implicit val enumFormat =
-    DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_))(_.toString)
+    DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](
+      MediaLeaseType(_)
+    )(_.toString)
 
   private val leasesTable = Table[MediaLease](config.leasesTable)
 
@@ -21,7 +26,9 @@ class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTab
   }
 
   def getForMedia(id: String): List[MediaLease] = {
-    Scanamo.exec(client)(leasesTable.index("mediaId").query('mediaId -> id)).flatMap(_.toOption)
+    Scanamo
+      .exec(client)(leasesTable.index("mediaId").query('mediaId -> id))
+      .flatMap(_.toOption)
   }
 
   def put(lease: MediaLease)(implicit ec: ExecutionContext) = {
@@ -36,9 +43,10 @@ class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTab
     ScanamoAsync.exec(client)(leasesTable.delete('id -> id))
   }
 
-  def forEach(run: List[MediaLease] => Unit)(implicit ec: ExecutionContext) = ScanamoAsync.exec(client)(
-    leasesTable.scan
-      .map(ops => ops.flatMap(_.toOption))
-      .map(run)
-  )
+  def forEach(run: List[MediaLease] => Unit)(implicit ec: ExecutionContext) =
+    ScanamoAsync.exec(client)(
+      leasesTable.scan
+        .map(ops => ops.flatMap(_.toOption))
+        .map(run)
+    )
 }

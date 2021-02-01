@@ -7,7 +7,12 @@ import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.logging.{FALLBACK, GridLogging, LogMarker, RequestLoggingContext}
+import com.gu.mediaservice.lib.logging.{
+  FALLBACK,
+  GridLogging,
+  LogMarker,
+  RequestLoggingContext
+}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
@@ -22,35 +27,52 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-class ImageLoaderController(auth: Authentication,
-                            downloader: Downloader,
-                            store: ImageLoaderStore,
-                            notifications: Notifications,
-                            config: ImageLoaderConfig,
-                            uploader: Uploader,
-                            quarantineUploader: Option[QuarantineUploader],
-                            projector: Projector,
-                            override val controllerComponents: ControllerComponents,
-                            wSClient: WSClient)
-                           (implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+class ImageLoaderController(
+    auth: Authentication,
+    downloader: Downloader,
+    store: ImageLoaderStore,
+    notifications: Notifications,
+    config: ImageLoaderConfig,
+    uploader: Uploader,
+    quarantineUploader: Option[QuarantineUploader],
+    projector: Projector,
+    override val controllerComponents: ControllerComponents,
+    wSClient: WSClient
+)(implicit val ec: ExecutionContext)
+    extends BaseController
+    with ArgoHelpers {
 
   private lazy val indexResponse: Result = {
     val indexData = Map("description" -> "This is the Loader Service")
     val indexLinks = List(
-      Link("load", s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"),
-      Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
+      Link(
+        "load",
+        s"${config.rootUri}/images{?uploadedBy,identifiers,uploadTime,filename}"
+      ),
+      Link(
+        "import",
+        s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}"
+      )
     )
     respond(indexData, indexLinks)
   }
 
   def index: Action[AnyContent] = auth { indexResponse }
 
-  def quarantineOrStoreImage(uploadRequest: UploadRequest)(implicit logMarker: LogMarker) = {
-    quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(uploader.storeFile(uploadRequest))
+  def quarantineOrStoreImage(
+      uploadRequest: UploadRequest
+  )(implicit logMarker: LogMarker) = {
+    quarantineUploader
+      .map(_.quarantineFile(uploadRequest))
+      .getOrElse(uploader.storeFile(uploadRequest))
   }
-  
-  def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
+
+  def loadImage(
+      uploadedBy: Option[String],
+      identifiers: Option[String],
+      uploadTime: Option[String],
+      filename: Option[String]
+  ): Action[DigestedFile] = {
 
     implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
@@ -77,26 +99,32 @@ class ImageLoaderController(auth: Authentication,
           identifiers,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
-          context.requestId)
+          context.requestId
+        )
         result <- quarantineOrStoreImage(uploadRequest)
       } yield result
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+      result.onComplete(_ => Try { deleteTempFile(tempFile) })
 
       result map { r =>
         val result = Accepted(r).as(ArgoMediaType)
         logger.info("loadImage request end")
         result
-      } recover {
-        case e =>
-          logger.error("loadImage request ended with a failure", e)
-          (e match {
-            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-            case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case e: java.io.IOException => FailureResponse.badImage(e).as(ArgoMediaType)
-            case _ => 
-              logger.error("Failed upload", e) 
-              InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
-          }).as(ArgoMediaType)
+      } recover { case e =>
+        logger.error("loadImage request ended with a failure", e)
+        (e match {
+          case e: UnsupportedMimeTypeException =>
+            FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+          case e: ImageProcessingException =>
+            FailureResponse
+              .notAnImage(e, config.supportedMimeTypes)
+              .as(ArgoMediaType)
+          case e: java.io.IOException =>
+            FailureResponse.badImage(e).as(ArgoMediaType)
+          case _ =>
+            logger.error("Failed upload", e)
+            InternalServerError(Json.obj("error" -> e.getMessage))
+              .as(ArgoMediaType)
+        }).as(ArgoMediaType)
       }
     }
   }
@@ -111,20 +139,32 @@ class ImageLoaderController(auth: Authentication,
     )
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { _ =>
-      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId)
+      val result = projector.projectS3ImageById(
+        projector,
+        imageId,
+        tempFile,
+        context.requestId
+      )
 
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+      result.onComplete(_ => Try { deleteTempFile(tempFile) })
 
       result.map {
         case Some(img) =>
           logger.info("image found")
           Ok(Json.toJson(img)).as(ArgoMediaType)
         case None =>
-          val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
+          val s3Path =
+            "s3://" + config.imageBucket + "/" + ImageIngestOperations
+              .fileKeyFromId(imageId)
           logger.info("image not found")
-          respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
+          respondError(
+            NotFound,
+            "image-not-found",
+            s"Could not find image: $imageId in s3 at $s3Path"
+          )
       } recover {
-        case _: NoSuchImageExistsInS3 => NotFound(Json.obj("imageId" -> imageId))
+        case _: NoSuchImageExistsInS3 =>
+          NotFound(Json.obj("imageId" -> imageId))
         case _ => InternalServerError(Json.obj("imageId" -> imageId))
       }
 
@@ -132,12 +172,12 @@ class ImageLoaderController(auth: Authentication,
   }
 
   def importImage(
-                   uri: String,
-                   uploadedBy: Option[String],
-                   identifiers: Option[String],
-                   uploadTime: Option[String],
-                   filename: Option[String]
-                 ): Action[AnyContent] = {
+      uri: String,
+      uploadedBy: Option[String],
+      identifiers: Option[String],
+      uploadTime: Option[String],
+      filename: Option[String]
+  ): Action[AnyContent] = {
     auth.async { request =>
       implicit val context: RequestLoggingContext = RequestLoggingContext(
         initialMarkers = Map(
@@ -160,15 +200,16 @@ class ImageLoaderController(auth: Authentication,
           identifiers,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
-          context.requestId)
+          context.requestId
+        )
         result <- uploader.storeFile(uploadRequest)
       } yield result
 
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+      result.onComplete(_ => Try { deleteTempFile(tempFile) })
 
       result
-        .map {
-          r => {
+        .map { r =>
+          {
             logger.info("importImage request end")
             // NB This return code (202) is explicitly required by s3-watcher
             // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
@@ -176,11 +217,12 @@ class ImageLoaderController(auth: Authentication,
           }
         }
         .recover {
-          case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+          case e: UnsupportedMimeTypeException =>
+            FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
           case _: IllegalArgumentException => FailureResponse.invalidUri
           case e: UserImageLoaderException => FailureResponse.badUserInput(e)
-          case NonFatal(_) => FailureResponse.failedUriDownload
-      }
+          case NonFatal(_)                 => FailureResponse.failedUriDownload
+        }
     }
   }
 
@@ -197,7 +239,9 @@ class ImageLoaderController(auth: Authentication,
     tempFile
   }
 
-  def deleteTempFile(tempFile: File)(implicit logMarker: LogMarker): Future[Unit] = Future {
+  def deleteTempFile(
+      tempFile: File
+  )(implicit logMarker: LogMarker): Future[Unit] = Future {
     if (tempFile.delete()) {
       logger.info(s"Deleted temp file $tempFile")
     } else {

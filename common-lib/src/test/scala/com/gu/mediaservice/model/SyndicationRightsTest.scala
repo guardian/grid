@@ -17,8 +17,9 @@ class SyndicationRightsTest extends FunSpec with Matchers {
         |""".stripMargin
     val parsedRightsJson = Json.parse(serialisedRights)
     println(parsedRightsJson)
-    val rights: SyndicationRights = Json.fromJson[SyndicationRights](parsedRightsJson).get
-    rights.isInferred should be (false)
+    val rights: SyndicationRights =
+      Json.fromJson[SyndicationRights](parsedRightsJson).get
+    rights.isInferred should be(false)
   }
 
   it("should deserialise with all fields except published") {
@@ -32,8 +33,9 @@ class SyndicationRightsTest extends FunSpec with Matchers {
         |""".stripMargin
     val parsedRightsJson = Json.parse(serialisedRights)
     println(parsedRightsJson)
-    val rights: SyndicationRights = Json.fromJson[SyndicationRights](parsedRightsJson).get
-    rights.isInferred should be (false)
+    val rights: SyndicationRights =
+      Json.fromJson[SyndicationRights](parsedRightsJson).get
+    rights.isInferred should be(false)
   }
 
   it("should deserialise with all fields except isInferred") {
@@ -47,8 +49,9 @@ class SyndicationRightsTest extends FunSpec with Matchers {
         |""".stripMargin
     val parsedRightsJson = Json.parse(serialisedRights)
     println(parsedRightsJson)
-    val rights: SyndicationRights = Json.fromJson[SyndicationRights](parsedRightsJson).get
-    rights.isInferred should be (false)
+    val rights: SyndicationRights =
+      Json.fromJson[SyndicationRights](parsedRightsJson).get
+    rights.isInferred should be(false)
   }
 
 }

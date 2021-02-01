@@ -6,7 +6,9 @@ import scala.io.Source.fromFile
 
 class StageIdentifier {
   final val stage: String =
-    loadStageFile("/etc/grid/stage") orElse loadStageFile("/etc/gu/stage") getOrElse "DEV"
+    loadStageFile("/etc/grid/stage") orElse loadStageFile(
+      "/etc/gu/stage"
+    ) getOrElse "DEV"
 
   val isProd: Boolean = stage == "PROD"
   val isDev: Boolean = stage == "DEV"
@@ -15,11 +17,12 @@ class StageIdentifier {
     val file = new File(fileName)
     if (file.exists) {
       val source = fromFile(file)
-      val stage = try {
-        source.mkString.trim
-      } finally {
-        source.close()
-      }
+      val stage =
+        try {
+          source.mkString.trim
+        } finally {
+          source.close()
+        }
       Some(stage.trim)
     } else None
   }

@@ -7,26 +7,33 @@ import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class KahunaController(auth: Authentication, config: KahunaConfig, override val controllerComponents: ControllerComponents)
-                      (implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
+class KahunaController(
+    auth: Authentication,
+    config: KahunaConfig,
+    override val controllerComponents: ControllerComponents
+)(implicit val ec: ExecutionContext)
+    extends BaseController
+    with ArgoHelpers {
 
   def index(ignored: String) = Action { req =>
     val okPath = routes.KahunaController.ok.url
     // If the auth is successful, we redirect to the kahuna domain so the iframe
     // is on the same domain and can be read by the JS
     val returnUri = config.rootUri + okPath
-    Ok(views.html.main(
-      config.mediaApiUri,
-      config.authUri,
-      s"${config.authUri}/login?redirectUri=$returnUri",
-      config.sentryDsn,
-      config.sessionId,
-      config.googleTrackingId,
-      config.feedbackFormLink,
-      config.usageRightsHelpLink,
-      config.invalidSessionHelpLink,
-      config.supportEmail
-    ))
+    Ok(
+      views.html.main(
+        config.mediaApiUri,
+        config.authUri,
+        s"${config.authUri}/login?redirectUri=$returnUri",
+        config.sentryDsn,
+        config.sessionId,
+        config.googleTrackingId,
+        config.feedbackFormLink,
+        config.usageRightsHelpLink,
+        config.invalidSessionHelpLink,
+        config.supportEmail
+      )
+    )
   }
 
   def quotas = auth { req =>
