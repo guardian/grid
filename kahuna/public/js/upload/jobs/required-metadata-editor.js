@@ -41,7 +41,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
                 .split(",")
                 .map((s) => s.trim())
                 .filter((s) => s !== "");
-              console.log("HELLLOO");
             } else {
               cleanMetadata[key] = ctrl.metadata[key] || "";
             }
