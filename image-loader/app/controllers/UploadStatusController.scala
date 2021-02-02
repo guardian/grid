@@ -1,35 +1,39 @@
-package lib
-
-import com.gu.mediaservice.lib.aws.DynamoDB
-import model.{UpdateUploadStatusRequest, UploadStatus}
-import com.gu.scanamo._
-import com.gu.scanamo.syntax._
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+package controllers
 
 
-class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, config.uploadStatusTable) {
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth._
+import com.gu.scanamo.error.DynamoReadError
+import lib._
+import model.{UpdateUploadStatusRequest, UpdateUploadStatusResponse, UploadStatus}
+import play.api.mvc._
 
-  val key = "uploadStatus"
+import scala.concurrent.{ExecutionContext, Future}
 
-  private val uploadStatusTable = Table[UploadStatus](config.uploadStatusTable)
+class UploadStatusController(auth: Authentication,
+                             store: UploadStatusTable,
+                             override val controllerComponents: ControllerComponents,
+                            )
+                            (implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
-  def getStatus(imageId: String) = {
-    ScanamoAsync.exec(client)(uploadStatusTable.get('id -> imageId))
-  }
-
-  def setStatus(uploadStatus: UploadStatus) = {
-    ScanamoAsync.exec(client)(uploadStatusTable.put(uploadStatus))
-  }
-
-  def updateStatus(imageId: String, updateRequest: UpdateUploadStatusRequest) = {
-    getStatus(imageId).
-      flatMap {
-        case Some(Right(uploadStatus)) => {
-          ScanamoAsync.exec(client)(uploadStatusTable.put(uploadStatus.copy(status = updateRequest.status, errorMessages = updateRequest.errorMessages)))
-        }
-        case dynamoResponse => Future.successful(dynamoResponse)
+  def getUploadStatus(imageId: String) = auth.async {
+    store.getStatus(imageId)
+      .map {
+        case Some(Right(uploadStatus)) => respond(UpdateUploadStatusResponse(uploadStatus.status))
+        case Some(Left(error)) => respondError(BadRequest, "cannot-get", s"Cannot get upload status ${error}")
+        case None => respondNotFound(s"No upload status found for image id: ${imageId}")
       }
   }
+
+  def updateUploadStatus(imageId: String) = auth.async(parse.json) { request => {
+    (request.body).asOpt[UpdateUploadStatusRequest].map(updateUploadStatusRequest => {
+      store.updateStatus(imageId, updateUploadStatusRequest)
+        .map{
+          case Some(Right(_)) => respond(UpdateUploadStatusResponse(updateUploadStatusRequest.status))
+          case Some(Left(error: DynamoReadError)) => respondError(BadRequest, "cannot-update", s"Cannot update upload status ${error}")
+          case None => respondNotFound(s"No upload status found for image id: ${imageId}")
+        }
+    }).getOrElse(Future.successful(respondError(BadRequest, "invalid-status-data", "Invalid status data")))
+  }}
 }
