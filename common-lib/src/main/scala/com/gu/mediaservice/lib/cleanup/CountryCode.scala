@@ -22,7 +22,16 @@ object CountryCode extends ImageProcessor with GridLogging {
       localeCodesAndNames.map(c => c.threeCode -> c.displayName).toMap ++
       Map(
         "UK" -> "United Kingdom",
-        "GB" -> "United Kingdom"
+        "GB" -> "United Kingdom",
+        "GDR" -> "German Democratic Republic",
+        "GRG" -> "Georgia",
+        "KOS" -> "Kosovo",
+        "POR" -> "Portugal",
+        "ROM" -> "Romania",
+        "SAR" -> "Saudi Arabia",
+        "SER" -> "Serbia",
+        "UAE" -> "United Arab Emirates",
+        "XKO" -> "Kosovo",
       )
   }
 
