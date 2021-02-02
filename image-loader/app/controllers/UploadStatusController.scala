@@ -20,14 +20,14 @@ class UploadStatusController(auth: Authentication,
   def getUploadStatus(imageId: String) = auth.async {
     store.getStatus(imageId)
       .map {
-        case Some(uploadStatus) => respond(uploadStatus.as[UploadStatus])
+        case Some(uploadStatus) => respond(uploadStatus.as[UploadStatus].status)
         case None => respondNotFound(s"No upload status found for image id: ${imageId}")
       }
   }
 
-  def updateUploadStatus = auth.async(parse.json) { request => {
+  def updateUploadStatus(imageId: String) = auth.async(parse.json) { request => {
     (request.body \ store.key).asOpt[UploadStatus].map(uploadStatus => {
-      store.setStatus(uploadStatus)
+      store.setStatus(imageId, uploadStatus)
         .map(_ => respond(uploadStatus))
     }).getOrElse(Future.successful(respondError(BadRequest, "invalid-status-data", "Invalid status data")))
   }}

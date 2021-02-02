@@ -70,8 +70,7 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
-      uploadStatusTable.setStatus(UploadStatus(req.body.digest, context.initialMarkers("uploadedBy"),
-        context.initialMarkers("filename"), UploadStatus.PENDING))
+      val uploadStatus = if(config.uploadToQuarantineEnabled) UploadStatus.PENDING else UploadStatus.COMPLETED
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
@@ -81,6 +80,7 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
+        status <- uploadStatusTable.setStatus(req.body.digest, UploadStatus(req.body.digest, uploadStatus, filename, uploadedBy, uploadTime, identifiers, None))
         result <- quarantineOrStoreImage(uploadRequest)
       } yield result
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
@@ -88,16 +88,10 @@ class ImageLoaderController(auth: Authentication,
       result map { r =>
         val result = Accepted(r).as(ArgoMediaType)
         logger.info("loadImage request end")
-        if(!config.uploadToQuarantineEnabled){
-        uploadStatusTable.setStatus(UploadStatus(req.body.digest, context.initialMarkers("uploadedBy"),
-          context.initialMarkers("filename"), UploadStatus.COMPLETED))
-        }
         result
       } recover {
         case e =>
           logger.error("loadImage request ended with a failure", e)
-          uploadStatusTable.setStatus(UploadStatus(req.body.digest, context.initialMarkers("uploadedBy"),
-            context.initialMarkers("filename"), UploadStatus.FAILED))
           (e match {
             case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
             case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
@@ -179,8 +173,6 @@ class ImageLoaderController(auth: Authentication,
         .map {
           r => {
             logger.info("importImage request end")
-            uploadStatusTable.setStatus(UploadStatus(uri.split("/").last, uploadedBy.getOrElse(FALLBACK),
-              filename.getOrElse(FALLBACK), UploadStatus.COMPLETED))
             // NB This return code (202) is explicitly required by s3-watcher
             // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
             Accepted(r).as(ArgoMediaType)

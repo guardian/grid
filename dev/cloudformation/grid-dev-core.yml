@@ -209,6 +209,9 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
+      TimeToLiveSpecification:
+        AttributeName: TimeToLive
+        Enabled: true
 
 Outputs:
   ImageBucket:

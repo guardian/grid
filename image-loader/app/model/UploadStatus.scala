@@ -4,9 +4,12 @@ import play.api.libs.json._
 
 case class UploadStatus(
                          id: String,
-                         uploadedBy: String,
-                         fileName: String,
-                         status: String
+                         status: String,
+                         fileName: Option[String],
+                         uploadedBy: Option[String],
+                         uploadTime: Option[String],
+                         identifiers: Option[String],
+                         errorMessages: Option[String],
                        )
 
 object UploadStatus {

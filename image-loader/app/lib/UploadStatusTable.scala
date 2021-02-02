@@ -17,7 +17,7 @@ class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, conf
     }
   }
 
-  def setStatus(uploadStatus: UploadStatus) = {
-    jsonAdd(uploadStatus.id, key, caseClassToMap(uploadStatus))
+  def setStatus(imageId: String, uploadStatus: UploadStatus) = {
+    jsonAdd(imageId, key, caseClassToMap(uploadStatus))
   }
 }
