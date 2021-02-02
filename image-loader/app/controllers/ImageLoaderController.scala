@@ -13,13 +13,13 @@ import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, UploadStatus, Uploader, QuarantineUploader}
+import model.{Projector, QuarantineUploader, StatusType, UpdateUploadStatusRequest, UploadStatus, Uploader}
 import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 import model.upload.UploadRequest
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 class ImageLoaderController(auth: Authentication,
@@ -70,7 +70,7 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
-      val uploadStatus = if(config.uploadToQuarantineEnabled) UploadStatus.PENDING else UploadStatus.COMPLETED
+      val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Failed else StatusType.Completed
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
@@ -80,7 +80,7 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
-        status <- uploadStatusTable.setStatus(req.body.digest, UploadStatus(req.body.digest, uploadStatus, filename, uploadedBy, uploadTime, identifiers, None))
+        _ <- uploadStatusTable.setStatus(UploadStatus(req.body.digest, uploadStatus, filename, uploadedBy, uploadTime, identifiers, None))
         result <- quarantineOrStoreImage(uploadRequest)
       } yield result
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
@@ -167,7 +167,15 @@ class ImageLoaderController(auth: Authentication,
         result <- uploader.storeFile(uploadRequest)
       } yield result
 
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+      result.onComplete( res => {
+        Try { deleteTempFile(tempFile) }
+        res match {
+          case Failure(exception) => uploadStatusTable.updateStatus(uri.split("/").last,
+            UpdateUploadStatusRequest(StatusType.Failed, Some(exception.getMessage)))
+          case Success(_) => uploadStatusTable.updateStatus(uri.split("/").last,
+            UpdateUploadStatusRequest(StatusType.Completed, None))
+        }
+      })
 
       result
         .map {
@@ -177,8 +185,13 @@ class ImageLoaderController(auth: Authentication,
             // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
             Accepted(r).as(ArgoMediaType)
           }
+        }.recover {
+        case error => {
+          uploadStatusTable.updateStatus(uri.split("/").last, UpdateUploadStatusRequest(StatusType.Failed,
+            Some(error.getMessage)))
+          throw error
         }
-        .recover {
+      }.recover {
           case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
           case _: IllegalArgumentException => FailureResponse.invalidUri
           case e: UserImageLoaderException => FailureResponse.badUserInput(e)
