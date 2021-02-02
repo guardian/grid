@@ -16,6 +16,10 @@ services:
       - './:/app'
       - '~/.ivy2:/root/.ivy2'
       - '~/.sbt:/root/.sbt'
+      # OSX
+      # - '~/Library/Caches/Coursier/v1:/root/.cache/coursier/v1'
+      # Linux CI
+      - '~/.cache/coursier:/root/.cache/coursier'
     environment:
       USE_DOCKER_FOR_TESTS: "false"
       ES6_TEST_URL: http://elasticsearch:9200
