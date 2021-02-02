@@ -62,6 +62,7 @@ val awsSdkVersion = "1.11.302"
 val elastic4sVersion = "7.3.5"
 val okHttpVersion = "3.12.1"
 val playVersion = "2.6.20"
+val playJodaVersion = "2.6.9"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
@@ -79,7 +80,7 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.typesafe.play" %% "play" % playVersion, ws,
-    "com.typesafe.play" %% "play-json-joda" % playVersion,
+    "com.typesafe.play" %% "play-json-joda" % playJodaVersion,
     "com.typesafe.play" %% "filters-helpers" % playVersion,
     akkaHttpServer,
     ws,
@@ -165,7 +166,6 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
       "com.typesafe.play" %% "play-json" % playVersion,
-      "com.typesafe.play" %% "play-json-joda" % playVersion,
       "com.typesafe.play" %% "play-functional" % playVersion,
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
