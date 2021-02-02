@@ -33,6 +33,16 @@ case class FileMetadata(
 
     MarkerMap(markers)
   }
+
+  def readXmpHeadStringProp: (String) => Option[String] = (name: String) => {
+    val res = xmp.get(name) match {
+      case Some(JsString(value)) => Some(value.toString)
+      case Some(JsArray(value)) =>
+        value.find(_.isInstanceOf[JsString]).map(_.as[String])
+      case _ => None
+    }
+    res
+  }
 }
 
 object FileMetadata {
