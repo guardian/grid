@@ -58,7 +58,7 @@ cropBox.directive('uiCropBox', [
                     responsive: false,
                     autoCropArea: 1,
                     crop: update,
-                    built: getRatio
+                    ready: getRatio
                 };
 
                 cropper = new Cropper(image, options);
@@ -84,12 +84,12 @@ cropBox.directive('uiCropBox', [
                 // Can be triggered from within a $digest cycle
                 // (e.g. redraw after aspect changed) or not (user
                 // interaction)
-                safeApply(scope, function() {
+                $timeout(() => {
                     scope.coords.x1 = (c.detail.x * widthRatio);
                     scope.coords.y1 = (c.detail.y * heightRatio);
                     scope.coords.x2 = ((c.detail.width + c.detail.x) * widthRatio);
                     scope.coords.y2 = ((c.detail.height + c.detail.y) * heightRatio);
-                });
+                },0);
             }
 
             // Once initialised, sync all options to cropperjs
