@@ -63,6 +63,8 @@ val elastic4sVersion = "7.3.5"
 val okHttpVersion = "3.12.1"
 val playVersion = "2.6.20"
 val playJodaVersion = "2.6.9"
+val playFunctionalVersion = "2.6.14"
+val playJsonVersion = playFunctionalVersion
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
@@ -165,8 +167,8 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     ),
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
-      "com.typesafe.play" %% "play-json" % playVersion,
-      "com.typesafe.play" %% "play-functional" % playVersion,
+      "com.typesafe.play" %% "play-json" % playJsonVersion,
+      "com.typesafe.play" %% "play-functional" % playFunctionalVersion,
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)
