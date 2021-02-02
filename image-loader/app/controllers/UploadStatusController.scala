@@ -17,19 +17,27 @@ class UploadStatusController(auth: Authentication,
                             (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  def getUploadStatus(imageId: String) = auth.async {
+  def getUploadStatus(imageId: String) = auth.async { Future {
     store.getStatus(imageId)
-      .map {
-        case Some(uploadStatus) => respond(uploadStatus.as[UploadStatus].status)
-        case None => respondNotFound(s"No upload status found for image id: ${imageId}")
-      }
-  }
+    match {
+      case Some(uploadStatus) => respond(uploadStatus.status)
+      case None => respondNotFound(s"No upload status found for image id: ${imageId}")
+    }
+  }}
 
   def updateUploadStatus(imageId: String) = auth.async(parse.json) { request => {
-    (request.body \ store.key).asOpt[UploadStatus].map(uploadStatus => {
-      store.setStatus(imageId, uploadStatus)
-        .map(_ => respond(uploadStatus))
-    }).getOrElse(Future.successful(respondError(BadRequest, "invalid-status-data", "Invalid status data")))
+    store.getStatus(imageId)
+    match {
+      case None => Future(respondNotFound(s"No upload status found for image id: ${imageId}"))
+      case Some(uploadStatus) => {
+        (request.body \ store.key).asOpt[UploadStatus].map(uploadStatus => {
+          store.setStatus(imageId, uploadStatus)
+            .map(_ => respond(uploadStatus))
+        }).getOrElse(Future.successful(respondError(BadRequest, "invalid-status-data", "Invalid status data")))
+      }
+    }
+
+
   }}
 
 }

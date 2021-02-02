@@ -1,8 +1,10 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.lib.aws.DynamoDB.caseClassToMap
 import model.UploadStatus
+
+import com.gu.scanamo._
+import com.gu.scanamo.syntax._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -11,13 +13,13 @@ class UploadStatusTable(config: ImageLoaderConfig) extends DynamoDB(config, conf
 
   val key = "uploadStatus"
 
+  private val uploadStatusTable = Table[UploadStatus](config.uploadStatusTable)
+
   def getStatus(imageId: String) = {
-    jsonGet(imageId, key) map { dynamoEntry =>
-      (dynamoEntry \ key ).toOption
-    }
+    Scanamo.exec(client)(uploadStatusTable.get('id -> imageId)).flatMap(_.toOption)
   }
 
   def setStatus(imageId: String, uploadStatus: UploadStatus) = {
-    jsonAdd(imageId, key, caseClassToMap(uploadStatus))
+    ScanamoAsync.exec(client)(uploadStatusTable.put(uploadStatus))
   }
 }
