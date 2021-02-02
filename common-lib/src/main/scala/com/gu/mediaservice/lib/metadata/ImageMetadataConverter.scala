@@ -33,7 +33,6 @@ object ImageMetadataConverter extends GridLogging {
     case _ => List()
   }
 
-
   private def extractPeople(fileMetadata: FileMetadata): Set[String] = {
     val xmpIptcPeople = extractXMPArrayStrings("Iptc4xmpExt:PersonInImage", fileMetadata)
     val xmpGettyPeople = extractXMPArrayStrings("GettyImagesGIFT:Personality", fileMetadata)
@@ -42,56 +41,49 @@ object ImageMetadataConverter extends GridLogging {
 
   def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None): ImageMetadata = {
     val xmp = fileMetadata.xmp
-    val readXmpHeadStringProp: String => Option[String] = (name: String) => {
-      val res = xmp.get(name) match {
-        case Some(JsString(value)) => Some(value.toString)
-        case Some(JsArray(value)) =>
-          value.find(_.isInstanceOf[JsString]).map(_.as[String])
-        case _ => None
-      }
-      res
-    }
 
     ImageMetadata(
       dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
                             (fileMetadata.iptc.get("Date Time Created Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
-                            (readXmpHeadStringProp("photoshop:DateCreated") flatMap (parseRandomDate(_, latestAllowedDateTime))),
-      description         = readXmpHeadStringProp("dc:description") orElse
+                            (fileMetadata.readXmpHeadStringProp("photoshop:DateCreated") flatMap (parseRandomDate(_, latestAllowedDateTime))),
+      description         = fileMetadata.readXmpHeadStringProp("dc:description") orElse
                             fileMetadata.iptc.get("Caption/Abstract") orElse
                             fileMetadata.exif.get("Image Description"),
-      credit              = readXmpHeadStringProp("photoshop:Credit") orElse
+      credit              = fileMetadata.readXmpHeadStringProp("photoshop:Credit") orElse
                             fileMetadata.iptc.get("Credit"),
-      byline              = readXmpHeadStringProp("dc:creator") orElse
+      byline              = fileMetadata.readXmpHeadStringProp("dc:creator") orElse
                             fileMetadata.iptc.get("By-line") orElse
                             fileMetadata.exif.get("Artist"),
-      bylineTitle         = readXmpHeadStringProp("photoshop:AuthorsPosition") orElse
+      bylineTitle         = fileMetadata.readXmpHeadStringProp("photoshop:AuthorsPosition") orElse
                             fileMetadata.iptc.get("By-line Title"),
-      title               = readXmpHeadStringProp("photoshop:Headline") orElse
+      title               = fileMetadata.readXmpHeadStringProp("photoshop:Headline") orElse
                             fileMetadata.iptc.get("Headline"),
-      copyright           = readXmpHeadStringProp("dc:Rights") orElse
+      copyright           = fileMetadata.readXmpHeadStringProp("dc:Rights") orElse
                             fileMetadata.iptc.get("Copyright Notice") orElse
                             fileMetadata.exif.get("Copyright"),
       // Here we combine two separate fields, based on bad habits of our suppliers.
-      suppliersReference  = readXmpHeadStringProp("photoshop:TransmissionReference") orElse
+      suppliersReference  = fileMetadata.readXmpHeadStringProp("photoshop:TransmissionReference") orElse
                             fileMetadata.iptc.get("Original Transmission Reference") orElse
-                            readXmpHeadStringProp("dc:title") orElse
+                            fileMetadata.readXmpHeadStringProp("dc:title") orElse
                             fileMetadata.iptc.get("Object Name"),
-      source              = readXmpHeadStringProp("photoshop:Source") orElse
+      source              = fileMetadata.readXmpHeadStringProp("photoshop:Source") orElse
                             fileMetadata.iptc.get("Source"),
-      specialInstructions = readXmpHeadStringProp("photoshop:Instructions") orElse
+      specialInstructions = fileMetadata.readXmpHeadStringProp("photoshop:Instructions") orElse
                             fileMetadata.iptc.get("Special Instructions"),
       // FIXME: Read XMP dc:subject array:
       keywords            = fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil,
       // FIXME: Parse newest location schema: http://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#location-structure
-      subLocation         = readXmpHeadStringProp("Iptc4xmpCore:Location") orElse
+      subLocation         = fileMetadata.readXmpHeadStringProp("Iptc4xmpCore:Location") orElse
                             fileMetadata.iptc.get("Sub-location"),
-      city                = readXmpHeadStringProp("photoshop:City") orElse
+      city                = fileMetadata.readXmpHeadStringProp("photoshop:City") orElse
                             fileMetadata.iptc.get("City"),
-      state               = readXmpHeadStringProp("photoshop:State") orElse
+      state               = fileMetadata.readXmpHeadStringProp("photoshop:State") orElse
                             fileMetadata.iptc.get("Province/State"),
-      country             = readXmpHeadStringProp("photoshop:Country") orElse
+      // Countries are parsed in order from these fields, they are used if CountryCode cannot
+      // identify a country from a country code in the fileMetadata.
+      country             = fileMetadata.readXmpHeadStringProp("photoshop:Country") orElse
                             fileMetadata.iptc.get("Country/Primary Location Name") orElse
-                            readXmpHeadStringProp("Iptc4xmpCore:CountryCode") orElse
+                            fileMetadata.readXmpHeadStringProp("Iptc4xmpCore:CountryCode") orElse
                             fileMetadata.iptc.get("Country/Primary Location Code"),
       subjects            = extractSubjects(fileMetadata),
       peopleInImage       = extractPeople(fileMetadata)
