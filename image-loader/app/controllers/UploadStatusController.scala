@@ -20,7 +20,7 @@ class UploadStatusController(auth: Authentication,
   def getUploadStatus(imageId: String) = auth.async {
     store.getStatus(imageId)
       .map {
-        case Some(Right(uploadStatus)) => respond(UpdateUploadStatusResponse(uploadStatus.status))
+        case Some(Right(uploadStatus)) => respond(UpdateUploadStatusResponse(uploadStatus.status, uploadStatus.errorMessages))
         case Some(Left(error)) => respondError(BadRequest, "cannot-get", s"Cannot get upload status ${error}")
         case None => respondNotFound(s"No upload status found for image id: ${imageId}")
       }

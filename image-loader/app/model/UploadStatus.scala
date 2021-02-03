@@ -28,7 +28,7 @@ object UpdateUploadStatusRequest {
   implicit val formats: Format[UpdateUploadStatusRequest] = Format(reads, writes)
 }
 
-case class UpdateUploadStatusResponse(status: StatusType)
+case class UpdateUploadStatusResponse(status: StatusType, errorMessages: Option[String] = None)
 
 object UpdateUploadStatusResponse {
   val reads: Reads[UpdateUploadStatusResponse] = Json.reads[UpdateUploadStatusResponse]
