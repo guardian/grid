@@ -52,12 +52,11 @@ buildWatcher() {
 
 buildSbt() {
   echo "##teamcity[compilationStarted compiler='sbt']"
-  # We run our tests in docker to provide dependencies that
-  # aren't natively available in CI
-  echo "Running tests in Docker"
+  # We run our tests in docker to provide dependencies that aren't natively available in CI
+  echo "Start: Build props location"
+  echo $TEAMCITY_BUILD_PROPERTIES_FILE
+  echo "End: Build props location"
   docker-compose -f docker-compose.tests.yml run --rm test-container
-  echo "Tests complete"
-  sbt clean scripts/compile riffRaffUpload
   echo "##teamcity[compilationFinished compiler='sbt']"
 }
 

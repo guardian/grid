@@ -15,12 +15,17 @@ services:
     volumes:
       - './:/app'
       - '~/.ivy2:/root/.ivy2'
+      # Coursier cache:
       # OSX
       # - '~/Library/Caches/Coursier/v1:/root/.cache/coursier/v1'
       # Linux CI
       - '~/.cache/coursier:/root/.cache/coursier'
+      # We pass in the teamcity build properties file via the teamcity env var,
+      # as it's required by sbt-riffraff-artifact.
+      - '${TEAMCITY_BUILD_PROPERTIES_FILE}:${TEAMCITY_BUILD_PROPERTIES_FILE}'
     environment:
       USE_DOCKER_FOR_TESTS: "false"
       ES6_TEST_URL: http://elasticsearch:9200
       LOCALSTACK_ENDPOINT: http://localstack:4566
-    command: "clean test"
+      TEAMCITY_BUILD_PROPERTIES_FILE: ${TEAMCITY_BUILD_PROPERTIES_FILE}
+    command: "clean test scripts/compile riffRaffUpload"
