@@ -70,7 +70,7 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
-      val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Failed else StatusType.Completed
+      val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,

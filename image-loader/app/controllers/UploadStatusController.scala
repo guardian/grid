@@ -24,6 +24,7 @@ class UploadStatusController(auth: Authentication,
         case Some(Left(error)) => respondError(BadRequest, "cannot-get", s"Cannot get upload status ${error}")
         case None => respondNotFound(s"No upload status found for image id: ${imageId}")
       }
+      .recover{ case error => respondError(InternalServerError, "cannot-get", s"Cannot get upload status ${error}") }
   }
 
   def updateUploadStatus(imageId: String) = auth.async(parse.json) { request => {
