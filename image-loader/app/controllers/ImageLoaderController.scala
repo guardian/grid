@@ -2,7 +2,6 @@ package controllers
 
 import java.io.File
 import java.net.URI
-
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -10,14 +9,18 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.{FALLBACK, GridLogging, LogMarker, RequestLoggingContext}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
-import lib._
+import lib.FailureResponse.Response
+import lib.{FailureResponse, _}
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, QuarantineUploader, StatusType, UpdateUploadStatusRequest, UploadStatus, Uploader}
+import model.{Projector, QuarantineUploader, StatusType, UploadStatus, UploadStatusRecord, Uploader}
 import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 import model.upload.UploadRequest
+import org.joda.time.DateTime
+
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -71,6 +74,8 @@ class ImageLoaderController(auth: Authentication,
 
     auth.async(parsedBody) { req =>
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
+      val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
+      val record = UploadStatusRecord(req.body.digest, filename, uploadedBy, uploadTime, identifiers, uploadStatus, None, uploadExpiry)
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
@@ -80,7 +85,7 @@ class ImageLoaderController(auth: Authentication,
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
-        _ <- uploadStatusTable.setStatus(UploadStatus(req.body.digest, uploadStatus, filename, uploadedBy, uploadTime, identifiers, None))
+        _ <- uploadStatusTable.setStatus(record)
         result <- quarantineOrStoreImage(uploadRequest)
       } yield result
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
@@ -90,16 +95,15 @@ class ImageLoaderController(auth: Authentication,
         logger.info("loadImage request end")
         result
       } recover {
-        case e =>
+        case NonFatal(e) =>
           logger.error("loadImage request ended with a failure", e)
-          (e match {
+          val response = e match {
             case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-            case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case e: java.io.IOException => FailureResponse.badImage(e).as(ArgoMediaType)
-            case _ =>
-              logger.error("Failed upload", e)
-              InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
-          }).as(ArgoMediaType)
+            case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes)
+            case e: java.io.IOException => FailureResponse.badImage(e)
+            case other => FailureResponse.internalError(other)
+          }
+          FailureResponse.responseToResult(response)
       }
     }
   }
@@ -153,7 +157,7 @@ class ImageLoaderController(auth: Authentication,
       logger.info("importImage request start")
 
       val tempFile = createTempFile("download")
-      val result = for {
+      val importResult = for {
         validUri <- Future { URI.create(uri) }
         digestedFile <- downloader.download(validUri, tempFile)
         uploadRequest <- uploader.loadFile(
@@ -165,37 +169,39 @@ class ImageLoaderController(auth: Authentication,
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
         result <- uploader.storeFile(uploadRequest)
-      } yield result
+      } yield {
+        logger.info("importImage request end")
+        // NB This return code (202) is explicitly required by s3-watcher
+        // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
+        Right(Accepted(result).as(ArgoMediaType))
+      }
 
-      result.onComplete( res => {
+      // under all circumstances, remove the temp files
+      importResult.onComplete { _ =>
         Try { deleteTempFile(tempFile) }
-        res match {
-          case Failure(exception) => uploadStatusTable.updateStatus(uri.split("/").last,
-            UpdateUploadStatusRequest(StatusType.Failed, Some(exception.getMessage)))
-          case Success(_) => uploadStatusTable.updateStatus(uri.split("/").last,
-            UpdateUploadStatusRequest(StatusType.Completed, None))
-        }
-      })
+      }
 
-      result
-        .map {
-          r => {
-            logger.info("importImage request end")
-            // NB This return code (202) is explicitly required by s3-watcher
-            // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
-            Accepted(r).as(ArgoMediaType)
-          }
-        }.recover {
-        case error => {
-          uploadStatusTable.updateStatus(uri.split("/").last, UpdateUploadStatusRequest(StatusType.Failed,
-            Some(error.getMessage)))
-          throw error
+      // this is an unusual way of generating a result due to the need to put the error message both in the upload
+      // status table and also provide it in the response to the client.
+      importResult.recover {
+        // convert exceptions to failure responses
+        case e: UnsupportedMimeTypeException => Left(FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes))
+        case _: IllegalArgumentException => Left(FailureResponse.invalidUri)
+        case e: UserImageLoaderException => Left(FailureResponse.badUserInput(e))
+        case NonFatal(_) => Left(FailureResponse.failedUriDownload)
+      }.flatMap { res =>
+        // update the upload status with the error or completion
+        val status = res match {
+          case Left(Response(_, response)) => UploadStatus(StatusType.Failed, Some(s"${response.errorKey}: ${response.errorMessage}"))
+          case Right(_) => UploadStatus(StatusType.Completed, None)
         }
-      }.recover {
-          case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-          case _: IllegalArgumentException => FailureResponse.invalidUri
-          case e: UserImageLoaderException => FailureResponse.badUserInput(e)
-          case NonFatal(_) => FailureResponse.failedUriDownload
+        uploadStatusTable.updateStatus(uri.split("/").last, status).flatMap(_ => Future.successful(res))
+      }.transform {
+        // create a play result out of what has happened
+        case Success(Right(result)) => Success(result)
+        case Success(Left(failure)) => Success(FailureResponse.responseToResult(failure))
+        case Failure(NonFatal(e)) => Success(FailureResponse.responseToResult(FailureResponse.internalError(e)))
+        case Failure(other) => Failure(other)
       }
     }
   }

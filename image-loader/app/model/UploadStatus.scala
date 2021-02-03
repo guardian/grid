@@ -2,39 +2,25 @@ package model
 
 import play.api.libs.json._
 
-case class UploadStatus(
-                         id: String,
-                         status: StatusType,
-                         fileName: Option[String],
-                         uploadedBy: Option[String],
-                         uploadTime: Option[String],
-                         identifiers: Option[String],
-                         errorMessages: Option[String],
-                       )
+case class UploadStatusRecord(
+                               id: String,
+                               fileName: Option[String],
+                               uploadedBy: Option[String],
+                               uploadTime: Option[String],
+                               identifiers: Option[String],
+                               status: StatusType,
+                               errorMessage: Option[String],
+                               expires: Long
+                             )
+
+object UploadStatusRecord {
+  implicit val formats: Format[UploadStatusRecord] = Json.format[UploadStatusRecord]
+}
+
+case class UploadStatus(status: StatusType, errorMessage: Option[String])
 
 object UploadStatus {
-  val reads: Reads[UploadStatus] = Json.reads[UploadStatus]
-  val writes: Writes[UploadStatus] = Json.writes[UploadStatus]
-
-  implicit val formats: Format[UploadStatus] = Format(reads, writes)
-}
-
-case class UpdateUploadStatusRequest(status: StatusType, errorMessages: Option[String])
-
-object UpdateUploadStatusRequest {
-  val reads: Reads[UpdateUploadStatusRequest] = Json.reads[UpdateUploadStatusRequest]
-  val writes: Writes[UpdateUploadStatusRequest] = Json.writes[UpdateUploadStatusRequest]
-
-  implicit val formats: Format[UpdateUploadStatusRequest] = Format(reads, writes)
-}
-
-case class UpdateUploadStatusResponse(status: StatusType, errorMessages: Option[String] = None)
-
-object UpdateUploadStatusResponse {
-  val reads: Reads[UpdateUploadStatusResponse] = Json.reads[UpdateUploadStatusResponse]
-  val writes: Writes[UpdateUploadStatusResponse] = Json.writes[UpdateUploadStatusResponse]
-
-  implicit val formats: Format[UpdateUploadStatusResponse] = Format(reads, writes)
+  implicit val formats: Format[UploadStatus] = Json.format[UploadStatus]
 }
 
 sealed trait StatusType { def name: String }

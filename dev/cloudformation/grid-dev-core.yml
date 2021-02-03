@@ -210,7 +210,7 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TimeToLiveSpecification:
-        AttributeName: TimeToLive
+        AttributeName: expires
         Enabled: true
 
 Outputs:
