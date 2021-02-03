@@ -74,46 +74,47 @@ object AlamyParser extends ImageProcessor {
   }
 }
 
+
 object AllStarParser extends ImageProcessor {
-  val SlashAllstar = """(.+)/Allstar""".r
-  val AllstarSlash = """Allstar/(.+)""".r
-  val AllstarMiddle = """(.+)/Allstar(/.+)""".r
-  val AllstarAnywhere = """.*Allstar.*""".r
-  val Allstar = "Allstar"
-  val Slash = "/"
+  private val SlashAllstar = """(.+)/Allstar""".r
+  private val Allstar = "Allstar"
+  private val Slash = "/"
+  private val AllstarInSlashDelimitedString = "((.*)/)?(Allstar( Picture Library)?)(/(.*))?".r
+  // capture groups by number:                 12      3       4                   5 6
+                                           //  apple/Allstar/orange
+                                           //  apple/Allstar Picture Library/orange
 
-  def apply(image: Image): Image = moveAllstarFromBylineToCredit(moveAllstarCredit(image))
+  // Rules for slash delimited strings: byline, credit and supplier collection.
+  def apply(image: Image): Image = (
+    moveAllstarFromBylineToCredit _ andThen
+      moveAllstarToEndOfCredit andThen
+      setSupplierCollection)(image)
 
-  def moveAllstarCredit(image: Image) = image.metadata.credit match {
-    case Some("Allstar Picture Library")     => withAllstarRights(image, None)
-    case Some("Allstar")                     => withAllstarRights(image, None) // TODO: change to use variable?
-    case Some(SlashAllstar(prefix))          => withAllstarRights(image, Some(prefix))
-    case Some(AllstarSlash(suffix))          => withAllstarRights(image, Some(suffix))
-    case Some(AllstarMiddle(prefix, suffix)) => withAllstarRights(image, Some(prefix + suffix))
+  // Supplier Collection should be credit with Allstar removed.
+  private def setSupplierCollection(image: Image):Image = image.metadata.credit match {
+    case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => {
+      val otherCredits = List(Option(prefix), Option(suffix)).flatten
+      val supplierCollection = otherCredits match {
+        case Nil => None
+        case _ => Some(otherCredits.mkString(Slash))
+      }
+      image.copy(usageRights = Agency("Allstar Picture Library", initCap(supplierCollection)))
+    }
     case _ => image
   }
 
-  def withAllstarRights: ((Image, Option[String])) => Image =
-    asAllstarAgency _ andThen
-      stripAllstarFromByline andThen
-      stripDuplicateByline andThen
-      makeAllStarCreditSuffix
-
-  def asAllstarAgency(i: (Image, Option[String])): Image = i match {
-    case (image, suppliersCollection) => image.copy(
-      usageRights = Agency("Allstar Picture Library", suppliersCollection)
-    )
+  // Allstar should always move to the end of credit
+  private def moveAllstarToEndOfCredit(image: Image):Image = image.metadata.credit match {
+    case Some(AllstarInSlashDelimitedString(_, prefix, allstarLabel, _, _, suffix)) => {
+      val otherCredits = List(Option(prefix), Option(suffix)).flatten
+      val credit = Some((otherCredits :+ allstarLabel).mkString(Slash))
+      image.copy(metadata = image.metadata.copy(credit = initCap(credit)))
+    }
+    case _ => image
   }
 
-  def stripAllstarFromByline(image: Image) = image.copy(
-    metadata = image.metadata.copy(byline = image.metadata.byline.map(stripAllstarSuffix))
-  )
-
-  def stripAllstarSuffix(byline: String): String = byline match {
-    case SlashAllstar(name) => name
-    case _ => byline
-  }
-
+  // Allstar should never be present in the byline (and an empty byline is OK).
+  // If it is removed from byline then it should be added to credit if not present.
   def moveAllstarFromBylineToCredit(image: Image) = image.metadata.byline match {
     case Some(s) if s == Allstar => {
       image.copy(
@@ -122,7 +123,7 @@ object AllStarParser extends ImageProcessor {
           credit = image.metadata.credit match {
             case None => Some(Allstar)
             case Some(s) => s match {
-              case AllstarAnywhere() => Some(s)
+              case AllstarInSlashDelimitedString(_, _, _, _, _, _) => Some(s)
               case _ => Some(s + Slash + Allstar)
             }
           }
@@ -131,14 +132,6 @@ object AllStarParser extends ImageProcessor {
     }
     case _ => image
   }
-
-  def makeAllStarCreditSuffix(image: Image): Image = image.copy(
-    metadata = image.metadata.copy(credit = image.metadata.credit.map(credit => credit match {
-      case AllstarSlash(suffix) => suffix.concat(Slash.concat(Allstar))
-      case AllstarMiddle(prefix, suffix) => suffix.concat(Slash.concat(prefix.concat(Slash.concat(Allstar))))
-      case _ => credit
-    }))
-  )
 
   // If suppliersCollection same as byline, remove byline but its byline casing for suppliersCollection and credit,
   // as they otherwise tend to be in ugly uppercase
@@ -153,6 +146,14 @@ object AllStarParser extends ImageProcessor {
       )
     }
     case _ => image
+  }
+
+  private def initCap(maybeString:Option[String]): Option[String] = maybeString match {
+    case None => None
+    case Some(s) => Some(s
+      .toLowerCase
+      .split(' ').map(_.capitalize).mkString(" ")
+      .split('/').map(_.capitalize).mkString("/"))
   }
 
 }
