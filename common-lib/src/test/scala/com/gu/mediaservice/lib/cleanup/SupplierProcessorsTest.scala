@@ -102,11 +102,11 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
   describe("Allstar") {
-    it("should match 'Allstar Picture Library' credit") {
+    it("should find 'Allstar Picture Library' in the credit and replace with canonical name 'Allstar'") {
       val image = createImageFromMetadata("credit" -> "Allstar Picture Library")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be (Agency("Allstar Picture Library"))
-      processedImage.metadata.credit should be(Some("Allstar Picture Library"))
+      processedImage.metadata.credit should be(Some("Allstar"))
     }
 
     it("should match 'Sportsphoto Ltd./Allstar' credit") {
@@ -152,6 +152,28 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.byline should be(Some("David Gadd"))
     }
 
+    // we do not append 'Allstar Picture Library' to the credit because the credit already contains 'Allstar'
+    it("should strip '___/Allstar Picture Library' suffix from byline") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto Ltd./Allstar", "byline" -> "David Gadd/Allstar Picture Library")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.byline should be(Some("David Gadd"))
+      processedImage.metadata.credit should be (Some("Sportsphoto Ltd./Allstar"))
+    }
+
+    it("should strip '___/Allstar' suffix from byline and append it to credit if 'Allstar' not present already") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto Ltd.", "byline" -> "David Gadd/Allstar")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.byline should be(Some("David Gadd"))
+      processedImage.metadata.credit should be(Some("Sportsphoto Ltd./Allstar"))
+    }
+
+    it("should strip '___/Allstar Picture Library' suffix from byline and append it to credit if 'Allstar' not present already") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto Ltd.", "byline" -> "David Gadd/Allstar Picture Library")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.byline should be(Some("David Gadd"))
+      processedImage.metadata.credit should be(Some("Sportsphoto Ltd./Allstar"))
+    }
+
     it ("should strip out 'Allstar' from byline and append it to the credit") {
       val image = createImageFromMetadata("credit" -> "THE RANK ORGANISATION/Sportsphoto Ltd.", "byline" -> "Allstar")
       val processedImage = applyProcessors(image)
@@ -165,9 +187,9 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.credit should be (Some("The Rank Organisation/Sportsphoto Ltd./Allstar"))
       processedImage.metadata.byline should be (None)
     }
+
+
   }
-
-
 
   describe("AP") {
     it("should match AP credit") {

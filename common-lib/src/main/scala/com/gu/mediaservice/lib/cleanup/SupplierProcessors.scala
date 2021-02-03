@@ -87,13 +87,15 @@ object AllStarParser extends ImageProcessor {
   // Rules for slash delimited strings: byline, credit and supplier collection.
   def apply(image: Image): Image = (
     moveAllstarFromBylineToCredit _ andThen
+      removeBylineElementsInCredit andThen
       moveAllstarToEndOfCredit andThen
-      setSupplierCollection)(image)
+      setSupplierCollection
+    )(image)
 
   // Supplier Collection should be credit with Allstar removed.
   private def setSupplierCollection(image: Image):Image = image.metadata.credit match {
     case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => {
-      val otherCredits = List(Option(prefix), Option(suffix)).flatten
+      val otherCredits = List(toOption(prefix), toOption(suffix)).flatten
       val supplierCollection = otherCredits match {
         case Nil => None
         case _ => Some(otherCredits.mkString(Slash))
@@ -105,9 +107,9 @@ object AllStarParser extends ImageProcessor {
 
   // Allstar should always move to the end of credit
   private def moveAllstarToEndOfCredit(image: Image):Image = image.metadata.credit match {
-    case Some(AllstarInSlashDelimitedString(_, prefix, allstarLabel, _, _, suffix)) => {
-      val otherCredits = List(Option(prefix), Option(suffix)).flatten
-      val credit = Some((otherCredits :+ allstarLabel).mkString(Slash))
+    case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => {
+      val otherCredits = List(toOption(prefix), toOption(suffix)).flatten
+      val credit = Some((otherCredits :+ Allstar).mkString(Slash))
       image.copy(metadata = image.metadata.copy(credit = initCap(credit)))
     }
     case _ => image
@@ -116,10 +118,11 @@ object AllStarParser extends ImageProcessor {
   // Allstar should never be present in the byline (and an empty byline is OK).
   // If it is removed from byline then it should be added to credit if not present.
   def moveAllstarFromBylineToCredit(image: Image) = image.metadata.byline match {
-    case Some(s) if s == Allstar => {
+    case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => {
+      val otherByline = toOption(List(Option(prefix), Option(suffix)).flatten.mkString(Slash))
       image.copy(
         metadata = image.metadata.copy(
-          byline = None,
+          byline = otherByline,
           credit = image.metadata.credit match {
             case None => Some(Allstar)
             case Some(s) => s match {
@@ -153,10 +156,22 @@ object AllStarParser extends ImageProcessor {
     case Some(s) => Some(s
       .toLowerCase
       .split(' ').map(_.capitalize).mkString(" ")
-      .split('/').map(_.capitalize).mkString("/"))
+      .split('/').map(_.capitalize).mkString(Slash))
   }
 
+  private def removeBylineElementsInCredit(image: Image): Image = (image.metadata.byline, image.metadata.credit) match {
+    case (Some(b), Some(c)) => {
+      val creditSet = c.split(Slash).toSet
+      val newByline = toOption(b.split(Slash).filterNot(s => creditSet.contains(s)).mkString(Slash))
+      image.copy(metadata = image.metadata.copy(byline = newByline))
+    }
+    case _ => image
+  }
+
+  private def toOption(s: String): Option[String] = Option(s).filterNot(s => s.trim.isEmpty)
+
 }
+
 
 object ApParser extends ImageProcessor {
   val InvisionFor = "^invision for (.+)".r
