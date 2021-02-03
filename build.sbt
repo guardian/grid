@@ -61,7 +61,6 @@ Global / concurrentRestrictions := Seq(
 val awsSdkVersion = "1.11.302"
 val elastic4sVersion = "7.3.5"
 val okHttpVersion = "3.12.1"
-val playVersion = "2.6.20"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
@@ -78,9 +77,9 @@ val bbcCommonLibSettings: SettingsDefinition = if (bbcBuildProcess) {
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.typesafe.play" %% "play" % playVersion, ws,
-    "com.typesafe.play" %% "play-json-joda" % playVersion,
-    "com.typesafe.play" %% "filters-helpers" % playVersion,
+    "com.typesafe.play" %% "play" % "2.6.20", ws,
+    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
     akkaHttpServer,
     ws,
     "com.gu" %% "editorial-permissions-client" % "2.0",
@@ -104,7 +103,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
-    "com.typesafe.play" %% "play-logback" % playVersion, // needed when running the scripts
+    "com.typesafe.play" %% "play-logback" % "2.6.15", // needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
@@ -164,9 +163,9 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     ),
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
-      "com.typesafe.play" %% "play-json" % playVersion,
-      "com.typesafe.play" %% "play-json-joda" % playVersion,
-      "com.typesafe.play" %% "play-functional" % playVersion,
+      "com.typesafe.play" %% "play-json" % "2.6.9",
+      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+      "com.typesafe.play" %% "play-functional" % "2.6.9",
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)
