@@ -28,4 +28,4 @@ services:
       ES6_TEST_URL: http://elasticsearch:9200
       LOCALSTACK_ENDPOINT: http://localstack:4566
       TEAMCITY_BUILD_PROPERTIES_FILE: ${TEAMCITY_BUILD_PROPERTIES_FILE}
-    command: "clean test scripts/compile riffRaffUpload"
+    command: "sbt clean test scripts/compile riffRaffUpload"

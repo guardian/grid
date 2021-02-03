@@ -7,4 +7,7 @@ RUN apt-get -y install graphicsmagick-imagemagick-compat
 RUN apt-get -y install exiftool
 RUN apt-get -y install pngquant
 
-ENTRYPOINT ["sbt"]
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

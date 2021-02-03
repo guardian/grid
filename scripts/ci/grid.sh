@@ -56,7 +56,7 @@ buildSbt() {
   echo "Start: Build props location"
   echo $TEAMCITY_BUILD_PROPERTIES_FILE
   echo "End: Build props location"
-  docker-compose -f docker-compose.tests.yml run --rm test-container
+  docker-compose -f docker-compose.tests.yml run --rm test-container --no-cache
   echo "##teamcity[compilationFinished compiler='sbt']"
 }
 
