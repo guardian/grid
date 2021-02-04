@@ -142,8 +142,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be (Agency("Allstar Picture Library", Some("Universal Pictures")))
       processedImage.metadata.credit should be(Some("Universal Pictures/Allstar"))
-      // TODO Check this with Mat.
-      processedImage.metadata.byline should be(Some("Universal Pictures"))
+      processedImage.metadata.byline should be(None)
     }
 
     it("should strip '___/Allstar' suffix from byline") {

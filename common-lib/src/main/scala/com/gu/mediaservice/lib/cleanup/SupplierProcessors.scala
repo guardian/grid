@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.model.{Agencies, Agency, ContractPhotographer, Image, StaffPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
 
 /**
@@ -13,7 +13,6 @@ object SupplierProcessors
     AapParser,
     ActionImagesParser,
     AlamyParser,
-    AllStarParser,
     ApParser,
     CorbisParser,
     EpaParser,
@@ -21,7 +20,10 @@ object SupplierProcessors
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    PhotographerParser
+    PhotographerParser,
+    AllStarParser
+//    ,
+//    SportsphotoParser
   )
 
 /**
@@ -74,60 +76,103 @@ object AlamyParser extends ImageProcessor {
   }
 }
 
+object AllStarParser extends CanonicalisingImageProcessor {
+  override def getAgencyName = "Allstar Picture Library"
+  override def getCanonicalName: String = "Allstar"
 
-object AllStarParser extends ImageProcessor {
-  private val SlashAllstar = """(.+)/Allstar""".r
-  private val Allstar = "Allstar"
+  case object AllstarRegexResultExtractor extends RegexResultExtractor {
+    private val AllstarInSlashDelimitedString = "((.*)/)?(Allstar( Picture Library)?)(/(.*))?".r
+    // capture groups by number:                 12      3       4                   5 6
+    //  apple/Allstar/orange
+    //  apple/Allstar Picture Library/orange
+    def unapply(s: String): Option[RegexResult] = s match {
+      case AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix) => Some(RegexResult(toOption(prefix), toOption(suffix)))
+      case _ => None
+    }
+  }
+  override def getRegexResultExtractor: RegexResultExtractor = AllstarRegexResultExtractor
+}
+
+object SportsphotoParser extends CanonicalisingImageProcessor {
+  override def getAgencyName = "Allstar Picture Library"
+  override def getCanonicalName: String = "Sportsphoto"
+
+  case object SportsphotoRegexResultExtractor extends RegexResultExtractor {
+    private val SportsphotoInSlashDelimitedString = "((.*)/)?(Sportsphoto( Ltd.?)?( Limited)?)(/(.*))?".r
+    // capture groups by number:                     12      3           4        5           6 7
+    //  apple/Sportsphoto/orange
+    //  apple/Sportsphoto Ltd./orange
+    def unapply(s: String): Option[RegexResult] = s match {
+      case SportsphotoInSlashDelimitedString(_, prefix, _, _, _, _, suffix) => Some(RegexResult(toOption(prefix), toOption(suffix)))
+      case _ => None
+    }
+  }
+  override def getRegexResultExtractor: RegexResultExtractor = SportsphotoRegexResultExtractor
+}
+
+trait CanonicalisingImageProcessor extends ImageProcessor {
   private val Slash = "/"
-  private val AllstarInSlashDelimitedString = "((.*)/)?(Allstar( Picture Library)?)(/(.*))?".r
-  // capture groups by number:                 12      3       4                   5 6
-                                           //  apple/Allstar/orange
-                                           //  apple/Allstar Picture Library/orange
+
+
+  case class RegexResult(prefix: Option[String], suffix: Option[String]) {
+    def flat(sep: String, s: String*): Option[String] = (List(prefix, suffix).flatten ++ s) match {
+      case Nil => None
+      case l => Some(l.mkString(sep))
+    }
+  }
+  trait RegexResultExtractor {
+    def unapply(s: String): Option[RegexResult]
+  }
+
+  def getCanonicalName(): String
+  lazy val canonicalName = getCanonicalName
+
+  def getRegexResultExtractor:RegexResultExtractor
+  lazy val regexResultExtractor = getRegexResultExtractor
+  lazy val agencyName = getAgencyName
+
+  def getAgencyName(): String
 
   // Rules for slash delimited strings: byline, credit and supplier collection.
   def apply(image: Image): Image = (
-    moveAllstarFromBylineToCredit _ andThen
+    moveCanonicalNameFromBylineToCredit _ andThen
       removeBylineElementsInCredit andThen
-      moveAllstarToEndOfCredit andThen
-      setSupplierCollection
+      moveCanonicalNameToEndOfCredit andThen
+      setSupplierCollection andThen
+      stripDuplicateByline
     )(image)
 
-  // Supplier Collection should be credit with Allstar removed.
+  // Supplier Collection should be credit with 'Canonical Name' removed.
   private def setSupplierCollection(image: Image):Image = image.metadata.credit match {
-    case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => {
-      val otherCredits = List(toOption(prefix), toOption(suffix)).flatten
-      val supplierCollection = otherCredits match {
-        case Nil => None
-        case _ => Some(otherCredits.mkString(Slash))
-      }
-      image.copy(usageRights = Agency("Allstar Picture Library", initCap(supplierCollection)))
+    case Some(regexResultExtractor(result)) => {
+      val supplierCollection = result.flat(Slash)
+      image.copy(usageRights = Agency(agencyName, initCap(supplierCollection)))
     }
     case _ => image
   }
 
-  // Allstar should always move to the end of credit
-  private def moveAllstarToEndOfCredit(image: Image):Image = image.metadata.credit match {
-    case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => {
-      val otherCredits = List(toOption(prefix), toOption(suffix)).flatten
-      val credit = Some((otherCredits :+ Allstar).mkString(Slash))
+  // 'Canonical Name' should always move to the end of credit
+  private def moveCanonicalNameToEndOfCredit(image: Image):Image = image.metadata.credit match {
+    case Some(regexResultExtractor(result)) => {
+      val credit = result.flat(Slash, canonicalName)
       image.copy(metadata = image.metadata.copy(credit = initCap(credit)))
     }
     case _ => image
   }
 
-  // Allstar should never be present in the byline (and an empty byline is OK).
+  // 'Canonical Name' should never be present in the byline (and an empty byline is OK).
   // If it is removed from byline then it should be added to credit if not present.
-  def moveAllstarFromBylineToCredit(image: Image) = image.metadata.byline match {
-    case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => {
-      val otherByline = toOption(List(Option(prefix), Option(suffix)).flatten.mkString(Slash))
+  def moveCanonicalNameFromBylineToCredit(image: Image) = image.metadata.byline match {
+    case Some(regexResultExtractor(result)) => {
+      val otherByline = result.flat(Slash)
       image.copy(
         metadata = image.metadata.copy(
           byline = otherByline,
           credit = image.metadata.credit match {
-            case None => Some(Allstar)
+            case None => Some(canonicalName)
             case Some(s) => s match {
-              case AllstarInSlashDelimitedString(_, _, _, _, _, _) => Some(s)
-              case _ => Some(s + Slash + Allstar)
+              case regexResultExtractor(_) => Some(s)
+              case _ => Some(s + Slash + canonicalName)
             }
           }
         )
@@ -168,7 +213,7 @@ object AllStarParser extends ImageProcessor {
     case _ => image
   }
 
-  private def toOption(s: String): Option[String] = Option(s).filterNot(s => s.trim.isEmpty)
+  def toOption(s: String): Option[String] = Option(s).filterNot(s => s.trim.isEmpty)
 
 }
 
