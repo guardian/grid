@@ -8,6 +8,7 @@ userActions.controller('userActionCtrl',
         function() {
             var ctrl = this;
             ctrl.feedbackFormLink = window._clientConfig.feedbackFormLink;
+            ctrl.logoutUri = document.querySelector('link[rel="auth-uri"]').href + "logout";
         }]);
 
 userActions.directive('uiUserActions', [function() {
