@@ -79,39 +79,30 @@ object AllStarParser extends CanonicalisingImageProcessor {
   override def getAgencyName = "Allstar Picture Library"
   override def getCanonicalName: String = "Allstar"
 
-  case object AllstarRegexResultExtractor extends RegexResultExtractor {
-    private val AllstarInSlashDelimitedString = "((.*)/)?(Allstar( Picture Library)?)(/(.*))?".r
-    // capture groups by number:                 12      3       4                   5 6
-    //  apple/Allstar/orange
-    //  apple/Allstar Picture Library/orange
-    def unapply(s: String): Option[RegexResult] = s match {
-      case AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix) => Some(RegexResult(toOption(prefix), toOption(suffix)))
+  private val AllstarInSlashDelimitedString = "((.*)/)?(Allstar( Picture Library)?)(/(.*))?".r
+  override def getPrefixAndSuffix(s: Option[String]): Option[RegexResult] = {
+    s match {
+      case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => Some(RegexResult(toOption(prefix), toOption(suffix)))
       case _ => None
     }
   }
-  override def getRegexResultExtractor: RegexResultExtractor = AllstarRegexResultExtractor
 }
 
 object AllstarSportsphotoParser extends CanonicalisingImageProcessor {
   override def getAgencyName = "Allstar Picture Library"
   override def getCanonicalName: String = "Sportsphoto"
 
-  case object SportsphotoRegexResultExtractor extends RegexResultExtractor {
-    private val SportsphotoInSlashDelimitedString = "((.*)/)?(Sportsphoto( Ltd.?)?( Limited)?)(/(.*))?".r
-    // capture groups by number:                     12      3           4        5           6 7
-    //  apple/Sportsphoto/orange
-    //  apple/Sportsphoto Ltd./orange
-    def unapply(s: String): Option[RegexResult] = s match {
-      case SportsphotoInSlashDelimitedString(_, prefix, _, _, _, _, suffix) => Some(RegexResult(toOption(prefix), toOption(suffix)))
+  private val SportsphotoInSlashDelimitedString = "((.*)/)?(Sportsphoto( Ltd.?)?( Limited)?)(/(.*))?".r
+  override def getPrefixAndSuffix(s: Option[String]): Option[RegexResult] = {
+    s match {
+      case Some(SportsphotoInSlashDelimitedString(_, prefix, _, _, _, _, suffix)) => Some(RegexResult(toOption(prefix), toOption(suffix)))
       case _ => None
     }
   }
-  override def getRegexResultExtractor: RegexResultExtractor = SportsphotoRegexResultExtractor
 }
 
 trait CanonicalisingImageProcessor extends ImageProcessor {
   private val Slash = "/"
-
 
   case class RegexResult(prefix: Option[String], suffix: Option[String]) {
     def flat(sep: String, s: String*): Option[String] = (List(prefix, suffix).flatten ++ s) match {
@@ -119,15 +110,12 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
       case l => Some(l.mkString(sep))
     }
   }
-  trait RegexResultExtractor {
-    def unapply(s: String): Option[RegexResult]
-  }
 
   def getCanonicalName(): String
   lazy val canonicalName = getCanonicalName
 
-  def getRegexResultExtractor:RegexResultExtractor
-  lazy val regexResultExtractor = getRegexResultExtractor
+  def getPrefixAndSuffix(s:Option[String]): Option[RegexResult]
+
   lazy val agencyName = getAgencyName
 
   def getAgencyName(): String
@@ -142,8 +130,8 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
     )(image)
 
   // Supplier Collection should be credit with 'Canonical Name' removed.
-  private def setSupplierCollection(image: Image):Image = image.metadata.credit match {
-    case Some(regexResultExtractor(result)) => {
+  private def setSupplierCollection(image: Image):Image = getPrefixAndSuffix(image.metadata.credit) match {
+    case Some(result) => {
       val supplierCollection = result.flat(Slash)
       image.copy(usageRights = Agency(agencyName, initCap(supplierCollection)))
     }
@@ -151,8 +139,8 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
   }
 
   // 'Canonical Name' should always move to the end of credit
-  private def moveCanonicalNameToEndOfCredit(image: Image):Image = image.metadata.credit match {
-    case Some(regexResultExtractor(result)) => {
+  private def moveCanonicalNameToEndOfCredit(image: Image):Image = getPrefixAndSuffix(image.metadata.credit) match {
+    case Some(result) => {
       val credit = result.flat(Slash, canonicalName)
       image.copy(metadata = image.metadata.copy(credit = initCap(credit)))
     }
@@ -161,16 +149,16 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
 
   // 'Canonical Name' should never be present in the byline (and an empty byline is OK).
   // If it is removed from byline then it should be added to credit if not present.
-  def moveCanonicalNameFromBylineToCredit(image: Image) = image.metadata.byline match {
-    case Some(regexResultExtractor(result)) => {
+  def moveCanonicalNameFromBylineToCredit(image: Image) = getPrefixAndSuffix(image.metadata.byline) match {
+    case Some(result) => {
       val otherByline = result.flat(Slash)
       image.copy(
         metadata = image.metadata.copy(
           byline = otherByline,
           credit = image.metadata.credit match {
             case None => Some(canonicalName)
-            case Some(s) => s match {
-              case regexResultExtractor(_) => Some(s)
+            case c@Some(s) => getPrefixAndSuffix(c) match {
+              case Some(_) => c
               case _ => Some(s + Slash + canonicalName)
             }
           }
