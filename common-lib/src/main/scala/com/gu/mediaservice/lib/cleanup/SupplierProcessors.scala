@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.model.{Agencies, Agency, Image, StaffPhotographer, ContractPhotographer}
+import com.gu.mediaservice.model.{Agencies, Agency, ContractPhotographer, Image, StaffPhotographer}
 import com.gu.mediaservice.lib.config.PhotographersList
 
 /**
@@ -13,7 +13,6 @@ object SupplierProcessors
     AapParser,
     ActionImagesParser,
     AlamyParser,
-    AllStarParser,
     ApParser,
     CorbisParser,
     EpaParser,
@@ -21,7 +20,9 @@ object SupplierProcessors
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    PhotographerParser
+    PhotographerParser,
+    AllstarSportsphotoParser,
+    AllStarParser
   )
 
 /**
@@ -74,33 +75,97 @@ object AlamyParser extends ImageProcessor {
   }
 }
 
-object AllStarParser extends ImageProcessor {
-  val SlashAllstar = """(.+)/Allstar""".r
-  val AllstarSlash = """Allstar/(.+)""".r
+object AllStarParser extends CanonicalisingImageProcessor {
+  override def getAgencyName = "Allstar Picture Library"
+  override def getCanonicalName: String = "Allstar"
 
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some("Allstar Picture Library") => withAllstarRights(image)(None)
-    case Some(SlashAllstar(prefix))      => withAllstarRights(image)(Some(prefix))
-    case Some(AllstarSlash(suffix))      => withAllstarRights(image)(Some(suffix))
+  private val AllstarInSlashDelimitedString = "((.*)/)?(Allstar( Picture Library)?)(/(.*))?".r
+  override def getPrefixAndSuffix(s: Option[String]): Option[RegexResult] = {
+    s match {
+      case Some(AllstarInSlashDelimitedString(_, prefix, _, _, _, suffix)) => Some(RegexResult(toOption(prefix), toOption(suffix)))
+      case _ => None
+    }
+  }
+}
+
+object AllstarSportsphotoParser extends CanonicalisingImageProcessor {
+  override def getAgencyName = "Allstar Picture Library"
+  override def getCanonicalName: String = "Sportsphoto"
+
+  private val SportsphotoInSlashDelimitedString = "((.*)/)?(Sportsphoto( Ltd.?)?( Limited)?)(/(.*))?".r
+  override def getPrefixAndSuffix(s: Option[String]): Option[RegexResult] = {
+    s match {
+      case Some(SportsphotoInSlashDelimitedString(_, prefix, _, _, _, _, suffix)) => Some(RegexResult(toOption(prefix), toOption(suffix)))
+      case _ => None
+    }
+  }
+}
+
+trait CanonicalisingImageProcessor extends ImageProcessor {
+  private val Slash = "/"
+
+  case class RegexResult(prefix: Option[String], suffix: Option[String]) {
+    def flat(sep: String, s: String*): Option[String] = (List(prefix, suffix).flatten ++ s) match {
+      case Nil => None
+      case l => Some(l.mkString(sep))
+    }
+  }
+
+  def getCanonicalName(): String
+  lazy val canonicalName = getCanonicalName
+
+  def getPrefixAndSuffix(s:Option[String]): Option[RegexResult]
+
+  lazy val agencyName = getAgencyName
+
+  def getAgencyName(): String
+
+  // Rules for slash delimited strings: byline, credit and supplier collection.
+  def apply(image: Image): Image = (
+    moveCanonicalNameFromBylineToCredit _ andThen
+      removeBylineElementsInCredit andThen
+      moveCanonicalNameToEndOfCredit andThen
+      setSupplierCollection andThen
+      stripDuplicateByline
+    )(image)
+
+  // Supplier Collection should be credit with 'Canonical Name' removed.
+  private def setSupplierCollection(image: Image):Image = getPrefixAndSuffix(image.metadata.credit) match {
+    case Some(result) => {
+      val supplierCollection = result.flat(Slash)
+      image.copy(usageRights = Agency(agencyName, initCap(supplierCollection)))
+    }
     case _ => image
   }
 
-  def withAllstarRights(image: Image) =
-    (asAllstarAgency(image, _: Option[String])) andThen
-      stripAllstarFromByline andThen
-      stripDuplicateByline
+  // 'Canonical Name' should always move to the end of credit
+  private def moveCanonicalNameToEndOfCredit(image: Image):Image = getPrefixAndSuffix(image.metadata.credit) match {
+    case Some(result) => {
+      val credit = result.flat(Slash, canonicalName)
+      image.copy(metadata = image.metadata.copy(credit = initCap(credit)))
+    }
+    case _ => image
+  }
 
-  def asAllstarAgency(image: Image, suppliersCollection: Option[String]) = image.copy(
-    usageRights = Agency("Allstar Picture Library", suppliersCollection)
-  )
-
-  def stripAllstarFromByline(image: Image) = image.copy(
-    metadata = image.metadata.copy(byline = image.metadata.byline.map(stripAllstarSuffix))
-  )
-
-  def stripAllstarSuffix(byline: String): String = byline match {
-    case SlashAllstar(name) => name
-    case _ => byline
+  // 'Canonical Name' should never be present in the byline (and an empty byline is OK).
+  // If it is removed from byline then it should be added to credit if not present.
+  def moveCanonicalNameFromBylineToCredit(image: Image) = getPrefixAndSuffix(image.metadata.byline) match {
+    case Some(result) => {
+      val otherByline = result.flat(Slash)
+      image.copy(
+        metadata = image.metadata.copy(
+          byline = otherByline,
+          credit = image.metadata.credit match {
+            case None => Some(canonicalName)
+            case c@Some(s) => getPrefixAndSuffix(c) match {
+              case Some(_) => c
+              case _ => Some(s + Slash + canonicalName)
+            }
+          }
+        )
+      )
+    }
+    case _ => image
   }
 
   // If suppliersCollection same as byline, remove byline but its byline casing for suppliersCollection and credit,
@@ -118,7 +183,27 @@ object AllStarParser extends ImageProcessor {
     case _ => image
   }
 
+  private def initCap(maybeString:Option[String]): Option[String] = maybeString match {
+    case None => None
+    case Some(s) => Some(s
+      .toLowerCase
+      .split(' ').map(_.capitalize).mkString(" ")
+      .split('/').map(_.capitalize).mkString(Slash))
+  }
+
+  private def removeBylineElementsInCredit(image: Image): Image = (image.metadata.byline, image.metadata.credit) match {
+    case (Some(b), Some(c)) => {
+      val creditSet = c.split(Slash).toSet
+      val newByline = toOption(b.split(Slash).filterNot(s => creditSet.contains(s)).mkString(Slash))
+      image.copy(metadata = image.metadata.copy(byline = newByline))
+    }
+    case _ => image
+  }
+
+  def toOption(s: String): Option[String] = Option(s).filterNot(s => s.trim.isEmpty)
+
 }
+
 
 object ApParser extends ImageProcessor {
   val InvisionFor = "^invision for (.+)".r
