@@ -21,9 +21,8 @@ object SupplierProcessors
     RexParser,
     RonaldGrantParser,
     PhotographerParser,
+    AllstarSportsphotoParser,
     AllStarParser
-//    ,
-//    SportsphotoParser
   )
 
 /**
@@ -93,7 +92,7 @@ object AllStarParser extends CanonicalisingImageProcessor {
   override def getRegexResultExtractor: RegexResultExtractor = AllstarRegexResultExtractor
 }
 
-object SportsphotoParser extends CanonicalisingImageProcessor {
+object AllstarSportsphotoParser extends CanonicalisingImageProcessor {
   override def getAgencyName = "Allstar Picture Library"
   override def getCanonicalName: String = "Sportsphoto"
 
