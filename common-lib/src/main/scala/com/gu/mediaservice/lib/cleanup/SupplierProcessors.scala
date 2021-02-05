@@ -122,12 +122,32 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
 
   // Rules for slash delimited strings: byline, credit and supplier collection.
   def apply(image: Image): Image = (
-    moveCanonicalNameFromBylineToCredit _ andThen
+      dedupeAndCanonicaliseName _ andThen
+      moveCanonicalNameFromBylineToCredit andThen
       removeBylineElementsInCredit andThen
       moveCanonicalNameToEndOfCredit andThen
       setSupplierCollection andThen
       stripDuplicateByline
     )(image)
+
+  // There should only be one instance of the name
+  private def dedupeAndCanonicaliseName(image: Image): Image = {
+    image.metadata.credit match {
+      case Some(credit) => {
+        val creditAcc = credit.split(Slash)
+          .foldLeft((List[String](),false))((acc, s) => {
+            s match {
+              case regexResultExtractor(_) if !acc._2 => (acc._1 :+ canonicalName, true)
+              case regexResultExtractor(_) if acc._2 => acc
+              case _ => (acc._1 :+ s, acc._2)
+            }
+          })
+          val creditString = creditAcc._1.mkString(Slash)
+          image.copy(metadata = image.metadata.copy(credit = Some(creditString)))
+      }
+      case _ => image
+    }
+  }
 
   // Supplier Collection should be credit with 'Canonical Name' removed.
   private def setSupplierCollection(image: Image):Image = getPrefixAndSuffix(image.metadata.credit) match {
