@@ -136,10 +136,11 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
       case Some(credit) => {
         val creditAcc = credit.split(Slash)
           .foldLeft((List[String](),false))((acc, s) => {
-            s match {
-              case regexResultExtractor(_) if !acc._2 => (acc._1 :+ canonicalName, true)
-              case regexResultExtractor(_) if acc._2 => acc
-              case _ => (acc._1 :+ s, acc._2)
+            val (creditList, foundFlag) = acc
+            getPrefixAndSuffix(Some(s)) match {
+              case Some(_) if !foundFlag => (creditList :+ canonicalName, true)
+              case Some(_) if foundFlag => acc
+              case None => (creditList :+ s, foundFlag)
             }
           })
           val creditString = creditAcc._1.mkString(Slash)
