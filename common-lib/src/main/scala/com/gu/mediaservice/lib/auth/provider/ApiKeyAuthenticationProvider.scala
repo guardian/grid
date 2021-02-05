@@ -9,9 +9,12 @@ import play.api.mvc.RequestHeader
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object ApiKeyAuthenticationProvider {
-  val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
+trait ApiKeyAuthentication {
   val apiKeyHeaderName = "X-Gu-Media-Key"
+}
+
+object ApiKeyAuthenticationProvider extends ApiKeyAuthentication {
+  val ApiKeyHeader: TypedKey[(String, String)] = TypedKey[(String, String)]("ApiKeyHeader")
 }
 
 class ApiKeyAuthenticationProvider(configuration: Configuration, resources: AuthenticationProviderResources) extends MachineAuthenticationProvider with StrictLogging {
