@@ -187,7 +187,23 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.byline should be (None)
     }
 
+    it ("should canonicalise and dedupe 'Sportsphoto' in credit") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto/Sportsphoto Ltd.")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be (Some("Sportsphoto"))
+    }
 
+    it ("should append 'Allstar' when 'Sportsphoto' is in credit") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto/Allstar/Sportsphoto Ltd.")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be (Some("Sportsphoto/Allstar"))
+    }
+
+    it ("should maintain order of rest of credit") {
+      val image = createImageFromMetadata("credit" -> "A/B/C/D/Sportsphoto/E/F/G/H/Sportsphoto Ltd./I/J/K/L")
+      val processedImage = applyProcessors(image)
+      processedImage.metadata.credit should be (Some("A/B/C/D/E/F/G/H/I/J/K/L/Sportsphoto"))
+    }
   }
 
   describe("AP") {
