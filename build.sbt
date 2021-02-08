@@ -94,7 +94,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
-    "com.drewnoakes" % "metadata-extractor" % "2.15.0",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
@@ -108,7 +107,6 @@ lazy val commonLib = project("common-lib").settings(
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.typesafe.play" %% "play-json-joda" % "2.6.9"
   ),
-
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 ).settings(bbcCommonLibSettings)
 
@@ -132,7 +130,8 @@ lazy val cropper = playProject("cropper", 9006)
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
-    "org.apache.tika" % "tika-core" % "1.20"
+    "org.apache.tika" % "tika-core" % "1.20",
+    "com.drewnoakes" % "metadata-extractor" % "2.15.0"
   )
 }
 
@@ -158,14 +157,25 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
+      // Would not be needed if persistence-lib is created
       ExclusionRule("org.elasticsearch"),
       ExclusionRule("com.sksamuel.elastic4s"),
-      ExclusionRule("com.drewnoakes", "metadata-extractor"),
+
+      // See line 104 - only used for disk logging in dev.
       ExclusionRule("org.codehaus.janino"),
-      ExclusionRule("com.typesafe.play"),
       ExclusionRule("org.scalaz.stream"),
+
+      // Ultimately only used by cropper and image loader
+      // Probably tiny
       ExclusionRule("org.im4java"),
+
+      // Only used in ProcessesSpec.scala in common-lib test?
+      // Presumably should be a test dependency and then won't need excluding?
       ExclusionRule("org.scalacheck"),
+
+      // Provides com.gu.logback.appender.kinesis.KinesisAppender
+      // used by LogConfig.scala in common-lib - probably should move into rest-lib
+      // because the lambdas and command line tools by definition won't use it.
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
