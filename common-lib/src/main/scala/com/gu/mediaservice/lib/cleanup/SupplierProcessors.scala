@@ -92,7 +92,7 @@ object AllstarSportsphotoParser extends CanonicalisingImageProcessor {
   override def getAgencyName = "Allstar Picture Library"
   override def getCanonicalName: String = "Sportsphoto"
 
-  private val SportsphotoInSlashDelimitedString = "((.*)/)?(Sportsphoto( Ltd.?)?( Limited)?)(/(.*))?".r
+  private val SportsphotoInSlashDelimitedString = "((.*)/)?(Sportsphoto( Ltd\\.?)?( Limited)?)(/(.*))?".r
   override def getPrefixAndSuffix(s: Option[String]): Option[RegexResult] = {
     s match {
       case Some(SportsphotoInSlashDelimitedString(_, prefix, _, _, _, _, suffix)) => Some(RegexResult(toOption(prefix), toOption(suffix)))

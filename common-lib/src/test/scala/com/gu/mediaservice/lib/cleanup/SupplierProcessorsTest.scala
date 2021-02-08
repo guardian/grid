@@ -116,6 +116,13 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
       processedImage.metadata.credit should be(Some("Sportsphoto/Allstar"))
     }
 
+    it("should match not 'Sportsphoto LtdX/Allstar' credit - but will fix case!") {
+      val image = createImageFromMetadata("credit" -> "Sportsphoto LtdX/Allstar")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be (Agency("Allstar Picture Library", Some("Sportsphoto Ltdx")))
+      processedImage.metadata.credit should be(Some("Sportsphoto Ltdx/Allstar"))
+    }
+
     it("should remove a prefix of 'Allstar' from a credit and append it to the end of the credit") {
       val image = createImageFromMetadata("credit" -> "Allstar/UNIVERSAL")
       val processedImage = applyProcessors(image)
