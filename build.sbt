@@ -77,11 +77,6 @@ val bbcCommonLibSettings: SettingsDefinition = if (bbcBuildProcess) {
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.typesafe.play" %% "play" % "2.6.20", ws,
-    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
-    akkaHttpServer,
-    ws,
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -110,11 +105,23 @@ lazy val commonLib = project("common-lib").settings(
     // needed to parse conditional statements in `logback.xml`
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
-    "org.codehaus.janino" % "janino" % "3.0.6"
+    "org.codehaus.janino" % "janino" % "3.0.6",
+    "com.typesafe.play" %% "play-json-joda" % "2.6.9"
   ),
 
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 ).settings(bbcCommonLibSettings)
+
+lazy val restLib = project("rest-lib").settings(
+  libraryDependencies ++= Seq(
+    "com.typesafe.play" %% "play" % "2.6.20",
+    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+    akkaHttpServer,
+    ws,
+  ),
+
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+).dependsOn(commonLib)
 
 lazy val auth = playProject("auth", 9011)
 
@@ -266,7 +273,7 @@ val buildInfo = Seq(
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project =
   project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
-    .dependsOn(commonLib)
+    .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
 

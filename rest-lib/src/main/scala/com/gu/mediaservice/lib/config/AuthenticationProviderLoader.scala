@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.config
+  package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.lib.auth.provider.{MachineAuthenticationProvider, AuthenticationProviderResources, UserAuthenticationProvider}
 
