@@ -210,7 +210,13 @@ class ImageLoaderController(auth: Authentication,
           case Left(Response(_, response)) => UploadStatus(StatusType.Failed, Some(s"${response.errorKey}: ${response.errorMessage}"))
           case Right(_) => UploadStatus(StatusType.Completed, None)
         }
-        uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap(_ => Future.successful(res))
+        uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{status =>
+          status match {
+            case Left(error) => logger.error(s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}")
+            case Right(_) => logger.info(s"image upload status updated successfully, image-id: ${digestedFile.digest}")
+          }
+          Future.successful(res)
+        }
       }.transform {
         // create a play result out of what has happened
         case Success(Right(result)) => Success(result)
