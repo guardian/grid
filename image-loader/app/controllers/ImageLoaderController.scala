@@ -157,9 +157,13 @@ class ImageLoaderController(auth: Authentication,
       logger.info("importImage request start")
 
       val tempFile = createTempFile("download")
-      val importResult = for {
+      val digestedFileFuture = for {
         validUri <- Future { URI.create(uri) }
         digestedFile <- downloader.download(validUri, tempFile)
+      } yield digestedFile
+
+      val importResult: Future[Result] = for {
+        digestedFile <- digestedFileFuture
         uploadStatusResult <- uploadStatusTable.getStatus(digestedFile.digest)
         maybeStatus = uploadStatusResult.flatMap(_.toOption)
         uploadRequest <- uploader.loadFile(
@@ -175,7 +179,7 @@ class ImageLoaderController(auth: Authentication,
         logger.info("importImage request end")
         // NB This return code (202) is explicitly required by s3-watcher
         // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
-        Right(Accepted(result).as(ArgoMediaType))
+        Accepted(result).as(ArgoMediaType)
       }
 
       // under all circumstances, remove the temp files
@@ -183,21 +187,30 @@ class ImageLoaderController(auth: Authentication,
         Try { deleteTempFile(tempFile) }
       }
 
+      /* combine the import result and digest file together into a single future
+       * note that we use transformWith instead of zip here as we are still interested in value of
+       * digestedFile even if the import fails */
+      val fileAndMaybeResult: Future[(DigestedFile, Try[Result])] = importResult.transformWith{ result =>
+        digestedFileFuture.map(file => file -> result)
+      }
+
       // this is an unusual way of generating a result due to the need to put the error message both in the upload
       // status table and also provide it in the response to the client.
-      importResult.recover {
+      fileAndMaybeResult.flatMap { case (digestedFile, importResult) =>
         // convert exceptions to failure responses
-        case e: UnsupportedMimeTypeException => Left(FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes))
-        case _: IllegalArgumentException => Left(FailureResponse.invalidUri)
-        case e: UserImageLoaderException => Left(FailureResponse.badUserInput(e))
-        case NonFatal(_) => Left(FailureResponse.failedUriDownload)
-      }.flatMap { res =>
+        val res = importResult match {
+          case Failure(e: UnsupportedMimeTypeException) => Left(FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes))
+          case Failure(_: IllegalArgumentException) => Left(FailureResponse.invalidUri)
+          case Failure(e: UserImageLoaderException) => Left(FailureResponse.badUserInput(e))
+          case Failure(NonFatal(_)) => Left(FailureResponse.failedUriDownload)
+          case Success(result) => Right(result)
+        }
         // update the upload status with the error or completion
         val status = res match {
           case Left(Response(_, response)) => UploadStatus(StatusType.Failed, Some(s"${response.errorKey}: ${response.errorMessage}"))
           case Right(_) => UploadStatus(StatusType.Completed, None)
         }
-        uploadStatusTable.updateStatus(uri.split("/").last, status).flatMap(_ => Future.successful(res))
+        uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap(_ => Future.successful(res))
       }.transform {
         // create a play result out of what has happened
         case Success(Right(result)) => Success(result)
