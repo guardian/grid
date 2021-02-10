@@ -155,23 +155,20 @@ class ImageLoaderController(auth: Authentication,
       )
 
       logger.info("importImage request start")
-      val existingImageStatus = uploadStatusTable.getStatus(uri.split("/").last).map {
-        case Some(Right(record)) => (record.uploadedBy, record.identifiers, record.fileName)
-        case _ => (None, None, None)
-      }.recover{case _ => (None, None, None)}
 
       val tempFile = createTempFile("download")
       val importResult = for {
-        record <- existingImageStatus
         validUri <- Future { URI.create(uri) }
         digestedFile <- downloader.download(validUri, tempFile)
+        uploadStatusResult <- uploadStatusTable.getStatus(digestedFile.digest)
+        maybeStatus = uploadStatusResult.flatMap(_.toOption)
         uploadRequest <- uploader.loadFile(
           digestedFile,
           request.user,
-          record._1.orElse(uploadedBy),
-          record._2.orElse(identifiers),
-          DateTimeUtils.fromValueOrNow(uploadTime),
-          record._3.orElse(filename).flatMap(_.trim.nonEmptyOpt),
+          maybeStatus.flatMap(_.uploadedBy).orElse(uploadedBy),
+          maybeStatus.flatMap(_.identifiers).orElse(identifiers),
+          DateTimeUtils.fromValueOrNow(maybeStatus.flatMap(_.uploadTime).orElse(uploadTime)),
+          maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
           context.requestId)
         result <- uploader.storeFile(uploadRequest)
       } yield {
