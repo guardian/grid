@@ -25,6 +25,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   protected def getS3Object(key: String): Option[String] = s3.getObjectAsString(bucket, key)
 
   protected def getLatestS3Stream: Option[InputStream] = {
+    println(bucket)
     val objects = s3.client
       .listObjects(bucket).getObjectSummaries.asScala
       .filterNot(_.getKey == "AMAZON_SES_SETUP_NOTIFICATION")

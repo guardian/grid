@@ -1,6 +1,6 @@
 package controllers
 
-import java.io.File
+import java.io.{File, IOException}
 import java.net.URI
 
 import com.drew.imaging.ImageProcessingException
@@ -13,11 +13,12 @@ import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import lib._
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, Uploader, QuarantineUploader}
+import model.{Projector, QuarantineUploader, Uploader}
 import play.api.libs.json.{JsObject, Json}
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 import model.upload.UploadRequest
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -49,7 +50,39 @@ class ImageLoaderController(auth: Authentication,
   def quarantineOrStoreImage(uploadRequest: UploadRequest)(implicit logMarker: LogMarker) = {
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(uploader.storeFile(uploadRequest))
   }
-  
+
+  def reloadImage(uploadedBy: Option[String], identifier: String): Action[DigestedFile] = {
+    // Construct logging markers
+    implicit val context: RequestLoggingContext = RequestLoggingContext(
+      initialMarkers = Map(
+        "requestType" -> "load-image",
+        "identifiers" -> identifier,
+        "loader" -> "reloadImage"
+      )
+    )
+    // set up local file
+    val tempFile = createTempFile("s3reload")
+    // get file from s3 and write to local file
+    val parsedBody = DigestBodyParser.create(tempFile)
+    auth.async(parsedBody) { req =>
+      for {
+        meta <- downloader.fetchImage(identifier, tempFile)
+        digestedFile = DigestedFile(tempFile, identifier)
+        // get original upload time etc from s3 meta
+        uploadedBy = meta.get("x-amz-meta-uploaded_by")
+        uploadTime = meta.get("x-amz-meta-upload_time")
+        filename = meta.get("x-amz-meta-file_name")
+        // Add to logging markers
+        widerContext = context.copy(initialMarkers = context.initialMarkers + (
+          "uploadedBy" -> uploadedBy.getOrElse("UNKNOWN"),
+          "uploadTime" -> uploadTime.getOrElse("UNKNOWN"),
+          "filename" -> filename.getOrElse("UNKNOWN")
+        ))
+        result <- load("reloadImage", uploadedBy, Some(identifier), uploadTime, filename: Option[String], context, tempFile, digestedFile: DigestedFile, req.user)(widerContext)
+      } yield result
+    }
+  }
+
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
 
     implicit val context: RequestLoggingContext = RequestLoggingContext(
@@ -58,7 +91,8 @@ class ImageLoaderController(auth: Authentication,
         "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
         "identifiers" -> identifiers.getOrElse(FALLBACK),
         "uploadTime" -> uploadTime.getOrElse(FALLBACK),
-        "filename" -> filename.getOrElse(FALLBACK)
+        "filename" -> filename.getOrElse(FALLBACK),
+        "loader" -> "loadImage"
       )
     )
     logger.info("loadImage request start")
@@ -69,37 +103,58 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
-      val result = for {
-        uploadRequest <- uploader.loadFile(
-          req.body,
-          req.user,
-          uploadedBy,
-          identifiers,
-          DateTimeUtils.fromValueOrNow(uploadTime),
-          filename.flatMap(_.trim.nonEmptyOpt),
-          context.requestId)
-        result <- quarantineOrStoreImage(uploadRequest)
-      } yield result
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
-
-      result map { r =>
-        val result = Accepted(r).as(ArgoMediaType)
-        logger.info("loadImage request end")
-        result
-      } recover {
-        case e =>
-          logger.error("loadImage request ended with a failure", e)
-          (e match {
-            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-            case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
-            case e: java.io.IOException => FailureResponse.badImage(e).as(ArgoMediaType)
-            case _ => 
-              logger.error("Failed upload", e) 
-              InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
-          }).as(ArgoMediaType)
-      }
+      load("loadImage", uploadedBy, identifiers, uploadTime, filename, context, tempFile, req.body, req.user)
     }
   }
+
+  private def load(
+                    loader: String,
+                    uploadedBy: Option[String],
+                    identifiers: Option[String],
+                    uploadTime: Option[String],
+                    filename: Option[String],
+                    context: RequestLoggingContext,
+                    tempFile: File,
+                    digestedFile: DigestedFile,
+                    user: Authentication.Principal
+                  )(implicit logMarker: LogMarker) = {
+
+    val result = for {
+      uploadRequest <- uploader.loadFile(
+        digestedFile,
+        user,
+        uploadedBy,
+        getIdentifiersMap(identifiers),
+        DateTimeUtils.fromValueOrNow(uploadTime),
+        filename.flatMap(_.trim.nonEmptyOpt),
+        context.requestId)
+      result <- quarantineOrStoreImage(uploadRequest)
+    } yield result
+    result.onComplete(_ => Try {
+      deleteTempFile(tempFile)
+    })
+
+    result map { r =>
+      val result = Accepted(r).as(ArgoMediaType)
+      logger.info(s"$loader request end")
+      result
+    } recover {
+      case e =>
+        logger.error(s"$loader request ended with a failure", e)
+        (e match {
+          case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+          case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes).as(ArgoMediaType)
+          case e: IOException => FailureResponse.badImage(e).as(ArgoMediaType)
+          case _ =>
+            logger.error("Failed upload", e)
+            InternalServerError(Json.obj("error" -> e.getMessage)).as(ArgoMediaType)
+        }).as(ArgoMediaType)
+    }
+  }
+
+  // TODO: should error if the JSON parsing failed
+  private def getIdentifiersMap(identifiers: Option[String]) =
+    identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
   // Fetch
   def projectImageBy(imageId: String): Action[AnyContent] = {
@@ -157,7 +212,7 @@ class ImageLoaderController(auth: Authentication,
           digestedFile,
           request.user,
           uploadedBy,
-          identifiers,
+          getIdentifiersMap(identifiers),
           DateTimeUtils.fromValueOrNow(uploadTime),
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)

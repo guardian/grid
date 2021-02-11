@@ -5,9 +5,9 @@ import java.io.File
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.model.{MimeType, Png}
+import com.gu.mediaservice.model.MimeType
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 object ImageIngestOperations {
   def fileKeyFromId(id: String): String = id.take(6).mkString("/") + "/" + id
@@ -26,6 +26,9 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
     case s:StorableThumbImage => storeThumbnailImage(s)
     case s:StorableOptimisedImage => storeOptimisedImage(s)
   }
+
+  def fetchImage(id: String, file: File)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Map[String, String]] =
+    fetch(imageBucket, fileKeyFromId(id), file)(ex, logMarker)
 
   private def storeOriginalImage(storableImage: StorableOriginalImage)
                         (implicit logMarker: LogMarker): Future[S3Object] =

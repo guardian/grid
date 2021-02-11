@@ -266,9 +266,6 @@ class Uploader(val store: ImageLoaderStore,
                val notifications: Notifications)
               (implicit val ec: ExecutionContext) extends ArgoHelpers {
 
-
-
-
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(toImageUploadOpsCfg(config), imageOps,
@@ -289,16 +286,13 @@ class Uploader(val store: ImageLoaderStore,
   def loadFile(digestedFile: DigestedFile,
                user: Principal,
                uploadedBy: Option[String],
-               identifiers: Option[String],
+               identifiersMap: Map[String, String],
                uploadTime: DateTime,
                filename: Option[String],
                requestId: UUID)
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
-
-    // TODO: should error if the JSON parsing failed
-    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>

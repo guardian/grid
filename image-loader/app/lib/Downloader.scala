@@ -7,7 +7,9 @@ import java.nio.file.Files
 import com.google.common.hash.HashingOutputStream
 import com.google.common.io.ByteStreams
 import com.gu.mediaservice.DeprecatedHashWrapper
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
+import lib.storage.ImageLoaderStore
 import okhttp3.{OkHttpClient, Request}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,9 +19,16 @@ case object TruncatedDownload extends Exception
 case object InvalidDownload extends Exception
 
 //TODO Revisit this logic
-class Downloader(implicit ec: ExecutionContext) extends GridLogging {
+class Downloader(val store: ImageLoaderStore)
+                (implicit val ec: ExecutionContext) extends ArgoHelpers with GridLogging {
+
   private val client = new OkHttpClient()
   private val digester = DeprecatedHashWrapper.sha1()
+
+  // Put the object from s3 in the provided file, and return the user metadata
+  def fetchImage(id: String, file: File)(implicit logMarker: LogMarker): Future[Map[String, String]] = {
+    store.fetchImage(id, file)
+  }
 
   def download(uri: URI, file: File): Future[DigestedFile] = Future {
     val request = new Request.Builder().url(uri.toString).build()
