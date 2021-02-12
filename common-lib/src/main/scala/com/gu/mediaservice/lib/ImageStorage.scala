@@ -13,6 +13,10 @@ import com.gu.mediaservice.model.MimeType
 object ImageStorageProps {
   val cacheDuration: Duration = 365 days
   val cacheForever: String = s"max-age=${cacheDuration.toSeconds}"
+  val filenameMetadataKey: String = "file_name"
+  val uploadTimeMetadataKey: String = "upload_time"
+  val uploadedByMetadataKey: String = "uploaded_by"
+  val identifierMetadataKeyPrefix: String = "identifier!"
 }
 
 trait ImageStorage {

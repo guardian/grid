@@ -159,7 +159,7 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
       uploadedBy = uploadedBy,
       uploadTime = uploadTime,
       uploadFileName = uploadFileName,
-      picdarUrn = None,
+      identifiers = Map.empty,
     )
 
     implicit val requestLoggingContext = RequestLoggingContext()

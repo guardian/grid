@@ -5,11 +5,10 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.UUID
-
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.{BrowserViewableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners, SupplierProcessors}
 import com.gu.mediaservice.lib.config.MetadataConfig
@@ -17,6 +16,7 @@ import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
+import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model._
 import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
@@ -201,14 +201,13 @@ object Uploader extends GridLogging {
 
   def toMetaMap(uploadRequest: UploadRequest): Map[String, String] = {
     val baseMeta = Map(
-      "uploaded_by" -> uploadRequest.uploadedBy,
-      "upload_time" -> printDateTime(uploadRequest.uploadTime)
-    ) ++ uploadRequest.identifiersMeta
+      ImageStorageProps.uploadedByMetadataKey -> uploadRequest.uploadedBy,
+      ImageStorageProps.uploadTimeMetadataKey -> printDateTime(uploadRequest.uploadTime)
+    ) ++
+      uploadRequest.identifiersMeta ++
+      uploadRequest.uploadInfo.filename.map(ImageStorageProps.filenameMetadataKey -> _)
 
-    uploadRequest.uploadInfo.filename match {
-      case Some(f) => baseMeta ++ Map("file_name" -> URLEncoder.encode(f, StandardCharsets.UTF_8.name()))
-      case _ => baseMeta
-    }
+    baseMeta.mapValues(URI.encode)
   }
 
   private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
@@ -297,7 +296,10 @@ class Uploader(val store: ImageLoaderStore,
     val DigestedFile(tempFile, id) = digestedFile
 
     // TODO: should error if the JSON parsing failed
-    val identifiersMap = identifiers.map(Json.parse(_).as[Map[String, String]]) getOrElse Map()
+    val identifiersMap = identifiers
+      .map(Json.parse(_).as[Map[String, String]])
+      .getOrElse(Map.empty)
+      .mapValues(_.toLowerCase)
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>
