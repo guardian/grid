@@ -91,9 +91,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
-    "org.elasticsearch" % "elasticsearch" % "1.7.6",
-    "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
-    "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
@@ -112,8 +109,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
     ws
-  ),
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+  )
 )
 
 lazy val restLib = project("rest-lib").settings(
@@ -121,9 +117,18 @@ lazy val restLib = project("rest-lib").settings(
     "com.typesafe.play" %% "play" % "2.6.20",
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
     akkaHttpServer,
-  ),
+    ws,
+  )
+).dependsOn(persistenceLib)
 
-  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+lazy val persistenceLib = project("persistence-lib").settings(
+  libraryDependencies ++= Seq(
+    "org.elasticsearch" % "elasticsearch" % "1.7.6",
+    "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
+    "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
+    akkaHttpServer,
+    ws,
+  )
 ).dependsOn(commonLib)
 
 lazy val auth = playProject("auth", 9011)
@@ -157,10 +162,6 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
-      // Would not be needed if persistence-lib is created
-      ExclusionRule("org.elasticsearch"),
-      ExclusionRule("com.sksamuel.elastic4s"),
-
       // See line 104 - only used for disk logging in dev.
       ExclusionRule("org.codehaus.janino"),
       ExclusionRule("org.scalaz.stream"),
@@ -180,7 +181,6 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     ),
     libraryDependencies ++= Seq(
       "com.typesafe.play" %% "play-json" % "2.6.9",
-      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
@@ -244,7 +244,7 @@ lazy val usage = playProject("usage", 9009).settings(
 )
 
 lazy val scripts = project("scripts")
-  .dependsOn(commonLib)
+  .dependsOn(persistenceLib)
   .enablePlugins(JavaAppPackaging, UniversalPlugin)
   .settings(
     libraryDependencies ++= Seq(
@@ -293,7 +293,7 @@ val buildInfo = Seq(
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project = {
   val commonProject = project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
-    .dependsOn(restLib)
+    .dependsOn(restLib, persistenceLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
 
