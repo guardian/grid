@@ -6,6 +6,7 @@ import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
+import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{FALLBACK, GridLogging, LogMarker, RequestLoggingContext}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
@@ -74,16 +75,18 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
+      val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
+      val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
+
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
-      val record = UploadStatusRecord(req.body.digest, filename, uploadedBy, uploadTime, identifiers, uploadStatus, None, uploadExpiry)
+      val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
       val result = for {
         uploadRequest <- uploader.loadFile(
           req.body,
-          req.user,
-          uploadedBy,
+          uploadedByToRecord,
           identifiers,
-          DateTimeUtils.fromValueOrNow(uploadTime),
+          uploadTimeToRecord,
           filename.flatMap(_.trim.nonEmptyOpt),
           context.requestId)
         _ <- uploadStatusTable.setStatus(record)
@@ -163,16 +166,17 @@ class ImageLoaderController(auth: Authentication,
         digestedFile <- downloader.download(validUri, tempFile)
       } yield digestedFile
 
+      val uploadedByForImport = uploadedBy.getOrElse(Authentication.getIdentity(request.user))
+
       val importResult: Future[Result] = for {
         digestedFile <- digestedFileFuture
         uploadStatusResult <- uploadStatusTable.getStatus(digestedFile.digest)
         maybeStatus = uploadStatusResult.flatMap(_.toOption)
         uploadRequest <- uploader.loadFile(
           digestedFile,
-          request.user,
-          maybeStatus.flatMap(_.uploadedBy).orElse(uploadedBy),
+          maybeStatus.map(_.uploadedBy).getOrElse(uploadedByForImport),
           maybeStatus.flatMap(_.identifiers).orElse(identifiers),
-          DateTimeUtils.fromValueOrNow(maybeStatus.flatMap(_.uploadTime).orElse(uploadTime)),
+          DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
           maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
           context.requestId)
         result <- uploader.storeFile(uploadRequest)

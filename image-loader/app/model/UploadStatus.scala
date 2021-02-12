@@ -5,8 +5,8 @@ import play.api.libs.json._
 case class UploadStatusRecord(
                                id: String,
                                fileName: Option[String],
-                               uploadedBy: Option[String],
-                               uploadTime: Option[String],
+                               uploadedBy: String,
+                               uploadTime: String,
                                identifiers: Option[String],
                                status: StatusType,
                                errorMessage: Option[String],
