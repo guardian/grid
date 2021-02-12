@@ -88,9 +88,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.amazonaws" % "aws-java-sdk-sts" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-dynamodb" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-kinesis" % awsSdkVersion,
-    "org.elasticsearch" % "elasticsearch" % "1.7.6",
-    "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
-    "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
@@ -114,6 +111,18 @@ lazy val restLib = project("rest-lib").settings(
   libraryDependencies ++= Seq(
     "com.typesafe.play" %% "play" % "2.6.20",
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+    akkaHttpServer,
+    ws,
+  ),
+
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+).dependsOn(persistenceLib)
+
+lazy val persistenceLib = project("persistence-lib").settings(
+  libraryDependencies ++= Seq(
+    "org.elasticsearch" % "elasticsearch" % "1.7.6",
+    "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
+    "com.sksamuel.elastic4s" %% "elastic4s-client-esjava" % elastic4sVersion,
     akkaHttpServer,
     ws,
   ),
@@ -157,10 +166,6 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
-      // Would not be needed if persistence-lib is created
-      ExclusionRule("org.elasticsearch"),
-      ExclusionRule("com.sksamuel.elastic4s"),
-
       // See line 104 - only used for disk logging in dev.
       ExclusionRule("org.codehaus.janino"),
       ExclusionRule("org.scalaz.stream"),
@@ -283,7 +288,7 @@ val buildInfo = Seq(
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project =
   project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
-    .dependsOn(restLib)
+    .dependsOn(restLib, persistenceLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
 
