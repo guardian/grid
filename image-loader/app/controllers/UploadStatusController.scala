@@ -3,7 +3,7 @@ package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth._
-import com.gu.scanamo.error.DynamoReadError
+import com.gu.scanamo.error.{ConditionNotMet, DynamoReadError, ScanamoError}
 import lib._
 import model.{StatusType, UploadStatus}
 import play.api.mvc._
@@ -40,7 +40,8 @@ class UploadStatusController(auth: Authentication,
           .updateStatus(imageId, uploadStatus)
           .map{
             case Right(record) => respond(UploadStatus(record.status, record.errorMessage))
-            case Left(error: DynamoReadError) => respondError(BadRequest, "cannot-update", s"Cannot update upload status ${error}")
+            case Left(_: ConditionNotMet) => respondError(BadRequest, "cannot-update", s"Cannot update as no upload status for $imageId exists")
+            case Left(error: ScanamoError) => respondError(BadRequest, "cannot-update", s"Cannot update upload status ${error}")
           }
     }
   }

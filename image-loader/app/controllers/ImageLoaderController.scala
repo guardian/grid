@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.logging.{FALLBACK, GridLogging, LogMarker, RequestLoggingContext}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
+import com.gu.scanamo.error.ConditionNotMet
 import lib.FailureResponse.Response
 import lib.{FailureResponse, _}
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
@@ -212,6 +213,7 @@ class ImageLoaderController(auth: Authentication,
         }
         uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{status =>
           status match {
+            case Left(_: ConditionNotMet) => logger.info(s"no image upload status to update for image ${digestedFile.digest}")
             case Left(error) => logger.error(s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}")
             case Right(_) => logger.info(s"image upload status updated successfully, image-id: ${digestedFile.digest}")
           }
