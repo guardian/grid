@@ -60,6 +60,15 @@ object DigestBodyParser extends ArgoHelpers {
     }
   }
 
+  def empty(file: File, id: String)(implicit ex: ExecutionContext): BodyParser[DigestedFile] =
+    BodyParser("Empty file") { request => {
+      slurp(file).map { case (md, os) =>
+        os.close()
+        Right(DigestedFile(file, id))
+      }
+    }
+  }
+
   def create(to: File)(implicit ex: ExecutionContext): BodyParser[DigestedFile] =
     BodyParser("digested file, to=" + to) { request => {
       slurp(to).map { case (md, os) =>

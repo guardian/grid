@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.aws
 import java.io.File
 import java.net.{URI, URLEncoder}
 import java.nio.charset.{Charset, StandardCharsets}
-import java.nio.file.Files
+import java.nio.file.{Files, StandardCopyOption}
 
 import com.amazonaws.{AmazonServiceException, ClientConfiguration}
 import com.amazonaws.services.s3.model._
@@ -121,7 +121,7 @@ class S3(config: CommonConfig) extends GridLogging {
     val req = new GetObjectRequest(bucket, id)
     Stopwatch(s"S3 client.getObject ($req)") {
       val imageObject = client.getObject(req)
-      Files.copy(imageObject.getObjectContent, file.toPath)
+      Files.copy(imageObject.getObjectContent, file.toPath, StandardCopyOption.REPLACE_EXISTING)
       imageObject.getObjectMetadata.getUserMetadata.asScala.toMap
     }
   }

@@ -63,7 +63,7 @@ class ImageLoaderController(auth: Authentication,
     // set up local file
     val tempFile = createTempFile("s3reload")
     // get file from s3 and write to local file
-    val parsedBody = DigestBodyParser.create(tempFile)
+    val parsedBody = DigestBodyParser.empty(tempFile, identifier)
     auth.async(parsedBody) { req =>
       for {
         meta <- downloader.fetchImage(identifier, tempFile)
@@ -78,7 +78,7 @@ class ImageLoaderController(auth: Authentication,
           "uploadTime" -> uploadTime.getOrElse("UNKNOWN"),
           "filename" -> filename.getOrElse("UNKNOWN")
         ))
-        result <- load("reloadImage", uploadedBy, Some(identifier), uploadTime, filename: Option[String], context, tempFile, digestedFile: DigestedFile, req.user)(widerContext)
+        result <- load("reloadImage", uploadedBy, Map("id" -> identifier), uploadTime, filename: Option[String], context, tempFile, digestedFile: DigestedFile, req.user)(widerContext)
       } yield result
     }
   }
@@ -103,14 +103,14 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
-      load("loadImage", uploadedBy, identifiers, uploadTime, filename, context, tempFile, req.body, req.user)
+      load("loadImage", uploadedBy, getIdentifiersMap(identifiers), uploadTime, filename, context, tempFile, req.body, req.user)
     }
   }
 
   private def load(
                     loader: String,
                     uploadedBy: Option[String],
-                    identifiers: Option[String],
+                    identifiersMap: Map[String, String],
                     uploadTime: Option[String],
                     filename: Option[String],
                     context: RequestLoggingContext,
@@ -124,7 +124,7 @@ class ImageLoaderController(auth: Authentication,
         digestedFile,
         user,
         uploadedBy,
-        getIdentifiersMap(identifiers),
+        identifiersMap,
         DateTimeUtils.fromValueOrNow(uploadTime),
         filename.flatMap(_.trim.nonEmptyOpt),
         context.requestId)
