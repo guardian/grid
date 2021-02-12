@@ -64,8 +64,8 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
     try {
       iamClient.getUser.getUser.getUserName
     } catch {
-      case e:com.amazonaws.AmazonServiceException=>
-        logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names")
+      case e:com.amazonaws.SdkClientException =>
+        logger.warn("Unable to determine current IAM user, probably because you're using temp credentials.  Usage may not be able to determine the live/preview app names", e)
         "tempcredentials"
     }
   } else {
