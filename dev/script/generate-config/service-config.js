@@ -190,7 +190,6 @@ module.exports = {
             kahuna: getKahunaConfig(config),
             leases: getLeasesConfig(config),
             'media-api': getMediaApiConfig(config),
-            // 'media-usage': getUsageConfig(config),
             'metadata-editor': getMetadataEditorConfig(config),
             s3Watcher: getS3WatcherConfig(config),
             thrall: getThrallConfig(config),

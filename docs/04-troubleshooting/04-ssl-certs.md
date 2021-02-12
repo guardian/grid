@@ -4,9 +4,9 @@ GRID services make HTTPS calls between themselves, and need a root certificate t
 
 ## Generating certificate.
 
-Installation is trivial:
+Installation is usually completed by setup (which calls dev-nginx)
 
-Ensure JAVA_HOME is exported, and then run
+In the event the certificate needs to be replaced / repaired, ensure JAVA_HOME is exported, and then run
 ```
 mkcert -install
 ```
