@@ -41,8 +41,16 @@ object S3FileExtractedMetadata {
   def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
     val lastModified = s3ObjectMetadata.getLastModified.toInstant.toString
     val fileUserMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
-      // The values can be URL encoded in S3 metadata and it is safe to decode everything (based on the tested corpus)
-      .mapValues(URI.decode)
+      .map { case (key, value) =>
+        // Fix up the contents of the metadata.
+        (
+          // The keys used to be named with underscores instead of dashes but due to localstack being written in Python
+          // this didn't work locally (see https://github.com/localstack/localstack/issues/459)
+          key.replaceAll("_", "-"),
+          // The values are now all URL encoded and it is assumed safe to decode historical values too (based on the tested corpus)
+          URI.decode(value)
+        )
+      }
 
     val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
     val uploadedTimeRaw = fileUserMetadata.getOrElse(ImageStorageProps.uploadTimeMetadataKey, lastModified)
