@@ -81,7 +81,6 @@ var kahuna = angular.module('kahuna', [
     globalErrors.name,
 
     // directives used throughout
-    imageFade.name,
     icon.name,
     tooltip.name
 ]);
