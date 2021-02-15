@@ -287,8 +287,7 @@ class Uploader(val store: ImageLoaderStore,
                                  (implicit logMarker: LogMarker) = store.store(storableOptimisedImage)
 
   def loadFile(digestedFile: DigestedFile,
-               user: Principal,
-               uploadedBy: Option[String],
+               uploadedBy: String,
                identifiers: Option[String],
                uploadTime: DateTime,
                filename: Option[String],
@@ -312,7 +311,7 @@ class Uploader(val store: ImageLoaderStore,
           tempFile = tempFile,
           mimeType = Some(mimeType),
           uploadTime = uploadTime,
-          uploadedBy = uploadedBy.getOrElse(Authentication.getIdentity(user)),
+          uploadedBy = uploadedBy,
           identifiers = identifiersMap,
           uploadInfo = UploadInfo(filename)
         )
