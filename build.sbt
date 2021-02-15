@@ -250,7 +250,7 @@ lazy val usage = playProject("usage", 9009).settings(
 )
 
 lazy val scripts = project("scripts")
-  .dependsOn(commonLib)
+  .dependsOn(persistenceLib)
 
 lazy val migration = project("migration")
   .dependsOn(commonLib).
