@@ -8,7 +8,7 @@ imageFade.directive('grImageFadeOnLoad',
 
     // TODO: customise duration, transition
                          const animationDuration = 200; // ms
-                         const revealAfter = 200; // ms
+                         const revealAfter = 1500; // ms
 
     return {
         restrict: 'A',
