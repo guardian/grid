@@ -35,8 +35,7 @@
        <img class="preview__image"
             ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer}"
             alt="{{::ctrl.imageDescription}}"
-            ng-src="{{::ctrl.image.data.thumbnail | assetFile}}"
-            gr-image-fade-on-load />
+            ng-src="{{::ctrl.image.data.thumbnail | assetFile}}"/>
     </a>
 
     <span ng-if="ctrl.selectionMode" class="preview__no-link">
@@ -45,8 +44,7 @@
              ng-class="{'preview__image--staff': ctrl.states.isStaffPhotographer}"
              alt="{{::ctrl.image.data.metadata.description}}"
              ng-src="{{::ctrl.image.data.thumbnail | assetFile}}"
-             ui-drag-data="ctrl.image | asImageDragData"
-             gr-image-fade-on-load />
+             ui-drag-data="ctrl.image | asImageDragData"/>
     </span>
 
     <div class="preview__info" ng-if="! ctrl.hideInfo">
