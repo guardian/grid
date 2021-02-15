@@ -117,6 +117,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   val thumbUnsharpRadius = 0.5d
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
+  val interlacedHow = "Line"
 
   /**
     * Given a source file containing a png (the 'browser viewable' file),
@@ -146,7 +147,8 @@ class ImageOperations(playPath: String) extends GridLogging {
     val profiled    = applyOutputProfile(stripped, optimised = true)
     val unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
     val qualified   = quality(unsharpened)(qual)
-    val addOutput   = {file:File => addDestImage(qualified)(file)}
+    val interlaced  = interlace(qualified)(interlacedHow)
+    val addOutput   = {file:File => addDestImage(interlaced)(file)}
     for {
       outputFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
       _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
