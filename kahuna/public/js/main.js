@@ -9,8 +9,6 @@ import {editsApi}   from './services/api/edits-api';
 import {loaderApi}  from './services/api/loader';
 import {mediaApi}   from './services/api/media-api';
 
-import {imageFade} from './directives/gr-image-fade-on-load';
-
 import {crop}   from './crop/index';
 import {image}  from './image/index';
 import {upload} from './upload/index';
