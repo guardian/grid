@@ -51,6 +51,7 @@ class ImageLoaderController(auth: Authentication,
     quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(uploader.storeFile(uploadRequest))
   }
 
+  private val metadataIdentifierPrefix = "x-amz-meta-identifier!"
   def reloadImage(uploadedBy: Option[String], identifier: String): Action[DigestedFile] = {
     // Construct logging markers
     implicit val context: RequestLoggingContext = RequestLoggingContext(
@@ -78,7 +79,12 @@ class ImageLoaderController(auth: Authentication,
           "uploadTime" -> uploadTime.getOrElse("UNKNOWN"),
           "filename" -> filename.getOrElse("UNKNOWN")
         ))
-        result <- load("reloadImage", uploadedBy, Map("id" -> identifier), uploadTime, filename: Option[String], context, tempFile, digestedFile: DigestedFile, req.user)(widerContext)
+        identifiersMap =
+            meta
+              .filterKeys(k => k.startsWith(metadataIdentifierPrefix))
+              .map(p => (p._1.replace(metadataIdentifierPrefix, ""), p._2))
+
+        result <- load("reloadImage", uploadedBy, identifiersMap, uploadTime, filename: Option[String], context, tempFile, digestedFile: DigestedFile, req.user)(widerContext)
       } yield result
     }
   }
