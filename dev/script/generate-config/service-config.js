@@ -12,19 +12,23 @@ function getCorsAllowedOriginString(config) {
 function getCommonConfig(config) {
   return `domain.root="${config.DOMAIN}"
         |authentication.providers.machine.config.authKeyStoreBucket="${config.coreStackProps.KeyBucket}"
+        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |thrall.kinesis.stream.name="${config.coreStackProps.ThrallMessageStream}"
         |thrall.kinesis.lowPriorityStream.name="${config.coreStackProps.ThrallLowPriorityMessageStream}"
         |`;
 }
 
 function getAuthConfig(config) {
-    return stripMargin`${getCommonConfig(config)}
+  return stripMargin`${getCommonConfig(config)}
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |metrics.request.enabled=false
         |`;
+}
+
+function getAdminToolsConfig(config) {
+  return stripMargin`${getCommonConfig(config)}`;
 }
 
 function getCollectionsConfig(config) {
@@ -33,7 +37,6 @@ function getCollectionsConfig(config) {
         |s3.collections.bucket="${config.coreStackProps.CollectionsBucket}"
         |dynamo.table.collections="CollectionsTable"
         |dynamo.table.imageCollections="ImageCollectionsTable"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
         |`;
@@ -44,7 +47,6 @@ function getCropperConfig(config) {
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |publishing.image.bucket="${config.coreStackProps.ImageOriginBucket}"
         |publishing.image.host="public.media.${config.DOMAIN}"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
@@ -82,7 +84,6 @@ function getKahunaConfig(config) {
         |links.supportEmail="${config.links.supportEmail}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |security.frameAncestors="https://*.${config.DOMAIN}"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |metrics.request.enabled=false
         |`;
 }
@@ -90,7 +91,6 @@ function getKahunaConfig(config) {
 function getLeasesConfig(config) {
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |dynamo.tablename.leasesTable="LeasesTable"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
@@ -102,7 +102,6 @@ function getMediaApiConfig(config) {
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
         |s3.usagemail.bucket="${config.coreStackProps.UsageMailBucket}"
         |persistence.identifier="picdarUrn"
@@ -122,7 +121,6 @@ function getMetadataEditorConfig(config) {
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.collections.bucket="${config.coreStackProps.CollectionsBucket}"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |dynamo.table.edits="EditsTable"
         |indexed.images.sqs.queue.url="${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
@@ -153,7 +151,6 @@ function getThrallConfig(config) {
         |es6.cluster="${config.es6.cluster}"
         |es6.shards=${config.es6.shards}
         |es6.replicas=${config.es6.replicas}
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |metrics.request.enabled=false
         |`;
 }
@@ -165,7 +162,6 @@ function getUsageConfig(config) {
         |capi.apiKey="${config.guardian.capi.live.key}"
         |dynamo.tablename.usageRecordTable="UsageRecordTable"
         |composer.baseUrl="composer.${config.DOMAIN}"
-        |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |crier.live.arn="${config.guardian.crier.live.roleArn}"
         |crier.preview.arn="${config.guardian.crier.preview.roleArn}"
         |crier.preview.name="${config.guardian.crier.preview.streamName}"
@@ -189,6 +185,7 @@ module.exports = {
     getCoreConfigs: (config) => {
         return {
             auth: getAuthConfig(config),
+            'admin-tools': getAdminToolsConfig(config),
             collections: getCollectionsConfig(config),
             cropper: getCropperConfig(config),
             'image-loader': getImageLoaderConfig(config),
