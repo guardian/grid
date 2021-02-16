@@ -58,6 +58,7 @@ function getImageLoaderConfig(config) {
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
         |s3.quarantine.bucket="${config.coreStackProps.QuarantineBucket}"
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
+        |dynamo.table.upload.status="UploadStatusTable"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false

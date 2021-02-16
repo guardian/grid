@@ -79,7 +79,7 @@ trait ArgoHelpers extends Results with GridLogging {
   }
 
 
-  private def serializeAndWrap[T](response: T, status: Status)(implicit writes: Writes[T]): Result = {
+  protected def serializeAndWrap[T](response: T, status: Status)(implicit writes: Writes[T]): Result = {
     val json = Json.toJson(response)
     status(json).as(ArgoMediaType)
   }

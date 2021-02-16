@@ -270,4 +270,6 @@ object DynamoDB {
     }
     valueMap
   }
+  def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, JsValue] =
+    Json.toJson[T](caseClass).as[JsObject].as[Map[String, JsValue]]
 }

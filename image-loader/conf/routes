@@ -3,6 +3,12 @@ POST    /images                     controllers.ImageLoaderController.loadImage(
 POST    /imports                    controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 GET     /images/project/:imageId    controllers.ImageLoaderController.projectImageBy(imageId: String)
 
+# Upload Status
+GET     /uploadStatus/:imageId      controllers.UploadStatusController.getUploadStatus(imageId: String)
+POST    /uploadStatus/:imageId      controllers.UploadStatusController.updateUploadStatus(imageId: String)
+
+
+
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
