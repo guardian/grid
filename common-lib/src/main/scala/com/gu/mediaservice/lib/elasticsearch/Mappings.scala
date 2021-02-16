@@ -22,13 +22,13 @@ object Mappings {
       val maximumStringLengthToStore = (maximumBytesOfKeywordInUnderlyingLuceneIndex * .9).toInt
 
       dynamicTemplate("file_metadata_fields_as_keywords").
-        mapping(dynamicKeywordField().index(false).store(true).ignoreAbove(maximumStringLengthToStore)).
+        mapping(dynamicKeywordField().index(true).store(true).ignoreAbove(maximumStringLengthToStore)).
         pathMatch("fileMetadata.*").matchMappingType("string")
     }
 
     def storedJsonObjectTemplate: DynamicTemplateRequest = {
       dynamicTemplate("stored_json_object_template").
-        mapping(dynamicType().index(false).store(true)).
+        mapping(dynamicType().index(true).store(true)).
         pathMatch("fileMetadata.*")
     }
 

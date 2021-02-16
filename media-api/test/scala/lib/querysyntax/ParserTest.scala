@@ -345,7 +345,7 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
       // TODO: or better, return parse error to client?
       it("should ignore an invalid date argument") {
         Parser.run("date:NAZGUL") should be (List(
-          Match(AnyField, Words("date:NAZGUL"))
+          Match(SingleField("date"), Words("NAZGUL"))
         ))
       }
 
@@ -498,7 +498,47 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
 
     it("should not match unrelated file types") {
       Parser.run("fileType:catsdogs") should be (List(
-        Match(AnyField, Words("fileType:catsdogs"))
+        Match(SingleField("fileType"), Words("catsdogs"))
+      ))
+    }
+  }
+
+  describe("quoted field search") {
+    it("should match a quoted field search") {
+      Parser.run(""""fieldDogs":cats""") should be (List(
+        Match(SingleField("fieldDogs"), Words("cats"))
+      ))
+    }
+
+    it("should match a quoted field search with  colons") {
+      Parser.run(""""fieldDogs:dinosaur:lemur":cats""") should be (List(
+        Match(SingleField("fieldDogs:dinosaur:lemur"), Words("cats"))
+      ))
+    }
+
+    it("should match a quoted field search colons, and a search term with quotes and colons") {
+      Parser.run(""""fieldDogs":"cats:are:fun"""") should be (List(
+        Match(SingleField("fieldDogs"), Phrase("cats:are:fun"))
+      ))
+    }
+
+    it("should match a quoted field search with colons and spaces") {
+      Parser.run(""""fieldDogs: dinosaur:lemur":cats""") should be (List(
+        Match(SingleField("fieldDogs: dinosaur:lemur"), Words("cats"))
+      ))
+    }
+
+    it("should match a field search with colons and spaces") {
+      Parser.run("fieldDogs : dinosaur:lemur:cats") should be (List(
+        Match(AnyField,Words("fieldDogs :")),
+        Match(SingleField("dinosaur"),Words("lemur:cats"))
+      ))
+    }
+
+    it("should match two field queries") {
+      Parser.run("fieldDogs:dinosaur lemur:cats") should be (List(
+        Match(SingleField("fieldDogs"),Words("dinosaur")),
+        Match(SingleField("lemur"),Words("cats"))
       ))
     }
   }
