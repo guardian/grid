@@ -76,3 +76,21 @@ This section is inspired by gov.uk's [pull request styleguide](https://github.co
  - Minor changes to a PR should be done by amending the appropriate commit (see above note about force pushing).
  - Significant changes warrant their own commits, although ensure that your commit is descriptive of the change, not just `addressing feedback`.
  - Remember to comment on the PR to say when it is ready for further review.
+
+## Project Structure
+
+The project is comprised of multiple micro services, each of which is dependent on its own library,
+plus either `common-lib` or one or both of `rest-lib` and `persistence-lib`.
+
+### Common Lib
+
+Code which is likely to be common to _all_ micro services, such as the data model.
+
+### REST Lib
+
+Code which is common to micro-services which present a REST interface.  This project depends directly on `common-lib` and `play`.
+
+### Persistence Lib
+
+Code which is common to micro-services which query from or write to Elasticsearch.  This project depends directly on `common-lib` and `elasticsearch`.
+
