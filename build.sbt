@@ -106,7 +106,8 @@ lazy val commonLib = project("common-lib").settings(
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-    "com.gu" %% "scanamo" % "1.0.0-M8"
+    "com.gu" %% "scanamo" % "1.0.0-M8",
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7"
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 ).settings(bbcCommonLibSettings)
@@ -178,7 +179,6 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
     libraryDependencies ++= Seq(
       "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
       "com.typesafe.play" %% "play-json" % "2.6.9",
-      "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.5.1",
       "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
       "io.symphonia" % "lambda-logging" % "1.0.3",
