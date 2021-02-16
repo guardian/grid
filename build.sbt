@@ -20,7 +20,10 @@ val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test
-  )
+  ),
+
+  sources in (Compile,doc) := Seq.empty,
+  publishArtifact in (Compile, packageDoc) := false
 )
 
 lazy val root = project("grid", path = Some("."))
