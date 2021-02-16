@@ -6,8 +6,6 @@ import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Result, Results}
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.typesafe.scalalogging.Logger
-
 
 trait ArgoHelpers extends Results with GridLogging {
 
@@ -79,7 +77,7 @@ trait ArgoHelpers extends Results with GridLogging {
   }
 
 
-  private def serializeAndWrap[T](response: T, status: Status)(implicit writes: Writes[T]): Result = {
+  protected def serializeAndWrap[T](response: T, status: Status)(implicit writes: Writes[T]): Result = {
     val json = Json.toJson(response)
     status(json).as(ArgoMediaType)
   }

@@ -7,11 +7,9 @@ import java.nio.file.Files
 import java.util.UUID
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.{BrowserViewableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
-import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners, SupplierProcessors}
+import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners}
 import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -284,8 +282,7 @@ class Uploader(val store: ImageLoaderStore,
                                  (implicit logMarker: LogMarker) = store.store(storableOptimisedImage)
 
   def loadFile(digestedFile: DigestedFile,
-               user: Principal,
-               uploadedBy: Option[String],
+               uploadedBy: String,
                identifiersMap: Map[String, String],
                uploadTime: DateTime,
                filename: Option[String],
@@ -306,7 +303,7 @@ class Uploader(val store: ImageLoaderStore,
           tempFile = tempFile,
           mimeType = Some(mimeType),
           uploadTime = uploadTime,
-          uploadedBy = uploadedBy.getOrElse(Authentication.getIdentity(user)),
+          uploadedBy = uploadedBy,
           identifiers = identifiersMap,
           uploadInfo = UploadInfo(filename)
         )
