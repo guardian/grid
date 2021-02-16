@@ -246,6 +246,15 @@ lazy val usage = playProject("usage", 9009).settings(
 
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
+  .enablePlugins(JavaAppPackaging, UniversalPlugin)
+  .settings(
+    libraryDependencies ++= Seq(
+      // V2 of the AWS SDK as it's easier to use for scripts and won't leak to the rest of the project from here
+      "software.amazon.awssdk" % "s3" % "2.15.81",
+      // bump jcommander explicitly as AWS SDK is pulling in a vulnerable version
+      "com.beust" % "jcommander" % "1.75"
+    )
+  )
 
 lazy val migration = project("migration")
   .dependsOn(commonLib).
