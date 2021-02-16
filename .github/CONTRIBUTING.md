@@ -4,6 +4,37 @@ We follow the standard GitHub [fork & pull](https://help.github.com/articles/usi
 
 If you're not sure how to approach a contribution you want to make then feel free to open an issue instead and we'd be glad to discuss it with you.
 
+## Project Structure
+
+The project is comprised of multiple micro services, each of which is dependent on its own library,
+plus either `common-lib` or one or both of `rest-lib` and `persistence-lib`.
+
+Each has a short readme, but they are summarised below for convenience:
+
+### Shared libraries
+
+ * Common Lib - Code which is common to _all_ micro services, such as the data model.
+ * REST Lib - Common code for presenting a REST interface.  This library depends directly on `common-lib` and `play`.
+ * Persistence Lib - Common code for querying from or writing to Elasticsearch. This library depends directly on `common-lib` and `elasticsearch`.
+
+### Microservices
+
+ * kahuna - front end (UI) code plus a small service to serve config to front end
+ * admin-tools - lambdas for controlled bulk re-ingestion and analysis
+ * auth - authorisation
+ * image-loader - direct ingestion of images
+ * cropper - creating new images by cropping originals
+ * usage - recording usages on a per-image basis in dynamodb
+ * thrall - updating ElasticSearch for purposes of image search
+ * metadata-editor - handling changes to metadata
+ * leases - recording leases on a per-image basis in dynamodb
+ * scripts - the usual motley crew of useful script tasks
+ * collections - recording collections on a per-image basis in dynamodb
+ * migration - scripts used to migrate between ElasticSearch versions.
+ * image-counter-lambda - metrics emitting lambda
+ * media-api - main api for querying and viewing images
+
+
 ## Contribution process
 
 1. To avoid wasted effort it is often worth talking to the Grid devs to discuss what you are hoping to do, you never know - we might already have implemented what you need! Feel free to open an issue first and we'd be glad to figure that out with you.
@@ -76,3 +107,4 @@ This section is inspired by gov.uk's [pull request styleguide](https://github.co
  - Minor changes to a PR should be done by amending the appropriate commit (see above note about force pushing).
  - Significant changes warrant their own commits, although ensure that your commit is descriptive of the change, not just `addressing feedback`.
  - Remember to comment on the PR to say when it is ready for further review.
+

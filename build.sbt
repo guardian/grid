@@ -77,11 +77,6 @@ val bbcCommonLibSettings: SettingsDefinition = if (bbcBuildProcess) {
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.typesafe.play" %% "play" % "2.6.20", ws,
-    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
-    akkaHttpServer,
-    ws,
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -99,7 +94,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
-    "com.drewnoakes" % "metadata-extractor" % "2.15.0",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
@@ -111,11 +105,23 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.gu" %% "scanamo" % "1.0.0-M8"
+    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+    "com.gu" %% "scanamo" % "1.0.0-M8",
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7"
+  ),
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+).settings(bbcCommonLibSettings)
+
+lazy val restLib = project("rest-lib").settings(
+  libraryDependencies ++= Seq(
+    "com.typesafe.play" %% "play" % "2.6.20",
+    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+    akkaHttpServer,
+    ws,
   ),
 
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
-).settings(bbcCommonLibSettings)
+).dependsOn(commonLib)
 
 lazy val auth = playProject("auth", 9011)
 
@@ -126,7 +132,8 @@ lazy val cropper = playProject("cropper", 9006)
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
     "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
-    "org.apache.tika" % "tika-core" % "1.20"
+    "org.apache.tika" % "tika-core" % "1.20",
+    "com.drewnoakes" % "metadata-extractor" % "2.15.0"
   )
 }
 
@@ -148,14 +155,25 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
+      // Would not be needed if persistence-lib is created
       ExclusionRule("org.elasticsearch"),
       ExclusionRule("com.sksamuel.elastic4s"),
-      ExclusionRule("com.drewnoakes", "metadata-extractor"),
+
+      // See line 104 - only used for disk logging in dev.
       ExclusionRule("org.codehaus.janino"),
-      ExclusionRule("com.typesafe.play"),
       ExclusionRule("org.scalaz.stream"),
+
+      // Ultimately only used by cropper and image loader
+      // Probably tiny
       ExclusionRule("org.im4java"),
+
+      // Only used in ProcessesSpec.scala in common-lib test?
+      // Presumably should be a test dependency and then won't need excluding?
       ExclusionRule("org.scalacheck"),
+
+      // Provides com.gu.logback.appender.kinesis.KinesisAppender
+      // used by LogConfig.scala in common-lib - probably should move into rest-lib
+      // because the lambdas and command line tools by definition won't use it.
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
@@ -263,7 +281,7 @@ val buildInfo = Seq(
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project =
   project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
-    .dependsOn(commonLib)
+    .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
 
