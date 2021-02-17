@@ -104,7 +104,8 @@ lazy val commonLib = project("common-lib").settings(
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
     "com.gu" %% "scanamo" % "1.0.0-M8",
-    "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.8"
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.8",
+    "org.apache.thrift" % "libthrift" % "0.11.0"
   )
 ).settings(bbcCommonLibSettings)
 
