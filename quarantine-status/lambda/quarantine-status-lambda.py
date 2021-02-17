@@ -21,14 +21,7 @@ ORIGIN_HEADER_VALUE = os.environ['ORIGIN_URL']
 CONTENT_HEADER = "Content-Type"
 CONTENT_HEADER_VALUE = "application/json"
 
-METRIC_SUCCESS = "UpdateUploadStatusSuccess"
-METRIC_FAILURE = "UpdateUploadStatusFailure"
-
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-cloudwatch = boto3.client('cloudwatch')
-
-
 
 def lambda_handler(event, context):
     results = {"results": []}
@@ -61,12 +54,10 @@ def send_to_loader(imageId, scanResult, errorMessage):
 
         if loader_response.status_code == 200 or loader_response.status_code == 202:
             print("...POST completed successfully in {} seconds\n".format(loader_response.elapsed.total_seconds()))
-            send_metric(METRIC_SUCCESS)
             return {imageId: loader_response.json()}
         else:
             print("Non 200/202 response received from api POST: {}, Reason: {}".format(loader_response.status_code, loader_response.reason))
             attempt += 1
-            send_metric(METRIC_FAILURE)
             if attempt < RETRY_ATTEMPTS:
                 print("Retrying: {} (attempt {} of {})...".format(imageId, attempt + 1, RETRY_ATTEMPTS))
             else:
@@ -74,20 +65,3 @@ def send_to_loader(imageId, scanResult, errorMessage):
                 raise Exception('Failed to update image upload status with imageId: {} after {} retries. '
                                 '(Non 200/202 response received from api POST: {}, Reason: {})'
                                 .format(imageId, RETRY_ATTEMPTS, loader_response.status_code, loader_response.reason))
-
-def send_metric(metric_name):
-    cloudwatch.put_metric_data(Namespace = ENVIRONMENT + "/GridUpdateUploadStatusLambda",
-                               MetricData = [
-                                                {
-                                                    'MetricName': metric_name,
-                                                    'Unit': 'Count',
-                                                    'Value': 1,
-                                                    'Dimensions': [
-                                                        {
-                                                            'Name': 'Lambda Name',
-                                                            'Value': AWS_LAMBDA_FUNCTION_NAME
-                                                        }
-                                                    ]
-                                                },
-                                            ]
-                               )

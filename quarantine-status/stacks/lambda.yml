@@ -38,11 +38,6 @@ Resources:
               - 'arn:aws:logs:*:*:*'
             Effect: Allow
           - Action:
-              - 'cloudwatch:PutMetricData'
-            Resource:
-              - '*'
-            Effect: Allow
-          - Action:
               - 'sns:Publish'
             Resource:
               - 'Fn::GetAtt':

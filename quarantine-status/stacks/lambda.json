@@ -50,15 +50,6 @@
             },
             {
               "Action": [
-                "cloudwatch:PutMetricData"
-              ],
-              "Resource": [
-                "*"
-              ],
-              "Effect": "Allow"
-            },
-            {
-              "Action": [
                 "sns:Publish"
               ],
               "Resource": [
