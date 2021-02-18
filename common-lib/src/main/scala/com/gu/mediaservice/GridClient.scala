@@ -2,13 +2,14 @@ package com.gu.mediaservice
 
 import java.io.IOException
 import java.net.URL
+
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider
 import com.typesafe.scalalogging.LazyLogging
-import okhttp3._
+import okhttp3.{Call, Callback, ConnectionPool, OkHttpClient, Request, Response}
 import play.api.libs.json.{JsValue, Json}
 
-import scala.util.{Failure, Success, Try}
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success, Try}
 
 object ClientResponse {
   case class Message(errorMessage: String, downstreamErrorMessage: String)

@@ -111,7 +111,8 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.gu" %% "scanamo" % "1.0.0-M8"
+    "com.gu" %% "scanamo" % "1.0.0-M8",
+    "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
   ),
 
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
@@ -125,7 +126,6 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-    "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
     "org.apache.tika" % "tika-core" % "1.20"
   )
 }

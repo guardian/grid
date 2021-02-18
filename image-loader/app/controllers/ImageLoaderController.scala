@@ -2,6 +2,7 @@ package controllers
 
 import java.io.{File, IOException}
 import java.net.URI
+
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -14,7 +15,7 @@ import lib.FailureResponse.Response
 import lib.{FailureResponse, _}
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
-import model.{Projector, QuarantineUploader, StatusType, UploadStatus, Uploader}
+import model.{ImageUploadProcessor, Projector, QuarantineUploader, StatusType, UploadStatus, Uploader}
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
 import play.api.mvc._
@@ -49,8 +50,8 @@ class ImageLoaderController(auth: Authentication,
 
   def index: Action[AnyContent] = auth { indexResponse }
 
-  def quarantineOrStoreImage(uploadRequest: UploadRequest)(implicit logMarker: LogMarker) = {
-    quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(uploader.storeFile(uploadRequest))
+  def quarantineOrStoreImage(uploadRequest: UploadRequest, loader: ImageUploadProcessor)(implicit logMarker: LogMarker) = {
+    quarantineUploader.map(_.quarantineFile(uploadRequest)).getOrElse(loader.storeFile(uploadRequest))
   }
 
   private val metadataIdentifierPrefix = "x-amz-meta-identifier!"
@@ -72,7 +73,7 @@ class ImageLoaderController(auth: Authentication,
         meta <- downloader.fetchImage(identifier, tempFile)
         digestedFile = DigestedFile(tempFile, identifier)
         // get original upload time etc from s3 meta
-        uploadedBy = meta.get("x-amz-meta-uploaded_by").getOrElse("Unknown")
+        uploadedBy = meta.getOrElse("x-amz-meta-uploaded_by", "Unknown")
         uploadTime = meta.get("x-amz-meta-upload_time")
         filename = meta.get("x-amz-meta-file_name")
         // Add to logging markers
@@ -81,15 +82,16 @@ class ImageLoaderController(auth: Authentication,
           "uploadTime" -> uploadTime.getOrElse("UNKNOWN"),
           "filename" -> filename.getOrElse("UNKNOWN")
         ))
-        identifiersMap =
-            meta
-              .filterKeys(k => k.startsWith(metadataIdentifierPrefix))
-              .map(p => (p._1.replace(metadataIdentifierPrefix, ""), p._2))
+        identifiersMap = getIdentifiersFromS3(meta)
 
-        result <- load("reloadImage", uploadedBy, identifiersMap, uploadTime, filename: Option[String], context, tempFile, digestedFile: DigestedFile, req.user)(widerContext)
+        result <- load(projector, uploadedBy, identifiersMap, uploadTime, filename: Option[String], context, tempFile, digestedFile: DigestedFile, req.user)(widerContext)
       } yield result
     }
   }
+
+  private def getIdentifiersFromS3(meta: Map[String, String]) = meta
+    .filterKeys(k => k.startsWith(metadataIdentifierPrefix))
+    .map(p => (p._1.replace(metadataIdentifierPrefix, ""), p._2))
 
   def loadImage(uploadedBy: String, identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
 
@@ -111,12 +113,12 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     auth.async(parsedBody) { req =>
-      load("loadImage", uploadedBy, getIdentifiersMap(identifiers), uploadTime, filename, context, tempFile, req.body, req.user)
+      load(uploader, uploadedBy, getIdentifiersMap(identifiers), uploadTime, filename, context, tempFile, req.body, req.user)
     }
   }
 
   private def load(
-                    loader: String,
+                    loader: ImageUploadProcessor,
                     uploadedBy: String,
                     identifiersMap: Map[String, String],
                     uploadTime: Option[String],
@@ -128,14 +130,14 @@ class ImageLoaderController(auth: Authentication,
                   )(implicit logMarker: LogMarker): Future[Result] = {
 
     val result = for {
-      uploadRequest <- uploader.loadFile(
+      uploadRequest <- loader.loadFile(
         digestedFile,
         uploadedBy,
         identifiersMap,
         DateTimeUtils.fromValueOrNow(uploadTime),
         filename.flatMap(_.trim.nonEmptyOpt),
         context.requestId)
-      result <- quarantineOrStoreImage(uploadRequest)
+      result <- quarantineOrStoreImage(uploadRequest, loader)
     } yield result
     result.onComplete(_ => Try {
       deleteTempFile(tempFile)

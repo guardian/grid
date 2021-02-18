@@ -83,9 +83,9 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     )
 
     val futureImage = Uploader.uploadAndStoreImage(
-      mockDependencies.storeOrProjectOriginalFile,
-      mockDependencies.storeOrProjectThumbFile,
-      mockDependencies.storeOrProjectOptimisedImage,
+      mockDependencies.putOriginalFile,
+      mockDependencies.putThumbFile,
+      mockDependencies.putOptimisedImage,
       OptimiseWithPngQuant,
       uploadRequest,
       mockDependencies,
