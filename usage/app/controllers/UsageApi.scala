@@ -204,19 +204,25 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
   }}
 
   def deleteUsages(mediaId: String) = auth.async {
-    usageTable.queryByImageId(mediaId).map(usages => {
-      usages.foreach(usageTable.deleteRecord)
-    }).recover{
-      case error: BadInputException =>
-        logger.warn("UsageApi returned an error.", error)
-        respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
-      case error: Exception =>
-        logger.error("UsageApi returned an error.", error)
-        respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
-    }
+      if (mediaId.isEmpty) {
+       Future.successful(respondError(BadRequest, "image-usage-delete-failed", "Congratulations for calling delete without a mediaId!"))
+     }
+     else{
+      usageTable.queryByImageId(mediaId).map(usages => {
+        usages.foreach(usageTable.deleteRecord)
+        val updateMessage = UpdateMessage(subject = "delete-usages", id = Some(mediaId))
+        notifications.publish(updateMessage)
+        Ok
+      }).recover{
+        case error: BadInputException =>
+          logger.warn("UsageApi returned an error.", error)
+          respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
+        case error: Exception =>
+          logger.error("UsageApi returned an error.", error)
+          respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
+      }
 
-    val updateMessage = UpdateMessage(subject = "delete-usages", id = Some(mediaId))
-    notifications.publish(updateMessage)
-    Future.successful(Ok)
+
+    }
   }
-}
+ }
