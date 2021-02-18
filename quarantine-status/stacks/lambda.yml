@@ -1,6 +1,6 @@
 Parameters:
   LambdaHandler:
-    Default: "virus-alert-lambda.lambda_handler"
+    Default: "quarantine-status-lambda.lambda_handler"
     Type: "String"
     Description: "The name of the function (within your source code) that Lambda calls to start running your code."
   LambdaTimeout:
