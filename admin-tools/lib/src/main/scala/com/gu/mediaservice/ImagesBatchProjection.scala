@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.Image
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ImagesBatchProjection(apiKey: String, domainRoot: String, timeout: Duration, gridClient: GridClient, maxSize: Int) {
+class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridClient, maxSize: Int) {
 
   private implicit val ThrottledExecutionContext = ExecutionContext.fromExecutor(java.util.concurrent.Executors.newFixedThreadPool(5))
 
