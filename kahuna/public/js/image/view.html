@@ -145,7 +145,13 @@
              ng-if="!ctrl.crop"
              draggable="true"
              ui-drag-data="ctrl.image | asImageDragData">
-          <img class="easel__image easel__image--checkered__background"
+          <img ng-if="!ctrl.image.data.optimisedPng" class="easel__image"
+               alt="preview of original image"
+               ng-src="{{:: ctrl.optimisedImageUri}}"
+               grid:track-image="ctrl.image"
+               grid:track-image-location="original"
+               grid:track-image-loadtime/>
+          <img ng-if="ctrl.image.data.optimisedPng" class="easel__image easel__image--checkered__background"
                alt="preview of original image"
                ng-src="{{:: ctrl.optimisedImageUri}}"
                grid:track-image="ctrl.image"
