@@ -20,8 +20,9 @@ es {
 }
 
 image.processors = [
-  "com.gu.mediaservice.lib.cleanup.GuardianMetadataCleaners",
-  "com.gu.mediaservice.lib.cleanup.SupplierProcessors$"
+  "com.gu.mediaservice.lib.bbc.BBCMetadataProcessor",
+  "com.gu.mediaservice.lib.bbc.BBCSupplierProcessors$",
+  "com.gu.mediaservice.lib.bbc.BBCPhotographerParser"
 ]
 
 authentication.providers {
@@ -37,10 +38,8 @@ authentication.providers {
     config {
       # all of the things relating to pan domain auth (these are currently sensibly defaulted in code)
       # panda.system = media-service
-      panda.bucketName = "grid-dev-auth-pandomainbucket-80578040"
+      # panda.bucketName = <s3-bucket-with-config>
       # panda.settingsFileKey = <s3-key-with-config>
     }
   }
 }
-
-uploadStatus.recordExpiry = "1 hour"

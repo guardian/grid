@@ -1,14 +1,12 @@
 package com.gu.mediaservice.lib.config
 
 import java.util.UUID
-
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
-import com.typesafe.config.ConfigException
+import com.typesafe.config.{ConfigException, ConfigObject}
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
-
 import scala.util.Try
-
+import scala.collection.JavaConverters._
 
 abstract class CommonConfig(val configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
   final val stackName = "media-service"
@@ -88,6 +86,20 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   final def boolean(key: String): Boolean =
     configuration.getOptional[Boolean](key).getOrElse(false)
+
+  final def getFileMetadataConfig(key : String) : Seq[FileMetadataConfig] = {
+    configuration.getOptional[ConfigObject](key) match {
+      case Some(config) => config.unwrapped().asInstanceOf[java.util.Map[String, java.util.HashMap[String, String]]].asScala.map {
+        case (_, value) =>
+          FileMetadataConfig(
+            tag = value.get("tag"),
+            visible = boolean(value.getOrDefault("visible", "false")),
+            searchable = boolean(value.getOrDefault("searchable", "false")),
+            alias = Some(value.getOrDefault("alias", value.get("tag"))))
+      }.toList
+      case None => List.empty 
+    }
+  }
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")

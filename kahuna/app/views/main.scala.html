@@ -7,7 +7,8 @@
   feedbackFormLink: Option[String],
   usageRightsHelpLink: Option[String],
   invalidSessionHelpLink: Option[String],
-  supportEmail: Option[String])
+  supportEmail: Option[String],
+  fileMetadataConfigs: String)
 <!DOCTYPE html>
 <html>
   <head>
@@ -43,7 +44,8 @@
           feedbackFormLink: "@Html(feedbackFormLink.getOrElse(""))",
           usageRightsHelpLink: "@Html(usageRightsHelpLink.getOrElse(""))",
           invalidSessionHelpLink: "@Html(invalidSessionHelpLink.getOrElse(""))",
-          supportEmail: "@Html(supportEmail.getOrElse(""))"
+          supportEmail: "@Html(supportEmail.getOrElse(""))",
+          fileMetadataConfig: @Html(fileMetadataConfigs)
         }
     </script>
 

@@ -1,6 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.lib.config.FileMetadataConfig
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
@@ -21,4 +22,5 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
+  val fileMetadataConfigs: Seq[FileMetadataConfig] = getFileMetadataConfig("filemetadata-configurations")
 }
