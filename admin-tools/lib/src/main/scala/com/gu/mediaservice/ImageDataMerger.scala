@@ -7,13 +7,14 @@ import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 import play.api.libs.json._
+import play.api.libs.ws.WSClient
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ImageDataMergerConfig {
 
-  def apply(apiKey: String, domainRoot: String, imageLoaderEndpointOpt: Option[String]): ImageDataMergerConfig = {
+  def apply(apiKey: String, domainRoot: String, imageLoaderEndpointOpt: Option[String])(implicit wsClient: WSClient, ec: ExecutionContext): ImageDataMergerConfig = {
     val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
     val imageLoaderEndpoint = imageLoaderEndpointOpt match {
       case Some(uri) => uri
@@ -23,13 +24,13 @@ object ImageDataMergerConfig {
   }
 }
 
-case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String) {
-  val gridClient = GridClient(apiKey, services, maxIdleConnections = 5)
-  def isValidApiKey(): Boolean = {
+case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String)(implicit wsClient: WSClient, ec: ExecutionContext) {
+  val gridClient = GridClient(apiKey, services, maxIdleConnections = 5)(wsClient)
+  def isValidApiKey(): Future[Boolean] = {
     // Make an API key authenticated request to the leases API as a way of validating the API key.
     // A 200 indicates a valid key.
     // Using leases because its a low traffic API.
-    gridClient.makeGetRequestSync(new URL(services.leasesBaseUri), apiKey).statusCode == 200
+    gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), apiKey).map( r => r.statusCode == 200)
   }
 }
 
@@ -147,33 +148,32 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     }
   }
 
-  private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
-    val maybeImage: Option[Image] = gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint)
-    maybeImage match {
-      case Some(img) =>
-        aggregate(img).map { aggImg =>
-          Some(ImageProjectionOverrides.overrideSelectedFields(aggImg))
-        }
-      case None => Future(None)
-    }
+  private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
+    maybeImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint)
+    image <- aggregate(maybeImage)
+  } yield image.map { aggImg =>
+    ImageProjectionOverrides.overrideSelectedFields(aggImg)
   }
 
-  private def aggregate(image: Image)(implicit ec: ExecutionContext): Future[Image] = {
-    logger.info(s"starting to aggregate image")
-    val mediaId = image.id
-    for {
-      collections <- getCollectionsResponse(mediaId)
-      edits <- gridClient.getEdits(mediaId)
-      leases <- gridClient.getLeases(mediaId)
-      usages <- gridClient.getUsages(mediaId)
-      crops <- gridClient.getCrops(mediaId)
-    } yield image.copy(
-      collections = collections,
-      userMetadata = edits,
-      leases = leases,
-      usages = usages,
-      exports = crops
-    )
+  private def aggregate(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
+    case Some(image) => {
+      logger.info(s"starting to aggregate image")
+      val mediaId = image.id
+      for {
+        collections <- getCollectionsResponse(mediaId)
+        edits <- gridClient.getEdits(mediaId)
+        leases <- gridClient.getLeases(mediaId)
+        usages <- gridClient.getUsages(mediaId)
+        crops <- gridClient.getCrops(mediaId)
+      } yield Some(image.copy(
+        collections = collections,
+        userMetadata = edits,
+        leases = leases,
+        usages = usages,
+        exports = crops
+      ))
+    }
+    case None => Future.successful(None)
   }
 
   private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {

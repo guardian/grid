@@ -1,6 +1,5 @@
 package com.gu.mediaservice
 
-import java.io.IOException
 import java.net.URL
 
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
@@ -9,29 +8,29 @@ import com.gu.mediaservice.model.{Crop, Edits, Image}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
-import okhttp3._
+import play.api.libs.json.{JsArray, JsObject, JsValue, Json, Reads}
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import play.api.libs.ws.{WSClient, WSResponse}
 
 object ClientResponse {
   case class Message(errorMessage: String, downstreamErrorMessage: String)
 
   object Message {
-    implicit val reads = Json.reads[Message]
+    implicit val reads: Reads[Message] = Json.reads[Message]
   }
 
   case class DownstreamMessage(errorKey: String, errorMessage: String)
 
   object DownstreamMessage {
-    implicit val reads = Json.reads[DownstreamMessage]
+    implicit val reads: Reads[DownstreamMessage] = Json.reads[DownstreamMessage]
   }
 
   case class Root(message: Message)
 
   object Root {
-    implicit val reads = Json.reads[Root]
+    implicit val reads: Reads[Root] = Json.reads[Root]
   }
 }
 
@@ -40,62 +39,46 @@ case class ClientErrorMessages(errorMessage: String, downstreamErrorMessage: Str
 case class ResponseWrapper(body: JsValue, statusCode: Int, bodyAsString: String)
 
 object GridClient {
-  def apply(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean = true): GridClient =
+  def apply(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean = true)(implicit wsClient: WSClient): GridClient =
     new GridClient(apiKey, services, maxIdleConnections, debugHttpResponse)
 }
 
-class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean) extends ApiKeyAuthentication with LazyLogging {
-
-  import java.util.concurrent.TimeUnit
-
-  private val pool = new ConnectionPool(maxIdleConnections, 5, TimeUnit.MINUTES)
-
-  private val httpClient: OkHttpClient = new OkHttpClient.Builder()
-    .connectTimeout(0, TimeUnit.MINUTES)
-    .readTimeout(0, TimeUnit.MINUTES)
-    .connectionPool(pool)
-    .build()
-
-  def makeGetRequestSync(url: URL, apiKey: String): ResponseWrapper = {
-    val request = new Request.Builder().url(url).header(apiKeyHeaderName, apiKey).build
-    val response = httpClient.newCall(request).execute
-    processResponse(response, url)
-  }
+class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean)(implicit wsClient: WSClient) extends ApiKeyAuthentication with LazyLogging {
 
   def makeGetRequestAsync(url: URL, apiKey: String)(implicit ec: ExecutionContext): Future[ResponseWrapper] = {
-    makeRequestAsync(url, apiKey).map { response =>
+    val response = wsClient.url(url.toString).withHttpHeaders((apiKeyHeaderName, apiKey)).get()
+    response.map { response =>
       processResponse(response, url)
     }
   }
 
-  private def processResponse(response: Response, url: URL) = {
-    val body = response.body()
-    val code = response.code()
-    try {
-      val bodyAsString = body.string
-      val message = response.message()
-      val resInfo = Map(
-        "statusCode" -> code.toString,
-        "message" -> message
-      )
+  private def processResponse(response: WSResponse, url: URL) = {
+    val body = response.body
+    val code = response.status
+    val message = response.statusText
+    val resInfo = Map(
+      "statusCode" -> code.toString,
+      "message" -> message
+    )
 
+    try {
       if (debugHttpResponse) logger.info(s"GET $url response: $resInfo")
       if (code != 200 && code != 404) {
         // Parse error messages from the response body JSON, if there are any
-        val errorMessages = getErrorMessagesFromResponse(bodyAsString)
+        val errorMessages = getErrorMessagesFromResponse(body)
 
         val errorJson = Json.obj(
           "errorStatusCode" -> code,
           "responseMessage" -> message,
-          "responseBody" -> bodyAsString,
+          "responseBody" -> body,
           "message" -> errorMessages.errorMessage,
           "downstreamErrorMessage" -> errorMessages.downstreamErrorMessage,
           "url" -> url.toString,
         )
         logger.error(errorJson.toString())
       }
-      val json = if (code == 200) Json.parse(bodyAsString) else Json.obj()
-      ResponseWrapper(json, code, bodyAsString)
+      val json = if (code == 200) Json.parse(body) else Json.obj()
+      ResponseWrapper(json, code, body)
     } catch {
       case e: Exception =>
         val errorJson = Json.obj(
@@ -104,20 +87,17 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
         logger.error(errorJson.toString())
         // propagating exception
         throw e
-    } finally {
-      body.close()
     }
   }
 
   private def getErrorMessagesFromResponse(responseStr: String): ClientErrorMessages = {
     Try(Json.parse(responseStr)) match {
-      case Success(json) => {
+      case Success(json) =>
         val response = json.asOpt[ClientResponse.Root]
         val errorMessage = response.map(_.message.errorMessage).getOrElse("No error message found")
         val maybeDownstrErr = response.map(_.message.downstreamErrorMessage)
         val downstreamErrorMessage = maybeDownstrErr.flatMap(getErrorMessageFromDownstreamResponse).getOrElse("No downstream error message found")
         ClientErrorMessages(errorMessage, downstreamErrorMessage)
-      }
       case Failure(_) =>
         val jsonError = "Could not parse JSON body"
         ClientErrorMessages(jsonError, jsonError)
@@ -132,16 +112,6 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     }
   }
 
-  private def makeRequestAsync(url: URL, apiKey: String): Future[Response] = {
-    val request = new Request.Builder().url(url).header(apiKeyHeaderName, apiKey).build
-    val promise = Promise[Response]()
-    httpClient.newCall(request).enqueue(new Callback {
-      override def onFailure(call: Call, e: IOException): Unit = promise.failure(e)
-
-      override def onResponse(call: Call, response: Response): Unit = promise.success(response)
-    })
-    promise.future
-  }
 
   private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
     import res._
@@ -162,13 +132,15 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     }
   }
 
-  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String): Option[Image] = {
+  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
-    val url = new URL(s"${imageLoaderEndpoint}/images/project/$mediaId")
-    val res = makeGetRequestSync(url, apiKey)
-    validateResponse(res, url)
-    logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
-    if (res.statusCode == 200) Some(res.body.as[Image]) else None
+    val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
+    for {
+      res <- makeGetRequestAsync(url, apiKey)
+      _ = validateResponse(res, url)
+      _ = logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
+      image = if (res.statusCode == 200) Some(res.body.as[Image]) else None
+    } yield image
   }
 
   def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
@@ -219,5 +191,5 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
 }
 
 class DownstreamApiInBadStateException(message: String, downstreamMessage: String) extends IllegalStateException(message) {
-  def getDownstreamMessage = downstreamMessage
+  def getDownstreamMessage: String = downstreamMessage
 }

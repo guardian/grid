@@ -11,10 +11,16 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
 
   private implicit val ThrottledExecutionContext = ExecutionContext.fromExecutor(java.util.concurrent.Executors.newFixedThreadPool(5))
 
-  def validApiKey(projectionEndpoint: String) = {
+  // TODO I don't like this - checking the API key by making a request to a non-existent endpoint is ... ewww.
+  def validateApiKey(projectionEndpoint: String): Unit = {
     val projectionUrl = new URL(s"$projectionEndpoint/not-exists")
-    val statusCode = gridClient.makeGetRequestSync(projectionUrl, apiKey).statusCode
-    statusCode != 401 && statusCode != 403
+    for {
+      res <- gridClient.makeGetRequestAsync(projectionUrl, apiKey)
+      ok = res.statusCode != 401 && res.statusCode != 403
+    } yield {
+      if (!ok) throw new IllegalStateException("invalid api key")
+    }
+
   }
 
   def getImagesProjection(mediaIds: List[String], projectionEndpoint: String,

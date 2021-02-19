@@ -13,6 +13,7 @@ import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import net.logstash.logback.marker.Markers
 import play.api.libs.json.{JsObject, Json}
+import play.api.libs.ws.WSClient
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -40,7 +41,7 @@ case class BatchIndexHandlerConfig(
 
 case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
 
-class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers {
+class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClient) extends LoggingWithMarkers {
 
   import cfg._
 
@@ -66,7 +67,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def checkImages(): Unit = {
-    if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
+    validateApiKey(projectionEndpoint)
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getMediaIdsBatchByState(checkerStartState)
@@ -124,7 +125,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   }
 
   def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
-    if (!validApiKey(projectionEndpoint)) throw new IllegalStateException("invalid api key")
+    validateApiKey(projectionEndpoint)
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getUnprocessedMediaIdsBatch(startState)
