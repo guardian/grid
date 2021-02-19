@@ -1,4 +1,6 @@
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.play.GridComponents
@@ -33,8 +35,12 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
     case (true, None) => throw new IllegalArgumentException(s"Quarantining is enabled. upload.quarantine.enabled = ${config.uploadToQuarantineEnabled} but no bucket is configured. s3.quarantine.bucket isn't configured.")
     case (false, _) => None
   }
+
+  val services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  private val gridClient = GridClient("dev-", services, 5)(wsClient)
+
   val controller = new ImageLoaderController(
-    auth, downloader, store, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, wsClient)
+    auth, downloader, store, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient)
   val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, controllerComponents)
 
   override lazy val router = new Routes(httpErrorHandler, controller, uploadStatusController, management)

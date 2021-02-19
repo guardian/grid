@@ -2,6 +2,7 @@ package controllers
 
 import java.io.File
 import java.net.URI
+
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -21,8 +22,11 @@ import play.api.libs.ws.WSClient
 import play.api.mvc._
 import model.upload.UploadRequest
 import org.joda.time.DateTime
-
 import java.time.Instant
+
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.config.Services
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -37,7 +41,7 @@ class ImageLoaderController(auth: Authentication,
                             quarantineUploader: Option[QuarantineUploader],
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
-                            wSClient: WSClient)
+                            gridClient: GridClient)
                            (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -122,7 +126,7 @@ class ImageLoaderController(auth: Authentication,
     )
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { _ =>
-      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId)
+      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId, gridClient)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
