@@ -136,6 +136,20 @@ class S3(config: CommonConfig) extends GridLogging {
       }(markers)
     }
 
+  def storeIfNotPresent(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): Future[Unit] = {
+    Future{
+      client.doesObjectExist(bucket, id)
+    }.flatMap { alreadyExists =>
+      if (alreadyExists) {
+        log.info(s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
+        Future.successful(())
+      } else {
+        store(bucket, id, file, mimeType, meta, cacheControl)
+      }
+    }
+  }
+
   def list(bucket: Bucket, prefixDir: String)
           (implicit ex: ExecutionContext): Future[List[S3Object]] =
     Future {

@@ -16,13 +16,17 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
   private val log = LoggerFactory.getLogger(getClass)
 
   private val cacheSetting = Some(cacheForever)
-  def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
+  def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType],
+                 meta: Map[String, String] = Map.empty, overwrite: Boolean)
                 (implicit logMarker: LogMarker) = {
-    store(bucket, id, file, mimeType, meta, cacheSetting)
-      .map( _ =>
-        // TODO this is just giving back the stuff we passed in and should be factored out.
-        S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, cacheSetting)
-      )
+    val eventualDone = if (overwrite) {
+      store(bucket, id, file, mimeType, meta, cacheSetting)
+    } else {
+      storeIfNotPresent(bucket, id, file, mimeType, meta, cacheSetting)
+    }
+    eventualDone.map { _ =>
+      S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, cacheSetting)
+    }
   }
 
   def deleteImage(bucket: String, id: String) = Future {
