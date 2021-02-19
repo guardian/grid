@@ -2,9 +2,9 @@ package model
 
 import java.io.File
 import java.net.URI
-import java.util.UUID
-
+import java.util.{Date, UUID}
 import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
@@ -15,13 +15,14 @@ import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.{FreeSpec, FunSuite, Matchers}
 import play.api.libs.json.{JsArray, JsString}
 import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.collection.JavaConverters._
 
-class ProjectorTest extends FunSuite with Matchers with ScalaFutures with MockitoSugar {
+class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with MockitoSugar {
 
   import ResourceHelpers.fileAt
 
@@ -39,7 +40,7 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources
   // this test is passing when running on local machine
-  ignore("projectImage") {
+  "projectImage" ignore {
 
     val testFile = fileAt("resources/getty.jpg")
     val fileDigest = DigestedFile(testFile, "id123")
@@ -159,7 +160,7 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
       uploadedBy = uploadedBy,
       uploadTime = uploadTime,
       uploadFileName = uploadFileName,
-      picdarUrn = None,
+      identifiers = Map.empty,
     )
 
     implicit val requestLoggingContext = RequestLoggingContext()
@@ -168,6 +169,59 @@ class ProjectorTest extends FunSuite with Matchers with ScalaFutures with Mockit
 
     whenReady(actualFuture) { actual =>
       actual shouldEqual expected
+    }
+  }
+
+  "S3FileExtractedMetadata" - {
+    "should extract URL encoded metadata" in {
+      val s3Metadata = new ObjectMetadata()
+      s3Metadata.setLastModified(new Date(1613388118000L))
+      s3Metadata.setUserMetadata(Map(
+        "file-name" -> "This%20photo%20was%20taken%20in%20%C5%81%C3%B3d%C5%BA.jpg",
+        "uploaded-by" -> "s%C3%A9b.cevey%40theguardian.co.uk",
+        "upload-time" -> "2021-02-01T12%3A52%3A34%2B09%3A00",
+        "identifier!picdarurn" -> "12*543%5E25"
+      ).asJava)
+
+      val result = S3FileExtractedMetadata(s3Metadata)
+      result.uploadFileName shouldBe Some("This photo was taken in Łódź.jpg")
+      result.uploadedBy shouldBe "séb.cevey@theguardian.co.uk"
+      result.uploadTime.toString shouldBe "2021-02-01T03:52:34.000Z"
+      result.identifiers.size shouldBe 1
+      result.identifiers.get("picdarurn") shouldBe Some("12*543^25")
+    }
+
+    "should remap headers with underscores to dashes" in {
+      val s3Metadata = new ObjectMetadata()
+      s3Metadata.setLastModified(new Date(1613388118000L))
+      s3Metadata.setUserMetadata(Map(
+        "file_name" -> "filename.jpg",
+        "uploaded_by" -> "user",
+        "upload_time" -> "2021-02-01T12%3A52%3A34%2B09%3A00",
+        "identifier!picdarurn" -> "12*543"
+      ).asJava)
+
+      val result = S3FileExtractedMetadata(s3Metadata)
+      result.uploadFileName shouldBe Some("filename.jpg")
+      result.uploadedBy shouldBe "user"
+      result.uploadTime.toString shouldBe "2021-02-01T03:52:34.000Z"
+      result.identifiers.size shouldBe 1
+      result.identifiers.get("picdarurn") shouldBe Some("12*543")
+    }
+
+    "should correctly read in non URL encoded values" in {
+      // we have plenty of values in S3 that are not URL encoded
+      // and we must be able to read them correctly
+      val s3Metadata = new ObjectMetadata()
+      s3Metadata.setLastModified(new Date(1613388118000L))
+      s3Metadata.setUserMetadata(Map(
+        "uploaded_by" -> "user",
+        "upload_time" -> "2019-12-11T01:12:10.427Z",
+      ).asJava)
+
+      val result = S3FileExtractedMetadata(s3Metadata)
+      result.uploadedBy shouldBe "user"
+      result.uploadTime.toString shouldBe "2019-12-11T01:12:10.427Z"
     }
   }
 
