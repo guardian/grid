@@ -1,18 +1,16 @@
 package lib.elasticsearch
 
-import java.util.concurrent.TimeUnit
-
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Mappings}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.searches.{Aggregations, DateHistogramInterval, SearchHit, SearchRequest, SearchResponse}
+import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.elasticsearch._
+import com.sksamuel.elastic4s.requests.searches._
 import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json}
@@ -22,9 +20,9 @@ import play.mvc.Http.Status
 import scalaz.NonEmptyList
 import scalaz.syntax.std.list._
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency])
   extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging {
@@ -51,7 +49,10 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
 
-  def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
+  def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
+    getImageWithSourceById(id).map(_.map(_.instance))
+
+  def getImageWithSourceById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[SourceWrapper[Image]]] = {
     implicit val logMarker = MarkerMap("id" -> id)
     executeAndLog(get(imagesAlias, id), s"get image by id $id").map { r =>
       r.status match {
@@ -159,7 +160,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       logSearchQueryIfTimedOut(searchRequest, r.result)
-      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.id, i))
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       SearchResults(hits = imageHits, total = r.result.totalHits)
     }
   }
@@ -265,8 +266,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   private def mapImageFrom(sourceAsString: String, id: String) = {
-    Json.parse(sourceAsString).validate[Image] match {
-      case i: JsSuccess[Image] => Some(i.value)
+    val source = Json.parse(sourceAsString)
+    source.validate[Image] match {
+      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value))
       case e: JsError =>
         logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None

@@ -119,9 +119,20 @@ trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers
       rightsAcquired = true,
       Some(DateTime.parse("2018-07-03T00:00:00")),
       None,
-      fileMetadata = Some(FileMetadata(xmp = Map(
+      fileMetadata = Some(FileMetadata(
+        iptc = Map(
+          "Caption/Abstract" -> "the description",
+          "Caption Writer/Editor" -> "the editor"
+        ),
+        exif = Map(
+          "Copyright" -> "the copyright",
+          "Artist" -> "the artist"
+        ),
+        xmp = Map(
         "foo" -> JsString("bar"),
-        "toolong" -> JsString(stringLongerThan(100000))
+        "toolong" -> JsString(stringLongerThan(100000)),
+        "org:ProgrammeMaker" -> JsString("xmp programme maker"),
+        "aux:Lens" -> JsString("xmp aux lens")
       )))
     ),
 
