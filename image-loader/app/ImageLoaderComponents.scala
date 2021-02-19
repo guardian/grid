@@ -5,8 +5,9 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{ImageLoaderController, UploadStatusController}
 import lib._
 import lib.storage.{ImageLoaderStore, QuarantineStore}
-import model.{Projector, Uploader, QuarantineUploader}
+import model.{Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
+import play.api.libs.ws.WSClient
 import router.Routes
 
 class ImageLoaderComponents(context: Context) extends GridComponents(context, new ImageLoaderConfig(_)) with GridLogging {
@@ -21,7 +22,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val uploadStatusTable = new UploadStatusTable(config)
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
   val notifications = new Notifications(config)
-  val downloader = new Downloader()
+  val downloader = new Downloader()(ec,wsClient)
   val uploader = new Uploader(store, config, imageOperations, notifications)
   val projector = Projector(config, imageOperations)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {

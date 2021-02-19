@@ -20,7 +20,7 @@ object AdminToolsComponents {
 class AdminToolsComponents(context: Context) extends GridComponents(context, AdminToolsComponents.config) {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new AdminToolsCtr(config, controllerComponents)
+  val controller = new AdminToolsCtr(config, controllerComponents, wsClient)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management)
 }

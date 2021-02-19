@@ -6,12 +6,22 @@ import com.gu.mediaservice.model.Image._
 import com.gu.mediaservice.{FullImageProjectionFailed, FullImageProjectionSuccess, ImageDataMerger, ImageDataMergerConfig}
 import lib.AdminToolsConfig
 import play.api.libs.json.Json
+import play.api.libs.ws.WSClient
+import play.api.libs.ws.ahc.AhcWSClient
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
+
+  import akka.actor.ActorSystem
+  import akka.stream.ActorMaterializer
+  import play.api.libs.ws._
+
+  implicit val system = ActorSystem()
+  implicit val materializer = ActorMaterializer()
+  implicit val ws:WSClient  = AhcWSClient()
 
   private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot, imageLoaderEndpointOpt = None)
 

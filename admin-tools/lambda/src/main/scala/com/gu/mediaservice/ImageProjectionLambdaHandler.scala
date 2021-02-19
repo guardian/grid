@@ -1,5 +1,6 @@
 package com.gu.mediaservice
 
+
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent}
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
@@ -10,7 +11,19 @@ import play.api.libs.json.Json
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 
+import play.api.libs.ws.ahc.AhcWSClient
+
+import scala.concurrent.ExecutionContext.Implicits.global
+
 class ImageProjectionLambdaHandler extends ApiKeyAuthentication with LazyLogging {
+
+  import akka.actor.ActorSystem
+  import akka.stream.ActorMaterializer
+  import play.api.libs.ws._
+
+  implicit val system = ActorSystem()
+  implicit val materializer = ActorMaterializer()
+  implicit val ws:WSClient  = AhcWSClient()
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
 
@@ -28,7 +41,9 @@ class ImageProjectionLambdaHandler extends ApiKeyAuthentication with LazyLogging
     apiKey match {
       case Some(key) =>
         val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot, imageLoaderEndpointOpt = imageLoaderEndpoint)
-        if (!cfg.isValidApiKey()) return getUnauthorisedResponse
+        for {
+          ok <- cfg.isValidApiKey()
+        } yield if (!ok) return getUnauthorisedResponse
 
         logger.info(s"starting handleImageProjection for mediaId=$mediaId")
         logger.info(s"with config: $cfg")
