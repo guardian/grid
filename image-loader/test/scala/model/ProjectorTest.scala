@@ -5,6 +5,7 @@ import java.net.URI
 import java.util.{Date, UUID}
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
@@ -12,6 +13,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
+import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
@@ -21,14 +23,15 @@ import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 
 class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with MockitoSugar {
 
-  import ResourceHelpers.fileAt
+  import ResourceHelpers._
 
   implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
-  private val ctxPath = new File("image-loader/").getAbsolutePath
+  private val ctxPath = new File(".").getAbsolutePath
 
   private val imageOperations = new ImageOperations(ctxPath)
 
@@ -42,8 +45,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
   // this test is passing when running on local machine
   "projectImage" ignore {
 
-    val testFile = fileAt("resources/getty.jpg")
-    val fileDigest = DigestedFile(testFile, "id123")
+    val testFile = fileAt("getty.jpg")
+    val id = "id123"
+    val fileDigest = DigestedFile(testFile, id)
     val uploadedBy = "test"
     val uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)
     val uploadFileName = Some("getty.jpg")
@@ -117,37 +121,62 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     val gettyFileMetadataExpected = FileMetadata(iptc = iptc, exif = exif, xmp = xmp, getty = getty, colourModel = Some("RGB"))
 
     val expected = Image(
-      id = "id123",
+      id = id,
       uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC),
       uploadedBy = "test",
       lastModified = Some(new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)),
       identifiers = Map(),
       uploadInfo = UploadInfo(Some("getty.jpg")),
-      source = Asset(new URI("http://img-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
+      source = Asset(new URI("http://img-bucket.s3.amazonaws.com/i/d/1/2/3/" + id),
         Some(12666),
         Some(Jpeg),
         Some(Dimensions(100, 60)), None),
-      thumbnail = Some(Asset(new URI("http://thumb-bucket.s3.amazonaws.com/i/d/1/2/3/id123"),
-        Some(6404),
+      thumbnail = Some(Asset(new URI("http://thumb-bucket.s3.amazonaws.com/i/d/1/2/3/" + id),
+        Some(6397),
         Some(Jpeg),
         Some(Dimensions(256, 154)), None)),
       optimisedPng = None,
       fileMetadata = gettyFileMetadataExpected,
       userMetadata = None,
       metadata = ImageMetadata(
-        Some(new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)),
-        Some("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-        Some("AFP/Getty Images"),
-        None, Some("Christof Stache"), Some("Stringer"), None, Some("CHRISTOF STACHE"),
-        Some("-"), Some("AFP"), None, Nil, None, Some("Kitzbuehel"), None, Some("Austria"), List("sport")),
+        dateTaken = Some(new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)),
+        description = Some("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
+        credit = Some("AFP/Getty Images"),
+        creditUri = None,
+        byline = Some("CHRISTOF STACHE"),
+        bylineTitle = Some("Stringer"),
+        title = Some("Austria's Matthias Mayer attends the men"),
+        copyright = Some("CHRISTOF STACHE"),
+        suppliersReference = Some("-"),
+        source = Some("AFP"),
+        specialInstructions = None,
+        keywords = Nil,
+        subLocation = None,
+        city = Some("KITZBUEHEL"),
+        state = Some("-"),
+        country = Some("AUSTRIA"),
+        subjects = List("sport"),
+        ),
       originalMetadata = ImageMetadata(
         Some(new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)),
         Some("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-        Some("AFP/Getty Images"), None, Some("Christof Stache"), Some("Stringer"),
-        None, Some("CHRISTOF STACHE"), Some("-"),
-        Some("AFP"), None, Nil, None, Some("Kitzbuehel"), None, Some("Austria"), List("sport")),
-      usageRights = Agency("Getty Images", Some("AFP"), None),
-      originalUsageRights = Agency("Getty Images", Some("AFP"), None),
+        Some("AFP/Getty Images"),
+        None,
+        Some("CHRISTOF STACHE"),
+        Some("Stringer"),
+        Some("Austria's Matthias Mayer attends the men"),
+        Some("CHRISTOF STACHE"),
+        Some("-"),
+        Some("AFP"),
+        None,
+        Nil,
+        None,
+        Some("KITZBUEHEL"),
+        Some("-"),
+        Some("AUSTRIA"),
+        List("sport")),
+      usageRights = NoRights,
+      originalUsageRights = NoRights,
       exports = Nil,
       usages = Nil,
       leases = LeasesByMedia.empty,
@@ -165,11 +194,32 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
 
     implicit val requestLoggingContext = RequestLoggingContext()
 
-    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID())
+    val gridClient = mock[GridClient]
+    when(gridClient.getUsages(id)).thenReturn(Future.successful(Nil))
+    when(gridClient.getCrops(id)).thenReturn(Future.successful(Nil))
+    when(gridClient.getLeases(id)).thenReturn(Future.successful(LeasesByMedia.empty))
+
+    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient)
+    actualFuture.recoverWith( {case t: Throwable => {t.printStackTrace(); throw t}})
 
     whenReady(actualFuture) { actual =>
+      actual.id  shouldEqual expected.id
+      actual.metadata shouldEqual expected.metadata
+      actual.originalMetadata shouldEqual expected.originalMetadata
+      actual.usageRights shouldEqual expected.usageRights
+      actual.originalUsageRights shouldEqual expected.originalUsageRights
+      actual.exports shouldEqual expected.exports
+      actual.usages shouldEqual expected.usages
+      actual.leases shouldEqual expected.leases
+      actual.collections shouldEqual expected.collections
+      actual.syndicationRights shouldEqual expected.syndicationRights
       actual shouldEqual expected
     }
+
+    verify(gridClient, times(1)).getLeases(id)
+    verify(gridClient, times(1)).getUsages(id)
+    verify(gridClient, times(1)).getCrops(id)
+
   }
 
   "S3FileExtractedMetadata" - {
