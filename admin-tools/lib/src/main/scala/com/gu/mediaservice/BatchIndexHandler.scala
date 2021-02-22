@@ -136,6 +136,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClien
         stateProgress += updateStateToItemsInProgress(mediaIds)
         logger.info(s"Indexing ${mediaIds.length} media ids. Getting image projections from: $projectionEndpoint")
         val start = System.currentTimeMillis()
+        // left is found images
         val maybeBlobsFuture: List[Either[Image, String]] = getImagesProjection(mediaIds, projectionEndpoint, InputIdsStore)
 
         val (foundImages, notFoundImagesIds) = partitionToSuccessAndNotFound(maybeBlobsFuture)

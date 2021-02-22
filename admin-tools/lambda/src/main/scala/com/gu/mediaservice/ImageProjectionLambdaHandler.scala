@@ -42,7 +42,7 @@ class ImageProjectionLambdaHandler extends ApiKeyAuthentication with LazyLogging
       case Some(key) =>
         val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot, imageLoaderEndpointOpt = imageLoaderEndpoint)
         for {
-          ok <- cfg.isValidApiKey()
+          ok <- cfg.isValidApiKey
         } yield if (!ok) return getUnauthorisedResponse
 
         logger.info(s"starting handleImageProjection for mediaId=$mediaId")

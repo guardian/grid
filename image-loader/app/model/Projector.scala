@@ -13,6 +13,7 @@ import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.lib.net.URI
+import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
@@ -144,9 +145,9 @@ class Projector(config: ImageUploadOpsCfg,
           //todo collections?
         } yield futureImage
           .copy(
-            usages = usages,
-            exports = crops,
-            leases = leases
+            usages = usages.getOrElse(Nil),
+            exports = crops.getOrElse(Nil),
+            leases = leases.getOrElse(LeasesByMedia.empty)
           )
     }
   }

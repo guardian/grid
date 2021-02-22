@@ -49,14 +49,15 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
                            url: URL,
                            apiKey: String,
                            authFn: Option[WSRequest => WSRequest],
-                           foundFn: ResponseWrapper => T,
-                           notFoundFn: ResponseWrapper => T
+                           foundFn: ResponseWrapper => Option[T],
+                           notFoundFn: ResponseWrapper => Option[T],
+                           errorFn: Option[ResponseWrapper => Exception] = None
                          )(
-    implicit ec: ExecutionContext): Future[T] = {
+    implicit ec: ExecutionContext): Future[Option[T]] = {
     val request: WSRequest = wsClient.url(url.toString).withHttpHeaders((apiKeyHeaderName, apiKey))
 
     authFn.map( fn => fn(request)).getOrElse(request).get().map { response =>
-      validateResponse[T](response, url, foundFn, notFoundFn)
+      validateResponse[T](response, url, foundFn, notFoundFn, errorFn)
     }
   }
 
@@ -124,31 +125,36 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
   private def validateResponse[T](
                                    response: WSResponse,
                                    url: URL,
-                                   foundFn: ResponseWrapper => T,
-                                   notFoundFn: ResponseWrapper => T
-                                 ): T = {
+                                   foundFn: ResponseWrapper => Option[T],
+                                   notFoundFn: ResponseWrapper => Option[T],
+                                   errorFn: Option[ResponseWrapper => Exception]
+                                 ): Option[T] = {
     val res = processResponse(response, url)
     res.statusCode match {
       case 200 => foundFn(res)
       case 404 => notFoundFn(res)
-      case failCode =>
-        val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $failCode"
-        val downstreamErrorMessage = res.bodyAsString
+      case failCode => errorFn match {
+        case Some(fn) => throw fn(res)
+        case _ =>
+          val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $failCode"
+          val downstreamErrorMessage = res.bodyAsString
 
-        val errorJson = Json.obj(
-          "level" -> "ERROR",
-          "errorStatusCode" -> failCode,
-          "message" -> Json.obj(
-            "errorMessage" -> errorMessage,
-            "downstreamErrorMessage" -> downstreamErrorMessage
+          val errorJson = Json.obj(
+            "level" -> "ERROR",
+            "errorStatusCode" -> failCode,
+            "message" -> Json.obj(
+              "errorMessage" -> errorMessage,
+              "downstreamErrorMessage" -> downstreamErrorMessage
+            )
           )
-        )
-        logger.error(errorJson.toString())
-        throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
+          logger.error(errorJson.toString())
+          throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
+      }
     }
   }
 
-  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[Image]] = {
+  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: Option[WSRequest => WSRequest])
+                              (implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
     makeGetRequestAsync(
@@ -160,15 +166,15 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     )
   }
 
-  def getLeases(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
+  def getLeases(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[LeasesByMedia]] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
     makeGetRequestAsync(
       url,
       apiKey,
       authFn,
-      {res:ResponseWrapper => (res.body \ "data").as[LeasesByMedia]},
-      {_:ResponseWrapper => LeasesByMedia.empty}
+      {res:ResponseWrapper => Some((res.body \ "data").as[LeasesByMedia])},
+      {_:ResponseWrapper => Some(LeasesByMedia.empty)}
     )
   }
 
@@ -184,19 +190,19 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     )
   }
 
-  def getCrops(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[List[Crop]] = {
+  def getCrops(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[List[Crop]]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
     makeGetRequestAsync[List[Crop]](
       url,
       apiKey,
       authFn,
-      {res:ResponseWrapper => (res.body \ "data").as[List[Crop]]},
-      {_:ResponseWrapper => Nil}
+      {res:ResponseWrapper => Some((res.body \ "data").as[List[Crop]])},
+      {_:ResponseWrapper => Some(Nil)}
     )
   }
 
-  def getUsages(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[List[Usage]] = {
+  def getUsages(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[List[Usage]]] = {
     logger.info("attempt to get usages")
 
     def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
@@ -209,8 +215,8 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
       url,
       apiKey,
       authFn,
-      {res:ResponseWrapper => unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])},
-      {_:ResponseWrapper => Nil}
+      {res:ResponseWrapper => Some(unpackUsagesFromEntityResponse(res.body).map(_.as[Usage]))},
+      {_:ResponseWrapper => Some(Nil)}
     )
   }
 

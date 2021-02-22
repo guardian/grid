@@ -12,9 +12,9 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
+import com.gu.mediaservice.model.usage.Usage
 import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
-import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
@@ -198,9 +198,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     implicit val requestLoggingContext = RequestLoggingContext()
 
     val gridClient = mock[GridClient]
-    when(gridClient.getUsages(id, None)).thenReturn(Future.successful(Nil))
-    when(gridClient.getCrops(id, None)).thenReturn(Future.successful(Nil))
-    when(gridClient.getLeases(id, None)).thenReturn(Future.successful(LeasesByMedia.empty))
+    when(gridClient.getUsages(id, None)).thenReturn(Future.successful(Some(Nil)))
+    when(gridClient.getCrops(id, None)).thenReturn(Future.successful(Some(Nil)))
+    when(gridClient.getLeases(id, None)).thenReturn(Future.successful(Some(LeasesByMedia.empty)))
 
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, None)
     actualFuture.recoverWith( {case t: Throwable => {t.printStackTrace(); throw t}})

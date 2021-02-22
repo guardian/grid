@@ -4,6 +4,7 @@ import java.net.URL
 
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 import play.api.libs.json._
@@ -26,11 +27,19 @@ object ImageDataMergerConfig {
 
 case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String)(implicit wsClient: WSClient, ec: ExecutionContext) {
   val gridClient = GridClient(apiKey, services, maxIdleConnections = 5)(wsClient)
-  def isValidApiKey(): Future[Boolean] = {
+  def isValidApiKey: Future[Boolean] = {
     // Make an API key authenticated request to the leases API as a way of validating the API key.
     // A 200 indicates a valid key.
     // Using leases because its a low traffic API.
-    gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), apiKey).map( r => r.statusCode == 200)
+    class BadApiKeyException extends Exception
+    gridClient.makeGetRequestAsync[Unit](
+      new URL(services.leasesBaseUri),
+      apiKey,
+      None,
+      {_:ResponseWrapper => None},
+      {_:ResponseWrapper => None},
+      Some({_:ResponseWrapper => new BadApiKeyException()})
+    ).map(_ => true).recoverWith({case _:BadApiKeyException => Future.successful(false)})
   }
 }
 
@@ -149,7 +158,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
   }
 
   private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
-    maybeImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint)
+    maybeImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, None)
     image <- aggregate(maybeImage)
   } yield image.map { aggImg =>
     ImageProjectionOverrides.overrideSelectedFields(aggImg)
@@ -161,28 +170,31 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
       val mediaId = image.id
       for {
         collections <- getCollectionsResponse(mediaId)
-        edits <- gridClient.getEdits(mediaId)
-        leases <- gridClient.getLeases(mediaId)
-        usages <- gridClient.getUsages(mediaId)
-        crops <- gridClient.getCrops(mediaId)
+        edits <- gridClient.getEdits(mediaId, None)
+        leases <- gridClient.getLeases(mediaId, None)
+        usages <- gridClient.getUsages(mediaId, None)
+        crops <- gridClient.getCrops(mediaId, None)
       } yield Some(image.copy(
-        collections = collections,
+        collections = collections.getOrElse(Nil),
         userMetadata = edits,
-        leases = leases,
-        usages = usages,
-        exports = crops
+        leases = leases.getOrElse(LeasesByMedia.empty),
+        usages = usages.getOrElse(Nil),
+        exports = crops.getOrElse(Nil)
       ))
     }
     case None => Future.successful(None)
   }
 
-  private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
+  private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[Option[List[Collection]]] = {
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
-    }
+    gridClient.makeGetRequestAsync(
+      url,
+      apiKey,
+      None,
+      { res:ResponseWrapper => Some((res.body \ "data").as[List[Collection]])},
+      { _:ResponseWrapper => None }
+    )
   }
 
   private def validateResponse(res: ResponseWrapper, url: URL): Unit = {

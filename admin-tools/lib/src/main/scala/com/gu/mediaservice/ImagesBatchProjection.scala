@@ -4,7 +4,7 @@ import java.net.URL
 
 import com.gu.mediaservice.model.Image
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{DAYS, Duration, HOURS}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridClient, maxSize: Int) {
@@ -15,44 +15,49 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
   def validateApiKey(projectionEndpoint: String): Unit = {
     val projectionUrl = new URL(s"$projectionEndpoint/not-exists")
     for {
-      res <- gridClient.makeGetRequestAsync(projectionUrl, apiKey)
-      ok = res.statusCode != 401 && res.statusCode != 403
-    } yield {
-      if (!ok) throw new IllegalStateException("invalid api key")
-    }
-
+      _ <- gridClient.makeGetRequestAsync(
+        projectionUrl,
+        apiKey,
+        None,
+        {res:ResponseWrapper => None},
+        {res:ResponseWrapper => None}
+      )
+    } yield Unit
   }
 
   def getImagesProjection(mediaIds: List[String], projectionEndpoint: String,
                           InputIdsStore: InputIdsStore): List[Either[Image, String]] = {
     val apiCalls = mediaIds.map { id =>
       val projectionUrl = new URL(s"$projectionEndpoint/$id")
-      val responseFuture: Future[ResponseWrapper] = gridClient.makeGetRequestAsync(projectionUrl, apiKey)
-      val notFoundOrImage: Future[Option[Either[Image, String]]] = responseFuture.map { response =>
-        response.statusCode match {
-          case 200 if response.bodyAsString.size > maxSize => {
+      class FailedCallException extends Exception
+      gridClient.makeGetRequestAsync[Either[Image, String]](
+        projectionUrl,
+        apiKey,
+        None,
+        { response: ResponseWrapper =>
+          if (response.bodyAsString.size > maxSize) {
             InputIdsStore.setStateToTooBig(id, response.bodyAsString.size)
             None
+          } else {
+            Some(Left(response.body.as[Image]))
           }
-          case 200 => {
-            val img = response.body.as[Image]
-            Some(Left(img))
-          }
-          case 404 => {
+        },
+        { _: ResponseWrapper => {
             InputIdsStore.updateStateToNotFoundImage(id)
             Some(Right(id))
           }
-          case _ if (isAKnownError(response)) => {
+        },
+        Some({ res: ResponseWrapper => {
+          if (isAKnownError(res)) {
             InputIdsStore.setStateToKnownError(id)
-            None
-          }
-          case _ => {
+            new FailedCallException()
+          } else {
             InputIdsStore.setStateToUnknownError(id)
-            None
+            new FailedCallException()
           }
         }
-      }
-      notFoundOrImage
+      })
+      ).recoverWith({case _:FailedCallException => ???})
     }
     val f = Future.sequence(apiCalls)
     Await.result(f, timeout).flatten
@@ -64,27 +69,25 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
   private case object Failed extends GetImageStatus
   case class ImagesWithStatus(found: List[String], notFound: List[String], failed: List[String])
 
+  class FailureException extends Exception
   def getImages(mediaIds: List[String], imagesEndpoint: String,
                           InputIdsStore: InputIdsStore): ImagesWithStatus = {
     val apiCalls = mediaIds.map { id =>
       val imagesUrl = new URL(s"$imagesEndpoint/$id")
-      val responseFuture: Future[ResponseWrapper] = gridClient.makeGetRequestAsync(imagesUrl, apiKey)
-      val futureImageWithStatus: Future[(String, GetImageStatus)] = responseFuture.map { response =>
-        if (response.statusCode == 200) {
-           (id, Found)
-        } else if (response.statusCode == 404) {
-           (id, NotFound)
-        } else {
-          (id, Failed)
-        }
-      }
-      futureImageWithStatus
+      gridClient.makeGetRequestAsync[(String, GetImageStatus)](
+        imagesUrl,
+        apiKey,
+        None,
+        {_:ResponseWrapper => Some((id, Found))},
+        {_:ResponseWrapper => Some((id, NotFound))},
+        Some({_:ResponseWrapper => new FailureException()})
+      ).recoverWith({case _: FailureException => Future.successful(Some((id, Failed)))})
     }
     val futureResults = Future.sequence(apiCalls)
     val futureImagesWithStatus = futureResults.map{results =>
-      val found = results.collect{case (id, Found)=> id}
-      val notFound = results.collect{case (id, NotFound) => id}
-      val failed = results.collect{case (id, Failed) => id}
+      val found = results.collect{case Some((id, Found))=> id}
+      val notFound = results.collect{case Some((id, NotFound)) => id}
+      val failed = results.collect{case Some((id, Failed)) => id}
       ImagesWithStatus(found,notFound,failed)
     }
     Await.result(futureImagesWithStatus, timeout)
