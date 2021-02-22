@@ -5,6 +5,8 @@ import java.util.UUID
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfPrincipal, Principal}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
@@ -27,8 +29,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, config.imageProcessor)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, auth: Authentication)(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, config.imageProcessor, auth)
 }
 
 case class S3FileExtractedMetadata(
@@ -76,11 +78,12 @@ object S3FileExtractedMetadata {
 class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
-                processor: ImageProcessor) {
+                processor: ImageProcessor,
+                auth: Authentication) {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient)
+  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, user: Option[Principal])
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -95,7 +98,7 @@ class Projector(config: ImageUploadOpsCfg,
       val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
       val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId, gridClient)
+      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId, gridClient, user)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }
@@ -106,7 +109,11 @@ class Projector(config: ImageUploadOpsCfg,
     DigestedFile(tempFile, imageId)
   }
 
-  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestId: UUID, gridClient: GridClient)
+  def projectImage(srcFileDigest: DigestedFile,
+                   extractedS3Meta: S3FileExtractedMetadata,
+                   requestId: UUID,
+                   gridClient: GridClient,
+                   user: Option[Principal])
                   (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val DigestedFile(tempFile_, id_) = srcFileDigest
 
@@ -126,11 +133,14 @@ class Projector(config: ImageUploadOpsCfg,
           identifiers = identifiers_,
           uploadInfo = uploadInfo_
         )
+
+        val onBehalfOfFn: Option[OnBehalfOfPrincipal] = user.map(u => auth.getOnBehalfOfPrincipal(u))
+
         for {
           futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
-          usages <- gridClient.getUsages(id_)
-          crops <- gridClient.getCrops(id_)
-          leases <- gridClient.getLeases(id_)
+          usages <- gridClient.getUsages(id_, onBehalfOfFn)
+          crops <- gridClient.getCrops(id_, onBehalfOfFn)
+          leases <- gridClient.getLeases(id_, onBehalfOfFn)
           //todo collections?
         } yield futureImage
           .copy(

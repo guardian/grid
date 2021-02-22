@@ -26,7 +26,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
   val uploader = new Uploader(store, config, imageOperations, notifications)
-  val projector = Projector(config, imageOperations)
+  val projector = Projector(config, imageOperations, auth)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
     case (true, Some(bucketName)) =>{
       val quarantineStore = new QuarantineStore(config)

@@ -12,7 +12,7 @@ import play.api.libs.json.{JsArray, JsObject, JsValue, Json, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import play.api.libs.ws.{WSClient, WSResponse}
+import play.api.libs.ws.{WSClient, WSRequest, WSResponse}
 
 object ClientResponse {
   case class Message(errorMessage: String, downstreamErrorMessage: String)
@@ -45,10 +45,18 @@ object GridClient {
 
 class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean)(implicit wsClient: WSClient) extends ApiKeyAuthentication with LazyLogging {
 
-  def makeGetRequestAsync(url: URL, apiKey: String)(implicit ec: ExecutionContext): Future[ResponseWrapper] = {
-    val response = wsClient.url(url.toString).withHttpHeaders((apiKeyHeaderName, apiKey)).get()
-    response.map { response =>
-      processResponse(response, url)
+  def makeGetRequestAsync[T](
+                           url: URL,
+                           apiKey: String,
+                           authFn: Option[WSRequest => WSRequest],
+                           foundFn: ResponseWrapper => T,
+                           notFoundFn: ResponseWrapper => T
+                         )(
+    implicit ec: ExecutionContext): Future[T] = {
+    val request: WSRequest = wsClient.url(url.toString).withHttpHeaders((apiKeyHeaderName, apiKey))
+
+    authFn.map( fn => fn(request)).getOrElse(request).get().map { response =>
+      validateResponse[T](response, url, foundFn, notFoundFn)
     }
   }
 
@@ -113,64 +121,82 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
   }
 
 
-  private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
-    import res._
-    if (statusCode != 200 && statusCode != 404) {
-      val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode"
-      val downstreamErrorMessage = res.bodyAsString
+  private def validateResponse[T](
+                                   response: WSResponse,
+                                   url: URL,
+                                   foundFn: ResponseWrapper => T,
+                                   notFoundFn: ResponseWrapper => T
+                                 ): T = {
+    val res = processResponse(response, url)
+    res.statusCode match {
+      case 200 => foundFn(res)
+      case 404 => notFoundFn(res)
+      case failCode =>
+        val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $failCode"
+        val downstreamErrorMessage = res.bodyAsString
 
-      val errorJson = Json.obj(
-        "level" -> "ERROR",
-        "errorStatusCode" -> statusCode,
-        "message" -> Json.obj(
-          "errorMessage" -> errorMessage,
-          "downstreamErrorMessage" -> downstreamErrorMessage
+        val errorJson = Json.obj(
+          "level" -> "ERROR",
+          "errorStatusCode" -> failCode,
+          "message" -> Json.obj(
+            "errorMessage" -> errorMessage,
+            "downstreamErrorMessage" -> downstreamErrorMessage
+          )
         )
-      )
-      logger.error(errorJson.toString())
-      throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
+        logger.error(errorJson.toString())
+        throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
     }
   }
 
-  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
+  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
-    for {
-      res <- makeGetRequestAsync(url, apiKey)
-      _ = validateResponse(res, url)
-      _ = logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
-      image = if (res.statusCode == 200) Some(res.body.as[Image]) else None
-    } yield image
+    makeGetRequestAsync(
+      url,
+      apiKey,
+      authFn,
+      {res:ResponseWrapper => Some(res.body.as[Image])},
+      {_:ResponseWrapper => None}
+    )
   }
 
-  def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
+  def getLeases(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
-    makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
-    }
+    makeGetRequestAsync(
+      url,
+      apiKey,
+      authFn,
+      {res:ResponseWrapper => (res.body \ "data").as[LeasesByMedia]},
+      {_:ResponseWrapper => LeasesByMedia.empty}
+    )
   }
 
-  def getEdits(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
+  def getEdits(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
-    makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
-    }
+    makeGetRequestAsync(
+      url,
+      apiKey,
+      authFn,
+      {res:ResponseWrapper => Some((res.body \ "data").as[Edits])},
+      {_:ResponseWrapper => None}
+    )
   }
 
-  def getCrops(mediaId: String)(implicit ec: ExecutionContext): Future[List[Crop]] = {
+  def getCrops(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
-    makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
-    }
+    makeGetRequestAsync[List[Crop]](
+      url,
+      apiKey,
+      authFn,
+      {res:ResponseWrapper => (res.body \ "data").as[List[Crop]]},
+      {_:ResponseWrapper => Nil}
+    )
   }
 
-  def getUsages(mediaId: String)(implicit ec: ExecutionContext): Future[List[Usage]] = {
+  def getUsages(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[List[Usage]] = {
     logger.info("attempt to get usages")
 
     def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
@@ -179,14 +205,14 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     }
 
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
-    makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
-      else Nil
-    }
+    makeGetRequestAsync(
+      url,
+      apiKey,
+      authFn,
+      {res:ResponseWrapper => unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])},
+      {_:ResponseWrapper => Nil}
+    )
   }
-
-
 
 }
 

@@ -6,6 +6,7 @@ import java.util.{Date, UUID}
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
@@ -13,6 +14,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
+import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
@@ -38,7 +40,8 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
   private val s3 = mock[AmazonS3]
-  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity)
+  private val auth = mock[Authentication]
+  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, auth)
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources
@@ -195,11 +198,11 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     implicit val requestLoggingContext = RequestLoggingContext()
 
     val gridClient = mock[GridClient]
-    when(gridClient.getUsages(id)).thenReturn(Future.successful(Nil))
-    when(gridClient.getCrops(id)).thenReturn(Future.successful(Nil))
-    when(gridClient.getLeases(id)).thenReturn(Future.successful(LeasesByMedia.empty))
+    when(gridClient.getUsages(id, None)).thenReturn(Future.successful(Nil))
+    when(gridClient.getCrops(id, None)).thenReturn(Future.successful(Nil))
+    when(gridClient.getLeases(id, None)).thenReturn(Future.successful(LeasesByMedia.empty))
 
-    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient)
+    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, None)
     actualFuture.recoverWith( {case t: Throwable => {t.printStackTrace(); throw t}})
 
     whenReady(actualFuture) { actual =>
@@ -216,9 +219,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
       actual shouldEqual expected
     }
 
-    verify(gridClient, times(1)).getLeases(id)
-    verify(gridClient, times(1)).getUsages(id)
-    verify(gridClient, times(1)).getCrops(id)
+    verify(gridClient, times(1)).getLeases(id, None)
+    verify(gridClient, times(1)).getUsages(id, None)
+    verify(gridClient, times(1)).getCrops(id, None)
 
   }
 
