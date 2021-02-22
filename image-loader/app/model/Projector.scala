@@ -40,22 +40,26 @@ case class S3FileExtractedMetadata(
 
 object S3FileExtractedMetadata {
   def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
-    val lastModified = s3ObjectMetadata.getLastModified.toInstant.toString
-    val fileUserMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
-      .map { case (key, value) =>
-        // Fix up the contents of the metadata.
-        (
-          // The keys used to be named with underscores instead of dashes but due to localstack being written in Python
-          // this didn't work locally (see https://github.com/localstack/localstack/issues/459)
-          key.replaceAll("_", "-"),
-          // The values are now all URL encoded and it is assumed safe to decode historical values too (based on the tested corpus)
-          URI.decode(value)
-        )
-      }
+    val lastModified = new DateTime(s3ObjectMetadata.getLastModified)
+    val userMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+    apply(lastModified, userMetadata)
+  }
+
+  def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
+    val fileUserMetadata = userMetadata.map { case (key, value) =>
+      // Fix up the contents of the metadata.
+      (
+        // The keys used to be named with underscores instead of dashes but due to localstack being written in Python
+        // this didn't work locally (see https://github.com/localstack/localstack/issues/459)
+        key.replaceAll("_", "-"),
+        // The values are now all URL encoded and it is assumed safe to decode historical values too (based on the tested corpus)
+        URI.decode(value)
+      )
+    }
 
     val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.getOrElse(ImageStorageProps.uploadTimeMetadataKey, lastModified)
-    val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
+    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(new DateTime(_).withZone(DateTimeZone.UTC))
+    val uploadTime = uploadedTimeRaw.getOrElse(lastModified)
     val identifiers = fileUserMetadata.filter{ case (key, _) =>
       key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix)
     }.map{ case (key, value) =>
