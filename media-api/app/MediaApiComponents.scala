@@ -1,7 +1,7 @@
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, ManagementWithPermissions}
+import com.gu.mediaservice.lib.management.{ElasticSearchHealthCheck, Management}
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers._
 import lib._
@@ -44,7 +44,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)
   val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, elasticSearch)
-  val healthcheckController = new ManagementWithPermissions(controllerComponents, authorisationProvider, buildInfo)
+  val healthcheckController = new Management(controllerComponents, buildInfo)
 
   override val router = new Routes(httpErrorHandler, mediaApi, suggestionController, aggController, usageController, elasticSearchHealthCheck, healthcheckController)
 }

@@ -12,8 +12,9 @@ import router.Routes
 class ImageLoaderComponents(context: Context) extends GridComponents(context, new ImageLoaderConfig(_)) with GridLogging {
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  logger.info(s"Loaded ${config.imageProcessor.processors.size} image processors:")
-  config.imageProcessor.processors.zipWithIndex.foreach { case (processor, index) =>
+  private val imageProcessor = config.imageProcessor(applicationLifecycle)
+  logger.info(s"Loaded ${imageProcessor.processors.size} image processors:")
+  imageProcessor.processors.zipWithIndex.foreach { case (processor, index) =>
     logger.info(s" $index -> ${processor.description}")
   }
 
@@ -22,8 +23,8 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
   val notifications = new Notifications(config)
   val downloader = new Downloader()
-  val uploader = new Uploader(store, config, imageOperations, notifications)
-  val projector = Projector(config, imageOperations)
+  val uploader = new Uploader(store, config, imageOperations, notifications, imageProcessor)
+  val projector = Projector(config, imageOperations, imageProcessor)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
     case (true, Some(bucketName)) =>{
       val quarantineStore = new QuarantineStore(config)

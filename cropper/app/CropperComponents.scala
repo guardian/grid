@@ -1,5 +1,5 @@
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.management.ManagementWithPermissions
+import com.gu.mediaservice.lib.management.Management
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.CropperController
 import lib.{CropStore, CropperConfig, Crops, Notifications}
@@ -16,7 +16,7 @@ class CropperComponents(context: Context) extends GridComponents(context, new Cr
   val notifications = new Notifications(config)
 
   val controller = new CropperController(auth, crops, store, notifications, config, controllerComponents, wsClient, authorisationProvider)
-  val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, authorisationProvider, buildInfo)
+  val permissionsAwareManagement = new Management(controllerComponents, buildInfo)
 
   override lazy val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)
 }

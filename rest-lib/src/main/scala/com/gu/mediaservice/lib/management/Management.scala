@@ -33,16 +33,6 @@ trait ManagementController extends HealthCheck with BaseController with ArgoHelp
 
 class Management(override val controllerComponents: ControllerComponents, override val buildInfo: BuildInfo) extends ManagementController
 
-class ManagementWithPermissions(override val controllerComponents: ControllerComponents, authorisation: AuthorisationProvider, override val buildInfo: BuildInfo) extends ManagementController {
-  override def healthCheck = Action {
-    if(authorisation.isReady()) {
-      Ok("ok")
-    } else {
-      ServiceUnavailable("Permissions store is empty")
-    }
-  }
-}
-
 class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext)
   extends HealthCheck with GridLogging {
 

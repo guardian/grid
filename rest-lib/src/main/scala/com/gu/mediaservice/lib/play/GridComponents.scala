@@ -45,7 +45,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   lazy val management = new Management(controllerComponents, buildInfo)
 
   private val authorisationProviderResources = AuthorisationProviderResources(commonConfig = config, wsClient = wsClient)
-  val authorisationProvider: AuthorisationProvider = config.configuration.get[AuthorisationProvider]("authorisation.provider")(AuthorisationProviderLoader.singletonConfigLoader(authorisationProviderResources))
+  val authorisationProvider: AuthorisationProvider = config.configuration.get[AuthorisationProvider]("authorisation.provider")(AuthorisationProviderLoader.singletonConfigLoader(authorisationProviderResources, applicationLifecycle))
 
   private val authProviderResources = AuthenticationProviderResources(
     commonConfig = config,
@@ -54,15 +54,10 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     controllerComponents = controllerComponents
   )
 
-
   val providers: AuthenticationProviders = AuthenticationProviders(
-    userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources)),
-    apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.machine")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources))
+    userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources, applicationLifecycle)),
+    apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.machine")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources, applicationLifecycle))
   )
-  providers.userProvider.initialise()
-  applicationLifecycle.addStopHook(() => providers.userProvider.shutdown())
-  providers.apiProvider.initialise()
-  applicationLifecycle.addStopHook(() => providers.apiProvider.shutdown())
 
   val auth = new Authentication(config, providers, controllerComponents.parsers.default, executionContext)
 }
