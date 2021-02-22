@@ -51,7 +51,7 @@ object S3Metadata {
     S3Metadata(
       meta.getUserMetadata.asScala.toMap,
       S3ObjectMetadata(
-        contentType = Option(MimeType(meta.getContentType)),
+        contentType = Option(meta.getContentType).map(MimeType.apply),
         cacheControl = Option(meta.getCacheControl),
         lastModified = Option(meta.getLastModified).map(new DateTime(_))
       )
