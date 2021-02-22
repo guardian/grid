@@ -1,7 +1,7 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
-import com.gu.mediaservice.lib.config.FileMetadataConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, FileMetadataConfig, GridConfigResources}
+import scala.collection.JavaConverters._
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
@@ -22,5 +22,22 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
-  val fileMetadataConfigs: Seq[FileMetadataConfig] = getFileMetadataConfig("filemetadata-configurations")
+
+  val fileMetadataConfig: List[FileMetadataConfig] = configObjectOpt("filemetadata.configurations") match {
+    case Some(config) => config.unwrapped().asInstanceOf[java.util.Map[String, java.util.HashMap[String, java.util.HashMap[String, String]]]].asScala.flatMap {
+      case (directory, value) if directory.nonEmpty =>
+        value.asScala.map {
+          case(_, c) =>
+            FileMetadataConfig(
+              directory = directory,
+              tag = c.get("tag"),
+              visible = toBool(c.getOrDefault("visible", "false")),
+              searchable = toBool(c.getOrDefault("searchable", "false")),
+              alias = Some(c.getOrDefault("alias", c.get("tag"))))
+        }
+    }.toList
+    case None => List.empty
+  }
+
+  def toBool(str: String): Boolean = str.toBoolean
 }
