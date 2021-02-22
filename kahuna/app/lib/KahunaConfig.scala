@@ -23,7 +23,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
 
-  val fileMetadataConfig: List[FileMetadataConfig] = configObjectOpt("filemetadata.configurations") match {
+  val fileMetadataConfigs: List[FileMetadataConfig] = configObjectOpt("filemetadata.configurations") match {
     case Some(config) => config.unwrapped().asInstanceOf[java.util.Map[String, java.util.HashMap[String, java.util.HashMap[String, String]]]].asScala.flatMap {
       case (directory, value) if directory.nonEmpty =>
         value.asScala.map {
