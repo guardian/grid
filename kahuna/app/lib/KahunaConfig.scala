@@ -25,15 +25,15 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val fileMetadataConfigs: List[FileMetadataConfig] = configObjectOpt("filemetadata.configurations") match {
     case Some(config) => config.unwrapped().asInstanceOf[java.util.Map[String, java.util.HashMap[String, java.util.HashMap[String, String]]]].asScala.flatMap {
-      case (directory, value) if directory.nonEmpty =>
-        value.asScala.map {
-          case(_, c) =>
+      case (directory, directoryConfigs) if directory.nonEmpty =>
+        directoryConfigs.asScala.map {
+          case(_, directoryConfig) =>
             FileMetadataConfig(
               directory = directory,
-              tag = c.get("tag"),
-              visible = toBool(c.getOrDefault("visible", "false")),
-              searchable = toBool(c.getOrDefault("searchable", "false")),
-              alias = Some(c.getOrDefault("alias", c.get("tag"))))
+              tag = directoryConfig.get("tag"),
+              visible = toBool(directoryConfig.getOrDefault("visible", "false")),
+              searchable = toBool(directoryConfig.getOrDefault("searchable", "false")),
+              alias = Some(directoryConfig.getOrDefault("alias", directoryConfig.get("tag"))))
         }
     }.toList
     case None => List.empty
