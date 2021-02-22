@@ -1,13 +1,12 @@
 package com.gu.mediaservice.lib
 
-import java.io.File
-
-import com.gu.mediaservice.lib.aws.{S3, S3Ops}
+import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.MimeType
 import org.slf4j.LoggerFactory
 
+import java.io.File
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
@@ -19,13 +18,10 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
   def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType],
                  meta: Map[String, String] = Map.empty, overwrite: Boolean)
                 (implicit logMarker: LogMarker) = {
-    val eventualDone = if (overwrite) {
+    if (overwrite) {
       store(bucket, id, file, mimeType, meta, cacheSetting)
     } else {
       storeIfNotPresent(bucket, id, file, mimeType, meta, cacheSetting)
-    }
-    eventualDone.map { _ =>
-      S3Ops.projectFileAsS3Object(bucket, id, file, mimeType, meta, cacheSetting)
     }
   }
 

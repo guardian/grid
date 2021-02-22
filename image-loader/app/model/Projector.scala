@@ -3,9 +3,10 @@ package model
 import java.io.{File, FileOutputStream}
 import java.util.UUID
 import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
+import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
@@ -100,7 +101,7 @@ class Projector(config: ImageUploadOpsCfg,
     }
   }
 
-  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, tempFile: File) = {
+  private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
     DigestedFile(tempFile, imageId)
   }
@@ -147,7 +148,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage)
                                           (implicit ec: ExecutionContext)= Future {
     val key = ImageIngestOperations.fileKeyFromId(storableOriginalImage.id)
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.originalFileBucket,
       key,
       storableOriginalImage.file,
@@ -159,7 +160,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.fileKeyFromId(storableThumbImage.id)
     val thumbMimeType = Some(ImageOperations.thumbMimeType)
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.thumbBucket,
       key,
       storableThumbImage.file,
@@ -170,7 +171,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(storableOptimisedImage.id)
     val optimisedPngMimeType = Some(ImageOperations.thumbMimeType) // this IS what we will generate.
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.originalFileBucket,
       key,
       storableOptimisedImage.file,
