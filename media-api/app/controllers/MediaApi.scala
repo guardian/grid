@@ -7,7 +7,6 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, EditMetadata}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
@@ -35,7 +34,7 @@ class MediaApi(
                 s3Client: S3Client,
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
-                authorisation: AuthorisationProvider
+                authorisation: Authorisation
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",

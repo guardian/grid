@@ -15,7 +15,7 @@ class CropperComponents(context: Context) extends GridComponents(context, new Cr
   val crops = new Crops(config, store, imageOperations)
   val notifications = new Notifications(config)
 
-  val controller = new CropperController(auth, crops, store, notifications, config, controllerComponents, wsClient, authorisationProvider)
+  val controller = new CropperController(auth, crops, store, notifications, config, controllerComponents, wsClient, authorisation)
   val permissionsAwareManagement = new Management(controllerComponents, buildInfo)
 
   override lazy val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)

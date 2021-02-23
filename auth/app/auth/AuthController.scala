@@ -2,10 +2,10 @@ package auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.ShowPaid
-import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviders, AuthorisationProvider}
+import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
 
@@ -15,7 +15,7 @@ import scala.util.Try
 
 class AuthController(auth: Authentication, providers: AuthenticationProviders, val config: AuthConfig,
                      override val controllerComponents: ControllerComponents,
-                     authorisation: AuthorisationProvider)(implicit ec: ExecutionContext)
+                     authorisation: Authorisation)(implicit ec: ExecutionContext)
   extends BaseController
   with ArgoHelpers {
 

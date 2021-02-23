@@ -8,7 +8,6 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, PrincipalFilter}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
@@ -30,7 +29,7 @@ case object ApiRequestFailed extends Exception("Failed to fetch the source")
 class CropperController(auth: Authentication, crops: Crops, store: CropStore, notifications: Notifications,
                         config: CropperConfig,
                         override val controllerComponents: ControllerComponents,
-                        ws: WSClient, authorisation: AuthorisationProvider)(implicit val ec: ExecutionContext)
+                        ws: WSClient, authorisation: Authorisation)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
   // Stupid name clash between Argo and Play

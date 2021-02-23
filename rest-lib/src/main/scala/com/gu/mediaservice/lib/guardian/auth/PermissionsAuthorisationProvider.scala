@@ -1,9 +1,9 @@
 package com.gu.mediaservice.lib.guardian.auth
 
-import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions._
 import com.gu.mediaservice.lib.auth.provider.{AuthorisationProvider, AuthorisationProviderResources}
-import com.gu.mediaservice.lib.auth.{Internal, PermissionWithParameter, SimplePermission}
+import com.gu.mediaservice.lib.auth.{PermissionContext, PermissionWithParameter}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.permissions._
@@ -19,15 +19,13 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
   def permissionsBucket: String = configuration.getOptional[String]("permissions.bucket").getOrElse("permissions-cache")
 
   private val permissions: PermissionsProvider = config.awsLocalEndpoint match {
-    case Some(_) if config.isDev && config.useLocalAuth => {
+    case Some(_) if config.isDev && config.useLocalAuth =>
       val provider = new S3PermissionsProvider(permissionsBucket, "permissions.json", 1.minute, PermissionsS3(S3Ops.buildS3Client(config)))
       provider.start()
       provider
-    }
-    case _ => {
+    case _ =>
       val permissionsStage = if(config.isProd) { "PROD" } else { "CODE" }
       PermissionsProvider(PermissionsConfig(permissionsStage, config.awsRegion, config.awsCredentials, permissionsBucket))
-    }
   }
 
   override def initialise(): Unit = {
@@ -38,42 +36,32 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       */
     var sleepTimeSeconds = 1
     while(permissions.storeIsEmpty) {
-      logger.info(s"Permissions store is empty, waiting ${sleepTimeSeconds} seconds for it to be populated with data before continuing startup")
+      logger.info(s"Permissions store is empty, waiting $sleepTimeSeconds seconds for it to be populated with data before continuing startup")
       Thread.sleep(sleepTimeSeconds * 1000)
-      sleepTimeSeconds = math.max(sleepTimeSeconds * 2, 30)
+      sleepTimeSeconds = math.min(sleepTimeSeconds * 2, 30)
     }
   }
 
   private def hasPermission(user: Principal, permission: PermissionDefinition): Boolean = {
     user match {
       case UserPrincipal(_, _, email, _) => permissions.hasPermission(permission, email)
-
-      /* TODO: SAH - this probably belongs in some common code to allow service tiers to work? Perhaps service tiers should
-       * disappear with this work...
-       */
-      // think about only allowing certain services i.e. on `service.name`?
-      case service: MachinePrincipal if service.accessor.tier == Internal => true
       case _ => false
     }
   }
 
-  override def hasPermissionTo[T](permission: SimplePermission): PrincipalFilter = {
-    val definition = permission match {
-      case EditMetadata => Permissions.EditMetadata
-      case DeleteImage => Permissions.DeleteImage
-      case DeleteCrops => Permissions.DeleteCrops
-      case ShowPaid => Permissions.ShowPaid
+  override def hasPermissionTo[T](permissionContext: PermissionContext[T]): PrincipalFilter = {
+    val permissionDefinition = permissionContext match {
+      case PermissionContext(EditMetadata, _) => Permissions.EditMetadata
+      case PermissionContext(DeleteImage, _) => Permissions.DeleteImage
+      case PermissionContext(DeleteCrops, _) => Permissions.DeleteCrops
+      case PermissionContext(ShowPaid, _) => Permissions.ShowPaid
     }
-    { user: Principal => hasPermission(user, definition) }
+    { user: Principal => hasPermission(user, permissionDefinition) }
   }
 
   // there are none of these right now so simply always return true
-  override def hasPermissionTo[T](permission: PermissionWithParameter[T],
-                                  parameter: T): PrincipalFilter =
-    { _: Principal => true }
-
-  // there are none of these right now so simply always return true
   override def visibilityFilterFor[T](permission: PermissionWithParameter[T],
-                                      principal: Principal): VisibilityFilter[T] =
+                                      principal: Principal): VisibilityFilter[T] = {
     { _: T => true }
+  }
 }

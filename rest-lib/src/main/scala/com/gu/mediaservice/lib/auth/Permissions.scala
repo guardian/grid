@@ -10,17 +10,13 @@ sealed trait Permission[T] {
 sealed trait SimplePermission extends Permission[Unit]
 
 sealed trait PermissionWithParameter[T] extends Permission[T] {
-  def ->(v: T): PermissionContext1[T] = PermissionContext1(this, v)
+  def ->(v: T): PermissionContext[T] = PermissionContext(this, v)
 }
 
-trait PermissionContext[T] {
-  def permission: Permission[T]
-  def parameter: T
+case class PermissionContext[T](permission: Permission[T], parameter: T)
+object PermissionContext {
+  def apply(permission: SimplePermission): PermissionContext[Unit] = PermissionContext(permission, ())
 }
-case class PermissionContext0(permission: Permission[Unit]) extends PermissionContext[Unit] {
-  val parameter: Unit = ()
-}
-case class PermissionContext1[T](permission: Permission[T], parameter: T) extends PermissionContext[T]
 
 object Permissions {
   /** A predicate that takes a principal and returns a boolean reflecting whether the principal has permission or not */
