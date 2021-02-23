@@ -17,6 +17,7 @@ imagesService.factory('imagesService', [
         let total = 0;
         let images = [];
         let lastViewedImage = undefined;
+        let hasLoadedImages = false;
 
         function getImageOffset(id, offset) {
             return images[images.findIndex(i => i.data.id === id) + offset];
@@ -51,6 +52,7 @@ imagesService.factory('imagesService', [
                 *                  `checkForNewImages` deals with that. If it's the first search, we
                 *                  will use `stateParams.until` if available.
                 */
+
             if (angular.isUndefined(until)) {
                 until = lastSearchFirstResultTime || $stateParams.until;
             }
@@ -60,6 +62,9 @@ imagesService.factory('imagesService', [
             if (angular.isUndefined(orderBy)) {
                 orderBy = $stateParams.orderBy;
             }
+
+            // We want to track if the user has loaded images so we know not to reload the results page
+            hasLoadedImages = true;
 
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,

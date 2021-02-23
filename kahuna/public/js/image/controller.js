@@ -55,6 +55,7 @@ const image = angular.module('kahuna.image.controller', [
 image.controller('ImageCtrl', [
   '$rootScope',
   '$scope',
+  '$document',
   '$element',
   '$state',
   '$stateParams',
@@ -76,6 +77,7 @@ image.controller('ImageCtrl', [
 
   function ($rootScope,
             $scope,
+            $document,
             $element,
             $state,
             $stateParams,
@@ -152,6 +154,7 @@ image.controller('ImageCtrl', [
       ctrl.canBeDeleted = deletable;
     });
 
+
     ctrl.allowCropSelection = (crop) => {
       if (ctrl.cropType) {
         const cropSpec = cropOptions.find(_ => _.key === ctrl.cropType);
@@ -227,7 +230,7 @@ image.controller('ImageCtrl', [
       const prevImage = imagesService.getImageOffset(ctrl.image.data.id, -1);
 
       if (prevImage) {
-        return $state.go('image', {imageId: prevImage.data.id, crop: undefined});
+        $state.go('image', {imageId: prevImage.data.id, crop: undefined});
       }
     }
 
@@ -235,7 +238,7 @@ image.controller('ImageCtrl', [
       const nextImage = imagesService.getImageOffset(ctrl.image.data.id, 1);
 
       if (nextImage) {
-        return $state.go('image', {imageId: nextImage.data.id, crop: undefined});
+        $state.go('image', {imageId: nextImage.data.id, crop: undefined});
       }
     }
 
@@ -286,6 +289,13 @@ image.controller('ImageCtrl', [
             : requestFullscreen.call(imageEl);
         }
       });
+
+    angular.element(document).ready(function () {
+      const currentFilmstripItem = $document[0].querySelector('[data-filmstrip-selected]')
+      if (currentFilmstripItem)  {
+        currentFilmstripItem.scrollIntoView({inline: 'center'})
+      }
+    });
 
     $scope.$on('$destroy', function() {
       freeImageUpdateListener();

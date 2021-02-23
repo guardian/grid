@@ -119,6 +119,7 @@ results.controller('SearchResultsCtrl', [
         // (i.e. the uploadTime of the newest result in the set)
 
         // TODO: avoid this initial search (two API calls to init!)
+        console.log("Searching!")
         imagesService.search($stateParams, {length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
 
@@ -162,6 +163,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
+            console.log('loading range')
             imagesService.search($stateParams, {offset: start, length: length}).then(images => {
                 // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {

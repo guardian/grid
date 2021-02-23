@@ -187,11 +187,11 @@
 
         <ul ng-if='ctrl.showFilmstrip' class="image-filmstrip">
             <li 
-                ng-class="{'image-crop--selected': image.data.id == ctrl.image.data.id}"
+                ng-attr-data-filmstrip-selected="{{image.data.id == ctrl.image.data.id ? true : undefined}}"
                 ng-repeat='image in ctrl.images track by image.data.id'>
                 <ui-preview-image-filmstrip image="image"/>
             </li>
-        </ul class="image-filmstrip">
+        </ul>
 
         <div ng-if="ctrl.showFilmstrip" class="image-filmstrip__margin">
             <div></div>
