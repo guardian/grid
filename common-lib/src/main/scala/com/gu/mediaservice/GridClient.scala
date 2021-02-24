@@ -3,10 +3,15 @@ package com.gu.mediaservice
 import java.io.IOException
 import java.net.URL
 
-import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthenticationProvider
-import com.typesafe.scalalogging.LazyLogging
 import okhttp3.{Call, Callback, ConnectionPool, OkHttpClient, Request, Response}
-import play.api.libs.json.{JsValue, Json}
+
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
+import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.model.{Crop, Edits, Image}
+import com.gu.mediaservice.model.leases.LeasesByMedia
+import com.gu.mediaservice.model.usage.Usage
+import com.typesafe.scalalogging.LazyLogging
+import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
@@ -36,10 +41,11 @@ case class ClientErrorMessages(errorMessage: String, downstreamErrorMessage: Str
 case class ResponseWrapper(body: JsValue, statusCode: Int, bodyAsString: String)
 
 object GridClient {
-  def apply(maxIdleConnections: Int, debugHttpResponse: Boolean = true): GridClient = new GridClient(maxIdleConnections, debugHttpResponse)
+  def apply(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean = true): GridClient =
+    new GridClient(apiKey, services, maxIdleConnections, debugHttpResponse)
 }
 
-class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends LazyLogging {
+class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean) extends ApiKeyAuthentication with LazyLogging {
 
   import java.util.concurrent.TimeUnit
 
@@ -52,7 +58,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
     .build()
 
   def makeGetRequestSync(url: URL, apiKey: String): ResponseWrapper = {
-    val request = new Request.Builder().url(url).header(ApiKeyAuthenticationProvider.apiKeyHeaderName, apiKey).build
+    val request = new Request.Builder().url(url).header(apiKeyHeaderName, apiKey).build
     val response = httpClient.newCall(request).execute
     processResponse(response, url)
   }
@@ -128,7 +134,7 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
   }
 
   private def makeRequestAsync(url: URL, apiKey: String): Future[Response] = {
-    val request = new Request.Builder().url(url).header(ApiKeyAuthenticationProvider.apiKeyHeaderName, apiKey).build
+    val request = new Request.Builder().url(url).header(apiKeyHeaderName, apiKey).build
     val promise = Promise[Response]()
     httpClient.newCall(request).enqueue(new Callback {
       override def onFailure(call: Call, e: IOException): Unit = promise.failure(e)
@@ -137,5 +143,82 @@ class GridClient(maxIdleConnections: Int, debugHttpResponse: Boolean) extends La
     })
     promise.future
   }
+
+  private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
+    import res._
+    if (statusCode != 200 && statusCode != 404) {
+      val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode"
+      val downstreamErrorMessage = res.bodyAsString
+
+      val errorJson = Json.obj(
+        "level" -> "ERROR",
+        "errorStatusCode" -> statusCode,
+        "message" -> Json.obj(
+          "errorMessage" -> errorMessage,
+          "downstreamErrorMessage" -> downstreamErrorMessage
+        )
+      )
+      logger.error(errorJson.toString())
+      throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
+    }
+  }
+
+  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String): Option[Image] = {
+    logger.info("attempt to get image projection from image-loader")
+    val url = new URL(s"${imageLoaderEndpoint}/images/project/$mediaId")
+    val res = makeGetRequestSync(url, apiKey)
+    validateResponse(res, url)
+    logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
+    if (res.statusCode == 200) Some(res.body.as[Image]) else None
+  }
+
+  def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
+    logger.info("attempt to get leases")
+    val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
+    makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res, url)
+      if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
+    }
+  }
+
+  def getEdits(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
+    logger.info("attempt to get edits")
+    val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
+    makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res, url)
+      if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
+    }
+  }
+
+  def getCrops(mediaId: String)(implicit ec: ExecutionContext): Future[List[Crop]] = {
+    logger.info("attempt to get crops")
+    val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
+    makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res, url)
+      if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
+    }
+  }
+
+  def getUsages(mediaId: String)(implicit ec: ExecutionContext): Future[List[Usage]] = {
+    logger.info("attempt to get usages")
+
+    def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
+      (resBody \ "data").as[JsArray].value
+        .map(entity => (entity.as[JsObject] \ "data").as[JsValue]).toList
+    }
+
+    val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
+    makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res, url)
+      if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
+      else Nil
+    }
+  }
+
+
+
 }
 
+class DownstreamApiInBadStateException(message: String, downstreamMessage: String) extends IllegalStateException(message) {
+  def getDownstreamMessage = downstreamMessage
+}

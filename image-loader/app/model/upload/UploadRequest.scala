@@ -1,12 +1,14 @@
 package model.upload
 
+import com.gu.mediaservice.lib.ImageStorageProps
+
 import java.io.File
 import java.util.UUID
-
 import com.gu.mediaservice.model.{MimeType, UploadInfo}
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import org.joda.time.format.ISODateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
+
 import scala.collection.JavaConverters._
 
 case class UploadRequest(
@@ -20,7 +22,9 @@ case class UploadRequest(
                           uploadInfo: UploadInfo
                         ) {
 
-  val identifiersMeta: Map[String, String] = identifiers.map { case (k, v) => (s"identifier!$k", v) }
+  val identifiersMeta: Map[String, String] = identifiers.map { case (k, v) =>
+    (s"${ImageStorageProps.identifierMetadataKeyPrefix}$k", v)
+  }
 
   def toLogMarker: LogstashMarker = {
     val fallback = "none"

@@ -3,11 +3,11 @@ package model
 import java.io.{File, FileOutputStream}
 import java.net.URL
 import java.util.UUID
-
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.{GridClient, ResponseWrapper}
-import com.gu.mediaservice.lib.{ImageIngestOperations, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
+
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
@@ -38,28 +38,40 @@ case class S3FileExtractedMetadata(
   uploadedBy: String,
   uploadTime: DateTime,
   uploadFileName: Option[String],
-  picdarUrn: Option[String]
+  identifiers: Map[String, String]
 )
 
 object S3FileExtractedMetadata {
   def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
     val lastModified = s3ObjectMetadata.getLastModified.toInstant.toString
     val fileUserMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+      .map { case (key, value) =>
+        // Fix up the contents of the metadata.
+        (
+          // The keys used to be named with underscores instead of dashes but due to localstack being written in Python
+          // this didn't work locally (see https://github.com/localstack/localstack/issues/459)
+          key.replaceAll("_", "-"),
+          // The values are now all URL encoded and it is assumed safe to decode historical values too (based on the tested corpus)
+          URI.decode(value)
+        )
+      }
 
-    val uploadedBy = fileUserMetadata.getOrElse("uploaded_by", "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.getOrElse("upload_time", lastModified)
+    val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
+    val uploadedTimeRaw = fileUserMetadata.getOrElse(ImageStorageProps.uploadTimeMetadataKey, lastModified)
     val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
-    val picdarUrn = fileUserMetadata.get("identifier!picdarurn")
+    val identifiers = fileUserMetadata.filter{ case (key, _) =>
+      key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix)
+    }.map{ case (key, value) =>
+      key.stripPrefix(ImageStorageProps.identifierMetadataKeyPrefix) -> value
+    }
 
-    val uploadFileNameRaw = fileUserMetadata.get("file_name")
-    // The file name is URL encoded in  S3 metadata
-    val uploadFileName = uploadFileNameRaw.map(URI.decode)
+    val uploadFileName = fileUserMetadata.get(ImageStorageProps.filenameMetadataKey)
 
     S3FileExtractedMetadata(
       uploadedBy = uploadedBy,
       uploadTime = uploadTime,
       uploadFileName = uploadFileName,
-      picdarUrn = picdarUrn,
+      identifiers = identifiers,
     )
   }
 }
@@ -101,14 +113,10 @@ class Projector(ilConfig: ImageLoaderConfig,
 
   def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestId: UUID)
                   (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
-    import extractedS3Meta._
     val DigestedFile(tempFile_, id_) = srcFileDigest
-    // TODO more identifiers_ to rehydrate
-    val identifiers_ = picdarUrn match {
-      case Some(value) => Map[String, String]("picdarURN" -> value)
-      case _ => Map[String, String]()
-    }
-    val uploadInfo_ = UploadInfo(filename = uploadFileName)
+
+    val identifiers_ = extractedS3Meta.identifiers
+    val uploadInfo_ = UploadInfo(filename = extractedS3Meta.uploadFileName)
 
     MimeTypeDetection.guessMimeType(tempFile_) match {
       case util.Left(unsupported) => Future.failed(unsupported)
@@ -118,8 +126,8 @@ class Projector(ilConfig: ImageLoaderConfig,
           imageId = id_,
           tempFile = tempFile_,
           mimeType = Some(mimeType),
-          uploadTime = uploadTime,
-          uploadedBy,
+          uploadTime = extractedS3Meta.uploadTime,
+          uploadedBy = extractedS3Meta.uploadedBy,
           identifiers = identifiers_,
           uploadInfo = uploadInfo_
         )

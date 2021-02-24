@@ -20,7 +20,10 @@ val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test
-  )
+  ),
+
+  sources in (Compile,doc) := Seq.empty,
+  publishArtifact in (Compile, packageDoc) := false
 )
 
 lazy val root = project("grid", path = Some("."))
@@ -77,11 +80,6 @@ val bbcCommonLibSettings: SettingsDefinition = if (bbcBuildProcess) {
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.typesafe.play" %% "play" % "2.6.20", ws,
-    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
-    akkaHttpServer,
-    ws,
     "com.gu" %% "editorial-permissions-client" % "2.0",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
@@ -99,7 +97,6 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "box" % "0.2.0",
     "com.gu" %% "thrift-serializer" % "4.0.0",
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
-    "com.drewnoakes" % "metadata-extractor" % "2.15.0",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
@@ -112,11 +109,22 @@ lazy val commonLib = project("common-lib").settings(
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.gu" %% "scanamo" % "1.0.0-M8",
-    "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
+    "co m.squareup.okhttp3" % "okhttp" % okHttpVersion
+  ),
+  dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
+).settings(bbcCommonLibSettings)
+
+lazy val restLib = project("rest-lib").settings(
+  libraryDependencies ++= Seq(
+    "com.typesafe.play" %% "play" % "2.6.20",
+    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+    akkaHttpServer,
+    ws,
   ),
 
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
-).settings(bbcCommonLibSettings)
+).dependsOn(commonLib)
 
 lazy val auth = playProject("auth", 9011)
 
@@ -126,7 +134,12 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
+<<<<<<< HEAD
     "org.apache.tika" % "tika-core" % "1.20"
+=======
+    "org.apache.tika" % "tika-core" % "1.20",
+    "com.drewnoakes" % "metadata-extractor" % "2.15.0"
+>>>>>>> main
   )
 }
 
@@ -148,18 +161,28 @@ lazy val mediaApi = playProject("media-api", 9001).settings(
 lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
   .settings(
     excludeDependencies ++= Seq(
+      // Would not be needed if persistence-lib is created
       ExclusionRule("org.elasticsearch"),
       ExclusionRule("com.sksamuel.elastic4s"),
-      ExclusionRule("com.drewnoakes", "metadata-extractor"),
+
+      // See line 104 - only used for disk logging in dev.
       ExclusionRule("org.codehaus.janino"),
-      ExclusionRule("com.typesafe.play"),
       ExclusionRule("org.scalaz.stream"),
+
+      // Ultimately only used by cropper and image loader
+      // Probably tiny
       ExclusionRule("org.im4java"),
+
+      // Only used in ProcessesSpec.scala in common-lib test?
+      // Presumably should be a test dependency and then won't need excluding?
       ExclusionRule("org.scalacheck"),
+
+      // Provides com.gu.logback.appender.kinesis.KinesisAppender
+      // used by LogConfig.scala in common-lib - probably should move into rest-lib
+      // because the lambdas and command line tools by definition won't use it.
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
-      "com.squareup.okhttp3" % "okhttp" % okHttpVersion,
       "com.typesafe.play" %% "play-json" % "2.6.9",
       "com.typesafe.play" %% "play-json-joda" % "2.6.9",
       "com.typesafe.play" %% "play-functional" % "2.6.9",
@@ -226,6 +249,15 @@ lazy val usage = playProject("usage", 9009).settings(
 
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
+  .enablePlugins(JavaAppPackaging, UniversalPlugin)
+  .settings(
+    libraryDependencies ++= Seq(
+      // V2 of the AWS SDK as it's easier to use for scripts and won't leak to the rest of the project from here
+      "software.amazon.awssdk" % "s3" % "2.15.81",
+      // bump jcommander explicitly as AWS SDK is pulling in a vulnerable version
+      "com.beust" % "jcommander" % "1.75"
+    )
+  )
 
 lazy val migration = project("migration")
   .dependsOn(commonLib).
@@ -263,7 +295,7 @@ val buildInfo = Seq(
 def playProject(projectName: String, port: Int, path: Option[String] = None): Project =
   project(projectName, path)
     .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
-    .dependsOn(commonLib)
+    .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
 

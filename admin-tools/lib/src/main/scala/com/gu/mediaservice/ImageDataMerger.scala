@@ -4,8 +4,6 @@ import java.net.URL
 
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.LeasesByMedia
-import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 import play.api.libs.json._
@@ -14,7 +12,6 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ImageDataMergerConfig {
-  private val gridClient = GridClient(maxIdleConnections = 5)
 
   def apply(apiKey: String, domainRoot: String, imageLoaderEndpointOpt: Option[String]): ImageDataMergerConfig = {
     val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
@@ -22,11 +19,12 @@ object ImageDataMergerConfig {
       case Some(uri) => uri
       case None => services.loaderBaseUri
     }
-    new ImageDataMergerConfig(apiKey, services, gridClient, imageLoaderEndpoint)
+    new ImageDataMergerConfig(apiKey, services, imageLoaderEndpoint)
   }
 }
 
-case class ImageDataMergerConfig(apiKey: String, services: Services, gridClient: GridClient, imageLoaderEndpoint: String) {
+case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String) {
+  val gridClient = GridClient(apiKey, services, maxIdleConnections = 5)
   def isValidApiKey(): Boolean = {
     // Make an API key authenticated request to the leases API as a way of validating the API key.
     // A 200 indicates a valid key.
@@ -138,7 +136,6 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
   import config._
   import services._
 
-
   def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
     try {
       val maybeImageFuture = getMergedImageDataInternal(mediaId)
@@ -151,7 +148,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
   }
 
   private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
-    val maybeImage: Option[Image] = getImageLoaderProjection(mediaId)
+    val maybeImage: Option[Image] = gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint)
     maybeImage match {
       case Some(img) =>
         aggregate(img).map { aggImg =>
@@ -166,10 +163,10 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     val mediaId = image.id
     for {
       collections <- getCollectionsResponse(mediaId)
-      edits <- getEdits(mediaId)
-      leases <- getLeases(mediaId)
-      usages <- getUsages(mediaId)
-      crops <- getCrops(mediaId)
+      edits <- gridClient.getEdits(mediaId)
+      leases <- gridClient.getLeases(mediaId)
+      usages <- gridClient.getUsages(mediaId)
+      crops <- gridClient.getCrops(mediaId)
     } yield image.copy(
       collections = collections,
       userMetadata = edits,
@@ -179,64 +176,12 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     )
   }
 
-  private def getImageLoaderProjection(mediaId: String): Option[Image] = {
-    logger.info("attempt to get image projection from image-loader")
-    val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
-    val res = gridClient.makeGetRequestSync(url, apiKey)
-    validateResponse(res, url)
-    logger.info(s"got image projection from image-loader for $mediaId with status code $res.statusCode")
-    if (res.statusCode == 200) Some(res.body.as[Image]) else None
-  }
-
   private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
     gridClient.makeGetRequestAsync(url, apiKey).map { res =>
       validateResponse(res, url)
       if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
-    }
-  }
-
-  private def getEdits(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
-    logger.info("attempt to get edits")
-    val url = new URL(s"$metadataBaseUri/edits/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
-    }
-  }
-
-  private def getCrops(mediaId: String)(implicit ec: ExecutionContext): Future[List[Crop]] = {
-    logger.info("attempt to get crops")
-    val url = new URL(s"$cropperBaseUri/crops/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
-    }
-  }
-
-  private def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
-    logger.info("attempt to get leases")
-    val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
-    }
-  }
-
-  private def getUsages(mediaId: String)(implicit ec: ExecutionContext): Future[List[Usage]] = {
-    logger.info("attempt to get usages")
-
-    def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
-      (resBody \ "data").as[JsArray].value
-        .map(entity => (entity.as[JsObject] \ "data").as[JsValue]).toList
-    }
-
-    val url = new URL(s"$usageBaseUri/usages/media/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
-      else Nil
     }
   }
 
@@ -260,6 +205,3 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
   }
 }
 
-class DownstreamApiInBadStateException(message: String, downstreamMessage: String) extends IllegalStateException(message) {
-  def getDownstreamMessage = downstreamMessage
-}

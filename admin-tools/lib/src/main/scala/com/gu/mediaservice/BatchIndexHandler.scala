@@ -8,16 +8,15 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.indexing.IndexInputCreation._
 import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
 import com.typesafe.scalalogging.LazyLogging
 import net.logstash.logback.marker.Markers
 import play.api.libs.json.{JsObject, Json}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
 import scala.collection.JavaConverters._
 
 case class BatchIndexHandlerConfig(
@@ -35,7 +34,8 @@ case class BatchIndexHandlerConfig(
                                     threshold: Option[Integer],
                                     startState: ProduceProgress,
                                     checkerStartState: ProduceProgress,
-                                    maxSize: Int
+                                    maxSize: Int,
+                                    domainRoot: String
                                   )
 
 case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
@@ -54,9 +54,10 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig) extends LoggingWithMarkers
   private val GetIdsTimeout = new FiniteDuration(20, TimeUnit.SECONDS)
   private val GlobalTimeout = new FiniteDuration(MainProcessingTimeoutInSec, TimeUnit.SECONDS)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.MINUTES)
-  private val gridClient = GridClient(maxIdleConnections, debugHttpResponse = false)
+  val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  private val gridClient = GridClient(apiKey, services, maxIdleConnections, debugHttpResponse = false)
 
-  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, projectionEndpoint, ImagesProjectionTimeout, gridClient, maxSize)
+  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, ImagesProjectionTimeout, gridClient, maxSize)
   private val InputIdsStore = new InputIdsStore(AwsHelpers.buildDynamoTableClient(dynamoTableName), batchSize)
 
   import ImagesBatchProjector._
