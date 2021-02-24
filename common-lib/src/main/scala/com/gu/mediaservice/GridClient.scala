@@ -4,10 +4,9 @@ import java.io.IOException
 import java.net.URL
 
 import okhttp3.{Call, Callback, ConnectionPool, OkHttpClient, Request, Response}
-
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Crop, Edits, Image}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -178,6 +177,15 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     makeGetRequestAsync(url, apiKey).map { res =>
       validateResponse(res, url)
       if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
+    }
+  }
+
+  def getCollections(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
+    logger.info("attempt to get leases")
+    val url = new URL(s"${services.collectionsBaseUri}/images/$mediaId")
+    makeGetRequestAsync(url, apiKey).map { res =>
+      validateResponse(res, url)
+      if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
     }
   }
 
