@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
-import com.typesafe.config.{ConfigException, ConfigObject}
+import com.typesafe.config.ConfigException
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 
@@ -86,8 +86,6 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   final def boolean(key: String): Boolean =
     configuration.getOptional[Boolean](key).getOrElse(false)
-
-  final def configObjectOpt(key : String) : Option[ConfigObject] = configuration.getOptional[ConfigObject](key)
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")

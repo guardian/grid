@@ -1,9 +1,6 @@
 package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfig, FileMetadataConfig, GridConfigResources}
-import com.typesafe.config.ConfigObject
-
-import scala.collection.JavaConverters._
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
@@ -25,19 +22,6 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
 
-  val fileMetadataConfigs: Seq[FileMetadataConfig] = configObjectOpt("filemetadata.configurations") match {
-    case Some(config) => config.entrySet().asScala.flatMap { directory =>
-      directory.getValue.asInstanceOf[ConfigObject].entrySet().asScala.map { directoryConfig =>
-        val config = directoryConfig.getValue.asInstanceOf[ConfigObject].toConfig
-        FileMetadataConfig(
-          directory = directory.getKey,
-          tag = config.getString("tag"),
-          visible = config.getBoolean("visible"),
-          searchable = config.getBoolean("searchable"),
-          alias = if (config.hasPath("alias")) Some(config.getString("alias")) else None
-        )
-      }
-    }.toList
-    case None => List.empty
-  }
+  val fileMetadataConfigs: Seq[FileMetadataConfig] = configuration.get[Seq[FileMetadataConfig]]("fieldAliases")
+
 }
