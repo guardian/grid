@@ -8,11 +8,12 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
+import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
-import lib.DigestedFile
+import lib.{DigestedFile, ImageLoaderConfig}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
@@ -34,7 +35,7 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
 
   private val imageOperations = new ImageOperations(ctxPath)
 
-  private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
+  private val config = new ImageLoaderConfig(mock[GridConfigResources])
 
   private val s3 = mock[AmazonS3]
   private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, mock[GridClient])

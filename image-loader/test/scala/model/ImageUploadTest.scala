@@ -10,7 +10,9 @@ import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata, S3Op
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, UploadInfo}
+import com.gu.mediaservice.model.leases.LeasesByMedia
+import com.gu.mediaservice.model.usage.Usage
+import com.gu.mediaservice.model.{Collection, Crop, FileMetadata, Jpeg, MimeType, Png, Tiff, UploadInfo}
 import lib.imaging.MimeTypeDetection
 import model.upload.{OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
@@ -56,16 +58,24 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
         S3Ops.projectFileAsS3Object(new URI("http://madeupname/"), a.file, Some(a.mimeType), a.meta, None)
       )
 
-    def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
-    def storeOrProjectThumbFile: StorableThumbImage => Future[S3Object] = mockStore
-    def storeOrProjectOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
+    def putOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
+    def putThumbFile: StorableThumbImage => Future[S3Object] = mockStore
+    def putOptimisedPNG: StorableOptimisedImage => Future[S3Object] = mockStore
+    def getUsages: String => Future[List[Usage]] = _ => Future.successful(List[Usage]())
+    def getCollections: String => Future[List[Collection]] = _ => Future.successful(List[Collection]())
+    def getLeases: String => Future[LeasesByMedia] = _ => Future.successful(LeasesByMedia.empty)
+    def getExports: String => Future[List[Crop]] = _ => Future.successful(List[Crop]())
 
     val mockDependencies = ImageUploadOpsDependencies(
       mockConfig,
       imageOps,
-      storeOrProjectOriginalFile,
-      storeOrProjectThumbFile,
-      storeOrProjectOptimisedPNG
+      putOriginalFile,
+      putThumbFile,
+      putOptimisedPNG,
+      getUsages,
+      getCollections,
+      getLeases,
+      getExports
     )
 
     val tempFile = ResourceHelpers.fileAt(fileName)
