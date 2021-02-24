@@ -5,7 +5,7 @@ import akka.stream.ActorMaterializer
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, OnBehalfOfPrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
-import com.gu.mediaservice.lib.config.{CommonConfig, TestProvider}
+import com.gu.mediaservice.lib.config.CommonConfig
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
 import org.scalatestplus.play.PlaySpec
 import play.api.{Configuration, Environment}
