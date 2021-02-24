@@ -110,7 +110,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.codehaus.janino" % "janino" % "3.0.6",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
-    "co m.squareup.okhttp3" % "okhttp" % okHttpVersion
+    "com.squareup.okhttp3" % "okhttp" % okHttpVersion
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 ).settings(bbcCommonLibSettings)
@@ -134,12 +134,9 @@ lazy val cropper = playProject("cropper", 9006)
 
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
-<<<<<<< HEAD
     "org.apache.tika" % "tika-core" % "1.20"
-=======
     "org.apache.tika" % "tika-core" % "1.20",
     "com.drewnoakes" % "metadata-extractor" % "2.15.0"
->>>>>>> main
   )
 }
 
