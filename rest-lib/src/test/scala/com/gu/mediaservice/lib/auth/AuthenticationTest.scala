@@ -5,9 +5,8 @@ import akka.stream.ActorMaterializer
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, OnBehalfOfPrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
-import com.gu.mediaservice.lib.config.{CommonConfig, TestProvider}
+import com.gu.mediaservice.lib.config.CommonConfig
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
-import org.scalatestplus.play.PlaySpec
 import play.api.{Configuration, Environment}
 import play.api.http.Status
 import play.api.libs.json.{Format, Json}
@@ -16,9 +15,7 @@ import play.api.libs.ws.{DefaultWSCookie, WSRequest}
 import play.api.mvc.{Cookie, DiscardingCookie, PlayBodyParsers, RequestHeader, Result}
 import play.api.test.Helpers.defaultAwaitTimeout
 import play.api.test.{FakeRequest, Helpers, WsTestClient}
-import play.libs.ws.WSCookie
 
-import java.lang.IllegalStateException
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Future
 import scala.util.Try
