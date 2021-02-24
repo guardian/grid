@@ -158,8 +158,8 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
   }
 
   private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
-    maybeImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, None)
-    image <- aggregate(maybeImage)
+    maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, None)
+    image <- aggregate(maybeStubImage)
   } yield image.map { aggImg =>
     ImageProjectionOverrides.overrideSelectedFields(aggImg)
   }

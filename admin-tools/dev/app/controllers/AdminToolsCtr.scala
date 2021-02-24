@@ -15,14 +15,7 @@ import scala.concurrent.ExecutionContext
 class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  import akka.actor.ActorSystem
-  import akka.stream.ActorMaterializer
-  import play.api.libs.ws._
-
-  implicit val system = ActorSystem()
-  implicit val materializer = ActorMaterializer()
-  implicit val ws:WSClient  = AhcWSClient()
-
+  implicit val wsClient = wSClient
   private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot, imageLoaderEndpointOpt = None)
 
   private val merger = new ImageDataMerger(cfg)

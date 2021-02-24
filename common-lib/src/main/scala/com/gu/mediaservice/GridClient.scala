@@ -54,10 +54,11 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
                            errorFn: Option[ResponseWrapper => Exception] = None
                          )(
     implicit ec: ExecutionContext): Future[Option[T]] = {
-    val request: WSRequest = wsClient.url(url.toString).withHttpHeaders((apiKeyHeaderName, apiKey))
+    val request: WSRequest = wsClient.url(url.toString)
+    val authorisedRequest = authFn.map( fn => fn(request)).getOrElse(request.withHttpHeaders((apiKeyHeaderName, apiKey)))
 
-    authFn.map( fn => fn(request)).getOrElse(request).get().map { response =>
-      validateResponse[T](response, url, foundFn, notFoundFn, errorFn)
+    authorisedRequest.get().map { response =>
+      validateResponse[T](response, url, foundFn, notFoundFn, errorFn, authFn.isDefined)
     }
   }
 
@@ -127,7 +128,8 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
                                    url: URL,
                                    foundFn: ResponseWrapper => Option[T],
                                    notFoundFn: ResponseWrapper => Option[T],
-                                   errorFn: Option[ResponseWrapper => Exception]
+                                   errorFn: Option[ResponseWrapper => Exception],
+                                   usingAuthFn: Boolean
                                  ): Option[T] = {
     val res = processResponse(response, url)
     res.statusCode match {
@@ -136,7 +138,7 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
       case failCode => errorFn match {
         case Some(fn) => throw fn(res)
         case _ =>
-          val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $failCode"
+          val errorMessage = s"Downstream API Failure: $url is in a bad state, code: $failCode, using auth function: $usingAuthFn"
           val downstreamErrorMessage = res.bodyAsString
 
           val errorJson = Json.obj(

@@ -19,7 +19,7 @@ import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{FreeSpec, FunSuite, Matchers}
+import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
 import test.lib.ResourceHelpers
 
@@ -161,32 +161,32 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
         subjects = List("sport"),
         ),
       originalMetadata = ImageMetadata(
-        Some(new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)),
-        Some("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
-        Some("AFP/Getty Images"),
-        None,
-        Some("CHRISTOF STACHE"),
-        Some("Stringer"),
-        Some("Austria's Matthias Mayer attends the men"),
-        Some("CHRISTOF STACHE"),
-        Some("-"),
-        Some("AFP"),
-        None,
-        Nil,
-        None,
-        Some("KITZBUEHEL"),
-        Some("-"),
-        Some("AUSTRIA"),
-        List("sport")),
-      usageRights = NoRights,
-      originalUsageRights = NoRights,
-      exports = Nil,
-      usages = Nil,
-      leases = LeasesByMedia.empty,
-      collections = Nil,
-      syndicationRights = None,
-      userMetadataLastModified = None
-    )
+        dateTaken = Some(new DateTime("2015-01-22T00:00:00.000Z").withZone(DateTimeZone.UTC)),
+        description = Some("Austria's Matthias Mayer attends the men's downhill training of the FIS Alpine Skiing World Cup in Kitzbuehel, Austria, on January 22, 2015.       AFP PHOTO / CHRISTOF STACHECHRISTOF STACHE/AFP/Getty Images"),
+        credit = Some("AFP/Getty Images"),
+        creditUri = None,
+        byline = Some("CHRISTOF STACHE"),
+        bylineTitle = Some("Stringer"),
+        title = Some("Austria's Matthias Mayer attends the men"),
+        copyright = Some("CHRISTOF STACHE"),
+        suppliersReference = Some("-"),
+        source = Some("AFP"),
+        specialInstructions = None,
+        keywords = Nil,
+        subLocation = None,
+        city = Some("KITZBUEHEL"),
+        state = Some("-"),
+        country = Some("AUSTRIA"),
+        subjects = List("sport")),
+        usageRights = NoRights,
+        originalUsageRights = NoRights,
+        exports = Nil,
+        usages = Nil,
+        leases = LeasesByMedia.empty,
+        collections = Nil,
+        syndicationRights = None,
+        userMetadataLastModified = None
+      )
 
     val extractedS3Meta = S3FileExtractedMetadata(
       uploadedBy = uploadedBy,
@@ -195,7 +195,7 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
       identifiers = Map.empty,
     )
 
-    implicit val requestLoggingContext = RequestLoggingContext()
+    implicit val requestLoggingContext: RequestLoggingContext = RequestLoggingContext()
 
     val gridClient = mock[GridClient]
     when(gridClient.getUsages(id, None)).thenReturn(Future.successful(Some(Nil)))
@@ -203,7 +203,7 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     when(gridClient.getLeases(id, None)).thenReturn(Future.successful(Some(LeasesByMedia.empty)))
 
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, None)
-    actualFuture.recoverWith( {case t: Throwable => {t.printStackTrace(); throw t}})
+    actualFuture.recoverWith( {case t: Throwable => t.printStackTrace(); throw t})
 
     whenReady(actualFuture) { actual =>
       actual.id  shouldEqual expected.id
