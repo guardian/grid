@@ -55,7 +55,8 @@ module.controller('grImageMetadataCtrl', [
           .filter(config => config.visible)
           .filter(fileMetadataConfig => fileMetadata[directory][fileMetadataConfig.tag] !== undefined)
           .map(fileMetadataConfig => {
-            object[fileMetadataConfig.alias] = fileMetadata[directory][fileMetadataConfig.tag];
+            let key = fileMetadataConfig.alias ? fileMetadataConfig.alias : fileMetadataConfig.tag;
+            object[key] = fileMetadata[directory][fileMetadataConfig.tag];
           });
       });
 

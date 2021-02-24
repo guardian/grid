@@ -1,6 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.config.{CommonConfig, FileMetadataConfig, GridConfigResources}
+import com.typesafe.config.ConfigObject
 
 import scala.collection.JavaConverters._
 
@@ -24,21 +25,18 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
 
-  val fileMetadataConfigs: List[FileMetadataConfig] = configObjectOpt("filemetadata.configurations") match {
-    case Some(config) => config.unwrapped()
-      .asInstanceOf[java.util.Map[String, java.util.HashMap[String, java.util.HashMap[String, Object]]]]
-      .asScala
-      .flatMap {
-      case (directory, directoryConfigs) if directory.nonEmpty =>
-        directoryConfigs.asScala.map {
-          case(_, directoryConfig) =>
-            FileMetadataConfig(
-              directory,
-              tag = directoryConfig.get("tag").asInstanceOf[String],
-              visible = directoryConfig.get("visible").asInstanceOf[Boolean],
-              searchable = directoryConfig.get("searchable").asInstanceOf[Boolean],
-              alias = Some(directoryConfig.getOrDefault("alias", directoryConfig.get("tag")).asInstanceOf[String]))
-        }
+  val fileMetadataConfigs: Seq[FileMetadataConfig] = configObjectOpt("filemetadata.configurations") match {
+    case Some(config) => config.entrySet().asScala.flatMap { directory =>
+      directory.getValue.asInstanceOf[ConfigObject].entrySet().asScala.map { directoryConfig =>
+        val config = directoryConfig.getValue.asInstanceOf[ConfigObject].toConfig
+        FileMetadataConfig(
+          directory = directory.getKey,
+          tag = config.getString("tag"),
+          visible = config.getBoolean("visible"),
+          searchable = config.getBoolean("searchable"),
+          alias = if (config.hasPath("alias")) Some(config.getString("alias")) else None
+        )
+      }
     }.toList
     case None => List.empty
   }
