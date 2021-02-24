@@ -1,7 +1,5 @@
 GET     /                           controllers.ImageLoaderController.index
 POST    /images                     controllers.ImageLoaderController.loadImage(uploadedBy: String, identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
-# Not exposed in UI - force complete reload of file already correctly stored in S3.
-GET     /imageReload                controllers.ImageLoaderController.reloadImage(uploadedBy: Option[String], identifiers: String)
 POST    /imports                    controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 GET     /images/project/:imageId    controllers.ImageLoaderController.projectImageBy(imageId: String)
 
