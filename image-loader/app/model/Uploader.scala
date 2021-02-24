@@ -65,18 +65,6 @@ case class ImageUploadOpsCfg(
   thumbBucket: String
 )
 
-case class ImageUploadOpsDependencies(
-                                       config: ImageUploadOpsCfg,
-                                       imageOps: ImageOperations,
-                                       storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
-                                       storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
-                                       storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
-                                       getUsages: String => Future[List[Usage]],
-                                       getCollections: String => Future[List[Collection]],
-                                       getLeases: String => Future[LeasesByMedia],
-                                       getCrops: String => Future[List[Crop]]
-)
-
 object Uploader extends GridLogging {
 
   def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
@@ -103,9 +91,9 @@ object Uploader extends GridLogging {
 
     fileMetadataFuture.flatMap(fileMetadata => {
       uploadAndStoreImage(
-        storeOrProjectOriginalFile,
-        storeOrProjectThumbFile,
-        storeOrProjectOptimisedImage,
+        putOriginalFile,
+        putThumbFile,
+        putOptimisedImage,
         OptimiseWithPngQuant,
         uploadRequest,
         deps,

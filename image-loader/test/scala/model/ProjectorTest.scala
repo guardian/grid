@@ -3,8 +3,10 @@ package model
 import java.io.File
 import java.net.URI
 import java.util.{Date, UUID}
+
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
@@ -35,7 +37,7 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
   private val config = ImageUploadOpsCfg(new File("/tmp"), 256, 85d, Nil, "img-bucket", "thumb-bucket")
 
   private val s3 = mock[AmazonS3]
-  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity)
+  private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, mock[GridClient])
 
   // FIXME temporary ignored as test is not executable in CI/CD machine
   // because graphic lib files like srgb.icc, cmyk.icc are in root directory instead of resources

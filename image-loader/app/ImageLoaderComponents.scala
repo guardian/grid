@@ -1,11 +1,13 @@
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{ImageLoaderController, UploadStatusController}
 import lib._
 import lib.storage.{ImageLoaderStore, QuarantineStore}
-import model.{Projector, Uploader, QuarantineUploader}
+import model.{Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
@@ -23,7 +25,10 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val notifications = new Notifications(config)
   val uploader = new Uploader(store, config, imageOperations, notifications)
   val downloader = new Downloader(store)
-  val projector = Projector(config, imageOperations)
+  val services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  private val gridClient = GridClient("dev-", services, maxIdleConnections = 5, debugHttpResponse = false)
+
+  val projector = Projector(config, imageOperations, gridClient)
   val quarantineUploader: Option[QuarantineUploader] = (config.uploadToQuarantineEnabled, config.quarantineBucket) match {
     case (true, Some(bucketName)) =>{
       val quarantineStore = new QuarantineStore(config)

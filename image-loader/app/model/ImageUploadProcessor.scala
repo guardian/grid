@@ -20,6 +20,7 @@ import lib.{DigestedFile, ImageLoaderConfig}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import model.upload.{OptimiseOps, OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
+import play.api.libs.json.JsObject
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -57,7 +58,11 @@ trait ImageUploadProcessor extends GridLogging {
 
   def name: String
 
-  def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
+  def storeFile(uploadRequest: UploadRequest)
+               (implicit ec:ExecutionContext, logMarker: LogMarker): Future[JsObject]
+
+
+    def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
     ImageUploadOpsCfg(
       config.tempDir,
       config.thumbWidth,
@@ -85,7 +90,7 @@ trait ImageUploadProcessor extends GridLogging {
         putThumbFile,
         putOptimisedImage,
         getUsages,
-        getCollections,
+//        getCollections,
         getLeases,
         getExports,
         OptimiseWithPngQuant,
@@ -100,7 +105,7 @@ trait ImageUploadProcessor extends GridLogging {
                                          storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
                                          storeOrProjectOptimisedFile: StorableOptimisedImage => Future[S3Object],
                                          getUsages: String => Future[List[Usage]],
-                                         getCollections: String => Future[List[Collection]],
+//                                         getCollections: String => Future[List[Collection]],
                                          getLeases: String => Future[LeasesByMedia],
                                          getExports: String => Future[List[Crop]],
                                          optimiseOps: OptimiseOps,
@@ -146,7 +151,7 @@ trait ImageUploadProcessor extends GridLogging {
       thumbDimensions <- FileMetadataReader.dimensions(thumbViewableImage.file, Some(Jpeg))
       colourModel <- colourModelFuture
       usages <- getUsages(uploadRequest.imageId)
-      collections <- getCollections(uploadRequest.imageId)
+//      collections <- getCollections(uploadRequest.imageId)
       leases <- getLeases(uploadRequest.imageId)
       exports <- getExports(uploadRequest.imageId)
     } yield {
@@ -169,7 +174,7 @@ trait ImageUploadProcessor extends GridLogging {
       ).copy(
         // Get the various values from dynamo stores (or elsewhere, it's a provided function) and add them in
         leases = leases,
-        collections = collections,
+//        collections = collections,
         exports = exports,
         usages = usages
       )

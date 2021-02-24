@@ -3,13 +3,14 @@ package model
 import java.io.{File, FileOutputStream}
 import java.net.URL
 import java.util.UUID
+
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.{GridClient, ResponseWrapper}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.net.URI
@@ -22,7 +23,7 @@ import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.Logger
-import play.api.libs.json.{JsArray, JsObject, JsValue, Json}
+import play.api.libs.json.{JsArray, JsNull, JsObject, JsValue, Json}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -30,8 +31,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object Projector {
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations)(implicit ec: ExecutionContext): Projector
-  = new Projector(config, S3Ops.buildS3Client(config), imageOps, config.imageProcessor)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, gridClient: GridClient)(implicit ec: ExecutionContext): Projector
+  = new Projector(config, S3Ops.buildS3Client(config), imageOps, config.imageProcessor, gridClient)
+
 }
 
 case class S3FileExtractedMetadata(
@@ -79,9 +81,15 @@ object S3FileExtractedMetadata {
 class Projector(ilConfig: ImageLoaderConfig,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
-                processor: ImageProcessor) extends ImageUploadProcessor with GridLogging {
+                processor: ImageProcessor,
+                gridClient: GridClient,
+                ) extends ImageUploadProcessor with GridLogging {
 
   def name = "reloadImage"
+
+  def storeFile(uploadRequest: UploadRequest)
+               (implicit ec:ExecutionContext, logMarker: LogMarker): Future[JsObject] = Future.successful(JsObject.empty)
+
 
   private val config = toImageUploadOpsCfg(ilConfig)
 
@@ -143,10 +151,10 @@ class Projector(ilConfig: ImageLoaderConfig,
       projectOriginalFileAsS3Model,
       projectThumbnailFileAsS3Model,
       projectOptimisedPNGFileAsS3Model,
-      ???,
-      ???,
-      ???,
-      ???)
+      gridClient.getUsages,
+      gridClient.getCollections,
+      gridClient.getLeases,
+      gridClient.getCrops)
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
@@ -182,79 +190,6 @@ class Projector(ilConfig: ImageLoaderConfig,
       storableOptimisedImage.file,
       optimisedPngMimeType
     )
-  }
-
-  private val gridClient = GridClient(maxIdleConnections = 5)
-
-  private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
-    logger.info("attempt to get collections")
-    val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
-    }
-  }
-
-  private def getEdits(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
-    logger.info("attempt to get edits")
-    val url = new URL(s"$metadataBaseUri/edits/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) Some((res.body \ "data").as[Edits]) else None
-    }
-  }
-
-  private def getCrops(mediaId: String)(implicit ec: ExecutionContext): Future[List[Crop]] = {
-    logger.info("attempt to get crops")
-    val url = new URL(s"$cropperBaseUri/crops/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[List[Crop]] else Nil
-    }
-  }
-
-  private def getLeases(mediaId: String)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
-    logger.info("attempt to get leases")
-    val url = new URL(s"$leasesBaseUri/leases/media/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[LeasesByMedia] else LeasesByMedia.empty
-    }
-  }
-
-  private def getUsages(mediaId: String)(implicit ec: ExecutionContext): Future[List[Usage]] = {
-    logger.info("attempt to get usages")
-
-    def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
-      (resBody \ "data").as[JsArray].value
-        .map(entity => (entity.as[JsObject] \ "data").as[JsValue]).toList
-    }
-
-    val url = new URL(s"$usageBaseUri/usages/media/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])
-      else Nil
-    }
-  }
-
-  private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
-    import res._
-    if (statusCode != 200 && statusCode != 404) {
-      val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode"
-      val downstreamErrorMessage = res.bodyAsString
-
-      val errorJson = Json.obj(
-        "level" -> "ERROR",
-        "errorStatusCode" -> statusCode,
-        "message" -> Json.obj(
-          "errorMessage" -> errorMessage,
-          "downstreamErrorMessage" -> downstreamErrorMessage
-        )
-      )
-      logger.error(errorJson.toString())
-      throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
-    }
   }
 
 }
