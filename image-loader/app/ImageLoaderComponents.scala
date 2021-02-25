@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{ImageLoaderController, UploadStatusController}
 import lib._
 import lib.storage.{ImageLoaderStore, QuarantineStore}
-import model.{Projector, QuarantineUploader, Uploader}
+import model.{ImageUploadProcessor, Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
 

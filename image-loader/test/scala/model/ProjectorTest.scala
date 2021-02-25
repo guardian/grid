@@ -8,17 +8,16 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
-import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
-import lib.{DigestedFile, ImageLoaderConfig}
+import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{FreeSpec, FunSuite, Matchers}
+import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
 import test.lib.ResourceHelpers
 

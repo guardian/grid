@@ -1,29 +1,25 @@
 package model
 
 import java.io.{File, FileOutputStream}
-import java.net.URL
 import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
-import com.gu.mediaservice.{GridClient, ResponseWrapper}
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
-import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.net.URI
-import com.gu.mediaservice.model.leases.LeasesByMedia
-import com.gu.mediaservice.model.usage.Usage
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, UploadInfo}
+import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.Logger
-import play.api.libs.json.{JsArray, JsNull, JsObject, JsValue, Json}
+import play.api.libs.json.JsObject
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
