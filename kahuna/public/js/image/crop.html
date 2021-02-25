@@ -15,4 +15,10 @@
     <span class="flex-spacer"></span>
     <span class="image-crop__creator" title="Cropped by {{:: crop.author}} at {{:: crop.date | date:'medium'}}">{{:: crop.author | getInitials}}</span>
   </div>
+  <pinboard-add-button
+    data-type="grid-crop"
+    data-grid-crop-thumbnail="{{:: extremeAssets.smallest | assetFile}}"
+    data-grid-image-id="{{ctrl.image.data.id}}"
+    data-grid-crop-id="{{crop.id}}"
+  ></pinboard-add-button>
 </div>
