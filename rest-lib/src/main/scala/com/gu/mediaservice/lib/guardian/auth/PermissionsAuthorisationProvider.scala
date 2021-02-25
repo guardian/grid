@@ -42,26 +42,28 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
     }
   }
 
-  private def hasPermission(user: Principal, permission: PermissionDefinition): Boolean = {
-    user match {
-      case UserPrincipal(_, _, email, _) => permissions.hasPermission(permission, email)
-      case _ => false
+
+  override def hasPermissionTo[T](permissionContext: PermissionContext[T], principal: Principal): Boolean = {
+    def hasPermission(permission: PermissionDefinition): Boolean = {
+      principal match {
+        case UserPrincipal(_, _, email, _) => permissions.hasPermission(permission, email)
+        case _ => false
+      }
+    }
+    permissionContext match {
+      case PermissionContext(EditMetadata, _) => hasPermission(Permissions.EditMetadata)
+      case PermissionContext(DeleteImage, _) => hasPermission(Permissions.DeleteImage)
+      case PermissionContext(DeleteCrops, _) => hasPermission(Permissions.DeleteCrops)
+      case PermissionContext(ShowPaid, _) => hasPermission(Permissions.ShowPaid)
+      case PermissionContext(Test, _) => false
     }
   }
 
-  override def hasPermissionTo[T](permissionContext: PermissionContext[T]): PrincipalFilter = {
-    val permissionDefinition = permissionContext match {
-      case PermissionContext(EditMetadata, _) => Permissions.EditMetadata
-      case PermissionContext(DeleteImage, _) => Permissions.DeleteImage
-      case PermissionContext(DeleteCrops, _) => Permissions.DeleteCrops
-      case PermissionContext(ShowPaid, _) => Permissions.ShowPaid
-    }
-    { user: Principal => hasPermission(user, permissionDefinition) }
-  }
-
-  // there are none of these right now so simply always return true
   override def visibilityFilterFor[T](permission: PermissionWithParameter[T],
                                       principal: Principal): VisibilityFilter[T] = {
-    { _: T => true }
+    permission match {
+      // this is the test one that we need to implement but will always deny
+      case Test => _: T => false
+    }
   }
 }

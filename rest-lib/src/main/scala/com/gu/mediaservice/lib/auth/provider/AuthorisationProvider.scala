@@ -24,13 +24,14 @@ trait AuthorisationProvider extends Provider {
   def shutdown(): Future[Unit] = Future.successful(())
 
   /**
-    * Create a function that takes a principal and returns true if the principal has permission on this context
-    * and false otherwise. This is useful in code where you want to gate access for principals.
-    * @param permissionContext The permission context that the function should evaluate for principals
+    * Test whether a principal has permission on this context. This is useful in code where you want to gate access for
+    * principals.
+    * @param permissionContext The permission context that should be evaluated for the principal
+    * @param principal The principal (user or machine) that the context should be checked against
     * @tparam T If the permission context is parameterised then this will be the parameter type, otherwise Unit
-    * @return A function from Principal => Boolean
+    * @return true if the principal has permission, false otherwise
     */
-  def hasPermissionTo[T](permissionContext: PermissionContext[T]): PrincipalFilter
+  def hasPermissionTo[T](permissionContext: PermissionContext[T], principal: Principal): Boolean
 
   /**
     * Create a function that takes a permission parameter and returns true if the underlying principal has the

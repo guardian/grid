@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
+import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 
 /** The name of the permission that we are checking, e.g. edit_collection */
@@ -29,4 +30,7 @@ object Permissions {
   case object DeleteImage extends SimplePermission
   case object DeleteCrops extends SimplePermission
   case object ShowPaid extends SimplePermission
+  /** This is a test permission with parameter as we don't actually have any real ones yet.
+    * Delete when we do and adjust the tests to use a real one. */
+  case object Test extends PermissionWithParameter[String]
 }

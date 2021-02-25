@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
+import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, Request}
 import com.gu.mediaservice.lib.auth.Permissions.{PrincipalFilter, VisibilityFilter}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
@@ -8,7 +9,7 @@ import play.api.mvc.{ActionFilter, Result, Results}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class Authorisation(provider: AuthorisationProvider, executionContext: ExecutionContext) extends Results {
+class Authorisation(provider: AuthorisationProvider, executionContext: ExecutionContext) extends Results with ArgoHelpers {
   def actionFilterFor(permission: PermissionContext[_], unauthorisedResult: Result): ActionFilter[Request] = new ActionFilter[Request] {
     override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
       if (hasPermissionTo(permission)(request.user)) {
@@ -22,7 +23,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
   def actionFilterFor(permission: PermissionContext[_]): ActionFilter[Request] =
     actionFilterFor(
       permission,
-      Unauthorized(Json.obj("error" -> "unauthorized"))
+      respondError(Unauthorized, "permission-denied", s"You do not have permission to ${permission.permission}")
     )
 
   def hasPermissionTo[T](permission: SimplePermission): PrincipalFilter =
@@ -32,12 +33,11 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
     hasPermissionTo(permission -> parameter)
 
   def hasPermissionTo[T](permission: PermissionContext[T]): PrincipalFilter = {
-    val filter = provider.hasPermissionTo(permission)
     principal: Principal => {
       principal match {
         // a machine principal with internal tier can always see anything
         case MachinePrincipal(ApiAccessor(_, Internal), _) => true
-        case _ => filter(principal)
+        case _ => provider.hasPermissionTo(permission, principal)
       }
     }
   }
