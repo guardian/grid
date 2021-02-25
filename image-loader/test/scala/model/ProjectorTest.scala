@@ -34,7 +34,14 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
 
   private val imageOperations = new ImageOperations(ctxPath)
 
-  private val config = new ImageLoaderConfig(mock[GridConfigResources])
+  private val config = ImageUploadOpsCfg(
+    new File("/tmp"),
+    100,
+    100,
+    Nil,
+    "dummyoriginal",
+    "dummythumb"
+  )
 
   private val s3 = mock[AmazonS3]
   private val projector = new Projector(config, s3, imageOperations, ImageProcessor.identity, mock[GridClient])
