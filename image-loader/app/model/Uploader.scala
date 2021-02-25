@@ -259,7 +259,7 @@ class Uploader(val store: ImageLoaderStore,
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {
     val sideEffectDependencies = ImageUploadOpsDependencies(
-      toImageUploadOpsCfg(config),
+      ImageUploadProcessor.toImageUploadOpsCfg(config),
       imageOps,
       storeSource,
       storeThumbnail,

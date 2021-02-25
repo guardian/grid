@@ -28,7 +28,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 object Projector {
 
   def apply(config: ImageLoaderConfig, imageOps: ImageOperations, gridClient: GridClient)(implicit ec: ExecutionContext): Projector
-  = new Projector(config, S3Ops.buildS3Client(config), imageOps, config.imageProcessor, gridClient)
+  = new Projector(ImageUploadProcessor.toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, config.imageProcessor, gridClient)
 
 }
 
@@ -74,7 +74,7 @@ object S3FileExtractedMetadata {
   }
 }
 
-class Projector(ilConfig: ImageLoaderConfig,
+class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
@@ -86,8 +86,6 @@ class Projector(ilConfig: ImageLoaderConfig,
   def storeFile(uploadRequest: UploadRequest)
                (implicit ec:ExecutionContext, logMarker: LogMarker): Future[JsObject] = Future.successful(JsObject.empty)
 
-
-  private val config = toImageUploadOpsCfg(ilConfig)
 
   def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {

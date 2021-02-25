@@ -53,16 +53,7 @@ object ImageUploadProcessor extends GridLogging {
     }
   }
 
-}
-trait ImageUploadProcessor extends GridLogging {
-
-  def name: String
-
-  def storeFile(uploadRequest: UploadRequest)
-               (implicit ec:ExecutionContext, logMarker: LogMarker): Future[JsObject]
-
-
-    def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
+  def toImageUploadOpsCfg(config: ImageLoaderConfig): ImageUploadOpsCfg = {
     ImageUploadOpsCfg(
       config.tempDir,
       config.thumbWidth,
@@ -72,6 +63,15 @@ trait ImageUploadProcessor extends GridLogging {
       config.thumbnailBucket
     )
   }
+}
+trait ImageUploadProcessor extends GridLogging {
+
+  def name: String
+
+  def storeFile(uploadRequest: UploadRequest)
+               (implicit ec:ExecutionContext, logMarker: LogMarker): Future[JsObject]
+
+
 
   def fromUploadRequestShared(uploadRequest: UploadRequest, deps: ImageUploadOpsDependencies, processor: ImageProcessor)
                              (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
