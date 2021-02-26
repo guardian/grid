@@ -66,8 +66,8 @@ mediaApi.factory('mediaApi',
         return root.follow('image', {id: id}).get();
     }
 
-    function fileMetadata(image) {
-      return image.follow('fileMetadata', {}).get();
+    function fileMetadata(image, {include} = {}) {
+      return image.follow('fileMetadata', { include: include }).get();
     }
 
     function getSession() {

@@ -95,7 +95,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
-      .flatMap(_.transform(addSyndicationStatus(image))).get
+      .flatMap(_.transform(addSyndicationStatus(image)))
+      .flatMap(_.transform(addAliases(image))).get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -221,13 +222,37 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
 
+  def addAliases(image: Image): Reads[JsObject] = {
+    val fieldAliasConfigs = config.fieldAliasConfigs
+
+    val aliases: Map[String, JsValue] = if (fieldAliasConfigs.nonEmpty) {
+      val fileMetadata = Json.toJson(image.fileMetadata)
+
+      fieldAliasConfigs.map { config =>
+        val parts: List[String] = config.elasticsearchPath.split('.').toList
+
+        val lookupResult: JsLookupResult = parts match {
+          case "fileMetadata" :: directory :: key :: Nil => fileMetadata \ directory \ key
+          case other => throw new IllegalArgumentException(s"Sorry key $other not supported")
+        }
+
+        config.alias -> lookupResult
+      }.flatMap {
+        case (alias, value) => value.toOption.map(alias ->)
+      }.toMap
+    } else Map.empty
+
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
+      "aliases" -> aliases
+    ))
+  }
+
   def makeImgopsUri(uri: URI): String =
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w,h,q}"
 
   def makeOptimisedPngImageopsUri(uri: URI): String = {
     config.imgopsUri + List(uri.getPath, uri.getRawQuery).mkString("?") + "{&w, h, q}"
   }
-
 
   import play.api.libs.json.JodaWrites._
 

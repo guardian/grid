@@ -1,11 +1,9 @@
 package com.gu.mediaservice.model
 
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
-import net.logstash.logback.marker.Markers
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
-
-import scala.collection.JavaConverters._
+import play.api.libs.json.Reads._
+import play.api.libs.json._
 
 case class FileMetadata(
   iptc: Map[String, String]                     = Map(),

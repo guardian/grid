@@ -6,7 +6,7 @@ import lib.KahunaConfig
 import play.api.mvc.{BaseController, ControllerComponents}
 import play.api.libs.json._
 import scala.concurrent.ExecutionContext
-import com.gu.mediaservice.lib.config.FileMetadataConfig._
+import com.gu.mediaservice.lib.config.FieldAliasConfig._
 
 class KahunaController(auth: Authentication, config: KahunaConfig, override val controllerComponents: ControllerComponents)
                       (implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
@@ -15,7 +15,7 @@ class KahunaController(auth: Authentication, config: KahunaConfig, override val 
     val okPath = routes.KahunaController.ok.url
     // If the auth is successful, we redirect to the kahuna domain so the iframe
     // is on the same domain and can be read by the JS
-    val fileMetadataConfigs: String = Json.toJson(config.fileMetadataConfigs).toString()
+    val fileMetadataConfigs: String = Json.toJson(config.fieldAliasConfigs).toString()
     val returnUri = config.rootUri + okPath
     Ok(views.html.main(
       config.mediaApiUri,

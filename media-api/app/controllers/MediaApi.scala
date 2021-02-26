@@ -1,7 +1,5 @@
 package controllers
 
-import java.net.URI
-
 import akka.stream.scaladsl.StreamConverters
 import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
@@ -10,7 +8,6 @@ import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
 import com.gu.permissions.PermissionDefinition
 import lib._
@@ -24,6 +21,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 
+import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(

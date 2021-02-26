@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{CommonConfig, FileMetadataConfig, GridConfigResources}
+import com.gu.mediaservice.lib.config.{CommonConfig, FieldAliasConfig, GridConfigResources}
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
@@ -21,7 +21,4 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
-
-  val fileMetadataConfigs: Seq[FileMetadataConfig] = configuration.get[Seq[FileMetadataConfig]]("fieldAliases")
-
 }

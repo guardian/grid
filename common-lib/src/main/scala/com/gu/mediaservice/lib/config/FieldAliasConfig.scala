@@ -5,22 +5,22 @@ import play.api.libs.json._
 
 import scala.collection.JavaConverters._
 
-case class FileMetadataConfig(
+case class FieldAliasConfig(
                                elasticsearchPath: String,
                                label: String,
                                displaySearchHint: Boolean = false,
-                               alias: Option[String])
+                               alias: String)
 
-object FileMetadataConfig {
-  implicit val MetadataConfigurationWrites: Writes[FileMetadataConfig] = Json.writes[FileMetadataConfig]
+object FieldAliasConfig {
+  implicit val FieldAliasConfigWrites: Writes[FieldAliasConfig] = Json.writes[FieldAliasConfig]
 
-  implicit val configLoader: ConfigLoader[Seq[FileMetadataConfig]] = ConfigLoader(_.getConfigList).map (
+  implicit val configLoader: ConfigLoader[Seq[FieldAliasConfig]] = ConfigLoader(_.getConfigList).map (
     _.asScala.map(config =>
-      FileMetadataConfig(
+      FieldAliasConfig(
         config.getString("elasticsearchPath"),
         config.getString("label"),
         config.getBoolean("displaySearchHint"),
-        alias = if (config.hasPath("alias")) Some(config.getString("alias")) else None)
+        config.getString("alias"))
     )
   )
 }
