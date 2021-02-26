@@ -29,18 +29,15 @@ class ImageIngestOperations(imageBucket: String, thumbnailBucket: String, config
 
   private def storeOriginalImage(storableImage: StorableOriginalImage)
                         (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(imageBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType),
-      storableImage.meta, overwrite = false)
+    storeImage(imageBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType), storableImage.meta)
 
   private def storeThumbnailImage(storableImage: StorableThumbImage)
                          (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(thumbnailBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType),
-      overwrite = true)
+    storeImage(thumbnailBucket, fileKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
 
   private def storeOptimisedImage(storableImage: StorableOptimisedImage)
                        (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType),
-      overwrite = true)
+    storeImage(imageBucket, optimisedPngKeyFromId(storableImage.id), storableImage.file, Some(storableImage.mimeType))
 
   def deleteOriginal(id: String): Future[Unit] = if(isVersionedS3) deleteVersionedImage(imageBucket, fileKeyFromId(id)) else deleteImage(imageBucket, fileKeyFromId(id))
   def deleteThumbnail(id: String): Future[Unit] = deleteImage(thumbnailBucket, fileKeyFromId(id))
