@@ -14,7 +14,7 @@ class ImageQuarantineOperations(quarantineBucket: String, config: CommonConfig, 
 
   def storeQuarantineImage(id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
                        (implicit logMarker: LogMarker): Future[S3Object] =
-    storeImage(quarantineBucket, ImageIngestOperations.fileKeyFromId(id), file, mimeType, meta)
+    storeImage(quarantineBucket, ImageIngestOperations.fileKeyFromId(id), file, mimeType, meta, overwrite = true)
 }
 
 
