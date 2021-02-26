@@ -168,8 +168,10 @@ class S3(config: CommonConfig) extends GridLogging {
 
       val req = new PutObjectRequest(bucket, id, file).withMetadata(metadata)
       Stopwatch(s"S3 client.putObject ($req)"){
-        val res = client.putObject(req)
-        S3Object(bucket, id, res.getMetadata.getContentLength, S3Metadata(res.getMetadata))
+        client.putObject(req)
+        // once we've completed the PUT read back to ensure that we are returning reality
+        val metadata = client.getObjectMetadata(bucket, id)
+        S3Object(bucket, id, metadata.getContentLength, S3Metadata(metadata))
       }(markers)
     }
 
