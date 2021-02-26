@@ -9,7 +9,7 @@ case class FileMetadataConfig(
                                elasticsearchPath: String,
                                label: String,
                                displaySearchHint: Boolean = false,
-                               alias: Option[String])
+                               alias: String)
 
 object FileMetadataConfig {
   implicit val MetadataConfigurationWrites: Writes[FileMetadataConfig] = Json.writes[FileMetadataConfig]
@@ -20,7 +20,8 @@ object FileMetadataConfig {
         config.getString("elasticsearchPath"),
         config.getString("label"),
         config.getBoolean("displaySearchHint"),
-        alias = if (config.hasPath("alias")) Some(config.getString("alias")) else None)
+        alias = config.getString("alias")
+      )
     )
   )
 }

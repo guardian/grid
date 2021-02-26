@@ -1,10 +1,10 @@
 package lib
 
 import java.net.URI
-
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
+import com.gu.mediaservice.lib.config.FileMetadataConfig
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
@@ -16,6 +16,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.utils.UriEncoding
 
+import scala.language.postfixOps
 import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
@@ -95,7 +96,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
-      .flatMap(_.transform(addSyndicationStatus(image))).get
+      .flatMap(_.transform(addSyndicationStatus(image)))
+      .flatMap(_.transform(addAliases(source, image, config.fileMetadataConfigs)))
+      .get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -189,6 +192,26 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addSyndicationStatus(image: Image): Reads[JsObject] = {
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
       "syndicationStatus" -> image.syndicationStatus
+    ))
+  }
+
+  def addAliases(source: JsValue, image: Image, aliasConfig: Seq[FileMetadataConfig]): Reads[JsObject] = {
+    val aliasData: Map[String, JsValue] = if (aliasConfig.nonEmpty) {
+      val fileMetadataJs = source \ "fileMetadata" getOrElse Json.toJson(image.fileMetadata)
+      aliasConfig.map { config =>
+        val list: List[String] = config.elasticsearchPath.split(".").toList
+        val value: JsLookupResult = list match {
+          case "fileMetadata" :: directory :: key :: Nil => fileMetadataJs \ directory \ key
+          case other => throw new IllegalArgumentException(s"We don't support key $other")
+        }
+        config.alias -> value
+      }.flatMap{ case (alias, value) =>
+        value.toOption.map(alias ->)
+      }.toMap
+    } else Map.empty
+
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
+      "aliases" -> aliasData
     ))
   }
 

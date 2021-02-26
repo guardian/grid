@@ -58,6 +58,8 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
+  val fileMetadataConfigs: Seq[FileMetadataConfig] = configuration.get[Seq[FileMetadataConfig]]("fieldAliases")
+
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
   final def getStringSet(key: String): Set[String] = Try {

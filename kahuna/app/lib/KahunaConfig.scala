@@ -22,6 +22,4 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
 
-  val fileMetadataConfigs: Seq[FileMetadataConfig] = configuration.get[Seq[FileMetadataConfig]]("fieldAliases")
-
 }
