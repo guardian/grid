@@ -1,7 +1,5 @@
 package lib
 
-import java.net.URI
-
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.auth.{Internal, Tier}
 import com.gu.mediaservice.lib.collections.CollectionsManager
@@ -16,6 +14,8 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.utils.UriEncoding
 
+import java.net.URI
+import scala.collection.mutable
 import scala.util.{Failure, Try}
 
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
@@ -96,7 +96,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
-      .flatMap(_.transform(addAliases(image))).get
+      .flatMap(_.transform(addAliases(source, image))).get
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -222,25 +222,23 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
 
-  def addAliases(image: Image): Reads[JsObject] = {
+  def addAliases(source: JsValue, image: Image): Reads[JsObject] = {
+    val aliases = new mutable.LinkedHashMap[String, JsValue]
     val fieldAliasConfigs = config.fieldAliasConfigs
 
-    val aliases: Map[String, JsValue] = if (fieldAliasConfigs.nonEmpty) {
-      val fileMetadata = Json.toJson(image.fileMetadata)
+    if (fieldAliasConfigs.nonEmpty) {
+      val fileMetadata: JsValue = source \ "fileMetadata" \ "data" getOrElse Json.toJson(image.fileMetadata)
 
-      fieldAliasConfigs.map { config =>
-        val parts: List[String] = config.elasticsearchPath.split('.').toList
-
-        val lookupResult: JsLookupResult = parts match {
+      fieldAliasConfigs.foreach { config =>
+        val parts = config.elasticsearchPath.split('.').toList
+        val lookupResult = parts match {
           case "fileMetadata" :: directory :: key :: Nil => fileMetadata \ directory \ key
           case other => throw new IllegalArgumentException(s"Sorry key $other not supported")
         }
 
-        config.alias -> lookupResult
-      }.flatMap {
-        case (alias, value) => value.toOption.map(alias ->)
-      }.toMap
-    } else Map.empty
+        lookupResult.toOption.map { aliases(config.label) = _ }
+      }
+    }
 
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj(
       "aliases" -> aliases
