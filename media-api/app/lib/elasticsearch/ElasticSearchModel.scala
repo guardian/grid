@@ -15,7 +15,7 @@ import scalaz.{Validation, ValidationNel}
 
 import scala.util.Try
 
-case class SearchResults(hits: Seq[(String, Image)], total: Long)
+case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long)
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 

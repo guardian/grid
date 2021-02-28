@@ -273,9 +273,9 @@ class MediaApi(
 
     val include = getIncludedFromParams(request)
 
-    def hitToImageEntity(elasticId: String, image: Image): EmbeddedEntity[JsValue] = {
-      val writePermission = canUserWriteMetadata(request, image)
-      val deletePermission = canUserDeleteImage(request, image)
+    def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
+      val writePermission = canUserWriteMetadata(request, image.instance)
+      val deletePermission = canUserDeleteImage(request, image.instance)
       val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
@@ -310,10 +310,10 @@ class MediaApi(
 
     val include = getIncludedFromParams(request)
 
-    elasticSearch.getImageById(id) map {
-      case Some(source) if hasPermission(request, source) =>
-        val writePermission = canUserWriteMetadata(request, source)
-        val deleteImagePermission = canUserDeleteImage(request, source)
+    elasticSearch.getImageWithSourceById(id) map {
+      case Some(source) if hasPermission(request, source.instance) =>
+        val writePermission = canUserWriteMetadata(request, source.instance)
+        val deleteImagePermission = canUserDeleteImage(request, source.instance)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
         val (imageData, imageLinks, imageActions) = imageResponse.create(
@@ -326,7 +326,7 @@ class MediaApi(
           request.user.accessor.tier
         )
 
-        Some((source, imageData, imageLinks, imageActions))
+        Some((source.instance, imageData, imageLinks, imageActions))
 
       case _ => None
     }

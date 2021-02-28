@@ -49,7 +49,10 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
 
-  def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] = {
+  def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
+    getImageWithSourceById(id).map(_.map(_.instance))
+
+  def getImageWithSourceById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[SourceWrapper[Image]]] = {
     implicit val logMarker = MarkerMap("id" -> id)
     executeAndLog(get(imagesAlias, id), s"get image by id $id").map { r =>
       r.status match {
@@ -157,7 +160,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       logSearchQueryIfTimedOut(searchRequest, r.result)
-      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.id, i))
+      val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       SearchResults(hits = imageHits, total = r.result.totalHits)
     }
   }
@@ -263,8 +266,9 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   }
 
   private def mapImageFrom(sourceAsString: String, id: String) = {
-    Json.parse(sourceAsString).validate[Image] match {
-      case i: JsSuccess[Image] => Some(i.value)
+    val source = Json.parse(sourceAsString)
+    source.validate[Image] match {
+      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value))
       case e: JsError =>
         logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None
