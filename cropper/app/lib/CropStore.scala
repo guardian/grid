@@ -35,7 +35,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
       case (key, value)       => key -> value
     }.mapValues(_.toString)
 
-    storeImage(config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata) map { s3Object =>
+    storeImage(config.imgPublishingBucket, filename, file, Some(mimeType), filteredMetadata, overwrite = true) map { s3Object =>
       Asset(
         translateImgHost(s3Object.uri),
         Some(s3Object.size),
