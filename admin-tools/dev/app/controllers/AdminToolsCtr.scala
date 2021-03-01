@@ -11,10 +11,9 @@ import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents, wSClient: WSClient)(implicit val ec: ExecutionContext)
+class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents: ControllerComponents)(implicit wsClient: WSClient, implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
-  implicit val wsClient = wSClient
   private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot, imageLoaderEndpointOpt = None)
 
   private val merger = new ImageDataMerger(cfg)
