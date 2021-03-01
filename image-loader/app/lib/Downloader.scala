@@ -8,6 +8,7 @@ import com.google.common.hash.HashingOutputStream
 import com.google.common.io.ByteStreams
 import com.gu.mediaservice.DeprecatedHashWrapper
 import com.gu.mediaservice.lib.logging.GridLogging
+import play.api.http.HeaderNames
 import play.api.libs.ws.WSClient
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,7 +25,7 @@ class Downloader(implicit ec: ExecutionContext, wsClient: WSClient) extends Grid
     response <- wsClient.url(uri.toString).get()
 
     maybeExpectedSize = Try {
-      response.header("Content-Length").map(_.toInt)
+      response.header(HeaderNames.CONTENT_LENGTH).map(_.toInt)
     }
   } yield maybeExpectedSize match {
     case Success(None) =>
