@@ -3,6 +3,7 @@ package model
 import java.io.File
 import java.net.URI
 import java.util.{Date, UUID}
+
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
@@ -12,7 +13,6 @@ import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
-import com.gu.mediaservice.model.usage.Usage
 import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
 import org.mockito.Mockito.{times, verify, when}

@@ -2,6 +2,7 @@ package model
 
 import java.io.{File, FileOutputStream}
 import java.util.UUID
+
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.GridClient
@@ -21,6 +22,7 @@ import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.Logger
+import play.api.libs.ws.WSRequest
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
