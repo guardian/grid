@@ -135,7 +135,9 @@ class Projector(config: ImageUploadOpsCfg,
           uploadInfo = uploadInfo_
         )
 
-        val onBehalfOfFn: Option[OnBehalfOfPrincipal] = user.map(u => auth.getOnBehalfOfPrincipal(u))
+        val onBehalfOfFn: OnBehalfOfPrincipal = user
+          .map(u => auth.getOnBehalfOfPrincipal(u))
+          .getOrElse( (r:WSRequest) => r)
 
         for {
           futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)

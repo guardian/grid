@@ -21,6 +21,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
+import play.api.libs.ws.WSRequest
 import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -30,6 +31,8 @@ import scala.concurrent.Future
 class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with MockitoSugar {
 
   import ResourceHelpers._
+
+  private def noAuthFn = (r:WSRequest) => r
 
   implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
@@ -198,9 +201,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     implicit val requestLoggingContext: RequestLoggingContext = RequestLoggingContext()
 
     val gridClient = mock[GridClient]
-    when(gridClient.getUsages(id, None)).thenReturn(Future.successful(Some(Nil)))
-    when(gridClient.getCrops(id, None)).thenReturn(Future.successful(Some(Nil)))
-    when(gridClient.getLeases(id, None)).thenReturn(Future.successful(Some(LeasesByMedia.empty)))
+    when(gridClient.getUsages(id, noAuthFn)).thenReturn(Future.successful(Some(Nil)))
+    when(gridClient.getCrops(id, noAuthFn)).thenReturn(Future.successful(Some(Nil)))
+    when(gridClient.getLeases(id, noAuthFn)).thenReturn(Future.successful(Some(LeasesByMedia.empty)))
 
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, None)
     actualFuture.recoverWith( {case t: Throwable => t.printStackTrace(); throw t})
@@ -219,9 +222,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
       actual shouldEqual expected
     }
 
-    verify(gridClient, times(1)).getLeases(id, None)
-    verify(gridClient, times(1)).getUsages(id, None)
-    verify(gridClient, times(1)).getCrops(id, None)
+    verify(gridClient, times(1)).getLeases(id, noAuthFn)
+    verify(gridClient, times(1)).getUsages(id, noAuthFn)
+    verify(gridClient, times(1)).getCrops(id, noAuthFn)
 
   }
 

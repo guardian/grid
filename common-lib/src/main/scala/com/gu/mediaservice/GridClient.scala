@@ -39,26 +39,25 @@ case class ClientErrorMessages(errorMessage: String, downstreamErrorMessage: Str
 case class ResponseWrapper(body: JsValue, statusCode: Int, bodyAsString: String)
 
 object GridClient {
-  def apply(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean = true)(implicit wsClient: WSClient): GridClient =
-    new GridClient(apiKey, services, maxIdleConnections, debugHttpResponse)
+  def apply(services: Services, debugHttpResponse: Boolean = true)(implicit wsClient: WSClient): GridClient =
+    new GridClient(services, debugHttpResponse)
 }
 
-class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, debugHttpResponse: Boolean)(implicit wsClient: WSClient) extends ApiKeyAuthentication with LazyLogging {
+class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClient: WSClient) extends LazyLogging {
 
   def makeGetRequestAsync[T](
                            url: URL,
-                           apiKey: String,
-                           authFn: Option[WSRequest => WSRequest],
+                           authFn: WSRequest => WSRequest,
                            foundFn: ResponseWrapper => Option[T],
                            notFoundFn: ResponseWrapper => Option[T],
                            errorFn: Option[ResponseWrapper => Exception] = None
                          )(
     implicit ec: ExecutionContext): Future[Option[T]] = {
     val request: WSRequest = wsClient.url(url.toString)
-    val authorisedRequest = authFn.map( fn => fn(request)).getOrElse(request.withHttpHeaders((apiKeyHeaderName, apiKey)))
+    val authorisedRequest = authFn(request)
 
     authorisedRequest.get().map { response =>
-      validateResponse[T](response, url, foundFn, notFoundFn, errorFn, authFn.isDefined)
+      validateResponse[T](response, url, foundFn, notFoundFn, errorFn)
     }
   }
 
@@ -128,8 +127,7 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
                                    url: URL,
                                    foundFn: ResponseWrapper => Option[T],
                                    notFoundFn: ResponseWrapper => Option[T],
-                                   errorFn: Option[ResponseWrapper => Exception],
-                                   usingAuthFn: Boolean
+                                   errorFn: Option[ResponseWrapper => Exception]
                                  ): Option[T] = {
     val res = processResponse(response, url)
     res.statusCode match {
@@ -138,7 +136,7 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
       case failCode => errorFn match {
         case Some(fn) => throw fn(res)
         case _ =>
-          val errorMessage = s"Downstream API Failure: $url is in a bad state, code: $failCode, using auth function: $usingAuthFn"
+          val errorMessage = s"Downstream API Failure: $url is in a bad state, code: $failCode"
           val downstreamErrorMessage = res.bodyAsString
 
           val errorJson = Json.obj(
@@ -155,56 +153,52 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     }
   }
 
-  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: Option[WSRequest => WSRequest])
+  def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: WSRequest => WSRequest)
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
     makeGetRequestAsync(
       url,
-      apiKey,
       authFn,
       {res:ResponseWrapper => Some(res.body.as[Image])},
       {_:ResponseWrapper => None}
     )
   }
 
-  def getLeases(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[LeasesByMedia]] = {
+  def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[LeasesByMedia]] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
     makeGetRequestAsync(
       url,
-      apiKey,
       authFn,
       {res:ResponseWrapper => Some((res.body \ "data").as[LeasesByMedia])},
       {_:ResponseWrapper => Some(LeasesByMedia.empty)}
     )
   }
 
-  def getEdits(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[Edits]] = {
+  def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
     makeGetRequestAsync(
       url,
-      apiKey,
       authFn,
       {res:ResponseWrapper => Some((res.body \ "data").as[Edits])},
       {_:ResponseWrapper => None}
     )
   }
 
-  def getCrops(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[List[Crop]]] = {
+  def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[List[Crop]]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
     makeGetRequestAsync[List[Crop]](
       url,
-      apiKey,
       authFn,
       {res:ResponseWrapper => Some((res.body \ "data").as[List[Crop]])},
       {_:ResponseWrapper => Some(Nil)}
     )
   }
 
-  def getUsages(mediaId: String, authFn: Option[WSRequest => WSRequest])(implicit ec: ExecutionContext): Future[Option[List[Usage]]] = {
+  def getUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[List[Usage]]] = {
     logger.info("attempt to get usages")
 
     def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
@@ -215,7 +209,6 @@ class GridClient(apiKey: String, services: Services, maxIdleConnections: Int, de
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
     makeGetRequestAsync(
       url,
-      apiKey,
       authFn,
       {res:ResponseWrapper => Some(unpackUsagesFromEntityResponse(res.body).map(_.as[Usage]))},
       {_:ResponseWrapper => Some(Nil)}

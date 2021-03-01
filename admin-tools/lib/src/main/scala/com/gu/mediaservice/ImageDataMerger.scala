@@ -162,7 +162,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
   }
 
   private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
-    maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, None)
+    maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, authFunction)
     image <- aggregate(maybeStubImage)
   } yield image.map { aggImg =>
     ImageProjectionOverrides.overrideSelectedFields(aggImg)
@@ -174,10 +174,10 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
       val mediaId = image.id
       for {
         collections <- getCollectionsResponse(mediaId)
-        edits <- gridClient.getEdits(mediaId, None)
-        leases <- gridClient.getLeases(mediaId, None)
-        usages <- gridClient.getUsages(mediaId, None)
-        crops <- gridClient.getCrops(mediaId, None)
+        edits <- gridClient.getEdits(mediaId, authFunction)
+        leases <- gridClient.getLeases(mediaId, authFunction)
+        usages <- gridClient.getUsages(mediaId, authFunction)
+        crops <- gridClient.getCrops(mediaId, authFunction)
       } yield Some(image.copy(
         collections = collections.getOrElse(Nil),
         userMetadata = edits,
@@ -194,8 +194,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
     gridClient.makeGetRequestAsync(
       url,
-      apiKey,
-      None,
+      authFunction,
       { res:ResponseWrapper => Some((res.body \ "data").as[List[Collection]])},
       { _:ResponseWrapper => None }
     )
