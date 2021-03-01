@@ -25,22 +25,8 @@ object ImageDataMergerConfig {
   }
 }
 
-case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String)(implicit wsClient: WSClient, ec: ExecutionContext) {
-  val gridClient = GridClient(apiKey, services, maxIdleConnections = 5)(wsClient)
-  def isValidApiKey: Future[Boolean] = {
-    // Make an API key authenticated request to the leases API as a way of validating the API key.
-    // A 200 indicates a valid key.
-    // Using leases because its a low traffic API.
-    class BadApiKeyException extends Exception
-    gridClient.makeGetRequestAsync[Unit](
-      new URL(services.leasesBaseUri),
-      apiKey,
-      None,
-      {_:ResponseWrapper => None},
-      {_:ResponseWrapper => None},
-      Some({_:ResponseWrapper => new BadApiKeyException()})
-    ).map(_ => true).recoverWith({case _:BadApiKeyException => Future.successful(false)})
-  }
+case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String)(implicit wsClient: WSClient, ec: ExecutionContext) extends ApiKeyAuthentication {
+  val gridClient = GridClient(services)(wsClient)
 }
 
 object ImageProjectionOverrides extends LazyLogging {
@@ -141,10 +127,27 @@ case class FullImageProjectionSuccess(image: Option[Image]) extends FullImagePro
 
 case class FullImageProjectionFailed(message: String, downstreamErrorMessage: String) extends FullImageProjectionResult
 
-class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
+class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthentication with LazyLogging {
 
   import config._
   import services._
+
+  // Authorise with api key
+  private def authFunction(request: WSRequest) = request.withHttpHeaders((apiKeyHeaderName, apiKey))
+
+  def isValidApiKey(implicit ec: ExecutionContext): Future[Boolean] = {
+    // Make an API key authenticated request to the leases API as a way of validating the API key.
+    // A 200 indicates a valid key.
+    // Using leases because its a low traffic API.
+    class BadApiKeyException extends Exception
+    gridClient.makeGetRequestAsync[Unit](
+      new URL(services.leasesBaseUri),
+      authFunction,
+      {_:ResponseWrapper => None},
+      {_:ResponseWrapper => None},
+      Some({_:ResponseWrapper => new BadApiKeyException()})
+    ).map(_ => true).recoverWith({case _:BadApiKeyException => Future.successful(false)})
+  }
 
   def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
     try {
