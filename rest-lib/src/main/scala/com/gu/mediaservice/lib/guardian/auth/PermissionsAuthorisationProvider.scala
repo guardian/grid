@@ -2,8 +2,8 @@ package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions._
+import com.gu.mediaservice.lib.auth.SimplePermission
 import com.gu.mediaservice.lib.auth.provider.{AuthorisationProvider, AuthorisationProviderResources}
-import com.gu.mediaservice.lib.auth.{PermissionContext, PermissionWithParameter}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.permissions._
@@ -43,7 +43,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
   }
 
 
-  override def hasPermissionTo[T](permissionContext: PermissionContext[T], principal: Principal): Boolean = {
+  override def hasPermissionTo(permissionContext: SimplePermission, principal: Principal): Boolean = {
     def hasPermission(permission: PermissionDefinition): Boolean = {
       principal match {
         case UserPrincipal(_, _, email, _) => permissions.hasPermission(permission, email)
@@ -51,19 +51,10 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       }
     }
     permissionContext match {
-      case PermissionContext(EditMetadata, _) => hasPermission(Permissions.EditMetadata)
-      case PermissionContext(DeleteImage, _) => hasPermission(Permissions.DeleteImage)
-      case PermissionContext(DeleteCrops, _) => hasPermission(Permissions.DeleteCrops)
-      case PermissionContext(ShowPaid, _) => hasPermission(Permissions.ShowPaid)
-      case PermissionContext(Test, _) => false
-    }
-  }
-
-  override def visibilityFilterFor[T](permission: PermissionWithParameter[T],
-                                      principal: Principal): VisibilityFilter[T] = {
-    permission match {
-      // this is the test one that we need to implement but will always deny
-      case Test => _: T => false
+      case EditMetadata => hasPermission(Permissions.EditMetadata)
+      case DeleteImage => hasPermission(Permissions.DeleteImage)
+      case DeleteCrops => hasPermission(Permissions.DeleteCrops)
+      case ShowPaid => hasPermission(Permissions.ShowPaid)
     }
   }
 }

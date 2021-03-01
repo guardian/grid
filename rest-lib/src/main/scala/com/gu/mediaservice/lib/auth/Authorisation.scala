@@ -2,15 +2,14 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, Request}
-import com.gu.mediaservice.lib.auth.Permissions.{PrincipalFilter, VisibilityFilter}
+import com.gu.mediaservice.lib.auth.Permissions.PrincipalFilter
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
-import play.api.libs.json.Json
 import play.api.mvc.{ActionFilter, Result, Results}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class Authorisation(provider: AuthorisationProvider, executionContext: ExecutionContext) extends Results with ArgoHelpers {
-  def actionFilterFor(permission: PermissionContext[_], unauthorisedResult: Result): ActionFilter[Request] = new ActionFilter[Request] {
+  def actionFilterFor(permission: SimplePermission, unauthorisedResult: Result): ActionFilter[Request] = new ActionFilter[Request] {
     override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
       if (hasPermissionTo(permission)(request.user)) {
         Future.successful(None)
@@ -20,19 +19,13 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
     }
     override protected def executionContext: ExecutionContext = Authorisation.this.executionContext
   }
-  def actionFilterFor(permission: PermissionContext[_]): ActionFilter[Request] =
+  def actionFilterFor(permission: SimplePermission): ActionFilter[Request] =
     actionFilterFor(
       permission,
-      respondError(Unauthorized, "permission-denied", s"You do not have permission to ${permission.permission}")
+      respondError(Unauthorized, "permission-denied", s"You do not have permission to ${permission.name}")
     )
 
-  def hasPermissionTo[T](permission: SimplePermission): PrincipalFilter =
-    hasPermissionTo(PermissionContext(permission))
-
-  def hasPermissionTo[T](permission: PermissionWithParameter[T], parameter: T): PrincipalFilter =
-    hasPermissionTo(permission -> parameter)
-
-  def hasPermissionTo[T](permission: PermissionContext[T]): PrincipalFilter = {
+  def hasPermissionTo(permission: SimplePermission): PrincipalFilter = {
     principal: Principal => {
       principal match {
         // a machine principal with internal tier can always see anything
@@ -41,11 +34,4 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
       }
     }
   }
-
-  def visibilityFilterFor[T](permission: PermissionWithParameter[T], principal: Principal): VisibilityFilter[T] =
-    principal match {
-      // a machine principal with internal tier can always see anything
-      case MachinePrincipal(ApiAccessor(_, Internal), _) => _ => true
-      case _ => provider.visibilityFilterFor(permission, principal)
-    }
 }
