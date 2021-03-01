@@ -32,8 +32,6 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
 
   import ResourceHelpers._
 
-  private def noAuthFn = (r:WSRequest) => r
-
   implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 
   private val ctxPath = new File(".").getAbsolutePath
@@ -201,9 +199,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     implicit val requestLoggingContext: RequestLoggingContext = RequestLoggingContext()
 
     val gridClient = mock[GridClient]
-    when(gridClient.getUsages(id, noAuthFn)).thenReturn(Future.successful(Some(Nil)))
-    when(gridClient.getCrops(id, noAuthFn)).thenReturn(Future.successful(Some(Nil)))
-    when(gridClient.getLeases(id, noAuthFn)).thenReturn(Future.successful(Some(LeasesByMedia.empty)))
+    when(gridClient.getUsages(id, identity)).thenReturn(Future.successful(Some(Nil)))
+    when(gridClient.getCrops(id, identity)).thenReturn(Future.successful(Some(Nil)))
+    when(gridClient.getLeases(id, identity)).thenReturn(Future.successful(Some(LeasesByMedia.empty)))
 
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, None)
     actualFuture.recoverWith( {case t: Throwable => t.printStackTrace(); throw t})
@@ -222,9 +220,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
       actual shouldEqual expected
     }
 
-    verify(gridClient, times(1)).getLeases(id, noAuthFn)
-    verify(gridClient, times(1)).getUsages(id, noAuthFn)
-    verify(gridClient, times(1)).getCrops(id, noAuthFn)
+    verify(gridClient, times(1)).getLeases(id, identity)
+    verify(gridClient, times(1)).getUsages(id, identity)
+    verify(gridClient, times(1)).getCrops(id, identity)
 
   }
 
