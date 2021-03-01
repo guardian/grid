@@ -2,7 +2,6 @@ package com.gu.mediaservice
 
 import java.net.URL
 
-import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.model.{Crop, Edits, Image}
 import com.gu.mediaservice.model.leases.LeasesByMedia

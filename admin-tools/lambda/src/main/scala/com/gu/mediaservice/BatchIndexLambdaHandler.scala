@@ -33,11 +33,11 @@ class BatchIndexLambdaHandler {
   private val batchIndex = new BatchIndexHandler(cfg)
 
 
-  def handleRequest() = {
+  def handleRequest(): Unit = {
     batchIndex.processImages()
   }
 
-  def handleCheckRequest() = {
+  def handleCheckRequest(): Unit = {
     batchIndex.checkImages()
   }
 
