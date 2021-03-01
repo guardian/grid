@@ -2,14 +2,18 @@ package com.gu.mediaservice
 
 import java.net.URL
 
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.model.Image
+import play.api.libs.ws.WSRequest
 
 import scala.concurrent.duration.{DAYS, Duration, HOURS}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridClient, maxSize: Int) {
+class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridClient, maxSize: Int) extends ApiKeyAuthentication {
 
   private implicit val ThrottledExecutionContext = ExecutionContext.fromExecutor(java.util.concurrent.Executors.newFixedThreadPool(5))
+
+  private def authFunction(request: WSRequest) = request.withHttpHeaders((apiKeyHeaderName, apiKey))
 
   // TODO I don't like this - checking the API key by making a request to a non-existent endpoint is ... ewww.
   def validateApiKey(projectionEndpoint: String): Unit = {
@@ -17,8 +21,7 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
     for {
       _ <- gridClient.makeGetRequestAsync(
         projectionUrl,
-        apiKey,
-        None,
+        authFunction,
         {res:ResponseWrapper => None},
         {res:ResponseWrapper => None}
       )
@@ -32,8 +35,7 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
       class FailedCallException extends Exception
       gridClient.makeGetRequestAsync[Either[Image, String]](
         projectionUrl,
-        apiKey,
-        None,
+        authFunction,
         { response: ResponseWrapper =>
           if (response.bodyAsString.size > maxSize) {
             InputIdsStore.setStateToTooBig(id, response.bodyAsString.size)
@@ -76,8 +78,7 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
       val imagesUrl = new URL(s"$imagesEndpoint/$id")
       gridClient.makeGetRequestAsync[(String, GetImageStatus)](
         imagesUrl,
-        apiKey,
-        None,
+        authFunction,
         {_:ResponseWrapper => Some((id, Found))},
         {_:ResponseWrapper => Some((id, NotFound))},
         Some({_:ResponseWrapper => new FailureException()})
