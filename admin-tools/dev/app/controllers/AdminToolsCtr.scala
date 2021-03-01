@@ -7,7 +7,6 @@ import com.gu.mediaservice.{FullImageProjectionFailed, FullImageProjectionSucces
 import lib.AdminToolsConfig
 import play.api.libs.json.Json
 import play.api.libs.ws.WSClient
-import play.api.libs.ws.ahc.AhcWSClient
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
