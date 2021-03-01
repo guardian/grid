@@ -8,8 +8,10 @@ import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.{OnBehalfOfPrincipal, Principal}
+import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
+import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
@@ -45,22 +47,26 @@ case class S3FileExtractedMetadata(
 
 object S3FileExtractedMetadata {
   def apply(s3ObjectMetadata: ObjectMetadata): S3FileExtractedMetadata = {
-    val lastModified = s3ObjectMetadata.getLastModified.toInstant.toString
-    val fileUserMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
-      .map { case (key, value) =>
-        // Fix up the contents of the metadata.
-        (
-          // The keys used to be named with underscores instead of dashes but due to localstack being written in Python
-          // this didn't work locally (see https://github.com/localstack/localstack/issues/459)
-          key.replaceAll("_", "-"),
-          // The values are now all URL encoded and it is assumed safe to decode historical values too (based on the tested corpus)
-          URI.decode(value)
-        )
-      }
+    val lastModified = new DateTime(s3ObjectMetadata.getLastModified)
+    val userMetadata = s3ObjectMetadata.getUserMetadata.asScala.toMap
+    apply(lastModified, userMetadata)
+  }
+
+  def apply(lastModified: DateTime, userMetadata: Map[String, String]): S3FileExtractedMetadata = {
+    val fileUserMetadata = userMetadata.map { case (key, value) =>
+      // Fix up the contents of the metadata.
+      (
+        // The keys used to be named with underscores instead of dashes but due to localstack being written in Python
+        // this didn't work locally (see https://github.com/localstack/localstack/issues/459)
+        key.replaceAll("_", "-"),
+        // The values are now all URL encoded and it is assumed safe to decode historical values too (based on the tested corpus)
+        URI.decode(value)
+      )
+    }
 
     val uploadedBy = fileUserMetadata.getOrElse(ImageStorageProps.uploadedByMetadataKey, "re-ingester")
-    val uploadedTimeRaw = fileUserMetadata.getOrElse(ImageStorageProps.uploadTimeMetadataKey, lastModified)
-    val uploadTime = new DateTime(uploadedTimeRaw).withZone(DateTimeZone.UTC)
+    val uploadedTimeRaw = fileUserMetadata.get(ImageStorageProps.uploadTimeMetadataKey).map(new DateTime(_).withZone(DateTimeZone.UTC))
+    val uploadTime = uploadedTimeRaw.getOrElse(lastModified)
     val identifiers = fileUserMetadata.filter{ case (key, _) =>
       key.startsWith(ImageStorageProps.identifierMetadataKeyPrefix)
     }.map{ case (key, value) =>
@@ -107,7 +113,7 @@ class Projector(config: ImageUploadOpsCfg,
     }
   }
 
-  private def getSrcFileDigestForProjection(s3Src: S3Object, imageId: String, tempFile: File) = {
+  private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
     IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
     DigestedFile(tempFile, imageId)
   }
@@ -174,7 +180,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage)
                                           (implicit ec: ExecutionContext)= Future {
     val key = ImageIngestOperations.fileKeyFromId(storableOriginalImage.id)
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.originalFileBucket,
       key,
       storableOriginalImage.file,
@@ -186,7 +192,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.fileKeyFromId(storableThumbImage.id)
     val thumbMimeType = Some(ImageOperations.thumbMimeType)
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.thumbBucket,
       key,
       storableThumbImage.file,
@@ -197,7 +203,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage)(implicit ec: ExecutionContext) = Future {
     val key = ImageIngestOperations.optimisedPngKeyFromId(storableOptimisedImage.id)
     val optimisedPngMimeType = Some(ImageOperations.thumbMimeType) // this IS what we will generate.
-    S3Ops.projectFileAsS3Object(
+    S3Object(
       config.originalFileBucket,
       key,
       storableOptimisedImage.file,

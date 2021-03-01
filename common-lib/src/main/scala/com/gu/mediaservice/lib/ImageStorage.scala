@@ -34,7 +34,8 @@ trait ImageStorage {
   /** Store a copy of the given file and return the URI of that copy.
     * The file can safely be deleted afterwards.
     */
-  def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType], meta: Map[String, String] = Map.empty)
+  def storeImage(bucket: String, id: String, file: File, mimeType: Option[MimeType],
+                 meta: Map[String, String] = Map.empty, overwrite: Boolean)
                 (implicit logMarker: LogMarker): Future[S3Object]
 
   def deleteImage(bucket: String, id: String): Future[Unit]
