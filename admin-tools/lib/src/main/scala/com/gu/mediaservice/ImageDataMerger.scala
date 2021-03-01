@@ -179,24 +179,24 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
         usages <- gridClient.getUsages(mediaId, authFunction)
         crops <- gridClient.getCrops(mediaId, authFunction)
       } yield Some(image.copy(
-        collections = collections.getOrElse(Nil),
+        collections = collections,
         userMetadata = edits,
-        leases = leases.getOrElse(LeasesByMedia.empty),
-        usages = usages.getOrElse(Nil),
-        exports = crops.getOrElse(Nil)
+        leases = leases,
+        usages = usages,
+        exports = crops
       ))
     }
     case None => Future.successful(None)
   }
 
-  private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[Option[List[Collection]]] = {
+  private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    gridClient.makeGetRequestAsync(
+    gridClient.makeGetRequestAsync[List[Collection]](
       url,
       authFunction,
-      { res:ResponseWrapper => Some((res.body \ "data").as[List[Collection]])},
-      { _:ResponseWrapper => None }
+      { res:ResponseWrapper => (res.body \ "data").as[List[Collection]]},
+      { _:ResponseWrapper => Nil }
     )
   }
 

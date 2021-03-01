@@ -48,11 +48,11 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
   def makeGetRequestAsync[T](
                            url: URL,
                            authFn: WSRequest => WSRequest,
-                           foundFn: ResponseWrapper => Option[T],
-                           notFoundFn: ResponseWrapper => Option[T],
+                           foundFn: ResponseWrapper => T,
+                           notFoundFn: ResponseWrapper => T,
                            errorFn: Option[ResponseWrapper => Exception] = None
                          )(
-    implicit ec: ExecutionContext): Future[Option[T]] = {
+    implicit ec: ExecutionContext): Future[T] = {
     val request: WSRequest = wsClient.url(url.toString)
     val authorisedRequest = authFn(request)
 
@@ -125,10 +125,10 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
   private def validateResponse[T](
                                    response: WSResponse,
                                    url: URL,
-                                   foundFn: ResponseWrapper => Option[T],
-                                   notFoundFn: ResponseWrapper => Option[T],
+                                   foundFn: ResponseWrapper => T,
+                                   notFoundFn: ResponseWrapper => T,
                                    errorFn: Option[ResponseWrapper => Exception]
-                                 ): Option[T] = {
+                                 ): T = {
     val res = processResponse(response, url)
     res.statusCode match {
       case 200 => foundFn(res)
@@ -165,21 +165,21 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     )
   }
 
-  def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[LeasesByMedia]] = {
+  def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
-    makeGetRequestAsync(
+    makeGetRequestAsync[LeasesByMedia](
       url,
       authFn,
-      {res:ResponseWrapper => Some((res.body \ "data").as[LeasesByMedia])},
-      {_:ResponseWrapper => Some(LeasesByMedia.empty)}
+      {res:ResponseWrapper => (res.body \ "data").as[LeasesByMedia]},
+      {_:ResponseWrapper => LeasesByMedia.empty}
     )
   }
 
   def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
-    makeGetRequestAsync(
+    makeGetRequestAsync[Option[Edits]](
       url,
       authFn,
       {res:ResponseWrapper => Some((res.body \ "data").as[Edits])},
@@ -187,18 +187,18 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     )
   }
 
-  def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[List[Crop]]] = {
+  def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
     makeGetRequestAsync[List[Crop]](
       url,
       authFn,
-      {res:ResponseWrapper => Some((res.body \ "data").as[List[Crop]])},
-      {_:ResponseWrapper => Some(Nil)}
+      {res:ResponseWrapper => (res.body \ "data").as[List[Crop]]},
+      {_:ResponseWrapper => Nil}
     )
   }
 
-  def getUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[List[Usage]]] = {
+  def getUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Usage]] = {
     logger.info("attempt to get usages")
 
     def unpackUsagesFromEntityResponse(resBody: JsValue): List[JsValue] = {
@@ -207,11 +207,11 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     }
 
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
-    makeGetRequestAsync(
+    makeGetRequestAsync[List[Usage]](
       url,
       authFn,
-      {res:ResponseWrapper => Some(unpackUsagesFromEntityResponse(res.body).map(_.as[Usage]))},
-      {_:ResponseWrapper => Some(Nil)}
+      {res:ResponseWrapper => unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])},
+      {_:ResponseWrapper => Nil}
     )
   }
 
