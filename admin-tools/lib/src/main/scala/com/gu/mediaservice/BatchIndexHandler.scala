@@ -56,7 +56,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClien
   private val GlobalTimeout = new FiniteDuration(MainProcessingTimeoutInSec, TimeUnit.SECONDS)
   private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.MINUTES)
   val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
-  private val gridClient = GridClient(apiKey, services, maxIdleConnections, debugHttpResponse = false)
+  private val gridClient = GridClient(services)
 
   private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, ImagesProjectionTimeout, gridClient, maxSize)
   private val InputIdsStore = new InputIdsStore(AwsHelpers.buildDynamoTableClient(dynamoTableName), batchSize)

@@ -2,13 +2,14 @@ package com.gu.mediaservice
 
 import java.net.URL
 
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
 import play.api.libs.json._
-import play.api.libs.ws.WSClient
+import play.api.libs.ws.{WSClient, WSRequest}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
