@@ -59,7 +59,7 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
           }
         }
       })
-      ).recoverWith({case _:FailedCallException => ???})
+      )
     }
     val f = Future.sequence(apiCalls)
     Await.result(f, timeout)
