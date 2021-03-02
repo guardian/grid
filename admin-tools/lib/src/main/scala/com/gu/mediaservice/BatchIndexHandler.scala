@@ -54,7 +54,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClien
 
   private val GetIdsTimeout = new FiniteDuration(20, TimeUnit.SECONDS)
   private val GlobalTimeout = new FiniteDuration(MainProcessingTimeoutInSec, TimeUnit.SECONDS)
-  private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.MINUTES)
+  private val ImagesProjectionTimeout = new FiniteDuration(ProjectionTimeoutInSec, TimeUnit.SECONDS)
   val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
   private val gridClient = GridClient(services)
 
