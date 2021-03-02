@@ -7,21 +7,25 @@ imageFade.directive('grImageFadeOnLoad',
                      function ($q, $timeout) {
 
     // TODO: customise duration, transition
-    const animationThreshold = 50; // ms
-    const animationDuration = 200; // ms
+                         const animationDuration = 200; // ms
+                         const revealAfter = 1500; // ms
 
     return {
         restrict: 'A',
         link: function (scope, element) {
-            // If not loaded after animationThreshold, hide and wait
+            // If not loaded, hide and wait
             // until loaded to fade in
-            $timeout(() => {
                 if (! isLoaded()) {
                     hide();
-                    whenLoaded().finally(reveal);
+                    whenLoaded();
                 }
-            }, animationThreshold);
 
+            // If not loaded after revealAfter
+            // show the image, it's progressive so we should
+            // have something to show for our time
+            $timeout(() => {
+                reveal();
+            }, revealAfter);
 
             function isLoaded() {
                 return element[0].complete;
@@ -29,19 +33,26 @@ imageFade.directive('grImageFadeOnLoad',
 
             function whenLoaded() {
                 const defer = $q.defer();
-
+                const revealAndResolve = () => {
+                    reveal();
+                    defer.resolve();
+                };
+                const revealAndReject = () => {
+                    reveal();
+                    defer.reject();
+                };
                 // already loaded
                 if (isLoaded()) {
-                    defer.resolve();
+                    revealAndResolve();
                 } else {
                     // wait until loaded/error
-                    element.on('load', defer.resolve);
-                    element.on('error', defer.reject);
+                    element.on('load', revealAndResolve);
+                    element.on('error', revealAndReject);
 
                     // free listeners once observed
                     defer.promise.finally(() => {
-                        element.off('load', defer.resolve);
-                        element.off('error', defer.reject);
+                        element.off('load', revealAndResolve);
+                        element.off('error', revealAndReject);
                     });
                 }
 
