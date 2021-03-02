@@ -36,14 +36,14 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
       gridClient.makeGetRequestAsync[Either[Image, String]](
         projectionUrl,
         authFunction,
-        { response: ResponseWrapper =>
-          if (response.bodyAsString.size > maxSize) {
-            InputIdsStore.setStateToTooBig(id, response.bodyAsString.size)
-            Right(id)
-          } else {
-            Left(response.body.as[Image])
-          }
-        },
+          { response: ResponseWrapper =>
+            if (response.bodyAsString.size > maxSize) {
+              InputIdsStore.setStateToTooBig(id, response.bodyAsString.size)
+              Right(id)
+            } else {
+              Left(response.body.as[Image])
+            }
+          },
         { _: ResponseWrapper => {
             InputIdsStore.updateStateToNotFoundImage(id)
             Right(id)
