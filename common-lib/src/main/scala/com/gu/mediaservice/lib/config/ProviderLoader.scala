@@ -3,17 +3,24 @@ package com.gu.mediaservice.lib.config
 import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
+import play.api.inject.ApplicationLifecycle
 import play.api.{ConfigLoader, Configuration}
 
 import java.lang.reflect.{Constructor, InvocationTargetException}
 import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.util.Try
 import scala.util.control.NonFatal
 
+trait Provider {
+  def initialise(): Unit
+  def shutdown(): Future[Unit]
+}
+
 case class ProviderResources[Resources](configuration: Configuration, resources: Resources)
 
-class ProviderLoader[ProviderType, ResourcesType](providerDescription: String)(implicit providerTag: ClassTag[ProviderType], resourcesTag: ClassTag[ResourcesType]) extends StrictLogging {
+class ProviderLoader[ProviderType <: Provider, ResourcesType](providerDescription: String)(implicit providerTag: ClassTag[ProviderType], resourcesTag: ClassTag[ResourcesType]) extends StrictLogging {
 
   private case class ConfigDetails(className: String,
                                    config: Option[Configuration],
@@ -21,18 +28,18 @@ class ProviderLoader[ProviderType, ResourcesType](providerDescription: String)(i
                                    origin: ConfigOrigin,
                                    path: String)
 
-  def seqConfigLoader(resources: ResourcesType): ConfigLoader[Seq[ProviderType]] = (config: Config, path: String) => {
+  def seqConfigLoader(resources: ResourcesType, applicationLifecycle: ApplicationLifecycle): ConfigLoader[Seq[ProviderType]] = (config: Config, path: String) => {
     config
       .getList(path)
       .iterator()
       .asScala.map { configValue =>
       parseConfigValue(configValue, path, resources)
-    }.map(loadProvider).toList
+    }.map(loadProvider(_, applicationLifecycle)).toList
   }
 
-  def singletonConfigLoader(resources: ResourcesType): ConfigLoader[ProviderType] = (config: Config, path: String) => {
+  def singletonConfigLoader(resources: ResourcesType, applicationLifecycle: ApplicationLifecycle): ConfigLoader[ProviderType] = (config: Config, path: String) => {
     val configDetails = parseConfigValue(config.getValue(path), path, resources)
-    loadProvider(configDetails)
+    loadProvider(configDetails, applicationLifecycle)
   }
 
   private def parseConfigValue(configValue: ConfigValue, path: String, resources: ResourcesType): ConfigDetails = {
@@ -54,11 +61,14 @@ class ProviderLoader[ProviderType, ResourcesType](providerDescription: String)(i
     config.hasPath("className") && config.hasPath("config")
   }
 
-  private def loadProvider(details: ConfigDetails): ProviderType = {
+  private def loadProvider(details: ConfigDetails, applicationLifecycle: ApplicationLifecycle): ProviderType = {
     logger.info(s"Dynamically loading provider from ${details.className} as specified by config path ${details.path}")
     val config = ProviderResources(details.config.getOrElse(Configuration.empty), details.resources)
     loadProvider(details.className, config) match {
-      case Right(provider) => provider
+      case Right(provider) =>
+        provider.initialise()
+        applicationLifecycle.addStopHook(() => provider.shutdown())
+        provider
       case Left(error) =>
         val configError = s"Unable to instantiate ${providerDescription} from config: $error"
         logger.error(configError)

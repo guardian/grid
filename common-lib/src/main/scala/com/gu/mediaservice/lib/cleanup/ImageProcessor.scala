@@ -1,13 +1,19 @@
 package com.gu.mediaservice.lib.cleanup
 
+import com.gu.mediaservice.lib.config.Provider
 import com.gu.mediaservice.model.Image
+
+import scala.concurrent.Future
 
 /**
   * An image processor has a single apply method that takes an `Image` and returns an `Image`. This can be used
   * to modify the image in any number of ways and is primarily used to identify and allocate images from different
   * suppliers and also to clean and conform metadata.
   */
-trait ImageProcessor {
+trait ImageProcessor extends Provider {
+  def initialise(): Unit = {}
+  def shutdown(): Future[Unit] = Future.successful(())
+
   def apply(image: Image): Image
   def description: String = getClass.getCanonicalName
 }

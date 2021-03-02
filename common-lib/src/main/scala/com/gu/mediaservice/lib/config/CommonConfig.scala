@@ -27,8 +27,6 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
 
   val useLocalAuth: Boolean = isDev && boolean("auth.useLocal")
 
-  val permissionsBucket: String = stringDefault("permissions.bucket", "permissions-cache")
-
   val localLogShipping: Boolean = sys.env.getOrElse("LOCAL_LOG_SHIPPING", "false").toBoolean
 
   val thrallKinesisStream = string("thrall.kinesis.stream.name")

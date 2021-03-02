@@ -1,6 +1,6 @@
 package auth
 
-import com.gu.mediaservice.lib.management.ManagementWithPermissions
+import com.gu.mediaservice.lib.management.Management
 import com.gu.mediaservice.lib.play.GridComponents
 import play.api.ApplicationLoader.Context
 import play.api.{Configuration, Environment}
@@ -12,8 +12,8 @@ class AuthComponents(context: Context) extends GridComponents(context, new AuthC
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new AuthController(auth, providers, config, controllerComponents)
-  val permissionsAwareManagement = new ManagementWithPermissions(controllerComponents, controller, buildInfo)
+  val controller = new AuthController(auth, providers, config, controllerComponents, authorisation)
+  val permissionsAwareManagement = new Management(controllerComponents, buildInfo)
 
   override val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)
 }

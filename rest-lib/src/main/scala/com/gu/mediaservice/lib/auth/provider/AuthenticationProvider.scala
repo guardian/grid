@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.auth.provider
 import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, Provider}
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, RequestHeader, Result}
 
@@ -27,7 +27,7 @@ case object BuiltInAuthService extends LoginLink
 case object DisableLoginLink extends LoginLink
 case class ExternalLoginLink(link: String) extends LoginLink
 
-sealed trait AuthenticationProvider {
+sealed trait AuthenticationProvider extends Provider {
   def initialise(): Unit = {}
   def shutdown(): Future[Unit] = Future.successful(())
 

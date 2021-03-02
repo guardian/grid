@@ -145,13 +145,12 @@
              ng-if="!ctrl.crop"
              draggable="true"
              ui-drag-data="ctrl.image | asImageDragData">
-          <img class="easel__image easel__image--checkered__background"
+          <img ng-class="{'easel__image':true,'easel__image--checkered__background': ctrl.image.data.optimisedPng }"
                alt="preview of original image"
                ng-src="{{:: ctrl.optimisedImageUri}}"
                grid:track-image="ctrl.image"
                grid:track-image-location="original"
-               grid:track-image-loadtime
-               gr-image-fade-on-load/>
+               grid:track-image-loadtime/>
         </div>
 
         <!-- TODO: As this loads async, add a loader -->

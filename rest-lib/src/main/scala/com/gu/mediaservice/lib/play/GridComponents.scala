@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.play
 
-import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.provider.{MachineAuthenticationProvider, AuthenticationProviderResources, AuthenticationProviders, UserAuthenticationProvider}
-import com.gu.mediaservice.lib.config.{ApiAuthenticationProviderLoader, CommonConfig, GridConfigResources, UserAuthenticationProviderLoader}
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
+import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviderResources, AuthenticationProviders, AuthorisationProvider, AuthorisationProviderResources, MachineAuthenticationProvider, UserAuthenticationProvider}
+import com.gu.mediaservice.lib.config.{ApiAuthenticationProviderLoader, AuthorisationProviderLoader, CommonConfig, GridConfigResources, UserAuthenticationProviderLoader}
 import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
 import play.api.ApplicationLoader.Context
@@ -43,6 +43,11 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   )
 
   lazy val management = new Management(controllerComponents, buildInfo)
+
+  private val authorisationProviderResources = AuthorisationProviderResources(commonConfig = config, wsClient = wsClient)
+  private val authorisationProvider: AuthorisationProvider = config.configuration.get[AuthorisationProvider]("authorisation.provider")(AuthorisationProviderLoader.singletonConfigLoader(authorisationProviderResources, applicationLifecycle))
+  val authorisation = new Authorisation(authorisationProvider, executionContext)
+
   private val authProviderResources = AuthenticationProviderResources(
     commonConfig = config,
     actorSystem = actorSystem,
@@ -50,14 +55,10 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     controllerComponents = controllerComponents
   )
 
-  val providers: AuthenticationProviders = AuthenticationProviders(
-    userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources)),
-    apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.machine")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources))
+  protected val providers: AuthenticationProviders = AuthenticationProviders(
+    userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources, applicationLifecycle)),
+    apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.machine")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources, applicationLifecycle))
   )
-  providers.userProvider.initialise()
-  applicationLifecycle.addStopHook(() => providers.userProvider.shutdown())
-  providers.apiProvider.initialise()
-  applicationLifecycle.addStopHook(() => providers.apiProvider.shutdown())
 
   val auth = new Authentication(config, providers, controllerComponents.parsers.default, executionContext)
 }

@@ -4,9 +4,15 @@ import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Inside.inside
 import org.scalatest.{EitherValues, FreeSpec, Matchers}
+import play.api.inject.ApplicationLifecycle
 import play.api.{ConfigLoader, Configuration}
 
-trait TestProvider {
+import scala.concurrent.Future
+
+trait TestProvider extends Provider {
+  override def initialise(): Unit = {}
+  override def shutdown(): Future[Unit] = Future.successful(())
+
   def info: String
 }
 
@@ -127,10 +133,15 @@ class ProviderLoaderTest extends FreeSpec with Matchers with EitherValues {
   }
 
   "The config loader" - {
+    val applicationLifecycle = new ApplicationLifecycle {
+      override def addStopHook(hook: () => Future[_]): Unit = {}
+
+      override def stop(): Future[_] = Future.successful(())
+    }
     val resources = TestProviderResources("sausages")
 
-    implicit val testProviderConfigLoader: ConfigLoader[TestProvider] = TestProviderLoader.singletonConfigLoader(resources)
-    implicit val testProvidersConfigLoader: ConfigLoader[Seq[TestProvider]] = TestProviderLoader.seqConfigLoader(resources)
+    implicit val testProviderConfigLoader: ConfigLoader[TestProvider] = TestProviderLoader.singletonConfigLoader(resources, applicationLifecycle)
+    implicit val testProvidersConfigLoader: ConfigLoader[Seq[TestProvider]] = TestProviderLoader.seqConfigLoader(resources, applicationLifecycle)
 
     "should load an image processor from a classname" in {
       val conf:Configuration = Configuration.from(Map(
