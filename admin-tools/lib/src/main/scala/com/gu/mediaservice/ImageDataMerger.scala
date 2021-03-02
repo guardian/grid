@@ -6,10 +6,8 @@ import com.gu.mediaservice.GridClient.{Error, Found, NotFound}
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
-import play.api.libs.json._
 import play.api.libs.ws.{WSClient, WSRequest}
 
 import scala.concurrent.duration.Duration
@@ -28,7 +26,7 @@ object ImageDataMergerConfig {
 }
 
 case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String)(implicit wsClient: WSClient, ec: ExecutionContext) extends ApiKeyAuthentication {
-  val gridClient = GridClient(services)(wsClient)
+  val gridClient: GridClient = GridClient(services)(wsClient)
 }
 
 object ImageProjectionOverrides extends LazyLogging {
@@ -139,18 +137,17 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
 
   def isValidApiKey(implicit ec: ExecutionContext): Future[Boolean] = {
     // Make an API key authenticated request to the leases API as a way of validating the API key.
-    // A 200 indicates a valid key.
+    // A 200/404 indicates a valid key.
     // Using leases because its a low traffic API.
     class BadApiKeyException extends Exception
     import com.gu.mediaservice.GridClient.{Found, NotFound, Error}
     for {
       response <- gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), authFunction)
     } yield response match {
-      case Found(json, underlying) => true
-      case NotFound(body, underlying) => true
-      case Error(status, url, underlying) => throw new BadApiKeyException()
+      case Found(_, _) => true
+      case NotFound(_, _) => true
+      case Error(_, _, _) => false
     }
-//      .recoverWith({case _:BadApiKeyException => Future.successful(false)})
   }
 
   def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
@@ -172,7 +169,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
   }
 
   private def aggregate(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
-    case Some(image) => {
+    case Some(image) =>
       logger.info(s"starting to aggregate image")
       val mediaId = image.id
       for {
@@ -188,7 +185,6 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
         usages = usages,
         exports = crops
       ))
-    }
     case None => Future.successful(None)
   }
 
