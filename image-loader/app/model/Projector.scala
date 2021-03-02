@@ -91,7 +91,7 @@ class Projector(config: ImageUploadOpsCfg,
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, user: Option[Principal])
+  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, user: Principal)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -121,7 +121,7 @@ class Projector(config: ImageUploadOpsCfg,
                    extractedS3Meta: S3FileExtractedMetadata,
                    requestId: UUID,
                    gridClient: GridClient,
-                   user: Option[Principal])
+                   user: Principal)
                   (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val DigestedFile(tempFile_, id_) = srcFileDigest
 
@@ -142,9 +142,7 @@ class Projector(config: ImageUploadOpsCfg,
           uploadInfo = uploadInfo_
         )
 
-        val onBehalfOfFn: OnBehalfOfPrincipal = user
-          .map(u => auth.getOnBehalfOfPrincipal(u))
-          .getOrElse( (r:WSRequest) => r)
+        val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(user)
 
         for {
           futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)

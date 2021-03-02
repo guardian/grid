@@ -123,7 +123,7 @@ class ImageLoaderController(auth: Authentication,
     )
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { req =>
-      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId, gridClient, Some(req.user))
+      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId, gridClient, req.user)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
