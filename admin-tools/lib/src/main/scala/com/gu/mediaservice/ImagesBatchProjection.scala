@@ -9,23 +9,15 @@ import play.api.libs.ws.WSRequest
 import scala.concurrent.duration.{DAYS, Duration, HOURS}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridClient, maxSize: Int) extends ApiKeyAuthentication {
+class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridClient, maxSize: Int, projectionEndpoint: String) extends ApiKeyAuthentication {
 
   private implicit val ThrottledExecutionContext = ExecutionContext.fromExecutor(java.util.concurrent.Executors.newFixedThreadPool(5))
 
   private def authFunction(request: WSRequest) = request.withHttpHeaders((apiKeyHeaderName, apiKey))
 
-  // TODO I don't like this - checking the API key by making a request to a non-existent endpoint is ... ewww.
-  def validateApiKey(projectionEndpoint: String): Unit = {
-    val projectionUrl = new URL(s"$projectionEndpoint/not-exists")
-    for {
-      _ <- gridClient.makeGetRequestAsync(
-        projectionUrl,
-        authFunction,
-        {res:ResponseWrapper => None},
-        {res:ResponseWrapper => None}
-      )
-    } yield Unit
+  def assertApiKeyIsValid = {
+    val f = gridClient.validateApiKey(projectionEndpoint, authFunction)
+    Await.result(f, timeout)
   }
 
   def getImagesProjection(mediaIds: List[String], projectionEndpoint: String,

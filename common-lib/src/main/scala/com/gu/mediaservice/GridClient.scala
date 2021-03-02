@@ -155,6 +155,18 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     }
   }
 
+  def validateApiKey(projectionEndpoint: String, authFn: WSRequest => WSRequest)
+                    (implicit ec: ExecutionContext): Future[Boolean] = {
+    val projectionUrl = new URL(s"$projectionEndpoint/")
+    makeGetRequestAsync(
+      projectionUrl,
+      authFn,
+      {res:ResponseWrapper => true},
+      {res:ResponseWrapper => true},
+      Some{res:ResponseWrapper => new Exception("Authorisation failed")}
+    )
+  }
+
   def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: WSRequest => WSRequest)
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")

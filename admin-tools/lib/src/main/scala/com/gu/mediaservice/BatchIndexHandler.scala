@@ -58,7 +58,9 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClien
   val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
   private val gridClient = GridClient(services)
 
-  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, ImagesProjectionTimeout, gridClient, maxSize)
+  private val ImagesBatchProjector = new ImagesBatchProjection(apiKey, ImagesProjectionTimeout, gridClient, maxSize, projectionEndpoint)
+  ImagesBatchProjector.assertApiKeyIsValid          // fail as fast as possible if the api key is duff
+
   private val InputIdsStore = new InputIdsStore(AwsHelpers.buildDynamoTableClient(dynamoTableName), batchSize)
 
   import ImagesBatchProjector._
@@ -67,7 +69,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClien
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.Implicits.global
 
   def checkImages(): Unit = {
-    validateApiKey(projectionEndpoint)
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getMediaIdsBatchByState(checkerStartState)
@@ -125,7 +126,6 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClien
   }
 
   def processImagesOnlyIfKinesisIsNiceAndFast(): Unit = {
-    validateApiKey(projectionEndpoint)
     val stateProgress = scala.collection.mutable.ArrayBuffer[ProduceProgress]()
     stateProgress += NotStarted
     val mediaIdsFuture = getUnprocessedMediaIdsBatch(startState)
