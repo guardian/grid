@@ -2,6 +2,7 @@ package com.gu.mediaservice
 
 import java.net.URL
 
+import com.gu.mediaservice.GridClient.{Error, Found, NotFound}
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
@@ -141,13 +142,15 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
     // A 200 indicates a valid key.
     // Using leases because its a low traffic API.
     class BadApiKeyException extends Exception
-    gridClient.makeGetRequestAsync[Unit](
-      new URL(services.leasesBaseUri),
-      authFunction,
-      {_:ResponseWrapper => None},
-      {_:ResponseWrapper => None},
-      Some({_:ResponseWrapper => new BadApiKeyException()})
-    ).map(_ => true).recoverWith({case _:BadApiKeyException => Future.successful(false)})
+    import com.gu.mediaservice.GridClient.{Found, NotFound, Error}
+    for {
+      response <- gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), authFunction)
+    } yield response match {
+      case Found(json, underlying) => true
+      case NotFound(body, underlying) => true
+      case Error(status, url, underlying) => throw new BadApiKeyException()
+    }
+//      .recoverWith({case _:BadApiKeyException => Future.successful(false)})
   }
 
   def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
@@ -192,31 +195,14 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
   private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    gridClient.makeGetRequestAsync[List[Collection]](
-      url,
-      authFunction,
-      { res:ResponseWrapper => (res.body \ "data").as[List[Collection]]},
-      { _:ResponseWrapper => Nil }
-    )
-  }
-
-  private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
-    import res._
-    if (statusCode != 200 && statusCode != 404) {
-      val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode"
-      val downstreamErrorMessage = res.bodyAsString
-
-      val errorJson = Json.obj(
-        "level" -> "ERROR",
-        "errorStatusCode" -> statusCode,
-        "message" -> Json.obj(
-          "errorMessage" -> errorMessage,
-          "downstreamErrorMessage" -> downstreamErrorMessage
-        )
-      )
-      logger.error(errorJson.toString())
-      throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
+    for {
+      response <- gridClient.makeGetRequestAsync(url, authFunction)
+    } yield response match {
+      case Found(json, underlying) => (json \ "data").as[List[Collection]]
+      case NotFound(body, underlying) => Nil
+      case e@Error(status, url, underlying) => e.logError
     }
   }
+
 }
 

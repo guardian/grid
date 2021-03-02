@@ -2,11 +2,13 @@ package com.gu.mediaservice
 
 import java.net.URL
 
+import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.model.{Crop, Edits, Image}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
+import play.api.http.HeaderNames
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,69 +37,38 @@ object ClientResponse {
 
 case class ClientErrorMessages(errorMessage: String, downstreamErrorMessage: String)
 
-case class ResponseWrapper(body: JsValue, statusCode: Int, bodyAsString: String)
+object GridClient extends LazyLogging {
+  def apply(services: Services)(implicit wsClient: WSClient): GridClient =
+    new GridClient(services)
 
-object GridClient {
-  def apply(services: Services, debugHttpResponse: Boolean = true)(implicit wsClient: WSClient): GridClient =
-    new GridClient(services, debugHttpResponse)
-}
-
-class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClient: WSClient) extends LazyLogging {
-
-  def makeGetRequestAsync[T](
-                           url: URL,
-                           authFn: WSRequest => WSRequest,
-                           foundFn: ResponseWrapper => T,
-                           notFoundFn: ResponseWrapper => T,
-                           errorFn: Option[ResponseWrapper => Exception] = None
-                         )(
-    implicit ec: ExecutionContext): Future[T] = {
-    val request: WSRequest = wsClient.url(url.toString)
-    val authorisedRequest = authFn(request)
-
-    authorisedRequest.get().map { response =>
-      validateResponse(response, url, foundFn, notFoundFn, errorFn)
-    }
+  sealed trait Response {
+    def status: Int
+    def underlying: WSResponse
+    def contentLength: Option[Long] =
+      underlying.header(HeaderNames.CONTENT_LENGTH).flatMap(v => Try(v.toLong).toOption)
   }
 
-  private def processResponse(response: WSResponse, url: URL) = {
-    val body = response.body
-    val code = response.status
-    val message = response.statusText
-    val resInfo = Map(
-      "statusCode" -> code.toString,
-      "message" -> message
-    )
+  case class Found(json: JsValue, underlying: WSResponse) extends Response {
+    val status = 200
+  }
+  case class NotFound(body: String, underlying: WSResponse) extends Response {
+    val status = 404
+  }
+  case class Error(status: Int, url: URL, underlying: WSResponse) extends Response {
+    def logError: Nothing = {
+      val errorMessages = getErrorMessagesFromResponse(underlying.body)
 
-    try {
-      if (debugHttpResponse) logger.info(s"GET $url response: $resInfo")
-      val json = code match {
-        case 200 => Json.parse(body)
-        case 404 => Json.obj()
-        case _ =>
-          // Parse error messages from the response body JSON, if there are any
-          val errorMessages = getErrorMessagesFromResponse(body)
-
-          val errorJson = Json.obj(
-            "errorStatusCode" -> code,
-            "responseMessage" -> message,
-            "responseBody" -> body,
-            "message" -> errorMessages.errorMessage,
-            "downstreamErrorMessage" -> errorMessages.downstreamErrorMessage,
-            "url" -> url.toString,
-          )
-          logger.error(errorJson.toString())
-          Json.obj()
-      }
-      ResponseWrapper(json, code, body)
-    } catch {
-      case e: Exception =>
-        val errorJson = Json.obj(
-          "message" -> e.getMessage
-        )
-        logger.error(errorJson.toString(), e)
-        // propagating exception
-        throw e
+      val body: String = underlying.body
+      val errorJson = Json.obj(
+        "errorStatusCode" -> status,
+        "responseMessage" -> underlying.statusText,
+        "responseBody" -> body,
+        "message" -> errorMessages.errorMessage,
+        "downstreamErrorMessage" -> errorMessages.downstreamErrorMessage,
+        "url" -> url.toString,
+      )
+      logger.error(errorJson.toString())
+      throw new DownstreamApiInBadStateException(errorMessages.errorMessage, errorMessages.downstreamErrorMessage)
     }
   }
 
@@ -123,93 +94,88 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     }
   }
 
+}
 
-  private def validateResponse[T](
+class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLogging {
+
+  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest)
+                         (implicit ec: ExecutionContext): Future[Response] = {
+    val request: WSRequest = wsClient.url(url.toString)
+    val authorisedRequest = authFn(request)
+    authorisedRequest.get().map { response => validateResponse(response, url)}
+  }
+
+  private def validateResponse(
                                    response: WSResponse,
-                                   url: URL,
-                                   foundFn: ResponseWrapper => T,
-                                   notFoundFn: ResponseWrapper => T,
-                                   errorFn: Option[ResponseWrapper => Exception]
-                                 ): T = {
-    val res = processResponse(response, url)
-    res.statusCode match {
-      case 200 => foundFn(res)
-      case 404 => notFoundFn(res)
-      case failCode => errorFn match {
-        case Some(fn) => throw fn(res)
-        case _ =>
-          val errorMessage = s"Downstream API Failure: $url is in a bad state, code: $failCode"
-          val downstreamErrorMessage = res.bodyAsString
-
-          val errorJson = Json.obj(
-            "level" -> "ERROR",
-            "errorStatusCode" -> failCode,
-            "message" -> Json.obj(
-              "errorMessage" -> errorMessage,
-              "downstreamErrorMessage" -> downstreamErrorMessage
-            )
-          )
-          logger.error(errorJson.toString())
-          throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
-      }
+                                   url: URL
+                                 ): Response = {
+//    val res = processResponse(response, url)
+    response.status match {
+      case 200 => Found(Json.parse(response.body), response)
+      case 404 => NotFound(response.body, response)
+      case failCode => Error(failCode, url, response)
     }
   }
 
   def validateApiKey(projectionEndpoint: String, authFn: WSRequest => WSRequest)
                     (implicit ec: ExecutionContext): Future[Boolean] = {
     val projectionUrl = new URL(s"$projectionEndpoint/")
-    makeGetRequestAsync(
-      projectionUrl,
-      authFn,
-      {res:ResponseWrapper => true},
-      {res:ResponseWrapper => true},
-      Some{res:ResponseWrapper => new Exception("Authorisation failed")}
-    )
+    for {
+      response <- makeGetRequestAsync(projectionUrl, authFn)
+    } yield response match {
+      case Found(_, _) => true
+      case NotFound(_, _) => true
+      case Error(_, _, _) => throw new Exception("Authorisation failed")
+    }
   }
 
   def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: WSRequest => WSRequest)
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
-    makeGetRequestAsync(
-      url,
-      authFn,
-      {res:ResponseWrapper => Some(res.body.as[Image])},
-      {_:ResponseWrapper => None}
-    )
+    for {
+      response <- makeGetRequestAsync(url, authFn)
+    } yield response match {
+      case Found(json, _) => Some(json.as[Image])
+      case NotFound(_, _) => None
+      case e@Error(_, _, _) => e.logError
+    }
   }
 
   def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
-    makeGetRequestAsync(
-      url,
-      authFn,
-      {res:ResponseWrapper => (res.body \ "data").as[LeasesByMedia]},
-      {_:ResponseWrapper => LeasesByMedia.empty}
-    )
+    for {
+      response <- makeGetRequestAsync(url, authFn)
+    } yield response match {
+      case Found(json, _) => (json \ "data").as[LeasesByMedia]
+      case NotFound(_, _) => LeasesByMedia.empty
+      case e@Error(_, _, _) => e.logError
+    }
   }
 
   def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
-    makeGetRequestAsync(
-      url,
-      authFn,
-      {res:ResponseWrapper => Some((res.body \ "data").as[Edits])},
-      {_:ResponseWrapper => None}
-    )
+    for {
+      response <- makeGetRequestAsync(url, authFn)
+    } yield response match {
+      case Found(json, _) => Some((json \ "data").as[Edits])
+      case NotFound(_, _) => None
+      case e@Error(_, _, _) => e.logError
+    }
   }
 
   def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
-    makeGetRequestAsync(
-      url,
-      authFn,
-      {res:ResponseWrapper => (res.body \ "data").as[List[Crop]]},
-      {_:ResponseWrapper => Nil}
-    )
+    for {
+      response <- makeGetRequestAsync(url, authFn)
+    } yield response match {
+      case Found(json, _) => (json \ "data").as[List[Crop]]
+      case NotFound(_, _) => Nil
+      case e@Error(_, _, _) => e.logError
+    }
   }
 
   def getUsages(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Usage]] = {
@@ -221,12 +187,13 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     }
 
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
-    makeGetRequestAsync(
-      url,
-      authFn,
-      {res:ResponseWrapper => unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])},
-      {_:ResponseWrapper => Nil}
-    )
+    for {
+      response <- makeGetRequestAsync(url, authFn)
+    } yield response match {
+      case Found(json, _) => unpackUsagesFromEntityResponse(json).map(_.as[Usage])
+      case NotFound(_, _) => Nil
+      case e@Error(_, _, _) => e.logError
+    }
   }
 
 }
