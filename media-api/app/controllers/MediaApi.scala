@@ -99,6 +99,7 @@ class MediaApi(
           authorisation.hasPermissionTo(permission)(principal)
         }
       case service: MachinePrincipal if service.accessor.tier == Internal => true
+      case _ => false
     }
   }
 
