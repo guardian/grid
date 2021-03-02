@@ -199,9 +199,9 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     implicit val requestLoggingContext: RequestLoggingContext = RequestLoggingContext()
 
     val gridClient = mock[GridClient]
-    when(gridClient.getUsages(id, identity)).thenReturn(Future.successful(Some(Nil)))
-    when(gridClient.getCrops(id, identity)).thenReturn(Future.successful(Some(Nil)))
-    when(gridClient.getLeases(id, identity)).thenReturn(Future.successful(Some(LeasesByMedia.empty)))
+    when(gridClient.getUsages(id, identity)).thenReturn(Future.successful(Nil))
+    when(gridClient.getCrops(id, identity)).thenReturn(Future.successful(Nil))
+    when(gridClient.getLeases(id, identity)).thenReturn(Future.successful(LeasesByMedia.empty))
 
     val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, None)
     actualFuture.recoverWith( {case t: Throwable => t.printStackTrace(); throw t})

@@ -39,14 +39,14 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
         { response: ResponseWrapper =>
           if (response.bodyAsString.size > maxSize) {
             InputIdsStore.setStateToTooBig(id, response.bodyAsString.size)
-            None
+            Right(id)
           } else {
-            Some(Left(response.body.as[Image]))
+            Left(response.body.as[Image])
           }
         },
         { _: ResponseWrapper => {
             InputIdsStore.updateStateToNotFoundImage(id)
-            Some(Right(id))
+            Right(id)
           }
         },
         Some({ res: ResponseWrapper => {
@@ -62,7 +62,7 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
       ).recoverWith({case _:FailedCallException => ???})
     }
     val f = Future.sequence(apiCalls)
-    Await.result(f, timeout).flatten
+    Await.result(f, timeout)
   }
 
   private trait GetImageStatus
@@ -79,16 +79,16 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
       gridClient.makeGetRequestAsync[(String, GetImageStatus)](
         imagesUrl,
         authFunction,
-        {_:ResponseWrapper => Some((id, Found))},
-        {_:ResponseWrapper => Some((id, NotFound))},
+        {_:ResponseWrapper => (id, Found)},
+        {_:ResponseWrapper => (id, NotFound)},
         Some({_:ResponseWrapper => new FailureException()})
-      ).recoverWith({case _: FailureException => Future.successful(Some((id, Failed)))})
+      ).recoverWith({case _: FailureException => Future.successful((id, Failed))})
     }
     val futureResults = Future.sequence(apiCalls)
     val futureImagesWithStatus = futureResults.map{results =>
-      val found = results.collect{case Some((id, Found))=> id}
-      val notFound = results.collect{case Some((id, NotFound)) => id}
-      val failed = results.collect{case Some((id, Failed)) => id}
+      val found = results.collect{case (id, Found) => id}
+      val notFound = results.collect{case (id, NotFound) => id}
+      val failed = results.collect{case (id, Failed) => id}
       ImagesWithStatus(found,notFound,failed)
     }
     Await.result(futureImagesWithStatus, timeout)

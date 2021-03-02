@@ -56,7 +56,7 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     val authorisedRequest = authFn(request)
 
     authorisedRequest.get().map { response =>
-      validateResponse[T](response, url, foundFn, notFoundFn, errorFn)
+      validateResponse(response, url, foundFn, notFoundFn, errorFn)
     }
   }
 
@@ -71,28 +71,31 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
 
     try {
       if (debugHttpResponse) logger.info(s"GET $url response: $resInfo")
-      if (code != 200 && code != 404) {
-        // Parse error messages from the response body JSON, if there are any
-        val errorMessages = getErrorMessagesFromResponse(body)
+      val json = code match {
+        case 200 => Json.parse(body)
+        case 404 => Json.obj()
+        case _ =>
+          // Parse error messages from the response body JSON, if there are any
+          val errorMessages = getErrorMessagesFromResponse(body)
 
-        val errorJson = Json.obj(
-          "errorStatusCode" -> code,
-          "responseMessage" -> message,
-          "responseBody" -> body,
-          "message" -> errorMessages.errorMessage,
-          "downstreamErrorMessage" -> errorMessages.downstreamErrorMessage,
-          "url" -> url.toString,
-        )
-        logger.error(errorJson.toString())
+          val errorJson = Json.obj(
+            "errorStatusCode" -> code,
+            "responseMessage" -> message,
+            "responseBody" -> body,
+            "message" -> errorMessages.errorMessage,
+            "downstreamErrorMessage" -> errorMessages.downstreamErrorMessage,
+            "url" -> url.toString,
+          )
+          logger.error(errorJson.toString())
+          Json.obj()
       }
-      val json = if (code == 200) Json.parse(body) else Json.obj()
       ResponseWrapper(json, code, body)
     } catch {
       case e: Exception =>
         val errorJson = Json.obj(
           "message" -> e.getMessage
         )
-        logger.error(errorJson.toString())
+        logger.error(errorJson.toString(), e)
         // propagating exception
         throw e
     }
@@ -167,7 +170,7 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
   def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
-    makeGetRequestAsync[LeasesByMedia](
+    makeGetRequestAsync(
       url,
       authFn,
       {res:ResponseWrapper => (res.body \ "data").as[LeasesByMedia]},
@@ -178,7 +181,7 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
   def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
-    makeGetRequestAsync[Option[Edits]](
+    makeGetRequestAsync(
       url,
       authFn,
       {res:ResponseWrapper => Some((res.body \ "data").as[Edits])},
@@ -189,7 +192,7 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
   def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
-    makeGetRequestAsync[List[Crop]](
+    makeGetRequestAsync(
       url,
       authFn,
       {res:ResponseWrapper => (res.body \ "data").as[List[Crop]]},
@@ -206,7 +209,7 @@ class GridClient(services: Services, debugHttpResponse: Boolean)(implicit wsClie
     }
 
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
-    makeGetRequestAsync[List[Usage]](
+    makeGetRequestAsync(
       url,
       authFn,
       {res:ResponseWrapper => unpackUsagesFromEntityResponse(res.body).map(_.as[Usage])},

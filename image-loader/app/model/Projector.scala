@@ -148,15 +148,17 @@ class Projector(config: ImageUploadOpsCfg,
 
         for {
           futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
+          edits <- gridClient.getEdits(id_, onBehalfOfFn)
           usages <- gridClient.getUsages(id_, onBehalfOfFn)
           crops <- gridClient.getCrops(id_, onBehalfOfFn)
           leases <- gridClient.getLeases(id_, onBehalfOfFn)
           //todo collections?
         } yield futureImage
           .copy(
-            usages = usages.getOrElse(Nil),
-            exports = crops.getOrElse(Nil),
-            leases = leases.getOrElse(LeasesByMedia.empty)
+            userMetadata = edits,
+            usages = usages,
+            exports = crops,
+            leases = leases
           )
     }
   }
