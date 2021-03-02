@@ -25,33 +25,21 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
     val apiCalls = mediaIds.map { id =>
       val projectionUrl = new URL(s"$projectionEndpoint/$id")
       class FailedCallException extends Exception
-      gridClient.makeGetRequestAsync[Either[Image, String]](
-        projectionUrl,
-        authFunction,
-          { response: ResponseWrapper =>
-            if (response.bodyAsString.size > maxSize) {
-              InputIdsStore.setStateToTooBig(id, response.bodyAsString.size)
-              Right(id)
-            } else {
-              Left(response.body.as[Image])
-            }
-          },
-        { _: ResponseWrapper => {
-            InputIdsStore.updateStateToNotFoundImage(id)
-            Right(id)
-          }
-        },
-        Some({ res: ResponseWrapper => {
-          if (isAKnownError(res)) {
-            InputIdsStore.setStateToKnownError(id)
-            new FailedCallException()
-          } else {
-            InputIdsStore.setStateToUnknownError(id)
-            new FailedCallException()
-          }
-        }
-      })
-      )
+      gridClient.makeGetRequestAsync[Either[Image, String]](projectionUrl, authFunction).map {
+        case f:Found if f.contentLength.exists(_ > maxSize) =>
+          InputIdsStore.setStateToTooBig(id, f.contentLength.get.toInt)
+          Right(id)
+        case Found(body, _) => Left(body.as[Image])
+        case _: NotFound =>
+          InputIdsStore.updateStateToNotFoundImage(id)
+          Right(id)
+        case known: Error if isAKnownError(known) =>
+          InputIdsStore.setStateToKnownError(id)
+          throw new FailedCallException()
+        case _: Error =>
+          InputIdsStore.setStateToUnknownError(id)
+          throw new FailedCallException()
+      }
     }
     val f = Future.sequence(apiCalls)
     Await.result(f, timeout)
@@ -91,8 +79,8 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
     "End of data reached."
   )
 
-  private def isAKnownError(res: ResponseWrapper): Boolean =
-    res.statusCode == 500 && KnownErrors.exists(res.bodyAsString.contains(_))
+  private def isAKnownError(error: Error): Boolean =
+    error.status == 500 && KnownErrors.exists(error.underlying.body.contains(_))
 }
 
 
