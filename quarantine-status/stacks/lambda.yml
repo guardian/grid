@@ -1,0 +1,106 @@
+Parameters:
+  LambdaHandler:
+    Default: "quarantine-status-lambda.lambda_handler"
+    Type: "String"
+    Description: "The name of the function (within your source code) that Lambda calls to start running your code."
+  LambdaTimeout:
+    Default: "60"
+    Type: "Number"
+    Description: "The function execution time (in seconds) after which Lambda terminates the function."
+  LambdaMemorySize:
+    Default: "128"
+    Type: "Number"
+    Description: "The amount of memory, in MB, that is allocated to your Lambda function."
+  LambdaDescription:
+    Default: "Lambda function for resending content fetcher notifications to the content fetcher topic"
+    Type: "String"
+    Description: "Description of the lambda function, to appears on AWS."
+  AlertNotificationTopicArn:
+    Description: "The name of the Virus Alert Notification Topic ARN"
+    Type: "String"
+  AliasName:
+    Description: "An alias for the function. To be kept in sync with the same property in Cosmos."
+    Type: "String"
+
+Resources:
+  FunctionPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: function-policy
+      PolicyDocument:
+        Id: FunctionPolicy
+        Statement:
+          - Action:
+              - 'logs:CreateLogGroup'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+            Resource:
+              - 'arn:aws:logs:*:*:*'
+            Effect: Allow
+          - Action:
+              - 'sns:Publish'
+            Resource:
+              - 'Fn::GetAtt':
+                  - Lambda
+                  - Arn
+            Effect: Allow
+      Roles:
+        - Ref: FunctionRole
+
+  Alias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionVersion: $LATEST
+      FunctionName: !Ref 'Lambda'
+      Name: !Ref 'AliasName'
+
+  FunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+
+  FunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref 'Lambda'
+      SourceArn: !Ref 'AlertNotificationTopicArn'
+      Principal: sns.amazonaws.com
+
+  AlertNotificationTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt 'Lambda.Arn'
+      Protocol: lambda
+      TopicArn: !Ref 'AlertNotificationTopicArn'
+
+  Lambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        ZipFile:
+          Fn::Join:
+            - "\n"
+            -
+              - "def lambda_handler(event, context):"
+              - " "
+      Description:
+        Ref: "LambdaDescription"
+      MemorySize:
+        Ref: "LambdaMemorySize"
+      Handler:
+        Ref: "LambdaHandler"
+      Role:
+        Fn::GetAtt:
+          - "FunctionRole"
+          - "Arn"
+      Timeout:
+        Ref: "LambdaTimeout"
+      Runtime: "python3.6"
