@@ -8,7 +8,6 @@ import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
-import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
@@ -22,7 +21,6 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
-import play.api.libs.ws.WSRequest
 import test.lib.ResourceHelpers
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -204,7 +202,7 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
     when(gridClient.getCrops(id, identity)).thenReturn(Future.successful(Nil))
     when(gridClient.getLeases(id, identity)).thenReturn(Future.successful(LeasesByMedia.empty))
 
-    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, mock[Principal])
+    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, identity)
     actualFuture.recoverWith( {case t: Throwable => t.printStackTrace(); throw t})
 
     whenReady(actualFuture) { actual =>

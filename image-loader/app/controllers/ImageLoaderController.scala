@@ -23,6 +23,7 @@ import model.upload.UploadRequest
 import java.time.Instant
 
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -123,7 +124,8 @@ class ImageLoaderController(auth: Authentication,
     )
     val tempFile = createTempFile(s"projection-$imageId")
     auth.async { req =>
-      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId, gridClient, req.user)
+      val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
+      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId, gridClient, onBehalfOfFn)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
