@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
-import com.gu.mediaservice.lib.auth.PermissionsHandler
+import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchImageCounts}
 import com.gu.mediaservice.lib.logging.GridLogging
 import play.api.libs.json.{Format, Json}
@@ -32,16 +32,6 @@ trait ManagementController extends HealthCheck with BaseController with ArgoHelp
 }
 
 class Management(override val controllerComponents: ControllerComponents, override val buildInfo: BuildInfo) extends ManagementController
-
-class ManagementWithPermissions(override val controllerComponents: ControllerComponents, permissionedController: PermissionsHandler, override val buildInfo: BuildInfo) extends ManagementController {
-  override def healthCheck = Action {
-    if(permissionedController.storeIsEmpty) {
-      ServiceUnavailable("Permissions store is empty")
-    } else {
-      Ok("ok")
-    }
-  }
-}
 
 class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext)
   extends HealthCheck with GridLogging {

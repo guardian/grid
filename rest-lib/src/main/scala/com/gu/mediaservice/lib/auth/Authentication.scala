@@ -78,7 +78,11 @@ class Authentication(config: CommonConfig,
       case _:UserPrincipal      => providers.userProvider
     }
     val maybeEnrichFn: Either[String, WSRequest => WSRequest] = provider.onBehalfOf(principal)
-    maybeEnrichFn.fold(error => throw new IllegalStateException(error), identity)
+    maybeEnrichFn.fold(
+      error => throw new IllegalStateException(error),
+      // as well as delegating to the provider, tack on the source of this outgoing request
+      _.compose(_.addHttpHeaders(Authentication.originalServiceHeaderName -> config.appName))
+    )
   }
 }
 

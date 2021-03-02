@@ -6,8 +6,8 @@ GET     /crops/:id                  controllers.CropperController.getCrops(id: S
 DELETE  /crops/:id                  controllers.CropperController.deleteCrops(id: String)
 
 # Management
-GET     /management/healthcheck     com.gu.mediaservice.lib.management.ManagementWithPermissions.healthCheck
-GET     /management/manifest        com.gu.mediaservice.lib.management.ManagementWithPermissions.manifest
+GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
 
 # Shoo robots away
-GET     /robots.txt                 com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots
+GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots

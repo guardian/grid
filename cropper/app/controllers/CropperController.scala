@@ -6,6 +6,7 @@ import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, PrincipalFilter}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
@@ -26,10 +27,10 @@ case object ImageNotFound extends Exception("No such image found")
 case object ApiRequestFailed extends Exception("Failed to fetch the source")
 
 class CropperController(auth: Authentication, crops: Crops, store: CropStore, notifications: Notifications,
-                        override val config: CropperConfig,
+                        config: CropperConfig,
                         override val controllerComponents: ControllerComponents,
-                        ws: WSClient)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers with PermissionsHandler {
+                        ws: WSClient, authorisation: Authorisation)(implicit val ec: ExecutionContext)
+  extends BaseController with ArgoHelpers {
 
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
@@ -76,6 +77,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     }
   }
 
+  private val canDeleteCrops: PrincipalFilter = authorisation.hasPermissionTo(DeleteCrops)
+
   def getCrops(id: String) = auth.async { httpRequest =>
 
     store.listCrops(id) map (_.toList) map { crops =>
@@ -87,9 +90,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
         link = Link("image", crop.specification.uri)
       } yield List(link)) getOrElse List()
 
-      val canDeleteCrops = hasPermission(httpRequest.user, Permissions.DeleteCrops)
-
-      if(canDeleteCrops && crops.nonEmpty) {
+      if(canDeleteCrops(httpRequest.user) && crops.nonEmpty) {
         respond(crops, links, List(deleteCropsAction))
       } else {
         respond(crops, links)
@@ -98,9 +99,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def deleteCrops(id: String) = auth.async { httpRequest =>
-    val canDeleteCrops = hasPermission(httpRequest.user, Permissions.DeleteCrops)
-
-    if(canDeleteCrops) {
+    if(canDeleteCrops(httpRequest.user)) {
       store.deleteCrops(id).map { _ =>
         val updateMessage = UpdateMessage(subject = "delete-image-exports", id = Some(id))
         notifications.publish(updateMessage)
@@ -145,10 +144,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     case class HttpClientResponse(status: Int, statusText: String, json: JsValue)
 
-    // TODO we should proxy authentication from the original request rather than have a dedicated cropper API key
     val baseRequest = ws.url(uri)
       .withQueryStringParameters("include" -> "fileMetadata")
-      .withHttpHeaders(Authentication.originalServiceHeaderName -> "cropper")
 
     val request = onBehalfOfPrincipal(baseRequest)
 

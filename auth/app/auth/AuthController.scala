@@ -1,22 +1,23 @@
 package auth
 
-import java.net.URI
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Permissions.ShowPaid
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
-import com.gu.mediaservice.lib.auth.{Authentication, Permissions, PermissionsHandler}
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
 
+import java.net.URI
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class AuthController(auth: Authentication, providers: AuthenticationProviders, val config: AuthConfig,
-                     override val controllerComponents: ControllerComponents)(implicit ec: ExecutionContext)
+                     override val controllerComponents: ControllerComponents,
+                     authorisation: Authorisation)(implicit ec: ExecutionContext)
   extends BaseController
-  with ArgoHelpers
-  with PermissionsHandler {
+  with ArgoHelpers {
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
@@ -32,7 +33,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   def index = auth { indexResponse }
 
   def session = auth { request =>
-    val showPaid = hasPermission(request.user, Permissions.ShowPaid)
+    val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
     request.user match {
       case UserPrincipal(firstName, lastName, email, _) =>
 

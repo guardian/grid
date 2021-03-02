@@ -5,6 +5,7 @@ import com.gu.mediaservice.lib.cleanup.{ComposedImageProcessor, ImageProcessor, 
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources, ImageProcessorLoader}
 import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.StrictLogging
+import play.api.inject.ApplicationLifecycle
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -57,8 +58,8 @@ class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(res
     *
     * If a configuration is needed by is not provided by the config, the module configuration will be used instead.
     */
-  val imageProcessor: ComposedImageProcessor = {
-    val configLoader = ImageProcessorLoader.seqConfigLoader(ImageProcessorResources(this, resources.actorSystem))
+  def imageProcessor(applicationLifecycle: ApplicationLifecycle): ComposedImageProcessor = {
+    val configLoader = ImageProcessorLoader.seqConfigLoader(ImageProcessorResources(this, resources.actorSystem), applicationLifecycle)
     val processors = configuration
       .get[Seq[ImageProcessor]]("image.processors")(configLoader)
     ImageProcessor.compose("ImageConfigLoader-imageProcessor", processors:_*)

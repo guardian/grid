@@ -10,8 +10,8 @@ GET     /logout                     auth.AuthController.logout
 GET     /session                    auth.AuthController.session
 
 # Management
-GET     /management/healthcheck     com.gu.mediaservice.lib.management.ManagementWithPermissions.healthCheck
-GET     /management/manifest        com.gu.mediaservice.lib.management.ManagementWithPermissions.manifest
+GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
 
 # Shoo robots away
-GET     /robots.txt                 com.gu.mediaservice.lib.management.ManagementWithPermissions.disallowRobots
+GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots
