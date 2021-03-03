@@ -55,7 +55,7 @@ object GridClient extends LazyLogging {
     val status = 404
   }
   case class Error(status: Int, url: URL, underlying: WSResponse) extends Response {
-    def logError(): Nothing = {
+    def logErrorAndThrowException(): Nothing = {
       val errorMessages = getErrorMessagesFromResponse(underlying.body)
 
       val body: String = underlying.body
@@ -133,7 +133,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some(json.as[Image])
       case NotFound(_, _) => None
-      case e@Error(_, _, _) => e.logError()
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
 
@@ -143,7 +143,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[LeasesByMedia]
       case NotFound(_, _) => LeasesByMedia.empty
-      case e@Error(_, _, _) => e.logError()
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
 
@@ -153,7 +153,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[Edits])
       case NotFound(_, _) => None
-      case e@Error(_, _, _) => e.logError()
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
 
@@ -163,7 +163,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[List[Crop]]
       case NotFound(_, _) => Nil
-      case e@Error(_, _, _) => e.logError()
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
 
@@ -179,7 +179,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => unpackUsagesFromEntityResponse(json).map(_.as[Usage])
       case NotFound(_, _) => Nil
-      case e@Error(_, _, _) => e.logError()
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
 
