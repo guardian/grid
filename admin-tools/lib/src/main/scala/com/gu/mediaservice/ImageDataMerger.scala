@@ -196,7 +196,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
     } yield response match {
       case Found(json, underlying) => (json \ "data").as[List[Collection]]
       case NotFound(body, underlying) => Nil
-      case e@Error(status, url, underlying) => e.logError
+      case e@Error(status, url, underlying) => e.logErrorAndThrowException()
     }
   }
 
