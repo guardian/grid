@@ -14,7 +14,9 @@ object Permissions {
   type PrincipalFilter = Principal => Boolean
 
   case object EditMetadata extends SimplePermission
+  case object UploaderEditMetadata extends SimplePermission
   case object DeleteImage extends SimplePermission
+  case object UploaderDeleteImage extends SimplePermission
   case object DeleteCrops extends SimplePermission
   case object ShowPaid extends SimplePermission
 }

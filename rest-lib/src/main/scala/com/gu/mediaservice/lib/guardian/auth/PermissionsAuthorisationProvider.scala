@@ -52,7 +52,9 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
     }
     permissionContext match {
       case EditMetadata => hasPermission(Permissions.EditMetadata)
+      case UploaderEditMetadata => true
       case DeleteImage => hasPermission(Permissions.DeleteImage)
+      case UploaderDeleteImage => true
       case DeleteCrops => hasPermission(Permissions.DeleteCrops)
       case ShowPaid => hasPermission(Permissions.ShowPaid)
     }

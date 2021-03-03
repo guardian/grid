@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, EditMetadata}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, UploaderDeleteImage, EditMetadata, UploaderEditMetadata}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -89,12 +89,13 @@ class MediaApi(
   private def isUploaderOrHasPermission(
     principal: Principal,
     image: Image,
-    permission: SimplePermission
+    permission: SimplePermission,
+    uploaderPermission: SimplePermission
   ) = {
     principal match {
       case user: UserPrincipal =>
         if (user.email.toLowerCase == image.uploadedBy.toLowerCase) {
-          true
+          authorisation.hasPermissionTo(uploaderPermission)(principal)
         } else {
           authorisation.hasPermissionTo(permission)(principal)
         }
@@ -104,10 +105,10 @@ class MediaApi(
   }
 
   def canUserWriteMetadata(principal: Principal, image: Image): Boolean =
-    isUploaderOrHasPermission(principal, image, EditMetadata)
+    isUploaderOrHasPermission(principal, image, EditMetadata, UploaderEditMetadata)
 
   def canUserDeleteImage(principal: Principal, image: Image): Boolean =
-    isUploaderOrHasPermission(principal, image, DeleteImage)
+    isUploaderOrHasPermission(principal, image, DeleteImage, UploaderDeleteImage)
 
   def canUserDeleteCropsOrUsages(principal: Principal): Boolean =
     authorisation.hasPermissionTo(DeleteCrops)(principal)
