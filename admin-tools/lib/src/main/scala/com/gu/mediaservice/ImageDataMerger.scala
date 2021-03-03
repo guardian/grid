@@ -141,9 +141,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
     // Using leases because its a low traffic API.
     class BadApiKeyException extends Exception
     import com.gu.mediaservice.GridClient.{Found, NotFound, Error}
-    for {
-      response <- gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), authFunction)
-    } yield response match {
+    gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), authFunction) map {
       case Found(_, _) => true
       case NotFound(_, _) => true
       case Error(_, _, _) => false
@@ -191,12 +189,10 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
   private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    for {
-      response <- gridClient.makeGetRequestAsync(url, authFunction)
-    } yield response match {
-      case Found(json, underlying) => (json \ "data").as[List[Collection]]
-      case NotFound(body, underlying) => Nil
-      case e@Error(status, url, underlying) => e.logErrorAndThrowException()
+    gridClient.makeGetRequestAsync(url, authFunction) map {
+      case Found(json, _) => (json \ "data").as[List[Collection]]
+      case NotFound(_, _) => Nil
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
 
