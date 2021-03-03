@@ -109,7 +109,6 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
                                    response: WSResponse,
                                    url: URL
                                  ): Response = {
-//    val res = processResponse(response, url)
     response.status match {
       case 200 => Found(Json.parse(response.body), response)
       case 404 => NotFound(response.body, response)
@@ -120,9 +119,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
   def validateApiKey(projectionEndpoint: String, authFn: WSRequest => WSRequest)
                     (implicit ec: ExecutionContext): Future[Boolean] = {
     val projectionUrl = new URL(s"$projectionEndpoint/")
-    for {
-      response <- makeGetRequestAsync(projectionUrl, authFn)
-    } yield response match {
+    makeGetRequestAsync(projectionUrl, authFn) map {
       case Found(_, _) => true
       case NotFound(_, _) => true
       case Error(_, _, _) => throw new Exception("Authorisation failed")
@@ -133,9 +130,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
-    for {
-      response <- makeGetRequestAsync(url, authFn)
-    } yield response match {
+    makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some(json.as[Image])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logError
@@ -145,9 +140,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
   def getLeases(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[LeasesByMedia] = {
     logger.info("attempt to get leases")
     val url = new URL(s"${services.leasesBaseUri}/leases/media/$mediaId")
-    for {
-      response <- makeGetRequestAsync(url, authFn)
-    } yield response match {
+    makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[LeasesByMedia]
       case NotFound(_, _) => LeasesByMedia.empty
       case e@Error(_, _, _) => e.logError
@@ -157,9 +150,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
   def getEdits(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[Edits]] = {
     logger.info("attempt to get edits")
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
-    for {
-      response <- makeGetRequestAsync(url, authFn)
-    } yield response match {
+    makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[Edits])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logError
@@ -169,9 +160,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
   def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")
-    for {
-      response <- makeGetRequestAsync(url, authFn)
-    } yield response match {
+    makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[List[Crop]]
       case NotFound(_, _) => Nil
       case e@Error(_, _, _) => e.logError
@@ -187,9 +176,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
 
     val url = new URL(s"${services.usageBaseUri}/usages/media/$mediaId")
-    for {
-      response <- makeGetRequestAsync(url, authFn)
-    } yield response match {
+    makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => unpackUsagesFromEntityResponse(json).map(_.as[Usage])
       case NotFound(_, _) => Nil
       case e@Error(_, _, _) => e.logError
