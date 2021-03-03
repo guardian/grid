@@ -27,9 +27,7 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
       mediaIds.map { id =>
         val projectionUrl = new URL(s"$projectionEndpoint/$id")
         class FailedCallException extends Exception
-        for {
-          response <- gridClient.makeGetRequestAsync(projectionUrl, authFunction)
-        } yield response match {
+        gridClient.makeGetRequestAsync(projectionUrl, authFunction) map {
           case GridFound(json, underlying) =>
             if (underlying.body.length > maxSize) {
               InputIdsStore.setStateToTooBig(id, underlying.body.length)
