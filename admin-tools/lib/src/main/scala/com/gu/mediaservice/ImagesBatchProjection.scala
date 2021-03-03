@@ -61,9 +61,7 @@ class ImagesBatchProjection(apiKey: String, timeout: Duration, gridClient: GridC
                           InputIdsStore: InputIdsStore): ImagesWithStatus = {
     val apiCalls = mediaIds.map { id =>
       val imagesUrl = new URL(s"$imagesEndpoint/$id")
-      for {
-        response <- gridClient.makeGetRequestAsync(imagesUrl, authFunction)
-      } yield response match {
+      gridClient.makeGetRequestAsync(imagesUrl, authFunction) map {
         case GridFound(_, _) => (id, Found)
         case GridNotFound(_, _) => (id, NotFound)
         case Error(_, _, _) => (id, Failed)
