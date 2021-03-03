@@ -55,6 +55,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       case DeleteImage => hasPermission(Permissions.DeleteImage)
       case DeleteCrops => hasPermission(Permissions.DeleteCrops)
       case ShowPaid => hasPermission(Permissions.ShowPaid)
+      case Pinboard => hasPermission(Permissions.Pinboard)
     }
   }
 }

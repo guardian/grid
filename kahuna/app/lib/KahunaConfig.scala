@@ -1,13 +1,14 @@
 package lib
 
+import com.gu.mediaservice.lib.auth.Permissions.Pinboard
+import com.gu.mediaservice.lib.auth.SimplePermission
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
-import com.gu.permissions.PermissionDefinition
 
 case class ScriptToLoad(
   host: String,
   path: String,
   async: Option[Boolean],
-  permission: Option[PermissionDefinition]
+  permission: Option[SimplePermission]
 )
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
@@ -35,14 +36,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     host = entry.getString("host"),
     path = entry.getString("path"),
     async = if (entry.hasPath("async")) Some(entry.getBoolean("async")) else None,
-    permission =
-      if (entry.hasPath("permission")) Some(
-        PermissionDefinition(
-          name = entry.getString("permission.name"),
-          app = entry.getString("permission.app")
-        )
-      )
-      else None
+    // FIXME ideally the below would not hardcode reference to pinboard - hopefully future iterations of the pluggable authorisation will support evaluating permissions without a corresponding case object
+    permission = if (entry.hasPath("permission") && entry.getString("permission") == "pinboard") Some(Pinboard) else None
   ))
 
 }

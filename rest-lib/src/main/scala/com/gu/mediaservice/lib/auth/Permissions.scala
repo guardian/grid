@@ -17,4 +17,5 @@ object Permissions {
   case object DeleteImage extends SimplePermission
   case object DeleteCrops extends SimplePermission
   case object ShowPaid extends SimplePermission
+  case object Pinboard extends SimplePermission // FIXME ideally factor this out in favour of something more generic
 }

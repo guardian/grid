@@ -1,18 +1,24 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.{Authentication, PermissionsHandler}
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
 import lib.KahunaConfig
 import play.api.mvc.{BaseController, ControllerComponents}
 
 import scala.concurrent.ExecutionContext
 
-class KahunaController(auth: Authentication, val config: KahunaConfig, override val controllerComponents: ControllerComponents)
-                      (implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers with PermissionsHandler {
+class KahunaController(
+  authentication: Authentication,
+  val config: KahunaConfig,
+  override val controllerComponents: ControllerComponents,
+  authorisation: Authorisation
+)(
+  implicit val ec: ExecutionContext
+) extends BaseController with ArgoHelpers {
 
   def index(ignored: String) = Action { req =>
 
-    val maybeUser = auth.authenticationStatus(req).toOption
+    val maybeUser: Option[Authentication.Principal] = authentication.authenticationStatus(req).toOption
 
     val okPath = routes.KahunaController.ok.url
     // If the auth is successful, we redirect to the kahuna domain so the iframe
@@ -29,11 +35,11 @@ class KahunaController(auth: Authentication, val config: KahunaConfig, override 
       config.usageRightsHelpLink,
       config.invalidSessionHelpLink,
       config.supportEmail,
-      config.scriptsToLoad.filter(_.permission.exists(permission => maybeUser.exists(hasPermission(_, permission))))
+      config.scriptsToLoad.filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists))
     ))
   }
 
-  def quotas = auth { req =>
+  def quotas = authentication { req =>
     Ok(views.html.quotas(config.mediaApiUri))
   }
 
