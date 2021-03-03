@@ -55,7 +55,7 @@ object GridClient extends LazyLogging {
     val status = 404
   }
   case class Error(status: Int, url: URL, underlying: WSResponse) extends Response {
-    def logError(): Unit = {
+    def logError(): Nothing = {
       val errorMessages = getErrorMessagesFromResponse(underlying.body)
 
       val body: String = underlying.body
