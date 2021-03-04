@@ -1,6 +1,15 @@
 package lib
 
+import com.gu.mediaservice.lib.auth.Permissions.Pinboard
+import com.gu.mediaservice.lib.auth.SimplePermission
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+
+case class ScriptToLoad(
+  host: String,
+  path: String,
+  async: Option[Boolean],
+  permission: Option[SimplePermission]
+)
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
@@ -21,4 +30,15 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
+  val connectSources: Set[String] = getStringSet("security.connectSources")
+
+  val scriptsToLoad: List[ScriptToLoad] = getConfigList("scriptsToLoad").map(entry => ScriptToLoad(
+    host = entry.getString("host"),
+    path = entry.getString("path"),
+    async = if (entry.hasPath("async")) Some(entry.getBoolean("async")) else None,
+    // FIXME ideally the below would not hardcode reference to pinboard - hopefully future iterations of the pluggable authorisation will support evaluating permissions without a corresponding case object
+    permission = if (entry.hasPath("permission") && entry.getString("permission") == "pinboard") Some(Pinboard) else None
+  ))
+
 }
+

@@ -12,7 +12,7 @@ class KahunaComponents(context: Context) extends GridComponents(context, new Kah
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new KahunaController(auth, config, controllerComponents)
+  val controller = new KahunaController(auth, config, controllerComponents, authorisation)
   final override val router = new Routes(httpErrorHandler, controller, assets, management)
 
 }
@@ -34,29 +34,43 @@ object KahunaSecurityConfig {
       config.services.guardianWitnessBaseUri
     )
 
+    val gaHost = "www.google-analytics.com"
+
     val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
-    val connectSources = s"connect-src ${(services :+ config.imageOrigin).mkString(" ")} 'self' www.google-analytics.com"
+    val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} $gaHost ${config.connectSources.mkString(" ")}"
 
-    val imageSources: List[String] = List(
+    val imageSources = s"img-src ${List(
       "data:",
       "blob:",
       URI.ensureSecure(config.services.imgopsBaseUri).toString,
       URI.ensureSecure(config.fullOrigin).toString,
       URI.ensureSecure(config.thumbOrigin).toString,
       URI.ensureSecure(config.cropOrigin).toString,
-      URI.ensureSecure("www.google-analytics.com").toString,
+      URI.ensureSecure(gaHost).toString,
       URI.ensureSecure("app.getsentry.com").toString,
       "'self'"
-    )
+    ).mkString(" ")}"
 
     val fontSources = s"font-src data: 'self'"
+
+    val scriptSources = s"script-src 'self' 'unsafe-inline' $gaHost ${config.scriptsToLoad.map(_.host).mkString(" ")}"
 
     base.copy(
       // covered by frame-ancestors in contentSecurityPolicy
       frameOptions = None,
       // We use inline styles and script tags <sad face>
-      contentSecurityPolicy = Some(s"$frameSources; $frameAncestors; $connectSources; $fontSources; img-src ${imageSources.mkString(" ")}; default-src 'unsafe-inline' 'self'; script-src 'self' 'unsafe-inline' www.google-analytics.com;")
+      contentSecurityPolicy = Some(
+        List(
+          frameSources,
+          frameAncestors,
+          connectSources,
+          fontSources,
+          imageSources,
+          "default-src 'unsafe-inline' 'self'",
+          scriptSources
+        ).mkString("; ")
+      )
     )
   }
 }
