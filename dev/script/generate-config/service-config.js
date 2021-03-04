@@ -72,7 +72,6 @@ function getImageLoaderConfig(config) {
 function getKahunaConfig(config) {
     return stripMargin`${getCommonConfig(config)}
         |aws.region="${config.AWS_DEFAULT_REGION}"
-        |aws.region="${config.AWS_DEFAULT_REGION}"
         |origin.full="images.media.${config.DOMAIN}"
         |origin.thumb="localstack.media.${config.DOMAIN}"
         |origin.images="images.media.${config.DOMAIN}"
@@ -85,6 +84,18 @@ function getKahunaConfig(config) {
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |security.frameAncestors="https://*.${config.DOMAIN}"
         |metrics.request.enabled=false
+        |security.connectSources = [
+        |  "wss://*.iot.${config.AWS_DEFAULT_REGION}.amazonaws.com",
+        |  "https://*.appsync-api.${config.AWS_DEFAULT_REGION}.amazonaws.com"
+        |]
+        |scriptsToLoad = [
+        |  {
+        |    host: "https://pinboard.${config.DOMAIN}",
+        |    path: "pinboard.loader.js",
+        |    async: true,
+        |    permission: "pinboard"
+        |  }
+        |]
         |`;
 }
 
