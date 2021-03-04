@@ -1,8 +1,17 @@
 package com.gu.mediaservice
 
 import com.gu.mediaservice.indexing.IndexInputCreation
+import play.api.libs.ws.ahc.AhcWSClient
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import play.api.libs.ws._
 
 class BatchIndexLambdaHandler {
+
+
+  implicit private val system: ActorSystem = ActorSystem()
+  implicit private val materializer: ActorMaterializer = ActorMaterializer()
+  implicit private val ws:WSClient  = AhcWSClient()
 
   private val cfg = BatchIndexHandlerConfig(
     apiKey = sys.env("API_KEY"),
@@ -24,11 +33,11 @@ class BatchIndexLambdaHandler {
   private val batchIndex = new BatchIndexHandler(cfg)
 
 
-  def handleRequest() = {
+  def handleRequest(): Unit = {
     batchIndex.processImages()
   }
 
-  def handleCheckRequest() = {
+  def handleCheckRequest(): Unit = {
     batchIndex.checkImages()
   }
 

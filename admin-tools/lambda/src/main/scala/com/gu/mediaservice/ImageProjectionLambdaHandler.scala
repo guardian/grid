@@ -1,5 +1,8 @@
 package com.gu.mediaservice
 
+
+import java.util.concurrent.TimeUnit
+
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.events.{APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent}
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
@@ -8,9 +11,24 @@ import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
+import play.api.libs.ws.ahc.AhcWSClient
+
 import scala.concurrent.ExecutionContext.Implicits.global
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import play.api.libs.ws._
+
+import scala.concurrent.Await
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 class ImageProjectionLambdaHandler extends ApiKeyAuthentication with LazyLogging {
+
+  private val apiCheckTimeoutInSeconds = 10
+  val apiCheckTimeout = new FiniteDuration(1, TimeUnit.SECONDS)
+
+  implicit private val system = ActorSystem()
+  implicit private val materializer = ActorMaterializer()
+  implicit private val ws:WSClient  = AhcWSClient()
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
 
@@ -28,25 +46,33 @@ class ImageProjectionLambdaHandler extends ApiKeyAuthentication with LazyLogging
     apiKey match {
       case Some(key) =>
         val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot, imageLoaderEndpointOpt = imageLoaderEndpoint)
-        if (!cfg.isValidApiKey()) return getUnauthorisedResponse
-
-        logger.info(s"starting handleImageProjection for mediaId=$mediaId")
-        logger.info(s"with config: $cfg")
-
         val merger = new ImageDataMerger(cfg)
-        val result: FullImageProjectionResult = merger.getMergedImageData(mediaId.asInstanceOf[String])
-        result match {
-          case FullImageProjectionSuccess(mayBeImage) =>
-            mayBeImage match {
-              case Some(img) =>
-                getSuccessResponse(img)
-              case _ =>
-                getNotFoundResponse(mediaId)
-            }
-          case FullImageProjectionFailed(message, downstreamMessage) =>
-            getErrorFoundResponse(message, downstreamMessage)
+
+        val ok = Await.result(merger.isValidApiKey, apiCheckTimeout)
+        if (!ok) {
+          getUnauthorisedResponse
+        } else {
+          handleImageProjection(mediaId, cfg, merger)
         }
       case _ => getUnauthorisedResponse
+    }
+  }
+
+  private def handleImageProjection(mediaId: String, cfg: ImageDataMergerConfig, merger: ImageDataMerger) = {
+    logger.info(s"starting handleImageProjection for mediaId=$mediaId")
+    logger.info(s"with config: $cfg")
+
+    val result: FullImageProjectionResult = merger.getMergedImageData(mediaId.asInstanceOf[String])
+    result match {
+      case FullImageProjectionSuccess(mayBeImage) =>
+        mayBeImage match {
+          case Some(img) =>
+            getSuccessResponse(img)
+          case _ =>
+            getNotFoundResponse(mediaId)
+        }
+      case FullImageProjectionFailed(message, downstreamMessage) =>
+        getErrorFoundResponse(message, downstreamMessage)
     }
   }
 

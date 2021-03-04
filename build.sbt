@@ -111,7 +111,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.typesafe.play" %% "play-json-joda" % "2.6.9",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
-    "com.squareup.okhttp3" % "okhttp" % okHttpVersion
+    ws
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 )
@@ -121,7 +121,6 @@ lazy val restLib = project("rest-lib").settings(
     "com.typesafe.play" %% "play" % "2.6.20",
     "com.typesafe.play" %% "filters-helpers" % "2.6.20",
     akkaHttpServer,
-    ws,
   ),
 
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"

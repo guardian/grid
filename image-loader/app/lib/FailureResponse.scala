@@ -58,7 +58,7 @@ object FailureResponse extends ArgoHelpers with Results {
     logger.info(s"Unhandled exception", exception)
 
     Response(
-      UnsupportedMediaType,
+      InternalServerError,
       "internal-error",
       s"Unhandled error: ${exception.getMessage}"
     )
