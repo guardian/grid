@@ -2,18 +2,20 @@ package com.gu.mediaservice
 
 import java.net.URL
 
+import com.gu.mediaservice.GridClient.{Error, Found, NotFound}
+import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
-import play.api.libs.json._
+import play.api.libs.ws.{WSClient, WSRequest}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ImageDataMergerConfig {
 
-  def apply(apiKey: String, domainRoot: String, imageLoaderEndpointOpt: Option[String]): ImageDataMergerConfig = {
+  def apply(apiKey: String, domainRoot: String, imageLoaderEndpointOpt: Option[String])(implicit wsClient: WSClient, ec: ExecutionContext): ImageDataMergerConfig = {
     val services = new Services(domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
     val imageLoaderEndpoint = imageLoaderEndpointOpt match {
       case Some(uri) => uri
@@ -23,14 +25,8 @@ object ImageDataMergerConfig {
   }
 }
 
-case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String) {
-  val gridClient = GridClient(apiKey, services, maxIdleConnections = 5)
-  def isValidApiKey(): Boolean = {
-    // Make an API key authenticated request to the leases API as a way of validating the API key.
-    // A 200 indicates a valid key.
-    // Using leases because its a low traffic API.
-    gridClient.makeGetRequestSync(new URL(services.leasesBaseUri), apiKey).statusCode == 200
-  }
+case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoaderEndpoint: String)(implicit wsClient: WSClient, ec: ExecutionContext) extends ApiKeyAuthentication {
+  val gridClient: GridClient = GridClient(services)(wsClient)
 }
 
 object ImageProjectionOverrides extends LazyLogging {
@@ -131,10 +127,26 @@ case class FullImageProjectionSuccess(image: Option[Image]) extends FullImagePro
 
 case class FullImageProjectionFailed(message: String, downstreamErrorMessage: String) extends FullImageProjectionResult
 
-class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
+class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthentication with LazyLogging {
 
   import config._
   import services._
+
+  // Authorise with api key
+  private def authFunction(request: WSRequest) = request.withHttpHeaders((apiKeyHeaderName, apiKey))
+
+  def isValidApiKey(implicit ec: ExecutionContext): Future[Boolean] = {
+    // Make an API key authenticated request to the leases API as a way of validating the API key.
+    // A 200/404 indicates a valid key.
+    // Using leases because its a low traffic API.
+    class BadApiKeyException extends Exception
+    import com.gu.mediaservice.GridClient.{Found, NotFound, Error}
+    gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), authFunction) map {
+      case Found(_, _) => true
+      case NotFound(_, _) => true
+      case Error(_, _, _) => false
+    }
+  }
 
   def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
     try {
@@ -147,61 +159,42 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends LazyLogging {
     }
   }
 
-  private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = {
-    val maybeImage: Option[Image] = gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint)
-    maybeImage match {
-      case Some(img) =>
-        aggregate(img).map { aggImg =>
-          Some(ImageProjectionOverrides.overrideSelectedFields(aggImg))
-        }
-      case None => Future(None)
-    }
+  private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
+    maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, authFunction)
+    image <- aggregate(maybeStubImage)
+  } yield image.map { aggImg =>
+    ImageProjectionOverrides.overrideSelectedFields(aggImg)
   }
 
-  private def aggregate(image: Image)(implicit ec: ExecutionContext): Future[Image] = {
-    logger.info(s"starting to aggregate image")
-    val mediaId = image.id
-    for {
-      collections <- getCollectionsResponse(mediaId)
-      edits <- gridClient.getEdits(mediaId)
-      leases <- gridClient.getLeases(mediaId)
-      usages <- gridClient.getUsages(mediaId)
-      crops <- gridClient.getCrops(mediaId)
-    } yield image.copy(
-      collections = collections,
-      userMetadata = edits,
-      leases = leases,
-      usages = usages,
-      exports = crops
-    )
+  private def aggregate(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
+    case Some(image) =>
+      logger.info(s"starting to aggregate image")
+      val mediaId = image.id
+      for {
+        collections <- getCollectionsResponse(mediaId)
+        edits <- gridClient.getEdits(mediaId, authFunction)
+        leases <- gridClient.getLeases(mediaId, authFunction)
+        usages <- gridClient.getUsages(mediaId, authFunction)
+        crops <- gridClient.getCrops(mediaId, authFunction)
+      } yield Some(image.copy(
+        collections = collections,
+        userMetadata = edits,
+        leases = leases,
+        usages = usages,
+        exports = crops
+      ))
+    case None => Future.successful(None)
   }
 
   private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
     logger.info("attempt to get collections")
     val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    gridClient.makeGetRequestAsync(url, apiKey).map { res =>
-      validateResponse(res, url)
-      if (res.statusCode == 200) (res.body \ "data").as[List[Collection]] else Nil
+    gridClient.makeGetRequestAsync(url, authFunction) map {
+      case Found(json, _) => (json \ "data").as[List[Collection]]
+      case NotFound(_, _) => Nil
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
 
-  private def validateResponse(res: ResponseWrapper, url: URL): Unit = {
-    import res._
-    if (statusCode != 200 && statusCode != 404) {
-      val errorMessage = s"breaking the circuit of full image projection, downstream API: $url is in a bad state, code: $statusCode"
-      val downstreamErrorMessage = res.bodyAsString
-
-      val errorJson = Json.obj(
-        "level" -> "ERROR",
-        "errorStatusCode" -> statusCode,
-        "message" -> Json.obj(
-          "errorMessage" -> errorMessage,
-          "downstreamErrorMessage" -> downstreamErrorMessage
-        )
-      )
-      logger.error(errorJson.toString())
-      throw new DownstreamApiInBadStateException(errorMessage, downstreamErrorMessage)
-    }
-  }
 }
 

@@ -2,7 +2,10 @@ package model
 
 import java.io.{File, FileOutputStream}
 import java.util.UUID
+
 import com.amazonaws.services.s3.AmazonS3
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
@@ -18,6 +21,7 @@ import model.upload.UploadRequest
 import org.apache.tika.io.IOUtils
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.Logger
+import play.api.libs.ws.WSRequest
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
@@ -27,8 +31,8 @@ object Projector {
 
   import Uploader.toImageUploadOpsCfg
 
-  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor)(implicit ec: ExecutionContext): Projector
-  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor)
+  def apply(config: ImageLoaderConfig, imageOps: ImageOperations, processor: ImageProcessor, auth: Authentication)(implicit ec: ExecutionContext): Projector
+  = new Projector(toImageUploadOpsCfg(config), S3Ops.buildS3Client(config), imageOps, processor, auth)
 }
 
 case class S3FileExtractedMetadata(
@@ -80,11 +84,12 @@ object S3FileExtractedMetadata {
 class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
-                processor: ImageProcessor) {
+                processor: ImageProcessor,
+                auth: Authentication) {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID)
+  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -99,7 +104,7 @@ class Projector(config: ImageUploadOpsCfg,
       val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
       val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId)
+      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }
@@ -110,7 +115,11 @@ class Projector(config: ImageUploadOpsCfg,
     DigestedFile(tempFile, imageId)
   }
 
-  def projectImage(srcFileDigest: DigestedFile, extractedS3Meta: S3FileExtractedMetadata, requestId: UUID)
+  def projectImage(srcFileDigest: DigestedFile,
+                   extractedS3Meta: S3FileExtractedMetadata,
+                   requestId: UUID,
+                   gridClient: GridClient,
+                   onBehalfOfFn: WSRequest => WSRequest)
                   (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val DigestedFile(tempFile_, id_) = srcFileDigest
 
@@ -130,7 +139,21 @@ class Projector(config: ImageUploadOpsCfg,
           identifiers = identifiers_,
           uploadInfo = uploadInfo_
         )
-        imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
+
+        for {
+          futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
+          edits <- gridClient.getEdits(id_, onBehalfOfFn)
+          usages <- gridClient.getUsages(id_, onBehalfOfFn)
+          crops <- gridClient.getCrops(id_, onBehalfOfFn)
+          leases <- gridClient.getLeases(id_, onBehalfOfFn)
+          //todo collections?
+        } yield futureImage
+          .copy(
+            userMetadata = edits,
+            usages = usages,
+            exports = crops,
+            leases = leases
+          )
     }
   }
 }

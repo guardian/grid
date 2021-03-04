@@ -2,12 +2,13 @@ package controllers
 
 import java.io.File
 import java.net.URI
+
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.gu.mediaservice.lib.logging.{FALLBACK, GridLogging, LogMarker, RequestLoggingContext}
+import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, RequestLoggingContext}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import com.gu.scanamo.error.ConditionNotMet
@@ -16,13 +17,14 @@ import lib.{FailureResponse, _}
 import lib.imaging.{NoSuchImageExistsInS3, UserImageLoaderException}
 import lib.storage.ImageLoaderStore
 import model.{Projector, QuarantineUploader, StatusType, UploadStatus, UploadStatusRecord, Uploader}
-import play.api.libs.json.{JsObject, Json}
-import play.api.libs.ws.WSClient
+import play.api.libs.json.Json
 import play.api.mvc._
 import model.upload.UploadRequest
-import org.joda.time.DateTime
-
 import java.time.Instant
+
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -37,7 +39,7 @@ class ImageLoaderController(auth: Authentication,
                             quarantineUploader: Option[QuarantineUploader],
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
-                            wSClient: WSClient)
+                            gridClient: GridClient)
                            (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -121,8 +123,9 @@ class ImageLoaderController(auth: Authentication,
       )
     )
     val tempFile = createTempFile(s"projection-$imageId")
-    auth.async { _ =>
-      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId)
+    auth.async { req =>
+      val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
+      val result= projector.projectS3ImageById(projector, imageId, tempFile, context.requestId, gridClient, onBehalfOfFn)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
@@ -136,9 +139,8 @@ class ImageLoaderController(auth: Authentication,
           respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
       } recover {
         case _: NoSuchImageExistsInS3 => NotFound(Json.obj("imageId" -> imageId))
-        case _ => InternalServerError(Json.obj("imageId" -> imageId))
+        case e => InternalServerError(Json.obj("imageId" -> imageId, "exception" -> e.getMessage))
       }
-
     }
   }
 
