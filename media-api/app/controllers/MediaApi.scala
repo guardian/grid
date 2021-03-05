@@ -22,10 +22,7 @@ import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import java.net.URI
 
-import scala.collection.JavaConverters.mapAsScalaMapConverter
-
-//import play.api.libs.json.Format.GenericFormat
-//import play.api.libs.json.OFormat.GenericOFormat
+import com.gu.mediaservice.lib.ImageIngestOperations
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -162,12 +159,7 @@ class MediaApi(
 
     elasticSearch.getImageById(id) map {
       case Some(image) if hasPermission(request.user, image) =>
-        val s3Metadata:Map[String,String] = s3Client
-          .getObject(config.imageBucket, image.source.file)
-          .getObjectMetadata
-          .getUserMetadata()
-          .asScala
-          .toMap
+        val s3Metadata:Map[String,String] = s3Client.getUserMetadata(config.imageBucket, ImageIngestOperations.fileKeyFromId(id))
           .filter(p => p._1.startsWith(AWSMetadataPrefix))
           .map(p => (p._1.substring(AWSMetadataPrefix.length), p._2))
 
