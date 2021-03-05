@@ -1,6 +1,7 @@
 package com.gu.mediaservice.scripts
 
 
+import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import software.amazon.awssdk.auth.credentials.{DefaultCredentialsProvider, ProfileCredentialsProvider}
@@ -8,7 +9,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, ListObjectsV2Request}
 
-import java.io.{BufferedWriter, File, FileWriter}
+import java.io.{BufferedWriter, File, FileOutputStream, FileWriter, OutputStreamWriter}
 import java.time.Instant
 import scala.collection.JavaConverters.{asScalaIteratorConverter, iterableAsScalaIterableConverter, mapAsScalaMapConverter}
 
@@ -26,14 +27,16 @@ object BucketMetadata {
   def apply(args: List[String]): Unit = {
     args match {
       case bucketName :: fileName :: Nil => bucketMetadata(bucketName, new File(fileName))
-      case _ => throw new IllegalArgumentException("Usage: BucketMetadata <bucket> <outputFilename.jsonl>")
+      case _ => throw new IllegalArgumentException("Usage: BucketMetadata <bucket> <outputFilename.jsonl.bz2>")
     }
   }
 
   def bucketMetadata(bucketName: String, outputFile: File) = {
-    val fw = new FileWriter(outputFile)
-    System.err.println(s"Output encoding: ${fw.getEncoding}")
-    val stream = new BufferedWriter(fw)
+    val fileOutputStream = new FileOutputStream(outputFile)
+    val compressOutputStream = new BZip2CompressorOutputStream(fileOutputStream)
+    val sw = new OutputStreamWriter(compressOutputStream)
+    System.err.println(s"Output encoding: ${sw.getEncoding}")
+    val stream = new BufferedWriter(sw)
 
     try {
       val s3: S3Client = S3Client.builder
@@ -56,6 +59,7 @@ object BucketMetadata {
         if (idx % 1000 == 0) System.err.println(s"${DateTime.now.toString}: ${idx}")
         stream.write(json)
         stream.newLine()
+        stream.flush()
       }
     } finally {
       stream.close()
