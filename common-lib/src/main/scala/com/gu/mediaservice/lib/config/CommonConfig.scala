@@ -9,7 +9,6 @@ import play.api.Configuration
 import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.util.Try
 
-
 abstract class CommonConfig(val configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
   final val stackName = "media-service"
 
@@ -57,6 +56,8 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
+
+  val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
