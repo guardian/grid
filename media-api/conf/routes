@@ -15,6 +15,7 @@ GET     /images/aggregations/date/:field              controllers.AggregationCon
 GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
 GET     /images/:id/_elasticsearch                    controllers.MediaApi.getImageFromElasticSearch(id: String)
 GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
+GET     /images/:id/s3Metadata                        controllers.MediaApi.getImageS3Metadata(id: String)
 GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                     controllers.MediaApi.downloadOriginalImage(imageId: String)

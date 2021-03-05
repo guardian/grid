@@ -20,8 +20,13 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-
 import java.net.URI
+
+import scala.collection.JavaConverters.mapAsScalaMapConverter
+
+//import play.api.libs.json.Format.GenericFormat
+//import play.api.libs.json.OFormat.GenericOFormat
+
 import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(
@@ -147,6 +152,37 @@ class MediaApi(
           Link("image", s"${config.rootUri}/images/$id")
         )
         respond(Json.toJson(image.fileMetadata), links)
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  private val AWSMetadataPrefix = "x-amz-meta-"
+  def getImageS3Metadata(id: String) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) map {
+      case Some(image) if hasPermission(request.user, image) =>
+        val s3Metadata:Map[String,String] = s3Client
+          .getObject(config.imageBucket, image.source.file)
+          .getObjectMetadata
+          .getUserMetadata()
+          .asScala
+          .toMap
+          .filter(p => p._1.startsWith(AWSMetadataPrefix))
+          .map(p => (p._1.substring(AWSMetadataPrefix.length), p._2))
+
+        val esMetadata:Map[String,String] =
+          image.identifiers ++
+          image.uploadInfo.filename.map(fn => "file_name" -> fn) +
+          ("uploaded_by" -> image.uploadedBy) +
+          ("upload_time" -> image.uploadTime.toString())
+
+        val metadata = Map(
+          "s3" -> s3Metadata,
+          "es" -> esMetadata
+        )
+
+        respond(Json.toJson(metadata))
       case _ => ImageNotFound(id)
     }
   }
