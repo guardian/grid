@@ -31,30 +31,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   private val index = "images"
 
-  private val NOT_USED_IN_TEST = "not used in test"
-  private val MOCK_CONFIG_KEYS = Seq(
-    "auth.keystore.bucket",
-    "persistence.identifier",
-    "thrall.kinesis.stream.name",
-    "thrall.kinesis.lowPriorityStream.name",
-    "domain.root",
-    "s3.config.bucket",
-    "s3.usagemail.bucket",
-    "quota.store.key",
-    "es.index.aliases.read",
-    "es6.url",
-    "es6.cluster",
-    "s3.image.bucket",
-    "s3.thumb.bucket",
-    "grid.stage",
-    "grid.appName"
-  )
-
   private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(Map(
-      "es6.shards" -> 0,
-      "es6.replicas" -> 0
-    ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
     null
   ))
 
@@ -290,8 +268,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val search = SearchParams(tier = Internal, syndicationStatus = Some(BlockedForSyndication))
       val searchResult = ES.search(search)
       whenReady(searchResult, timeout, interval) { result =>
-        result.hits.forall(h => h._2.leases.leases.nonEmpty) shouldBe true
-        result.hits.forall(h => h._2.leases.leases.forall(l => l.access == DenySyndicationLease)) shouldBe true
+        result.hits.forall(h => h._2.instance.leases.leases.nonEmpty) shouldBe true
+        result.hits.forall(h => h._2.instance.leases.leases.forall(l => l.access == DenySyndicationLease)) shouldBe true
         result.total shouldBe 3
       }
     }
@@ -327,7 +305,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
         result.total shouldBe 1
-        result.hits.head._2.fileMetadata.xmp.nonEmpty shouldBe true
+        result.hits.head._2.instance.fileMetadata.xmp.nonEmpty shouldBe true
       }
     }
 
@@ -336,7 +314,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val hasFileMetadataSearch = SearchParams(tier = Internal, structuredQuery = List(hasFileMetadataCondition))
       whenReady(ES.search(hasFileMetadataSearch), timeout, interval) { result =>
         result.total shouldBe 1
-        result.hits.head._2.fileMetadata.xmp.get("foo") shouldBe Some(JsString("bar"))
+        result.hits.head._2.instance.fileMetadata.xmp.get("foo") shouldBe Some(JsString("bar"))
       }
     }
 

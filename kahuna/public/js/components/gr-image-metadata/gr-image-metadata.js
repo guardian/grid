@@ -33,8 +33,19 @@ module.controller('grImageMetadataCtrl', [
 
     let ctrl = this;
 
+    ctrl.fieldAliases = window._clientConfig.fieldAliases;
     ctrl.showUsageRights = false;
     ctrl.usageRights = imageService(ctrl.image).usageRights;
+    ctrl.additionalMetadata = Object.fromEntries(
+      Object.entries(ctrl.image.data.aliases)
+        .map(([key, val]) => {
+          let match = ctrl.fieldAliases.find(_ => _.alias === key);
+          if (match) {
+            return [match.label, val];
+          } else {
+            return [key, val];
+          }
+        }));
 
     // Alias for convenience in view
     ctrl.metadata = ctrl.image.data.metadata;

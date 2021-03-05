@@ -10,6 +10,7 @@
   usageRightsHelpLink: Option[String],
   invalidSessionHelpLink: Option[String],
   supportEmail: Option[String],
+  fieldAliases: String,
   scriptsToLoad: List[ScriptToLoad]
 )
 <!DOCTYPE html>
@@ -47,7 +48,8 @@
           feedbackFormLink: "@Html(feedbackFormLink.getOrElse(""))",
           usageRightsHelpLink: "@Html(usageRightsHelpLink.getOrElse(""))",
           invalidSessionHelpLink: "@Html(invalidSessionHelpLink.getOrElse(""))",
-          supportEmail: "@Html(supportEmail.getOrElse(""))"
+          supportEmail: "@Html(supportEmail.getOrElse(""))",
+          fieldAliases: @Html(fieldAliases)
         }
     </script>
 
