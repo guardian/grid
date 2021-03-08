@@ -19,7 +19,6 @@
     data-source="grid"
     data-source-type="crop"
     data-thumbnail="{{:: extremeAssets.smallest | assetFile}}"
-    data-primary-id="{{ctrl.image.data.id}}"
-    data-secondary-id="{{crop.id}}"
+    data-embeddable-url="{{ctrl.getEmbeddableUrl(crop.id)}}"
   ></asset-handle>
 </div>

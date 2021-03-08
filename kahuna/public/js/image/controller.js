@@ -193,6 +193,9 @@ image.controller('ImageCtrl', [
       $state.go('image', {imageId: ctrl.image.data.id, crop: undefined}, {reload: true});
     };
 
+    ctrl.getEmbeddableUrl = (maybeCropId) =>
+      $state.href($state.current.name, { crop: maybeCropId || null }, { absolute: true });
+
     // TODO: move this to a more sensible place.
     function getCropDimensions() {
       return {
