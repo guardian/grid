@@ -15,4 +15,10 @@
     <span class="flex-spacer"></span>
     <span class="image-crop__creator" title="Cropped by {{:: crop.author}} at {{:: crop.date | date:'medium'}}">{{:: crop.author | getInitials}}</span>
   </div>
+  <asset-handle
+    data-source="grid"
+    data-source-type="crop"
+    data-thumbnail="{{:: extremeAssets.smallest | assetFile}}"
+    data-embeddable-url="{{ctrl.getEmbeddableUrl(crop.id)}}"
+  ></asset-handle>
 </div>
