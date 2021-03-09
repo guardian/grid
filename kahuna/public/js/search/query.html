@@ -51,7 +51,7 @@
             </label>
             </li>
 
-            <li class="search__modifier-item">
+            <li ng-if="searchQuery.canUpload" id="my-uploads-checkbox" class="search__modifier-item">
             <label>
                 <input type="checkbox"
                     ng-model="searchQuery.filter.uploadedByMe" />

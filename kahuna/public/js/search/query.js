@@ -31,6 +31,19 @@ query.controller('SearchQueryCtrl', [
 
     const ctrl = this;
 
+    ctrl.canUpload = false;
+
+    mediaApi.getSession().then(session => {
+        ctrl.user = session.user;
+        ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
+        ctrl.canUpload = session.user.permissions.canUpload;
+        if (ctrl.filter.nonFree === undefined) {
+          ctrl.filter.nonFree = session.user.permissions.showPaid ?
+            session.user.permissions.showPaid : undefined;
+        }
+    });
+
+
     ctrl.ordering = {
         orderBy: $stateParams.orderBy
     };
@@ -163,16 +176,6 @@ query.controller('SearchQueryCtrl', [
 
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
-    mediaApi.getSession().then(session => {
-        ctrl.user = session.user;
-        ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
-
-        if (ctrl.filter.nonFree === undefined) {
-          ctrl.filter.nonFree = session.user.permissions.showPaid ?
-            session.user.permissions.showPaid : undefined;
-        }
-    });
-
 
     function resetQuery() {
         ctrl.filter.query = undefined;

@@ -2,7 +2,6 @@ package controllers
 
 import java.io.File
 import java.net.URI
-
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
@@ -20,10 +19,11 @@ import model.{Projector, QuarantineUploader, StatusType, UploadStatus, UploadSta
 import play.api.libs.json.Json
 import play.api.mvc._
 import model.upload.UploadRequest
-import java.time.Instant
 
+import java.time.Instant
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
+import com.gu.mediaservice.lib.auth.Permissions.UploadImages
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -39,7 +39,8 @@ class ImageLoaderController(auth: Authentication,
                             quarantineUploader: Option[QuarantineUploader],
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
-                            gridClient: GridClient)
+                            gridClient: GridClient,
+                            authorisation: Authorisation)
                            (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -76,7 +77,7 @@ class ImageLoaderController(auth: Authentication,
     logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
-    auth.async(parsedBody) { req =>
+    (auth andThen authorisation.actionFilterFor(UploadImages)).async(parsedBody) { req =>
       val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
@@ -151,7 +152,7 @@ class ImageLoaderController(auth: Authentication,
                    uploadTime: Option[String],
                    filename: Option[String]
                  ): Action[AnyContent] = {
-    auth.async { request =>
+    (auth andThen authorisation.actionFilterFor(UploadImages)).async { request =>
       implicit val context: RequestLoggingContext = RequestLoggingContext(
         initialMarkers = Map(
           "requestType" -> "import-image",

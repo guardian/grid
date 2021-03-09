@@ -41,9 +41,8 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   private val gridClient = GridClient(services)(wsClient)
 
   val controller = new ImageLoaderController(
-    auth, downloader, store, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient)
-  val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, config ,controllerComponents)
-
+    auth, downloader, store, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient, authorisation)
+  val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, config, controllerComponents, authorisation)
 
   override lazy val router = new Routes(httpErrorHandler, controller, uploadStatusController, management)
 }
