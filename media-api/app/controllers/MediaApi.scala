@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, EditMetadata}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import lib._
@@ -20,8 +20,10 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-
 import java.net.URI
+
+import com.gu.mediaservice.lib.ImageIngestOperations
+
 import scala.concurrent.{ExecutionContext, Future}
 
 class MediaApi(
