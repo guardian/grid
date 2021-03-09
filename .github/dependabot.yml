@@ -9,40 +9,6 @@ updates:
     commit-message:
       prefix: "chore(deps): "
 
-  # the frontend site
-  - package-ecosystem: 'npm'
-    directory: '/kahuna'
-    schedule:
-      interval: 'weekly'
-    commit-message:
-      prefix: "chore(deps): "
-
-  # things that run in an AWS Lambda environment
-  - package-ecosystem: 'npm'
-    directory: '/reaper'
-    schedule:
-      interval: 'weekly'
-    commit-message:
-      prefix: "chore(deps): "
-  - package-ecosystem: 'npm'
-    directory: '/image-counter-lambda'
-    schedule:
-      interval: 'weekly'
-    commit-message:
-      prefix: "chore(deps): "
-  - package-ecosystem: 'npm'
-    directory: '/s3watcher/lambda'
-    schedule:
-      interval: 'weekly'
-    commit-message:
-      prefix: "chore(deps): "
-  - package-ecosystem: 'npm'
-    directory: '/s3watcher/scripts'
-    schedule:
-      interval: 'weekly'
-    commit-message:
-      prefix: "chore(deps): "
-
   # things that only get run locally
   - package-ecosystem: 'npm'
     directory: '/dev/oidc-provider'
@@ -68,3 +34,39 @@ updates:
       interval: 'weekly'
     commit-message:
       prefix: "chore(deps): "
+
+
+# Not scanning these projects for now as I'm not sure how noisy/annoying dependabot will be for the team.
+#  # the frontend site
+#  - package-ecosystem: 'npm'
+#    directory: '/kahuna'
+#    schedule:
+#      interval: 'weekly'
+#    commit-message:
+#      prefix: "chore(deps): "
+#
+#  # things that run in an AWS Lambda environment
+#  - package-ecosystem: 'npm'
+#    directory: '/reaper'
+#    schedule:
+#      interval: 'weekly'
+#    commit-message:
+#      prefix: "chore(deps): "
+#  - package-ecosystem: 'npm'
+#    directory: '/image-counter-lambda'
+#    schedule:
+#      interval: 'weekly'
+#    commit-message:
+#      prefix: "chore(deps): "
+#  - package-ecosystem: 'npm'
+#    directory: '/s3watcher/lambda'
+#    schedule:
+#      interval: 'weekly'
+#    commit-message:
+#      prefix: "chore(deps): "
+#  - package-ecosystem: 'npm'
+#    directory: '/s3watcher/scripts'
+#    schedule:
+#      interval: 'weekly'
+#    commit-message:
+#      prefix: "chore(deps): "
