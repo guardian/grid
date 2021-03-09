@@ -251,7 +251,8 @@ lazy val scripts = project("scripts")
       // V2 of the AWS SDK as it's easier to use for scripts and won't leak to the rest of the project from here
       "software.amazon.awssdk" % "s3" % "2.15.81",
       // bump jcommander explicitly as AWS SDK is pulling in a vulnerable version
-      "com.beust" % "jcommander" % "1.75"
+      "com.beust" % "jcommander" % "1.75",
+      "org.apache.commons" % "commons-compress" % "1.20"
     )
   )
 
