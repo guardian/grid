@@ -69,9 +69,24 @@ function getImageLoaderConfig(config) {
         |`;
 }
 
-function getKahunaConfig(config) {
+function getKahunaConfig(config){
+
+    // `BUILD_ORG` env variable should be set for non-Guardian orgs, e.g. bbc
+    const pinboardConfig = process.env.BUILD_ORG ? "" : stripMargin`
+        |security.connectSources = [
+        |  "wss://*.iot.${config.AWS_DEFAULT_REGION}.amazonaws.com",
+        |  "https://*.appsync-api.${config.AWS_DEFAULT_REGION}.amazonaws.com"
+        |]
+        |scriptsToLoad = [
+        |  {
+        |    host: "https://pinboard.${config.DOMAIN}",
+        |    path: "pinboard.loader.js",
+        |    async: true,
+        |    permission: "pinboard"
+        |  }
+        |]`;
+
     return stripMargin`${getCommonConfig(config)}
-        |aws.region="${config.AWS_DEFAULT_REGION}"
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |origin.full="images.media.${config.DOMAIN}"
         |origin.thumb="localstack.media.${config.DOMAIN}"
@@ -85,6 +100,7 @@ function getKahunaConfig(config) {
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |security.frameAncestors="https://*.${config.DOMAIN}"
         |metrics.request.enabled=false
+        |${pinboardConfig}
         |`;
 }
 
