@@ -27,9 +27,9 @@ class JsonDiffTest extends FunSpec with Matchers {
     val jsonC = load("""
       |{
       |  "a": {
-      |    "~": {
-      |      "+": 1,
-      |      "-": 2
+      |    "≠≠≠": {
+      |      "---": 1,
+      |      "+++": 2
       |    }
       |  }
       |}
@@ -47,7 +47,7 @@ class JsonDiffTest extends FunSpec with Matchers {
     val jsonC = load("""
       | {
       |   "a": {
-      |     "+": 2
+      |     "+++": 2
       |   }
       | }
     """)
@@ -64,7 +64,7 @@ class JsonDiffTest extends FunSpec with Matchers {
     val jsonC = load("""
       |{
       |  "a": {
-      |    "-": 1
+      |    "---": 1
       |  }
       |}
     """)
@@ -93,9 +93,9 @@ class JsonDiffTest extends FunSpec with Matchers {
     val jsonC = load("""
                        |{
                        |  "a": {
-                       |    "~": {
-                       |      "b": {"-": "apple"},
-                       |      "c": {"+": "orange"}
+                       |    "≠≠≠": {
+                       |      "b": {"---": "apple"},
+                       |      "c": {"+++": "orange"}
                        |    }
                        |  }
                        |}
@@ -127,9 +127,9 @@ class JsonDiffTest extends FunSpec with Matchers {
     val jsonC = load("""
                        |{
                        |  "a": {
-                       |    "~": {
-                       |      "b": {"-": "apple"},
-                       |      "c": {"+": "orange"}
+                       |    "≠≠≠": {
+                       |      "b": {"---": "apple"},
+                       |      "c": {"+++": "orange"}
                        |    }
                        |  }
                        |}
@@ -155,9 +155,9 @@ class JsonDiffTest extends FunSpec with Matchers {
     val jsonC = load("""
                        |{
                        |  "a": {
-                       |    "~": {
-                       |      "+": [2],
-                       |      "-": [3]
+                       |    "≠≠≠": {
+                       |      "+++": [2],
+                       |      "---": [3]
                        |    }
                        |  }
                        |}
@@ -183,9 +183,9 @@ class JsonDiffTest extends FunSpec with Matchers {
     val jsonC = load("""
                        |{
                        |  "a": {
-                       |    "~": {
-                       |      "+": ["a", 2, "c"],
-                       |      "-": [1, "b", 3]
+                       |    "≠≠≠": {
+                       |      "+++": ["a", 2, "c"],
+                       |      "---": [1, "b", 3]
                        |    }
                        |  }
                        |}
