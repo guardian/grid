@@ -4,7 +4,7 @@ import java.net.URL
 
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Crop, Edits, Image}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -148,6 +148,16 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => (json \ "data").as[LeasesByMedia]
       case NotFound(_, _) => LeasesByMedia.empty
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
+  def getCollections(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Collection]] = {
+    logger.info("attempt to get collections")
+    val url = new URL(s"${services.collectionsBaseUri}/images/$mediaId")
+    makeGetRequestAsync(url, authFn) map {
+      case Found(json, _) => (json \ "data").as[List[Collection]]
+      case NotFound(_, _) => Nil
       case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }
