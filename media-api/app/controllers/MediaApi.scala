@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, EditMetadata}
 import com.gu.mediaservice.lib.auth._
-import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
+import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.model._
 import lib._
@@ -20,9 +20,15 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-
 import java.net.URI
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.concurrent.TimeUnit
+
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.JsonDiff
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class MediaApi(
                 auth: Authentication,
@@ -36,6 +42,9 @@ class MediaApi(
                 ws: WSClient,
                 authorisation: Authorisation
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
+
+  val services: Services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  val gridClient: GridClient = GridClient(services)(ws)
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -135,6 +144,24 @@ class MediaApi(
       case Some((source, _, imageLinks, imageActions)) =>
         respond(source, imageLinks, imageActions)
       case _ => ImageNotFound(id)
+    }
+  }
+
+  def diffProjection(id: String) = auth.async { request =>
+    val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(request.user)
+    for {
+      maybeEsImage <- getImageResponseFromES(id, request)
+      maybeEsJson = maybeEsImage.map{ case (source, _, _, _) => Json.toJson(source) }
+      maybeProjectedImage <- gridClient.getImageLoaderProjection(id, onBehalfOfFn)
+      maybeProjectedJson = maybeProjectedImage.map(Json.toJson(_))
+    } yield {
+      (maybeEsJson, maybeProjectedJson) match {
+        case (None, None) => ImageNotFound(id)
+        case (es, projected) => respond(JsonDiff.diff(
+          es.getOrElse(JsObject.empty),
+          projected.getOrElse(JsObject.empty)
+        ))
+      }
     }
   }
 
