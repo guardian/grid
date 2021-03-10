@@ -9,12 +9,20 @@ import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhrase, Ma
 import com.sksamuel.elastic4s.requests.searches.queries.term.{TermQuery, TermsQuery}
 import lib.querysyntax.Negation
 import org.scalatest.{FunSpec, Matchers}
+import com.gu.mediaservice.lib.config.GridConfigResources
+import lib.MediaApiConfig
+import play.api.Configuration
 
-class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
+class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with Fixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
-  val queryBuilder = new QueryBuilder(matchFields, () => Nil)
+  private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
+    Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    null
+  ))
+
+  val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
 
   describe("Query builder") {
     it("Nil conditions parameter should give the match all query") {
@@ -198,7 +206,7 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
     }
 
     it("should return the match all query when no agencies are over quota") {
-      val qBuilder = new QueryBuilder(matchFields, () => List.empty)
+      val qBuilder = new QueryBuilder(matchFields, () => List.empty, mediaApiConfig)
       val query = qBuilder.makeQuery(List(isUnderQuotaCondition)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
       query.must.head shouldBe ElasticDsl.matchAllQuery()
@@ -207,7 +215,7 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
     it("should correctly construct an under quota query") {
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
-      val qBuilder = new QueryBuilder(matchFields, () => overQuotaAgencies)
+      val qBuilder = new QueryBuilder(matchFields, () => overQuotaAgencies, mediaApiConfig)
       val query = qBuilder.makeQuery(List(isUnderQuotaCondition)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
 
@@ -219,6 +227,16 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures {
 
       val expected = overQuotaAgencies.map(_.supplier)
       notQuery.values shouldEqual expected
+    }
+  }
+
+  describe("get elasticsearch path") {
+    it("should return the field parameter itself (instead of an elasticsearchPath) if the particular config doesn't exist"){
+      queryBuilder.resolveFieldPath("bbcElvisCollection") shouldBe "bbcElvisCollection"
+    }
+
+    it("should return the right elasticsearchPath"){
+      queryBuilder.resolveFieldPath("credit") shouldBe "metadata.credit"
     }
   }
 

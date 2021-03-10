@@ -47,7 +47,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
   val searchFilters = new SearchFilters(config)
   val syndicationFilter = new SyndicationFilter(config)
 
-  val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies)
+  val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies, config)
 
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
     getImageWithSourceById(id).map(_.map(_.instance))
