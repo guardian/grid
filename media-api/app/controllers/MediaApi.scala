@@ -149,12 +149,19 @@ class MediaApi(
 
   def diffProjection(id: String) = auth.async { request =>
     val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(request.user)
-    getImageResponseFromES(id, request) flatMap {
-      case Some((source, _, _, _)) =>
-        gridClient.getImageLoaderProjection(id, onBehalfOfFn) map (
-        projection => respond(JsonDiff.diff(Json.toJson(source), Json.toJson(projection)))
-      )
-      case _ => Future.successful(ImageNotFound(id))
+    for {
+      maybeEsImage <- getImageResponseFromES(id, request)
+      maybeEsJson = maybeEsImage.map{ case (source, _, _, _) => Json.toJson(source) }
+      maybeProjectedImage <- gridClient.getImageLoaderProjection(id, onBehalfOfFn)
+      maybeProjectedJson = maybeProjectedImage.map(Json.toJson(_))
+    } yield {
+      (maybeEsJson, maybeProjectedJson) match {
+        case (None, None) => ImageNotFound(id)
+        case (es, projected) => respond(JsonDiff.diff(
+          es.getOrElse(JsObject.empty),
+          projected.getOrElse(JsObject.empty)
+        ))
+      }
     }
   }
 
