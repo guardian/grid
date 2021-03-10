@@ -2,7 +2,6 @@ package com.gu.mediaservice
 
 import java.net.URL
 
-import com.gu.mediaservice.GridClient.{Error, Found, NotFound}
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
@@ -130,7 +129,6 @@ case class FullImageProjectionFailed(message: String, downstreamErrorMessage: St
 class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthentication with LazyLogging {
 
   import config._
-  import services._
 
   // Authorise with api key
   private def authFunction(request: WSRequest) = request.withHttpHeaders((apiKeyHeaderName, apiKey))
@@ -171,7 +169,7 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
       logger.info(s"starting to aggregate image")
       val mediaId = image.id
       for {
-        collections <- getCollectionsResponse(mediaId)
+        collections <- gridClient.getCollections(mediaId, authFunction)
         edits <- gridClient.getEdits(mediaId, authFunction)
         leases <- gridClient.getLeases(mediaId, authFunction)
         usages <- gridClient.getUsages(mediaId, authFunction)
@@ -184,16 +182,6 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
         exports = crops
       ))
     case None => Future.successful(None)
-  }
-
-  private def getCollectionsResponse(mediaId: String)(implicit ec: ExecutionContext): Future[List[Collection]] = {
-    logger.info("attempt to get collections")
-    val url = new URL(s"$collectionsBaseUri/images/$mediaId")
-    gridClient.makeGetRequestAsync(url, authFunction) map {
-      case Found(json, _) => (json \ "data").as[List[Collection]]
-      case NotFound(_, _) => Nil
-      case e@Error(_, _, _) => e.logErrorAndThrowException()
-    }
   }
 
 }
