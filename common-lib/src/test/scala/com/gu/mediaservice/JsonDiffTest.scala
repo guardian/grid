@@ -7,6 +7,17 @@ class JsonDiffTest extends FunSpec with Matchers {
 
   def load(s:String) = Json.parse(s.stripMargin.split("\n").map(_.trim).mkString(""))
 
+  it ("should detect identity") {
+
+    val jsonA = load(""" {"a": 1} """)
+
+    val jsonB = load(""" {"a": 1} """)
+
+    val jsonC = load("""{}""")
+
+    JsonDiff.diff(jsonA, jsonB) should be (jsonC)
+  }
+
   it ("should detect changes") {
 
     val jsonA = load(""" {"a": 1} """)
