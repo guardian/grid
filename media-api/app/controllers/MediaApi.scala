@@ -21,10 +21,15 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
 import java.net.URI
+import java.util.concurrent.TimeUnit
 
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.ImageIngestOperations
+import com.gu.mediaservice.JsonDiff
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class MediaApi(
                 auth: Authentication,
@@ -38,6 +43,9 @@ class MediaApi(
                 ws: WSClient,
                 authorisation: Authorisation
 )(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
+
+  val services: Services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  val gridClient: GridClient = GridClient(services)(ws)
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
@@ -136,6 +144,17 @@ class MediaApi(
     getImageResponseFromES(id, request) map {
       case Some((source, _, imageLinks, imageActions)) =>
         respond(source, imageLinks, imageActions)
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def diffProjection(id: String) = auth.async { request =>
+    val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(request.user)
+    val apiCheckTimeout = new FiniteDuration(5, TimeUnit.SECONDS)
+    getImageResponseFromES(id, request) map {
+      case Some((source, _, _, _)) =>
+        val projection = Await.result(gridClient.getImageLoaderProjection(id, onBehalfOfFn), apiCheckTimeout)
+        respond(JsonDiff.diff(Json.toJson(source), Json.toJson(projection)))
       case _ => ImageNotFound(id)
     }
   }
