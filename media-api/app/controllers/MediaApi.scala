@@ -24,7 +24,6 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 
 import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 
@@ -150,12 +149,12 @@ class MediaApi(
 
   def diffProjection(id: String) = auth.async { request =>
     val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(request.user)
-    val apiCheckTimeout = new FiniteDuration(5, TimeUnit.SECONDS)
-    getImageResponseFromES(id, request) map {
+    getImageResponseFromES(id, request) flatMap {
       case Some((source, _, _, _)) =>
-        val projection = Await.result(gridClient.getImageLoaderProjection(id, onBehalfOfFn), apiCheckTimeout)
-        respond(JsonDiff.diff(Json.toJson(source), Json.toJson(projection)))
-      case _ => ImageNotFound(id)
+        gridClient.getImageLoaderProjection(id, onBehalfOfFn) map (
+        projection => respond(JsonDiff.diff(Json.toJson(source), Json.toJson(projection)))
+      )
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
