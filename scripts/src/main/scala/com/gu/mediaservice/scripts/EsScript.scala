@@ -1,13 +1,12 @@
 package com.gu.mediaservice.scripts
 
 import java.util.concurrent.TimeUnit
-
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, Mappings}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.bulk.BulkResponse
-import com.sksamuel.elastic4s.requests.indexes.IndexRequest
+import com.sksamuel.elastic4s.requests.indexes.{GetIndexResponse, IndexRequest}
 import com.sksamuel.elastic4s.requests.searches.{SearchHit, SearchResponse}
-import com.sksamuel.elastic4s.{Indexes, IndexesAndType, IndexesAndTypes}
+import com.sksamuel.elastic4s.{Indexes, IndexesAndType, IndexesAndTypes, Response}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 
@@ -20,24 +19,7 @@ object Reindex extends EsScript {
 
   def run(esUrl: String, args: List[String]) = {
 
-    object IndexClient extends EsClient {
-      override def url = esUrl
-
-      val indexResult = client.execute {
-        getIndex(imagesAlias)
-      }.await
-
-      val currentIndex: String = indexResult.status match {
-        case 200 => {
-          indexResult.result.keySet.toList match {
-            case head::Nil => head
-            case _ => throw new Exception(s"There should only be one index associated with alias before reindexing, " +
-              s"however there was: ${indexResult.result.keys}")
-          }
-        }
-        case _ => throw new Exception(s"Failed updating mapping: ${indexResult.error}")
-      }
-
+    object IndexClient extends EsClient(esUrl) {
       val srcIndexVersionCheck = """images_(\d+)""".r
       val srcIndexVersion = currentIndex match {
         case srcIndexVersionCheck(version) => version.toInt
@@ -213,9 +195,7 @@ object UpdateMapping extends EsScript {
 
   def run(esUrl: String, extraArgs: List[String]) {
 
-    object MappingsClient extends EsClient {
-      override def url = esUrl
-
+    object MappingsClient extends EsClient(esUrl) {
       def updateMappings(specifiedIndex: Option[String]) {
         val index = specifiedIndex.getOrElse(imagesAlias)
         println(s"Updating mapping on index: $index")
@@ -249,9 +229,7 @@ object GetMapping extends EsScript {
 
   def run(esUrl: String, extraArgs: List[String]) {
 
-    object MappingsClient extends EsClient {
-      override def url = esUrl
-
+    object MappingsClient extends EsClient(esUrl) {
       def getMappings(specifiedIndex: Option[String]) {
         val index = specifiedIndex.getOrElse(imagesAlias)
         println(s"Getting mapping on index: $index")
@@ -283,9 +261,7 @@ object UpdateSettings extends EsScript {
 
   def run(esUrl: String, extraArgs: List[String]) {
 
-    object SettingsClient extends EsClient {
-      override def url = esUrl
-
+    object SettingsClient extends EsClient(esUrl) {
       if (!url.contains("localhost")) {
         System.err.println(s"You can only run UpdateSettings on localhost, not '$esUrl'")
         System.exit(1)
@@ -333,9 +309,7 @@ object GetSettings extends EsScript {
 
   def run(esUrl: String, extraArgs: List[String]) {
 
-    object SettingsClient extends EsClient {
-      override def url = esUrl
-
+    object SettingsClient extends EsClient(esUrl) {
       def getIdxSettings(specifiedIndex: Option[String]) {
         val index = specifiedIndex.getOrElse(imagesAlias)
         println(s"Getting settings on index: $index")
@@ -383,11 +357,27 @@ abstract class EsScript {
     run(esUrl, extraArgs)
   }
 
-  abstract class EsClient extends ElasticSearchClient {
+  class EsClient(val url: String) extends ElasticSearchClient {
     override def cluster = esCluster
     override def imagesAlias = esImagesAlias
     override def shards = esShards
     override def replicas = esReplicas
+
+    lazy val indexResult: Response[Map[String, GetIndexResponse]] = client.execute {
+      getIndex(imagesAlias)
+    }.await
+
+    lazy val currentIndex: String = indexResult.status match {
+      case 200 => {
+        indexResult.result.keySet.toList match {
+          case head::Nil => head
+          case _ => throw new Exception(s"There should only be one index associated with alias before reindexing, " +
+            s"however there was: ${indexResult.result.keys}")
+        }
+      }
+      case _ => throw new Exception(s"Failed updating mapping: ${indexResult.error}")
+    }
+
   }
 
   def run(esUrl: String, args: List[String])
