@@ -2,6 +2,8 @@ package com.gu.mediaservice
 
 import play.api.libs.json.{JsArray, JsObject, JsValue}
 
+import scala.collection.Set
+
 object JsonDiff {
 
   private val REMOVE = "---"
@@ -27,16 +29,28 @@ object JsonDiff {
             }
           }
         }
-      case (aa: JsArray, ba: JsArray) if Set(aa.value) == Set(ba.value) => JsObject.empty
-      case (aa: JsArray, ba: JsArray) =>
-        val arrayAdded = Set(ba.value: _*) -- Set(aa.value: _*)
-        val arrayRemoved = Set(aa.value: _*) -- Set(ba.value: _*)
-        JsObject(Seq(
-         (REMOVE, JsArray(arrayRemoved.toSeq)),
-         (ADD, JsArray(arrayAdded.toSeq))
-        ))
+      case (aa: JsArray, ba: JsArray) => compareArrays(aa, ba)
       case (av: JsValue, bv: JsValue) if av == bv => JsObject.empty
       case (av: JsValue, bv: JsValue) => JsObject(Seq((REMOVE, av), (ADD, bv)))
     }
+  }
+
+  private def compareArrays(aa: JsArray, ba: JsArray) = {
+    val aav = aa.value.toList
+    val bbv = ba.value.toList
+    val arrayRemoved = removeMatches(aav, bbv)
+    val arrayAdded = removeMatches(bbv, aav)
+
+    val noChanges = JsObject.empty
+
+    val removeChanges = if (arrayRemoved.isEmpty) noChanges
+    else noChanges + (REMOVE, JsArray(arrayRemoved))
+
+    if (arrayAdded.isEmpty) removeChanges
+    else removeChanges + (ADD, JsArray(arrayAdded))
+  }
+
+  private def removeMatches(aav: List[JsValue], bbv: List[JsValue]) = {
+    aav.filter(aItem => !bbv.exists(bItem => JsonDiff.diff(aItem, bItem).keys.isEmpty))
   }
 }
