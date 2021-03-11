@@ -34,7 +34,7 @@ class UploadStatusController(auth: Authentication,
       .recover{ case error => respondError(InternalServerError, "cannot-get", s"Cannot get upload status ${error}") }
   }
 
-  def updateUploadStatus(imageId: String) = (auth andThen authorisation.actionFilterFor(UploadImages)).async(parse.json[UploadStatus]) { request =>
+  def updateUploadStatus(imageId: String) = (auth andThen authorisation.CommonActionFilters.authorisedForUpload).async(parse.json[UploadStatus]) { request =>
     request.body match {
       case UploadStatus(StatusType.Failed, None) =>
         Future.successful(respondError(

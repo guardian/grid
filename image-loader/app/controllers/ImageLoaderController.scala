@@ -77,7 +77,7 @@ class ImageLoaderController(auth: Authentication,
     logger.info("body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
-    (auth andThen authorisation.actionFilterFor(UploadImages)).async(parsedBody) { req =>
+    (auth andThen authorisation.CommonActionFilters.authorisedForUpload).async(parsedBody) { req =>
       val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
@@ -152,7 +152,7 @@ class ImageLoaderController(auth: Authentication,
                    uploadTime: Option[String],
                    filename: Option[String]
                  ): Action[AnyContent] = {
-    (auth andThen authorisation.actionFilterFor(UploadImages)).async { request =>
+    (auth andThen authorisation.CommonActionFilters.authorisedForUpload).async { request =>
       implicit val context: RequestLoggingContext = RequestLoggingContext(
         initialMarkers = Map(
           "requestType" -> "import-image",
