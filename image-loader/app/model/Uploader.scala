@@ -343,7 +343,7 @@ class Uploader(val store: ImageLoaderStore,
       updateMessage = UpdateMessage(subject = "image", image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
       // TODO: centralise where all these URLs are constructed
-      uri = s"${config.apiUri}/images/${uploadRequest.imageId}"
+      uri = s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}"
     } yield {
       Json.obj("uri" -> uri)
     }
