@@ -25,7 +25,7 @@ object EnactS3Changes {
         bucketName,
         new File(inputFileName)
       )
-      case _ => throw new IllegalArgumentException("Usage: ProposeS3Changes <bucketMetadataFile> <esMetadataFile> <outputFilePrefix>")
+      case _ => throw new IllegalArgumentException("Usage: EnactS3Changes <bucketName> <inputFile>")
     }
   }
 
