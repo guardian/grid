@@ -10,7 +10,10 @@ import scala.io.Source
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.amazonaws.services.s3.model.CopyObjectRequest
+
 import collection.JavaConverters._
+import scala.util.control.Exception
+import scala.util.control.Exception.noCatch.either
 
 object EnactS3Changes {
 
@@ -43,19 +46,33 @@ object EnactS3Changes {
       source
         .getLines()
         .take(1)
-        .flatMap(line => (Json.parse(line) \ "proposed").asOpt[ObjectMetadata])
+        .map(line => (
+          (Json.parse(line) \ "proposed").asOpt[ObjectMetadata],
+          (Json.parse(line) \ "original").asOpt[ObjectMetadata]
+        ))
         .zipWithIndex
-        .foreach { case (metadata, i) =>
-          if (i % 10000 == 0) System.err.println(s"Processing object metadata line $i")
-          val key = metadata.key
-          val awsObjectMetadata = s3.getObjectMetadata(bucketName, key)
-          awsObjectMetadata.setUserMetadata(metadata.metadata.asJava)
-          val request = new CopyObjectRequest(bucketName, key, bucketName, key).withNewObjectMetadata(awsObjectMetadata)
-          try {
-            s3.copyObject(request)
-          } catch {
-            case e => System.err.println(e.getMessage)
-          }
+        .foreach {
+          case ((Some(proposed), Some(original)), i) =>
+            if (i % 10000 == 0) System.err.println(s"Processing object metadata line $i")
+            val key = proposed.key
+            either {s3.getObjectMetadata(bucketName, key)} match {
+              case Right(awsObjectMetadata) =>
+                val check = awsObjectMetadata.getUserMetadata.asScala
+                if (check!=original.metadata) {
+                  System.err.println(s"Unable to update - AWS entry for key ${original.key} has changed")
+                  System.err.println(check)
+                  System.err.println(original.metadata)
+                } else {
+                  awsObjectMetadata.setUserMetadata(proposed.metadata.asJava)
+                  val request = new CopyObjectRequest(bucketName, key, bucketName, key).withNewObjectMetadata(awsObjectMetadata)
+                  either {s3.copyObject(request)} match {
+                    case Left(e) => System.err.println(s"Unable to update s3 record - has it been deleted? (${e.getMessage}")
+                    case _ => System.out.println(s"Successfully updated $key")
+                  }
+                }
+              case Left(e) => System.err.println(s"Unable to get s3 record - has it been deleted? (${e.getMessage}")
+            }
+          case (_, i) => System.err.println(s"Unable to parse record $i")
         }
     }
   }
