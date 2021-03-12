@@ -29,4 +29,4 @@
 </div>
 <div ng-if="ctrl.canUpload === false" class="unauthorised-message">You are not authorised to upload images</div>
 
-<dnd-uploader></dnd-uploader>
+<dnd-uploader ng-if="ctrl.canUpload"></dnd-uploader>
