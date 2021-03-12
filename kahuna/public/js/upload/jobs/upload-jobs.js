@@ -18,6 +18,7 @@ export var jobs = angular.module('kahuna.upload.jobs', [
 
 jobs.controller('UploadJobsCtrl', [
     '$rootScope',
+    '$q',
     '$scope',
     '$window',
     'apiPoll',
@@ -27,6 +28,7 @@ jobs.controller('UploadJobsCtrl', [
     'editsService',
 
     function($rootScope,
+            $q,
             $scope,
             $window,
             apiPoll,
@@ -43,6 +45,15 @@ jobs.controller('UploadJobsCtrl', [
     // State machine-esque async transitions
     const eventName = 'Image upload';
 
+    function getUploadStatus(image) {
+        return image.get().then((status) => {
+            if (status.data.status === 'COMPLETED' || status.data.status === 'FAILED') {
+                return status;
+            } else {
+                return $q.reject();
+            }
+        });
+    }
     ctrl.jobs.forEach(jobItem => {
         jobItem.status = 'uploading';
 
@@ -50,65 +61,83 @@ jobs.controller('UploadJobsCtrl', [
             jobItem.status = 'indexing';
             jobItem.resource = resource;
 
-            // TODO: grouped polling for all resources we're interested in?
-            const findImage = () => resource.get();
-            const imageResource = apiPoll(findImage);
+            const imageUploadStatusResource = apiPoll(() => getUploadStatus(resource));
+            imageUploadStatusResource.then(status => {
+                if (status.data.status === 'FAILED'){
+                    jobItem.status = 'upload error';
+                    jobItem.error = status.data.errorMessage;
+                    ctrl.remaining -= 1;
+                } else if (status.data.status === 'COMPLETED'){
+                    const findImage = () => status.get();
+                    const imageResource = apiPoll(findImage);
+                    imageResource.then(image => {
+                        jobItem.status = 'uploaded';
+                        jobItem.image = image;
+                        jobItem.thumbnail = image.data.thumbnail;
 
-            imageResource.then(image => {
-                jobItem.status = 'uploaded';
-                jobItem.image = image;
-                jobItem.thumbnail = image.data.thumbnail;
+                        ctrl.remaining -= 1;
 
-                ctrl.remaining -= 1;
+                        imageService(image).states.canDelete.then(deletable => {
+                            jobItem.canBeDeleted = deletable;
+                        });
 
-                imageService(image).states.canDelete.then(deletable => {
-                    jobItem.canBeDeleted = deletable;
-                });
+                        // If the image is updated (e.g. label added,
+                        // archived, etc), refresh the copy we hold
+                        $rootScope.$on('images-updated', (e, updatedImages) => {
+                          const maybeUpdateImage = updatedImages.find(updatedImage => updatedImage.data.id === image.data.id);
+                            if (maybeUpdateImage !== undefined) {
+                                jobItem.image = maybeUpdateImage;
+                            }
+                        });
 
-                // TODO: we shouldn't have to do this ;_;
-                // If the image is updated (e.g. label added,
-                // archived, etc), refresh the copy we hold
-                $rootScope.$on('images-updated', (e, updatedImages) => {
-                  const maybeUpdateImage = updatedImages.find(updatedImage => updatedImage.data.id === image.data.id);
-                    if (maybeUpdateImage !== undefined) {
-                        jobItem.image = maybeUpdateImage;
-                    }
-                });
+                        // we use the filename of the image if the description is missing
+                        if (!jobItem.image.data.metadata.description) {
+                            const newDescription = jobItem.name
+                                .substr(0, jobItem.name.lastIndexOf('.'))
+                                .replace(/_/g, ' ');
 
-                // we use the filename of the image if the description is missing
-                if (!jobItem.image.data.metadata.description) {
-                    const newDescription = jobItem.name
-                        .substr(0, jobItem.name.lastIndexOf('.'))
-                        .replace(/_/g, ' ');
+                            editsService.updateMetadataField(jobItem.image, 'description', newDescription);
+                        }
 
-                    editsService.updateMetadataField(jobItem.image, 'description', newDescription);
+                        if (presetLabels.length > 0) {
+                            labelService.add(image, presetLabels);
+                        }
+
+                        $rootScope.$emit(
+                          'track:event',
+                          eventName,
+                          null,
+                          'Success',
+                          null,
+                          { 'Labels' : presetLabels.length}
+                        );
+                    }, error => {
+                        jobItem.status = 'upload error';
+                        jobItem.error = error.message;
+
+                        $rootScope.$emit(
+                          'track:event',
+                          eventName,
+                          null,
+                          'Failure',
+                          null,
+                          { 'Failed on': 'index'}
+                        );
+                    });
                 }
+           }, error => {
+               jobItem.status = 'upload error';
+               jobItem.error = error.message;
 
-                if (presetLabels.length > 0) {
-                    labelService.add(image, presetLabels);
-                }
-
-                $rootScope.$emit(
-                  'track:event',
-                  eventName,
-                  null,
-                  'Success',
-                  null,
-                  { 'Labels' : presetLabels.length}
-                );
-            }, error => {
-                jobItem.status = 'upload error';
-                jobItem.error = error.message;
-
-                $rootScope.$emit(
-                  'track:event',
-                  eventName,
-                  null,
-                  'Failure',
-                  null,
-                  { 'Failed on': 'index'}
-                );
-            });
+               $rootScope.$emit(
+                 'track:event',
+                 eventName,
+                 null,
+                 'Failure',
+                 null,
+                 { 'Failed on': 'index'}
+               );
+           });
         }, error => {
             const reason = error.body && error.body.errorKey;
 

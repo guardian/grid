@@ -1,17 +1,21 @@
 package controllers
 
 
+import java.net.URI
+
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth._
 import com.gu.scanamo.error.{ConditionNotMet, DynamoReadError, ScanamoError}
 import lib._
 import model.{StatusType, UploadStatus}
+import play.api.libs.json.Json
 import play.api.mvc._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class UploadStatusController(auth: Authentication,
                              store: UploadStatusTable,
+                             val config: ImageLoaderConfig,
                              override val controllerComponents: ControllerComponents,
                             )
                             (implicit val ec: ExecutionContext)
@@ -20,7 +24,8 @@ class UploadStatusController(auth: Authentication,
   def getUploadStatus(imageId: String) = auth.async {
     store.getStatus(imageId)
       .map {
-        case Some(Right(record)) => respond(UploadStatus(record.status, record.errorMessage))
+        case Some(Right(record)) => respond(UploadStatus(record.status, record.errorMessage),
+          uri = Some(URI.create(s"${config.apiUri}/images/${imageId}")))
         case Some(Left(error)) => respondError(BadRequest, "cannot-get", s"Cannot get upload status ${error}")
         case None => respondNotFound(s"No upload status found for image id: ${imageId}")
       }
