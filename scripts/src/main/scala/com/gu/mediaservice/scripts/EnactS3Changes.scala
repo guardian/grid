@@ -7,17 +7,17 @@ import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream
 import play.api.libs.json.Json
 
 import scala.io.Source
-
-import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
-
+import com.amazonaws.services.s3.model.CopyObjectRequest
+import collection.JavaConverters._
 
 object EnactS3Changes {
 
   private val profile = "media-service"
+  private val region = "eu-west-1"
   private val credentials = new ProfileCredentialsProvider(profile)
-  private val s3: AmazonS3 = AmazonS3ClientBuilder.standard().withCredentials(credentials).withRegion(Regions.DEFAULT_REGION).build
+  private val s3: AmazonS3 = AmazonS3ClientBuilder.standard().withCredentials(credentials).withRegion(region).build
 
   def apply(args: List[String]): Unit = {
     args match {
@@ -42,15 +42,20 @@ object EnactS3Changes {
     withSourceFromBzipFile(inputFile) {source =>
       source
         .getLines()
-        .take(4)
+        .take(1)
         .flatMap(line => (Json.parse(line) \ "proposed").asOpt[ObjectMetadata])
         .zipWithIndex
         .foreach { case (metadata, i) =>
           if (i % 10000 == 0) System.err.println(s"Processing object metadata line $i")
           val key = metadata.key
-          println(key)
-          println(s3.getObjectMetadata(bucketName, key).getUserMetadata)
-          println(metadata)
+          val awsObjectMetadata = s3.getObjectMetadata(bucketName, key)
+          awsObjectMetadata.setUserMetadata(metadata.metadata.asJava)
+          val request = new CopyObjectRequest(bucketName, key, bucketName, key).withNewObjectMetadata(awsObjectMetadata)
+          try {
+            s3.copyObject(request)
+          } catch {
+            case e => System.err.println(e.getMessage)
+          }
         }
     }
   }
