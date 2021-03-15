@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContext
 abstract class GridComponents[Config <: CommonConfig](context: Context, val loadConfig: GridConfigResources => Config) extends BuiltInComponentsFromContext(context)
   with AhcWSComponents with HttpFiltersComponents with CORSComponents with GzipFilterComponents {
   // first of all create the config for the service
-  val config: Config = loadConfig(GridConfigResources(configuration, actorSystem))
+  val config: Config = loadConfig(GridConfigResources(configuration, actorSystem, applicationLifecycle))
   // next thing is to set up log shipping
   LogConfig.initKinesisLogging(config)
   LogConfig.initLocalLogShipping(config)

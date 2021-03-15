@@ -1,5 +1,7 @@
 package lib
 
+import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
+
 import java.net.URI
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
@@ -14,6 +16,8 @@ class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
   object Costing extends CostCalculator {
     val quotas = Quota
     override def getOverQuota(usageRights: UsageRights) = None
+    override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
+    override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
   }
 
   implicit val cost: CostCalculator = Costing
