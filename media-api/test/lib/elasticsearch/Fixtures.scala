@@ -17,7 +17,18 @@ trait Fixtures {
   val USED_CONFIGS_IN_TEST = Map(
     "es6.shards" -> 0,
     "es6.replicas" -> 0,
-    "field.aliases" -> Seq.empty
+    "field.aliases" -> Seq.empty,
+    "usageRights" -> Map(
+      "applicable" -> List()
+    ),
+    "photographers" -> Map(
+      "externalStaffPhotographers" -> List(),
+      "internalStaffPhotographers" -> List(),
+      "contractedPhotographers" -> List(),
+      "contractIllustrators" -> List(),
+      "staffIllustrators" -> List(),
+      "creativeCommonsLicense" -> List()
+    )
   )
   val NOT_USED_IN_TEST = "not used in test"
   val MOCK_CONFIG_KEYS = Seq(

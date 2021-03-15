@@ -1,9 +1,15 @@
 package com.gu.mediaservice.lib.cleanup
 
+import akka.actor.ActorSystem
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.model._
-import org.scalatest.{Matchers, FunSpec}
+import org.scalatest.{FunSpec, Matchers}
+import play.api.{Configuration, Environment}
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
+
+  private val actorSystem: ActorSystem = ActorSystem()
+  private val config = new CommonConfig(Configuration.load(Environment.simple())) {}
 
   it("should leave supplier, suppliersCollection and credit empty by default") {
     val image = createImageFromMetadata()
@@ -505,8 +511,9 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   }
 
 
-  def applyProcessors(image: Image): Image =
-    SupplierProcessors.apply(image)
-
+  def applyProcessors(image: Image): Image = {
+    val processorResources = ImageProcessorResources(config, actorSystem)
+    new SupplierProcessors(processorResources).apply(image)
+  }
 
 }

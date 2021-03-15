@@ -1,11 +1,12 @@
 package com.gu.mediaservice.lib.config
 
-import java.util.UUID
 import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
+import com.gu.mediaservice.model.UsageRightsSpec
 import com.typesafe.config.{Config, ConfigException}
 import com.typesafe.scalalogging.StrictLogging
 import play.api.Configuration
 
+import java.util.UUID
 import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.util.Try
 
@@ -58,6 +59,60 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
   val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
+
+  /**
+   * Load in a list of external staff photographers, internal staff photographers, contracted photographers,
+   * contract illustrators, staff illustrators and creative commons licenses. For example:
+   * {{{
+   *   photographers {
+   *     externalStaffPhotographers = [
+   *       {
+   *         name = "Publication 1",
+   *         photographers = ["John Doe"]
+   *       }
+   *     ]
+   *     internalStaffPhotographers = [
+   *       {
+   *         name = "Publication 1",
+   *         photographers = ["Jane Doe"]
+   *       }
+   *     ]
+   *     contractedPhotographers = [
+   *       {
+   *         name = "Contract Photographers 1",
+   *         photographers = ["Peter Larry"]
+   *       }
+   *     ]
+   *     contractIllustrators = [
+   *       {
+   *         name = "Contract Illustrators 1",
+   *         photographers = ["Tom Hardy"]
+   *       }
+   *     ]
+   *     staffIllustrators = ["John Doe", "Jane Doe", "Larry Wolf"]
+   *     creativeCommonsLicense = [
+   *       "CC BY-4.0",
+   *       "CC BY-SA-4.0",
+   *       "CC BY-ND-4.0"
+   *     ]
+   *   }
+   * }}}
+   */
+  val photographers: PhotographersConfig = configuration.get[PhotographersConfig]("photographers")
+
+  /**
+   * Load in a list of applicable usage right objects that implement [[com.gu.mediaservice.model.UsageRightsSpec]] from config. For example:
+   * {{{
+   * usageRights.applicable = [
+   *   "com.gu.mediaservice.model.NoRights",
+   *   "com.gu.mediaservice.model.Handout"
+   * ]
+   * }}}
+   *
+   * Depending on the type it will be loaded differently using reflection. Companion objects will be looked up
+   * and the singleton instance added to the list.
+   */
+  val applicableUsageRights: Seq[UsageRightsSpec] = configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
 
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 

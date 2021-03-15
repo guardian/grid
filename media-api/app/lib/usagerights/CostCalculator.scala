@@ -1,11 +1,11 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.lib.config.PhotographersConfig
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 
 trait CostCalculator {
-  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
+  import PhotographersConfig.{freeSuppliers, suppliersCollectionExcl}
 
   val defaultCost = Pay
   val quotas: UsageQuota
