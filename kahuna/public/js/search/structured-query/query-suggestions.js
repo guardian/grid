@@ -7,6 +7,10 @@ export const querySuggestions = angular.module('querySuggestions', [
     mediaApi.name
 ]);
 
+const fieldAliases = window._clientConfig.fieldAliases.
+                                  filter(entry => entry.displaySearchHint === true).
+                                  map(entry => entry.alias);
+
 // FIXME: get fields and subjects from API
 export const filterFields = [
     'by',
@@ -38,7 +42,8 @@ export const filterFields = [
     'filename',
     'photoshoot',
     'leasedBy',
-    'is'
+    'is',
+    ... fieldAliases
 ].sort();
 // TODO: add date fields
 
