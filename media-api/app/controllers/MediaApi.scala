@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, EditMetadata}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, EditMetadata, UploadImages}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -20,9 +20,9 @@ import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
+
 import java.net.URI
 import java.util.concurrent.TimeUnit
-
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
@@ -56,11 +56,16 @@ class MediaApi(
 
   private val searchLink = Link("search", searchLinkHref)
 
-  private val indexResponse = {
+  private def indexResponse(user: Principal) = {
     val indexData = Json.obj(
       "description" -> "This is the Media API"
       // ^ Flatten None away
     )
+
+    val userCanUpload: Boolean = authorisation.hasPermissionTo(UploadImages)(user)
+
+    val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
+
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
@@ -69,7 +74,6 @@ class MediaApi(
       Link("metadata-search", s"${config.rootUri}/suggest/metadata/{field}{?q}"),
       Link("label-search",    s"${config.rootUri}/images/edits/label{?q}"),
       Link("cropper",         config.cropperUri),
-      Link("loader",          config.loaderUri),
       Link("edits",           config.metadataUri),
       Link("session",         s"${config.authUri}/session"),
       Link("witness-report",  s"${config.services.guardianWitnessBaseUri}/2/report/{id}"),
@@ -77,7 +81,7 @@ class MediaApi(
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
       Link("admin-tools",     config.adminToolsUri)
-    )
+    ) ++ maybeLoaderLink.toList
     respond(indexData, indexLinks)
   }
 
@@ -87,7 +91,7 @@ class MediaApi(
   private def ImageNotFound(id: String) = respondError(NotFound, "image-not-found", s"No image found with the given id $id")
   private def ExportNotFound = respondError(NotFound, "export-not-found", "No export found with the given id")
 
-  def index = auth { indexResponse }
+  def index = auth { request => indexResponse(request.user) }
 
   def getIncludedFromParams(request: AuthenticatedRequest[AnyContent, Principal]): List[String] = {
     val includedQuery: Option[String] = request.getQueryString("include")

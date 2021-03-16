@@ -85,8 +85,8 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
 
             ctrl.canUpload = false;
 
-            mediaApi.getSession().then(session => {
-                ctrl.canUpload = session.user.permissions.canUpload;
+            mediaApi.canUserUpload().then(canUpload => {
+                ctrl.canUpload = canUpload;
             });
 
             cropSettings.set($stateParams);
