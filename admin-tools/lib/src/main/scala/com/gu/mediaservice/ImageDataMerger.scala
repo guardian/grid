@@ -34,49 +34,11 @@ object ImageProjectionOverrides extends LazyLogging {
   def overrideSelectedFields(img: Image): Image = {
     logger.info(s"applying metadata overrides")
 
-    val metadataEdits: Option[ImageMetadata] = img.userMetadata.map(_.metadata)
     val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
 
-    val chain = overrideMetadataWithUserEditsIfExists(metadataEdits) _ compose
-      overrideUsageRightsWithUserEditsIfExists(usageRightsEdits) compose overrideWithInferredLastModifiedDate
+    val chain = overrideUsageRightsWithUserEditsIfExists(usageRightsEdits) _ compose overrideWithInferredLastModifiedDate
 
     chain.apply(img)
-  }
-
-  private def overrideMetadataWithUserEditsIfExists(metadataEdits: Option[ImageMetadata])(img: Image) = {
-    metadataEdits match {
-      case Some(metadataEdits) =>
-        val origMetadata = img.metadata
-
-        val finalImageMetadata = origMetadata.copy(
-          // likely to be editable in the future
-          dateTaken = metadataEdits.dateTaken.orElse(origMetadata.dateTaken),
-          // editable now
-          description = handleEmptyString(metadataEdits.description.orElse(origMetadata.description)),
-          credit = handleEmptyString(metadataEdits.credit.orElse(origMetadata.credit)),
-          byline = handleEmptyString(metadataEdits.byline.orElse(origMetadata.byline)),
-          title = handleEmptyString(metadataEdits.title.orElse(origMetadata.title)),
-          copyright = handleEmptyString(metadataEdits.copyright.orElse(origMetadata.copyright)),
-          specialInstructions = handleEmptyString(metadataEdits.specialInstructions.orElse(origMetadata.specialInstructions)),
-          // likely to be editable in the future
-          subLocation = handleEmptyString(metadataEdits.subLocation.orElse(origMetadata.subLocation)),
-          city = handleEmptyString(metadataEdits.city.orElse(origMetadata.city)),
-          state = handleEmptyString(metadataEdits.state.orElse(origMetadata.state)),
-          country = handleEmptyString(metadataEdits.country.orElse(origMetadata.country)),
-        )
-
-        /**
-          * if any additional field will be added to ImageMetadata
-          * or fields that are not reflect here will become editable
-          * that should be addressed in this code
-          * which is propagating user edits to metadata entry in elasticsearch
-          **/
-
-        img.copy(
-          metadata = finalImageMetadata
-        )
-      case _ => img
-    }
   }
 
   private def overrideWithInferredLastModifiedDate(img: Image) = {
