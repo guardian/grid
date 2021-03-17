@@ -4,6 +4,7 @@ import java.net.URL
 
 import com.gu.mediaservice.lib.auth.provider.ApiKeyAuthentication
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import com.typesafe.scalalogging.LazyLogging
 import org.joda.time.DateTime
@@ -174,15 +175,22 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
         leases <- gridClient.getLeases(mediaId, authFunction)
         usages <- gridClient.getUsages(mediaId, authFunction)
         crops <- gridClient.getCrops(mediaId, authFunction)
+        originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata, ???)
       } yield Some(image.copy(
         collections = collections,
         userMetadata = edits,
         leases = leases,
         usages = usages,
-        exports = crops
-      ))
+        exports = crops,
+        originalMetadata = originalMetadata,
+        metadata = mergeMetadata(edits, originalMetadata)
+  ))
     case None => Future.successful(None)
   }
 
+  def mergeMetadata(edits: Option[Edits], originalMetadata: ImageMetadata) = edits match {
+    case Some(Edits(_, _, metadata, _, _)) => originalMetadata.merge(metadata)
+    case None => originalMetadata
+  }
 }
 
