@@ -13,7 +13,6 @@ import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
-import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
@@ -141,26 +140,10 @@ class Projector(config: ImageUploadOpsCfg,
           uploadInfo = uploadInfo_
         )
 
-        // TODO this code is duplicated in ImageDataMerger and the two should be merged.
         for {
           futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
-          collections <- gridClient.getCollections(id_, onBehalfOfFn)
-          edits <- gridClient.getEdits(id_, onBehalfOfFn)
-          usages <- gridClient.getUsages(id_, onBehalfOfFn)
-          crops <- gridClient.getCrops(id_, onBehalfOfFn)
-          leases <- gridClient.getLeases(id_, onBehalfOfFn)
-          originalMetadata = ImageMetadataConverter.fromFileMetadata(futureImage.fileMetadata)
-        } yield futureImage
-          .copy(
-            userMetadata = edits,
-            collections = collections,
-            usages = usages,
-            exports = crops,
-            leases = leases,
-            originalMetadata = originalMetadata,
-            metadata = ImageDataMerger.mergeMetadata(edits, originalMetadata),
-            usageRights = edits.flatMap(e => e.usageRights).getOrElse(futureImage.usageRights)
-          )
+          aggregatedImage <- ImageDataMerger.aggregate(futureImage, gridClient, onBehalfOfFn)
+        } yield aggregatedImage
     }
   }
 }

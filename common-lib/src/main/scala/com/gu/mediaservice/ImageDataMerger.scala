@@ -42,70 +42,30 @@ case class FullImageProjectionSuccess(image: Option[Image]) extends FullImagePro
 
 case class FullImageProjectionFailed(message: String, downstreamErrorMessage: String) extends FullImageProjectionResult
 
-class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthentication with LazyLogging {
-
-  import config._
-
-  // Authorise with api key
-  private def authFunction(request: WSRequest) = request.withHttpHeaders((apiKeyHeaderName, apiKey))
-
-  def isValidApiKey(implicit ec: ExecutionContext): Future[Boolean] = {
-    // Make an API key authenticated request to the leases API as a way of validating the API key.
-    // A 200/404 indicates a valid key.
-    // Using leases because its a low traffic API.
-    class BadApiKeyException extends Exception
-    import com.gu.mediaservice.GridClient.{Found, NotFound, Error}
-    gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), authFunction) map {
-      case Found(_, _) => true
-      case NotFound(_, _) => true
-      case Error(_, _, _) => false
-    }
+object ImageDataMerger extends LazyLogging {
+  def aggregate(image: Image, gridClient: GridClient, authFunction: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Image] = {
+    logger.info(s"starting to aggregate image")
+    val mediaId = image.id
+    (for {
+      collections <- gridClient.getCollections(mediaId, authFunction)
+      edits <- gridClient.getEdits(mediaId, authFunction)
+      leases <- gridClient.getLeases(mediaId, authFunction)
+      usages <- gridClient.getUsages(mediaId, authFunction)
+      crops <- gridClient.getCrops(mediaId, authFunction)
+      originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
+    } yield image.copy(
+      collections = collections,
+      userMetadata = edits,
+      leases = leases,
+      usages = usages,
+      exports = crops,
+      originalMetadata = originalMetadata,
+      metadata = ImageDataMerger.mergeMetadata(edits, originalMetadata),
+      usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
+    )) map (i => i.copy(userMetadataLastModified = ImageDataMerger.inferLastModifiedDate(i)))
   }
 
-  def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
-    try {
-      val maybeImageFuture = getMergedImageDataInternal(mediaId)
-      val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
-      FullImageProjectionSuccess(mayBeImage)
-    } catch {
-      case e: DownstreamApiInBadStateException =>
-        FullImageProjectionFailed(e.getMessage, e.getDownstreamMessage)
-    }
-  }
-
-  private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
-    maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, authFunction)
-    image <- aggregate(maybeStubImage)
-  } yield image
-
-  private def aggregate(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
-    case Some(image) =>
-      logger.info(s"starting to aggregate image")
-      val mediaId = image.id
-      // TODO this code is duplicated in Projector and the two should be merged.
-      (for {
-        collections <- gridClient.getCollections(mediaId, authFunction)
-        edits <- gridClient.getEdits(mediaId, authFunction)
-        leases <- gridClient.getLeases(mediaId, authFunction)
-        usages <- gridClient.getUsages(mediaId, authFunction)
-        crops <- gridClient.getCrops(mediaId, authFunction)
-        originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
-      } yield image.copy(
-        collections = collections,
-        userMetadata = edits,
-        leases = leases,
-        usages = usages,
-        exports = crops,
-        originalMetadata = originalMetadata,
-        metadata = ImageDataMerger.mergeMetadata(edits, originalMetadata),
-        usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
-      )) map (i => Some(i.copy(lastModified = ImageDataMerger.inferLastModifiedDate(i))))
-    case None => Future.successful(None)
-  }
-}
-object ImageDataMerger {
   def inferLastModifiedDate(image: Image): Option[DateTime] = {
-
     /**
       * TODO
       * it is using userMetadataLastModified field now
@@ -128,9 +88,58 @@ object ImageDataMerger {
     Option(lmDatesCandidates).collect { case dates if dates.nonEmpty => dates.max(dtOrdering) }
   }
 
-  def mergeMetadata(edits: Option[Edits], originalMetadata: ImageMetadata) = edits match {
+  private def mergeMetadata(edits: Option[Edits], originalMetadata: ImageMetadata) = edits match {
     case Some(Edits(_, _, metadata, _, _)) => originalMetadata.merge(metadata)
     case None => originalMetadata
   }
+
+  def apply(config: ImageDataMergerConfig): ImageDataMerger = {
+    import config._
+
+    // Authorise with api key
+    def authFunction = (request: WSRequest) => request.withHttpHeaders((apiKeyHeaderName, apiKey))
+
+    new ImageDataMerger(gridClient, services, authFunction, imageLoaderEndpoint)
+
+  }
+
+}
+
+class ImageDataMerger(gridClient: GridClient, services: Services, authFunction: WSRequest => WSRequest, imageLoaderEndpoint: String) extends ApiKeyAuthentication with LazyLogging {
+
+  def getMergedImageData(mediaId: String)(implicit ec: ExecutionContext): FullImageProjectionResult = {
+    try {
+      val maybeImageFuture = getMergedImageDataInternal(mediaId)
+      val mayBeImage: Option[Image] = Await.result(maybeImageFuture, Duration.Inf)
+      FullImageProjectionSuccess(mayBeImage)
+    } catch {
+      case e: DownstreamApiInBadStateException =>
+        FullImageProjectionFailed(e.getMessage, e.getDownstreamMessage)
+    }
+  }
+
+  private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
+    maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, authFunction)
+    image <- blah(maybeStubImage)
+  } yield image
+
+  private def blah(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
+    case Some(image) => ImageDataMerger.aggregate(image, gridClient, authFunction) map (i => Some(i))
+    case None => Future.successful(None)
+  }
+
+  def isValidApiKey(implicit ec: ExecutionContext): Future[Boolean] = {
+    // Make an API key authenticated request to the leases API as a way of validating the API key.
+    // A 200/404 indicates a valid key.
+    // Using leases because its a low traffic API.
+    class BadApiKeyException extends Exception
+    import com.gu.mediaservice.GridClient.{Found, NotFound, Error}
+    gridClient.makeGetRequestAsync(new URL(services.leasesBaseUri), authFunction) map {
+      case Found(_, _) => true
+      case NotFound(_, _) => true
+      case Error(_, _, _) => false
+    }
+  }
+
 }
 
