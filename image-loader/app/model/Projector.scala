@@ -140,10 +140,9 @@ class Projector(config: ImageUploadOpsCfg,
           uploadInfo = uploadInfo_
         )
 
-        for {
-          futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
-          aggregatedImage <- ImageDataMerger.aggregate(futureImage, gridClient, onBehalfOfFn)
-        } yield aggregatedImage
+        imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest) flatMap (
+          futureImage => ImageDataMerger.aggregate(futureImage, gridClient, onBehalfOfFn)
+        )
     }
   }
 }
