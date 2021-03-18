@@ -31,55 +31,8 @@ case class ImageDataMergerConfig(apiKey: String, services: Services, imageLoader
 
 object ImageProjectionOverrides extends LazyLogging {
 
-  def overrideSelectedFields(img: Image): Image = {
-    logger.info(s"applying metadata overrides")
-
-    val usageRightsEdits: Option[UsageRights] = img.userMetadata.flatMap(_.usageRights)
-
-    val chain = overrideUsageRightsWithUserEditsIfExists(usageRightsEdits) _ compose overrideWithInferredLastModifiedDate
-
-    chain.apply(img)
-  }
-
-  private def overrideWithInferredLastModifiedDate(img: Image) = {
-    val lastModifiedFinal = inferLastModifiedDate(img)
-    img.copy(
-      lastModified = lastModifiedFinal
-    )
-  }
-
-  private def inferLastModifiedDate(image: Image): Option[DateTime] = {
-
-    /**
-      * TODO
-      * it is using userMetadataLastModified field now
-      * because it is not persisted now anywhere else then ElasticSearch
-      * and projection is initially created to be able to project records that are missing in ElasticSearch
-      * so TODO userMetadataLastModified should be stored in dynamo additionally
-      **/
-
-    val dtOrdering = Ordering.by((_: DateTime).getMillis())
-
-    val exportsDates = image.exports.flatMap(_.date)
-    val collectionsDates = image.collections.map(_.actionData.date)
-    val usagesDates = image.usages.map(_.lastModified)
-
-    val lmDatesCandidates: List[DateTime] = List(
-      image.lastModified,
-      image.leases.lastModified
-    ).flatten ++ exportsDates ++ collectionsDates ++ usagesDates
-
-    Option(lmDatesCandidates).collect { case dates if dates.nonEmpty => dates.max(dtOrdering) }
-  }
 
   private def handleEmptyString(entry: Option[String]): Option[String] = entry.collect { case x if x.trim.nonEmpty => x }
-
-  private def overrideUsageRightsWithUserEditsIfExists(usageRightsEdits: Option[UsageRights])(img: Image) = {
-    usageRightsEdits match {
-      case Some(usrR) => img.copy(usageRights = usrR)
-      case _ => img
-    }
-  }
 
 }
 
@@ -123,31 +76,56 @@ class ImageDataMerger(config: ImageDataMergerConfig) extends ApiKeyAuthenticatio
   private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
     maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, authFunction)
     image <- aggregate(maybeStubImage)
-  } yield image.map { aggImg =>
-    ImageProjectionOverrides.overrideSelectedFields(aggImg)
-  }
+  } yield image
 
   private def aggregate(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
     case Some(image) =>
       logger.info(s"starting to aggregate image")
       val mediaId = image.id
-      for {
+      // TODO this code is duplicated in Projector and the two should be merged.
+      (for {
         collections <- gridClient.getCollections(mediaId, authFunction)
         edits <- gridClient.getEdits(mediaId, authFunction)
         leases <- gridClient.getLeases(mediaId, authFunction)
         usages <- gridClient.getUsages(mediaId, authFunction)
         crops <- gridClient.getCrops(mediaId, authFunction)
-        originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata, ???)
-      } yield Some(image.copy(
+        originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
+      } yield image.copy(
         collections = collections,
         userMetadata = edits,
         leases = leases,
         usages = usages,
         exports = crops,
         originalMetadata = originalMetadata,
-        metadata = mergeMetadata(edits, originalMetadata)
-  ))
+        metadata = ImageDataMerger.mergeMetadata(edits, originalMetadata),
+        usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
+      )) map (i => Some(i.copy(lastModified = ImageDataMerger.inferLastModifiedDate(i))))
     case None => Future.successful(None)
+  }
+}
+object ImageDataMerger {
+  def inferLastModifiedDate(image: Image): Option[DateTime] = {
+
+    /**
+      * TODO
+      * it is using userMetadataLastModified field now
+      * because it is not persisted now anywhere else then ElasticSearch
+      * and projection is initially created to be able to project records that are missing in ElasticSearch
+      * so TODO userMetadataLastModified should be stored in dynamo additionally
+      **/
+
+    val dtOrdering = Ordering.by((_: DateTime).getMillis())
+
+    val exportsDates = image.exports.flatMap(_.date)
+    val collectionsDates = image.collections.map(_.actionData.date)
+    val usagesDates = image.usages.map(_.lastModified)
+
+    val lmDatesCandidates: List[DateTime] = List(
+      image.lastModified,
+      image.leases.lastModified
+    ).flatten ++ exportsDates ++ collectionsDates ++ usagesDates
+
+    Option(lmDatesCandidates).collect { case dates if dates.nonEmpty => dates.max(dtOrdering) }
   }
 
   def mergeMetadata(edits: Option[Edits], originalMetadata: ImageMetadata) = edits match {

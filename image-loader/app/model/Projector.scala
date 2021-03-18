@@ -4,7 +4,7 @@ import java.io.{File, FileOutputStream}
 import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
-import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
@@ -13,6 +13,7 @@ import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
@@ -140,6 +141,7 @@ class Projector(config: ImageUploadOpsCfg,
           uploadInfo = uploadInfo_
         )
 
+        // TODO this code is duplicated in ImageDataMerger and the two should be merged.
         for {
           futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
           collections <- gridClient.getCollections(id_, onBehalfOfFn)
@@ -147,13 +149,17 @@ class Projector(config: ImageUploadOpsCfg,
           usages <- gridClient.getUsages(id_, onBehalfOfFn)
           crops <- gridClient.getCrops(id_, onBehalfOfFn)
           leases <- gridClient.getLeases(id_, onBehalfOfFn)
+          originalMetadata = ImageMetadataConverter.fromFileMetadata(futureImage.fileMetadata)
         } yield futureImage
           .copy(
             userMetadata = edits,
             collections = collections,
             usages = usages,
             exports = crops,
-            leases = leases
+            leases = leases,
+            originalMetadata = originalMetadata,
+            metadata = ImageDataMerger.mergeMetadata(edits, originalMetadata),
+            usageRights = edits.flatMap(e => e.usageRights).getOrElse(futureImage.usageRights)
           )
     }
   }
