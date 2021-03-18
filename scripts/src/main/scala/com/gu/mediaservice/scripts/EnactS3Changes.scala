@@ -8,10 +8,14 @@ import play.api.libs.json.{JsObject, JsValue, Json, OWrites}
 import scala.io.Source
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.AmazonS3ClientBuilder
-import com.amazonaws.services.s3.model.{AmazonS3Exception, CopyObjectRequest}
+import com.amazonaws.services.s3.model.AmazonS3Exception
 import org.joda.time.{DateTime, Duration}
 import com.gu.mediaservice.lib.JsonValueCodecJsValue.jsValueCodec
 import com.github.plokhotnyuk.jsoniter_scala.core._
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{CopyObjectRequest, HeadObjectRequest, ListObjectsRequest, ListObjectsV2Request, MetadataDirective, NoSuchKeyException}
 
 import collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -19,9 +23,12 @@ import scala.util.{Failure, Success, Try}
 object EnactS3Changes {
 
   private val profile = "media-service"
-  private val region = "eu-west-1"
-  private val credentials = new ProfileCredentialsProvider(profile)
-  private val s3: AmazonS3 = AmazonS3ClientBuilder.standard().withCredentials(credentials).withRegion(region).build
+  private val region = Region.EU_WEST_1
+  private val credentials = DefaultCredentialsProvider.builder.profileName("media-service").build
+  private val s3: S3Client = S3Client.builder
+    .region(region)
+    .credentialsProvider(credentials)
+    .build
 
   def option(options: List[String], argName: String): (Option[String], List[String]) = {
     val arg = options.find(_.startsWith(s"$argName="))
@@ -87,7 +94,7 @@ object EnactS3Changes {
     import AuditEntry._
 
     // do this to ensure creds work before starting
-    s3.listObjectsV2(bucketName)
+    s3.listObjectsV2(ListObjectsV2Request.builder.bucket(bucketName).build)
 
     // reporting
     val batchSize = 1000
@@ -123,11 +130,11 @@ object EnactS3Changes {
           .map {
             case (Some(proposed), Some(original)) =>
               val key = proposed.key
-              Try {Some(s3.getObjectMetadata(bucketName, key))}.recover{
-                case as3e:AmazonS3Exception if as3e.getStatusCode == 404 => None
+              Try {Some(s3.headObject(HeadObjectRequest.builder.bucket(bucketName).key(key).build))}.recover{
+                case _:NoSuchKeyException => None
               } match {
-                case Success(Some(awsObjectMetadata)) =>
-                  val check = awsObjectMetadata.getUserMetadata.asScala
+                case Success(Some(headObjectResponse)) =>
+                  val check = headObjectResponse.metadata.asScala
                   if (check!=original.metadata) {
                     if (check==proposed.metadata) {
                       AuditEntry(SKIPPED, key, s"Already updated")
@@ -138,8 +145,12 @@ object EnactS3Changes {
                       ))
                     }
                   } else {
-                    awsObjectMetadata.setUserMetadata(proposed.metadata.asJava)
-                    val request = new CopyObjectRequest(bucketName, key, bucketName, key).withNewObjectMetadata(awsObjectMetadata)
+                    val request = CopyObjectRequest.builder
+                      .copySource(s"$bucketName/$key")
+                      .destinationBucket(bucketName).destinationKey(key)
+                      .metadata(proposed.metadata.asJava)
+                      .metadataDirective(MetadataDirective.REPLACE)
+                      .build
                     Try {s3.copyObject(request)} match {
                       case Success(_) => AuditEntry(OK, key)
                       case Failure(e) => AuditEntry(ERROR, key, s"Error whilst copying object ($e)")
