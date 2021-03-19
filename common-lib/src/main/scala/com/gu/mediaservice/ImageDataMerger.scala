@@ -46,21 +46,20 @@ object ImageDataMerger extends LazyLogging {
   def aggregate(image: Image, gridClient: GridClient, authFunction: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Image] = {
     logger.info(s"starting to aggregate image")
     val mediaId = image.id
+    // NB original metadata should already be added, cleaned, and copied to metadata.
     (for {
       collections <- gridClient.getCollections(mediaId, authFunction)
       edits <- gridClient.getEdits(mediaId, authFunction)
       leases <- gridClient.getLeases(mediaId, authFunction)
       usages <- gridClient.getUsages(mediaId, authFunction)
       crops <- gridClient.getCrops(mediaId, authFunction)
-      originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata)
     } yield image.copy(
       collections = collections,
       userMetadata = edits,
       leases = leases,
       usages = usages,
       exports = crops,
-      originalMetadata = originalMetadata,
-      metadata = ImageDataMerger.mergeMetadata(edits, originalMetadata),
+      metadata = ImageDataMerger.mergeMetadata(edits, image.metadata),
       usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
     )) map (i => i.copy(userMetadataLastModified = ImageDataMerger.inferLastModifiedDate(i)))
   }
