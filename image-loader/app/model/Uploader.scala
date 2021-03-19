@@ -193,7 +193,12 @@ object Uploader extends GridLogging {
     if (optimiseOps.shouldOptimise(Some(browserViewableImage.mimeType), optimisedFileMetadata)) {
       for {
         (optimisedFile: File, optimisedMimeType: MimeType) <- optimiseOps.toOptimisedFile(browserViewableImage.file, browserViewableImage, tempDir)
-      } yield Some(browserViewableImage.copy(file = optimisedFile).copy(mimeType = optimisedMimeType).asStorableOptimisedImage)
+      } yield Some(
+        browserViewableImage.copy(
+          file = optimisedFile,
+          mimeType = optimisedMimeType
+        ).asStorableOptimisedImage
+      )
     } else if (browserViewableImage.mustUpload) {
       Future.successful(Some(browserViewableImage.asStorableOptimisedImage))
     } else
