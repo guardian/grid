@@ -89,7 +89,7 @@ class Projector(config: ImageUploadOpsCfg,
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
+  def projectS3ImageById(imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -104,7 +104,7 @@ class Projector(config: ImageUploadOpsCfg,
       val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
       val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
+      val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }

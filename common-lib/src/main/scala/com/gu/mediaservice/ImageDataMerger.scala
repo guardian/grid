@@ -120,7 +120,7 @@ class ImageDataMerger(gridClient: GridClient, services: Services, authFunction: 
 
   private def getMergedImageDataInternal(mediaId: String)(implicit ec: ExecutionContext): Future[Option[Image]] = for {
     maybeStubImage <- gridClient.getImageLoaderProjection(mediaId, imageLoaderEndpoint, authFunction)
-    image <- blah(maybeStubImage)
+    image <- getFullMergedImageData(maybeStubImage)
   } yield image
 
   private def blah(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
