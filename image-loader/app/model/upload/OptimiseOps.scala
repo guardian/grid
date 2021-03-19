@@ -49,7 +49,7 @@ object OptimiseWithPngQuant extends OptimiseOps {
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      case Some(Tiff) => true
+      case Some(Tiff) => true // TODO This should be done better, it could be better optimised into a jpeg.
       case _ => false
     }
 }
