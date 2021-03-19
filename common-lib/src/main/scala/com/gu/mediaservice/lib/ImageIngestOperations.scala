@@ -53,11 +53,28 @@ sealed trait ImageWrapper {
   val mimeType: MimeType
   val meta: Map[String, String]
 }
-sealed trait StorableImage extends ImageWrapper
+sealed trait StorableImage extends ImageWrapper {
+  def toProjectedS3Object(thumbBucket: String): S3Object = S3Object(
+    thumbBucket,
+    ImageIngestOperations.fileKeyFromId(id),
+    file,
+    Some(mimeType)
+  )
+}
 
 case class StorableThumbImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
 case class StorableOriginalImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
-case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
+case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage {
+  override def toProjectedS3Object(thumbBucket: String): S3Object = S3Object(
+    thumbBucket,
+    ImageIngestOperations.optimisedPngKeyFromId(id),
+    file,
+    Some(mimeType)
+  )
+}
+
+
+
 case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, mustUpload: Boolean = false) extends ImageWrapper {
   def asStorableOptimisedImage = StorableOptimisedImage(id, file, mimeType, meta)
   def asStorableThumbImage = StorableThumbImage(id, file, mimeType, meta)

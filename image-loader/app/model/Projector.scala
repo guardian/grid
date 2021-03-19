@@ -161,38 +161,13 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
-  private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage)
-                                          (implicit ec: ExecutionContext)= Future {
-    val key = ImageIngestOperations.fileKeyFromId(storableOriginalImage.id)
-    S3Object(
-      config.originalFileBucket,
-      key,
-      storableOriginalImage.file,
-      Some(storableOriginalImage.mimeType),
-      storableOriginalImage.meta
-    )
-  }
+  private def projectOriginalFileAsS3Model(storableOriginalImage: StorableOriginalImage) =
+    Future.successful(storableOriginalImage.toProjectedS3Object(config.originalFileBucket))
 
-  private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage)(implicit ec: ExecutionContext) = Future {
-    val key = ImageIngestOperations.fileKeyFromId(storableThumbImage.id)
-    val thumbMimeType = Some(ImageOperations.thumbMimeType)
-    S3Object(
-      config.thumbBucket,
-      key,
-      storableThumbImage.file,
-      thumbMimeType
-    )
-  }
+  private def projectThumbnailFileAsS3Model(storableThumbImage: StorableThumbImage) =
+    Future.successful(storableThumbImage.toProjectedS3Object(config.thumbBucket))
 
-  private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage)(implicit ec: ExecutionContext) = Future {
-    val key = ImageIngestOperations.optimisedPngKeyFromId(storableOptimisedImage.id)
-    val optimisedPngMimeType = Some(ImageOperations.thumbMimeType) // this IS what we will generate.
-    S3Object(
-      config.originalFileBucket,
-      key,
-      storableOptimisedImage.file,
-      optimisedPngMimeType
-    )
-  }
+  private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage) =
+    Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket))
 
 }
