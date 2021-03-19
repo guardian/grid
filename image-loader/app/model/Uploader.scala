@@ -156,7 +156,7 @@ object Uploader extends GridLogging {
         case None => Future.successful(None)
       }
       sourceDimensions <- sourceDimensionsFuture
-      thumbDimensions <- FileMetadataReader.dimensions(thumbViewableImage.file, Some(Jpeg))
+      thumbDimensions <- FileMetadataReader.dimensions(thumbViewableImage.file, Some(thumbViewableImage.mimeType))
       colourModel <- colourModelFuture
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
