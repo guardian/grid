@@ -122,8 +122,11 @@ class ImageDataMerger(gridClient: GridClient, services: Services, authFunction: 
     image <- getFullMergedImageData(maybeStubImage)
   } yield image
 
-  private def blah(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
-    case Some(image) => ImageDataMerger.aggregate(image, gridClient, authFunction) map (i => Some(i))
+  private def getFullMergedImageData(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
+    case Some(image) =>
+      // TODO I'm suspicious that we don't invoke the cleaners on this pass...
+      val imageWithMetadata = image.copy(originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata))
+      ImageDataMerger.aggregate(imageWithMetadata, gridClient, authFunction) map (i => Some(i))
     case None => Future.successful(None)
   }
 

@@ -141,7 +141,7 @@ class Projector(config: ImageUploadOpsCfg,
         )
 
         imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest) flatMap (
-          futureImage => ImageDataMerger.aggregate(futureImage, gridClient, onBehalfOfFn)
+          image => ImageDataMerger.aggregate(image, gridClient, onBehalfOfFn)
         )
     }
   }
