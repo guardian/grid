@@ -33,7 +33,7 @@ object OptimiseWithPngQuant extends OptimiseOps {
 
     val optimisedFile = new File(optimisedFilePath)
     if (optimisedFile.exists()) {
-      (optimisedFile, Png)
+      (optimisedFile, optimiseMimeType)
     } else {
       throw new Exception(s"Attempted to optimise PNG file ${optimisedFile.getPath}")
     }
