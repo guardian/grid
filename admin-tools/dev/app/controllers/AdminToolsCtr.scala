@@ -16,7 +16,7 @@ class AdminToolsCtr(config: AdminToolsConfig, override val controllerComponents:
 
   private val cfg = ImageDataMergerConfig(apiKey = config.apiKey, domainRoot = config.domainRoot, imageLoaderEndpointOpt = None)
 
-  private val merger = new ImageDataMerger(cfg)
+  private val merger = ImageDataMerger(cfg)
 
   private val indexResponse = {
     val indexData = Json.obj(

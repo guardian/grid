@@ -4,7 +4,7 @@ import java.io.{File, FileOutputStream}
 import java.util.UUID
 
 import com.amazonaws.services.s3.AmazonS3
-import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
@@ -89,7 +89,7 @@ class Projector(config: ImageUploadOpsCfg,
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
 
-  def projectS3ImageById(imageUploadProjector: Projector, imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
+  def projectS3ImageById(imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
     Future {
       import ImageIngestOperations.fileKeyFromId
@@ -104,7 +104,7 @@ class Projector(config: ImageUploadOpsCfg,
       val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
       val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = imageUploadProjector.projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
+      val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
       Some(finalImage)
     }
@@ -140,21 +140,9 @@ class Projector(config: ImageUploadOpsCfg,
           uploadInfo = uploadInfo_
         )
 
-        for {
-          futureImage <- imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest)
-          collections <- gridClient.getCollections(id_, onBehalfOfFn)
-          edits <- gridClient.getEdits(id_, onBehalfOfFn)
-          usages <- gridClient.getUsages(id_, onBehalfOfFn)
-          crops <- gridClient.getCrops(id_, onBehalfOfFn)
-          leases <- gridClient.getLeases(id_, onBehalfOfFn)
-        } yield futureImage
-          .copy(
-            userMetadata = edits,
-            collections = collections,
-            usages = usages,
-            exports = crops,
-            leases = leases
-          )
+        imageUploadProjectionOps.projectImageFromUploadRequest(uploadRequest) flatMap (
+          image => ImageDataMerger.aggregate(image, gridClient, onBehalfOfFn)
+        )
     }
   }
 }

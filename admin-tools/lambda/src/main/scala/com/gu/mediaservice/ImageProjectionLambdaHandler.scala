@@ -46,7 +46,7 @@ class ImageProjectionLambdaHandler extends ApiKeyAuthentication with LazyLogging
     apiKey match {
       case Some(key) =>
         val cfg: ImageDataMergerConfig = ImageDataMergerConfig(apiKey = key, domainRoot = domainRoot, imageLoaderEndpointOpt = imageLoaderEndpoint)
-        val merger = new ImageDataMerger(cfg)
+        val merger = ImageDataMerger(cfg)
 
         val ok = Await.result(merger.isValidApiKey, apiCheckTimeout)
         if (!ok) {

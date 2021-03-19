@@ -26,7 +26,29 @@ case class ImageMetadata(
   country:             Option[String]   = None,
   subjects:            List[String]     = Nil,
   peopleInImage:       Set[String]      = Set(),
-)
+) {
+  def merge(that: ImageMetadata) = this.copy(
+    dateTaken = (that.dateTaken ++ this.dateTaken).headOption,
+    description = (that.description ++ this.description).headOption,
+    credit = (that.credit ++ this.credit).headOption,
+    creditUri = (that.creditUri ++ this.creditUri).headOption,
+    byline = (that.byline ++ this.byline).headOption,
+    bylineTitle = (that.bylineTitle ++ this.bylineTitle).headOption,
+    title = (that.title ++ this.title).headOption,
+    copyright = (that.copyright ++ this.copyright).headOption,
+    suppliersReference = (that.suppliersReference ++ this.suppliersReference).headOption,
+    source = (that.source ++ this.source).headOption,
+    specialInstructions = (that.specialInstructions ++ this.specialInstructions).headOption,
+    keywords = that.keywords ++ this.keywords,
+    subLocation = (that.subLocation ++ this.subLocation).headOption,
+    city = (that.city ++ this.city).headOption,
+    state = (that.state ++ this.state).headOption,
+    country = (that.country ++ this.country).headOption,
+    subjects = that.subjects ++ this.subjects,
+    peopleInImage = that.peopleInImage ++ this.peopleInImage
+  )
+
+}
 
 object ImageMetadata {
   val empty = ImageMetadata()
