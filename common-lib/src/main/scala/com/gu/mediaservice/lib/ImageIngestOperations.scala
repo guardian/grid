@@ -58,7 +58,8 @@ sealed trait StorableImage extends ImageWrapper {
     thumbBucket,
     ImageIngestOperations.fileKeyFromId(id),
     file,
-    Some(mimeType)
+    Some(mimeType),
+    meta
   )
 }
 
@@ -69,7 +70,8 @@ case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, me
     thumbBucket,
     ImageIngestOperations.optimisedPngKeyFromId(id),
     file,
-    Some(mimeType)
+    Some(mimeType),
+    meta
   )
 }
 
