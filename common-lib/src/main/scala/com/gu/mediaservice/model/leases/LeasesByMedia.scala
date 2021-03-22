@@ -15,9 +15,9 @@ object LeasesByMedia {
 
   implicit val writer = new Writes[LeasesByMedia] {
     def writes(leaseByMedia: LeasesByMedia) = {
-      LeasesByMedia.toJson(
-        Json.toJson(leaseByMedia.leases),
-        Json.toJson(leaseByMedia.lastModified)
+      Json.obj(
+        "leases" -> leaseByMedia.leases,
+        "lastModified" -> leaseByMedia.lastModified
       )
     }
   }
@@ -31,14 +31,5 @@ object LeasesByMedia {
   def build (leases: List[MediaLease]) = {
     val lastModified = leases.sortBy(_.createdAt).reverse.headOption.map(_.createdAt)
     LeasesByMedia(leases, lastModified)
-  }
-
-  def toJson(leases: JsValue, lastModified: JsValue) : JsObject = {
-    JsObject(
-      Seq(
-        "leases" -> leases,
-        "lastModified" -> lastModified
-      )
-    )
   }
 }
