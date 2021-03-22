@@ -31,6 +31,12 @@ query.controller('SearchQueryCtrl', [
 
     const ctrl = this;
 
+    ctrl.canUpload = false;
+
+    mediaApi.canUserUpload().then(canUpload => {
+        ctrl.canUpload = canUpload;
+    });
+
     ctrl.ordering = {
         orderBy: $stateParams.orderBy
     };
@@ -172,7 +178,6 @@ query.controller('SearchQueryCtrl', [
             session.user.permissions.showPaid : undefined;
         }
     });
-
 
     function resetQuery() {
         ctrl.filter.query = undefined;

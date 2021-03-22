@@ -3,9 +3,9 @@ package auth
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
-import com.gu.mediaservice.lib.auth.Permissions.ShowPaid
+import com.gu.mediaservice.lib.auth.Permissions.{ShowPaid, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
-import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
 
@@ -34,6 +34,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
 
   def session = auth { request =>
     val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
+    val canUpload = authorisation.hasPermissionTo(UploadImages)(request.user)
     request.user match {
       case UserPrincipal(firstName, lastName, email, _) =>
 
@@ -46,7 +47,8 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
               "email" -> email,
               "permissions" ->
                 Json.obj(
-                  "showPaid" -> showPaid
+                  "showPaid" -> showPaid,
+                  "canUpload" -> canUpload
                 )
             )
           )
@@ -58,7 +60,8 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
             "tier" -> accessor.tier.toString,
             "permissions" ->
               Json.obj(
-                "showPaid" -> showPaid
+                "showPaid" -> showPaid,
+                "canUpload" -> (accessor.tier == Internal)
               )
           )
         )

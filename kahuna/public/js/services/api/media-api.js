@@ -88,6 +88,10 @@ mediaApi.factory('mediaApi',
         return image.perform('delete');
     }
 
+    function canUserUpload() {
+        return root.getLink('loader').then(() => true, () => false);
+    }
+
     return {
         root,
         search,
@@ -96,6 +100,7 @@ mediaApi.factory('mediaApi',
         metadataSearch,
         labelSearch,
         labelsSuggest,
-        delete: delete_
+        delete: delete_,
+        canUserUpload
     };
 }]);

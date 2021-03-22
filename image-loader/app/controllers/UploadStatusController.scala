@@ -4,6 +4,7 @@ package controllers
 import java.net.URI
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
+import com.gu.mediaservice.lib.auth.Permissions.UploadImages
 import com.gu.mediaservice.lib.auth._
 import com.gu.scanamo.error.{ConditionNotMet, DynamoReadError, ScanamoError}
 import lib._
@@ -17,6 +18,7 @@ class UploadStatusController(auth: Authentication,
                              store: UploadStatusTable,
                              val config: ImageLoaderConfig,
                              override val controllerComponents: ControllerComponents,
+                             authorisation: Authorisation
                             )
                             (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
@@ -32,7 +34,7 @@ class UploadStatusController(auth: Authentication,
       .recover{ case error => respondError(InternalServerError, "cannot-get", s"Cannot get upload status ${error}") }
   }
 
-  def updateUploadStatus(imageId: String) = auth.async(parse.json[UploadStatus]) { request =>
+  def updateUploadStatus(imageId: String) = (auth andThen authorisation.CommonActionFilters.authorisedForUpload).async(parse.json[UploadStatus]) { request =>
     request.body match {
       case UploadStatus(StatusType.Failed, None) =>
         Future.successful(respondError(

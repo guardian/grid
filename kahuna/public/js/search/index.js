@@ -77,11 +77,17 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         controllerAs: 'ctrl',
         controller: [
             '$scope', '$window', '$stateParams', 'panels', 'shortcutKeys', 'keyboardShortcut',
-            'panelService', 'cropSettings',
+            'panelService', 'cropSettings', 'mediaApi',
             function($scope, $window, $stateParams, panels, shortcutKeys, keyboardShortcut,
-                     panelService, cropSettings) {
+                     panelService, cropSettings, mediaApi) {
 
             const ctrl = this;
+
+            ctrl.canUpload = false;
+
+            mediaApi.canUserUpload().then(canUpload => {
+                ctrl.canUpload = canUpload;
+            });
 
             cropSettings.set($stateParams);
 

@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, Request}
-import com.gu.mediaservice.lib.auth.Permissions.PrincipalFilter
+import com.gu.mediaservice.lib.auth.Permissions.{PrincipalFilter, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import play.api.mvc.{ActionFilter, Result, Results}
 
@@ -24,6 +24,10 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
       permission,
       respondError(Unauthorized, "permission-denied", s"You do not have permission to ${permission.name}")
     )
+
+  object CommonActionFilters {
+    lazy val authorisedForUpload = actionFilterFor(UploadImages)
+  }
 
   def hasPermissionTo(permission: SimplePermission): PrincipalFilter = {
     principal: Principal => {
