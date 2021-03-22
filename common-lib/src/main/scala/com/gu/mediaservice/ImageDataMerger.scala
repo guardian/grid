@@ -79,12 +79,16 @@ object ImageDataMerger extends LazyLogging {
     val collectionsDates = image.collections.map(_.actionData.date)
     val usagesDates = image.usages.map(_.lastModified)
 
-    val lmDatesCandidates: List[DateTime] = List(
-      image.lastModified,
-      image.leases.lastModified
-    ).flatten ++ exportsDates ++ collectionsDates ++ usagesDates
+    // TODO this should actually be stored in the Edit object.
+    // Failing that, we will guess that edits come along at once, and hope that the other edits are close.
+    val allDatesForUserEditableFields = image.leases.lastModified ++
+      exportsDates ++
+      collectionsDates
 
-    Option(lmDatesCandidates).collect { case dates if dates.nonEmpty => dates.max(dtOrdering) }
+    allDatesForUserEditableFields match {
+      case Nil => None
+      case dates => Some(dates.max(dtOrdering))
+    }
   }
 
   private def mergeMetadata(edits: Option[Edits], originalMetadata: ImageMetadata) = edits match {
