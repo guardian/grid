@@ -23,10 +23,10 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
   import CollectionsManager.onlyLatest
 
-  val dynamo = new DynamoDB(config, config.imageCollectionsTable)
+  val dynamo = new DynamoDB[Collection](config, config.imageCollectionsTable)
 
   def getCollections(id: String) = authenticated.async { req =>
-    dynamo.listGet[Collection](id, "collections").map { collections =>
+    dynamo.listGet(id, "collections").map { collections =>
       respond(onlyLatest(collections))
     } recover {
       case NoItemFound => respondNotFound("No collections found")
@@ -48,12 +48,12 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
     // We do a get to be able to find the index of the current collection, then remove it.
     // Given that we're using Dynamo Lists this seemed like a decent way to do it.
     // Dynamo Lists, like other lists do respect order.
-    dynamo.listGet[Collection](id, "collections") flatMap { collections =>
+    dynamo.listGet(id, "collections") flatMap { collections =>
       CollectionsManager.findIndexes(path, collections) match {
         case Nil =>
           Future.successful(respondNotFound(s"Collection $collectionString not found"))
         case indexes =>
-          dynamo.listRemoveIndexes[Collection](id, "collections", indexes)
+          dynamo.listRemoveIndexes(id, "collections", indexes)
             .map(publish(id))
             .map(cols => respond(cols))
       }

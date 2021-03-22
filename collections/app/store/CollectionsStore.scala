@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class CollectionsStore(config: CollectionsConfig) {
-  val dynamo = new DynamoDB(config, config.collectionsTable)
+  val dynamo = new DynamoDB[Collection](config, config.collectionsTable)
 
   def getAll: Future[List[Collection]] = dynamo.scan map { jsonList =>
     jsonList.flatMap(json => (json \ "collection").asOpt[Collection])

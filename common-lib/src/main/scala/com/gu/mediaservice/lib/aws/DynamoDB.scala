@@ -7,6 +7,7 @@ import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
+import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.collection.JavaConverters._
@@ -14,8 +15,14 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object NoItemFound extends Throwable("item not found")
 
-class DynamoDB(config: CommonConfig, tableName: String) {
-
+/**
+  * A lightweight wrapper around AWS dynamo SDK for undertaking various operations
+  * @param config Common grid config including AWS credentials
+  * @param tableName the table name for this instance of the dynamoDB wrapper
+  * @param lastModifiedKey if set to a string the wrapper will maintain a last modified with that name on any update
+  * @tparam T The type of this table
+  */
+class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Option[String] = None) {
   lazy val client: AmazonDynamoDBAsync = config.withAWSCredentials(AmazonDynamoDBAsyncClientBuilder.standard()).build()
   lazy val dynamo = new AwsDynamoDB(client)
   lazy val table: Table = dynamo.getTable(tableName)
@@ -137,7 +144,7 @@ class DynamoDB(config: CommonConfig, tableName: String) {
       new ValueMap().withStringSet(":value", value)
     )
 
-  def listGet[T](id: String, key: String)
+  def listGet(id: String, key: String)
                 (implicit ex: ExecutionContext, reads: Reads[T]): Future[List[T]] = {
 
     get(id, key) map { item =>
@@ -148,7 +155,7 @@ class DynamoDB(config: CommonConfig, tableName: String) {
     }
   }
 
-  def listAdd[T](id: String, key: String, value: T)
+  def listAdd(id: String, key: String, value: T)
                 (implicit ex: ExecutionContext, tjs: Writes[T], rjs: Reads[T]): Future[List[T]] = {
 
     // TODO: Deal with the case that we don't have JSON serialisers, for now we just fail.
@@ -175,13 +182,13 @@ class DynamoDB(config: CommonConfig, tableName: String) {
     }
   }
 
-  def listRemoveIndexes[T](id: String, key: String, indexes: List[Int])
+  def listRemoveIndexes(id: String, key: String, indexes: List[Int])
                           (implicit ex: ExecutionContext, rjs: Reads[T]): Future[List[T]] =
     update(
       id, s"REMOVE ${indexes.map(i => s"$key[$i]").mkString(",")}"
     ) map(j => (j \ key).as[List[T]])
 
-  def objPut[T](id: String, key: String, value: T)
+  def objPut(id: String, key: String, value: T)
                  (implicit ex: ExecutionContext, wjs: Writes[T], rjs: Reads[T]): Future[T] = Future {
 
     val item = new Item().withPrimaryKey(IdKey, id).withJSON(key, Json.toJson(value).toString)
@@ -218,9 +225,12 @@ class DynamoDB(config: CommonConfig, tableName: String) {
     val baseUpdateSpec = new UpdateItemSpec().
       withPrimaryKey(IdKey, id).
       withUpdateExpression(expression).
-      withReturnValues(ReturnValue.ALL_NEW)
+      withReturnValues(ReturnValue.ALL_NEW).
+      withValueMap(valueMap.orNull)
 
-    val updateSpec = valueMap.map(baseUpdateSpec.withValueMap(_)) getOrElse baseUpdateSpec
+    val updateSpec = lastModifiedKey.map { key =>
+      DynamoDB.addLastModifiedUpdate(baseUpdateSpec, key, DateTime.now)
+    }.getOrElse(baseUpdateSpec)
 
     table.updateItem(updateSpec)
   } map asJsObject
@@ -284,4 +294,32 @@ object DynamoDB {
   }
   def caseClassToMap[T](caseClass: T)(implicit tjs: Writes[T]): Map[String, JsValue] =
     Json.toJson[T](caseClass).as[JsObject].as[Map[String, JsValue]]
+
+  def addLastModifiedUpdate(update: UpdateItemSpec, lastModifiedKey: String, lastModifiedDate: DateTime): UpdateItemSpec = {
+    val expression = update.getUpdateExpression
+    val valueMap: ValueMap = {
+      val m = new ValueMap()
+      Option(update.getValueMap).foreach { vm =>
+        m.putAll(vm)
+      }
+      m
+    }
+
+    val newExpression = {
+      val keyUpdate: String = s"$lastModifiedKey = :$lastModifiedKey"
+      if (expression.contains("SET ")) {
+          // add to existing clause
+        expression.replace("SET ", s"SET ${keyUpdate}, ")
+      } else {
+        // add SET clause to existing expression
+        s"SET $keyUpdate ${expression}"
+      }
+    }
+
+    valueMap.put(s":$lastModifiedKey", lastModifiedDate.toString)
+
+    update
+      .withUpdateExpression(newExpression)
+      .withValueMap(valueMap)
+  }
 }

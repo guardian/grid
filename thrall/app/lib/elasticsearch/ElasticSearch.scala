@@ -173,9 +173,21 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
        """
     )
 
-    val updateRequest: UpdateRequest = prepareUpdateRequest(id, scriptSource, lastModified, ("userMetadata", metadataParameter))
+    /* TODO: It should never be possible for Edits to have an empty lastModified although there will be
+     * messages in the stream where it is missing until the stream content expires so we fall back for now but can
+     * remove this in a week or so after merging */
+    if (metadata.lastModified.isEmpty) logger.warn(logMarker, "edit object missing last modified value")
+    val appliedLastModified = metadata.lastModified.getOrElse(lastModified)
 
-    List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id with lastModified $lastModified").map(_ => ElasticSearchUpdateResponse()))
+    val updateRequest: UpdateRequest = prepareUpdateRequest(
+      id,
+      scriptSource,
+
+      appliedLastModified,
+      ("userMetadata", metadataParameter)
+    )
+
+    List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id with lastModified $appliedLastModified").map(_ => ElasticSearchUpdateResponse()))
   }
 
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])

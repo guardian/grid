@@ -33,7 +33,6 @@ object Collection {
 }
 
 // Following the crop structure
-// TODO: Use this in crop too
 case class ActionData(author: String, date: DateTime)
 object ActionData {
   // TODO: Use the generic formats for DateTime

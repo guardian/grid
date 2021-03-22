@@ -47,43 +47,46 @@ object ImageDataMerger extends LazyLogging {
     logger.info(s"starting to aggregate image")
     val mediaId = image.id
     // NB original metadata should already be added, cleaned, and copied to metadata.
-    (for {
+    for {
       collections <- gridClient.getCollections(mediaId, authFunction)
       edits <- gridClient.getEdits(mediaId, authFunction)
       leases <- gridClient.getLeases(mediaId, authFunction)
       usages <- gridClient.getUsages(mediaId, authFunction)
       crops <- gridClient.getCrops(mediaId, authFunction)
-    } yield image.copy(
-      collections = collections,
-      userMetadata = edits,
-      leases = leases,
-      usages = usages,
-      exports = crops,
-      metadata = ImageDataMerger.mergeMetadata(edits, image.metadata),
-      usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
-    )) map (i => i.copy(userMetadataLastModified = ImageDataMerger.inferLastModifiedDate(i)))
+    } yield {
+      val updatedImage = image.copy(
+        collections = collections,
+        userMetadata = edits,
+        leases = leases,
+        usages = usages,
+        exports = crops,
+        metadata = ImageDataMerger.mergeMetadata(edits, image.metadata),
+        usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
+      )
+      val inferredLastModified = ImageDataMerger.inferLastModifiedDate(updatedImage)
+      updatedImage.copy(
+        // userMetadataLastModified is that from edits, falling back to the inferred
+        userMetadataLastModified = edits.flatMap(_.lastModified).orElse(inferredLastModified),
+        // main last modified is always inferred
+        lastModified = inferredLastModified
+      )
+    }
   }
 
+  /** This is the highest last modified of any date we know in the image */
   def inferLastModifiedDate(image: Image): Option[DateTime] = {
-    /**
-      * TODO
-      * it is using userMetadataLastModified field now
-      * because it is not persisted now anywhere else then ElasticSearch
-      * and projection is initially created to be able to project records that are missing in ElasticSearch
-      * so TODO userMetadataLastModified should be stored in dynamo additionally
-      **/
-
     val dtOrdering = Ordering.by((_: DateTime).getMillis())
 
     val exportsDates = image.exports.flatMap(_.date)
     val collectionsDates = image.collections.map(_.actionData.date)
     val usagesDates = image.usages.map(_.lastModified)
+    val metadataEditDate = image.userMetadata.flatMap(_.lastModified)
 
-    // TODO this should actually be stored in the Edit object.
-    // Failing that, we will guess that edits come along at once, and hope that the other edits are close.
     val allDatesForUserEditableFields = image.leases.lastModified ++
       exportsDates ++
-      collectionsDates
+      collectionsDates ++
+      usagesDates ++
+      metadataEditDate
 
     allDatesForUserEditableFields match {
       case Nil => None
@@ -92,7 +95,7 @@ object ImageDataMerger extends LazyLogging {
   }
 
   private def mergeMetadata(edits: Option[Edits], originalMetadata: ImageMetadata) = edits match {
-    case Some(Edits(_, _, metadata, _, _)) => originalMetadata.merge(metadata)
+    case Some(Edits(_, _, metadata, _, _, _)) => originalMetadata.merge(metadata)
     case None => originalMetadata
   }
 
