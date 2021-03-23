@@ -3,12 +3,15 @@ package controllers
 
 import java.net.URI
 import java.net.URLDecoder.decode
-
 import com.amazonaws.AmazonServiceException
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.Authentication.Request
+import com.gu.mediaservice.lib.auth.Permissions.EditMetadata
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, SimplePermission}
 import com.gu.mediaservice.lib.aws.{NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.model._
 import lib._
@@ -16,7 +19,8 @@ import org.joda.time.DateTime
 import play.api.data.Forms._
 import play.api.data._
 import play.api.libs.json._
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.libs.ws.WSClient
+import play.api.mvc.{ActionFilter, BaseController, ControllerComponents, Result}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -39,11 +43,42 @@ import scala.concurrent.{ExecutionContext, Future}
 //   }
 // }
 
-class EditsController(auth: Authentication, store: EditsStore, notifications: Notifications, config: EditsConfig,
-                      override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext)
+class EditsController(
+                       auth: Authentication,
+                       store: EditsStore,
+                       notifications: Notifications,
+                       config: EditsConfig,
+                       ws: WSClient,
+                       authorisation: Authorisation,
+                       override val controllerComponents: ControllerComponents
+                     )(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers with EditsResponse {
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
+
+  val services: Services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  val gridClient: GridClient = GridClient(services)(ws)
+
+  def AuthorisedToEditMetadataOrUploader(imageId: String): ActionFilter[Request] = new ActionFilter[Request] {
+    override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
+      //We first check for permissions, if the user has permissions we avoid making a call to media-api service
+      val hasPermission: Boolean = authorisation.hasPermissionTo(EditMetadata)(request.user)
+      if (hasPermission) {
+        Future.successful(None)
+      } else {
+        val result = for {
+          uploadedBy <- gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(request.user))
+          isAuthorised = authorisation.canUserWriteMetadata(request.user, uploadedBy.getOrElse(""))
+          if isAuthorised
+        } yield {
+          Future.successful(None)
+        }
+        result.flatten.recover{case _ => Some(authorisation.unauthorized(EditMetadata))}
+      }
+    }
+    override protected def executionContext: ExecutionContext = ec
+  }
+
 
   val metadataBaseUri = config.services.metadataBaseUri
 
@@ -159,7 +194,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     }
   }
 
-  def setMetadata(id: String) = auth.async(parse.json) { req =>
+  def setMetadata(id: String) = (auth andThen AuthorisedToEditMetadataOrUploader(id)).async(parse.json) { req =>
     (req.body \ "data").validate[ImageMetadata].fold(
       errors => Future.successful(BadRequest(errors.toString())),
       metadata =>
@@ -169,7 +204,7 @@ class EditsController(auth: Authentication, store: EditsStore, notifications: No
     )
   }
 
-  def setMetadataFromUsageRights(id: String) = auth.async { req =>
+  def setMetadataFromUsageRights(id: String) = (auth andThen AuthorisedToEditMetadataOrUploader(id)).async { req =>
     store.get(id) flatMap { dynamoEntry =>
       val edits = dynamoEntry.as[Edits]
       val originalMetadata = edits.metadata
