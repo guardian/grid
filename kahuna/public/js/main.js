@@ -461,7 +461,16 @@ kahuna.directive('uiTitle', ['$rootScope', function($rootScope) {
                   var title = (titleFunc ? titleFunc(toParams) : toState.name) +
                           ' | ' + attrs.uiTitleSuffix;
 
+                  attrs.uiTitle = title;
+
                   element.text(title);
+            });
+
+            $rootScope.$on('events:new-images',
+                function(event, data) {
+                    var title = (data.count ? `(${data.count} new)  ${attrs.uiTitle}` : attrs.uiTitle);
+
+                    element.text(title);
             });
         }
     };
