@@ -5,14 +5,15 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
-        <a ui-sref="upload"
+        <a ng-if="ctrl.canUpload"
+           ui-sref="upload"
            gr-track-click="Your recent uploads button"
            gr-track-click-data="{'Location': 'Search navigation'}"
            class="top-bar-item clickable side-padded"
            title="my recent uploads">
             <gr-icon-label gr-icon="photo_library">My recent uploads</gr-icon-label>
         </a>
-        <file-uploader class="top-bar-item side-padded"></file-uploader>
+        <file-uploader ng-if="ctrl.canUpload" class="top-bar-item side-padded"></file-uploader>
     </gr-top-bar-actions>
 </gr-top-bar>
 
@@ -32,4 +33,4 @@
 </gr-panels>
 
 <ui-view name="multiDrag"></ui-view>
-<dnd-uploader></dnd-uploader>
+<dnd-uploader ng-if="ctrl.canUpload"></dnd-uploader>
