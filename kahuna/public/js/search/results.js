@@ -233,6 +233,11 @@ results.controller('SearchResultsCtrl', [
                     // FIXME: minor assumption that only the latest
                     // displayed image is matching the uploadTime
                     ctrl.newImagesCount = resp.total;
+
+                    if (ctrl.newImagesCount > 0) {
+                        $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
+                    }
+
                     ctrl.lastestTimeMoment = moment(latestTime).from(moment());
 
                     if (! scopeGone) {
