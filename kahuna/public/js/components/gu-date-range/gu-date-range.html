@@ -56,6 +56,7 @@
         <div class="gu-date-range__overlay__pikaday">
             <span class="gu-date-range__overlay__pikaday__wrapper">
                 <h2 class="gu-date-range__overlay__title search__overlay__title">From</h2>
+                <input type="text" class="gu-date-range__input__start--hidden date-edit-field" placeholder="DD-MM-YYYY" ng-model="pikaStartValue">
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--start"/>
                 <button type="button"
                         class="gu-date-range__overlay__pikaday__clear button-shy"
@@ -66,6 +67,7 @@
 
             <span class="gu-date-range__overlay__pikaday__wrapper">
                 <h2 class="gu-date-range__overlay__title search__overlay__title">To</h2>
+                <input type="text" class="gu-date-range__input__end--hidden date-edit-field" placeholder="DD-MM-YYYY"  ng-model="pikaEndValue">
                 <div class="gu-date-range__overlay__pikaday__container gu-date-range__overlay__pikaday--end"/>
                 <button type="button"
                         class="gu-date-range__overlay__pikaday__clear button-shy"
@@ -90,7 +92,4 @@
             </button>
         </div>
     </div>
-
-    <input hidden type="text" class="gu-date-range__input__start--hidden" ng-model="pikaStartValue">
-    <input hidden type="text" class="gu-date-range__input__end--hidden" ng-model="pikaEndValue">
 </div>

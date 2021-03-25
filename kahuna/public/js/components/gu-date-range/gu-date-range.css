@@ -58,3 +58,8 @@
 .gu-date-range__overlay__preset__button:last-child {
     margin-right: 0px;
 }
+
+.date-edit-field {
+  margin-bottom: 10px;
+  width: 240px;
+}

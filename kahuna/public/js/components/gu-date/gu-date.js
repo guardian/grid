@@ -7,7 +7,6 @@ import template from './gu-date.html';
 import rangeTemplate from './gu-date-range-x.html';
 import './gu-date.css';
 
-const ISO8601_FORMAT = 'YYYY-MM-DDTHH:mm:ssZ';
 const DISPLAY_FORMAT = 'DD MMM YYYY';
 const TEN_YEARS_MILLIS = (10 * 365 * 24 * 60 * 60 * 1000);
 const START_OF_WEEK = 1; // Monday
@@ -54,7 +53,7 @@ guDate.directive('guDate', [function () {
                 maxDate: tenYearsFromNow,
                 yearRange: 100,
                 firstDay: START_OF_WEEK,
-                format: ISO8601_FORMAT,
+                format: DISPLAY_FORMAT,
                 keyboardInput: false
             });
 
