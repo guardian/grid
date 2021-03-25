@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, Request, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.{DeleteImage, EditMetadata, PrincipalFilter, UploadImages}
@@ -27,11 +28,36 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
       unauthorized(permission)
     )
 
+  def actionFilterForUploaderOr(
+                                          imageId: String,
+                                          permission: SimplePermission,
+                                          getUploader: (String, Principal) => Future[Option[String]]
+                                        ): ActionFilter[Request] = new ActionFilter[Request] {
+    implicit val ec = executionContext
+    override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
+      //We first check for permissions, if the user has permissions we avoid evaluating the getUploader function
+      val hasPermission: Boolean = hasPermissionTo(permission)(request.user)
+      if (hasPermission) {
+        Future.successful(None)
+      } else {
+        val result = for {
+          uploadedBy <- getUploader(imageId, request.user)
+          isAuthorised = isUploaderOrHasPermission(request.user, uploadedBy.getOrElse(""), permission)
+          if isAuthorised
+        } yield {
+          Future.successful(None)
+        }
+        result.flatten.recover{case _ => Some(unauthorized(permission))}
+      }
+    }
+    override protected def executionContext: ExecutionContext = ec
+  }
+
   object CommonActionFilters {
     lazy val authorisedForUpload = actionFilterFor(UploadImages)
   }
 
-  private def isUploaderOrHasPermission(
+  def isUploaderOrHasPermission(
                                          principal: Principal,
                                          uploadedBy: String,
                                          permission: SimplePermission
