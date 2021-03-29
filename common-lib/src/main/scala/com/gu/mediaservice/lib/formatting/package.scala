@@ -3,8 +3,7 @@ package com.gu.mediaservice.lib
 import scala.concurrent.duration.Duration
 import scala.util.Try
 import org.joda.time.DateTime
-import org.joda.time.format.ISODateTimeFormat
-import org.joda.time.format.DateTimeFormatterBuilder
+import org.joda.time.format.{DateTimeFormatter, DateTimeFormatterBuilder, ISODateTimeFormat}
 
 package object formatting {
 
@@ -20,7 +19,7 @@ package object formatting {
       withZoneUTC
   }
 
-  val dateTimeFormat = parseDateTimeFormat.withZoneUTC
+  val dateTimeFormat: DateTimeFormatter = parseDateTimeFormat.withZoneUTC
 
   def printDateTime(date: DateTime): String = date.toString()
   def printOptDateTime(date: Option[DateTime]): Option[String] = date.map(printDateTime)
