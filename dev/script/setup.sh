@@ -79,12 +79,71 @@ setupDevNginx() {
   dev-nginx setup-app "$target"
 }
 
-setupPermissionConfiguration() {
+setupPanDomainConfiguration() {
   if [[ $LOCAL_AUTH != true ]]; then
     return
   fi
 
-  echo "setting up permissions configuration for local auth"
+  echo "setting up pan domain authentication configuration for local auth"
+
+  panDomainBucket=$(getStackResource "$AUTH_STACK_NAME" PanDomainBucket)
+
+  PANDA_COOKIE_NAME=gutoolsAuth-assym
+
+  OUTPUT_DIR=/tmp
+
+  PANDA_PRIVATE_SETTINGS_FILE="$OUTPUT_DIR/$DOMAIN.settings"
+  PANDA_PUBLIC_SETTINGS_FILE="$OUTPUT_DIR/$DOMAIN.settings.public"
+
+  PRIVATE_KEY_FILE=$(mktemp "$OUTPUT_DIR/private-key.XXXXXX")
+  PUBLIC_KEY_FILE=$(mktemp "$OUTPUT_DIR/public-key.XXXXXX")
+
+  openssl genrsa -out "$PRIVATE_KEY_FILE" 4096
+  openssl rsa -pubout -in "$PRIVATE_KEY_FILE" -out "$PUBLIC_KEY_FILE"
+
+  privateKey=$(sed -e '1d' -e '$d' < "$PRIVATE_KEY_FILE" | tr -d '\n')
+  publicKey=$(sed -e '1d' -e '$d'  < "$PUBLIC_KEY_FILE" | tr -d '\n')
+
+  privateSettings=$(cat <<END
+privateKey=${privateKey}
+publicKey=${publicKey}
+cookieName=${PANDA_COOKIE_NAME}
+clientId=${OIDC_CLIENT_ID}
+clientSecret=${OIDC_CLIENT_SECRET}
+discoveryDocumentUrl=http://localhost:9014/.well-known/openid-configuration
+END
+)
+
+  publicSettings=$(cat <<END
+publicKey=${publicKey}
+END
+)
+
+  echo "$privateSettings" > "$PANDA_PRIVATE_SETTINGS_FILE"
+  echo "$publicSettings" > "$PANDA_PUBLIC_SETTINGS_FILE"
+
+  filesToUpload=(
+    "$PANDA_PRIVATE_SETTINGS_FILE"
+    "$PANDA_PUBLIC_SETTINGS_FILE"
+  )
+
+  for file in "${filesToUpload[@]}"; do
+    aws s3 cp "$file" "s3://$panDomainBucket/" --endpoint-url $LOCALSTACK_ENDPOINT
+    echo "  uploaded $file to bucket $panDomainBucket"
+  done
+
+  rm -f "$PUBLIC_KEY_FILE"
+  rm -f "$PRIVATE_KEY_FILE"
+  rm -f "$PANDA_PRIVATE_SETTINGS_FILE"
+  rm -f "$PANDA_PUBLIC_SETTINGS_FILE"
+}
+
+setupLocalAuthorisationProviderConfiguration() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
+  echo "setting up permissions configuration for local authorisation provider"
 
   target="$ROOT_DIR/common-lib/src/main/resources/application.conf"
 
@@ -96,12 +155,12 @@ setupPermissionConfiguration() {
 
 }
 
-setupAuthenticationConfiguration() {
+setupLocalAuthenticationProviderConfiguration() {
   if [[ $LOCAL_AUTH != true ]]; then
     return
   fi
 
-  echo "setting up authentication configuration for local auth"
+  echo "setting up permissions configuration for local authentication provider"
 
   target="$ROOT_DIR/common-lib/src/main/resources/application.conf"
 
@@ -113,6 +172,26 @@ setupAuthenticationConfiguration() {
 
 }
 
+setupGuardianPermissionConfiguration() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
+  echo "setting up permissions configuration for Guardian local auth"
+
+  permissionsBucket=$(getStackResource "$AUTH_STACK_NAME" PermissionsBucket)
+
+  target="$ROOT_DIR/dev/config/permissions.json"
+
+  sed -e "s/@EMAIL_DOMAIN/$EMAIL_DOMAIN/g" \
+    "$target.template" > "$target"
+
+  aws s3 cp "$target" \
+    "s3://$permissionsBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $permissionsBucket"
+}
 
 setupPhotographersConfiguration() {
   echo "setting up photographers configuration"
@@ -187,6 +266,20 @@ createCoreStack() {
   # TODO - this should wait until the stack operation has completed
 }
 
+createGuardianLocalAuthStack() {
+  if [[ $LOCAL_AUTH != true ]]; then
+    return
+  fi
+
+  echo "creating local auth cloudformation stack"
+
+  aws cloudformation create-stack \
+    --stack-name "$AUTH_STACK_NAME" \
+    --template-body "file://$AUTH_STACK_FILE" \
+    --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
+  echo "  created stack $AUTH_STACK_NAME using $AUTH_STACK_FILENAME"
+}
+
 generateConfig() {
   CONF_HOME="${HOME}/.grid"
   mkdir -p ${CONF_HOME}
@@ -232,8 +325,15 @@ main() {
   createCoreStack
 
   if [[ $LOCAL_AUTH == true ]]; then
-    setupPermissionConfiguration
-    setupAuthenticationConfiguration
+    if [[ $LOCAL_SIMPLE_AUTH_PROVIDER == true ]]
+    then
+      setupLocalAuthenticationProviderConfiguration
+      setupLocalAuthorisationProviderConfiguration
+    else
+      createLocalAuthStack
+      setupPanDomainConfiguration
+      setupGuardianPermissionConfiguration
+    fi
   fi
 
   setupPhotographersConfiguration
