@@ -28,7 +28,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           )
 
           val imageTwo = createImage("superman", StaffPhotographer("Clark Kent", "Kent Farm")).copy(
-            usages = List(usage())
+            usages = List(usage(lastModified = new DateTime(2020, 1, 1, 0, 0, DateTimeZone.UTC)))
           )
 
           val images: List[Image] = List(imageOne, imageTwo)

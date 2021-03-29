@@ -89,7 +89,7 @@ trait Fixtures {
     Crop(None, None, None, cropSpec: CropSpec, None, List.empty)
   }
 
-  def usage(id: String = UUID.randomUUID().toString) = Usage(id, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, now)
+  def usage(id: String = UUID.randomUUID().toString, lastModified: DateTime = now) = Usage(id, List.empty, DigitalUsage, "test", PublishedUsageStatus,  None, None, lastModified)
 
   def stringLongerThan(i: Int): String = {
     var out = ""
