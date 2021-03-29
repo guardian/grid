@@ -64,21 +64,11 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
                                        ) = {
     principal match {
       case user: UserPrincipal =>
-        if (user.email.toLowerCase == uploadedBy) {
-          true
-        } else {
-          hasPermissionTo(permission)(principal)
-        }
+        user.email.equalsIgnoreCase(uploadedBy) || hasPermissionTo(permission)(principal)
       case MachinePrincipal(ApiAccessor(_, Internal), _) => true
       case _ => false
     }
   }
-
-  def canUserWriteMetadata(principal: Principal, uploadedBy: String): Boolean =
-    isUploaderOrHasPermission(principal, uploadedBy, EditMetadata)
-
-  def canUserDeleteImage(principal: Principal, uploadedBy: String): Boolean =
-    isUploaderOrHasPermission(principal, uploadedBy, DeleteImage)
 
   def hasPermissionTo(permission: SimplePermission): PrincipalFilter = {
     principal: Principal => {

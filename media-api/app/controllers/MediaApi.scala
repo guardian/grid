@@ -206,7 +206,7 @@ class MediaApi(
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
 
         if (imageCanBeDeleted) {
-          val canDelete = authorisation.canUserDeleteImage(request.user, image.uploadedBy)
+          val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImage)
 
           if (canDelete) {
             val deleteImage = "delete-image"
@@ -296,8 +296,8 @@ class MediaApi(
     val include = getIncludedFromParams(request)
 
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
-      val writePermission = authorisation.canUserWriteMetadata(request.user, image.instance.uploadedBy)
-      val deletePermission = authorisation.canUserDeleteImage(request.user, image.instance.uploadedBy)
+      val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
+      val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImage)
       val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
@@ -334,8 +334,8 @@ class MediaApi(
 
     elasticSearch.getImageWithSourceById(id) map {
       case Some(source) if hasPermission(request.user, source.instance) =>
-        val writePermission = authorisation.canUserWriteMetadata(request.user, source.instance.uploadedBy)
-        val deleteImagePermission = authorisation.canUserDeleteImage(request.user, source.instance.uploadedBy)
+        val writePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, EditMetadata)
+        val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImage)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
         val (imageData, imageLinks, imageActions) = imageResponse.create(
