@@ -119,31 +119,26 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
   def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
 
-  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean) = {
-    val cropLink = Link("crops", s"${config.cropperUri}/crops/$id")
-    val editLink = Link("edits", s"${config.metadataUri}/metadata/$id")
+
+  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean): List[Link] = {
+    import BoolImplicitMagic.BoolToOption
+    val cropLinkMaybe = valid.toOption(Link("crops", s"${config.cropperUri}/crops/$id"))
+    val editLinkMaybe = withWritePermission.toOption(Link("edits", s"${config.metadataUri}/metadata/$id"))
+
+    val optimisedPngLinkMaybe = securePngUrl map { case secureUrl => Link("optimisedPng", makeImgopsUri(new URI(secureUrl))) }
+
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
-    val optimisedPngLink = securePngUrl match {
-      case Some(secureUrl) => Some(Link("optimisedPng", makeImgopsUri(new URI(secureUrl))))
-      case _ => None
-    }
     val imageLink = Link("ui:image", s"${config.kahunaUri}/images/$id")
     val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
     val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
+    val projectionLink = Link("loader", s"${config.loaderUri}/images/project/$id")
+    val projectionDiffLink = Link("api", s"${config.rootUri}/images/$id/projection/diff")
 
-    val baseLinks = if (withWritePermission) {
-      List(editLink, optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
-    } else {
-      List(optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink, downloadLink(id), downloadOptimisedLink(id))
-    }
-
-    val baseLinksWithOptimised = optimisedPngLink match {
-      case Some(link) => link :: baseLinks
-      case None => baseLinks
-    }
-
-    if (valid) cropLink :: baseLinksWithOptimised else baseLinksWithOptimised
+    editLinkMaybe.toList ++ cropLinkMaybe.toList ++ optimisedPngLinkMaybe.toList ++
+      List(
+        optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink,
+        downloadLink(id), downloadOptimisedLink(id), projectionLink, projectionDiffLink)
   }
 
   def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean, withDeleteCropsOrUsagePermission: Boolean): List[Action] = {
@@ -359,4 +354,11 @@ object CollectionResponse {
 
   def build(c: Collection) =
     CollectionResponse(c.path, c.pathId, c.description, CollectionsManager.getCssColour(c.path), c.actionData)
+}
+
+object BoolImplicitMagic {
+  // This functionality is a member of Option in scala 2.13
+  implicit class BoolToOption(val self: Boolean) extends AnyVal {
+    def toOption[A](value: => A): Option[A] = if (self) Some(value) else None
+  }
 }
