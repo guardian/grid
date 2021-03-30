@@ -5,7 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "es6-promise": "^4.2.8",
-    "isomorphic-fetch": "^2.2.1",
+    "isomorphic-fetch": "^3.0.0",
     "unsplash-js": "^5.0.0"
   },
   "devDependencies": {},
