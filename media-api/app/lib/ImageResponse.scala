@@ -132,7 +132,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val usageLink = Link("usages", s"${config.usageUri}/usages/media/$id")
     val leasesLink = Link("leases", s"${config.leasesUri}/leases/media/$id")
     val fileMetadataLink = Link("fileMetadata", s"${config.rootUri}/images/$id/fileMetadata")
-    val projectionLink = Link("loader", s"${config.rootUri}/images/project/$id")
+    val projectionLink = Link("loader", s"${config.loaderUri}/images/project/$id")
     val projectionDiffLink = Link("api", s"${config.rootUri}/images/$id/projection/diff")
 
     editLinkMaybe.toList ++ cropLinkMaybe.toList ++ optimisedPngLinkMaybe.toList ++
