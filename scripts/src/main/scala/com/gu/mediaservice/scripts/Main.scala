@@ -16,6 +16,7 @@ object Main extends App {
     case "EnactS3Changes"   :: as => EnactS3Changes(as)
     case "EsMetadata"       :: as => EsImageMetadata(as)
     case "ProposeS3Changes" :: as => ProposeS3Changes(as)
+    case "BackfillEditLastModified" :: as => BackfillEditLastModified(as)
     case a :: _ => sys.error(s"Unrecognised command: $a")
     case Nil    => sys.error("Usage: <Command> <args ...>")
   }

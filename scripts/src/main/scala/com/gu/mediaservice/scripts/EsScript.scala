@@ -345,7 +345,7 @@ abstract class EsScript {
   final val esShards = 5
   final val esReplicas = 0
 
-  def log(msg: String) = System.out.println(s"[Reindexer]: $msg")
+  def log(msg: String) = System.out.println(s"[${getClass.getName}]: $msg")
 
   def apply(args: List[String]) {
     // FIXME: Use Stage to get host (for some reason this isn't working)
