@@ -11,6 +11,10 @@ httpErrors.constant('httpErrors', {
         errorCode: 401,
         errorMessage: 'Unauthorised request'
     },
+    forbidden: {
+        errorCode: 403,
+        errorMessage: 'Forbidden request'
+    },
     authFailed: {
         errorCode: 419,
         errorMessage: 'Authentication re-establishment failed'

@@ -10,7 +10,8 @@ import play.api.mvc.{ActionFilter, Result, Results}
 import scala.concurrent.{ExecutionContext, Future}
 
 class Authorisation(provider: AuthorisationProvider, executionContext: ExecutionContext) extends Results with ArgoHelpers {
-  def unauthorized(permission: SimplePermission): Result = respondError(Unauthorized, "permission-denied", s"You do not have permission to ${permission.name}")
+  def forbidden(permission: SimplePermission): Result = respondError(Forbidden, "permission-denied", s"You do not have permission to ${permission.name}")
+
 
   def actionFilterFor(permission: SimplePermission, unauthorisedResult: Result): ActionFilter[Request] = new ActionFilter[Request] {
     override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
@@ -25,15 +26,15 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
   def actionFilterFor(permission: SimplePermission): ActionFilter[Request] =
     actionFilterFor(
       permission,
-      unauthorized(permission)
+      forbidden(permission)
     )
 
   def actionFilterForUploaderOr(
                                           imageId: String,
                                           permission: SimplePermission,
                                           getUploader: (String, Principal) => Future[Option[String]]
-                                        ): ActionFilter[Request] = new ActionFilter[Request] {
-    implicit val ec = executionContext
+                                        )(implicit ec: ExecutionContext): ActionFilter[Request] = new ActionFilter[Request] {
+//    implicit val ec = executionContext
     override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
       //We first check for permissions, if the user has permissions we avoid evaluating the getUploader function
       val hasPermission: Boolean = hasPermissionTo(permission)(request.user)
@@ -47,7 +48,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
         } yield {
           Future.successful(None)
         }
-        result.flatten.recover{case _ => Some(unauthorized(permission))}
+        result.flatten.recover{case _ => Some(forbidden(permission))}
       }
     }
     override protected def executionContext: ExecutionContext = ec

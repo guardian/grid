@@ -181,6 +181,10 @@ kahuna.factory('httpErrorInterceptor',
                     $rootScope.$emit('events:error:unauthorised');
                     break;
                 }
+                case httpErrors.forbidden.errorCode: {
+                    $rootScope.$emit('events:error:forbidden');
+                    break;
+                }
                 case httpErrors.internalServerError.errorCode: {
                     $rootScope.$emit('events:error:server');
                     break;
@@ -207,6 +211,7 @@ kahuna.run(['$rootScope', 'globalErrors',
 
 
     $rootScope.$on('events:error:unauthorised', () => globalErrors.trigger('unauthorised'));
+    $rootScope.$on('events:error:forbidden', () => globalErrors.trigger('forbidden'));
     $rootScope.$on('pandular:re-establishment:fail', () => globalErrors.trigger('authFailed'));
     $rootScope.$on('events:error:server', () => globalErrors.trigger('server'));
     $rootScope.$on('events:error:unknown', () => globalErrors.trigger('unknown'));
@@ -225,6 +230,16 @@ kahuna.run(['$rootScope', 'httpErrors',
           null,
           { 'Error code': httpErrors.unauthorised.errorCode }
       ));
+
+      $rootScope.$on('events:error:forbidden', () =>
+      $rootScope.$emit(
+        'track:event',
+        'Authorisation',
+        null,
+        'Error',
+        null,
+        { 'Error code': httpErrors.forbidden.errorCode }
+    ));
 
     $rootScope.$on('pandular:re-establishment:fail', () =>
       $rootScope.$emit(
