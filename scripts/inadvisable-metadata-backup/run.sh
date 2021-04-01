@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e -x
 
 ID=$2
 BUCKET=$1
@@ -6,7 +7,7 @@ BUCKET=$1
 echo "Processing $ID in $BUCKET"
 
 grid image:download -d=. $ID
-grid image:get --hyrdate $ID > $ID.json
+grid image:get --hydrate $ID > $ID.json
 
 yarn update $ID
 yarn s3 $ID $BUCKET
