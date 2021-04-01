@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.gu.mediaservice.model.leases.{AllowUseLease, LeasesByMedia, MediaLease}
-import com.gu.mediaservice.model.usage._
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{DenyUseLease, LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.usage._
 import org.joda.time.{DateTime, Period}
 import play.api.libs.json.{JsArray, JsNumber, JsString}
 
@@ -20,6 +20,7 @@ object MappingTest {
   private val imageTaken: DateTime = new DateTime(2010, 3, 26, 12, 0)
   private val imageImported: DateTime = imageTaken.plus(Period.days(1).plusHours(1))
   private val imageModified: DateTime = imageImported.plus(Period.hours(2))
+  private val imageDenyLeaseExpiry: DateTime = new DateTime(2030, 3, 26, 12, 0)
 
   private val testImageMetadata: ImageMetadata = ImageMetadata(
     dateTaken = Some(imageTaken),
@@ -50,10 +51,12 @@ object MappingTest {
     secureUrl = Some(new URL("http://host/filename.jpg"))
   )
 
+  val testUploader = "grid-internal-mapping-test-image"
+
   val testImage: Image = Image(
     id = "abcdef1234567890",
     uploadTime = imageImported,
-    uploadedBy = "Monkey",
+    uploadedBy = testUploader, // Do not change this, we use it to clean up old test images
     lastModified = Some(imageModified),
     identifiers = Map("id1" -> "value1"),
     uploadInfo = UploadInfo(
@@ -176,11 +179,11 @@ object MappingTest {
     leases = LeasesByMedia.build(List(
       MediaLease(
         id = Some("leaseA"),
-        leasedBy = Some("you"),
+        leasedBy = Some(testUploader),
         startDate = Some(imageTaken),
-        endDate = Some(imageModified),
-        access = AllowUseLease,
-        notes = Some("use it for this"),
+        endDate = Some(imageDenyLeaseExpiry),
+        access = DenyUseLease,
+        notes = Some("this prevents use of this test image and should hide it from the default view"),
         mediaId = "an id for leaseA",
         createdAt = imageTaken
       )
