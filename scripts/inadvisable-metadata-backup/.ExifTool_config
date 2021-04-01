@@ -1,0 +1,18 @@
+# A config file for exiftool, based on the example and work by @paperboyo
+# It's perl
+%Image::ExifTool::UserDefined = (
+    'Image::ExifTool::XMP::Main' => {
+        gridImage => { # <-- must be the same as the NAMESPACE prefix
+            SubDirectory => {
+                TagTable => 'Image::ExifTool::UserDefined::gridImage',
+            },
+        },
+    },
+);
+%Image::ExifTool::UserDefined::gridImage = (
+	    GROUPS => { 0 => 'XMP', 1 => 'XMP-gridImage', 2 => 'Image' },
+    	NAMESPACE => { 'gridImage' => 'com.guardian.xmp.gridImage' },
+    	WRITABLE => 'string',
+    	FileMetadata => { Writable => 'string' },
+);
+1;  #end
