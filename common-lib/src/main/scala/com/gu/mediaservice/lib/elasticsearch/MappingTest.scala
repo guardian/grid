@@ -51,7 +51,7 @@ object MappingTest {
     secureUrl = Some(new URL("http://host/filename.jpg"))
   )
 
-  val testUploader = "grid-internal-mapping-test-image"
+  val testUploader = "grid-internal-mapping-test-image" // Do not change this, we use it to clean up old test images
 
   val testImage: Image = Image(
     id = "abcdef1234567890",

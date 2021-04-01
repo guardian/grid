@@ -3,27 +3,35 @@ package lib.elasticsearch
 import com.amazonaws.util.EC2MetadataUtils
 import com.gu.mediaservice.lib.elasticsearch.MappingTest
 import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.Response
-import com.sksamuel.elastic4s.requests.delete.DeleteResponse
+import com.sksamuel.elastic4s.requests.delete.{DeleteByQueryResponse, DeleteResponse}
 import com.typesafe.scalalogging.StrictLogging
+import org.joda.time.{DateTime, Period}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 /**
   * This implements a good to go check that validates when Thrall starts up that it can successfully write and read
-  * and image into the elasticsearch node.
+  * an image into the elasticsearch node.
   */
 object GoodToGoCheck extends StrictLogging {
   def run(es: ElasticSearch)(implicit ex: ExecutionContext): Future[Unit] = {
     // make a test image with an ID that is unique to the node so that multiple nodes can run the check at once
     val uniqueId = Option(EC2MetadataUtils.getInstanceId).map(_.stripPrefix("i-")).getOrElse("abcdef")
-    val image = MappingTest.testImage.copy(id = s"${MappingTest.testImage.id}$uniqueId")
+    val checkTime = DateTime.now
+    val image: Image = MappingTest.testImage.copy(
+      id = s"${MappingTest.testImage.id}$uniqueId",
+      lastModified = Some(checkTime) // use now as the last modified to aid cleanup of old test images
+    )
     val lastModified = image.lastModified.get
     implicit val marker: LogMarker = image ++ Map("goToGo" -> true)
 
     val indexResult: Future[Unit] =
       for {
-        // perhaps a test image wasn't previously cleaned up, let's err on the side of caution and check and deal with it
+        // Perhaps a test image wasn't previously cleaned up... this might happen locally or if a thrall process
+        // is being cycled by systemd on an instance. Let's err on the side of caution and check and deal with it.
         _ <- Future.successful(logger.info(s"Ensuring test image ${image.id} doesn't exist"))
         checkAbsent <- es.getImage(image.id)
         _ <- Future.successful(if (checkAbsent.nonEmpty) logger.info("Deleting prior test image"))
@@ -37,8 +45,11 @@ object GoodToGoCheck extends StrictLogging {
         validation <- {
           // check that we indexed one object
           val indexedOneItem = indexResult.size == 1
-          // and retrieving it is the same object - note: we use a string check here as the DateTimes don't compare usefully
-          val retrievedImageSameAsIndexed = maybeRetrieveResult.toString == Some(image).toString
+          // and retrieving it is the same object - note: we use a string check here as the DateTimes don't compare
+          // usefully and we override the lastModified to avoid TZ issues in BST
+          val retrievedImageSameAsIndexed =
+            maybeRetrieveResult.map(_.copy(lastModified = image.lastModified)).toString == Some(image).toString
+          if (!retrievedImageSameAsIndexed) logger.warn(s"Image mismatch: \n$maybeRetrieveResult\n${Some(image)}")
 
           if (indexedOneItem && retrievedImageSameAsIndexed) {
             Future.successful(())
@@ -49,6 +60,9 @@ object GoodToGoCheck extends StrictLogging {
         // once that's all done, let's delete the image again so it's not lying around
         _ <- Future.successful(logger.info(s"Deleting test image"))
         _ <- deleteTestImage(es, image.id)
+        // clean up any images from over an hour ago that were not deleted
+        cleanedUpCount <- deleteOldTestImages(es, checkTime)
+        _ <- Future.successful(if (cleanedUpCount > 0) logger.info(s"Deleted $cleanedUpCount old test image(s)"))
       } yield validation
 
     // return the future for the healthcheck
@@ -59,5 +73,21 @@ object GoodToGoCheck extends StrictLogging {
     import com.sksamuel.elastic4s.ElasticDsl._
     // this manipulates the underlying ES API as the built in delete API guards against deleting images that are in use
     es.executeAndLog(deleteById(es.imagesAlias, imageId), s"Deleting good to go test image $imageId")
+  }
+
+  def deleteOldTestImages(es: ElasticSearch, now: DateTime)(implicit ex: ExecutionContext, lm: LogMarker): Future[Long] = {
+    import com.sksamuel.elastic4s.ElasticDsl._
+    // only act on images from some time ago so we don't delete image
+    val olderThan = now.minus(Period.minutes(10))
+    val query = must(
+      rangeQuery("lastModified").lte(olderThan.getMillis), // older than this
+      termQuery("uploadedBy", MappingTest.testUploader) // and belonging to the uploader
+    )
+    // this manipulates the underlying ES API as the built in delete API guards against deleting images that are in use
+    val eventualResult = es.executeAndLog(
+      deleteByQuery(es.imagesAlias, query),
+      s"Deleting any old test images uploaded by ${MappingTest.testImage.uploadedBy}"
+    )
+    eventualResult.map(_.result.deleted)
   }
 }
