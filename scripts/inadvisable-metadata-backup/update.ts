@@ -13,6 +13,7 @@ const { fileMetadata, originalMetadata } = data;
 
 (async () => {
   const tags = toWriteTags(originalMetadata, fileMetadata)
+  console.log(JSON.stringify(tags,null,2))
   await exiftool.write(`${id}`, tags);
   await exiftool.end();
   console.log("Updated local metadata.");

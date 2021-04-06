@@ -27,18 +27,10 @@ export const toWriteTags = (
   mmm: ImageMetadata,
   fileMetadata: unknown
 ): WriteTags => {
-  const meta = Object.fromEntries(Object.entries(([k,v]:[string, string])=>[k,`${v}äaaïîé`]))
+  const meta: ImageMetadata = Object.fromEntries(Object.entries(mmm).map(([k,v]:[string, string])=>[k,`${v} (äaaïîé)`])) as any as ImageMetadata
   const legal: Partial<WriteTags> = {
     DateTimeOriginal: meta.dateTaken,
-    Description: meta.description,
-    Credit: meta.credit,
-    Artist: meta.byline,
-    "By-lineTitle": meta.bylineTitle,
-    Title: meta.title,
-    CopyrightNotice: meta.copyright,
-    OriginalTransmissionReference: meta.suppliersReference,
     Source: meta.source,
-    Keywords: [meta.keywords].join(';'),
     "Sub-location": meta.subLocation,
     City: meta.city,
     Country: meta.country,
@@ -50,7 +42,14 @@ export const toWriteTags = (
     "XMP-gridImage:FileMetadata": JSON.stringify(fileMetadata),
     "XMP-photoshop:Credit": meta.credit,
     "XMP-photoshop:Instructions": meta.specialInstructions,
-    "XMP-photoshop:Source": meta.source
+    "XMP-photoshop:Source": meta.source,
+    "XMP-dc:subject": meta.keywords,
+    "XMP-dc:description": meta.description,
+    "XMP-dc:creator": meta.byline,
+    "XMP-photoshop:AuthorsPosition": meta.bylineTitle,
+    "XMP-photoshop:Headline": meta.title,
+    "XMP-dc:Rights": meta.copyright,
+    "XMP-photoshop:TransmissionReference": meta.suppliersReference,
   };
   return impartial({ ...legal, ...specificAndLimited });
 };
