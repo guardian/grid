@@ -43,8 +43,8 @@ object ImageMetadataConverter extends GridLogging {
     val fromXMP =  extractXMPArrayStrings("dc:subject", fileMetadata).toList
     val fromIPTC= fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil
     (fromXMP, fromIPTC) match {
-      case (xmp, _) => xmp
-      case (_, iptc) => iptc
+      case (xmp, _)  if xmp.nonEmpty  => xmp
+      case (_, iptc) if iptc.nonEmpty => iptc
       case _ => Nil
     }
   }
