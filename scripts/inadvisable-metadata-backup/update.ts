@@ -12,7 +12,8 @@ const { data } = require(path.resolve(`${id}.json`));
 const { fileMetadata, originalMetadata } = data;
 
 (async () => {
-  await exiftool.write(`${id}`, toWriteTags(originalMetadata, fileMetadata));
+  const tags = toWriteTags(originalMetadata, fileMetadata)
+  await exiftool.write(`${id}`, tags);
   await exiftool.end();
   console.log("Updated local metadata.");
 })();

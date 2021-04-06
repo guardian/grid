@@ -31,14 +31,13 @@ export const toWriteTags = (
     DateTimeOriginal: meta.dateTaken,
     Description: meta.description,
     Credit: meta.credit,
-    "By-line": meta.byline,
+    Artist: meta.byline,
     "By-lineTitle": meta.bylineTitle,
     Title: meta.title,
     CopyrightNotice: meta.copyright,
     OriginalTransmissionReference: meta.suppliersReference,
     Source: meta.source,
-    SpecialInstructions: meta.specialInstructions,
-    Keywords: meta.keywords,
+    Keywords: meta.keywords.join(';'),
     "Sub-location": meta.subLocation,
     City: meta.city,
     Country: meta.country,
@@ -47,6 +46,9 @@ export const toWriteTags = (
     SupplementalCategories: meta.subjects,
     "XMP-iptcExt:PersonInImage": meta.peopleInImage,
     "XMP-gridImage:FileMetadata": JSON.stringify(fileMetadata),
+    "XMP-photoshop:Credit": meta.credit,
+    "XMP-photoshop:Instructions": meta.specialInstructions,
+    "XMP-photoshop:Source": meta.source
   };
   return impartial({ ...legal, ...specificAndLimited });
 };
