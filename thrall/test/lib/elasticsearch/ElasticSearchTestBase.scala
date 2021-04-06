@@ -3,7 +3,8 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.ElasticDsl
+import com.sksamuel.elastic4s.requests.count.CountResponse
+import com.sksamuel.elastic4s.{ElasticDsl, Response}
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
@@ -13,7 +14,7 @@ import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
 import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.util.Properties
 
@@ -24,6 +25,8 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
 
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
+  val tenSeconds = Duration(10, SECONDS)
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(tenSeconds, oneHundredMilliseconds)
 
   val elasticSearchConfig = ElasticSearchConfig("writealias", esTestUrl, "media-service-test", 1, 0)
 
@@ -41,16 +44,23 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     ES.ensureAliasAssigned()
   }
 
-  override protected def afterEach(): Unit = {
-    super.afterEach()
-    // Ensure to reset the state of ES between tests by deleting all documents...
-    Await.ready(
-      ES.client.execute(
-        ElasticDsl.deleteByQuery(ES.initialImagesIndex, ElasticDsl.matchAllQuery())
-      ), fiveSeconds)
-
-    // ...and then forcing a refresh. These operations need to be done in serial.
-    Await.result(ES.client.execute(ElasticDsl.refreshIndex(ES.initialImagesIndex)), fiveSeconds)
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    // repeatedly delete and check until there is nothing in ES (deleting before it has
+    // settled means that we might fail if we only repeat the count)
+    eventually {
+      val eventualCount = for {
+        // Ensure to reset the state of ES between tests by deleting all documents...
+        _ <- ES.client.execute(
+          ElasticDsl.deleteByQuery(ES.initialImagesIndex, ElasticDsl.matchAllQuery())
+        )
+        // ...and then forcing a refresh. These operations need to be done in series
+        _ <- ES.client.execute(ElasticDsl.refreshIndex(ES.initialImagesIndex))
+        // count the remaining documents
+        count <- ES.client.execute(ElasticDsl.count(ES.initialImagesIndex))
+      } yield count
+      eventualCount.futureValue.result.count shouldBe 0
+    }
   }
 
   override def afterAll: Unit = {
