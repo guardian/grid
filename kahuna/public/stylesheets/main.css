@@ -2343,7 +2343,17 @@ FIXME: what to do with touch devices
 }
 
 .radio-list__circle {
-    display: none;
+    clip: rect(0 0 0 0);
+    clip-path: inset(100%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap; 
+    width: 1px;
+}
+
+.radio-list__circle:focus + .radio-list__label {
+    border: solid 3px #00adee;
 }
 
 .radio-list__selection-state {
