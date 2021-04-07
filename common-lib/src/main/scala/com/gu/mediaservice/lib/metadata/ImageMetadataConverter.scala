@@ -39,6 +39,16 @@ object ImageMetadataConverter extends GridLogging {
     (xmpIptcPeople ++ xmpGettyPeople).toSet
   }
 
+  private def extractKeywords(fileMetadata: FileMetadata): List[String] = {
+    val fromXMP =  extractXMPArrayStrings("dc:subject", fileMetadata).toList
+    val fromIPTC= fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil
+    (fromXMP, fromIPTC) match {
+      case (xmp, _)  if xmp.nonEmpty  => xmp
+      case (_, iptc) if iptc.nonEmpty => iptc
+      case _ => Nil
+    }
+  }
+
   def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None): ImageMetadata = {
     val xmp = fileMetadata.xmp
 
@@ -70,8 +80,7 @@ object ImageMetadataConverter extends GridLogging {
                             fileMetadata.iptc.get("Source"),
       specialInstructions = fileMetadata.readXmpHeadStringProp("photoshop:Instructions") orElse
                             fileMetadata.iptc.get("Special Instructions"),
-      // FIXME: Read XMP dc:subject array:
-      keywords            = fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil,
+      keywords            = extractKeywords(fileMetadata),
       // FIXME: Parse newest location schema: http://www.iptc.org/std/photometadata/specification/IPTC-PhotoMetadata#location-structure
       subLocation         = fileMetadata.readXmpHeadStringProp("Iptc4xmpCore:Location") orElse
                             fileMetadata.iptc.get("Sub-location"),
