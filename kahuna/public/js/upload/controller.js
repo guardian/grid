@@ -13,8 +13,8 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', function(uploadMan
 
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
 
-    mediaApi.getSession().then(session => {
-        ctrl.canUpload = session.user.permissions.canUpload;
+    mediaApi.canUserUpload().then(canUpload => {
+        ctrl.canUpload = canUpload;
     });
 
     // TODO: Show multiple jobs?
