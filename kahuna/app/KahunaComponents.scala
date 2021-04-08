@@ -49,6 +49,7 @@ object KahunaSecurityConfig {
       URI.ensureSecure(config.cropOrigin).toString,
       URI.ensureSecure(gaHost).toString,
       URI.ensureSecure("app.getsentry.com").toString,
+      "https://*.googleusercontent.com",
       "'self'"
     ).mkString(" ")}"
 
