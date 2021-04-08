@@ -16,6 +16,7 @@ GET     /images/:id                                   controllers.MediaApi.getIm
 GET     /images/:id/_elasticsearch                    controllers.MediaApi.getImageFromElasticSearch(id: String)
 GET     /images/:id/projection/diff                   controllers.MediaApi.diffProjection(id: String)
 GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
+GET     /images/:imageId/uploadedBy                   controllers.MediaApi.uploadedBy(imageId: String)
 GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                     controllers.MediaApi.downloadOriginalImage(imageId: String)

@@ -172,6 +172,16 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
+  def getUploadedBy(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[String]] = {
+    logger.info("attempt to get uploadedBy")
+    val url = new URL(s"${services.apiBaseUri}/images/$mediaId/uploadedBy")
+    makeGetRequestAsync(url, authFn) map {
+      case Found(json, _) => Some((json \ "data").as[String])
+      case NotFound(_, _) => None
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
   def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")

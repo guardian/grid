@@ -20,7 +20,7 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context,
     () => messageConsumer.actorSystem.terminate()
   }
 
-  val editsController = new EditsController(auth, store, notifications, config, controllerComponents)
+  val editsController = new EditsController(auth, store, notifications, config, wsClient, authorisation, controllerComponents)
   val controller = new EditsApi(auth, config, controllerComponents)
 
   override val router = new Routes(httpErrorHandler, controller, editsController, management)
