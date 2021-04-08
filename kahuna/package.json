@@ -11,7 +11,7 @@
     "angular-xeditable": "^0.8.1",
     "any-http-angular": "^0.1.0",
     "any-promise-angular": "^0.1.1",
-    "cropperjs": "^1.5.9",
+    "cropperjs": "^1.5.11",
     "immutable": "^3.7.5",
     "javascript-detect-element-resize": "^0.5.3",
     "jszip": "2.6.1",
