@@ -62,6 +62,18 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
   }
 
+  def getImageUploaderById(id: String)(implicit ex: ExecutionContext): Future[Option[String]] = {
+    implicit val logMarker = MarkerMap("id" -> id)
+    val request = get(imagesAlias, id).fetchSourceInclude("uploadedBy")
+    executeAndLog(request, s"get image uploader by id $id").map { r =>
+
+      r.status match {
+        case Status.OK => r.result.sourceFieldOpt("uploadedBy").collect{case s: String => s}
+        case _ => None
+      }
+    }
+  }
+
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
     implicit val logMarker = MarkerMap()
     def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id)

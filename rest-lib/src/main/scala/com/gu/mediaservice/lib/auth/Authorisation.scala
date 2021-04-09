@@ -1,14 +1,18 @@
 package com.gu.mediaservice.lib.auth
 
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, Request}
-import com.gu.mediaservice.lib.auth.Permissions.{PrincipalFilter, UploadImages}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, Request, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteImage, EditMetadata, PrincipalFilter, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import play.api.mvc.{ActionFilter, Result, Results}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class Authorisation(provider: AuthorisationProvider, executionContext: ExecutionContext) extends Results with ArgoHelpers {
+  def forbidden(permission: SimplePermission): Result = respondError(Forbidden, "permission-denied", s"You do not have permission to ${permission.name}")
+
+
   def actionFilterFor(permission: SimplePermission, unauthorisedResult: Result): ActionFilter[Request] = new ActionFilter[Request] {
     override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
       if (hasPermissionTo(permission)(request.user)) {
@@ -22,11 +26,49 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
   def actionFilterFor(permission: SimplePermission): ActionFilter[Request] =
     actionFilterFor(
       permission,
-      respondError(Unauthorized, "permission-denied", s"You do not have permission to ${permission.name}")
+      forbidden(permission)
     )
+
+  def actionFilterForUploaderOr(
+                                          imageId: String,
+                                          permission: SimplePermission,
+                                          getUploader: (String, Principal) => Future[Option[String]]
+                                        )(implicit ec: ExecutionContext): ActionFilter[Request] = new ActionFilter[Request] {
+//    implicit val ec = executionContext
+    override protected def filter[A](request: Request[A]): Future[Option[Result]] = {
+      //We first check for permissions, if the user has permissions we avoid evaluating the getUploader function
+      val hasPermission: Boolean = hasPermissionTo(permission)(request.user)
+      if (hasPermission) {
+        Future.successful(None)
+      } else {
+        val result = for {
+          uploadedBy <- getUploader(imageId, request.user)
+          isAuthorised = isUploaderOrHasPermission(request.user, uploadedBy.getOrElse(""), permission)
+          if isAuthorised
+        } yield {
+          Future.successful(None)
+        }
+        result.flatten.recover{case _ => Some(forbidden(permission))}
+      }
+    }
+    override protected def executionContext: ExecutionContext = ec
+  }
 
   object CommonActionFilters {
     lazy val authorisedForUpload = actionFilterFor(UploadImages)
+  }
+
+  def isUploaderOrHasPermission(
+                                         principal: Principal,
+                                         uploadedBy: String,
+                                         permission: SimplePermission
+                                       ) = {
+    principal match {
+      case user: UserPrincipal =>
+        user.email.equalsIgnoreCase(uploadedBy) || hasPermissionTo(permission)(principal)
+      case MachinePrincipal(ApiAccessor(_, Internal), _) => true
+      case _ => false
+    }
   }
 
   def hasPermissionTo(permission: SimplePermission): PrincipalFilter = {
