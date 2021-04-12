@@ -15,11 +15,10 @@ package object formatting {
     ).map(_.getParser)
     new DateTimeFormatterBuilder().
       append(null, parsers).
-      toFormatter.
-      withZoneUTC
+      toFormatter
   }
 
-  val dateTimeFormat: DateTimeFormatter = parseDateTimeFormat.withZoneUTC
+  val dateTimeFormat: DateTimeFormatter = parseDateTimeFormat
 
   def printDateTime(date: DateTime): String = date.toString()
   def printOptDateTime(date: Option[DateTime]): Option[String] = date.map(printDateTime)
