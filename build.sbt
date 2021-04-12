@@ -229,7 +229,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "com.streetcontxt" %% "kcl-akka-stream" % "2.1.0",
+    "com.streetcontxt" %% "kcl-akka-stream" % "2.2.0",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
