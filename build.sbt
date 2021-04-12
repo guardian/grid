@@ -222,8 +222,6 @@ lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/
 
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
-resolvers in ThisBuild += Resolver.bintrayRepo("streetcontxt", "maven")
-
 lazy val thrall = playProject("thrall", 9002).settings(
   libraryDependencies ++= Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
