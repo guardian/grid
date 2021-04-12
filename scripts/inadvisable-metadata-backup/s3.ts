@@ -1,3 +1,4 @@
+process.env.AWS_PROFILE = "media-service"
 import { S3 } from "aws-sdk";
 import { promises as fs } from "fs";
 import path from "path";
@@ -8,6 +9,7 @@ const [, , Bucket, id] = process.argv;
 const Key = `${id.substring(0, 6).split("").join("/")}/${id}`;
 
 (async () => {
+  console.log(`Attempting to backup and replace ${Bucket} object ${Key}`)
   await client
     .copyObject({
       Bucket,
@@ -21,7 +23,7 @@ const Key = `${id.substring(0, 6).split("").join("/")}/${id}`;
   await client
     .upload({
       Bucket,
-      Key: `${Key}_test`,
+      Key: `${Key}`,
       Metadata,
       Body: await fs.readFile(path.resolve("./" + id)),
     })

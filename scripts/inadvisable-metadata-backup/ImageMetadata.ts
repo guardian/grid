@@ -24,10 +24,9 @@ const impartial = (x: object): any =>
   Object.fromEntries(Object.entries(x).filter(([k]) => k !== undefined));
 
 export const toWriteTags = (
-  mmm: ImageMetadata,
+  meta: ImageMetadata,
   fileMetadata: unknown
 ): WriteTags => {
-  const meta: ImageMetadata = Object.fromEntries(Object.entries(mmm).map(([k,v]:[string, string])=>[k,`${v} (äaaïîé)`])) as any as ImageMetadata
   const legal: Partial<WriteTags> = {
     DateTimeOriginal: meta.dateTaken,
     Source: meta.source,
@@ -38,12 +37,12 @@ export const toWriteTags = (
   const specificAndLimited = {
     SupplementalCategories: meta.subjects,
     "IPTC:Credit":meta.credit,
-    "XMP-iptcExt:PersonInImage": (mmm.peopleInImage||[]).map(v=>`${v} (äaaïîé)`),
+    "XMP-iptcExt:PersonInImage": meta.peopleInImage,
     "XMP-gridImage:FileMetadata": JSON.stringify(fileMetadata),
     "XMP-photoshop:Credit": meta.credit,
     "XMP-photoshop:Instructions": meta.specialInstructions,
     "XMP-photoshop:Source": meta.source,
-    "XMP-dc:subject": mmm.keywords.map(v=>`${v} (äaaïîé)`),
+    "XMP-dc:subject": meta.keywords,
     "XMP-dc:description": meta.description,
     "XMP-dc:creator": meta.byline,
     "XMP-photoshop:AuthorsPosition": meta.bylineTitle,

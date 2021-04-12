@@ -8,9 +8,9 @@ echo "Processing $ID in $BUCKET"
 
 grid image:download -d=. $ID
 grid image:get --hydrate $ID > $ID.json
-sips --setProperty format png $ID --out $ID
+
 exiftool -all= $ID
 yarn update $ID
-# yarn s3 $ID $BUCKET
+yarn s3 $BUCKET $ID
 
 echo "DONE"
