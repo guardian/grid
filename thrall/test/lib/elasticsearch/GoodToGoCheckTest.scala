@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.logging.LogMarker
 import com.sksamuel.elastic4s.requests.count.CountResponse
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.Response
-import org.joda.time.{DateTime, Period}
+import org.joda.time.{DateTime, DateTimeZone, Period}
 
 import scala.concurrent.Future
 
@@ -99,6 +99,59 @@ class GoodToGoCheckTest extends ElasticSearchTestBase {
         // confirm that our other images are still present
         testIds.foreach { id =>
           reloadedImage(id).map(_.id) shouldBe Some(id)
+        }
+      }
+    }
+    "approximatelyEqual" - {
+      val lastModified = MappingTest.testImage.lastModified.get
+      val newLastModified = lastModified.withZone(DateTimeZone.forOffsetHours(3))
+      val differentLastModified = lastModified.plus(1)
+      "lastModified dates don't match but have same millis" in {
+        lastModified.getMillis shouldBe newLastModified.getMillis
+        lastModified shouldNot be(newLastModified)
+      }
+      "return true for objects that are identical" in {
+        GoodToGoCheck.approximatelyEqual(MappingTest.testImage, MappingTest.testImage) shouldBe true
+      }
+      "return false for objects that have a different nested field" in {
+        GoodToGoCheck.approximatelyEqual(
+          MappingTest.testImage,
+          MappingTest.testImage.copy(metadata = MappingTest.testImage.metadata.copy(title = Some("banana")))
+        ) shouldBe false
+      }
+      "return true for objects that have a similar date time" in {
+        lastModified.getMillis shouldBe newLastModified.getMillis
+        lastModified shouldNot be(newLastModified)
+        GoodToGoCheck.approximatelyEqual(
+          MappingTest.testImage,
+          MappingTest.testImage.copy(lastModified = Some(newLastModified))
+        ) shouldBe true
+      }
+      "works for option of date time" - {
+        case class OptionOfDateTime(field: Option[DateTime])
+        "that is the same" in {
+          val first = OptionOfDateTime(Some(lastModified))
+          val second = OptionOfDateTime(Some(newLastModified))
+          GoodToGoCheck.approximatelyEqual(first, second) shouldBe true
+        }
+        "that is actually different" in {
+          val first = OptionOfDateTime(Some(lastModified))
+          val second = OptionOfDateTime(Some(differentLastModified))
+          GoodToGoCheck.approximatelyEqual(first, second) shouldBe false
+        }
+      }
+
+      "works for list of date time" - {
+        case class ListOfDateTime(field: List[DateTime])
+        "that is the same" in {
+          val first = ListOfDateTime(List(lastModified))
+          val second = ListOfDateTime(List(newLastModified))
+          GoodToGoCheck.approximatelyEqual(first, second) shouldBe true
+        }
+        "works for list of date time that is actually different" in {
+          val first = ListOfDateTime(List(lastModified))
+          val second = ListOfDateTime(List(differentLastModified))
+          GoodToGoCheck.approximatelyEqual(first, second) shouldBe false
         }
       }
     }
