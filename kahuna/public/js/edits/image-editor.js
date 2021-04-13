@@ -1,6 +1,5 @@
 import angular from 'angular';
 import template from './image-editor.html';
-import './image-editor.css';
 
 import {service} from './service';
 import {imageService} from '../image/service';
@@ -40,9 +39,6 @@ imageEditor.controller('ImageEditorCtrl', [
 
     var ctrl = this;
 
-    editsService.canUserEdit(ctrl.image).then(editable => {
-        ctrl.userCanEdit = editable;
-    });
     ctrl.batchApplyUsageRights = batchApplyUsageRights;
     editsApi.getUsageRightsCategories()
         .then(cats => ctrl.categories = cats)

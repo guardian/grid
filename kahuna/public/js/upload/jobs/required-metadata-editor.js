@@ -1,5 +1,4 @@
 import angular from 'angular';
-import './required-metadata-editor.css';
 import 'angular-elastic';
 import template from './required-metadata-editor.html';
 
@@ -21,9 +20,6 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
-    editsService.canUserEdit(ctrl.image).then(editable => {
-        ctrl.userCanEdit = editable;
-    });
     ctrl.saving = false;
     ctrl.disabled = () => Boolean(ctrl.saving || ctrl.externallyDisabled);
     ctrl.saveOnTime = 750; // ms
@@ -66,10 +62,8 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     if (Boolean(ctrl.withBatch)) {
         $scope.$on(batchApplyMetadataEvent, (e, { field, data }) => {
-            if (ctrl.canEditMetadata()) {
-                ctrl.metadata[field] = data;
-                ctrl.save();
-            }
+            ctrl.metadata[field] = data;
+            ctrl.save();
         });
 
         ctrl.batchApplyMetadata = field =>
