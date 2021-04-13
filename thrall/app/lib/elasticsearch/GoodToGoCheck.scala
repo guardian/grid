@@ -9,6 +9,7 @@ import com.sksamuel.elastic4s.requests.delete.{DeleteByQueryResponse, DeleteResp
 import com.typesafe.scalalogging.StrictLogging
 import org.joda.time.{DateTime, Period}
 
+import scala.collection.{GenIterable, GenIterableLike, IterableLike, TraversableLike}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
@@ -48,7 +49,7 @@ object GoodToGoCheck extends StrictLogging {
           // and retrieving it is the same object - note: we use a string check here as the DateTimes don't compare
           // usefully and we override the lastModified to avoid TZ issues in BST
           val retrievedImageSameAsIndexed =
-            maybeRetrieveResult.map(_.copy(lastModified = image.lastModified)).toString == Some(image).toString
+            approximatelyEqual(maybeRetrieveResult, Some(image))
           if (!retrievedImageSameAsIndexed) logger.warn(s"Image mismatch: \n$maybeRetrieveResult\n${Some(image)}")
 
           if (indexedOneItem && retrievedImageSameAsIndexed) {
@@ -89,5 +90,26 @@ object GoodToGoCheck extends StrictLogging {
       s"Deleting any old test images uploaded by ${MappingTest.testImage.uploadedBy}"
     )
     eventualResult.map(_.result.deleted)
+  }
+
+  /** This function computes an approximate equality for some objects which is fuzzy when it comes to Joda DateTimes
+    * and will say that two objects are equal even when they contain DateTimes within them that are the same point
+    * in time but expressed in two different ways (i.e. two different time zones)
+    * @param a The first object to compare
+    * @param b A second object to compare
+    * @return true if the objects are equal (aside from chronology/timezone in DateTimes)
+    */
+  def approximatelyEqual(a: Any, b: Any): Boolean = {
+    (a, b) match {
+      case (aTrav: GenIterable[_], bTrav: GenIterable[_]) =>
+        aTrav.zip(bTrav)
+          .forall { case (aVal, bVal) => approximatelyEqual(aVal, bVal) }
+      case (aProduct: Product, bProduct: Product) =>
+        aProduct.productIterator
+          .zip(bProduct.productIterator)
+          .forall { case (aVal, bVal) => approximatelyEqual(aVal, bVal) }
+      case (aDateTime: DateTime, bDateTime: DateTime) => aDateTime.getMillis == bDateTime.getMillis
+      case (aOther, bOther) => aOther == bOther
+    }
   }
 }
