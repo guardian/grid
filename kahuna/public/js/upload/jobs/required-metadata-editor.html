@@ -1,4 +1,4 @@
-<form class="job-editor" name="jobEditor" ng-submit="ctrl.save()" novalidate>
+<form class="job-editor" name="jobEditor" ng-submit="ctrl.save()" novalidate ng-class="{'job-editor__disabled': !ctrl.userCanEdit}">
     <div class="job-editor__inputs">
         <label class="job-info--editor__field flex-center">
             <div class="job-info--editor__label job-info--editor__label flex-center text-small">Description</div>
@@ -13,13 +13,14 @@
                 ng-change="ctrl.save()"
                 ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
                 ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-disabled="!ctrl.userCanEdit"
             ></textarea>
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this description to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit"
                 ng-click="ctrl.batchApplyMetadata('description')"
             >⇔</button>
         </label>
@@ -38,13 +39,14 @@
                 ng-change="ctrl.save()"
                 ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
                 ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-disabled="!ctrl.userCanEdit"
             />
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this byline to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit"
                 ng-click="ctrl.batchApplyMetadata('byline')"
             >⇔</button>
 
@@ -65,6 +67,7 @@
                     gr-datalist-input
                     ng-model="ctrl.metadata.credit"
                     ng-change="ctrl.save()"
+                    ng-disabled="!ctrl.userCanEdit"
                     ng-model-options="{ updateOn: 'gr-datalist:update blur' }" />
             </gr-datalist>
 
@@ -72,7 +75,7 @@
                 class="job-editor__apply-to-all"
                 title="Apply this credit to all"
                 type="button"
-                ng-if="ctrl.withBatch"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit"
                 ng-click="ctrl.batchApplyMetadata('credit')"
             >⇔</button>
         </div>
@@ -86,13 +89,14 @@
                 ng-change="ctrl.save()"
                 ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
                 ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-disabled="!ctrl.userCanEdit"
             />
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply this copyright to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit"
                 ng-click="ctrl.batchApplyMetadata('copyright')"
             >⇔</button>
         </label>
@@ -107,13 +111,14 @@
                 ng-change="ctrl.save()"
                 ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
                 ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+                ng-disabled="!ctrl.userCanEdit"
             />
 
             <button
                 class="job-editor__apply-to-all"
                 title="Apply these instructions to all your current uploads"
                 type="button"
-                ng-if="ctrl.withBatch"
+                ng-if="ctrl.withBatch && ctrl.userCanEdit"
                 ng-click="ctrl.batchApplyMetadata('specialInstructions')"
             >⇔</button>
         </label>
