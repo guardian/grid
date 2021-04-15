@@ -3,6 +3,7 @@ package controllers
 
 import java.net.URI
 import java.net.URLDecoder.decode
+
 import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
@@ -119,6 +120,7 @@ class EditsController(
     }
   }
 
+  // TODO remove when SyndicationController takes over.
   def getPhotoshoot(id: String) = auth.async {
     editsStore.jsonGet(id, Edits.Photoshoot).map(dynamoEntry => {
       (dynamoEntry \ Edits.Photoshoot).toOption match {
@@ -130,6 +132,7 @@ class EditsController(
     }
   }
 
+  // TODO remove when SyndicationController takes over.
   def setPhotoshoot(id: String) = auth.async(parse.json) { req => {
     (req.body \ "data").asOpt[Photoshoot].map(photoshoot => {
       editsStore.jsonAdd(id, Edits.Photoshoot, caseClassToMap(photoshoot))
@@ -140,6 +143,7 @@ class EditsController(
     )
   }}
 
+  // TODO remove when SyndicationController takes over.
   def deletePhotoshoot(id: String) = auth.async {
     editsStore.removeKey(id, Edits.Photoshoot)
       .map(publish(id, UpdateImagePhotoshoot))
