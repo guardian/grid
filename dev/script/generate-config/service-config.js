@@ -138,6 +138,8 @@ function getMetadataEditorConfig(config) {
         |aws.region="${config.AWS_DEFAULT_REGION}"
         |s3.collections.bucket="${config.coreStackProps.CollectionsBucket}"
         |dynamo.table.edits="EditsTable"
+        |dynamo.globalsecondaryindex.edits.photoshoots="Photoshoots"
+        |dynamo.table.syndication="SyndicationTable"
         |indexed.images.sqs.queue.url="${config.coreStackProps.IndexedImageMetadataQueue.replace("http://localhost:4576", `https://localstack.media.${config.DOMAIN}`)}"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
