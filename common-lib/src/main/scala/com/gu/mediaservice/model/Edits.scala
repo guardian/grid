@@ -18,20 +18,27 @@ case class Edits(
 object Edits {
   val emptyMetadata = ImageMetadata()
 
+  val Photoshoot = "photoshoot"
+  val PhotoshootTitle = "photoshootTitle"
+  val Labels = "labels"
+  val Archived = "archived"
+  val Metadata = "metadata"
+  val UsageRights = "usageRights"
+
   implicit val EditsReads: Reads[Edits] = (
-    (__ \ "archived").readNullable[Boolean].map(_ getOrElse false) ~
-    (__ \ "labels").readNullable[List[String]].map(_ getOrElse Nil) ~
-    (__ \ "metadata").readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
-    (__ \ "usageRights").readNullable[UsageRights] ~
-    (__ \ "photoshoot").readNullable[Photoshoot]
+    (__ \ Archived).readNullable[Boolean].map(_ getOrElse false) ~
+    (__ \ Labels).readNullable[List[String]].map(_ getOrElse Nil) ~
+    (__ \ Metadata).readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
+    (__ \ UsageRights).readNullable[UsageRights] ~
+    (__ \ Photoshoot).readNullable[Photoshoot]
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
-    (__ \ "archived").write[Boolean] ~
-    (__ \ "labels").write[List[String]] ~
-    (__ \ "metadata").writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
-    (__ \ "usageRights").writeNullable[UsageRights] ~
-    (__ \ "photoshoot").writeNullable[Photoshoot]
+    (__ \ Archived).write[Boolean] ~
+    (__ \ Labels).write[List[String]] ~
+    (__ \ Metadata).writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
+    (__ \ UsageRights).writeNullable[UsageRights] ~
+    (__ \ Photoshoot).writeNullable[Photoshoot]
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)

@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+import com.gu.mediaservice.syntax.MessageSubjects
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -41,7 +42,7 @@ class MediaApi(
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
                 authorisation: Authorisation
-)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
+)(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers {
 
   val services: Services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
@@ -209,8 +210,7 @@ class MediaApi(
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImage)
 
           if (canDelete) {
-            val deleteImage = "delete-image"
-            val updateMessage = UpdateMessage(subject = deleteImage, id = Some(id))
+            val updateMessage = UpdateMessage(subject = DeleteImage, id = Some(id))
             messageSender.publish(updateMessage)
             Accepted
           } else {

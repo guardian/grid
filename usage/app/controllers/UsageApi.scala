@@ -9,6 +9,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
+import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import model._
 import play.api.libs.json.{JsError, JsValue, Json}
@@ -20,7 +21,7 @@ import scala.util.Try
 
 class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGroupOps, notifications: Notifications, config: UsageConfig, usageRecorder: UsageRecorder, liveContentApi: LiveContentApi,
   override val controllerComponents: ControllerComponents, playBodyParsers: PlayBodyParsers)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with MessageSubjects with ArgoHelpers {
 
   private def wrapUsage(usage: Usage): EntityResponse[Usage] = {
     EntityResponse(
@@ -215,7 +216,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
     }
 
-    val updateMessage = UpdateMessage(subject = "delete-usages", id = Some(mediaId))
+    val updateMessage = UpdateMessage(subject = DeleteUsages, id = Some(mediaId))
     notifications.publish(updateMessage)
     Future.successful(Ok)
   }

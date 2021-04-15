@@ -18,6 +18,7 @@ import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.syntax.MessageSubjects
 import lib.{DigestedFile, ImageLoaderConfig, Notifications}
 import lib.imaging.{FileMetadataReader, MimeTypeDetection}
 import lib.storage.ImageLoaderStore
@@ -280,7 +281,7 @@ class Uploader(val store: ImageLoaderStore,
                val imageOps: ImageOperations,
                val notifications: Notifications,
                imageProcessor: ImageProcessor)
-              (implicit val ec: ExecutionContext) extends ArgoHelpers {
+              (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
 
 
 
@@ -345,7 +346,7 @@ class Uploader(val store: ImageLoaderStore,
 
     for {
       imageUpload <- fromUploadRequest(uploadRequest)
-      updateMessage = UpdateMessage(subject = "image", image = Some(imageUpload.image))
+      updateMessage = UpdateMessage(subject = Image, image = Some(imageUpload.image))
       _ <- Future { notifications.publish(updateMessage) }
       // TODO: centralise where all these URLs are constructed
       uri = s"${config.rootUri}/uploadStatus/${uploadRequest.imageId}"

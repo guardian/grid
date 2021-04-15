@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
+import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
 import org.joda.time.{DateTime, DateTimeZone}
@@ -18,7 +19,7 @@ class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
                        syndicationRightsOps: SyndicationRightsOps
-                      ) extends GridLogging {
+                      ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     updateMessage.subject match {

@@ -10,6 +10,7 @@ import com.gu.mediaservice.indexing.ProduceProgress
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model.Image
+import com.gu.mediaservice.syntax.MessageSubjects
 import com.typesafe.scalalogging.LazyLogging
 import net.logstash.logback.marker.Markers
 import play.api.libs.json.{JsObject, Json}
@@ -41,7 +42,7 @@ case class BatchIndexHandlerConfig(
 
 case class SuccessResult(foundImagesCount: Int, notFoundImagesCount: Int, progressHistory: String, projectionTookInSec: Long)
 
-class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClient) extends LoggingWithMarkers {
+class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClient) extends MessageSubjects with LoggingWithMarkers {
 
   import cfg._
 
@@ -151,7 +152,7 @@ class BatchIndexHandler(cfg: BatchIndexHandlerConfig)(implicit wsClient: WSClien
           val kinesisClient = AwsHelpers.buildKinesisClient(kinesisEndpoint)
           foundImages.foreach { image =>
             val message = UpdateMessage(
-              subject = "reingest-image",
+              subject = ReingestImage,
               image = Some(image)
             )
             AwsHelpers.putToKinesis(message, kinesisStreamName, kinesisClient)

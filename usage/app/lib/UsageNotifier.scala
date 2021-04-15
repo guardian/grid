@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
+import com.gu.mediaservice.syntax.MessageSubjects
 import model.UsageTable
 import org.joda.time.DateTime
 import play.api.libs.json._
@@ -12,7 +13,7 @@ import rx.lang.scala.Observable
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
-  extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging {
+  extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging with MessageSubjects {
 
   def build(mediaId: String) = Observable.from(
     usageTable.queryByImageId(mediaId).map((usages: Set[MediaUsage]) => {
@@ -22,7 +23,7 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
 
   def send(usageNotice: UsageNotice) = {
     logger.info(s"Sending usage notice for ${usageNotice.mediaId}")
-    val updateMessage = UpdateMessage(subject = "update-image-usages", id = Some(usageNotice.mediaId), usageNotice = Some(usageNotice))
+    val updateMessage = UpdateMessage(subject = UpdateImageUsages, id = Some(usageNotice.mediaId), usageNotice = Some(usageNotice))
     publish(updateMessage)
   }
 }
