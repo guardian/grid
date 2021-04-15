@@ -25,6 +25,15 @@ GET     /metadata/:id/photoshoot                        controllers.EditsControl
 PUT     /metadata/:id/photoshoot                        controllers.EditsController.setPhotoshoot(id: String)
 DELETE  /metadata/:id/photoshoot                        controllers.EditsController.deletePhotoshoot(id: String)
 
+# TODO Uncomment to swap to new SyndicationController functionality.
+#GET     /metadata/:id/photoshoot                        controllers.SyndicationController.getPhotoshoot(id: String)
+#PUT     /metadata/:id/photoshoot                        controllers.SyndicationController.setPhotoshoot(id: String)
+#DELETE  /metadata/:id/photoshoot                        controllers.SyndicationController.deletePhotoshoot(id: String)
+
+GET     /metadata/:id/syndication                       controllers.SyndicationController.getSyndication(id: String)
+PUT     /metadata/:id/syndication                       controllers.SyndicationController.setSyndication(id: String)
+DELETE  /metadata/:id/syndication                       controllers.SyndicationController.deleteSyndication(id: String)
+
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest

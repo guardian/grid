@@ -1,6 +1,6 @@
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.play.GridComponents
-import controllers.{EditsApi, EditsController}
+import controllers.{EditsApi, EditsController, SyndicationController}
 import lib._
 import play.api.ApplicationLoader.Context
 import router.Routes
@@ -21,9 +21,10 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context,
     () => messageConsumer.actorSystem.terminate()
   }
 
-  val editsController = new EditsController(auth, editsStore, notifications, config, controllerComponents)
+  val editsController = new EditsController(auth, editsStore, notifications, config, wsClient, authorisation, controllerComponents)
   val syndicationController = new SyndicationController(auth, editsStore, syndicationStore, notifications, config, controllerComponents)
   val controller = new EditsApi(auth, config, controllerComponents)
 
   override val router = new Routes(httpErrorHandler, controller, editsController, management)
 }
+
