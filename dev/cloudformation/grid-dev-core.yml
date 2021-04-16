@@ -83,7 +83,7 @@ Resources:
       AttributeDefinitions:
         - AttributeName: id
           AttributeType: S
-        - AttributeName: photoshoot
+        - AttributeName: photoshootTitle
           AttributeType: S
       KeySchema:
         - AttributeName: id
@@ -94,7 +94,7 @@ Resources:
       GlobalSecondaryIndexes:
         - IndexName: Photoshoots
           KeySchema:
-            - AttributeName: photoshoot
+            - AttributeName: photoshootTitle
               KeyType: HASH
           Projection:
             ProjectionType: KEYS_ONLY
@@ -260,6 +260,8 @@ Outputs:
     Value: !Ref 'S3WatcherFailBucket'
   UsageMailBucket:
     Value: !Ref 'UsageMailBucket'
+  SyndicationDynamoTable:
+    Value: !Ref 'SyndicationDynamoTable'
   EditsDynamoTable:
     Value: !Ref 'EditsDynamoTable'
   CollectionsDynamoTable:
