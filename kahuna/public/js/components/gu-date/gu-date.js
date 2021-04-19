@@ -45,7 +45,6 @@ guDate.directive('guDate', [function () {
             const input = root.querySelector('input.gu-date__value--hidden');
             const container = root.querySelector('.gu-date__container');
 
-            const pikaFieldFormat = 'DD-MM-YYYY';
             const pika = new Pikaday({
                 field: input,
                 container: container,
@@ -54,7 +53,7 @@ guDate.directive('guDate', [function () {
                 maxDate: tenYearsFromNow,
                 yearRange: 100,
                 firstDay: START_OF_WEEK,
-                format: pikaFieldFormat,
+                format: DISPLAY_FORMAT,
                 keyboardInput: false
             });
 

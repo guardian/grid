@@ -83,7 +83,6 @@ guDateRange.directive('guDateRange', [function () {
             .querySelectorAll('.gu-date-range__overlay__pikaday--end')[0];
 
 
-          const pikaFieldFormat = 'DD-MM-YYYY';
           const tenYearsInMilliseconds = (10 * 365 * 24 * 60 * 60 * 1000);
           const tenYearsFromNow =  new Date(Date.now() + tenYearsInMilliseconds);
 
@@ -94,7 +93,7 @@ guDateRange.directive('guDateRange', [function () {
               maxDate: tenYearsFromNow,
               yearRange: 100,
               firstDay: parseInt(ctrl.guFirstDay),
-              format: pikaFieldFormat,
+              format: ctrl.guDateFormat,
               keyboardInput: false
           });
 
@@ -104,7 +103,7 @@ guDateRange.directive('guDateRange', [function () {
               bound: false,
               maxDate: tenYearsFromNow,
               firstDay: parseInt(ctrl.guFirstDay),
-              format: pikaFieldFormat,
+              format: ctrl.guDateFormat,
               yearRange: 100,
               keyboardInput: false
           });
