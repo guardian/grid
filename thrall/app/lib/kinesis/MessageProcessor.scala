@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
+import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
 import org.joda.time.{DateTime, DateTimeZone}
@@ -18,25 +19,40 @@ class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
                        syndicationRightsOps: SyndicationRightsOps
-                      ) extends GridLogging {
+                      ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     updateMessage.subject match {
-      case "image" => indexImage(updateMessage, logMarker)
-      case "reingest-image" => indexImage(updateMessage, logMarker)
-      case "delete-image" => deleteImage(updateMessage, logMarker)
-      case "update-image" => indexImage(updateMessage, logMarker)
-      case "delete-image-exports" => deleteImageExports(updateMessage, logMarker)
-      case "update-image-exports" => updateImageExports(updateMessage, logMarker)
-      case "update-image-user-metadata" => updateImageUserMetadata(updateMessage, logMarker)
-      case "update-image-usages" => updateImageUsages(updateMessage, logMarker)
-      case "replace-image-leases" => replaceImageLeases(updateMessage, logMarker)
-      case "add-image-lease" => addImageLease(updateMessage, logMarker)
-      case "remove-image-lease" => removeImageLease(updateMessage, logMarker)
-      case "set-image-collections" => setImageCollections(updateMessage, logMarker)
-      case "delete-usages" => deleteAllUsages(updateMessage, logMarker)
-      case "upsert-rcs-rights" => upsertSyndicationRights(updateMessage, logMarker)
-      case "update-image-photoshoot" => updateImagePhotoshoot(updateMessage, logMarker)
+      case Image => indexImage(updateMessage, logMarker)
+      case ReingestImage => indexImage(updateMessage, logMarker)
+      case DeleteImage => deleteImage(updateMessage, logMarker)
+      case UpdateImage => indexImage(updateMessage, logMarker)
+      case DeleteImageExports => deleteImageExports(updateMessage, logMarker)
+      case UpdateImageExports => updateImageExports(updateMessage, logMarker)
+      case UpdateImageUserMetadata => updateImageUserMetadata(updateMessage, logMarker)
+      case UpdateImageUsages => updateImageUsages(updateMessage, logMarker)
+      case ReplaceImageLeases => replaceImageLeases(updateMessage, logMarker)
+      case AddImageLease => addImageLease(updateMessage, logMarker)
+      case RemoveImageLease => removeImageLease(updateMessage, logMarker)
+      case SetImageCollections => setImageCollections(updateMessage, logMarker)
+      case DeleteUsages => deleteAllUsages(updateMessage, logMarker)
+
+      // Notes on upsertSyndicationRights[Only]
+      // The first message type comes from the RCS poller lambda.
+      // The second comes from metadata editor
+      // Poller lambda must update metadata editor
+      // See https://trello.com/c/tyarJEax/2241-grid-add-syndication-to-metadata-service
+      case UpsertRcsRights => upsertSyndicationRights(updateMessage, logMarker)
+      case UpdateImageSyndicationMetadata => upsertSyndicationRightsOnly(updateMessage, logMarker)
+
+      // Notes on updateImagePhotoshoot
+      // This message type comes from metadata editor.
+      // It currently works out the syndication rights and upserts ElasticSearch
+      // via syndicationRightsOps.upsertOrRefreshRights.  See note in method
+      // The new code does not upsert syndication rights - these are handled by the
+      // UpdateImageSyndicationMetadata message (see above)
+      case UpdateImagePhotoshoot => updateImagePhotoshoot(updateMessage, logMarker, updateSyndicationRights = true)
+      case UpdateImagePhotoshootMetadata => updateImagePhotoshoot(updateMessage, logMarker, updateSyndicationRights = false)
       case unknownSubject => Future.failed(ProcessorNotFoundException(unknownSubject))
      }
   }
@@ -131,6 +147,18 @@ class MessageProcessor(es: ElasticSearch,
     withId(message)(id =>
       Future.sequence(es.deleteAllImageUsages(id, message.lastModified)(ec, logMarker)))
 
+  def upsertSyndicationRightsOnly(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] =
+    withId(message){ id =>
+      implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
+        es.getImage(id) map {
+          case Some(image) =>
+            val photoshoot = image.userMetadata.flatMap(_.photoshoot)
+            logger.info(marker, s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(message.syndicationRights)}")
+            es.updateImageSyndicationRights(id, message.syndicationRights, message.lastModified)
+          case _ => logger.info(marker, s"Image $id not found")
+        }
+    }
+
   def upsertSyndicationRights(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] =
     withId(message){ id =>
       implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
@@ -150,7 +178,8 @@ class MessageProcessor(es: ElasticSearch,
       )
     }
 
-  def updateImagePhotoshoot(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+
+  def updateImagePhotoshoot(message: UpdateMessage, logMarker: LogMarker, updateSyndicationRights: Boolean)(implicit ec: ExecutionContext): Future[Unit] = {
     withId(message) { id =>
       implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
       withEdits(message) { upcomingEdits =>
@@ -158,14 +187,21 @@ class MessageProcessor(es: ElasticSearch,
           imageOpt <- es.getImage(id)
           prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
           _ <- updateImageUserMetadata(message, logMarker)
+          // Once the new UpdateImageSyndication messages are being acted upon, this
+          // section should be dropped.
           _ <- {
-            logger.info(marker, s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
-            syndicationRightsOps.upsertOrRefreshRights(
-              image = imageOpt.get,
-              currentPhotoshootOpt = upcomingEdits.photoshoot,
-              previousPhotoshootOpt = prevPhotoshootOpt,
-              message.lastModified
-            )
+            if (updateSyndicationRights) {
+              logger.info(marker, s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
+              syndicationRightsOps.upsertOrRefreshRights(
+                image = imageOpt.get,
+                currentPhotoshootOpt = upcomingEdits.photoshoot,
+                previousPhotoshootOpt = prevPhotoshootOpt,
+                message.lastModified
+              )
+            } else {
+              logger.info(marker, s"NOT upserting syndication rights for image $id.")
+              Future.successful(Unit)
+            }
           }
         } yield logger.info(marker, s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}")
       }

@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.lib.net.{URI => UriOps}
 import com.gu.mediaservice.model.{ActionData, Collection}
+import com.gu.mediaservice.syntax.MessageSubjects
 import lib.{CollectionsConfig, Notifications}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
@@ -18,7 +19,7 @@ import scala.concurrent.Future
 
 class ImageCollectionsController(authenticated: Authentication, config: CollectionsConfig, notifications: Notifications,
                                  override val controllerComponents: ControllerComponents)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with MessageSubjects with ArgoHelpers {
 
   import CollectionsManager.onlyLatest
 
@@ -63,7 +64,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
   def publish(id: String)(collections: List[Collection]): List[Collection] = {
     val onlyLatestCollections = onlyLatest(collections)
-    val updateMessage = UpdateMessage(subject = "set-image-collections", id = Some(id), collections = Some(onlyLatestCollections))
+    val updateMessage = UpdateMessage(subject = SetImageCollections, id = Some(id), collections = Some(onlyLatestCollections))
     notifications.publish(updateMessage)
     onlyLatestCollections
   }

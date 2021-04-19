@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.aws
 
 import com.amazonaws.AmazonServiceException
-import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
@@ -195,6 +195,18 @@ class DynamoDB(config: CommonConfig, tableName: String) {
   def scan()(implicit ex: ExecutionContext) = Future {
     table.scan().iterator.asScala.toList
   } map (_.map(asJsObject))
+
+  def scanForId(indexName: String, keyname: String, key: String)(implicit ex: ExecutionContext) = Future {
+    val index = table.getIndex(indexName)
+
+    val spec = new QuerySpec()
+      .withKeyConditionExpression(s"$keyname = :key")
+      .withValueMap(new ValueMap()
+        .withString(":key", key))
+
+    val items: List[Item] = index.query(spec).iterator.asScala.toList
+    items map (a => a.getString("id"))
+  }
 
   def update(id: String, expression: String, valueMap: ValueMap)
             (implicit ex: ExecutionContext): Future[JsObject] =

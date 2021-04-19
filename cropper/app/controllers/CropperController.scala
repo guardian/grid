@@ -18,6 +18,9 @@ import org.joda.time.DateTime
 import play.api.libs.ws.WSClient
 
 import java.net.URI
+
+import com.gu.mediaservice.syntax.MessageSubjects
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -30,7 +33,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
                         config: CropperConfig,
                         override val controllerComponents: ControllerComponents,
                         ws: WSClient, authorisation: Authorisation)(implicit val ec: ExecutionContext)
-  extends BaseController with ArgoHelpers {
+  extends BaseController with MessageSubjects with ArgoHelpers {
 
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
@@ -52,8 +55,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
       executeRequest(exportRequest, user, onBehalfOfPrincipal).map { case (imageId, export) =>
         val cropJson = Json.toJson(export).as[JsObject]
-        val updateImageExports = "update-image-exports"
-        val updateMessage = UpdateMessage(subject = updateImageExports, id = Some(imageId), crops = Some(Seq(export)))
+        val updateMessage = UpdateMessage(subject = UpdateImageExports, id = Some(imageId), crops = Some(Seq(export)))
         notifications.publish(updateMessage)
 
         Ok(cropJson).as(ArgoMediaType)
@@ -101,7 +103,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   def deleteCrops(id: String) = auth.async { httpRequest =>
     if(canDeleteCrops(httpRequest.user)) {
       store.deleteCrops(id).map { _ =>
-        val updateMessage = UpdateMessage(subject = "delete-image-exports", id = Some(id))
+        val updateMessage = UpdateMessage(subject = DeleteImageExports, id = Some(id))
         notifications.publish(updateMessage)
         Accepted
       } recover {

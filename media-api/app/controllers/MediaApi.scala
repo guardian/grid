@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage, EditMetadata, UploadImages}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage => DeleteImagePermission, EditMetadata, UploadImages}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+import com.gu.mediaservice.syntax.MessageSubjects
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -41,7 +42,7 @@ class MediaApi(
                 mediaApiMetrics: MediaApiMetrics,
                 ws: WSClient,
                 authorisation: Authorisation
-)(implicit val ec: ExecutionContext) extends BaseController with ArgoHelpers {
+)(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers {
 
   val services: Services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
@@ -59,7 +60,7 @@ class MediaApi(
 
   private def getUploader(imageId: String, user: Principal): Future[Option[String]] = elasticSearch.getImageUploaderById(imageId)
 
-  private def authorisedForDeleteImageOrUploader(imageId: String) = authorisation.actionFilterForUploaderOr(imageId, DeleteImage, getUploader)
+  private def authorisedForDeleteImageOrUploader(imageId: String) = authorisation.actionFilterForUploaderOr(imageId, DeleteImagePermission, getUploader)
 
   private def indexResponse(user: Principal) = {
     val indexData = Json.obj(
@@ -206,11 +207,10 @@ class MediaApi(
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
 
         if (imageCanBeDeleted) {
-          val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImage)
+          val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
 
           if (canDelete) {
-            val deleteImage = "delete-image"
-            val updateMessage = UpdateMessage(subject = deleteImage, id = Some(id))
+            val updateMessage = UpdateMessage(subject = DeleteImage, id = Some(id))
             messageSender.publish(updateMessage)
             Accepted
           } else {
@@ -297,7 +297,7 @@ class MediaApi(
 
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
       val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
-      val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImage)
+      val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
       val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
       val (imageData, imageLinks, imageActions) =
@@ -335,7 +335,7 @@ class MediaApi(
     elasticSearch.getImageWithSourceById(id) map {
       case Some(source) if hasPermission(request.user, source.instance) =>
         val writePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, EditMetadata)
-        val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImage)
+        val deleteImagePermission = authorisation.isUploaderOrHasPermission(request.user, source.instance.uploadedBy, DeleteImagePermission)
         val deleteCropsOrUsagePermission = canUserDeleteCropsOrUsages(request.user)
 
         val (imageData, imageLinks, imageActions) = imageResponse.create(

@@ -62,19 +62,45 @@ Resources:
       VersioningConfiguration:
         Status: Enabled
 
+  SyndicationDynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SyndicationTable
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
   EditsDynamoTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: EditsTable
       AttributeDefinitions:
-      - AttributeName: id
-        AttributeType: S
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: photoshootTitle
+          AttributeType: S
       KeySchema:
-      - AttributeName: id
-        KeyType: HASH
+        - AttributeName: id
+          KeyType: HASH
       ProvisionedThroughput:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
+      GlobalSecondaryIndexes:
+        - IndexName: Photoshoots
+          KeySchema:
+            - AttributeName: photoshootTitle
+              KeyType: HASH
+          Projection:
+            ProjectionType: KEYS_ONLY
+          ProvisionedThroughput:
+            ReadCapacityUnits: '4'
+            WriteCapacityUnits: '2'
 
   CollectionsDynamoTable:
     Type: AWS::DynamoDB::Table
@@ -234,6 +260,8 @@ Outputs:
     Value: !Ref 'S3WatcherFailBucket'
   UsageMailBucket:
     Value: !Ref 'UsageMailBucket'
+  SyndicationDynamoTable:
+    Value: !Ref 'SyndicationDynamoTable'
   EditsDynamoTable:
     Value: !Ref 'EditsDynamoTable'
   CollectionsDynamoTable:

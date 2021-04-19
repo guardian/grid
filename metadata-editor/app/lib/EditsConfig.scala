@@ -10,6 +10,8 @@ class EditsConfig(resources: GridConfigResources) extends CommonConfig(resources
   val collectionsBucket: String = string("s3.collections.bucket")
 
   val editsTable = string("dynamo.table.edits")
+  val editsTablePhotoshootIndex = string("dynamo.globalsecondaryindex.edits.photoshoots")
+  val syndicationTable = string("dynamo.table.syndication")
 
   val queueUrl = string("indexed.images.sqs.queue.url")
 

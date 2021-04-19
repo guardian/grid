@@ -6,6 +6,7 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model.usage.UsageNotice
 import com.gu.mediaservice.model.{Edits, ImageMetadata}
+import com.gu.mediaservice.syntax.MessageSubjects
 import lib.{MetadataEditorNotifications, ThrallStore}
 import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, SyndicationRightsOps}
 import org.joda.time.{DateTime, DateTimeZone}
@@ -16,7 +17,7 @@ import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
 
 
-class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
+class MessageProcessorTest extends ElasticSearchTestBase with MessageSubjects with MockitoSugar {
   implicit val logMarker: MarkerMap = MarkerMap()
   "MessageProcessor" - {
     val messageProcessor = new MessageProcessor(
@@ -48,7 +49,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
           val message = UpdateMessage(
-            "update-image-usages",
+            UpdateImageUsages,
             image = None,
             id = Some(id),
             usageNotice = Some(UsageNotice(id, JsArray())),
@@ -68,7 +69,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MockitoSugar {
           val id = UUID.randomUUID().toString
 
           val message = UpdateMessage(
-            "update-image-usages",
+            UpdateImageUsages,
             image = None,
             id = Some(id),
             usageNotice = Some(UsageNotice(id, JsArray())),
