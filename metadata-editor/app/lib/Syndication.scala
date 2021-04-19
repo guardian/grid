@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
-import com.gu.mediaservice.model.{Edits, Image, Photoshoot, SyndicationRights}
+import com.gu.mediaservice.model.{Edits, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax.MessageSubjects
 import play.api.libs.json.{JsNull, JsString}
 
@@ -117,17 +117,6 @@ trait Syndication extends Edit with MessageSubjects {
 
   def getMostRecentSyndicationRights(list: List[Option[SyndicationRights]]): Option[SyndicationRights] = list
     .collect {case Some(sr) => sr}.filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption
-
-  def filterImagesByInference(ids: List[String], inferred: Boolean)
-                             (implicit ec: ExecutionContext): Future[List[String]] = {
-    Future.traverse(ids)(id => syndicationStore.jsonGet(id, syndicationRightsFieldName)
-      // It's OK for the image to _not_ exist in the syndication store, so this needs to be recovered
-      .recover { case NoItemFound => JsNull }
-      // Filter depending on if we want inferred or not-inferred.
-      .filter( rights => inferred && rights == JsNull || !inferred && rights != JsNull )
-      .map(_ => id)
-    )
-  }
 
   def getAllImageRightsInPhotoshoot(photoshootMaybe: Option[Photoshoot])
                                    (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] =
