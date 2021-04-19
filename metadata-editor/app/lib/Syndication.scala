@@ -148,6 +148,7 @@ trait Syndication extends Edit with MessageSubjects {
       .map(dynamoEntry => (dynamoEntry \ Edits.Photoshoot).toOption map {
         photoshootJson => photoshootJson.as[Photoshoot]
       })
+      .recover { case NoItemFound => None }
 
   def publish(imagesInPhotoshoot: Map[String, Option[SyndicationRights]], subject: String)
              (implicit ec: ExecutionContext): Future[Unit] = Future {
