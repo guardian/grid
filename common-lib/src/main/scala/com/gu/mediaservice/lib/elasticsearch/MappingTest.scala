@@ -96,7 +96,8 @@ object MappingTest {
       labels = List("a label", "another label"),
       metadata = testImageMetadata,
       usageRights = Some(NoRights),
-      photoshoot = Some(Photoshoot("crazy times shoot"))
+      photoshoot = Some(Photoshoot("crazy times shoot")),
+      lastModified = Some(imageModified)
     )),
     metadata = testImageMetadata,
     originalMetadata = testImageMetadata,
