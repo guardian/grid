@@ -54,9 +54,10 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val highPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val lowPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
+  val reingestionSource: Source[ReingestionRecord, Future[Done]] = ReingestionSource()
 
-  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, actorSystem)
-  val thrallStreamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, thrallEventConsumer, actorSystem, materializer)
+  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
+  val thrallStreamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, reingestionSource, thrallEventConsumer, actorSystem, materializer)
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 

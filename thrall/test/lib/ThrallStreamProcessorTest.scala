@@ -15,35 +15,52 @@ import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-private class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar {
   private implicit val actorSystem: ActorSystem = ActorSystem()
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  def createRecord: KinesisRecord = KinesisRecord(ByteString.empty, "", None, "", None, OffsetDateTime.now().toInstant, "")
+  def createKinesisRecord: KinesisRecord = KinesisRecord(ByteString.empty, "", None, "", None, OffsetDateTime.now().toInstant, "")
+  def createReingestionRecord: ReingestionRecord = ReingestionRecord(ByteString.empty.toArray, OffsetDateTime.now().toInstant)
 
-  val highPrioritySource: Source[KinesisRecord, Future[Done.type]] = Source.repeat(createRecord).mapMaterializedValue(_ => Future.successful(Done)).take(100)
-  val lowPrioritySource: Source[KinesisRecord, Future[Done.type]] = Source.repeat(createRecord).mapMaterializedValue(_ => Future.successful(Done)).take(100)
+  val COUNT_EACH = 2000
+  val highPrioritySource: Source[KinesisRecord, Future[Done.type]] = Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+  val lowPrioritySource: Source[KinesisRecord, Future[Done.type]] = Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+  val reingestionSource: Source[ReingestionRecord, Future[Done.type]] = Source.repeat(createReingestionRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+  val COUNT_TOTAL = 3 * COUNT_EACH
 
   lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
-  lazy val streamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, mockConsumer, actorSystem, materializer)
+  lazy val streamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, reingestionSource, mockConsumer, actorSystem, materializer)
 
   describe("Stream merging strategy") {
     it("should process high priority events first") {
       val stream = streamProcessor.createStream()
 
-      val prioritiesFromMessages = Await.result(stream.take(200).runWith(Sink.seq), 5.minutes).map {
+      val prioritiesFromMessages = Await.result(stream.take(COUNT_TOTAL).runWith(Sink.seq), 5.minutes).map {
         case (record, _, _) => record.priority
       }
 
-      prioritiesFromMessages.length shouldBe 200
+      prioritiesFromMessages.length shouldBe COUNT_TOTAL
 
       // it looks like MergedPreferred doesn't strictly process the `preferred` inlet and then the remaining inlets
       // but rather, it appears to take some a number from all defined inlets and then the `preferred` inlet
       // `alternatingSegment` represents this behaviour
-      val alternatingSegment = Seq(LowPriority, HighPriority, LowPriority)
+      val alternatingSegment = Seq(LowestPriority, LowPriority, HighPriority)
 
-      val expected: Seq[Priority] = alternatingSegment ++ (1 to 98).map(_ => HighPriority) ++ alternatingSegment ++ (1 to 96).map(_ => LowPriority)
-      prioritiesFromMessages.toList shouldBe expected.toList
+      val output = prioritiesFromMessages.toList
+      val mostlyHigh = output.slice(0, COUNT_EACH - 1)
+      val mostlyLow = output.slice(COUNT_EACH, 2 * COUNT_EACH - 1 )
+      val mostlyLowest = output.slice(2* COUNT_EACH,3 * COUNT_EACH - 1)
+
+      val PERCENTAGE = 95 / 100
+
+      val MINIMUM_RECORDS = COUNT_EACH * PERCENTAGE
+      mostlyHigh.count(p => p == HighPriority) should be > MINIMUM_RECORDS
+      mostlyLow.count(p => p == LowPriority) should be > MINIMUM_RECORDS
+      mostlyLowest.count(p => p == LowestPriority) should be > MINIMUM_RECORDS
+
+      output.count(p => p == HighPriority) should be (COUNT_EACH)
+      output.count(p => p == LowPriority) should be (COUNT_EACH)
+      output.count(p => p == LowestPriority) should be (COUNT_EACH)
     }
   }
 }
