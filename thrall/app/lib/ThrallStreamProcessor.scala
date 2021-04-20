@@ -16,13 +16,13 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 sealed trait Priority
-case object LowPriority extends Priority {
+case object AutomationPriority extends Priority {
   override def toString = "low"
 }
-case object LowestPriority extends Priority {
+case object ReingestionPriority extends Priority {
   override def toString = "lowest"
 }
-case object HighPriority extends Priority {
+case object UiPriority extends Priority {
   override def toString = "high"
 }
 
@@ -50,33 +50,33 @@ case class TaggedReingestionRecord(record: ReingestionRecord, priority: Priority
 }
 
 class ThrallStreamProcessor(
-  highPrioritySource: Source[KinesisRecord, Future[Done]],
-  lowPrioritySource: Source[KinesisRecord, Future[Done]],
-  reingestionSource: Source[ReingestionRecord, Future[Done]],
-  consumer: ThrallEventConsumer,
-  actorSystem: ActorSystem,
-  materializer: Materializer) extends GridLogging {
+                             uiSource: Source[KinesisRecord, Future[Done]],
+                             automationSource: Source[KinesisRecord, Future[Done]],
+                             reingestionSource: Source[ReingestionRecord, Future[Done]],
+                             consumer: ThrallEventConsumer,
+                             actorSystem: ActorSystem,
+                             materializer: Materializer) extends GridLogging {
 
   implicit val mat = materializer
   implicit val dispatcher = actorSystem.getDispatcher
 
   val mergedKinesisSource: Source[TaggedRecord, NotUsed] = Source.fromGraph(GraphDSL.create() { implicit g =>
     import GraphDSL.Implicits._
-    val highPriorityKinesisSource = highPrioritySource.map(TaggedKinesisRecord(_, HighPriority))
-    val lowPriorityKinesisSource = lowPrioritySource.map(TaggedKinesisRecord(_, LowPriority))
-    val lowestPriorityKinesisSource = reingestionSource.map(TaggedReingestionRecord(_, LowestPriority))
-    val mergePreferred1 = g.add(MergePreferred[TaggedRecord](1))
-//    mergePreferred1.out.map() /// do the parse to UpdateMessage on the stream side.
+    val uiRecordSource = uiSource.map(TaggedKinesisRecord(_, UiPriority))
+    val automationRecordSource = automationSource.map(TaggedKinesisRecord(_, AutomationPriority))
+    val reingestionRecordSource = reingestionSource.map(TaggedReingestionRecord(_, ReingestionPriority))
+    val preferredRecordsTee = g.add(MergePreferred[TaggedRecord](1))
+//    preferredRecordsTee.out.map() /// do the parse to UpdateMessage on the stream side.
 
-    highPriorityKinesisSource ~> mergePreferred1.preferred
-    lowPriorityKinesisSource  ~> mergePreferred1.in(0)
+    uiRecordSource ~> preferredRecordsTee.preferred
+    automationRecordSource  ~> preferredRecordsTee.in(0)
 
-    val mergePreferred2 = g.add(MergePreferred[TaggedRecord](1))
+    val otherRecordsTee = g.add(MergePreferred[TaggedRecord](1))
 
-    mergePreferred1 ~> mergePreferred2.preferred
-    lowestPriorityKinesisSource  ~> mergePreferred2.in(0)
+    preferredRecordsTee ~> otherRecordsTee.preferred
+    reingestionRecordSource  ~> otherRecordsTee.in(0)
 
-    SourceShape(mergePreferred2.out)
+    SourceShape(otherRecordsTee.out)
   })
 
   def createStream(): Source[(TaggedRecord, Stopwatch, Either[Throwable, ThrallMessage]), NotUsed] = {
