@@ -330,7 +330,7 @@ main() {
       setupLocalAuthenticationProviderConfiguration
       setupLocalAuthorisationProviderConfiguration
     else
-      createLocalAuthStack
+      createGuardianLocalAuthStack
       setupPanDomainConfiguration
       setupGuardianPermissionConfiguration
     fi
