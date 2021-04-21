@@ -1,4 +1,5 @@
 import play.sbt.PlayImport.PlayKeys._
+import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 
 import scala.sys.process._
 import scala.util.control.NonFatal
@@ -24,8 +25,12 @@ val commonSettings = Seq(
   ),
 
   sources in (Compile,doc) := Seq.empty,
-  publishArtifact in (Compile, packageDoc) := false
-)
+  publishArtifact in (Compile, packageDoc) := false,
+  assemblyMergeStrategy in assembly := {
+    case PathList("META-INF", xs@_*) => MergeStrategy.discard
+    case "logback.xml" => MergeStrategy.first
+    case x => MergeStrategy.first
+  })
 
 //Common projects to all organizations
 lazy val commonProjects: Seq[sbt.ProjectReference] = Seq(commonLib, restLib, auth, collections, cropper, imageLoader, leases, thrall, kahuna, metadataEditor, usage, mediaApi, adminToolsLambda, adminToolsScripts, adminToolsDev)

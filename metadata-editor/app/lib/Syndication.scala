@@ -59,8 +59,13 @@ trait Syndication extends Edit with MessageSubjects {
     _ <- syndicationStore.jsonAdd(id, syndicationRightsFieldName, DynamoDB.caseClassToMap(syndicationRight))
     allImageRightsInPhotoshootAfter <- getAllImageRightsInPhotoshoot(photoshootMaybe)
     changedRights = getChangedRights(allImageRightsInPhotoshootBefore, allImageRightsInPhotoshootAfter)
-// TODO Uncomment to swap to new SyndicationController functionality.
-//    _ <- publish(changedRights, UpdateImageSyndicationMetadata)
+    // TODO Uncomment to swap to new SyndicationController functionality.
+    //    _ <- publish(changedRights, UpdateImageSyndicationMetadata)
+  } yield syndicationRight
+
+  def setSyndicationOnly(id: String, syndicationRight: SyndicationRights)
+                        (implicit ec: ExecutionContext): Future[SyndicationRights] = for {
+    _ <- syndicationStore.jsonAdd(id, syndicationRightsFieldName, DynamoDB.caseClassToMap(syndicationRight))
   } yield syndicationRight
 
   def getSyndicationForImage(id: String)
