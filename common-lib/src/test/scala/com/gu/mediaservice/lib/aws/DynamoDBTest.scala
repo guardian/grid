@@ -1,10 +1,14 @@
 package com.gu.mediaservice.lib.aws
 
+import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
+import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.model.{ActionData, Collection}
 import org.joda.time.DateTime
 import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json.{Format, JsObject, Json}
+
+import scala.collection.JavaConverters.{mapAsJavaMapConverter, mapAsScalaMapConverter}
 
 class DynamoDBTest extends FunSpec with Matchers {
 
@@ -68,6 +72,46 @@ class DynamoDBTest extends FunSpec with Matchers {
       pathId should be (collection.pathId)
       author should be (collection.actionData.author)
       path should be (collection.path)
+    }
+  }
+
+  describe("addLastModifiedUpdate") {
+    val testTime = new DateTime(2021, 3, 22, 14, 58)
+
+    it ("should prefix a lastModified update to existing SET expression") {
+      val input = new UpdateItemSpec()
+        .withUpdateExpression("SET anotherKey = :anotherValue")
+      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
+      output.getUpdateExpression shouldBe "SET lm = :lm, anotherKey = :anotherValue"
+    }
+
+    it ("should prefix a lastModified SET clause to existing ADD expression") {
+      val input = new UpdateItemSpec()
+        .withUpdateExpression("ADD anotherKey :anotherValue")
+      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
+      output.getUpdateExpression shouldBe "SET lm = :lm ADD anotherKey :anotherValue"
+    }
+
+    it ("should add a date time to an existing value map") {
+      val valueMap = new ValueMap()
+      valueMap.put(":anotherValue", "anotherValue")
+      val input = new UpdateItemSpec()
+        .withUpdateExpression("banana")
+        .withValueMap(valueMap)
+      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
+      output.getValueMap.asScala shouldBe Map(
+        ":anotherValue" -> "anotherValue",
+        ":lm" -> testTime.toString
+      )
+    }
+
+    it ("should add a date time when there is no value map") {
+      val input = new UpdateItemSpec()
+        .withUpdateExpression("banana")
+      val output = DynamoDB.addLastModifiedUpdate(input, "lm", testTime)
+      output.getValueMap.asScala shouldBe Map(
+        ":lm" -> testTime.toString
+      )
     }
   }
 

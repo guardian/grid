@@ -1,9 +1,11 @@
 package com.gu.mediaservice.model
 
 import java.net.{URI, URLEncoder}
-
 import com.gu.mediaservice.lib.argo.model.{Action, EmbeddedEntity}
+import org.joda.time.DateTime
 import play.api.libs.json._
+import play.api.libs.json.JodaReads._
+import play.api.libs.json.JodaWrites._
 import play.api.libs.functional.syntax._
 
 
@@ -12,7 +14,8 @@ case class Edits(
   labels: List[String] = List(),
   metadata: ImageMetadata,
   usageRights: Option[UsageRights] = None,
-  photoshoot: Option[Photoshoot] = None
+  photoshoot: Option[Photoshoot] = None,
+  lastModified: Option[DateTime] = None
 )
 
 object Edits {
@@ -24,13 +27,15 @@ object Edits {
   val Archived = "archived"
   val Metadata = "metadata"
   val UsageRights = "usageRights"
+  val LastModified = "lastModified"
 
   implicit val EditsReads: Reads[Edits] = (
     (__ \ Archived).readNullable[Boolean].map(_ getOrElse false) ~
     (__ \ Labels).readNullable[List[String]].map(_ getOrElse Nil) ~
     (__ \ Metadata).readNullable[ImageMetadata].map(_ getOrElse emptyMetadata) ~
     (__ \ UsageRights).readNullable[UsageRights] ~
-    (__ \ Photoshoot).readNullable[Photoshoot]
+    (__ \ Photoshoot).readNullable[Photoshoot] ~
+    (__ \ LastModified).readNullable[DateTime]
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
@@ -38,7 +43,8 @@ object Edits {
     (__ \ Labels).write[List[String]] ~
     (__ \ Metadata).writeNullable[ImageMetadata].contramap(noneIfEmptyMetadata) ~
     (__ \ UsageRights).writeNullable[UsageRights] ~
-    (__ \ Photoshoot).writeNullable[Photoshoot]
+    (__ \ Photoshoot).writeNullable[Photoshoot] ~
+    (__ \ LastModified).writeNullable[DateTime]
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)
@@ -62,11 +68,12 @@ trait EditsResponse {
 
   // the types are in the arguments because of a whining scala compiler
   def editsEntity(id: String): Writes[Edits] = (
-      (__ \ "archived").write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
-      (__ \ "labels").write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
-      (__ \ "metadata").write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
-      (__ \ "usageRights").write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
-      (__ \ "photoshoot").write[PhotoshootEntity].contramap(photoshootEntity(id, _: Option[Photoshoot]))
+      (__ \ Edits.Archived).write[ArchivedEntity].contramap(archivedEntity(id, _: Boolean)) ~
+      (__ \ Edits.Labels).write[SetEntity].contramap(setEntity(id, "labels", _: List[String])) ~
+      (__ \ Edits.Metadata).write[MetadataEntity].contramap(metadataEntity(id, _: ImageMetadata)) ~
+      (__ \ Edits.UsageRights).write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
+      (__ \ Edits.Photoshoot).write[PhotoshootEntity].contramap(photoshootEntity(id, _: Option[Photoshoot])) ~
+      (__ \ Edits.LastModified).writeNullable[DateTime]
     )(unlift(Edits.unapply))
 
   def photoshootEntity(id: String, photoshoot: Option[Photoshoot]): PhotoshootEntity =

@@ -243,13 +243,15 @@ lazy val usage = playProject("usage", 9009).settings(
   )
 )
 
+val awsSdkV2Version = "2.15.81"
 lazy val scripts = project("scripts")
   .dependsOn(commonLib)
   .enablePlugins(JavaAppPackaging, UniversalPlugin)
   .settings(
     libraryDependencies ++= Seq(
       // V2 of the AWS SDK as it's easier to use for scripts and won't leak to the rest of the project from here
-      "software.amazon.awssdk" % "s3" % "2.15.81",
+      "software.amazon.awssdk" % "s3" % awsSdkV2Version,
+      "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
       // bump jcommander explicitly as AWS SDK is pulling in a vulnerable version
       "com.beust" % "jcommander" % "1.75",
       "org.apache.commons" % "commons-compress" % "1.20",

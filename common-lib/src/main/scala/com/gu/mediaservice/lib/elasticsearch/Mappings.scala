@@ -187,7 +187,8 @@ object Mappings {
     nonAnalysedList("labels").copyTo("metadata.englishAnalysedCatchAll"),
     metadataMapping("metadata"),
     usageRightsMapping("usageRights"),
-    photoshootMapping("photoshoot")
+    photoshootMapping("photoshoot"),
+    dateField("lastModified")
   )
 
   def uploadInfoMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
