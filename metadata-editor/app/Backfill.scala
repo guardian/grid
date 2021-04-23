@@ -26,6 +26,7 @@ object BackfillApp extends App with Syndication with GridLogging {
 
   if (args.length == 0) {
     println("dude, i need at least one parameter")
+    System.exit(1)
   }
   val dirName = args(0)
 
@@ -47,6 +48,7 @@ object BackfillApp extends App with Syndication with GridLogging {
     .filter(_.isFile)
     .filter(_.getName.startsWith("rights."))
     .filterNot(_.getName.endsWith(".done"))
+    .sortBy(f => f.getName)
     .toList
   for (inputFile <- inputFiles) {
     val mapOfIdsAndRights = Json.parse(Source.fromFile(inputFile).mkString).as[JsObject].fields.toList.map { kv =>
