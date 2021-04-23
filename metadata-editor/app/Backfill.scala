@@ -34,7 +34,7 @@ object BackfillApp extends App with Syndication with GridLogging {
 //  val syndicationTable = "media-service-TEST-SyndicationDynamoTable-1POLCOD07Q8H3"
 
   implicit private val system: ActorSystem = ActorSystem()
-  def underlying = new Underlying(syndicationTable)
+  def underlying = new UnderlyingPhotoshoot(syndicationTable)
   def configuration = new Configuration(underlying)
   def gridConfigResources = new GridConfigResources(configuration, system)
   def editsConfig = new EditsConfig(gridConfigResources)
@@ -131,7 +131,7 @@ class Underlying(syndicationTable: String) extends Config {
 
   override def getAnyRef(path: String): AnyRef = ???
 
-  override def getValue(path: String): ConfigValue = BackfillConfigValue(path, params.get(path))
+  override def getValue(path: String): ConfigValue = BackfillPhotoshootConfigValue(path, params.get(path))
 
   override def getBytes(path: String): lang.Long = ???
 
@@ -195,7 +195,7 @@ class Underlying(syndicationTable: String) extends Config {
 }
 
 case class BackfillConfigValue(path: String, value: Option[String]) extends ConfigValue {
-  override def origin(): ConfigOrigin = BackfillConfigOrigin(path)
+  override def origin(): ConfigOrigin = BackfillPhotoshootConfigOrigin(path)
 
   override def valueType(): ConfigValueType = ???
 
