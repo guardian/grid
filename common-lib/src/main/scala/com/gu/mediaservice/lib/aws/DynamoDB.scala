@@ -192,6 +192,10 @@ class DynamoDB(config: CommonConfig, tableName: String) {
     // all we care about is whether it completed.
   } map (_ => value)
 
+  def scanRaw()(implicit ex: ExecutionContext) = Future {
+    table.scan().asScala.toStream
+  }
+
   def scan()(implicit ex: ExecutionContext) = Future {
     table.scan().iterator.asScala.toList
   } map (_.map(asJsObject))
