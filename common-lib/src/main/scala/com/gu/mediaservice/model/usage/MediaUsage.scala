@@ -28,6 +28,9 @@ case class MediaUsage(
       // remove events from CAPI that represent images previous to Grid existing
       logger.info(s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
       false
+    } else if (mediaId.trim.isEmpty) {
+      logger.warn("Unprocessable MediaUsage", this)
+      false
     } else {
       true
     }
