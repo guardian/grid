@@ -33,6 +33,7 @@ trait Syndication extends Edit with MessageSubjects {
     publishChangedSyndicationRightsMessages[Unit](id, unchangedPhotoshoot = false) { () =>
       for {
         edits <- editsStore.removeKey(id, Edits.Photoshoot)
+        edits <- editsStore.removeKey(id, Edits.PhotoshootTitle)
         _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
       } yield Unit
     }.map(_._1)
