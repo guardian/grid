@@ -42,14 +42,27 @@ trait Syndication extends Edit with MessageSubjects {
     } yield Unit
   }
 
-  def setPhotoshootAndPublish(id: String, photoshoot: Photoshoot)
-                             (implicit ec: ExecutionContext): Future[Photoshoot] = for {
-    editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(photoshoot))
-    _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(photoshoot.title)) // store - don't care about return
-    allImageRightsInPhotoshootAfter <- getAllImageRightsInPhotoshoot(photoshoot)
-    _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
-    _ <- publish(allImageRightsInPhotoshootAfter, UpdateImageSyndicationMetadata) // update all images in photoshoot
-  } yield photoshoot
+  def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot)
+                             (implicit ec: ExecutionContext): Future[Photoshoot] = {
+    for {
+      oldPhotoshoot <- getCurrentPhotoshoot(id)
+      // Get the list of rights potentially affected BEFORE doing the update!
+      allImageRightsInPhotoshootBefore <- getAllImageRightsInPhotoshoot(oldPhotoshoot)
+      editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
+      _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
+      allImageRightsInPhotoshootAfter <- getAllImageRightsInPhotoshoot(newPhotoshoot)
+      _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
+      changedRights = getChangedRights(allImageRightsInPhotoshootBefore, allImageRightsInPhotoshootAfter)
+      _ <- publish(changedRights, UpdateImageSyndicationMetadata) // update all images in photoshoot
+    } yield newPhotoshoot
+  }
+
+  private def getCurrentPhotoshoot(id: String)(implicit ec: ExecutionContext) =
+    editsStore.jsonGet(id, Edits.Photoshoot).map(dynamoEntry => {
+      (dynamoEntry \ Edits.Photoshoot).toOption.map(_.as[Photoshoot])
+    }) recover {
+      case NoItemFound => None
+    }
 
   def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
                               (implicit ec: ExecutionContext): Future[SyndicationRights] = for {
