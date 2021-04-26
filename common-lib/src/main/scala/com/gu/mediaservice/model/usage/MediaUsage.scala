@@ -29,7 +29,7 @@ case class MediaUsage(
       logger.info(s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
       false
     } else if (mediaId.trim.isEmpty) {
-      logger.warn("Unprocessable MediaUsage", this)
+      logger.warn("Unprocessable MediaUsage, mediaId is empty", this)
       false
     } else {
       true
@@ -51,4 +51,3 @@ case class MediaUsage(
     case _ => false
   }
 }
-
