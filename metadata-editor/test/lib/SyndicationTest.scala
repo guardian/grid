@@ -1,12 +1,17 @@
 package lib
 
+import com.google.gson.JsonNull
 import com.gu.mediaservice.model._
 import org.joda.time.DateTime
+import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{FunSpec, Matchers}
+import play.api.libs.json.{JsNull, JsObject, JsString, JsValue, Json}
 
 import scala.util.Random
 import scala.collection.Map
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
 
 class SyndicationTest extends FunSpec with Matchers with Syndication with MockitoSugar {
 
