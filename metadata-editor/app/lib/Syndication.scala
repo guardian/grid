@@ -107,8 +107,13 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     }
 
   private def getRightsForImages(ids: List[String], inferredRights: Option[SyndicationRights])
-                                (implicit ec: ExecutionContext, rjs: Reads[SyndicationRights]): Future[Map[String, SyndicationRights]] =
+                                (implicit ec: ExecutionContext, rjs: Reads[SyndicationRights]): Future[Map[String, SyndicationRights]] = {
       syndicationStore.batchGet(ids)
+        .map( nonInferredRights => inferredRights match {
+          case Some(rights) => nonInferredRights.withDefaultValue(rights)
+          case None => nonInferredRights
+        })
+  }
 
   def getMostRecentSyndicationRights(list: List[SyndicationRights]): Option[SyndicationRights] = list
     .filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption
