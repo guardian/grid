@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Edits, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax.MessageSubjects
+import org.joda.time.DateTime
 import play.api.libs.json.{JsNull, JsString, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -14,19 +15,29 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   private val syndicationRightsFieldName = "syndicationRights"
 
+  private def timedFuture[T](label: String, f : => Future[T])(implicit ec: ExecutionContext): Future[T] = {
+    val timeBefore = DateTime.now().getMillis
+    val result = f
+      result.onComplete { _ =>
+        val timeAfter = DateTime.now().getMillis
+        logger.info(s"$label took ${timeAfter - timeBefore} milliseconds")
+      }
+    result
+  }
+
   private[lib] def publishChangedSyndicationRightsMessages[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None)(f: () => Future[T])
                               (implicit ec: ExecutionContext): Future[T] =
     for {
       oldPhotoshootMaybe <- getPhotoshootForImage(id)
       newPhotoshootMaybe = if (unchangedPhotoshoot) None else photoshoot  // if None, the get rights calls (below) will return none.
-      allImageRightsInOldPhotoshootBefore <- getAllImageRightsInPhotoshoot(oldPhotoshootMaybe)
-      allImageRightsInNewPhotoshootBefore <- getAllImageRightsInPhotoshoot(newPhotoshootMaybe)
+      allImageRightsInOldPhotoshootBefore <- timedFuture("Get old photoshoot rights before", getAllImageRightsInPhotoshoot(oldPhotoshootMaybe))
+      allImageRightsInNewPhotoshootBefore <- timedFuture("Get new photoshoot rights before", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
       result <- f()
-      allImageRightsInOldPhotoshootAfter <- getAllImageRightsInPhotoshoot(oldPhotoshootMaybe)
-      allImageRightsInNewPhotoshootAfter <- getAllImageRightsInPhotoshoot(newPhotoshootMaybe)
+      allImageRightsInOldPhotoshootAfter <- timedFuture("Get old photoshoot rights after", getAllImageRightsInPhotoshoot(oldPhotoshootMaybe))
+      allImageRightsInNewPhotoshootAfter <- timedFuture("Get new photoshoot rights after", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
       oldChangedRights = getChangedRights(allImageRightsInOldPhotoshootBefore, allImageRightsInOldPhotoshootAfter)
       newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
-      _ <- publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata)
+      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata))
     } yield {
       logger.info(s"Changed rights on old photoshoot ($oldPhotoshootMaybe): ${oldChangedRights.size}")
       logger.info(s"Changed rights on new photoshoot ($newPhotoshootMaybe): ${newChangedRights.size}")
@@ -38,7 +49,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     publishChangedSyndicationRightsMessages[Unit](id, unchangedPhotoshoot = false) { () =>
       for {
         edits <- editsStore.removeKey(id, Edits.Photoshoot)
-        edits <- editsStore.removeKey(id, Edits.PhotoshootTitle)
+        _ <- editsStore.removeKey(id, Edits.PhotoshootTitle)
         _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
       } yield Unit
     }
