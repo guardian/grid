@@ -1,20 +1,21 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Edits, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax.MessageSubjects
 import play.api.libs.json.{JsNull, JsString, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait Syndication extends Edit with MessageSubjects {
+trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def syndicationStore: SyndicationStore
 
   private val syndicationRightsFieldName = "syndicationRights"
 
   private[lib] def publishChangedSyndicationRightsMessages[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None)(f: () => Future[T])
-                              (implicit ec: ExecutionContext): Future[(T, Map[String, Option[SyndicationRights]])] =
+                              (implicit ec: ExecutionContext): Future[T] =
     for {
       oldPhotoshootMaybe <- getPhotoshootForImage(id)
       newPhotoshootMaybe = if (unchangedPhotoshoot) None else photoshoot  // if None, the get rights calls (below) will return none.
@@ -26,7 +27,11 @@ trait Syndication extends Edit with MessageSubjects {
       oldChangedRights = getChangedRights(allImageRightsInOldPhotoshootBefore, allImageRightsInOldPhotoshootAfter)
       newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
       _ <- publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata)
-    } yield (result, oldChangedRights ++ newChangedRights)
+    } yield {
+      logger.info(s"Changed rights on old photoshoot (${oldPhotoshootMaybe}: ${oldChangedRights.size}")
+      logger.info(s"Changed rights on new photoshoot (${newPhotoshootMaybe}: ${newChangedRights.size}")
+      result
+    }
 
   def deletePhotoshootAndPublish(id: String)
                                 (implicit ec: ExecutionContext): Future[Unit] =
@@ -36,7 +41,7 @@ trait Syndication extends Edit with MessageSubjects {
         edits <- editsStore.removeKey(id, Edits.PhotoshootTitle)
         _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
       } yield Unit
-    }.map(_._1)
+    }
 
   def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot)
                              (implicit ec: ExecutionContext): Future[Photoshoot] = {
@@ -47,14 +52,14 @@ trait Syndication extends Edit with MessageSubjects {
         _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
       } yield newPhotoshoot
     }
-  }.map(_._1)
+  }
 
   def deleteSyndicationAndPublish(id: String)
                                  (implicit ec: ExecutionContext): Future[Unit] = {
     publishChangedSyndicationRightsMessages[Unit](id, unchangedPhotoshoot = true) { () =>
       syndicationStore.deleteItem(id)
     }
-  }.map(_._1)
+  }
 
   def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
                               (implicit ec: ExecutionContext): Future[SyndicationRights] =
