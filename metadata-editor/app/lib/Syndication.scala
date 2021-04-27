@@ -28,8 +28,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
       _ <- publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata)
     } yield {
-      logger.info(s"Changed rights on old photoshoot (${oldPhotoshootMaybe}: ${oldChangedRights.size}")
-      logger.info(s"Changed rights on new photoshoot (${newPhotoshootMaybe}: ${newChangedRights.size}")
+      logger.info(s"Changed rights on old photoshoot ($oldPhotoshootMaybe): ${oldChangedRights.size}")
+      logger.info(s"Changed rights on new photoshoot ($newPhotoshootMaybe): ${newChangedRights.size}")
       result
     }
 
@@ -65,7 +65,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
                               (implicit ec: ExecutionContext): Future[SyndicationRights] =
     publishChangedSyndicationRightsMessages[SyndicationRights](id, unchangedPhotoshoot = true) {() =>
       syndicationStore.jsonAdd (id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
-    }.map(_._1)
+    }
 
   def getSyndicationForImage(id: String)
                             (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] = {
