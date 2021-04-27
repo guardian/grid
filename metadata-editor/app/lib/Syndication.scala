@@ -3,7 +3,7 @@ package lib
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
 import com.gu.mediaservice.model.{Edits, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax.MessageSubjects
-import play.api.libs.json.{JsNull, JsString}
+import play.api.libs.json.{JsNull, JsString, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -102,28 +102,19 @@ trait Syndication extends Edit with MessageSubjects {
     }
 
   private def getRightsForImages(ids: List[String], inferredRights: Option[SyndicationRights])
-                                (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] = {
-    Future.traverse(ids)(id => {
-      syndicationStore.jsonGet(id, syndicationRightsFieldName)
-        // Any/all of the images in this photoshoot may have no rights, so recover
-        .recover { case NoItemFound => JsNull }
-        .map(dynamoEntry => {
-          (dynamoEntry \ syndicationRightsFieldName).toOption map (x => x.as[SyndicationRights].copy(isInferred = false))
-        })
-        .map(rightMaybe => id -> rightMaybe.orElse(inferredRights))
-    }).map(list => list.toMap)
-  }
+                                (implicit ec: ExecutionContext, rjs: Reads[SyndicationRights]): Future[Map[String, SyndicationRights]] =
+      syndicationStore.batchGet(ids)
 
-  def getMostRecentSyndicationRights(list: List[Option[SyndicationRights]]): Option[SyndicationRights] = list
-    .collect {case Some(sr) => sr}.filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption
+  def getMostRecentSyndicationRights(list: List[SyndicationRights]): Option[SyndicationRights] = list
+    .filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption
 
   def getAllImageRightsInPhotoshoot(photoshootMaybe: Option[Photoshoot])
-                                   (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] =
+                                   (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] =
     photoshootMaybe.map(photoshoot => getAllImageRightsInPhotoshoot(photoshoot))
-      .getOrElse(Future.successful(Map.empty[String, Option[SyndicationRights]]))
+      .getOrElse(Future.successful(Map.empty[String, SyndicationRights]))
 
   def getAllImageRightsInPhotoshoot(photoshoot: Photoshoot)
-                                   (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] = for {
+                                   (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] = for {
     imageIds <- getImagesInPhotoshoot(photoshoot)
     mostRecentInferredRightsMaybe <- getMostRecentInferredSyndicationRights(imageIds)
     rights <- getRightsForImages(imageIds, mostRecentInferredRightsMaybe)
@@ -134,10 +125,10 @@ trait Syndication extends Edit with MessageSubjects {
       editsStore.scanForId(config.editsTablePhotoshootIndex, Edits.PhotoshootTitle, photoshoot.title)
         .recover { case NoItemFound => Nil }
 
-  def getChangedRights(before: Map[String, Option[SyndicationRights]], after: Map[String, Option[SyndicationRights]]): Map[String, Option[SyndicationRights]] = {
+  def getChangedRights(before: Map[String, SyndicationRights], after: Map[String, SyndicationRights]): Map[String, Option[SyndicationRights]] = {
     // Rights in 'after' which do not have an exact equal in 'before'
     // Rights in 'before' which are not present at all in 'after', so have no inferred rights now
-    (after.toSet -- before.toSet).toMap ++
+    (after.toSet -- before.toSet).toMap.map(kv => (kv._1 -> Some(kv._2))) ++
       (before.keySet -- after.keySet).map(id => id -> None)
   }
 

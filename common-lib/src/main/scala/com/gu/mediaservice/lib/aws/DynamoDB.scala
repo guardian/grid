@@ -1,15 +1,18 @@
 package com.gu.mediaservice.lib.aws
 
+import java.util
+
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
-import com.amazonaws.services.dynamodbv2.model.ReturnValue
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, BatchGetItemRequest, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
 import play.api.libs.json._
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -125,7 +128,34 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   def jsonGet(id: String, key: String)
              (implicit ex: ExecutionContext): Future[JsValue] =
-      get(id, key).map(item => asJsObject(item))
+    get(id, key).map(item => asJsObject(item))
+
+  def batchGet(ids: List[String])
+              (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
+
+    val idKeys: List[util.Map[String,AttributeValue]] = ids.map(k => Map((IdKey -> new AttributeValue(k))).asJava)
+    val keysAndAttributes: KeysAndAttributes = new KeysAndAttributes().withKeys(idKeys.asJava)
+    @tailrec
+    def nextPageOfBatch(request: java.util.Map[String, KeysAndAttributes], acc: List[(String, T)])
+                                   (implicit ex: ExecutionContext, rjs: Reads[T]): List[(String, T)] = {
+      if (request.isEmpty) acc
+      else {
+        val response  = client.batchGetItem(request)
+        val results = response.getResponses.get(tableName).asScala.toList
+            .flatMap(att => {
+              val attributes: util.Map[String, AnyRef] = ItemUtils.toSimpleMapValue(att)
+              val json = asJsObject(Item.fromMap(attributes))
+              json.asOpt[T].map(
+                (json \ IdKey).as[String] -> _
+              )
+            })
+        nextPageOfBatch(response.getUnprocessedKeys, acc ::: results)
+      }
+    }
+
+    Future { nextPageOfBatch(Map((tableName -> keysAndAttributes)).asJava, Nil).toMap }
+  }
+
 
   // We cannot update, so make sure you send over the WHOLE document
   def jsonAdd(id: String, key: String, value: Map[String, JsValue])
