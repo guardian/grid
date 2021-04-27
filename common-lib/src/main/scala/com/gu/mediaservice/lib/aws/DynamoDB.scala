@@ -6,7 +6,7 @@ import com.amazonaws.AmazonServiceException
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, GetItemSpec, PutItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
-import com.amazonaws.services.dynamodbv2.model.{AttributeValue, BatchGetItemRequest, KeysAndAttributes, ReturnValue}
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
 import org.joda.time.DateTime
@@ -132,16 +132,20 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
 
   def batchGet(ids: List[String])
               (implicit ex: ExecutionContext, rjs: Reads[T]): Future[Map[String, T]] = {
+    val keyChunkList = ids
+      .map(k => Map(IdKey -> new AttributeValue(k)).asJava)
+      .grouped(100)
 
-    val idKeys: List[util.Map[String,AttributeValue]] = ids.map(k => Map((IdKey -> new AttributeValue(k))).asJava)
-    val keysAndAttributes: KeysAndAttributes = new KeysAndAttributes().withKeys(idKeys.asJava)
-    @tailrec
-    def nextPageOfBatch(request: java.util.Map[String, KeysAndAttributes], acc: List[(String, T)])
-                                   (implicit ex: ExecutionContext, rjs: Reads[T]): List[(String, T)] = {
-      if (request.isEmpty) acc
-      else {
-        val response  = client.batchGetItem(request)
-        val results = response.getResponses.get(tableName).asScala.toList
+    Future.traverse(keyChunkList) { keyChunk => {
+      val keysAndAttributes: KeysAndAttributes = new KeysAndAttributes().withKeys(keyChunk.asJava)
+
+      @tailrec
+      def nextPageOfBatch(request: java.util.Map[String, KeysAndAttributes], acc: List[(String, T)])
+                         (implicit ex: ExecutionContext, rjs: Reads[T]): List[(String, T)] = {
+        if (request.isEmpty) acc
+        else {
+          val response = client.batchGetItem(request)
+          val results = response.getResponses.get(tableName).asScala.toList
             .flatMap(att => {
               val attributes: util.Map[String, AnyRef] = ItemUtils.toSimpleMapValue(att)
               val json = asJsObject(Item.fromMap(attributes))
@@ -149,11 +153,15 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
                 (json \ IdKey).as[String] -> _
               )
             })
-        nextPageOfBatch(response.getUnprocessedKeys, acc ::: results)
+          nextPageOfBatch(response.getUnprocessedKeys, acc ::: results)
+        }
       }
-    }
 
-    Future { nextPageOfBatch(Map((tableName -> keysAndAttributes)).asJava, Nil).toMap }
+      Future {
+        nextPageOfBatch(Map(tableName -> keysAndAttributes).asJava, Nil).toMap
+      }
+    }}
+      .map(chunkIterator => chunkIterator.fold(Map.empty)((acc, result) => acc ++ result))
   }
 
 
