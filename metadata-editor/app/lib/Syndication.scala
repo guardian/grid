@@ -101,29 +101,25 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
           //  If image is not in a photoshoot, return no rights
           case None => Future.successful(None)
           //  If image is in a photo shoot, find the most recently published image and return those rights, with isInferred true
-          case Some(photoshoot) => getMostRecentInferredSyndicationRights(photoshoot)
+          case Some(photoshoot) => getMostRecentInferrableSyndicationRights(photoshoot)
         }
       }
 
-  private def getMostRecentInferredSyndicationRights(ids: List[String])
+  private def getMostRecentInferrableSyndicationRights(photoshoot: Photoshoot)
                                                     (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] =
-    getRightsForImages(ids, None)
-      .map(list => getMostRecentSyndicationRights(list.values.toList))
-      .map(rightsMaybe => rightsMaybe.map(rights => rights.copy(isInferred = true)))
+    getAllImageRightsInPhotoshoot(photoshoot)
+      .map ( m => getMostRecentSyndicationRights(m.values.toList).map(r => r.copy(isInferred = true)))
 
-  private def getMostRecentInferredSyndicationRights(photoshoot: Photoshoot)
-                                                    (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] =
-    getImagesInPhotoshoot(photoshoot) flatMap {
-      ids => getMostRecentInferredSyndicationRights(ids)
+  private def getRightsForImages(ids: List[String], nonInferredRights: Map[String, SyndicationRights], inferrableRights: Option[SyndicationRights])
+                                (implicit ec: ExecutionContext, rjs: Reads[SyndicationRights]): Map[String, SyndicationRights] = {
+    inferrableRights match {
+      case Some(rights) =>
+        val inferredRights = (ids.toSet -- nonInferredRights.keySet)
+          .map(id => id -> rights)
+          .toMap
+        inferredRights ++ nonInferredRights
+      case None => nonInferredRights
     }
-
-  private def getRightsForImages(ids: List[String], inferredRights: Option[SyndicationRights])
-                                (implicit ec: ExecutionContext, rjs: Reads[SyndicationRights]): Future[Map[String, SyndicationRights]] = {
-      syndicationStore.batchGet(ids)
-        .map( nonInferredRights => inferredRights match {
-          case Some(rights) => nonInferredRights.withDefaultValue(rights)
-          case None => nonInferredRights
-        })
   }
 
   def getMostRecentSyndicationRights(list: List[SyndicationRights]): Option[SyndicationRights] = list
@@ -137,9 +133,11 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def getAllImageRightsInPhotoshoot(photoshoot: Photoshoot)
                                    (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] = for {
     imageIds <- getImagesInPhotoshoot(photoshoot)
-    mostRecentInferredRightsMaybe <- getMostRecentInferredSyndicationRights(imageIds)
-    rights <- getRightsForImages(imageIds, mostRecentInferredRightsMaybe)
-  } yield rights
+    allNonInferredRights <- syndicationStore.batchGet(imageIds)
+  } yield {
+    val mostRecentInferrableRightsMaybe = getMostRecentSyndicationRights(allNonInferredRights.values.toList)
+    getRightsForImages(imageIds, allNonInferredRights, mostRecentInferrableRightsMaybe)
+  }
 
   def getImagesInPhotoshoot(photoshoot: Photoshoot)
                            (implicit ec: ExecutionContext): Future[List[String]] =
@@ -149,7 +147,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def getChangedRights(before: Map[String, SyndicationRights], after: Map[String, SyndicationRights]): Map[String, Option[SyndicationRights]] = {
     // Rights in 'after' which do not have an exact equal in 'before'
     // Rights in 'before' which are not present at all in 'after', so have no inferred rights now
-    (after.toSet -- before.toSet).toMap.map(kv => (kv._1 -> Some(kv._2))) ++
+    (after.toSet -- before.toSet).toMap.map(kv => kv._1 -> Some(kv._2)) ++
       (before.keySet -- after.keySet).map(id => id -> None)
   }
 
