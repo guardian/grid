@@ -147,7 +147,9 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
         else {
           logger.info(s"Fetching records for $request")
           val response = client.batchGetItem(request)
-          val results = response.getResponses.get(tableName).asScala.toList
+          val responses = response.getResponses
+          logger.info(s"Got responses of $responses")
+          val results = responses.get(tableName).asScala.toList
             .flatMap(att => {
               val attributes: util.Map[String, AnyRef] = ItemUtils.toSimpleMapValue(att)
               val json = asJsObject(Item.fromMap(attributes))
