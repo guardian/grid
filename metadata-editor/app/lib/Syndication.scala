@@ -133,7 +133,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def getAllImageRightsInPhotoshoot(photoshoot: Photoshoot)
                                    (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] = for {
     imageIds <- getImagesInPhotoshoot(photoshoot)
-    allNonInferredRights <- syndicationStore.batchGet(imageIds)
+    allNonInferredRights <- syndicationStore.batchGet(imageIds, syndicationRightsFieldName)
   } yield {
     logger.info(s"Found non-inferred rights for ${allNonInferredRights.size} of ${imageIds.size} images in photoshoot ${photoshoot.title}")
     val mostRecentInferrableRightsMaybe = getMostRecentSyndicationRights(allNonInferredRights.values.toList)
