@@ -91,7 +91,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       })
   }
 
-  def getRightsByPhotoshoot(id: String)
+  private def getRightsByPhotoshoot(id: String)
                            (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] =
     getPhotoshootForImage(id)
       // It's ok for the image to _not_ exist in the edits store - it may have no photoshoot (or any other edit)
@@ -101,14 +101,11 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
           //  If image is not in a photoshoot, return no rights
           case None => Future.successful(None)
           //  If image is in a photo shoot, find the most recently published image and return those rights, with isInferred true
-          case Some(photoshoot) => getMostRecentInferrableSyndicationRights(photoshoot)
+          case Some(photoshoot) =>
+            getAllImageRightsInPhotoshoot(photoshoot)
+              .map ( m => getMostRecentInferrableSyndicationRights(m.values.toList))
         }
       }
-
-  private def getMostRecentInferrableSyndicationRights(photoshoot: Photoshoot)
-                                                    (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] =
-    getAllImageRightsInPhotoshoot(photoshoot)
-      .map ( m => getMostRecentSyndicationRights(m.values.toList).map(r => r.copy(isInferred = true)))
 
   private def getRightsForImages(ids: List[String], nonInferredRights: Map[String, SyndicationRights], inferrableRights: Option[SyndicationRights])
                                 (implicit ec: ExecutionContext, rjs: Reads[SyndicationRights]): Map[String, SyndicationRights] = {
@@ -122,8 +119,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     }
   }
 
-  def getMostRecentSyndicationRights(list: List[SyndicationRights]): Option[SyndicationRights] = list
-    .filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption
+  def getMostRecentInferrableSyndicationRights(list: List[SyndicationRights]): Option[SyndicationRights] = list
+    .filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption.map(r => r.copy(isInferred = true))
 
   def getAllImageRightsInPhotoshoot(photoshootMaybe: Option[Photoshoot])
                                    (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] =
@@ -136,7 +133,7 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     allNonInferredRights <- syndicationStore.batchGet(imageIds, syndicationRightsFieldName)
   } yield {
     logger.info(s"Found non-inferred rights for ${allNonInferredRights.size} of ${imageIds.size} images in photoshoot ${photoshoot.title}")
-    val mostRecentInferrableRightsMaybe = getMostRecentSyndicationRights(allNonInferredRights.values.toList)
+    val mostRecentInferrableRightsMaybe = getMostRecentInferrableSyndicationRights(allNonInferredRights.values.toList)
     getRightsForImages(imageIds, allNonInferredRights, mostRecentInferrableRightsMaybe)
   }
 
