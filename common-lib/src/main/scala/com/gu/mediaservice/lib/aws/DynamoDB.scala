@@ -9,6 +9,7 @@ import com.amazonaws.services.dynamodbv2.document.{DynamoDB => AwsDynamoDB, _}
 import com.amazonaws.services.dynamodbv2.model.{AttributeValue, KeysAndAttributes, ReturnValue}
 import com.amazonaws.services.dynamodbv2.{AmazonDynamoDBAsync, AmazonDynamoDBAsyncClientBuilder}
 import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.logging.GridLogging
 import org.joda.time.DateTime
 import play.api.libs.json._
 
@@ -25,7 +26,7 @@ object NoItemFound extends Throwable("item not found")
   * @param lastModifiedKey if set to a string the wrapper will maintain a last modified with that name on any update
   * @tparam T The type of this table
   */
-class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Option[String] = None) {
+class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Option[String] = None) extends GridLogging {
   lazy val client: AmazonDynamoDBAsync = config.withAWSCredentials(AmazonDynamoDBAsyncClientBuilder.standard()).build()
   lazy val dynamo = new AwsDynamoDB(client)
   lazy val table: Table = dynamo.getTable(tableName)
@@ -144,15 +145,20 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
                          (implicit ex: ExecutionContext, rjs: Reads[T]): List[(String, T)] = {
         if (request.isEmpty) acc
         else {
+          logger.info(s"Fetching records for $request")
           val response = client.batchGetItem(request)
           val results = response.getResponses.get(tableName).asScala.toList
             .flatMap(att => {
               val attributes: util.Map[String, AnyRef] = ItemUtils.toSimpleMapValue(att)
               val json = asJsObject(Item.fromMap(attributes))
-              json.asOpt[T].map(
+
+              val maybeT = json.asOpt[T]
+              logger.debug(s"Obtained a T of $maybeT from json $json")
+              maybeT.map(
                 (json \ IdKey).as[String] -> _
               )
             })
+          logger.info(s"Got $results for request")
           nextPageOfBatch(response.getUnprocessedKeys, acc ::: results)
         }
       }
