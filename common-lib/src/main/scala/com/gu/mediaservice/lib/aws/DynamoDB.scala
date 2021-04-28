@@ -157,7 +157,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
               val maybeT = (json \ attributeKey).asOpt[T]
               logger.info(s"Obtained a T of $maybeT from json $json")
               maybeT.map(
-                (json \ IdKey).as[String] -> _
+                attributes.get(IdKey).toString -> _
               )
             })
           logger.info(s"Got $results for request")
