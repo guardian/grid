@@ -152,10 +152,11 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
           val results = responses.get(tableName).asScala.toList
             .flatMap(att => {
               val attributes: util.Map[String, AnyRef] = ItemUtils.toSimpleMapValue(att)
+              logger.info(s"Obtained attributes of $attributes from response $att")
               val json = asJsObject(Item.fromMap(attributes))
 
               val maybeT = json.asOpt[T]
-              logger.debug(s"Obtained a T of $maybeT from json $json")
+              logger.info(s"Obtained a T of $maybeT from json $json")
               maybeT.map(
                 (json \ IdKey).as[String] -> _
               )
