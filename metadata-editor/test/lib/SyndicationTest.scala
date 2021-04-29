@@ -20,35 +20,35 @@ class SyndicationTest extends FunSpec with Matchers with Syndication with Mockit
     it ("should find the latest syndication rights when there is only one") {
       val right = SyndicationRights(Some(DateTime.now()), Nil, Nil)
       val rights = List(right)
-      getMostRecentInferrableSyndicationRights(rights) should be (Some(right))
+      getMostRecentInferrableSyndicationRights(rights) should be (Some(right.copy(isInferred = true)))
     }
 
     it ("should find the latest syndication rights when there is more than one") {
       val right1 = SyndicationRights(Some(DateTime.now()), Nil, Nil)
       val right2 = SyndicationRights(None, Nil, Nil)
       val rights = List(right1, right2)
-      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1))
+      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1.copy(isInferred = true)))
     }
 
     it ("should find the latest syndication rights when there is more than one (swapped over)") {
       val right1 = SyndicationRights(Some(DateTime.now()), Nil, Nil)
       val right2 = SyndicationRights(None, Nil, Nil)
       val rights = List(right2, right1)
-      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1))
+      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1.copy(isInferred = true)))
     }
 
     it ("should find the latest syndication rights when there is more than one with a date") {
       val right1 = SyndicationRights(Some(DateTime.now()), Nil, Nil)
       val right2 = SyndicationRights(Some(DateTime.now().minus(100L)), Nil, Nil)
       val rights = List(right1, right2)
-      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1))
+      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1.copy(isInferred = true)))
     }
 
     it ("should find the latest syndication rights when there is more than one with a date (swapped over)") {
       val right1 = SyndicationRights(Some(DateTime.now()), Nil, Nil)
       val right2 = SyndicationRights(Some(DateTime.now().minus(100L)), Nil, Nil)
       val rights = List(right2, right1)
-      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1))
+      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1.copy(isInferred = true)))
     }
 
     it ("should find the latest syndication rights when there are several with a date (swapped over) and a few Nones mixed in too") {
@@ -62,7 +62,7 @@ class SyndicationTest extends FunSpec with Matchers with Syndication with Mockit
         SyndicationRights(Some(DateTime.now().minus(Math.max(5, Random.nextLong() % 100))), Nil, Nil),
         SyndicationRights(Some(DateTime.now().minus(Math.max(5, Random.nextLong() % 100))), Nil, Nil)
       )
-      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1))
+      getMostRecentInferrableSyndicationRights(rights) should be (Some(right1.copy(isInferred = true)))
     }
   }
 
