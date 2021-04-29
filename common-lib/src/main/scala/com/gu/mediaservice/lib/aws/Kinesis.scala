@@ -49,7 +49,7 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
     try {
       val result = kinesisClient.putRecord(request)
-      logger.info(s"Published kinesis message: $result")
+      logger.info(markers, s"Published kinesis message: $result")
     } catch {
       case e: Exception =>
         logger.error(markers, s"kinesis putRecord failed", e)

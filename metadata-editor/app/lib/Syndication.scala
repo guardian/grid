@@ -1,67 +1,82 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, UpdateMessage}
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{Edits, Photoshoot, SyndicationRights}
 import com.gu.mediaservice.syntax.MessageSubjects
-import play.api.libs.json.{JsNull, JsString}
+import org.joda.time.DateTime
+import play.api.libs.json.{JsNull, JsString, Reads}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait Syndication extends Edit with MessageSubjects {
+trait Syndication extends Edit with MessageSubjects with GridLogging {
 
   def syndicationStore: SyndicationStore
 
   private val syndicationRightsFieldName = "syndicationRights"
 
-  def deletePhotoshootAndPublish(id: String)
-                                (implicit ec: ExecutionContext): Future[Unit.type] = {
+  private def timedFuture[T](label: String, f : => Future[T])(implicit ec: ExecutionContext): Future[T] = {
+    val timeBefore = DateTime.now().getMillis
+    val result = f
+      result.onComplete { _ =>
+        val timeAfter = DateTime.now().getMillis
+        logger.info(s"$label took ${timeAfter - timeBefore} milliseconds")
+      }
+    result
+  }
+
+  private[lib] def publishChangedSyndicationRightsMessages[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None)(f: () => Future[T])
+                              (implicit ec: ExecutionContext): Future[T] =
     for {
-      photoshootMaybe <- getPhotoshootForImage(id)
-      // Get the list of rights potentially affected BEFORE doing the delete!
-      allImageRightsInPhotoshootBefore <- getAllImageRightsInPhotoshoot(photoshootMaybe)
-      // Do the delete
-      edits <- editsStore.removeKey(id, Edits.Photoshoot)
-      allImageRightsInPhotoshootAfter <- getAllImageRightsInPhotoshoot(photoshootMaybe)
-      changedRights = getChangedRights(allImageRightsInPhotoshootBefore, allImageRightsInPhotoshootAfter)
-      _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
-      _ <- publish(changedRights, UpdateImageSyndicationMetadata)
-    } yield Unit
+      oldPhotoshootMaybe <- getPhotoshootForImage(id)
+      newPhotoshootMaybe = if (unchangedPhotoshoot) None else photoshoot  // if None, the get rights calls (below) will return none.
+      allImageRightsInOldPhotoshootBefore <- timedFuture("Get old photoshoot rights before", getAllImageRightsInPhotoshoot(oldPhotoshootMaybe))
+      allImageRightsInNewPhotoshootBefore <- timedFuture("Get new photoshoot rights before", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
+      result <- f()
+      allImageRightsInOldPhotoshootAfter <- timedFuture("Get old photoshoot rights after", getAllImageRightsInPhotoshoot(oldPhotoshootMaybe))
+      allImageRightsInNewPhotoshootAfter <- timedFuture("Get new photoshoot rights after", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
+      oldChangedRights = getChangedRights(allImageRightsInOldPhotoshootBefore, allImageRightsInOldPhotoshootAfter)
+      newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
+      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata))
+    } yield {
+      logger.info(s"Changed rights on old photoshoot ($oldPhotoshootMaybe): ${oldChangedRights.size}")
+      logger.info(s"Changed rights on new photoshoot ($newPhotoshootMaybe): ${newChangedRights.size}")
+      result
+    }
+
+  def deletePhotoshootAndPublish(id: String)
+                                (implicit ec: ExecutionContext): Future[Unit] =
+    publishChangedSyndicationRightsMessages[Unit](id, unchangedPhotoshoot = false) { () =>
+      for {
+        edits <- editsStore.removeKey(id, Edits.Photoshoot)
+        _ <- editsStore.removeKey(id, Edits.PhotoshootTitle)
+        _ = publish(id, UpdateImagePhotoshootMetadata)(edits)
+      } yield Unit
+    }
+
+  def setPhotoshootAndPublish(id: String, newPhotoshoot: Photoshoot)
+                             (implicit ec: ExecutionContext): Future[Photoshoot] = {
+    publishChangedSyndicationRightsMessages[Photoshoot](id, photoshoot = Some(newPhotoshoot)) { () =>
+      for {
+        editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(newPhotoshoot))
+        _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(newPhotoshoot.title)) // store - don't care about return
+        _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
+      } yield newPhotoshoot
+    }
   }
 
   def deleteSyndicationAndPublish(id: String)
                                  (implicit ec: ExecutionContext): Future[Unit] = {
-    for {
-      photoshootMaybe <- getPhotoshootForImage(id)
-      // Get the list of rights potentially affected BEFORE doing the delete!
-      allImageRightsInPhotoshootBefore <- getAllImageRightsInPhotoshoot(photoshootMaybe)
-      // Do the delete
-      _ <- syndicationStore.deleteItem(id)
-      allImageRightsInPhotoshootAfter <- getAllImageRightsInPhotoshoot(photoshootMaybe)
-      changedRights = getChangedRights(allImageRightsInPhotoshootBefore, allImageRightsInPhotoshootAfter)
-      _ <- publish(changedRights, UpdateImageSyndicationMetadata)
-    } yield Unit
+    publishChangedSyndicationRightsMessages[Unit](id, unchangedPhotoshoot = true) { () =>
+      syndicationStore.deleteItem(id)
+    }
   }
 
-  def setPhotoshootAndPublish(id: String, photoshoot: Photoshoot)
-                             (implicit ec: ExecutionContext): Future[Photoshoot] = for {
-    editsAsJsonResponse <- editsStore.jsonAdd(id, Edits.Photoshoot, DynamoDB.caseClassToMap(photoshoot))
-    _ <- editsStore.stringSet(id, Edits.PhotoshootTitle, JsString(photoshoot.title)) // store - don't care about return
-    allImageRightsInPhotoshootAfter <- getAllImageRightsInPhotoshoot(photoshoot)
-    _ = publish(id, UpdateImagePhotoshootMetadata)(editsAsJsonResponse)
-    _ <- publish(allImageRightsInPhotoshootAfter, UpdateImageSyndicationMetadata) // update all images in photoshoot
-  } yield photoshoot
-
   def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
-                              (implicit ec: ExecutionContext): Future[SyndicationRights] = for {
-    photoshootMaybe <- getPhotoshootForImage(id)
-    // Get the list of rights potentially affected BEFORE doing the delete!
-    allImageRightsInPhotoshootBefore <- getAllImageRightsInPhotoshoot(photoshootMaybe)
-    _ <- syndicationStore.jsonAdd(id, syndicationRightsFieldName, DynamoDB.caseClassToMap(syndicationRight))
-    allImageRightsInPhotoshootAfter <- getAllImageRightsInPhotoshoot(photoshootMaybe)
-    changedRights = getChangedRights(allImageRightsInPhotoshootBefore, allImageRightsInPhotoshootAfter)
-// TODO Uncomment to swap to new SyndicationController functionality.
-//    _ <- publish(changedRights, UpdateImageSyndicationMetadata)
-  } yield syndicationRight
+                              (implicit ec: ExecutionContext): Future[SyndicationRights] =
+    publishChangedSyndicationRightsMessages[SyndicationRights](id, unchangedPhotoshoot = true) {() =>
+      syndicationStore.jsonAdd (id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
+    }
 
   def getSyndicationForImage(id: String)
                             (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] = {
@@ -76,7 +91,7 @@ trait Syndication extends Edit with MessageSubjects {
       })
   }
 
-  def getRightsByPhotoshoot(id: String)
+  private def getRightsByPhotoshoot(id: String)
                            (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] =
     getPhotoshootForImage(id)
       // It's ok for the image to _not_ exist in the edits store - it may have no photoshoot (or any other edit)
@@ -86,59 +101,51 @@ trait Syndication extends Edit with MessageSubjects {
           //  If image is not in a photoshoot, return no rights
           case None => Future.successful(None)
           //  If image is in a photo shoot, find the most recently published image and return those rights, with isInferred true
-          case Some(photoshoot) => getMostRecentInferredSyndicationRights(photoshoot)
+          case Some(photoshoot) =>
+            getAllImageRightsInPhotoshoot(photoshoot)
+              .map ( m => getMostRecentInferrableSyndicationRights(m.values.toList))
         }
       }
 
-  private def getMostRecentInferredSyndicationRights(ids: List[String])
-                                                    (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] =
-    getRightsForImages(ids, None)
-      .map(list => getMostRecentSyndicationRights(list.values.toList))
-      .map(rightsMaybe => rightsMaybe.map(rights => rights.copy(isInferred = true)))
-
-  private def getMostRecentInferredSyndicationRights(photoshoot: Photoshoot)
-                                                    (implicit ec: ExecutionContext): Future[Option[SyndicationRights]] =
-    getImagesInPhotoshoot(photoshoot) flatMap {
-      ids => getMostRecentInferredSyndicationRights(ids)
+  private def getRightsForImages(ids: List[String], nonInferredRights: Map[String, SyndicationRights], inferrableRights: Option[SyndicationRights])
+                                (implicit ec: ExecutionContext, rjs: Reads[SyndicationRights]): Map[String, SyndicationRights] = {
+    inferrableRights match {
+      case Some(rights) =>
+        val inferredRights = (ids.toSet -- nonInferredRights.keySet)
+          .map(id => id -> rights)
+          .toMap
+        inferredRights ++ nonInferredRights
+      case None => nonInferredRights
     }
-
-  private def getRightsForImages(ids: List[String], inferredRights: Option[SyndicationRights])
-                                (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] = {
-    Future.traverse(ids)(id => {
-      syndicationStore.jsonGet(id, syndicationRightsFieldName)
-        // Any/all of the images in this photoshoot may have no rights, so recover
-        .recover { case NoItemFound => JsNull }
-        .map(dynamoEntry => {
-          (dynamoEntry \ syndicationRightsFieldName).toOption map (x => x.as[SyndicationRights].copy(isInferred = false))
-        })
-        .map(rightMaybe => id -> rightMaybe.orElse(inferredRights))
-    }).map(list => list.toMap)
   }
 
-  def getMostRecentSyndicationRights(list: List[Option[SyndicationRights]]): Option[SyndicationRights] = list
-    .collect {case Some(sr) => sr}.filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption
+  def getMostRecentInferrableSyndicationRights(list: List[SyndicationRights]): Option[SyndicationRights] = list
+    .filter(_.published.nonEmpty).sortBy(_.published.map(-_.getMillis)).headOption.map(r => r.copy(isInferred = true))
 
   def getAllImageRightsInPhotoshoot(photoshootMaybe: Option[Photoshoot])
-                                   (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] =
+                                   (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] =
     photoshootMaybe.map(photoshoot => getAllImageRightsInPhotoshoot(photoshoot))
-      .getOrElse(Future.successful(Map.empty[String, Option[SyndicationRights]]))
+      .getOrElse(Future.successful(Map.empty[String, SyndicationRights]))
 
   def getAllImageRightsInPhotoshoot(photoshoot: Photoshoot)
-                                   (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] = for {
+                                   (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] = for {
     imageIds <- getImagesInPhotoshoot(photoshoot)
-    mostRecentInferredRightsMaybe <- getMostRecentInferredSyndicationRights(imageIds)
-    rights <- getRightsForImages(imageIds, mostRecentInferredRightsMaybe)
-  } yield rights
+    allNonInferredRights <- syndicationStore.batchGet(imageIds, syndicationRightsFieldName)
+  } yield {
+    logger.info(s"Found non-inferred rights for ${allNonInferredRights.size} of ${imageIds.size} images in photoshoot ${photoshoot.title}")
+    val mostRecentInferrableRightsMaybe = getMostRecentInferrableSyndicationRights(allNonInferredRights.values.toList)
+    getRightsForImages(imageIds, allNonInferredRights, mostRecentInferrableRightsMaybe)
+  }
 
   def getImagesInPhotoshoot(photoshoot: Photoshoot)
                            (implicit ec: ExecutionContext): Future[List[String]] =
       editsStore.scanForId(config.editsTablePhotoshootIndex, Edits.PhotoshootTitle, photoshoot.title)
         .recover { case NoItemFound => Nil }
 
-  def getChangedRights(before: Map[String, Option[SyndicationRights]], after: Map[String, Option[SyndicationRights]]): Map[String, Option[SyndicationRights]] = {
+  def getChangedRights(before: Map[String, SyndicationRights], after: Map[String, SyndicationRights]): Map[String, Option[SyndicationRights]] = {
     // Rights in 'after' which do not have an exact equal in 'before'
     // Rights in 'before' which are not present at all in 'after', so have no inferred rights now
-    (after.toSet -- before.toSet).toMap ++
+    (after.toSet -- before.toSet).toMap.map(kv => kv._1 -> Some(kv._2)) ++
       (before.keySet -- after.keySet).map(id => id -> None)
   }
 

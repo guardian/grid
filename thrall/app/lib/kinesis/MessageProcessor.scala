@@ -37,22 +37,12 @@ class MessageProcessor(es: ElasticSearch,
       case SetImageCollections => setImageCollections(updateMessage, logMarker)
       case DeleteUsages => deleteAllUsages(updateMessage, logMarker)
 
-      // Notes on upsertSyndicationRights[Only]
-      // The first message type comes from the RCS poller lambda.
-      // The second comes from metadata editor
-      // Poller lambda must update metadata editor
+      case UpsertRcsRights => Future { logger.warn(s"NOT Upserting syndication rights, deprecated", updateMessage) }
       // See https://trello.com/c/tyarJEax/2241-grid-add-syndication-to-metadata-service
-      case UpsertRcsRights => upsertSyndicationRights(updateMessage, logMarker)
       case UpdateImageSyndicationMetadata => upsertSyndicationRightsOnly(updateMessage, logMarker)
 
-      // Notes on updateImagePhotoshoot
-      // This message type comes from metadata editor.
-      // It currently works out the syndication rights and upserts ElasticSearch
-      // via syndicationRightsOps.upsertOrRefreshRights.  See note in method
-      // The new code does not upsert syndication rights - these are handled by the
-      // UpdateImageSyndicationMetadata message (see above)
-      case UpdateImagePhotoshoot => updateImagePhotoshoot(updateMessage, logMarker, updateSyndicationRights = true)
-      case UpdateImagePhotoshootMetadata => updateImagePhotoshoot(updateMessage, logMarker, updateSyndicationRights = false)
+      case UpdateImagePhotoshoot => Future { logger.warn(s"NOT Upserting photoshoot; deprecated", updateMessage) }
+      case UpdateImagePhotoshootMetadata => updateImagePhotoshoot(updateMessage, logMarker)
       case unknownSubject => Future.failed(ProcessorNotFoundException(unknownSubject))
      }
   }
@@ -159,27 +149,7 @@ class MessageProcessor(es: ElasticSearch,
         }
     }
 
-  def upsertSyndicationRights(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] =
-    withId(message){ id =>
-      implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
-      withSyndicationRights(message)(syndicationRights =>
-        es.getImage(id) map {
-          case Some(image) =>
-            val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-            logger.info(marker, s"Upserting syndication rights for image $id in photoshoot $photoshoot with rights ${Json.toJson(syndicationRights)}")
-            syndicationRightsOps.upsertOrRefreshRights(
-              image = image.copy(syndicationRights = Some(syndicationRights)),
-              currentPhotoshootOpt = photoshoot,
-              None,
-              message.lastModified
-            )
-          case _ => logger.info(marker, s"Image $id not found")
-        }
-      )
-    }
-
-
-  def updateImagePhotoshoot(message: UpdateMessage, logMarker: LogMarker, updateSyndicationRights: Boolean)(implicit ec: ExecutionContext): Future[Unit] = {
+  def updateImagePhotoshoot(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
     withId(message) { id =>
       implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(id))
       withEdits(message) { upcomingEdits =>
@@ -187,22 +157,6 @@ class MessageProcessor(es: ElasticSearch,
           imageOpt <- es.getImage(id)
           prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
           _ <- updateImageUserMetadata(message, logMarker)
-          // Once the new UpdateImageSyndication messages are being acted upon, this
-          // section should be dropped.
-          _ <- {
-            if (updateSyndicationRights) {
-              logger.info(marker, s"Upserting syndication rights for image $id. Moving from photoshoot $prevPhotoshootOpt to ${upcomingEdits.photoshoot}.")
-              syndicationRightsOps.upsertOrRefreshRights(
-                image = imageOpt.get,
-                currentPhotoshootOpt = upcomingEdits.photoshoot,
-                previousPhotoshootOpt = prevPhotoshootOpt,
-                message.lastModified
-              )
-            } else {
-              logger.info(marker, s"NOT upserting syndication rights for image $id.")
-              Future.successful(Unit)
-            }
-          }
         } yield logger.info(marker, s"Moved image $id from $prevPhotoshootOpt to ${upcomingEdits.photoshoot}")
       }
     }
