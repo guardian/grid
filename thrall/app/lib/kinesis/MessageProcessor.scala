@@ -18,7 +18,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
-                       syndicationRightsOps: SyndicationRightsOps
                       ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -36,12 +35,7 @@ class MessageProcessor(es: ElasticSearch,
       case RemoveImageLease => removeImageLease(updateMessage, logMarker)
       case SetImageCollections => setImageCollections(updateMessage, logMarker)
       case DeleteUsages => deleteAllUsages(updateMessage, logMarker)
-
-      case UpsertRcsRights => Future { logger.warn(s"NOT Upserting syndication rights, deprecated", updateMessage) }
-      // See https://trello.com/c/tyarJEax/2241-grid-add-syndication-to-metadata-service
       case UpdateImageSyndicationMetadata => upsertSyndicationRightsOnly(updateMessage, logMarker)
-
-      case UpdateImagePhotoshoot => Future { logger.warn(s"NOT Upserting photoshoot; deprecated", updateMessage) }
       case UpdateImagePhotoshootMetadata => updateImagePhotoshoot(updateMessage, logMarker)
       case unknownSubject => Future.failed(ProcessorNotFoundException(unknownSubject))
      }

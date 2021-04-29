@@ -15,11 +15,7 @@ trait MessageSubjects {
   val RemoveImageLease = "remove-image-lease"
   val SetImageCollections = "set-image-collections"
   val DeleteUsages = "delete-usages"
-  // TODO This will be removed once RCS poller lambda talks to Edits subsystem.
-  val UpsertRcsRights = "upsert-rcs-rights"
   val UpdateImageSyndicationMetadata = "update-image-syndication-metadata"
-  // TODO This will be removed once RCS poller lambda talks to Edits subsystem.
-  val UpdateImagePhotoshoot = "update-image-photoshoot"
   val UpdateImagePhotoshootMetadata = "update-image-photoshoot-metadata"
 
 }
