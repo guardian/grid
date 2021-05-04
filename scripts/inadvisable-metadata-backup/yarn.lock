@@ -66,28 +66,28 @@ events@1.1.1:
   resolved "https://registry.yarnpkg.com/events/-/events-1.1.1.tgz#9ebdb7635ad099c70dcc4c2a1f5004288e8bd924"
   integrity sha1-nr23Y1rQmccNzEwqH1AEKI6L2SQ=
 
-exiftool-vendored.exe@^12.21.0:
-  version "12.21.0"
-  resolved "https://registry.yarnpkg.com/exiftool-vendored.exe/-/exiftool-vendored.exe-12.21.0.tgz#017fe36d76f7957ae4db7a9a6e9d014268572f2f"
-  integrity sha512-0d78NQdH+VAkAg7Km/zt0cUleSR2PDZtfJt3vvmS+dK+b6BAq+Ldz6y4VLP6ADXxvNz97vrX72W3hnVaFxiJaw==
+exiftool-vendored.exe@^12.25.0:
+  version "12.25.0"
+  resolved "https://registry.yarnpkg.com/exiftool-vendored.exe/-/exiftool-vendored.exe-12.25.0.tgz#16a0ba3e689d253ed4dcee66059431a08ea2dc1d"
+  integrity sha512-8JfXFUex8D0HtHOKA89f45IEBS2ZBMc39DvvcbK4DcT6egNLZdwduO/asHPUS9epY6iIaN2AokAdyqn8bKpzWw==
 
-exiftool-vendored.pl@^12.21.0:
-  version "12.21.0"
-  resolved "https://registry.yarnpkg.com/exiftool-vendored.pl/-/exiftool-vendored.pl-12.21.0.tgz#06a14c3cd278d61a65179e39fba194b16abaee53"
-  integrity sha512-8+gpgzHaSp/PYB5oqrX6JaIwGIJqeOnpgZ4DEsp+evhsaofXGBMzA7Ft4jvrkMsk7aX48UDvRmlZFuEO4BPRnQ==
+exiftool-vendored.pl@^12.25.0:
+  version "12.25.0"
+  resolved "https://registry.yarnpkg.com/exiftool-vendored.pl/-/exiftool-vendored.pl-12.25.0.tgz#1649508cb1b084af0cc1776158b748b89a9ce3ec"
+  integrity sha512-AqNy26adsMiNiMYxq+E4RhLNoOXo9Bc3Add/tBl8I2zkjOO/6/zGP5EiMvXFooZfb406mJ3b6sokBPxfRBA+jQ==
 
-exiftool-vendored@^14.1.1:
-  version "14.1.1"
-  resolved "https://registry.yarnpkg.com/exiftool-vendored/-/exiftool-vendored-14.1.1.tgz#ef9fafbb72739c32bbb568ce3ff2f872775d6e02"
-  integrity sha512-8wS6O1kOeDrnSQw58cMw4I/Bbs8hHR0Mf3atjqiZeB2A5b2xYor9+tmHRlMa80m4c8u2YnSijV39SwSv1gJF+Q==
+exiftool-vendored@^14.3.0:
+  version "14.3.0"
+  resolved "https://registry.yarnpkg.com/exiftool-vendored/-/exiftool-vendored-14.3.0.tgz#5f209d01de7c63ec8954f8ef49c6332791dffc2d"
+  integrity sha512-qEwyt6U4NFcFxdIOyv4mAx/JJkf7zrGr9enSanTn8NPvq1hwExfs3DP9LdVR0iNWTu4AopndGQCdsL0SqynJEg==
   dependencies:
     batch-cluster "^6.0.2"
     he "^1.2.0"
     luxon "^1.26.0"
     tz-lookup "^6.1.25"
   optionalDependencies:
-    exiftool-vendored.exe "^12.21.0"
-    exiftool-vendored.pl "^12.21.0"
+    exiftool-vendored.exe "^12.25.0"
+    exiftool-vendored.pl "^12.25.0"
 
 he@^1.2.0:
   version "1.2.0"
