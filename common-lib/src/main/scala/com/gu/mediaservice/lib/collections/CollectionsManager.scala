@@ -41,15 +41,16 @@ object CollectionsManager {
   // We could use `ValidationNel`s here, but that's overkill
   def isValidPathBit(s: String) = if (s.contains(delimiter) || s.contains(doublequotes)) false else true
 
+  // These use Source swatches
   val collectionColours = Map(
-    "australia"    -> "#ffb93e",
-    "culture"      -> "#d1008b",
-    "film & music" -> "#b1532f",
-    "g2"           -> "#000000",
-    "guide"        -> "#8F1AB6",
-    "observer"     -> "#006f94",
-    "sport"        -> "#008000",
-    "travel"       -> "#65C5FB"
+    "australia"    -> "#185E36",
+    "culture"      -> "#BB3B80",
+    "film & music" -> "#6B5840",
+    "g2"           -> "#121212",
+    "guide"        -> "#7D0068",
+    "observer"     -> "#052962",
+    "sport"        -> "#22874D",
+    "travel"       -> "#041F4A"
   )
 
   def getCollectionColour(s: String) = collectionColours.get(s)
