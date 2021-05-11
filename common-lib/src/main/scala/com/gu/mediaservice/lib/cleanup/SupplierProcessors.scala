@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.PhotographersConfig
+import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
 import com.gu.mediaservice.model._
 
 /**
@@ -20,7 +20,7 @@ class SupplierProcessors(resources: ImageProcessorResources)
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    new PhotographerParser(resources.commonConfiguration.photographers),
+    new PhotographerParser(resources.commonConfiguration.usageRightsConfig),
     AllstarSportsphotoParser,
     AllStarParser
   )
@@ -28,7 +28,7 @@ class SupplierProcessors(resources: ImageProcessorResources)
 /**
   * Guardian specific logic to correctly identify Guardian and Observer photographers and their contracts
   */
-class PhotographerParser(photographersConfig: PhotographersConfig) extends ImageProcessor {
+class PhotographerParser(photographersConfig: UsageRightsConfigProvider) extends ImageProcessor {
   def apply(image: Image): Image = {
     image.metadata.byline.flatMap { byline =>
       photographersConfig.getPhotographer(byline).map{

@@ -1,6 +1,6 @@
 package model
 
-import com.gu.mediaservice.lib.config.{Publication, PhotographersConfig}
+import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, PublicationPhotographers, UsageRightsConfigProvider}
 import com.gu.mediaservice.model._
 import play.api.libs.json._
 
@@ -28,15 +28,15 @@ object UsageRightsProperty {
 
   def sortList(l: List[String]) = l.sortWith(_.toLowerCase < _.toLowerCase)
 
-  val props: List[(UsageRightsSpec, PhotographersConfig) => List[UsageRightsProperty]] =
+  val props: List[(UsageRightsSpec, UsageRightsConfigProvider) => List[UsageRightsProperty]] =
     List(categoryUsageRightsProperties, restrictionProperties)
 
-  def publicationListToMap(publications: List[Publication]): OptionsMap = Map(publications
+  def publicationListToMap(publications: List[PublicationPhotographers]): OptionsMap = Map(publications
     .map(p => p.name -> p.photographers): _*)
 
-  def optionsFromPublicationList(publications: List[Publication]): Options = sortList(publicationListToMap(publications).keys.toList)
+  def optionsFromPublicationList(publications: List[PublicationPhotographers]): Options = sortList(publicationListToMap(publications).keys.toList)
 
-  def getPropertiesForSpec(u: UsageRightsSpec, p: PhotographersConfig): List[UsageRightsProperty] = props.flatMap(f => f(u, p))
+  def getPropertiesForSpec(u: UsageRightsSpec, p: UsageRightsConfigProvider): List[UsageRightsProperty] = props.flatMap(f => f(u, p))
 
   private def requiredStringField(
     name: String,
@@ -57,22 +57,22 @@ object UsageRightsProperty {
   private def photographerField(examples: String) =
     requiredStringField("photographer", "Photographer", examples = Some(examples))
 
-  private def photographerField(photographers: List[Publication], key: String) =
+  private def photographerField(photographers: List[PublicationPhotographers], key: String) =
     requiredStringField("photographer", "Photographer",
       optionsMap = Some(publicationListToMap(photographers)), optionsMapKey = Some(key))
 
-  private def illustratorField(illustrators: List[Publication], key: String) =
+  private def illustratorField(illustrators: List[PublicationPhotographers], key: String) =
     requiredStringField("creator", "Illustrator",
       optionsMap = Some(publicationListToMap(illustrators)), optionsMapKey = Some(key))
 
-  private def restrictionProperties(u: UsageRightsSpec, p: PhotographersConfig): List[UsageRightsProperty] = u match {
+  private def restrictionProperties(u: UsageRightsSpec, p: UsageRightsConfigProvider): List[UsageRightsProperty] = u match {
     case NoRights => List()
     case _ => List(UsageRightsProperty("restrictions", "Restrictions", "text", u.defaultCost.contains(Conditional)))
   }
 
-  def categoryUsageRightsProperties(u: UsageRightsSpec, p: PhotographersConfig) = u match {
+  def categoryUsageRightsProperties(u: UsageRightsSpec, p: UsageRightsConfigProvider) = u match {
     case Agency => List(
-      requiredStringField("supplier", "Supplier", Some(sortList(PhotographersConfig.freeSuppliers))),
+      requiredStringField("supplier", "Supplier", Some(sortList(p.freeSuppliers))),
       UsageRightsProperty(
         "suppliersCollection", "Collection", "string", required = false,
         examples = Some("AFP, FilmMagic, WireImage"))

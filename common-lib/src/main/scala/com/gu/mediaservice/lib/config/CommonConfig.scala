@@ -4,13 +4,14 @@ import com.gu.mediaservice.lib.aws.{AwsClientBuilderUtils, KinesisSenderConfig}
 import com.gu.mediaservice.model.UsageRightsSpec
 import com.typesafe.config.{Config, ConfigException}
 import com.typesafe.scalalogging.StrictLogging
-import play.api.Configuration
+import play.api.{ConfigLoader, Configuration}
 
 import java.util.UUID
 import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.util.Try
 
-abstract class CommonConfig(val configuration: Configuration) extends AwsClientBuilderUtils with StrictLogging {
+abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBuilderUtils with StrictLogging {
+  val configuration: Configuration = resources.configuration
   final val stackName = "media-service"
 
   final val sessionId = UUID.randomUUID().toString
@@ -98,7 +99,11 @@ abstract class CommonConfig(val configuration: Configuration) extends AwsClientB
    *   }
    * }}}
    */
-  val photographers: PhotographersConfig = configuration.get[PhotographersConfig]("photographers")
+  val usageRightsConfig: UsageRightsConfigProvider = {
+    implicit val loader: ConfigLoader[UsageRightsConfigProvider] =
+      UsageRightsConfigProvider.ProviderLoader.singletonConfigLoader(UsageRightsConfigProvider.Resources(), resources.applicationLifecycle)
+    configuration.get[UsageRightsConfigProvider]("usageRightsConfigProvider")
+  }
 
   /**
    * Load in a list of applicable usage right objects that implement [[com.gu.mediaservice.model.UsageRightsSpec]] from config. For example:

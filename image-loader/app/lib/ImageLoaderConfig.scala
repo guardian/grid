@@ -9,7 +9,7 @@ import play.api.inject.ApplicationLifecycle
 
 import scala.concurrent.duration.FiniteDuration
 
-class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) with StrictLogging {
+class ImageLoaderConfig(resources: GridConfigResources) extends CommonConfig(resources) with StrictLogging {
   val imageBucket: String = string("s3.image.bucket")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")

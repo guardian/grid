@@ -1,32 +1,45 @@
 package com.gu.mediaservice.lib.config
 
+import com.gu.mediaservice.lib.config.UsageRightsConfigProvider.Resources
 import com.gu.mediaservice.model.{ContractPhotographer, StaffPhotographer}
 import org.scalatest.{FreeSpec, Matchers}
 import play.api.Configuration
+import play.api.inject.ApplicationLifecycle
+
+import scala.concurrent.Future
 
 class PhotographersConfigTest extends FreeSpec with Matchers {
 
   "The config loader" - {
     val configuration: Configuration = Configuration.from(Map(
       "some.path" -> Map(
-        "externalStaffPhotographers" -> List(
-          Map("name" -> "Company A", "photographers" -> List("A")),
-          Map("name" -> "Company A", "photographers" -> List("B"))
-        ),
-        "internalStaffPhotographers" -> List(
-          Map("name" -> "Company A", "photographers" -> List("AA"))
-        ),
-        "contractedPhotographers" -> List(
-          Map("name" -> "Company B", "photographers" -> List("C")),
-        ),
-        "contractIllustrators" -> List(
-          Map("name" -> "Company B", "photographers" -> List("CC")),
-        ),
-        "staffIllustrators" -> List("S", "SS"),
-        "creativeCommonsLicense" -> List("CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0")
+        "className" -> classOf[RuntimeUsageRightsConfig].getCanonicalName,
+        "config" -> Map(
+          "externalStaffPhotographers" -> List(
+            Map("name" -> "Company A", "photographers" -> List("A")),
+            Map("name" -> "Company A", "photographers" -> List("B"))
+          ),
+          "internalStaffPhotographers" -> List(
+            Map("name" -> "Company A", "photographers" -> List("AA"))
+          ),
+          "contractedPhotographers" -> List(
+            Map("name" -> "Company B", "photographers" -> List("C")),
+          ),
+          "contractIllustrators" -> List(
+            Map("name" -> "Company B", "photographers" -> List("CC")),
+          ),
+          "staffIllustrators" -> List("S", "SS"),
+          "creativeCommonsLicense" -> List("CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0")
+        )
       )
     ))
-    val conf: PhotographersConfig = configuration.get[PhotographersConfig]("some.path")
+
+    val applicationLifecycle = new ApplicationLifecycle {
+      override def addStopHook(hook: () => Future[_]): Unit = {}
+      override def stop(): Future[_] = Future.successful(())
+    }
+    val loader = UsageRightsConfigProvider.ProviderLoader.singletonConfigLoader(new Resources(), applicationLifecycle)
+    val conf: UsageRightsConfigProvider = configuration.get[UsageRightsConfigProvider]("some.path")(loader)
 
     "should load usage rights configuration" in {
       conf.externalStaffPhotographers.nonEmpty shouldBe true

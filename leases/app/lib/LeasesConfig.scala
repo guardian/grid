@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import java.net.URI
 import scala.util.Try
 
-class LeasesConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
+class LeasesConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val leasesTable = string("dynamo.tablename.leasesTable")
 
   val rootUri: String = services.leasesBaseUri

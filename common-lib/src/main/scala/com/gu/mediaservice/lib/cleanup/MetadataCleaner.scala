@@ -18,7 +18,7 @@ class MetadataCleaners(resources: ImageProcessorResources)
     BylineCreditReorganise,
     UseCanonicalGuardianCredit,
     ExtractGuardianCreditFromByline,
-    AttributeCreditFromByline.fromPublications(resources.commonConfiguration.photographers.allPhotographers),
+    AttributeCreditFromByline.fromPublications(resources.commonConfiguration.usageRightsConfig.allPhotographers),
     CountryCode,
     GuardianStyleByline,
     CapitaliseByline,

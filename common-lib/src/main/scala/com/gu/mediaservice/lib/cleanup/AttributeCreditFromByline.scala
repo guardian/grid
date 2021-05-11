@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.Publication
+import com.gu.mediaservice.lib.config.PublicationPhotographers
 import com.gu.mediaservice.model.ImageMetadata
 
 /**
@@ -22,7 +22,7 @@ case class AttributeCreditFromByline(bylines: List[String], credit: String) exte
 }
 
 object AttributeCreditFromByline {
-  def fromPublications(publications: List[Publication]): ImageProcessor = {
+  def fromPublications(publications: List[PublicationPhotographers]): ImageProcessor = {
     ImageProcessor.compose("AttributeCreditFromBylines", publications.map { publication =>
       AttributeCreditFromByline(publication.photographers, publication.name)
     }:_*)

@@ -11,7 +11,7 @@ import scala.util.Try
 
 case class KinesisReaderConfig(streamName: String, arn: String, appName: String)
 
-class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) with GridLogging {
+class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources) with GridLogging {
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val usageUri: String = services.usageBaseUri

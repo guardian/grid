@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
-import com.gu.mediaservice.lib.config.PhotographersConfig
+import com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
@@ -14,7 +14,8 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   val syndicationFilter = new SyndicationFilter(config)
   val usageRights = config.applicableUsageRights.toList
 
-  import PhotographersConfig.{freeSuppliers, suppliersCollectionExcl}
+  val freeSuppliers = config.usageRightsConfig.freeSuppliers
+  val suppliersCollectionExcl = config.usageRightsConfig.suppliersCollectionExcl
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!

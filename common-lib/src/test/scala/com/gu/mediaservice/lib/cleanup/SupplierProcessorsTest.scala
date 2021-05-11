@@ -1,15 +1,28 @@
 package com.gu.mediaservice.lib.cleanup
 
 import akka.actor.ActorSystem
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.model._
 import org.scalatest.{FunSpec, Matchers}
+import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Environment}
+
+import scala.concurrent.Future
 
 class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
   private val actorSystem: ActorSystem = ActorSystem()
-  private val config = new CommonConfig(Configuration.load(Environment.simple())) {}
+  private val applicationLifecycle = new ApplicationLifecycle {
+    override def addStopHook(hook: () => Future[_]): Unit = {}
+    override def stop(): Future[_] = Future.successful(())
+  }
+  private val config = new CommonConfig(GridConfigResources(
+    Configuration.load(Environment.simple()) ++
+      Configuration.from(Map("usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName)),
+    actorSystem,
+    applicationLifecycle
+  )){}
 
   it("should leave supplier, suppliersCollection and credit empty by default") {
     val image = createImageFromMetadata()

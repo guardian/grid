@@ -21,14 +21,7 @@ trait Fixtures {
     "usageRights" -> Map(
       "applicable" -> List()
     ),
-    "photographers" -> Map(
-      "externalStaffPhotographers" -> List(),
-      "internalStaffPhotographers" -> List(),
-      "contractedPhotographers" -> List(),
-      "contractIllustrators" -> List(),
-      "staffIllustrators" -> List(),
-      "creativeCommonsLicense" -> List()
-    )
+    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
   )
   val NOT_USED_IN_TEST = "not used in test"
   val MOCK_CONFIG_KEYS = Seq(
