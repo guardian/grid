@@ -43,6 +43,7 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   val hasRightsCategoryFilter: Query = filters.existsOrMissing(usageRightsField("category"), exists = true)
 
   val freeFilter: Option[Query] = filterOrFilter(freeSupplierFilter, freeUsageRightsFilter)
+  def veryFreeFilter(overQuotaAgencies: ()=> List[Agency]): Option[Query] = filterAndFilter(freeFilter, Some(IsUnderQuota(overQuotaAgencies())))
   val nonFreeFilter: Option[Query] = freeFilter.map(filters.not)
 
   val maybeFreeFilter: Option[Query] = filterOrFilter(freeFilter, Some(filters.not(hasRightsCategoryFilter)))
