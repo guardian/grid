@@ -23,17 +23,24 @@ module.controller('grArchiverCtrl', [
     'imageAccessor',
     'imageLogic',
     'humanJoin',
+    'mediaApi',
     function ($scope,
               $window,
               archiveService,
               imageAccessor,
               imageLogic,
-              humanJoin) {
+              humanJoin,
+              mediaApi) {
 
         const ctrl = this;
 
         ctrl.archivedState = 'unarchived';
         ctrl.archiving = false;
+        ctrl.canArchive = false;
+
+        mediaApi.canUserArchive().then(canArchive => {
+            ctrl.canArchive = canArchive;
+        });
 
         $scope.$watchCollection(getImageArray, (images) => {
             const noneCanBeArchived = ! images.some(imageLogic.canBeArchived);

@@ -57,6 +57,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       case ShowPaid => hasPermission(Permissions.ShowPaid)
       case Pinboard => hasPermission(Permissions.Pinboard)
       case UploadImages => true
+      case ArchiveImages => true
     }
   }
 }
