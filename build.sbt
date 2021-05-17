@@ -72,7 +72,7 @@ val okHttpVersion = "3.12.1"
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
 
 //BBC specific project, it only gets compiled when bbcBuildProcess is true
-lazy val bbcProject = project("bbc").dependsOn(restLib)
+lazy val bbcProject = project("bbc").dependsOn(restLib % "compile->compile;test->test")
 
 val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProject) else None
 
@@ -124,7 +124,7 @@ lazy val restLib = project("rest-lib").settings(
   ),
 
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
-).dependsOn(commonLib)
+).dependsOn(commonLib % "compile->compile;test->test")
 
 lazy val auth = playProject("auth", 9011)
 
