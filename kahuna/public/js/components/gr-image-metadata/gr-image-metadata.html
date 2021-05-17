@@ -235,10 +235,10 @@
                 </span>
             </dd>
 
-            <dt class="image-info__group--dl__key metadata-line__key image-info__wrap">
+            <dt ng-if="ctrl.metadata.peopleInImage || ctrl.userCanEdit" class="image-info__group--dl__key metadata-line__key image-info__wrap">
                 People
             </dt>
-            <dd class="image-info__wrap image-info__group--dl__value metadata-line__info">
+            <dd ng-if="ctrl.metadata.peopleInImage || ctrl.userCanEdit" class="image-info__wrap image-info__group--dl__value metadata-line__info">
                 <button data-cy="it-edit-people-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
