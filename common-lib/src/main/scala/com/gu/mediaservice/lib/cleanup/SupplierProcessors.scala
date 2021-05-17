@@ -114,6 +114,10 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
   def getCanonicalName(): String
   lazy val canonicalName = getCanonicalName
 
+  private def matches(image: Image):Boolean = {
+    List(image.metadata.byline, image.metadata.credit).flatten.mkString.contains(canonicalName)
+  }
+
   def getPrefixAndSuffix(s:Option[String]): Option[RegexResult]
 
   lazy val agencyName = getAgencyName
@@ -121,7 +125,8 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
   def getAgencyName(): String
 
   // Rules for slash delimited strings: byline, credit and supplier collection.
-  def apply(image: Image): Image = (
+  def apply(image: Image): Image = image match {
+    case _ if matches(image) => (
       dedupeAndCanonicaliseName _ andThen
       moveCanonicalNameFromBylineToCredit andThen
       removeBylineElementsInCredit andThen
@@ -129,6 +134,8 @@ trait CanonicalisingImageProcessor extends ImageProcessor {
       setSupplierCollection andThen
       stripDuplicateByline
     )(image)
+    case _ => image
+  }
 
   // There should only be one instance of the name
   private def dedupeAndCanonicaliseName(image: Image): Image = {
