@@ -11,6 +11,6 @@ fi
 
 PR=$1
 
-echo "Pushing PR $PR to origin"
-git fetch origin pull/${PR}/merge:pr${PR}
-git push origin pr${PR}:pr${PR}
+echo "Pushing PR merge commit for ${PR} to remote pr${PR} branch"
+git fetch -f origin pull/${PR}/merge:pr${PR}
+git push -f origin pr${PR}:pr${PR}
