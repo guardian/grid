@@ -12,7 +12,7 @@ class AttributeCreditFromBylineTest extends FunSpec with Matchers with MetadataH
     testCleaner.clean(metadata).credit should be (Some("Some Credit"))
   }
 
-  it("should not set the credit if the byline doesn't matche the configured list") {
+  it("should not set the credit if the byline doesn't match the configured list") {
     val metadata = createImageMetadata("byline" -> "Someone else")
     testCleaner.clean(metadata).credit should be (None)
   }
