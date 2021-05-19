@@ -2,7 +2,7 @@ Extending the Grid using providers
 ==================================
 
 The Grid can be customised to suit your organisation. In particular, alternative "providers" for the image ingest
-pipelines and authentication can be loaded dynamically at start time.
+pipelines, usage rights and authentication can be loaded dynamically at start time.
 
 We aim to allow modifications to your installation of the Grid without having to alter the source code of the Grid
 itself over and above what might be possible with configuration changes.

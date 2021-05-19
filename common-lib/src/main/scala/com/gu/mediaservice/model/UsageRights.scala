@@ -1,6 +1,14 @@
 package com.gu.mediaservice.model
 
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigException.BadValue
+import com.typesafe.scalalogging.StrictLogging
+import play.api.ConfigLoader
 import play.api.libs.json._
+
+import scala.collection.JavaConverters.asScalaIteratorConverter
+import scala.reflect.runtime.universe
+import scala.util.control.NonFatal
 
 
 sealed trait UsageRights {
@@ -22,15 +30,26 @@ sealed trait UsageRightsSpec {
   val caution: Option[String] = None
 }
 
+object UsageRightsSpec extends StrictLogging {
+  val runtimeMirror: universe.Mirror = universe.runtimeMirror(getClass.getClassLoader)
+
+  implicit val configLoader: ConfigLoader[Seq[UsageRightsSpec]] = (rootConfig: Config, path: String) => {
+    rootConfig.getStringList(path).iterator().asScala.map { className =>
+      try {
+        val module = runtimeMirror.staticModule(className)
+        val obj = runtimeMirror.reflectModule(module)
+        obj.instance.asInstanceOf[UsageRightsSpec]
+      } catch {
+        case NonFatal(error) =>
+          val message = s"Unable to instantiate $className from config: $error"
+          logger.error(message)
+          throw new BadValue(path, message, error)
+      }
+    }.toSeq
+  }
+}
+
 object UsageRights {
-  val all = List(
-    NoRights, Handout, PrImage, Screengrab, SocialMedia,
-    Agency, CommissionedAgency, Chargeable, Bylines,
-    StaffPhotographer, ContractPhotographer, CommissionedPhotographer,
-    CreativeCommons, GuardianWitness, Pool, CrownCopyright, Obituary,
-    ContractIllustrator, CommissionedIllustrator, StaffIllustrator,
-    Composite, PublicDomain
-  )
 
   val photographer: List[UsageRightsSpec] = List(StaffPhotographer, ContractPhotographer, CommissionedPhotographer)
   val illustrator: List[UsageRightsSpec] = List(StaffIllustrator, ContractIllustrator, CommissionedIllustrator)

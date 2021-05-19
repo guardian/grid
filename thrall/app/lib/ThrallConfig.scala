@@ -28,7 +28,7 @@ object KinesisReceiverConfig {
   )
 }
 
-class ThrallConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
+class ThrallConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val imageBucket: String = string("s3.image.bucket")
 
   val writeAlias: String = string("es.index.aliases.write")
