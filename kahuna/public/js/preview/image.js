@@ -55,7 +55,7 @@ image.controller('uiPreviewImageCtrl', [
     ctrl.states = imageService(ctrl.image).states;
 
     ctrl.imageDescription = ctrl.states.isStaffPhotographer ?
-        `GNM-owned: ${ctrl.image.data.metadata.description}` :
+        `${window._clientConfig.staffPhotographerOrganisation}-owned: ${ctrl.image.data.metadata.description}` :
         ctrl.image.data.metadata.description;
 
     ctrl.flagState = ctrl.states.costState;
