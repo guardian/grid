@@ -10,8 +10,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.{BrowserViewableImage, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
-import com.gu.mediaservice.lib.cleanup.{ImageProcessor, MetadataCleaners, SupplierProcessors}
-import com.gu.mediaservice.lib.config.MetadataConfig
+import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging._
@@ -32,7 +31,6 @@ import scala.concurrent.{ExecutionContext, Future}
 case class ImageUpload(uploadRequest: UploadRequest, image: Image)
 
 case object ImageUpload {
-  val metadataCleaners = new MetadataCleaners(MetadataConfig.allPhotographersMap)
 
   def createImage(uploadRequest: UploadRequest, source: Asset, thumbnail: Asset, png: Option[Asset],
                   fileMetadata: FileMetadata, metadata: ImageMetadata): Image = {

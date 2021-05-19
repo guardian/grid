@@ -7,14 +7,14 @@ import play.api.Configuration
 import router.Routes
 
 object AdminToolsComponents {
-  def config(resources: GridConfigResources) = new AdminToolsConfig(
+  def config(resources: GridConfigResources) = new AdminToolsConfig(resources.copy(configuration =
     resources.configuration ++ Configuration.from(Map(
       "domain.root" -> "local.dev-gutools.co.uk",
       "auth.keystore.bucket" -> "not-used",
       "thrall.kinesis.stream.name"-> "not-used",
       "thrall.kinesis.lowPriorityStream.name"-> "not-used"
     ))
-  )
+  ))
 }
 
 class AdminToolsComponents(context: Context) extends GridComponents(context, AdminToolsComponents.config) {
