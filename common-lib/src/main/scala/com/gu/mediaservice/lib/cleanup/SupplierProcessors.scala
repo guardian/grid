@@ -1,12 +1,12 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
-import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.{Agencies, Agency, ContractPhotographer, Image, StaffPhotographer}
+import com.gu.mediaservice.lib.config.PhotographersList
 
 /**
   * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
   */
-class SupplierProcessors(resources: ImageProcessorResources)
+object SupplierProcessors
   extends ComposeImageProcessors(
     GettyXmpParser,
     GettyCreditParser,
@@ -20,7 +20,7 @@ class SupplierProcessors(resources: ImageProcessorResources)
     ReutersParser,
     RexParser,
     RonaldGrantParser,
-    new PhotographerParser(resources.commonConfiguration.usageRightsConfig),
+    PhotographerParser,
     AllstarSportsphotoParser,
     AllStarParser
   )
@@ -28,10 +28,10 @@ class SupplierProcessors(resources: ImageProcessorResources)
 /**
   * Guardian specific logic to correctly identify Guardian and Observer photographers and their contracts
   */
-class PhotographerParser(photographersConfig: UsageRightsConfigProvider) extends ImageProcessor {
+object PhotographerParser extends ImageProcessor {
   def apply(image: Image): Image = {
     image.metadata.byline.flatMap { byline =>
-      photographersConfig.getPhotographer(byline).map{
+      PhotographersList.getPhotographer(byline).map{
         case p: StaffPhotographer => image.copy(
           usageRights = p,
           metadata    = image.metadata.copy(credit = Some(p.publication), byline = Some(p.photographer))

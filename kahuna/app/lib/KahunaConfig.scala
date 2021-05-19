@@ -11,7 +11,7 @@ case class ScriptToLoad(
   permission: Option[SimplePermission]
 )
 
-class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources) {
+class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val rootUri: String = services.kahunaBaseUri
   val mediaApiUri: String = services.apiBaseUri
   val authUri: String = services.authBaseUri

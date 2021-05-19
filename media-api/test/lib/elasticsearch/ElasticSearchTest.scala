@@ -17,7 +17,6 @@ import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
-import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Mode}
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.AnyContent
@@ -34,11 +33,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
   private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
     Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    null,
-    new ApplicationLifecycle {
-      override def addStopHook(hook: () => Future[_]): Unit = {}
-      override def stop(): Future[_] = Future.successful(())
-    }
+    null
   ))
 
   private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)

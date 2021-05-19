@@ -1,9 +1,9 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.Configuration
 
-class AdminToolsConfig(resources: GridConfigResources) extends CommonConfig(resources) {
+class AdminToolsConfig(playAppConfiguration: Configuration) extends CommonConfig(playAppConfiguration) {
   // hardcoded for dev
   val apiKey: String = "dev-"
 

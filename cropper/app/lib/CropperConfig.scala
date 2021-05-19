@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import java.io.File
 
 
-class CropperConfig(resources: GridConfigResources) extends CommonConfig(resources) {
+class CropperConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val imgPublishingBucket = string("publishing.image.bucket")
 
   val imgPublishingHost = string("publishing.image.host")

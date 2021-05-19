@@ -143,15 +143,6 @@ class ProviderLoaderTest extends FreeSpec with Matchers with EitherValues {
     implicit val testProviderConfigLoader: ConfigLoader[TestProvider] = TestProviderLoader.singletonConfigLoader(resources, applicationLifecycle)
     implicit val testProvidersConfigLoader: ConfigLoader[Seq[TestProvider]] = TestProviderLoader.seqConfigLoader(resources, applicationLifecycle)
 
-    "should load a single image processor from a classname" in {
-      val conf:Configuration = Configuration.from(Map(
-        "some.path" -> "com.gu.mediaservice.lib.config.NoArgTestProvider"
-      ))
-
-      val processor = conf.get[TestProvider]("some.path")
-      processor shouldBe a[NoArgTestProvider]
-    }
-
     "should load an image processor from a classname" in {
       val conf:Configuration = Configuration.from(Map(
         "some.path" -> List(
@@ -161,19 +152,6 @@ class ProviderLoaderTest extends FreeSpec with Matchers with EitherValues {
 
       val processors = conf.get[Seq[TestProvider]]("some.path")
       processors.head shouldBe a[NoArgTestProvider]
-    }
-
-    "should load a single image processor which has configuration" in {
-      val conf:Configuration = Configuration.from(Map(
-        "some.path" -> Map(
-          "className" -> "com.gu.mediaservice.lib.config.ConfigTestProvider",
-          "config" -> Map("parameter" -> "value")
-        )
-      ))
-      val processor = conf.get[TestProvider]("some.path")
-      inside(processor) {
-        case ConfigTestProvider(config) => config.get[String]("parameter") shouldBe "value"
-      }
     }
 
     "should load an image processor which has configuration" in {
