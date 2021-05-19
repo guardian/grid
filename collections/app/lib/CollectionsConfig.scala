@@ -3,7 +3,7 @@ package lib
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 
 
-class CollectionsConfig(resources: GridConfigResources) extends CommonConfig(resources) {
+class CollectionsConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
   val collectionsTable = string("dynamo.table.collections")
   val imageCollectionsTable = string("dynamo.table.imageCollections")
 

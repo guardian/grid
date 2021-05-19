@@ -17,11 +17,7 @@ trait Fixtures {
   val USED_CONFIGS_IN_TEST = Map(
     "es6.shards" -> 0,
     "es6.replicas" -> 0,
-    "field.aliases" -> Seq.empty,
-    "usageRights" -> Map(
-      "applicable" -> List()
-    ),
-    "usageRightsConfigProvider" -> "com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig"
+    "field.aliases" -> Seq.empty
   )
   val NOT_USED_IN_TEST = "not used in test"
   val MOCK_CONFIG_KEYS = Seq(

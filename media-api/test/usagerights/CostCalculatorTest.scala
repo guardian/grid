@@ -1,6 +1,5 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 import org.scalatest.{FunSpec, Matchers}
@@ -15,17 +14,11 @@ class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
     object Costing extends CostCalculator {
       val quotas = Quota
       override def getOverQuota(usageRights: UsageRights) = None
-
-      override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
-      override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
     }
 
     object OverQuotaCosting extends CostCalculator {
       val quotas = Quota
       override def getOverQuota(usageRights: UsageRights) = Some(Overquota)
-
-      override val freeSuppliers: List[String] = GuardianUsageRightsConfig.freeSuppliers
-      override val suppliersCollectionExcl: Map[String, List[String]] = GuardianUsageRightsConfig.suppliersCollectionExcl
     }
 
     it("should be free with a free category") {
