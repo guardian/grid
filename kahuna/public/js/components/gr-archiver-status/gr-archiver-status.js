@@ -14,15 +14,20 @@ export const archiver = angular.module('gr.archiverStatus', [
 
 archiver.controller('ArchiverCtrl',
                     ['$scope', '$window', 'archiveService',
-                     'imageLogic', 'humanJoin',
+                     'imageLogic', 'humanJoin', 'mediaApi',
                      function($scope, $window, archiveService,
-                              imageLogic, humanJoin) {
+                              imageLogic, humanJoin, mediaApi) {
 
     const ctrl = this;
 
     ctrl.archive = archive;
     ctrl.unarchive = unarchive;
     ctrl.archiving = false;
+    ctrl.canArchive = false;
+
+    mediaApi.canUserArchive().then(canArchive => {
+        ctrl.canArchive = canArchive;
+    });
 
     $scope.$watch(() => ctrl.image, image => {
         ctrl.archivedState = imageLogic.getArchivedState(image);

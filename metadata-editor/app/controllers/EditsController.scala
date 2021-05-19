@@ -60,7 +60,7 @@ class EditsController(
   val gridClient: GridClient = GridClient(services)(ws)
 
   val metadataBaseUri = config.services.metadataBaseUri
-
+  private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive
   private def getUploader(imageId: String, user: Principal): Future[Option[String]] = gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
 
   private def authorisedForEditMetadataOrUploader(imageId: String) = authorisation.actionFilterForUploaderOr(imageId, EditMetadata, getUploader)
@@ -92,7 +92,7 @@ class EditsController(
     }
   }
 
-  def setArchived(id: String) = auth.async(parse.json) { implicit req =>
+  def setArchived(id: String) = AuthenticatedAndAuthorised.async(parse.json) { implicit req =>
     (req.body \ "data").validate[Boolean].fold(
       errors =>
         Future.successful(BadRequest(errors.toString())),

@@ -17,7 +17,7 @@
         <gr-library-added-icon class="gr-archiver-status__icon"></gr-library-added-icon>
         <gr-library-remove-icon class="gr-archiver-status__icon"></gr-library-remove-icon>
     </button>
-    <button ng-switch-when="unarchived"
+    <button ng-if="ctrl.canArchive" ng-switch-when="unarchived"
             type="button"
             class="gr-archiver-status__button inner-clickable"
             title="Add to Library"

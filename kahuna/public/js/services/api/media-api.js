@@ -92,6 +92,10 @@ mediaApi.factory('mediaApi',
         return root.getLink('loader').then(() => true, () => false);
     }
 
+    function canUserArchive() {
+        return root.getLink('archive').then(() => true, () => false);
+    }
+
     return {
         root,
         search,
@@ -101,6 +105,7 @@ mediaApi.factory('mediaApi',
         labelSearch,
         labelsSuggest,
         delete: delete_,
-        canUserUpload
+        canUserUpload,
+        canUserArchive
     };
 }]);
