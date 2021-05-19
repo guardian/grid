@@ -1,13 +1,13 @@
 package lib.usagerights
 
-import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig
 import com.gu.mediaservice.model._
 import lib.UsageQuota
 
 trait CostCalculator {
-  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
-
   val defaultCost = Pay
+  val freeSuppliers: List[String]
+  val suppliersCollectionExcl: Map[String, List[String]]
   val quotas: UsageQuota
 
   def getCost(supplier: String, collection: Option[String]): Option[Cost] = {

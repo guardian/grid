@@ -10,7 +10,7 @@ case class StoreConfig(
   storeKey: String
 )
 
-class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resources.configuration) {
+class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val configBucket: String = string("s3.config.bucket")
   val usageMailBucket: String = string("s3.usagemail.bucket")
 

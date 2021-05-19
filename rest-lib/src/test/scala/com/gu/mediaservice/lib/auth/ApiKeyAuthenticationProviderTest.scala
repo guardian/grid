@@ -3,9 +3,10 @@ package com.gu.mediaservice.lib.auth
 import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.MachinePrincipal
 import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, Invalid, NotAuthenticated, NotAuthorised}
-import com.gu.mediaservice.lib.config.CommonConfig
+import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import org.scalatest.Inside.inside
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
+import play.api.inject.ApplicationLifecycle
 import play.api.mvc.DefaultControllerComponents
 import play.api.test.{FakeRequest, WsTestClient}
 import play.api.{Configuration, Environment}
@@ -18,7 +19,15 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
 
   private val actorSystem: ActorSystem = ActorSystem()
   private val wsClient = new WsTestClient.InternalWSClient("https", 443)
-  private val config = new CommonConfig(Configuration.load(Environment.simple())) {}
+  private val applicationLifecycle = new ApplicationLifecycle {
+    override def addStopHook(hook: () => Future[_]): Unit = {}
+    override def stop(): Future[_] = Future.successful(())
+  }
+  private val config = new CommonConfig(GridConfigResources(
+    Configuration.load(Environment.simple()),
+    actorSystem,
+    applicationLifecycle
+  )){}
   private val providerConfig = Configuration.empty
   private val controllerComponents: DefaultControllerComponents = DefaultControllerComponents(null, null, null, null, null, global)
   private val resources = AuthenticationProviderResources(config, actorSystem, wsClient, controllerComponents)

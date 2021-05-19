@@ -27,6 +27,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   implicit val usageQuotas = usageQuota
 
   object Costing extends CostCalculator {
+    override val freeSuppliers: List[String] = config.usageRightsConfig.freeSuppliers
+    override val suppliersCollectionExcl: Map[String, List[String]] = config.usageRightsConfig.suppliersCollectionExcl
     val quotas = usageQuotas
   }
 

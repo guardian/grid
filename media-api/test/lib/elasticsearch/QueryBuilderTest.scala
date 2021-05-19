@@ -12,6 +12,9 @@ import org.scalatest.{FunSpec, Matchers}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import lib.MediaApiConfig
 import play.api.Configuration
+import play.api.inject.ApplicationLifecycle
+
+import scala.concurrent.Future
 
 class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with Fixtures {
 
@@ -19,7 +22,11 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
 
   private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
     Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    null
+    null,
+    new ApplicationLifecycle {
+      override def addStopHook(hook: () => Future[_]): Unit = {}
+      override def stop(): Future[_] = Future.successful(())
+    }
   ))
 
   val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfig)
