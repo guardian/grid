@@ -7,7 +7,10 @@ import lib.elasticsearch.{Fixtures, SourceWrapper}
 import org.joda.time.DateTime.now
 import org.scalatest.{FunSpec, Matchers}
 import play.api.Configuration
+import play.api.inject.ApplicationLifecycle
 import play.api.libs.json._
+
+import scala.concurrent.Future
 
 class ImageResponseTest extends FunSpec with Matchers with Fixtures {
 
@@ -34,7 +37,11 @@ class ImageResponseTest extends FunSpec with Matchers with Fixtures {
         )
       )
     ) ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
-    null
+    null,
+    new ApplicationLifecycle {
+      override def addStopHook(hook: () => Future[_]): Unit = {}
+      override def stop(): Future[_] = Future.successful(())
+    }
   ))
 
   it("should replace \\r linebreaks with \\n") {

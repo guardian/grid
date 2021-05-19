@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.{Syndication, Tier}
-import com.gu.mediaservice.lib.config.UsageRightsConfig
+import com.gu.mediaservice.lib.config.RuntimeUsageRightsConfig
 import com.gu.mediaservice.model._
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.MediaApiConfig
@@ -12,8 +12,10 @@ import scalaz.syntax.std.list._
 class SearchFilters(config: MediaApiConfig)  extends ImageFields {
 
   val syndicationFilter = new SyndicationFilter(config)
+  val usageRights = config.applicableUsageRights.toList
 
-  import UsageRightsConfig.{freeSuppliers, suppliersCollectionExcl}
+  val freeSuppliers = config.usageRightsConfig.freeSuppliers
+  val suppliersCollectionExcl = config.usageRightsConfig.suppliersCollectionExcl
 
   // Warning: The current media-api definition of invalid includes other requirements
   // so does not match this filter exactly!
@@ -48,7 +50,7 @@ class SearchFilters(config: MediaApiConfig)  extends ImageFields {
   val maybeFreeFilter: Option[Query] = filterOrFilter(freeFilter, Some(filters.not(hasRightsCategoryFilter)))
 
   lazy val freeToUseCategories: List[String] =
-    UsageRights.all.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
+    usageRights.filter(ur => ur.defaultCost.exists(cost => cost == Free || cost == Conditional)).map(ur => ur.category)
 
   val persistedCategories = NonEmptyList(
     StaffPhotographer.category,
