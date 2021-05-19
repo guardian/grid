@@ -33,6 +33,7 @@ export const toWriteTags = (
     "Sub-location": meta.subLocation,
     City: meta.city,
     Country: meta.country,
+    Copyright: meta.copyright
   };
   const specificAndLimited = {
     SupplementalCategories: meta.subjects,
