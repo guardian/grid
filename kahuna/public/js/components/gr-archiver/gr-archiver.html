@@ -18,7 +18,7 @@
         <span ng-if="ctrl.archiving">Removing from Library…</span>
     </button>
 
-    <button ng-switch-when="unarchived"
+    <button ng-if="ctrl.canArchive" ng-switch-when="unarchived"
             type="button"
             class="clickable side-padded batch-archive__button"
             ng-click="ctrl.archive()"

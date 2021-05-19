@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, DeleteImage => DeleteImagePermission, EditMetadata, UploadImages}
+import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, DeleteImage => DeleteImagePermission, EditMetadata, UploadImages}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -69,8 +69,10 @@ class MediaApi(
     )
 
     val userCanUpload: Boolean = authorisation.hasPermissionTo(UploadImages)(user)
+    val userCanArchive: Boolean = authorisation.hasPermissionTo(ArchiveImages)(user)
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
+    val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
 
     val indexLinks = List(
       searchLink,
@@ -87,7 +89,7 @@ class MediaApi(
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
       Link("admin-tools",     config.adminToolsUri)
-    ) ++ maybeLoaderLink.toList
+    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
   }
 
