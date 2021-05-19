@@ -69,4 +69,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
   }.toOption.flatten
+
+  val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
 }
