@@ -75,10 +75,12 @@ const fileTypes = [
     'png'
 ];
 
+const staffPhotographerOrganisation = window._clientConfig.staffPhotographerOrganisation;
+
 const isSearch = [
-  'GNM-owned-photo',
-  'GNM-owned-illustration',
-  'GNM-owned',
+    `${staffPhotographerOrganisation}-owned-photo`,
+    `${staffPhotographerOrganisation}-owned-illustration`,
+    `${staffPhotographerOrganisation}-owned`,
   'under-quota'
 ];
 

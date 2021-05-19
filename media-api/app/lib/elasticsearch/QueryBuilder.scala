@@ -54,7 +54,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       case _ => throw InvalidQuery(s"Cannot perform has field on ${condition.value}")
     }
     case IsField => condition.value match {
-      case IsValue(value) => IsQueryFilter.apply(value, overQuotaAgencies) match {
+      case IsValue(value) => IsQueryFilter.apply(value, overQuotaAgencies, config.staffPhotographerOrganisation) match {
         case Some(isQuery) => isQuery.query
         case _ => {
           logger.info(s"Cannot perform IS query on ${condition.value}")

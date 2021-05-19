@@ -15,9 +15,9 @@ trait ConditionFixtures {
 
   val hasFieldCondition = Match(HasField, HasValue("foo"))
 
-  val isOwnedPhotoCondition = Match(IsField, IsValue(IsOwnedPhotograph.toString))
-  val isOwnedIllustrationCondition = Match(IsField, IsValue(IsOwnedIllustration.toString))
-  val isOwnedImageCondition = Match(IsField, IsValue(IsOwnedImage.toString))
+  val isOwnedPhotoCondition = Match(IsField, IsValue(IsOwnedPhotograph("GNM").toString))
+  val isOwnedIllustrationCondition = Match(IsField, IsValue(IsOwnedIllustration("GNM").toString))
+  val isOwnedImageCondition = Match(IsField, IsValue(IsOwnedImage("GNM").toString))
   val isUnderQuotaCondition = Match(IsField, IsValue(IsUnderQuota(Nil).toString))
   val isInvalidCondition = Match(IsField, IsValue("a-random-string"))
 

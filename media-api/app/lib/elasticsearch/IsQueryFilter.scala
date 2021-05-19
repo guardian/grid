@@ -10,37 +10,40 @@ sealed trait IsQueryFilter extends Query with ImageFields {
   def query: Query
 
   override def toString: String = this match {
-    case IsOwnedPhotograph => "gnm-owned-photo"
-    case IsOwnedIllustration => "gnm-owned-illustration"
-    case IsOwnedImage => "gnm-owned"
+    case IsOwnedPhotograph(staffPhotographerOrg) => s"$staffPhotographerOrg-owned-photo"
+    case IsOwnedIllustration(staffPhotographerOrg) => s"$staffPhotographerOrg-owned-illustration"
+    case IsOwnedImage(staffPhotographerOrg) => s"$staffPhotographerOrg-owned"
     case _: IsUnderQuota => "under-quota"
   }
 }
 
 object IsQueryFilter {
   // for readability, the client capitalises gnm, so `toLowerCase` it before matching
-  def apply(value: String, overQuotaAgencies: () => List[Agency]): Option[IsQueryFilter] = value.toLowerCase match {
-    case "gnm-owned-photo" => Some(IsOwnedPhotograph)
-    case "gnm-owned-illustration" => Some(IsOwnedIllustration)
-    case "gnm-owned" => Some(IsOwnedImage)
-    case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
-    case _ => None
+  def apply(value: String, overQuotaAgencies: () => List[Agency], staffPhotographerOrganisation: String): Option[IsQueryFilter] = {
+   val organisation = staffPhotographerOrganisation.toLowerCase
+    value.toLowerCase match {
+      case s if s == s"$organisation-owned-photo" => Some(IsOwnedPhotograph(organisation))
+      case s if s == s"$organisation-owned-illustration" => Some(IsOwnedIllustration(organisation))
+      case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
+      case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
+      case _ => None
+    }
   }
 }
 
-object IsOwnedPhotograph extends IsQueryFilter {
+case class IsOwnedPhotograph(staffPhotographerOrg: String) extends IsQueryFilter {
   override def query: Query = filters.or(
     filters.terms(usageRightsField("category"), UsageRights.photographer.toNel.get.map(_.category))
   )
 }
 
-object IsOwnedIllustration extends IsQueryFilter {
+case class IsOwnedIllustration(staffPhotographerOrg: String) extends IsQueryFilter {
   override def query: Query = filters.or(
     filters.terms(usageRightsField("category"), UsageRights.illustrator.toNel.get.map(_.category))
   )
 }
 
-object IsOwnedImage extends IsQueryFilter {
+case class IsOwnedImage(staffPhotographerOrg: String) extends IsQueryFilter {
   override def query: Query = filters.or(
     filters.terms(usageRightsField("category"), UsageRights.whollyOwned.toNel.get.map(_.category))
   )
