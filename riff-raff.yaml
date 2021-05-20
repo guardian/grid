@@ -87,7 +87,7 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-xenial-java8
+          Recipe: editorial-tools-bionic-java8
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
