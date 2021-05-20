@@ -38,7 +38,8 @@ class KahunaController(
       config.invalidSessionHelpLink,
       config.supportEmail,
       fieldAliases,
-      config.scriptsToLoad.filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists))
+      config.scriptsToLoad.filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists)),
+      config.staffPhotographerOrganisation
     ))
   }
 

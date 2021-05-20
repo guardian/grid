@@ -11,7 +11,8 @@
   invalidSessionHelpLink: Option[String],
   supportEmail: Option[String],
   fieldAliases: String,
-  scriptsToLoad: List[ScriptToLoad]
+  scriptsToLoad: List[ScriptToLoad],
+  staffPhotographerOrganisation: String
 )
 <!DOCTYPE html>
 <html>
@@ -49,6 +50,7 @@
           usageRightsHelpLink: "@Html(usageRightsHelpLink.getOrElse(""))",
           invalidSessionHelpLink: "@Html(invalidSessionHelpLink.getOrElse(""))",
           supportEmail: "@Html(supportEmail.getOrElse(""))",
+          staffPhotographerOrganisation: "@Html(staffPhotographerOrganisation)",
           fieldAliases: @Html(fieldAliases)
         }
     </script>
