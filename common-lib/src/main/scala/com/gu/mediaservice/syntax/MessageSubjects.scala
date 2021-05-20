@@ -17,7 +17,7 @@ trait MessageSubjects {
   val DeleteUsages = "delete-usages"
   val UpdateImageSyndicationMetadata = "update-image-syndication-metadata"
   val UpdateImagePhotoshootMetadata = "update-image-photoshoot-metadata"
-
+  val ReingestNewIndex = "reindex-image"
 }
 
 object MessageSubjects extends MessageSubjects

@@ -24,6 +24,7 @@ class MessageProcessor(es: ElasticSearch,
     updateMessage.subject match {
       case Image => indexImage(updateMessage, logMarker)
       case ReingestImage => indexImage(updateMessage, logMarker)
+      case ReingestNewIndex => reingestImage(updateMessage, logMarker)
       case DeleteImage => deleteImage(updateMessage, logMarker)
       case UpdateImage => indexImage(updateMessage, logMarker)
       case DeleteImageExports => deleteImageExports(updateMessage, logMarker)
@@ -54,9 +55,9 @@ class MessageProcessor(es: ElasticSearch,
     }
   }
 
-  private def reindexImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
-    logger.info(logMarker, s"Reindexing image: ${message.image.map(_.id).getOrElse("image not found")}")
-    indexImage(message, logMarker)
+  private def reingestImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    logger.info(logMarker, s"Reingesting image: ${message.image.map(_.id).getOrElse("image not found")}")
+    indexImage(message, logMarker, true)
   }
 
   private def indexImage(message: UpdateMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =

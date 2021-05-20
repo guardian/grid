@@ -26,6 +26,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   with ImageFields with ElasticSearchExecutions {
 
   lazy val imagesAlias: String = config.alias
+  lazy val accretorAlias: String = config.accretorAlias
   lazy val url: String = config.url
   lazy val cluster: String = config.cluster
   lazy val shards: Int = config.shards
@@ -53,8 +54,11 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(response.map(_ => ElasticSearchBulkUpdateResponse()))
   }
 
-  def indexImage(id: String, image: Image, lastModified: DateTime)
+  def indexImage(id: String, image: Image, lastModified: DateTime, reindex: Boolean = false)
                 (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+
+    val index = if(reindex){accretorAlias}else{imagesAlias}
+
     // On insert, we know we will not have a lastModified to consider, so we always take the one we get
     val insertImage = image.copy(lastModified = Some(lastModified))
     val insertImageAsJson = Json.toJson(insertImage)
@@ -87,7 +91,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson)))
     )
 
-    val indexRequest = updateById(imagesAlias, id).
+    val indexRequest = updateById(index, id).
       upsert(Json.stringify(insertImageAsJson)).
       script(script)
 

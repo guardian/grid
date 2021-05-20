@@ -23,6 +23,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
 
   val imagesAlias: String = string("es.index.aliases.read")
+  val imageAccretorIndex: String = string ("es.index.aliases.accretor") //nb spelt correctly
 
   val elasticsearch6Url: String =  string("es6.url")
   val elasticsearch6Cluster: String = string("es6.cluster")

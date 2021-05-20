@@ -21,6 +21,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
 
   val es6Config: ElasticSearchConfig = ElasticSearchConfig(
     alias = config.imagesAlias,
+    accretorAlias = config.imageAccretorIndex,
     url = config.elasticsearch6Url,
     cluster = config.elasticsearch6Cluster,
     shards = config.elasticsearch6Shards,
