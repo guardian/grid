@@ -265,7 +265,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       (__ \ "collections").write[List[EmbeddedEntity[CollectionResponse]]]
         .contramap((collections: List[Collection]) => collections.map(c => collectionsEntity(id, c))) ~
       (__ \ "syndicationRights").writeNullable[SyndicationRights] ~
-      (__ \ "usermetaDataLastModified").writeNullable[DateTime]
+      (__ \ "usermetaDataLastModified").writeNullable[DateTime] ~
+      (__ \ "deletedAt").writeNullable[DateTime]
 
     ) (unlift(Image.unapply))
 
