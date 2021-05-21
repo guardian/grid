@@ -15,8 +15,8 @@ class ThrallEventConsumerTest extends ElasticSearchTestBase with MockitoSugar {
           |}
           |""".stripMargin.getBytes()
       val m2 = ThrallEventConsumer.parseRecord(j, java.time.Instant.EPOCH)
-      m2.isDefined shouldEqual (true)
-      m2.get.subject shouldBe "test"
+      m2.isRight shouldEqual (true)
+      m2.right.get.subject shouldBe "test"
     }
     "parse near minimal message" in {
       val j =
@@ -27,8 +27,8 @@ class ThrallEventConsumerTest extends ElasticSearchTestBase with MockitoSugar {
           |}
           |""".stripMargin.getBytes()
       val m2 = ThrallEventConsumer.parseRecord(j, java.time.Instant.EPOCH)
-      m2.isDefined shouldEqual (true)
-      m2.get.subject shouldBe "test"
+      m2.isRight shouldEqual (true)
+      m2.right.get.subject shouldBe "test"
     }
   }
 }
