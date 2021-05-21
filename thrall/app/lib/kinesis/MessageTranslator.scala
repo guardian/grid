@@ -5,61 +5,64 @@ import com.gu.mediaservice.model.{AddImageLeaseMessage, DeleteImageExportsMessag
 import com.gu.mediaservice.syntax.MessageSubjects._
 
 object MessageTranslator {
-  def process(updateMessage: UpdateMessage): Option[ThrallMessage] = {
+  def translate(updateMessage: UpdateMessage): Either[Throwable, ThrallMessage] = {
     updateMessage.subject match {
       case Image | ReingestImage | UpdateImage =>
         (updateMessage.id, updateMessage.image) match {
-          case (Some(id), Some(image)) => Some(ImageMessage(id, image))
-          case _ => None
+          case (Some(id), Some(image)) => Right(ImageMessage(id, updateMessage.lastModified, image))
+          case _ => Left(MissingFieldsException(updateMessage.subject))
         }
       case DeleteImage => (updateMessage.id) match {
-        case (Some(id)) => Some(DeleteImageMessage(id))
-        case _ => None
+        case (Some(id)) => Right(DeleteImageMessage(id, updateMessage.lastModified))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case DeleteImageExports => (updateMessage.id) match {
-        case (Some(id)) => Some(DeleteImageExportsMessage(id))
-        case _ => None
+        case (Some(id)) => Right(DeleteImageExportsMessage(id, updateMessage.lastModified))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case UpdateImageExports => (updateMessage.id, updateMessage.crops) match {
-        case (Some(id), Some(crops)) => Some(UpdateImageExportsMessage(id, crops))
-        case _ => None
+        case (Some(id), Some(crops)) => Right(UpdateImageExportsMessage(id, updateMessage.lastModified, crops))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case UpdateImageUserMetadata => (updateMessage.id, updateMessage.edits) match {
-        case (Some(id), Some(edits)) => Some(UpdateImageUserMetadataMessage(id, edits))
-        case _ => None
+        case (Some(id), Some(edits)) => Right(UpdateImageUserMetadataMessage(id, updateMessage.lastModified, edits))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case UpdateImageUsages => (updateMessage.id, updateMessage.usageNotice) match {
-        case (Some(id), Some(usageNotice)) => Some(UpdateImageUsagesMessage(id, usageNotice))
-        case _ => None
+        case (Some(id), Some(usageNotice)) => Right(UpdateImageUsagesMessage(id, updateMessage.lastModified, usageNotice))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case ReplaceImageLeases => (updateMessage.id, updateMessage.leases) match {
-        case (Some(id), Some(leases)) => Some(ReplaceImageLeasesMessage(id, leases))
-        case _ => None
+        case (Some(id), Some(leases)) => Right(ReplaceImageLeasesMessage(id, updateMessage.lastModified, leases))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case AddImageLease => (updateMessage.id, updateMessage.mediaLease) match {
-        case (Some(id), Some(mediaLease)) => Some(AddImageLeaseMessage(id, mediaLease))
-        case _ => None
+        case (Some(id), Some(mediaLease)) => Right(AddImageLeaseMessage(id, updateMessage.lastModified, mediaLease))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case RemoveImageLease => (updateMessage.id, updateMessage.leaseId) match {
-        case (Some(id), Some(leaseId)) => Some(RemoveImageLeaseMessage(id, leaseId))
-        case _ => None
+        case (Some(id), Some(leaseId)) => Right(RemoveImageLeaseMessage(id, updateMessage.lastModified, leaseId))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case SetImageCollections => (updateMessage.id, updateMessage.collections) match {
-        case (Some(id), Some(collections)) => Some(SetImageCollectionsMessage(id, collections))
-        case _ => None
+        case (Some(id), Some(collections)) => Right(SetImageCollectionsMessage(id, updateMessage.lastModified, collections))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case DeleteUsages => (updateMessage.id) match {
-        case Some(id) => Some(DeleteUsagesMessage(id))
+        case Some(id) => Right(DeleteUsagesMessage(id, updateMessage.lastModified))
       }
 
       case UpdateImageSyndicationMetadata => (updateMessage.id, updateMessage.syndicationRights) match {
-        case (Some(id), Some(syndicationMetadata)) => UpdateImageSyndicationMetadataMessage(id, syndicationMetadata)
+        case (Some(id), Some(syndicationMetadata)) => Right(UpdateImageSyndicationMetadataMessage(id, updateMessage.lastModified, syndicationMetadata))
       }
       case UpdateImagePhotoshootMetadata => (updateMessage.id, updateMessage.edits) match {
-        case (Some(id), Some(edits)) => Some(UpdateImagePhotoshootMetadataMessage(id, edits))
+        case (Some(id), Some(edits)) => Right(UpdateImagePhotoshootMetadataMessage(id, updateMessage.lastModified, edits))
       }
-      case _ => None
-
+      case _ => Left(ProcessorNotFoundException(updateMessage.subject))
     }
   }
 }
+
+case class ProcessorNotFoundException(unknownSubject: String) extends Exception(s"Could not find processor for $unknownSubject message")
+
+case class MissingFieldsException(subject: String) extends Exception(s"Was unable to deserialise $subject")

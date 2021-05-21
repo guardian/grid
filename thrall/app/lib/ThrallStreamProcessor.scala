@@ -8,7 +8,9 @@ import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.DateTimeUtils
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging._
-import lib.kinesis.ThrallEventConsumer
+import com.gu.mediaservice.model.ThrallMessage
+import lib.kinesis.{MessageTranslator, ThrallEventConsumer}
+
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
@@ -49,17 +51,23 @@ class ThrallStreamProcessor(
     SourceShape(mergePreferred.out)
   })
 
-  def createStream(): Source[(TaggedRecord, Stopwatch, Option[UpdateMessage]), NotUsed] = {
+  def createStream(): Source[(TaggedRecord, Stopwatch, Either[Throwable, ThrallMessage]), NotUsed] = {
     mergedKinesisSource.map{ taggedRecord =>
-      taggedRecord -> ThrallEventConsumer.parseRecord(taggedRecord.record.data.toArray, taggedRecord.record.approximateArrivalTimestamp)
+      taggedRecord -> (for{
+      updateMessage <- ThrallEventConsumer.parseRecord(taggedRecord.record.data.toArray, taggedRecord.record.approximateArrivalTimestamp)
+      thrallMessage <- MessageTranslator.translate(updateMessage)
+    } yield thrallMessage)
     }.mapAsync(1) { result =>
       val stopwatch = Stopwatch.start
       result match {
-        case (record, Some(updateMessage)) =>
+        case (record, Right(updateMessage)) =>
           consumer.processUpdateMessage(updateMessage)
             .recover { case _ => () }
-            .map(_ => (record, stopwatch, Some(updateMessage)))
-        case (record, _) => Future.successful((record, stopwatch, None))
+            .map(_ => (record, stopwatch, Right(updateMessage)))
+        case (record, Left(whoops)) => {
+          logger.warn("Unable to parse message.", whoops)
+          Future.successful((record, stopwatch, Left(whoops)))
+        }
       }
     }
   }
