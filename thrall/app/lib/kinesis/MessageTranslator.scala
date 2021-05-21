@@ -50,13 +50,16 @@ object MessageTranslator {
       }
       case DeleteUsages => (updateMessage.id) match {
         case Some(id) => Right(DeleteUsagesMessage(id, updateMessage.lastModified))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
 
       case UpdateImageSyndicationMetadata => (updateMessage.id, updateMessage.syndicationRights) match {
         case (Some(id), Some(syndicationMetadata)) => Right(UpdateImageSyndicationMetadataMessage(id, updateMessage.lastModified, syndicationMetadata))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case UpdateImagePhotoshootMetadata => (updateMessage.id, updateMessage.edits) match {
         case (Some(id), Some(edits)) => Right(UpdateImagePhotoshootMetadataMessage(id, updateMessage.lastModified, edits))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case _ => Left(ProcessorNotFoundException(updateMessage.subject))
     }
