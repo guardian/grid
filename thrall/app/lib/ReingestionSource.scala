@@ -1,8 +1,7 @@
 package lib
 
 import java.time.Instant
-
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.stream.alpakka.elasticsearch.ReadResult
 import akka.stream.alpakka.elasticsearch.scaladsl.ElasticsearchSource
 import akka.stream.scaladsl.Source
@@ -20,7 +19,7 @@ import scala.concurrent.Future
 case class ReingestionRecord(payload: Array[Byte], approximateArrivalTimestamp: Instant)
 
 object ReingestionSource {
-  def apply(implicit es: RestClient): Source[ReingestionRecord, Future[Done]] = {
+  def apply(implicit es: RestClient): Source[(UpdateMessage, Instant), Future[Done]] = {
     implicit val format: JsonFormat[Image] = ???
     val x = ElasticsearchSource
       .typed[Image](
@@ -28,9 +27,9 @@ object ReingestionSource {
         typeName = "_doc",
         query = """{"match_all": {}}"""
       )
-      val y = x.map { imageResult: ReadResult[Image] =>
-        (ReingestionRecord(UpdateMessage("reproject-image", Some(imageResult.source)).toString.getBytes(), java.time.Instant.now()), Future.successful(Done))
-      }
-    y
+    val y: Source[(UpdateMessage, Instant), NotUsed] = x.map { imageResult: ReadResult[Image] =>
+      (UpdateMessage("reproject-image", Some(imageResult.source)), java.time.Instant.now())
+    }
+    y.mapMaterializedValue(_ => Future.successful(Done))
   }
 }

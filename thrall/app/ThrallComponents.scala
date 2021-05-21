@@ -2,6 +2,7 @@ import akka.Done
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
@@ -13,6 +14,7 @@ import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
+import java.time.Instant
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
@@ -54,7 +56,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val highPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val lowPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val reingestionSource: Source[ReingestionRecord, Future[Done]] = ReingestionSource(es)
+  val reingestionSource: Source[(UpdateMessage, Instant), Future[Done]] = ReingestionSource(???)
 
   val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, new SyndicationRightsOps(es), actorSystem)
   val thrallStreamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, reingestionSource, thrallEventConsumer, actorSystem, materializer)
