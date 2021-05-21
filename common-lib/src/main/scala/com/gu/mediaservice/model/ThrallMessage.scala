@@ -26,7 +26,7 @@ sealed trait ThrallMessage extends GridLogging with LogMarker {
   }
 }
 
-case class NewImageMessage(id: String, image: Image) extends ThrallMessage {
+case class ImageMessage(id: String, image: Image) extends ThrallMessage {
   override def additionalMarkers: () => Map[String, Any] = ()=>
     Map("fileName" -> image.source.file.toString)
 }
@@ -39,9 +39,9 @@ case class UpdateImageExportsMessage(id: String, crops: Seq[Crop]) extends Thral
 
 case class UpdateImageUserMetadataMessage(id: String, edits: Edits) extends ThrallMessage
 
-case class UpdateImageUsages(id: String, usageNotice: UsageNotice) extends ThrallMessage
+case class UpdateImageUsagesMessage(id: String, usageNotice: UsageNotice) extends ThrallMessage
 
-object UpdateImageUsages{
+object UpdateImageUsagesMessage{
   implicit val unw = Json.writes[UsageNotice]
   implicit val unr = Json.reads[UsageNotice]
 }
