@@ -110,9 +110,8 @@ class MessageProcessor(es: ElasticSearch,
     es.getImage(message.id) map {
       case Some(image) =>
         val photoshoot = image.userMetadata.flatMap(_.photoshoot)
-        logger.info(marker, s"Upserting syndication rights for image ${message.id} in photoshoot $photoshoot with rights ${Json.toJson(message.syndicationRights)}")
-        es.updateImageSyndicationRights(message.id, Some(message.syndicationRights), message.lastModified)
-      //TODO: Shoudl this have been an option
+        logger.info(marker, s"Upserting syndication rights for image ${message.id} in photoshoot $photoshoot with rights ${Json.toJson(message.maybeSyndicationRights)}")
+        es.updateImageSyndicationRights(message.id, message.maybeSyndicationRights, message.lastModified)
       case _ => logger.info(marker, s"Image ${message.id} not found")
     }
   }

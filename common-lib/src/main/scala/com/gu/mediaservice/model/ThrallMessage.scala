@@ -80,8 +80,7 @@ object DeleteUsagesMessage {
   implicit val what = Json.format[DeleteUsagesMessage]
 }
 
-case class UpdateImageSyndicationMetadataMessage(id: String, lastModified: DateTime, syndicationRights: SyndicationRights) extends ThrallMessage
-//TODO: This might actually should be an option of synd rights.
+case class UpdateImageSyndicationMetadataMessage(id: String, lastModified: DateTime, maybeSyndicationRights: Option[SyndicationRights]) extends ThrallMessage
 
 case class UpdateImagePhotoshootMetadataMessage(id: String, lastModified: DateTime, edits: Edits) extends ThrallMessage
 

@@ -54,7 +54,7 @@ object MessageTranslator {
       }
 
       case UpdateImageSyndicationMetadata => (updateMessage.id, updateMessage.syndicationRights) match {
-        case (Some(id), Some(syndicationMetadata)) => Right(UpdateImageSyndicationMetadataMessage(id, updateMessage.lastModified, syndicationMetadata))
+        case (Some(id), maybeSyndicationMetadata) => Right(UpdateImageSyndicationMetadataMessage(id, updateMessage.lastModified, maybeSyndicationMetadata))
         case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case UpdateImagePhotoshootMetadata => (updateMessage.id, updateMessage.edits) match {
