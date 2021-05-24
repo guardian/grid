@@ -10,7 +10,7 @@ import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.DateTimeUtils
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging._
-import com.gu.mediaservice.model.ThrallMessage
+import com.gu.mediaservice.model.ExternalThrallMessage
 import lib.kinesis.{MessageTranslator,ThrallEventConsumer}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
@@ -99,7 +99,7 @@ class ThrallStreamProcessor(
     SourceShape(mergePreferred.out)
   })
 
-  def createStream(): Source[(TaggedRecord[UpdateMessage], Stopwatch, Either[Throwable, ThrallMessage]), NotUsed] = {
+  def createStream(): Source[(TaggedRecord[UpdateMessage], Stopwatch, Either[Throwable, ExternalThrallMessage]), NotUsed] = {
     mergedKinesisSource.map{ taggedRecord =>
       taggedRecord -> MessageTranslator.translate(taggedRecord.payload)
     }.mapAsync(1) { result =>
