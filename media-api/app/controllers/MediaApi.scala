@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, DeleteImage => DeleteImagePermission, EditMetadata, UploadImages}
+import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, EditMetadata, UploadImages, ViewDeletedImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -70,6 +70,7 @@ class MediaApi(
 
     val userCanUpload: Boolean = authorisation.hasPermissionTo(UploadImages)(user)
     val userCanArchive: Boolean = authorisation.hasPermissionTo(ArchiveImages)(user)
+    
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
@@ -296,6 +297,7 @@ class MediaApi(
     implicit val r = request
 
     val include = getIncludedFromParams(request)
+    val userCanViewDeletedImages: Boolean = authorisation.hasPermissionTo(ViewDeletedImages)(request.user)
 
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
       val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
@@ -325,7 +327,10 @@ class MediaApi(
         // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
         errors.map(_.message).list.reduce(_+ ", " +_), List(searchLink))
       ),
-      params => respondSuccess(params)
+      params => {
+        if(userCanViewDeletedImages) respondSuccess(params)
+        else respondSuccess(params.copy(isDeleted = Some(false)))
+      }
     )
   }
 

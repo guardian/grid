@@ -20,4 +20,5 @@ object Permissions {
   case object Pinboard extends SimplePermission // FIXME ideally factor this out in favour of something more generic
   case object UploadImages extends SimplePermission
   case object ArchiveImages extends SimplePermission
+  case object ViewDeletedImages extends SimplePermission
 }
