@@ -87,7 +87,7 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-xenial-java8
+          Recipe: editorial-tools-bionic-java8
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
@@ -95,7 +95,7 @@ deployments:
         ImgOpsAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-imgops
+          Recipe: grid-imgops-bionic
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter
@@ -108,7 +108,7 @@ deployments:
         ElasticSearchAMI:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: grid-elasticsearch
+          Recipe: grid-elasticsearch-bionic
 
   s3watcher:
     type: aws-lambda
