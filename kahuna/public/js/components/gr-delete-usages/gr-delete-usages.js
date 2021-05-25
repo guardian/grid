@@ -36,9 +36,9 @@ deleteUsages.controller('grDeleteUsagesCtrl', [
 
         const superSure = $window.prompt(
           stripMargin`
-            |You're about to delete the ALL USAGES for this image.
-            |This will NOT remove the image from content,
-            |however it will remove it from Grid's database.
+            |You’re about to delete ALL USAGE INFORMATION for this image.
+            |This will NOT remove the image from places it’s been used in,
+            |but it WILL remove all the details of who and where used it.
             |
             |Enter ${deleteConfirmText} below to confirm.
             |`
