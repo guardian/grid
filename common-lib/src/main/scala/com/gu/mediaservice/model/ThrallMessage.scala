@@ -4,18 +4,18 @@ package com.gu.mediaservice.model
  import com.gu.mediaservice.model.leases.MediaLease
  import com.gu.mediaservice.model.usage.UsageNotice
  import org.joda.time.{DateTime, DateTimeZone}
- import play.api.libs.json.{JodaReads, JodaWrites, Json, __}
+ import play.api.libs.json
+ import play.api.libs.json.{JodaReads, JodaWrites, Json, OFormat, OWrites, Reads, __}
 
 sealed trait ThrallMessage extends GridLogging with LogMarker {
-  implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
-  implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
-  def subject: () => String = () => this.getClass.getSimpleName
+  val subject: String = this.getClass.getSimpleName()
   val id: String
   val lastModified: DateTime
-  def additionalMarkers: () => Map[String, Any] = () => Map()
+  val additionalMarkers: Map[String, Any] = Map()
+  def toJson = Json.toJson(this)
 
   override def markerContents = {
-    val message = Json.stringify(Json.toJson(this)(ThrallMessage.writes))
+    val message = Json.stringify(Json.toJson(this)(ThrallMessage.formats))
     Map (
       "subject" -> subject,
       "id" -> id,
@@ -25,33 +25,33 @@ sealed trait ThrallMessage extends GridLogging with LogMarker {
   }
 }
 object ThrallMessage{
-  implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
-  implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
+  implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
+  implicit val yourJodaDateWrites: json.JodaWrites.JodaDateTimeWrites.type = JodaWrites.JodaDateTimeWrites
 
-  implicit val usageNoticeFormat = Json.format[UsageNotice]
-
-  implicit val replaceImageLeasesMessageFormat = Json.format[ReplaceImageLeasesMessage]
-  implicit val deleteImageMessageFormat = Json.format[DeleteImageMessage]
-  implicit val updateImageSyndicationMetadataMessageFormat = Json.format[UpdateImageSyndicationMetadataMessage]
-  implicit val setImageCollectionsMessageFormat = Json.format[SetImageCollectionsMessage]
-  implicit val updateImageUserMetadataMessageFormat = Json.format[UpdateImageUserMetadataMessage]
-  implicit val deleteImageExportsMessageFormat = Json.format[DeleteImageExportsMessage]
-  implicit val imageMessageFormat = Json.format[ImageMessage]
-  implicit val updateImagePhotoshootMetadataMessage = Json.format[UpdateImagePhotoshootMetadataMessage]
-  implicit val deleteUsagesMessage = Json.format[DeleteUsagesMessage]
-  implicit val updateImageUsagesMessage = Json.format[UpdateImageUsagesMessage]
-  implicit val addImageLeaseMessage = Json.format[AddImageLeaseMessage]
-  implicit val removeImageLeaseMessage = Json.format[RemoveImageLeaseMessage]
-  implicit val updateImageExportsMessage = Json.format[UpdateImageExportsMessage]
-  implicit val writes = Json.writes[ThrallMessage]
-
+  implicit val usageNoticeFormat: OFormat[UsageNotice] = Json.format[UsageNotice]
+  implicit val replaceImageLeasesMessageFormat: OFormat[ReplaceImageLeasesMessage] = Json.format[ReplaceImageLeasesMessage]
+  implicit val deleteImageMessageFormat: OFormat[DeleteImageMessage] = Json.format[DeleteImageMessage]
+  implicit val updateImageSyndicationMetadataMessageFormat: OFormat[UpdateImageSyndicationMetadataMessage] = Json.format[UpdateImageSyndicationMetadataMessage]
+  implicit val setImageCollectionsMessageFormat: OFormat[SetImageCollectionsMessage] = Json.format[SetImageCollectionsMessage]
+  implicit val updateImageUserMetadataMessageFormat: OFormat[UpdateImageUserMetadataMessage] = Json.format[UpdateImageUserMetadataMessage]
+  implicit val deleteImageExportsMessageFormat: OFormat[DeleteImageExportsMessage] = Json.format[DeleteImageExportsMessage]
+  implicit val imageMessageFormat: OFormat[ImageMessage] = Json.format[ImageMessage]
+  implicit val updateImagePhotoshootMetadataMessage: OFormat[UpdateImagePhotoshootMetadataMessage] = Json.format[UpdateImagePhotoshootMetadataMessage]
+  implicit val deleteUsagesMessage: OFormat[DeleteUsagesMessage] = Json.format[DeleteUsagesMessage]
+  implicit val updateImageUsagesMessage: OFormat[UpdateImageUsagesMessage] = Json.format[UpdateImageUsagesMessage]
+  implicit val addImageLeaseMessage: OFormat[AddImageLeaseMessage] = Json.format[AddImageLeaseMessage]
+  implicit val removeImageLeaseMessage: OFormat[RemoveImageLeaseMessage] = Json.format[RemoveImageLeaseMessage]
+  implicit val updateImageExportsMessage: OFormat[UpdateImageExportsMessage] = Json.format[UpdateImageExportsMessage]
+  implicit val formats: OFormat[ThrallMessage] = Json.format[ThrallMessage]
 }
 
 
 
-case class ImageMessage(id: String, lastModified: DateTime, image: Image) extends ThrallMessage {
-  override def additionalMarkers: () => Map[String, Any] = ()=>
+case class ImageMessage(lastModified: DateTime, image: Image) extends ThrallMessage {
+  override val additionalMarkers = {
     Map("fileName" -> image.source.file.toString)
+  }
+  override val id = image.id
 }
 
 case class DeleteImageMessage(id: String, lastModified: DateTime) extends ThrallMessage
@@ -73,12 +73,6 @@ case class RemoveImageLeaseMessage(id: String, lastModified: DateTime, leaseId: 
 case class SetImageCollectionsMessage(id: String, lastModified: DateTime, collections: Seq[Collection]) extends ThrallMessage
 
 case class DeleteUsagesMessage(id: String, lastModified: DateTime) extends ThrallMessage
-
-object DeleteUsagesMessage {
-  implicit val yourJodaDateReads = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
-  implicit val yourJodaDateWrites = JodaWrites.JodaDateTimeWrites
-  implicit val what = Json.format[DeleteUsagesMessage]
-}
 
 case class UpdateImageSyndicationMetadataMessage(id: String, lastModified: DateTime, maybeSyndicationRights: Option[SyndicationRights]) extends ThrallMessage
 

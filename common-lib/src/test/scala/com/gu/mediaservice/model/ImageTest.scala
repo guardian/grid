@@ -1,70 +1,15 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.model.ImageTest._
+
 import java.net.URI
 import java.util.UUID
-
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
 import org.scalatest.{FunSpec, Matchers}
 
 class ImageTest extends FunSpec with Matchers {
-
-  def createImage(id: String = UUID.randomUUID().toString, usages: List[Usage] = List(), leases: Option[LeasesByMedia] = None, syndicationRights: Option[SyndicationRights] = None): Image = {
-    Image(
-      id = id,
-      uploadTime = DateTime.now(),
-      uploadedBy = "test.user@theguardian.com",
-      lastModified = None,
-      identifiers = Map.empty,
-      uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),
-      source = Asset(
-        file = new URI(s"https://file/$id"),
-        size = Some(1L),
-        mimeType = Some(Jpeg),
-        dimensions = Some(Dimensions(width = 1, height = 1)),
-        secureUrl = None
-      ),
-      thumbnail = None,
-      optimisedPng = None,
-      fileMetadata = FileMetadata(),
-      userMetadata = None,
-      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = List()),
-      originalMetadata = ImageMetadata(),
-      usageRights = StaffPhotographer("T. Hanks", "The Guardian"),
-      originalUsageRights = StaffPhotographer("T. Hanks", "The Guardian"),
-      exports = Nil,
-
-      syndicationRights = syndicationRights,
-      usages = usages,
-      leases = leases.getOrElse(LeasesByMedia.build(Nil))
-    )
-  }
-
-  val syndicationUsage = Usage(
-    UUID.randomUUID().toString,
-    List(UsageReference(SyndicationUsageReference)),
-    SyndicationUsage,
-    "image",
-    SyndicatedUsageStatus,
-    Some(DateTime.now()),
-    None,
-    DateTime.now()
-  )
-
-  val digitalUsage = Usage(
-    UUID.randomUUID().toString,
-    List(UsageReference(ComposerUsageReference)),
-    DigitalUsage,
-    "image",
-    PublishedUsageStatus,
-    Some(DateTime.now()),
-    None,
-    DateTime.now()
-  )
-
-  val rightsAcquired = SyndicationRights(None, Nil, List(Right("rights-code", Some(true), Nil)))
-  val noRightsAcquired = SyndicationRights(None, Nil, List(Right("rights-code", Some(false), Nil)))
 
   describe("Image syndication status") {
     it("should be UnsuitableForSyndication by default") {
@@ -186,4 +131,63 @@ class ImageTest extends FunSpec with Matchers {
 
     image.syndicationStatus shouldBe BlockedForSyndication
   }
+}
+
+object ImageTest {
+  def createImage(id: String = UUID.randomUUID().toString, usages: List[Usage] = List(), leases: Option[LeasesByMedia] = None, syndicationRights: Option[SyndicationRights] = None): Image = {
+    Image(
+      id = id,
+      uploadTime = DateTime.now(),
+      uploadedBy = "test.user@theguardian.com",
+      lastModified = None,
+      identifiers = Map.empty,
+      uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),
+      source = Asset(
+        file = new URI(s"https://file/$id"),
+        size = Some(1L),
+        mimeType = Some(Jpeg),
+        dimensions = Some(Dimensions(width = 1, height = 1)),
+        secureUrl = None
+      ),
+      thumbnail = None,
+      optimisedPng = None,
+      fileMetadata = FileMetadata(),
+      userMetadata = None,
+      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = List()),
+      originalMetadata = ImageMetadata(),
+      usageRights = StaffPhotographer("T. Hanks", "The Guardian"),
+      originalUsageRights = StaffPhotographer("T. Hanks", "The Guardian"),
+      exports = Nil,
+
+      syndicationRights = syndicationRights,
+      usages = usages,
+      leases = leases.getOrElse(LeasesByMedia.build(Nil))
+    )
+  }
+
+  val syndicationUsage = Usage(
+    UUID.randomUUID().toString,
+    List(UsageReference(SyndicationUsageReference)),
+    SyndicationUsage,
+    "image",
+    SyndicatedUsageStatus,
+    Some(DateTime.now()),
+    None,
+    DateTime.now()
+  )
+
+  val digitalUsage = Usage(
+    UUID.randomUUID().toString,
+    List(UsageReference(ComposerUsageReference)),
+    DigitalUsage,
+    "image",
+    PublishedUsageStatus,
+    Some(DateTime.now()),
+    None,
+    DateTime.now()
+  )
+
+  val rightsAcquired = SyndicationRights(None, Nil, List(Right("rights-code", Some(true), Nil)))
+  val noRightsAcquired = SyndicationRights(None, Nil, List(Right("rights-code", Some(false), Nil)))
+
 }
