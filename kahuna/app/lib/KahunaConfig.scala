@@ -29,6 +29,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val invalidSessionHelpLink: Option[String]= stringOpt("links.invalidSessionHelp").filterNot(_.isEmpty)
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
   val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
+  val homeLinkHtml: Option[String] = stringOpt("branding.homeLinkHtml").filterNot(_.isEmpty)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")
