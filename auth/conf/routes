@@ -2,16 +2,17 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
-GET     /                           auth.AuthController.index
+GET     /                                             auth.AuthController.index
 
-GET     /login                      auth.AuthController.doLogin(redirectUri: Option[String])
-GET     /oauthCallback              auth.AuthController.oauthCallback
-GET     /logout                     auth.AuthController.logout
-GET     /session                    auth.AuthController.session
+GET     /login                                        auth.AuthController.doLogin(redirectUri: Option[String])
+GET     /oauthCallback                                auth.AuthController.oauthCallback
+GET     /logout                                       auth.AuthController.logout
+GET     /session                                      auth.AuthController.session
 
 # Management
-GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
-GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI
 
 # Shoo robots away
-GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots
