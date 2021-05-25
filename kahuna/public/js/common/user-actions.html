@@ -5,8 +5,8 @@
         <gr-icon>more_vert</gr-icon>
     </button>
     <ul class="drop-menu__items drop-menu__items--right" ng-if="showUserActions">
-        <li><a href="/quotas" rel="noopener" target="_blank">Quotas</a></li>
-        <li><a href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
-        <li><a href="{{ctrl.logoutUri}}" target="_self">Logout</a></li>
+        <li><a class="drop-menu__items__quotas" href="/quotas" rel="noopener" target="_blank">Quotas</a></li>
+        <li><a class="drop-menu__items__feedback" href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
+        <li><a class="drop-menu__items__logout" href="{{ctrl.logoutUri}}" target="_self">Logout</a></li>
     </ul>
 </nav>
