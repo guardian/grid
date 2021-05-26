@@ -363,20 +363,32 @@ object PaParser extends ImageProcessor {
 }
 
 object ReutersParser extends ImageProcessor {
+  def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
+
   def apply(image: Image): Image = image.metadata.credit match {
+
     // Reuters and other misspellings
     // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
     case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
       usageRights = Agency("Reuters"),
-      metadata = image.metadata.copy(credit = Some("Reuters"))
+      metadata = image.metadata.copy(
+        credit = Some("Reuters"),
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      )
     )
     // Others via Reuters
     case Some("USA TODAY Sports") => image.copy(
-      metadata = image.metadata.copy(credit = Some("USA Today Sports")),
+      metadata = image.metadata.copy(
+        credit = Some("USA Today Sports"),
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      ),
       usageRights = Agency("Reuters")
     )
     case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
-      usageRights = Agency("Reuters")
+      usageRights = Agency("Reuters"),
+      metadata = image.metadata.copy(
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      )
     )
     case _ => image
   }
