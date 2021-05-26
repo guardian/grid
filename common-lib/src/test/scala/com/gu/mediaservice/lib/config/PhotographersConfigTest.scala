@@ -29,7 +29,11 @@ class PhotographersConfigTest extends FreeSpec with Matchers {
             Map("name" -> "Company B", "photographers" -> List("CC")),
           ),
           "staffIllustrators" -> List("S", "SS"),
-          "creativeCommonsLicense" -> List("CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0")
+          "creativeCommonsLicense" -> List("CC BY-4.0", "CC BY-SA-4.0", "CC BY-ND-4.0"),
+          "freeSuppliers" -> List("S1", "S2"),
+          "suppliersCollectionExcl" -> Map(
+            "S1" -> List("S1Coll1", "S1Coll2")
+          )
         )
       )
     ))
@@ -59,6 +63,12 @@ class PhotographersConfigTest extends FreeSpec with Matchers {
 
       conf.creativeCommonsLicense.nonEmpty shouldBe true
       conf.creativeCommonsLicense.length shouldBe 3
+
+      conf.freeSuppliers.nonEmpty shouldBe true
+      conf.freeSuppliers.length shouldBe 2
+
+      conf.suppliersCollectionExcl.nonEmpty shouldBe true
+      conf.suppliersCollectionExcl.keySet.size shouldBe 1
     }
 
     "should return staff photographers" in {
@@ -102,6 +112,19 @@ class PhotographersConfigTest extends FreeSpec with Matchers {
     "should not return photographer" in {
       val photographer = conf.getPhotographer("D")
       photographer.isEmpty shouldBe true
+    }
+
+    "should return suppliers" in {
+      val freeSuppliers = conf.freeSuppliers
+      freeSuppliers.contains("S1") shouldBe true
+      freeSuppliers.contains("S2") shouldBe true
+    }
+
+    "should return suppliersExclColl" in {
+      val suppliersCollectionExcl = conf.suppliersCollectionExcl
+      suppliersCollectionExcl.get("S1") shouldBe defined
+      suppliersCollectionExcl("S1").nonEmpty shouldBe true
+      suppliersCollectionExcl("S1").length shouldBe 2
     }
   }
 

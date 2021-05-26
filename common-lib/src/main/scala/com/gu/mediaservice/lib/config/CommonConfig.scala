@@ -98,6 +98,10 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    *        "CC BY-SA-4.0",
    *        "CC BY-ND-4.0"
    *      ]
+   *      freeSuppliers = ["Supplier 1", "Supplier 2"]
+   *      suppliersCollectionExcl {
+   *        Supplier 1 = ["Coll 1", "Coll 2"]
+   *      }
    *    }
    *   }
    * }}}
