@@ -53,8 +53,6 @@ object UsageRightsProperty {
   ) = UsageRightsProperty(name, label, "string", required = true, options,
                           optionsMap, optionsMapKey, examples)
 
-  private def publicationField(required: Boolean): UsageRightsProperty = publicationField(required, List.empty)
-
   private def publicationField(required: Boolean, options: Options)  =
     UsageRightsProperty("publication", "Publication", "string", required,
       Some(sortList(options)))
@@ -96,7 +94,7 @@ object UsageRightsProperty {
     )
 
     case CommissionedPhotographer => List(
-      publicationField(required = false),
+      publicationField(required = false, optionsFromPublicationList(p.staffPhotographers)),
       photographerField("Sophia Evans, Murdo MacLeod")
     )
 
@@ -109,7 +107,7 @@ object UsageRightsProperty {
       requiredStringField("creator", "Illustrator", Some(sortList(p.staffIllustrators))))
 
     case CommissionedIllustrator => List(
-      publicationField(required = false),
+      publicationField(required = false, optionsFromPublicationList(p.staffPhotographers)),
       requiredStringField("creator", "Illustrator", examples = Some("Ellie Foreman Peck, Matt Bors")))
 
     case CreativeCommons => List(
