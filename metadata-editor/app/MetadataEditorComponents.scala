@@ -25,7 +25,7 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context,
   val editsController = new EditsController(auth, editsStore, notifications, config, wsClient, authorisation, controllerComponents)
   val syndicationController = new SyndicationController(auth, editsStore, syndicationStore, notifications, config, controllerComponents)
   val controller = new EditsApi(auth, config, controllerComponents)
-  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(controllerComponents, config.services, wsClient)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 
 

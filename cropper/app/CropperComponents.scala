@@ -17,7 +17,7 @@ class CropperComponents(context: Context) extends GridComponents(context, new Cr
 
   val controller = new CropperController(auth, crops, store, notifications, config, controllerComponents, wsClient, authorisation)
   val permissionsAwareManagement = new Management(controllerComponents, buildInfo)
-  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(controllerComponents, config.services, wsClient)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 
   override lazy val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement, InnerServiceStatusCheckController)

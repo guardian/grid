@@ -14,7 +14,7 @@ class AuthComponents(context: Context) extends GridComponents(context, new AuthC
 
   val controller = new AuthController(auth, providers, config, controllerComponents, authorisation)
   val permissionsAwareManagement = new Management(controllerComponents, buildInfo)
-  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(controllerComponents, config.services, wsClient)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 
   override val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement, InnerServiceStatusCheckController)

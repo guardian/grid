@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, Request, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, Principal, Request, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteImage, EditMetadata, PrincipalFilter, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import play.api.mvc.{ActionFilter, Result, Results}
@@ -60,14 +60,15 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
   }
 
   def isUploaderOrHasPermission(
-                                         principal: Principal,
-                                         uploadedBy: String,
-                                         permission: SimplePermission
-                                       ) = {
+    principal: Principal,
+    uploadedBy: String,
+    permission: SimplePermission
+  ) = {
     principal match {
       case user: UserPrincipal =>
         user.email.equalsIgnoreCase(uploadedBy) || hasPermissionTo(permission)(principal)
       case MachinePrincipal(ApiAccessor(_, Internal), _) => true
+      case InnerServicePrincipal(_, _) => true
       case _ => false
     }
   }
@@ -77,6 +78,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
       principal match {
         // a machine principal with internal tier can always see anything
         case MachinePrincipal(ApiAccessor(_, Internal), _) => true
+        case InnerServicePrincipal(_, _) => true
         case _ => provider.hasPermissionTo(permission, principal)
       }
     }

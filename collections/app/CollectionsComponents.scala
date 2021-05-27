@@ -15,7 +15,7 @@ class CollectionsComponents(context: Context) extends GridComponents(context, ne
 
   val collections = new CollectionsController(auth, config, store, controllerComponents)
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
-  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(controllerComponents, config.services, wsClient)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 
   override val router = new Routes(httpErrorHandler, collections, imageCollections, management, InnerServiceStatusCheckController)

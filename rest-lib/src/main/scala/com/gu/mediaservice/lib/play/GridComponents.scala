@@ -1,7 +1,7 @@
 package com.gu.mediaservice.lib.play
 
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
-import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviderResources, AuthenticationProviders, AuthorisationProvider, AuthorisationProviderResources, MachineAuthenticationProvider, UserAuthenticationProvider}
+import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviderResources, AuthenticationProviders, AuthorisationProvider, AuthorisationProviderResources, InnerServiceAuthenticationProvider, MachineAuthenticationProvider, UserAuthenticationProvider}
 import com.gu.mediaservice.lib.config.{ApiAuthenticationProviderLoader, AuthorisationProviderLoader, CommonConfig, GridConfigResources, UserAuthenticationProviderLoader}
 import com.gu.mediaservice.lib.logging.LogConfig
 import com.gu.mediaservice.lib.management.{BuildInfo, Management}
@@ -57,7 +57,8 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
 
   protected val providers: AuthenticationProviders = AuthenticationProviders(
     userProvider = config.configuration.get[UserAuthenticationProvider]("authentication.providers.user")(UserAuthenticationProviderLoader.singletonConfigLoader(authProviderResources, applicationLifecycle)),
-    apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.machine")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources, applicationLifecycle))
+    apiProvider = config.configuration.get[MachineAuthenticationProvider]("authentication.providers.machine")(ApiAuthenticationProviderLoader.singletonConfigLoader(authProviderResources, applicationLifecycle)),
+    innerServiceProvider = new InnerServiceAuthenticationProvider(cookieSigner, serviceName=config.appName)
   )
 
   val auth = new Authentication(config, providers, controllerComponents.parsers.default, executionContext)
