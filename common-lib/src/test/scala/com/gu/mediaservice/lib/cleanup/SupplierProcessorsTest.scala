@@ -307,7 +307,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   describe("Getty Images") {
     it("should detect getty file metadata and use source as suppliersCollection") {
       val image = createImageFromMetadata("credit" -> "AFP/Getty", "source" -> "AFP")
-      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Original Filename" -> "lol.jpg")))
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "SOME ID", "Original Filename" -> "lol.jpg")))
       val processedImage = applyProcessors(gettyImage)
       processedImage.usageRights should be(Agency("Getty Images", Some("AFP")))
       processedImage.metadata.credit should be(Some("AFP/Getty"))
