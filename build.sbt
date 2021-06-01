@@ -80,7 +80,7 @@ lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
     "com.gu" %% "editorial-permissions-client" % "2.0",
-    "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2",
+    "com.gu" %% "pan-domain-auth-play_2-8" % "1.0.4",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -100,7 +100,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
-    "com.typesafe.play" %% "play-logback" % "2.6.15", // needed when running the scripts
+    "com.typesafe.play" %% "play-logback" % "2.8.8", // needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
@@ -108,7 +108,7 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.6.9",
+    "com.typesafe.play" %% "play-json-joda" % "2.8.8",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
     ws
@@ -118,8 +118,8 @@ lazy val commonLib = project("common-lib").settings(
 
 lazy val restLib = project("rest-lib").settings(
   libraryDependencies ++= Seq(
-    "com.typesafe.play" %% "play" % "2.6.20",
-    "com.typesafe.play" %% "filters-helpers" % "2.6.20",
+    "com.typesafe.play" %% "play" % "2.8.8",
+    "com.typesafe.play" %% "filters-helpers" % "2.8.8",
     akkaHttpServer,
   ),
 
@@ -179,9 +179,9 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
-      "com.typesafe.play" %% "play-json" % "2.6.9",
-      "com.typesafe.play" %% "play-json-joda" % "2.6.9",
-      "com.typesafe.play" %% "play-functional" % "2.6.9",
+      "com.typesafe.play" %% "play-json" % "2.8.8",
+      "com.typesafe.play" %% "play-json-joda" % "2.8.8",
+      "com.typesafe.play" %% "play-functional" % "2.8.8",
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)
