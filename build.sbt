@@ -108,7 +108,7 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.8.8",
+    "com.typesafe.play" %% "play-json-joda" % "2.9.2",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
     ws
@@ -179,9 +179,9 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
-      "com.typesafe.play" %% "play-json" % "2.8.8",
-      "com.typesafe.play" %% "play-json-joda" % "2.8.8",
-      "com.typesafe.play" %% "play-functional" % "2.8.8",
+      "com.typesafe.play" %% "play-json" % "2.9.2",
+      "com.typesafe.play" %% "play-json-joda" % "2.9.2",
+      "com.typesafe.play" %% "play-functional" % "2.9.2",
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)
