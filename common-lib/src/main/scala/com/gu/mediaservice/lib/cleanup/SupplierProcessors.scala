@@ -312,7 +312,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
 
     val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
     val isExcludedBySource = image.metadata.source.exists(isExcluded(_, excludedSource))
-    val hasGettyMetadata = image.fileMetadata.getty.nonEmpty && getSuppliersReference(image).nonEmpty
+    val hasGettyMetadata = image.fileMetadata.getty.nonEmpty
 
 
     if(!hasGettyMetadata){
