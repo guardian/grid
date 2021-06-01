@@ -37,11 +37,9 @@ deleteUsages.controller('grDeleteUsagesCtrl', [
         const superSure = $window.prompt(
           stripMargin`
             |You’re about to delete ALL USAGE INFORMATION for this image.
-            |This will NOT remove the image from places it’s been used in,
-            |but it WILL remove all the details of who and where used it.
+            |This will NOT remove the image from the places it has been used in, but WILL remove all details of who used it and where it was used.
             |
-            |Enter ${deleteConfirmText} below to confirm.
-            |`
+            |Enter ${deleteConfirmText} below to confirm.`
         );
 
         if (superSure === deleteConfirmText) {
