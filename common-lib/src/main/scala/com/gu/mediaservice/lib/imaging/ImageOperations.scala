@@ -100,7 +100,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       val fileName: String = resizedFile.getAbsolutePath
 
       val optimisedImageName: String = fileName.split('.')(0) + "optimised.png"
-      Seq("pngquant",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
+      Seq("pngquant","-s8",  "--quality", "1-85", fileName, "--output", optimisedImageName).!
 
       new File(optimisedImageName)
     case Jpeg => resizedFile
