@@ -29,8 +29,7 @@ case class Image(
   leases:              LeasesByMedia    = LeasesByMedia.empty,
   collections:         List[Collection] = Nil,
   syndicationRights:   Option[SyndicationRights] = None,
-  userMetadataLastModified: Option[DateTime] = None,
-  deletedِAt: Option[DateTime] = None) extends LogMarker {
+  userMetadataLastModified: Option[DateTime] = None) extends LogMarker {
 
   def hasExports = exports.nonEmpty
 
@@ -100,8 +99,7 @@ object Image {
       (__ \ "leases").readNullable[LeasesByMedia].map(_ getOrElse LeasesByMedia.empty) ~
       (__ \ "collections").readNullable[List[Collection]].map(_ getOrElse Nil) ~
       (__ \ "syndicationRights").readNullable[SyndicationRights] ~
-      (__ \ "userMetadataLastModified").readNullable[String].map(parseOptDateTime) ~
-      (__ \ "deletedAt").readNullable[String].map(parseOptDateTime)
+      (__ \ "userMetadataLastModified").readNullable[String].map(parseOptDateTime)
     )(Image.apply _)
 
   implicit val ImageWrites: Writes[Image] = (
@@ -125,8 +123,7 @@ object Image {
       (__ \ "leases").write[LeasesByMedia] ~
       (__ \ "collections").write[List[Collection]] ~
       (__ \ "syndicationRights").writeNullable[SyndicationRights] ~
-      (__ \ "userMetadataLastModified").writeNullable[String].contramap(printOptDateTime) ~
-      (__ \ "deletedAt").writeNullable[String].contramap(printOptDateTime)
+      (__ \ "userMetadataLastModified").writeNullable[String].contramap(printOptDateTime)
     )(unlift(Image.unapply))
 
 }

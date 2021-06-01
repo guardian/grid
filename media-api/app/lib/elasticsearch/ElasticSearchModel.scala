@@ -177,7 +177,7 @@ object SearchParams {
       "missingIdentifier" -> searchParams.missingIdentifier,
       "valid"             -> searchParams.valid.map(_.toString),
       "free"              -> searchParams.free.map(_.toString),
-      "isDeleted"         -> searchParams.free.map(_.toString),
+      "isDeleted"         -> searchParams.isDeleted.map(_.toString),
       "payType"           -> searchParams.payType.map(_.toString),
       "uploadedBy"        -> searchParams.uploadedBy,
       "labels"            -> listToCommas(searchParams.labels),

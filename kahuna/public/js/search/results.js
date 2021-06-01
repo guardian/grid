@@ -316,11 +316,11 @@ results.controller('SearchResultsCtrl', [
             if (angular.isUndefined(orderBy)) {
                 orderBy = $stateParams.orderBy;
             }
-
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
                 archived:   $stateParams.archived,
                 free:       $stateParams.nonFree === 'true' ? undefined : true,
+                isDeleted:  $stateParams.isDeleted === 'true' ? true : false,
                 // Disabled while paytype filter unavailable
                 //payType:    $stateParams.payType || 'free',
                 uploadedBy: $stateParams.uploadedBy,

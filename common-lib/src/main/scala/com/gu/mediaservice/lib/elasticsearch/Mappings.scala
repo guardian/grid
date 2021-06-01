@@ -61,8 +61,7 @@ object Mappings {
         keywordField("usagesStatus"),  // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
-        collectionMapping("collections"),
-        dateField("deletedAt")
+        collectionMapping("collections")
       )
     )
   }
@@ -189,7 +188,8 @@ object Mappings {
     metadataMapping("metadata"),
     usageRightsMapping("usageRights"),
     photoshootMapping("photoshoot"),
-    dateField("lastModified")
+    dateField("lastModified"),
+    dateField("deletedAt")
   )
 
   def uploadInfoMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(

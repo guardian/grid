@@ -32,6 +32,7 @@ query.controller('SearchQueryCtrl', [
     const ctrl = this;
 
     ctrl.canUpload = false;
+    ctrl.viewHiddenImages = false;
 
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
@@ -42,7 +43,8 @@ query.controller('SearchQueryCtrl', [
     };
 
     ctrl.filter = {
-        uploadedByMe: false
+        uploadedByMe: false,
+        viewHiddenImages: false,
     };
 
     ctrl.dateFilter = {
@@ -144,7 +146,9 @@ query.controller('SearchQueryCtrl', [
 
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
+
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        filter.isDeleted = ctrl.filter.viewHiddenImages
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
         $state.go('search.results', filter);
@@ -177,6 +181,14 @@ query.controller('SearchQueryCtrl', [
           ctrl.filter.nonFree = session.user.permissions.showPaid ?
             session.user.permissions.showPaid : undefined;
         }
+
+        ctrl.viewHiddenImages = session.user.permissions.canViewHiddenImages
+
+        if (ctrl.filter.viewHiddenImages === undefined) {
+          ctrl.filter.viewHiddenImages = session.user.permissions.canViewHiddenImages ?
+            session.user.permissions.canViewHiddenImages : undefined;
+        }
+
     });
 
     function resetQuery() {

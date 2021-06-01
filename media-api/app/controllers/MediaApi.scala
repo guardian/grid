@@ -49,7 +49,7 @@ class MediaApi(
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
-    "uploadedBy", "archived", "valid", "free", "payType",
+    "uploadedBy", "archived", "valid", "free", "isDeleted", "payType",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
     "persisted", "usageStatus", "usagePlatform", "hasRightsAcquired", "syndicationStatus").mkString(",")
 
@@ -70,10 +70,12 @@ class MediaApi(
 
     val userCanUpload: Boolean = authorisation.hasPermissionTo(UploadImages)(user)
     val userCanArchive: Boolean = authorisation.hasPermissionTo(ArchiveImages)(user)
-    
+    val userCanViewDeletedImages: Boolean = authorisation.hasPermissionTo(ViewDeletedImages)(user)
+
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
+    val maybeViewDeletedLink: Option[Link] = Some(Link("archive", s"${config.authUri}/{id}/hide")).filter(_ => userCanViewDeletedImages)
 
     val indexLinks = List(
       searchLink,
@@ -90,7 +92,7 @@ class MediaApi(
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
       Link("admin-tools",     config.adminToolsUri)
-    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
+    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList ++ maybeViewDeletedLink
     respond(indexData, indexLinks)
   }
 

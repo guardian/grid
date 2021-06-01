@@ -3,13 +3,13 @@ package auth
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
-import com.gu.mediaservice.lib.auth.Permissions.{ShowPaid, UploadImages}
+import com.gu.mediaservice.lib.auth.Permissions.{ShowPaid, UploadImages, ViewDeletedImages}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
-
 import java.net.URI
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -35,6 +35,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   def session = auth { request =>
     val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
     val canUpload = authorisation.hasPermissionTo(UploadImages)(request.user)
+    val canViewHiddenImages = authorisation.hasPermissionTo(ViewDeletedImages)(request.user)
     request.user match {
       case UserPrincipal(firstName, lastName, email, _) =>
 
@@ -48,7 +49,8 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
               "permissions" ->
                 Json.obj(
                   "showPaid" -> showPaid,
-                  "canUpload" -> canUpload
+                  "canUpload" -> canUpload,
+                  "canViewHiddenImages" -> canViewHiddenImages
                 )
             )
           )
@@ -61,7 +63,8 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
             "permissions" ->
               Json.obj(
                 "showPaid" -> showPaid,
-                "canUpload" -> (accessor.tier == Internal)
+                "canUpload" -> (accessor.tier == Internal),
+                "canViewHiddenImages" -> canViewHiddenImages
               )
           )
         )

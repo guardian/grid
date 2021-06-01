@@ -4,7 +4,9 @@ package controllers
 import java.net.URI
 import java.net.URLDecoder.decode
 
+import org.joda.time.DateTime
 import com.amazonaws.AmazonServiceException
+import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
@@ -61,6 +63,7 @@ class EditsController(
 
   val metadataBaseUri = config.services.metadataBaseUri
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive
+  private val AuthenticatedAndAuthorisedHideImages = auth andThen authorisation.CommonActionFilters.authorisedForViewDeletedImages
   private def getUploader(imageId: String, user: Principal): Future[Option[String]] = gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
 
   private def authorisedForEditMetadataOrUploader(imageId: String) = authorisation.actionFilterForUploaderOr(imageId, EditMetadata, getUploader)
@@ -90,6 +93,15 @@ class EditsController(
     } recover {
       case NoItemFound => respond(false)
     }
+  }
+
+  def setHide(id: String) = AuthenticatedAndAuthorisedHideImages.async { implicit req =>
+    editsStore.keySet(id, Edits.DeletedAt, DateTime.now.toString)
+      .map(publish(id, UpdateImageUserMetadata))
+      .map(_ => respond(true))
+      .recover{
+        case error => respond(error.toString)
+      }
   }
 
   def setArchived(id: String) = AuthenticatedAndAuthorised.async(parse.json) { implicit req =>

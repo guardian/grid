@@ -13,7 +13,7 @@ mediaApi.factory('mediaApi',
     var root = client.resource(mediaApiUri);
     var session;
 
-    function search(query = '', {ids, since, until, archived, valid, free,
+    function search(query = '', {ids, since, until, archived, valid, free, isDeleted,
                                  payType, uploadedBy, offset, length, orderBy,
                                  takenSince, takenUntil,
                                  modifiedSince, modifiedUntil, hasRightsAcquired, hasCrops,
@@ -22,6 +22,7 @@ mediaApi.factory('mediaApi',
             q:          query,
             since:      since,
             free:       free,
+            isDeleted,
             payType:    payType,
             until:      until,
             takenSince: takenSince,

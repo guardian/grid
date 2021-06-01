@@ -96,7 +96,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
     val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
-    val isDeletedFilter = params.isDeleted.map(filters.existsOrMissing("deletedAt", _))
+    val isDeletedFilter = params.isDeleted.map(filters.existsOrMissing(editsField("deletedAt"), _))
     val costFilter = params.payType match {
       case Some(PayType.Free) => searchFilters.freeFilter
       case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter

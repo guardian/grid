@@ -61,6 +61,14 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     }
   }
 
+  def keySet(id: String, key: String, value: String)
+            (implicit ex: ExecutionContext): Future[JsObject] =
+    update(
+      id,
+      s"SET $key = :value",
+      new ValueMap().withString(":value", value)
+    )
+
   def removeKey(id: String, key: String)
                (implicit ex: ExecutionContext): Future[JsObject] =
     update(
@@ -363,7 +371,6 @@ object DynamoDB {
     }
 
     valueMap.put(s":$lastModifiedKey", lastModifiedDate.toString)
-
     update
       .withUpdateExpression(newExpression)
       .withValueMap(valueMap)
