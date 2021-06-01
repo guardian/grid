@@ -44,7 +44,7 @@ query.controller('SearchQueryCtrl', [
 
     ctrl.filter = {
         uploadedByMe: false,
-        viewHiddenImages: false,
+        viewHiddenImages: false
     };
 
     ctrl.dateFilter = {
@@ -148,7 +148,7 @@ query.controller('SearchQueryCtrl', [
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
 
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
-        filter.isDeleted = ctrl.filter.viewHiddenImages
+        filter.isDeleted = ctrl.filter.viewHiddenImages;
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
 
         $state.go('search.results', filter);
@@ -182,7 +182,7 @@ query.controller('SearchQueryCtrl', [
             session.user.permissions.showPaid : undefined;
         }
 
-        ctrl.viewHiddenImages = session.user.permissions.canViewHiddenImages
+        ctrl.viewHiddenImages = session.user.permissions.canViewHiddenImages;
 
         if (ctrl.filter.viewHiddenImages === undefined) {
           ctrl.filter.viewHiddenImages = session.user.permissions.canViewHiddenImages ?
