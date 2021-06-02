@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.model.{ContractPhotographer, Photographer, StaffPhotographer}
+import com.typesafe.config.Config
 import play.api.{ConfigLoader, Configuration}
 
 import scala.collection.JavaConverters._
@@ -29,6 +30,8 @@ trait UsageRightsConfigProvider extends Provider {
   val contractIllustrators: List[PublicationPhotographers]
   val staffIllustrators: List[String]
   val creativeCommonsLicense: List[String]
+  val freeSuppliers: List[String]
+  val suppliersCollectionExcl: Map[String, List[String]]
 
   // this is lazy in order to ensure it is initialised after the values above are defined
   lazy val staffPhotographers: List[PublicationPhotographers] = UsageRightsConfigProvider.flattenPublicationList(
@@ -51,90 +54,6 @@ trait UsageRightsConfigProvider extends Provider {
       case PublicationPhotographers(name, photographers) if photographers.map(_.toLowerCase) contains lookup.toLowerCase() => Some(lookup, name)
       case _ => None
     }.find(_.isDefined).flatten
-
-  /* These are currently hardcoded */
-  val payGettySourceList = List(
-    "Arnold Newman Collection",
-    "360cities.net Editorial",
-    "360cities.net RM",
-    "age fotostock RM",
-    "Alinari",
-    "Arnold Newman Collection",
-    "ASAblanca",
-    "Bob Thomas Sports Photography",
-    "Carnegie Museum of Art",
-    "Catwalking",
-    "Contour",
-    "Contour RA",
-    "Corbis Premium Historical",
-    "Editorial Specials",
-    "Reportage Archive",
-    "Gamma-Legends",
-    "Genuine Japan Editorial Stills",
-    "Genuine Japan Creative Stills",
-    "George Steinmetz",
-    "Getty Images Sport Classic",
-    "Iconic Images",
-    "Iconica",
-    "Icon Sport",
-    "Kyodo News Stills",
-    "Lichfield Studios Limited",
-    "Lonely Planet Images",
-    "Lonely Planet RF",
-    "Masters",
-    "Major League Baseball Platinum",
-    "Moment Select",
-    "Mondadori Portfolio Premium",
-    "National Geographic",
-    "National Geographic RF",
-    "National Geographic Creative",
-    "National Geographic Magazines",
-    "NBA Classic",
-    "Neil Leifer Collection",
-    "Newspix",
-    "PA Images",
-    "Papixs",
-    "Paris Match Archive",
-    "Paris Match Collection",
-    "Pele 10",
-    "Photonica",
-    "Photonica World",
-    "Popperfoto",
-    "Popperfoto Creative",
-    "Premium Archive",
-    "Reportage Archive",
-    "SAMURAI JAPAN",
-    "Sports Illustrated",
-    "Sports Illustrated Classic",
-    "Sygma Premium",
-    "Terry O'Neill",
-    "The Asahi Shimbun Premium",
-    "The LIFE Premium Collection",
-    "ullstein bild Premium",
-    "Ulrich Baumgarten",
-    "VII Premium",
-    "Vision Media",
-    "Xinhua News Agency"
-  )
-
-  val freeSuppliers = List(
-    "AAP",
-    "Alamy",
-    "Allstar Picture Library",
-    "AP",
-    "EPA",
-    "Getty Images",
-    "PA",
-    "Reuters",
-    "Rex Features",
-    "Ronald Grant Archive",
-    "Action Images",
-    "Action Images/Reuters"
-  )
-
-  val suppliersCollectionExcl = Map(
-    "Getty Images" -> payGettySourceList
-  )
 }
 
 
@@ -157,4 +76,17 @@ class RuntimeUsageRightsConfig(configuration: Configuration) extends UsageRights
   val contractIllustrators: List[PublicationPhotographers] = configuration.getOptional[List[PublicationPhotographers]]("contractIllustrators").getOrElse(Nil)
   val staffIllustrators: List[String] = configuration.getOptional[Seq[String]]("staffIllustrators").map(_.toList).getOrElse(Nil)
   val creativeCommonsLicense: List[String] = configuration.getOptional[Seq[String]]("creativeCommonsLicense").map(_.toList).getOrElse(Nil)
+  val freeSuppliers: List[String] = configuration.getOptional[Seq[String]]("freeSuppliers").map(_.toList).getOrElse(Nil)
+  val suppliersCollectionExcl: Map[String, List[String]] = if (configuration.has("suppliersCollectionExcl")) {
+    val suppliersCollectionExclConfig: Config = configuration
+      .underlying
+      .getConfig("suppliersCollectionExcl")
+    suppliersCollectionExclConfig
+      .entrySet()
+      .asScala
+      .map(entry => (entry.getKey, suppliersCollectionExclConfig.getStringList(entry.getKey).asScala.toList))
+      .toMap
+  } else {
+    Map.empty[String, List[String]]
+  }
 }
