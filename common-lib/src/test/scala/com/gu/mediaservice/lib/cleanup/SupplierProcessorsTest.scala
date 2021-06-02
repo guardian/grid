@@ -307,7 +307,7 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
   describe("Getty Images") {
     it("should detect getty file metadata and use source as suppliersCollection") {
       val image = createImageFromMetadata("credit" -> "AFP/Getty", "source" -> "AFP")
-      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Original Filename" -> "lol.jpg")))
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "SOME ID","Original Filename" -> "lol.jpg")))
       val processedImage = applyProcessors(gettyImage)
       processedImage.usageRights should be(Agency("Getty Images", Some("AFP")))
       processedImage.metadata.credit should be(Some("AFP/Getty"))
@@ -316,21 +316,21 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
     it("should exclude images that have Getty metadata that aren't from Getty") {
       val image = createImageFromMetadata("credit" -> "NEWSPIX INTERNATIONAL")
-      val notGettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Composition" -> "Headshot")))
+      val notGettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "SOME ID","Composition" -> "Headshot")))
       val processedImage = applyProcessors(notGettyImage)
       processedImage.usageRights should be(NoRights)
     }
 
     it("should exclude images that have Getty metadata that also have 'Pinnacle Photo Agency Ltd' as source") {
       val image = createImageFromMetadata("source" -> "Pinnacle Photo Agency Ltd")
-      val notGettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("dummy" -> "metadata")))
+      val notGettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "SOME ID","dummy" -> "metadata")))
       val processedImage = applyProcessors(notGettyImage)
       processedImage.usageRights should be(NoRights)
     }
 
     it("should use 'Getty Images' as credit if missing from the file metadata") {
       val image = createImageFromMetadata()
-      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Original Filename" -> "lol.jpg")))
+      val gettyImage = image.copy(fileMetadata = FileMetadata(getty = Map("Asset ID" -> "SOME ID","Original Filename" -> "lol.jpg")))
       val processedImage = applyProcessors(gettyImage)
       processedImage.metadata.credit should be(Some("Getty Images"))
     }

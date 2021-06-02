@@ -72,6 +72,7 @@ object ImageMetadataConverter extends GridLogging {
                             fileMetadata.iptc.get("Copyright Notice") orElse
                             fileMetadata.exif.get("Copyright"),
       // Here we combine two separate fields, based on bad habits of our suppliers.
+      // see https://github.com/guardian/grid/pull/3328#issuecomment-849080100
       suppliersReference  = fileMetadata.readXmpHeadStringProp("photoshop:TransmissionReference") orElse
                             fileMetadata.iptc.get("Original Transmission Reference") orElse
                             fileMetadata.readXmpHeadStringProp("dc:title") orElse

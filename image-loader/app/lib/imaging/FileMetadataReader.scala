@@ -145,6 +145,8 @@ object FileMetadataReader {
 
       def readAssetId: Option[String] = readProperty("GettyImagesGIFT:AssetId").orElse(readProperty("GettyImagesGIFT:AssetID"))
 
+      // Not to live in a glass house and throw stones, but this looks awfully like a case class
+      // Don't change the field names mind.
       Map(
         "Asset ID" -> readAssetId,
         "Call For Image" -> readProperty("GettyImagesGIFT:CallForImage"),

@@ -237,14 +237,22 @@ object ApParser extends ImageProcessor {
   val InvisionFor = "^invision for (.+)".r
   val PersonInvisionAp = "(.+)\\s*/invision/ap$".r
 
+  def getSuppliersReference(image: Image) = {
+    image.fileMetadata.readXmpHeadStringProp("xmp.plus:ImageSupplierImageID").orElse(image.metadata.suppliersReference)
+    // This is also available in a more structured way
+    // https://github.com/guardian/grid/pull/3328#issuecomment-849080100
+    // But that field is json so let's not.
+  }
+
   def apply(image: Image): Image = image.metadata.credit.map(_.toLowerCase) match {
     case Some("ap") | Some("associated press") => image.copy(
       usageRights = Agency("AP"),
-      metadata    = image.metadata.copy(credit = Some("AP"))
+      metadata    = image.metadata.copy(credit = Some("AP"), suppliersReference = getSuppliersReference(image))
     )
     case Some("invision") | Some("invision/ap") |
          Some(InvisionFor(_)) | Some(PersonInvisionAp(_)) => image.copy(
-      usageRights = Agency("AP", Some("Invision"))
+      usageRights = Agency("AP", Some("Invision")),
+      metadata = image.metadata.copy(suppliersReference = getSuppliersReference(image))
     )
     case _ => image
   }
@@ -260,9 +268,13 @@ object CorbisParser extends ImageProcessor {
 }
 
 object EpaParser extends ImageProcessor {
+  def getSuppliersReference(image: Image) = {
+    image.fileMetadata.iptc.get("Unique Document Identifier").orElse(image.metadata.suppliersReference)
+  }
   def apply(image: Image): Image = image.metadata.credit match {
     case Some(x) if x.matches(".*\\bEPA\\b.*") => image.copy(
-      usageRights = Agency("EPA")
+      usageRights = Agency("EPA"),
+      metadata = image.metadata.copy(suppliersReference = getSuppliersReference(image))
     )
     case _ => image
   }
@@ -275,6 +287,11 @@ trait GettyProcessor {
 }
 
 object GettyXmpParser extends ImageProcessor with GettyProcessor {
+  def getSuppliersReference(image: Image)={
+    // String defined in ImageMetadataConvertor
+    image.fileMetadata.getty.get("Asset ID").orElse(image.metadata.suppliersReference)
+  }
+
   def apply(image: Image): Image = {
     val excludedCredit = List(
       "Replay Images", "newspix international", "i-images", "photoshot", "Ian Jones", "Photo News/Panoramic",
@@ -297,13 +314,23 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
     val isExcludedBySource = image.metadata.source.exists(isExcluded(_, excludedSource))
     val hasGettyMetadata = image.fileMetadata.getty.nonEmpty
 
-    if(!hasGettyMetadata || isExcludedByCredit || isExcludedBySource) {
+
+    if(!hasGettyMetadata){
       image
+    } else if(isExcludedByCredit || isExcludedBySource) {
+      image.copy(
+        metadata = image.metadata.copy(
+          suppliersReference = getSuppliersReference(image)
+        )
+      )
     } else {
       image.copy(
         usageRights = gettyAgencyWithCollection(image.metadata.source),
         // Set a default "credit" for when Getty is too lazy to provide one
-        metadata    = image.metadata.copy(credit = Some(image.metadata.credit.getOrElse("Getty Images")))
+        metadata = image.metadata.copy(
+          credit = Some(image.metadata.credit.getOrElse("Getty Images")),
+          suppliersReference = getSuppliersReference(image)
+        )
       )
     }
   }
@@ -363,20 +390,32 @@ object PaParser extends ImageProcessor {
 }
 
 object ReutersParser extends ImageProcessor {
+  def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
+
   def apply(image: Image): Image = image.metadata.credit match {
+
     // Reuters and other misspellings
     // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
     case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
       usageRights = Agency("Reuters"),
-      metadata = image.metadata.copy(credit = Some("Reuters"))
+      metadata = image.metadata.copy(
+        credit = Some("Reuters"),
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      )
     )
     // Others via Reuters
     case Some("USA TODAY Sports") => image.copy(
-      metadata = image.metadata.copy(credit = Some("USA Today Sports")),
+      metadata = image.metadata.copy(
+        credit = Some("USA Today Sports"),
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      ),
       usageRights = Agency("Reuters")
     )
     case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
-      usageRights = Agency("Reuters")
+      usageRights = Agency("Reuters"),
+      metadata = image.metadata.copy(
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      )
     )
     case _ => image
   }
