@@ -238,7 +238,7 @@ object ApParser extends ImageProcessor {
   val PersonInvisionAp = "(.+)\\s*/invision/ap$".r
 
   def getSuppliersReference(image: Image) = {
-    image.fileMetadata.readXmpHeadStringProp("xmp.plus:ImageSupplierImageID").orElse(image.metadata.suppliersReference)
+    image.fileMetadata.readXmpHeadStringProp("plus:ImageSupplierImageID").orElse(image.metadata.suppliersReference)
     // This is also available in a more structured way
     // https://github.com/guardian/grid/pull/3328#issuecomment-849080100
     // But that field is json so let's not.
