@@ -8,6 +8,8 @@ GET     /login                      auth.AuthController.doLogin(redirectUri: Opt
 GET     /oauthCallback              auth.AuthController.oauthCallback
 GET     /logout                     auth.AuthController.logout
 GET     /session                    auth.AuthController.session
+POST    /cookieMonster              auth.AuthController.cookieMonster
+
 
 # Management
 GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
