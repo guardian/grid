@@ -8,6 +8,8 @@ GET     /login                      auth.AuthController.doLogin(redirectUri: Opt
 GET     /oauthCallback              auth.AuthController.oauthCallback
 GET     /logout                     auth.AuthController.logout
 GET     /session                    auth.AuthController.session
+
+# This allows us to force a reset on a users panda cookie for debug purposes
 GET     /cookieMonster              auth.AuthController.cookieMonster
 
 
