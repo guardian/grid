@@ -79,9 +79,6 @@ sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
           new CaptureConsole({})
         ]});
       // Ensures user data is blank
-      Sentry.configureScope(scope=>{
-        scope.setData('session_id', window._clientConfig.sessionId);
-      });
-
+      Sentry.setContext('session_id', window._clientConfig.sessionId);
     }
 }]);
