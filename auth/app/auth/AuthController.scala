@@ -4,12 +4,15 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions.{ShowPaid, UploadImages}
-import com.gu.mediaservice.lib.auth.provider.AuthenticationProviders
+import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviders, LocalAuthenticationProvider}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
+import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
+import com.gu.pandomainauth.service.CookieUtils
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
 
 import java.net.URI
+import java.util.Date
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -28,6 +31,16 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
       Link("session",       s"${config.rootUri}/session")
     )
     respond(indexData, indexLinks)
+  }
+
+  def cookieMonster = auth { request =>
+    providers.userProvider match {
+      case panda: PandaAuthenticationProvider =>{
+        val cookieBatter = panda.readAuthenticatedUser(request).map(user => panda.generateCookie(user.copy(expires = new Date().getTime)))
+        cookieBatter.fold(respond("Me want cookie."))(cookie => respond("Cookies are a sometimes food.").withCookies(cookie))
+      }
+      case _ => respond("Me want cookie.")
+    }
   }
 
   def index = auth { indexResponse }
