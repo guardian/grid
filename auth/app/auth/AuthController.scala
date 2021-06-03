@@ -22,7 +22,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   extends BaseController
   with ArgoHelpers {
 
-   val indexResponse = {
+  val indexResponse = {
     val indexData = Map("description" -> "This is the Auth API")
     val indexLinks = List(
       Link("root",          config.mediaApiUri),
