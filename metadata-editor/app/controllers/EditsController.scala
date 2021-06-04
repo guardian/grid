@@ -95,8 +95,8 @@ class EditsController(
     }
   }
 
-  def setHide(id: String) = AuthenticatedAndAuthorisedHideImages.async { implicit req =>
-    editsStore.keySet(id, Edits.DeletedAt, DateTime.now.toString)
+  def setHidden(id: String) = AuthenticatedAndAuthorisedHideImages.async { implicit req =>
+    editsStore.stringSet(id, Edits.DeletedAt, JsString(DateTime.now.toString))
       .map(publish(id, UpdateImageUserMetadata))
       .map(_ => respond(true))
       .recover{

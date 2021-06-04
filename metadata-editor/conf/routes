@@ -7,7 +7,7 @@ GET     /edits/:id                                      controllers.EditsControl
 
 GET     /metadata/:id/archived                          controllers.EditsController.getArchived(id: String)
 PUT     /metadata/:id/archived                          controllers.EditsController.setArchived(id: String)
-PUT     /metadata/:id/hide                              controllers.EditsController.setHide(id: String)
+PUT     /metadata/:id/hide                              controllers.EditsController.setHidden(id: String)
 DELETE  /metadata/:id/archived                          controllers.EditsController.unsetArchived(id: String)
 
 GET     /metadata/:id/labels                            controllers.EditsController.getLabels(id: String)

@@ -51,16 +51,6 @@
             </label>
             </li>
 
-            <li ng-if="searchQuery.viewHiddenImages" id="hidden-images-checkbox" class="search__modifier-item">
-                <label>
-                    <input type="checkbox"
-                           ng-model="searchQuery.filter.viewHiddenImages"
-                           ng-true-value="'true'"
-                           ng-false-value="undefined"/>
-                    Hidden
-                </label>
-            </li>
-
             <li ng-if="searchQuery.canUpload" id="my-uploads-checkbox" class="search__modifier-item">
             <label>
                 <input type="checkbox"
