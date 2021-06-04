@@ -20,6 +20,7 @@ presetLabels.controller('GrPresetLabelsCtrl', [
         let ctrl = this;
 
         ctrl.active = false;
+        ctrl.exampleLabel = window._clientConfig.exampleLabel;
 
         ctrl.presetLabels = presetLabelService.getLabels();
 

@@ -13,7 +13,13 @@
   fieldAliases: String,
   scriptsToLoad: List[ScriptToLoad],
   staffPhotographerOrganisation: String,
-  homeLinkHtml: Option[String]
+  homeLinkHtml: Option[String],
+  systemName: String,
+  dropzoneExplanation: Option[String],
+  advancedSearchExampleExplanation: Option[String],
+  exampleEmail: Option[String],
+  exampleLabel: Option[String],
+  institution: Option[String]
 )
 <!DOCTYPE html>
 <html>
@@ -21,7 +27,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title ui-title ui-title-suffix="the grid">the grid</title>
+    <title ui-title ui-title-suffix="@systemName">@systemName</title>
     <!-- htmllint line-ending-style="false" -->
 
 
@@ -53,13 +59,19 @@
           supportEmail: "@Html(supportEmail.getOrElse(""))",
           staffPhotographerOrganisation: "@Html(staffPhotographerOrganisation)",
           fieldAliases: @Html(fieldAliases),
-          homeLinkHtml: '@Html(homeLinkHtml.getOrElse(""))'
+          homeLinkHtml: '@Html(homeLinkHtml.getOrElse(""))',
+          systemName: "@Html(systemName)",
+          dropzoneExplanation: "@Html(dropzoneExplanation.getOrElse("Drop files or GuardianWitness URLs here to upload them instantly to the Grid"))",
+          advancedSearchExampleExplanation: "@Html(advancedSearchExampleExplanation.getOrElse("Grid-specific Usage Rights categories."))",
+          exampleEmail: "@Html(exampleEmail.getOrElse("jo.doe@guardian.co.uk"))",
+          exampleLabel: "@Html(exampleLabel.getOrElse("Observer"))",
+          institution: "@Html(institution.getOrElse("The Guardian"))"
         }
     </script>
 
   </head>
   <body>
-    <p class="loader" ng-hide="true">Loading the grid…</p>
+    <p class="loader" ng-hide="true">Loading @systemName…</p>
 
     <div ui-view></div>
 

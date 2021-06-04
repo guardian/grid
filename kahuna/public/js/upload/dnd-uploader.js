@@ -107,6 +107,7 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
         bindToController: true,
         link: (scope, element, attrs, ctrl) => {
             let dragging = false; // [1]
+            ctrl.dropzoneExplanation = window._clientConfig.dropzoneExplanation;
             const $$window = angular.element($window);
 
             const activate    = () => safeApply(scope, () => ctrl.activated = true);

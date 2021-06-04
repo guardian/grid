@@ -13,6 +13,10 @@ prompt.directive('filePrompt', [function () {
         restrict: 'E',
         transclude: 'replace',
         scope: {}, // ensure isolated scope
-        template: template
+        template: template,
+        link: function($scope) {
+            $scope.systemName = window._clientConfig.systemName;
+            $scope.exampleLabel = window._clientConfig.exampleLabel;
+        }
     };
 }]);

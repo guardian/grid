@@ -21,6 +21,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
+    ctrl.institution = window._clientConfig.institution;
     editsService.canUserEdit(ctrl.image).then(editable => {
         ctrl.userCanEdit = editable;
     });

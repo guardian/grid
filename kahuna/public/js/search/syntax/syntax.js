@@ -9,6 +9,10 @@ syntax.directive('grSyntax', [function () {
     return {
         restrict: 'E',
         template: template,
-        transclude: 'replace'
+        transclude: 'replace',
+        link: function($scope) {
+            $scope.exampleEmail = window._clientConfig.exampleEmail;
+            $scope.advancedSearchExampleExplanation = window._clientConfig.advancedSearchExampleExplanation;
+        }
     };
 }]);
