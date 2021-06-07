@@ -9,13 +9,8 @@ object MessageTranslator extends GridLogging {
   def translate(updateMessage: UpdateMessage): Either[Throwable, ThrallMessage] = {
     updateMessage.subject match {
       case Image | ReingestImage | UpdateImage =>
-        (updateMessage.id, updateMessage.image) match {
-          case (Some(id), Some(image)) if id == image.id => Right(ImageMessage(updateMessage.lastModified, image))
-          case (Some(id), Some(image)) => {
-            implicit  val marker = updateMessage.marker
-            logger.warn(s"Image message received with non matching ids ${id} vs ${image.id}")
-            Right(ImageMessage(updateMessage.lastModified, image))
-          }
+        updateMessage.image match {
+          case  Some(image) => Right(ImageMessage(updateMessage.lastModified, image))
           case _ => Left(MissingFieldsException(updateMessage.subject))
         }
       case DeleteImage => (updateMessage.id) match {
