@@ -304,19 +304,12 @@ kahuna.run(['$rootScope', '$window', '$q', 'getEntity',
 
 
 kahuna.controller('SessionCtrl',
-                  ['$scope', '$state', '$stateParams', '$interval', 'mediaApi',
+                  ['$scope', '$state', '$stateParams', 'mediaApi',
                    function($scope, $state, $stateParams, mediaApi) {
 
     mediaApi.getSession().then(session => {
         $scope.user = session.user;
     });
-    const FIFTEEN_MINUTES = 15*60*1000;
-
-    // Do *something* every fifteen minutes so we can keep renewing our google auth as it times out after thirty
-    $interval(()=>{
-      mediaApi.root.get()
-    },FIFTEEN_MINUTES, 0, false);
-
 }]);
 
 
