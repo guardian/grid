@@ -43,6 +43,7 @@ globalErrors.controller('GlobalErrorsCtrl',
 
     ctrl.invalidSessionHelpLink = window._clientConfig.invalidSessionHelpLink;
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
+    ctrl.systemName = window._clientConfig.systemName;
 
     // handy as these can happen anywhere
     ctrl.getCurrentLocation = () => $location.url();

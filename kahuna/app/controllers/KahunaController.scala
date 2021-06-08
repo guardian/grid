@@ -40,7 +40,8 @@ class KahunaController(
       fieldAliases,
       config.scriptsToLoad.filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists)),
       config.staffPhotographerOrganisation,
-      config.homeLinkHtml
+      config.homeLinkHtml,
+      config.systemName
     ))
   }
 

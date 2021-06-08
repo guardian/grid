@@ -143,7 +143,7 @@
         </section>
 
         <section>
-            <span class="edit_metadata__warning" ng-if="!ctrl.userCanEdit">WARNING: This image is already in The Grid. Since you're not the original uploader, you are not allowed to edit its metadata.</span>
+            <span class="edit_metadata__warning" ng-if="!ctrl.userCanEdit">WARNING: This image is already in {{ctrl.systemName}}. Since you're not the original uploader, you are not allowed to edit its metadata.</span>
             <h1 ng-class="{'section__disabled': !ctrl.userCanEdit}">Image Metadata</h1>
             <ui-required-metadata-editor
                 class="result-editor__metadata-editor"

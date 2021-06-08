@@ -27,6 +27,6 @@
         <recent-uploads></recent-uploads>
     </section>
 </div>
-<div ng-if="ctrl.canUpload === false" class="unauthorised-message">You are not authorised to upload images. <a href="{{ctrl.supportEmailLink}}" class="coloured-link">Send an email to the Grid team</a> if you think this is incorrect.</div>
+<div ng-if="ctrl.canUpload === false" class="unauthorised-message">You are not authorised to upload images. <a href="{{ctrl.supportEmailLink}}" class="coloured-link">Send an email to {{ctrl.systemName}} team</a> if you think this is incorrect.</div>
 
 <dnd-uploader ng-if="ctrl.canUpload"></dnd-uploader>

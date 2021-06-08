@@ -3,6 +3,8 @@ import template from './dnd-uploader.html';
 
 import {witnessApi} from '../services/api/witness';
 
+import strings from '../strings.json';
+
 export var dndUploader = angular.module('kahuna.upload.dndUploader', [
     'kahuna.upload.manager',
     witnessApi.name,
@@ -107,6 +109,7 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
         bindToController: true,
         link: (scope, element, attrs, ctrl) => {
             let dragging = false; // [1]
+            ctrl.dropzoneExplanation = strings.dropzoneExplanation;
             const $$window = angular.element($window);
 
             const activate    = () => safeApply(scope, () => ctrl.activated = true);

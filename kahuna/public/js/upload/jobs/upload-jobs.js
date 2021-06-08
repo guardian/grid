@@ -141,8 +141,10 @@ jobs.controller('UploadJobsCtrl', [
         }, error => {
             const reason = error.body && error.body.errorKey;
 
+            const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
             const message = reason === 'unsupported-type' ?
-                'The Grid only supports JPG, PNG and TIFF images.' +
+            `${capitalize(window._clientConfig.systemName)} only supports JPG, PNG and TIFF images.` +
                 ' Please convert the image and try again.' :
                 error.body && error.body.errorMessage || 'unknown';
 

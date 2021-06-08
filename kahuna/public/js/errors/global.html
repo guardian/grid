@@ -17,7 +17,7 @@
         <div>
             We are looking into this but if the problem persists please
             <a href="{{ctrl.supportEmailLink}}"
-            class="coloured-link">email the Grid team</a>.
+            class="coloured-link">email {{ctrl.systemName}} team</a>.
         </div>
 
         <div>
@@ -35,7 +35,7 @@
 
     <div class="global-error warning" ng-message="unknown">
         An unknown error has occurred.
-        If the problem persists please <a href="{{ctrl.supportEmailLink}}" class="coloured-link">email the Grid team</a>.
+        If the problem persists please <a href="{{ctrl.supportEmailLink}}" class="coloured-link">email {{ctrl.systemName}} team</a>.
 
         <gr-icon class="global-error__close"
                  title="Close"
@@ -43,7 +43,7 @@
     </div>
 
     <div class="global-error error" ng-message="server">
-        A server error has occurred; the Grid may not be fully functional at this time.
-        If the problem persists please <a href="{{ctrl.supportEmailLink}}" class="coloured-link">email the Grid team</a>.
+        A server error has occurred; {{ctrl.systemName}} may not be fully functional at this time.
+        If the problem persists please <a href="{{ctrl.supportEmailLink}}" class="coloured-link">email {{ctrl.systemName}} team</a>.
     </div>
 </ng-messages>
