@@ -2,11 +2,11 @@ package lib.kinesis
 
 import java.time.Instant
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
+import com.gu.mediaservice.model.ThrallMessage
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
@@ -35,7 +35,7 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def processUpdateMessage(updateMessage: UpdateMessage): Future[UpdateMessage]  = {
+  def processUpdateMessage(updateMessage: ThrallMessage): Future[ThrallMessage]  = {
     val marker = updateMessage
 
     val stopwatch = Stopwatch.start
@@ -86,20 +86,23 @@ class ThrallEventConsumer(es: ElasticSearch,
 
 object ThrallEventConsumer extends GridLogging {
 
-  def parseRecord(r: Array[Byte], timestamp: Instant):Option[UpdateMessage] = {
+  def parseRecord(r: Array[Byte], timestamp: Instant):Either[Throwable,UpdateMessage] = {
     Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
       case Success(Some(updateMessage: UpdateMessage)) => {
         logger.info(updateMessage.toLogMarker, s"Received ${updateMessage.subject} message at $timestamp")
-        Some(updateMessage)
+        Right(updateMessage)
       }
       case Success(None)=> {
-        logger.warn(s"No message present in record at $timestamp", new String(r))
-        None //No message received
+        val message = new String(r)
+        logger.warn(s"No message present in record at $timestamp", message)
+        Left(NoMessageException(timestamp, message)) //No message received
       }
       case Failure(e) => {
         logger.error(s"Exception during process record block at $timestamp", e)
-        None
+        Left(e)
       }
     }
   }
 }
+
+case class NoMessageException(timestamp: Instant, message: String) extends Exception(s"No message present in record at $timestamp ${message}")
