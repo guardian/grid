@@ -32,11 +32,6 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
   val homeLinkHtml: Option[String] = stringOpt("branding.homeLinkHtml").filterNot(_.isEmpty)
   val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
-  val dropzoneExplanation: Option[String] = stringOpt("branding.dropzoneExplanation").filterNot(_.isEmpty)
-  val advancedSearchExampleExplanation: Option[String] = stringOpt("branding.advancedSearchExampleExplanation").filterNot(_.isEmpty)
-  val exampleEmail: Option[String] = stringOpt("branding.exampleEmail").filterNot(_.isEmpty)
-  val exampleLabel: Option[String] = stringOpt("branding.exampleLabel").filterNot(_.isEmpty)
-  val institution: Option[String] = stringOpt("branding.institution").filterNot(_.isEmpty)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")

@@ -3,6 +3,8 @@ import angular from 'angular';
 import template from './syntax.html';
 import {grChipExample} from '../../directives/gr-chip-example';
 
+import strings from '../../strings.json';
+
 export const syntax = angular.module('grSyntax', [grChipExample.name]);
 
 syntax.directive('grSyntax', [function () {
@@ -11,8 +13,8 @@ syntax.directive('grSyntax', [function () {
         template: template,
         transclude: 'replace',
         link: function($scope) {
-            $scope.exampleEmail = window._clientConfig.exampleEmail;
-            $scope.advancedSearchExampleExplanation = window._clientConfig.advancedSearchExampleExplanation;
+            $scope.exampleEmail = strings.exampleEmail;
+            $scope.advancedSearchExampleExplanation = strings.advancedSearchExampleExplanation;
         }
     };
 }]);
