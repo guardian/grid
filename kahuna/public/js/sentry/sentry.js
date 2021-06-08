@@ -1,5 +1,7 @@
 import angular from 'angular';
-import raven from 'raven-js';
+import * as Sentry from '@sentry/browser';
+import { CaptureConsole } from '@sentry/integrations';
+
 
 export var sentry = angular.module('sentry', []);
 
@@ -63,7 +65,7 @@ sentry.config(['$provide', function ($provide) {
             // Don't send failed HTTP requests as that's mostly just
             // noise we already get in other logs
             if (!isHttpError(exception)) {
-                raven.captureException(exception, cause);
+                Sentry.captureException(exception, cause);
             }
         };
     }]);
@@ -72,12 +74,11 @@ sentry.config(['$provide', function ($provide) {
 sentry.run(['$rootScope', 'sentryEnabled', 'sentryDsn',
             ($rootScope, sentryEnabled, sentryDsn) => {
     if (sentryEnabled) {
-        raven.config(sentryDsn, {}).install();
-        // Ensures user data is blank
-        raven.setUserContext({});
-
-        raven.setExtraContext({
-          'session_id': window._clientConfig.sessionId
-        });
+      Sentry.init({dsn: sentryDsn,
+        integrations: [
+          new CaptureConsole({})
+        ]});
+      // Ensures user data is blank
+      Sentry.setContext('session_id', window._clientConfig.sessionId);
     }
 }]);
