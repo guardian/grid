@@ -70,8 +70,7 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
     usageBaseUri,
     collectionsBaseUri,
     leasesBaseUri,
-    authBaseUri,
-    adminToolsBaseUri
+    authBaseUri
   )
 
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
