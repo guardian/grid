@@ -16,8 +16,8 @@ GET     /assets/*file                                 controllers.Assets.version
 # Management
 GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
-GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI
-GET     /management/innerServiceStatusCheck           com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.statusCheck
+GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
+GET     /management/innerServiceStatusCheck           com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.statusCheck(depth: Int)
 
 # Shoo robots away
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots

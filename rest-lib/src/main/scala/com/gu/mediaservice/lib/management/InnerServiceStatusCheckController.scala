@@ -24,9 +24,10 @@ class InnerServiceStatusCheckController(
 
   private def safeJsonParse(maybeJsonStr: String) = Try(Json.parse(maybeJsonStr)).getOrElse(JsString(maybeJsonStr))
 
-  private def callAllInternalServices(authenticator: WSRequest => WSRequest) = {
+  private def callAllInternalServices(depth: Int, authenticator: WSRequest => WSRequest) = {
+    val nextDepth = depth - 1
     val whoAmIFutures = services.allInternalUris.map { baseUri =>
-        authenticator(ws.url(s"$baseUri/management/whoAmI")).get
+        authenticator(ws.url(s"$baseUri/management/whoAmI").addQueryStringParameters("depth" -> nextDepth.toString)).get
           .map(resp => WhoAmIResponse(baseUri, resp.status, safeJsonParse(resp.body)))
           .recover{
             case throwable: Throwable => WhoAmIResponse(baseUri, SERVICE_UNAVAILABLE, Json.obj(
@@ -41,10 +42,14 @@ class InnerServiceStatusCheckController(
     }
   }
 
-  def whoAmI = auth.async { request =>
-    request.user match {
-      case principal: InnerServicePrincipal if !principal.identity.contains(" via ") =>
-        callAllInternalServices(auth.getOnBehalfOfPrincipal(principal))
+  def whoAmI(depth: Int) = auth.async { request =>
+    if (depth < 0 || depth > 2) { Future.successful(BadRequest("'depth' query param must be at least 0 and no more than 2"))}
+    else request.user match {
+      case principal: InnerServicePrincipal if depth > 0 =>
+        callAllInternalServices(
+          depth,
+          authenticator = auth.getOnBehalfOfPrincipal(principal)
+        )
       case _ =>
         Future.successful(
           Ok(Json.toJson(request.user.toString))
@@ -52,7 +57,11 @@ class InnerServiceStatusCheckController(
     }
   }
 
-  def statusCheck = Action.async {
-    callAllInternalServices(auth.innerServiceCall)
+  def statusCheck(depth: Int) = Action.async {
+    if (depth < 1 || depth > 3) { Future.successful(BadRequest("'depth' query param must be at least 1 and no more than 3"))}
+    else callAllInternalServices(
+      depth,
+      authenticator = auth.innerServiceCall
+    )
   }
 }
