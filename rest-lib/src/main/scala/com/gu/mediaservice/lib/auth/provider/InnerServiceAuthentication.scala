@@ -9,10 +9,14 @@ import play.api.mvc.RequestHeader
 
 import java.util.UUID
 
-trait InnerServiceAuthentication {
+object InnerServiceAuthentication {
   val innerServiceIdentityHeaderName = "X-Inner-Service-Identity"
   val innerServiceUUIDHeaderName = "X-Inner-Service-UUID"
   val innerServiceTimestampHeaderName = "X-Inner-Service-Timestamp"
+}
+
+trait InnerServiceAuthentication {
+  import InnerServiceAuthentication._
   val innerServiceSignatureHeaderName = "X-Inner-Service-Signature"
 
   val uuidKey: TypedKey[String] = TypedKey("UUID")

@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.play
 
 import akka.stream.Materializer
 import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.provider.InnerServiceAuthentication
 import net.logstash.logback.marker.Markers.appendEntries
 import play.api.mvc.{Filter, RequestHeader, Result}
 import play.api.{Logger, MarkerContext}
@@ -42,10 +43,18 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
       "duration" -> duration
     )
 
-    val optionalMarkers = Map(
+    val markersFromRequestHeaders = List(
+      Authentication.originalServiceHeaderName,
+      InnerServiceAuthentication.innerServiceIdentityHeaderName,
+      InnerServiceAuthentication.innerServiceUUIDHeaderName,
+      InnerServiceAuthentication.innerServiceTimestampHeaderName
+    ).map { headerName =>
+      headerName -> request.headers.get(headerName)
+    }
+
+    val optionalMarkers = (markersFromRequestHeaders ++ Map(
       "status" -> outcome.map(_.header.status).toOption,
-      Authentication.originalServiceHeaderName -> request.headers.get(Authentication.originalServiceHeaderName)
-    ).collect{
+    )).collect{
       case (key, Some(value)) => key -> value
     }
 
