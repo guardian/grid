@@ -75,7 +75,7 @@ class MediaApi(
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
-    val maybeViewDeletedLink: Option[Link] = Some(Link("archive", s"${config.authUri}/{id}/hide")).filter(_ => userCanViewDeletedImages)
+    val maybeViewDeletedLink: Option[Link] = Some(Link("hide", s"${config.metadataUri}/{id}/hide")).filter(_ => userCanViewDeletedImages)
 
     val indexLinks = List(
       searchLink,
