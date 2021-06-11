@@ -7,6 +7,8 @@ import '../../directives/gr-auto-focus';
 import '../../services/preset-label';
 import {mediaApi} from '../../services/api/media-api';
 
+import strings from '../../strings.json';
+
 export var presetLabels = angular.module('gr.presetLabels', [
     'gr.autoFocus',
     'kahuna.services.presetLabel',
@@ -20,6 +22,7 @@ presetLabels.controller('GrPresetLabelsCtrl', [
         let ctrl = this;
 
         ctrl.active = false;
+        ctrl.exampleLabel = strings.exampleLabel;
 
         ctrl.presetLabels = presetLabelService.getLabels();
 

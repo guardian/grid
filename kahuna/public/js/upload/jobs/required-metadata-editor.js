@@ -7,6 +7,8 @@ import '../../edits/service';
 import '../../forms/datalist';
 import '../../components/gr-description-warning/gr-description-warning';
 
+import strings from '../../strings.json';
+
 export var jobs = angular.module('kahuna.upload.jobs.requiredMetadataEditor', [
     'kahuna.edits.service',
     'kahuna.forms.datalist',
@@ -21,6 +23,7 @@ jobs.controller('RequiredMetadataEditorCtrl',
 
     var ctrl = this;
 
+    ctrl.institution = strings.institution;
     editsService.canUserEdit(ctrl.image).then(editable => {
         ctrl.userCanEdit = editable;
     });

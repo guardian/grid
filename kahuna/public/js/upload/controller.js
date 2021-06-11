@@ -12,6 +12,7 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', function(uploadMan
     var ctrl = this;
 
     ctrl.supportEmailLink = window._clientConfig.supportEmail;
+    ctrl.systemName = window._clientConfig.systemName;
 
     mediaApi.canUserUpload().then(canUpload => {
         ctrl.canUpload = canUpload;
