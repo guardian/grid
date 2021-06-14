@@ -16,7 +16,8 @@ case class Edits(
   usageRights: Option[UsageRights] = None,
   photoshoot: Option[Photoshoot] = None,
   lastModified: Option[DateTime] = None,
-  deletedAt: Option[DateTime] = None
+  deletedAt: Option[DateTime] = None,
+  deletedBy: Option[String] = None,
 )
 
 object Edits {
@@ -30,6 +31,7 @@ object Edits {
   val UsageRights = "usageRights"
   val LastModified = "lastModified"
   val DeletedAt = "deletedAt"
+  val DeletedBy = "deletedBy"
 
   implicit val EditsReads: Reads[Edits] = (
     (__ \ Archived).readNullable[Boolean].map(_ getOrElse false) ~
@@ -38,7 +40,8 @@ object Edits {
     (__ \ UsageRights).readNullable[UsageRights] ~
     (__ \ Photoshoot).readNullable[Photoshoot] ~
     (__ \ LastModified).readNullable[DateTime] ~
-    (__ \ DeletedAt).readNullable[DateTime]
+    (__ \ DeletedAt).readNullable[DateTime] ~
+    (__ \ DeletedBy).readNullable[String]
   )(Edits.apply _)
 
   implicit val EditsWrites: Writes[Edits] = (
@@ -48,7 +51,8 @@ object Edits {
     (__ \ UsageRights).writeNullable[UsageRights] ~
     (__ \ Photoshoot).writeNullable[Photoshoot] ~
     (__ \ LastModified).writeNullable[DateTime] ~
-    (__ \ DeletedAt).writeNullable[DateTime]
+    (__ \ DeletedAt).writeNullable[DateTime] ~
+    (__ \ DeletedBy).writeNullable[String]
   )(unlift(Edits.unapply))
 
   def getEmpty = Edits(metadata = emptyMetadata)
@@ -78,7 +82,8 @@ trait EditsResponse {
       (__ \ Edits.UsageRights).write[UsageRightsEntity].contramap(usageRightsEntity(id, _: Option[UsageRights])) ~
       (__ \ Edits.Photoshoot).write[PhotoshootEntity].contramap(photoshootEntity(id, _: Option[Photoshoot])) ~
       (__ \ Edits.LastModified).writeNullable[DateTime] ~
-      (__ \ Edits.DeletedAt).writeNullable[DateTime]
+      (__ \ Edits.DeletedAt).writeNullable[DateTime] ~
+      (__ \ Edits.DeletedBy).writeNullable[String]
     )(unlift(Edits.unapply))
 
   def photoshootEntity(id: String, photoshoot: Option[Photoshoot]): PhotoshootEntity =

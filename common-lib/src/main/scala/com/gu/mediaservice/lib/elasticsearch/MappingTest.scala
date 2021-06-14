@@ -99,7 +99,8 @@ object MappingTest {
       usageRights = Some(NoRights),
       photoshoot = Some(Photoshoot("crazy times shoot")),
       lastModified = Some(imageModified),
-      deletedAt = Some(imageSoftDeleted)
+      deletedAt = Some(imageSoftDeleted),
+      deletedBy = Some("testuser@test.test"),
     )),
     metadata = testImageMetadata,
     originalMetadata = testImageMetadata,

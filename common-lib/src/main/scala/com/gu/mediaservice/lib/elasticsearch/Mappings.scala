@@ -189,7 +189,8 @@ object Mappings {
     usageRightsMapping("usageRights"),
     photoshootMapping("photoshoot"),
     dateField("lastModified"),
-    dateField("deletedAt")
+    dateField("deletedAt"),
+    keywordField("deletedBy")
   )
 
   def uploadInfoMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
