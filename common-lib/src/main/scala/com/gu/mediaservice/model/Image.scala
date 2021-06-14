@@ -7,11 +7,11 @@ import org.joda.time.DateTime
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-
 case class Image(
   id:                  String,
   uploadTime:          DateTime,
   uploadedBy:          String,
+  softDeletedMetadata: Option[SoftDeletedMetadata],
   lastModified:        Option[DateTime],
   identifiers:         Map[String, String],
   uploadInfo:          UploadInfo,
@@ -82,6 +82,7 @@ object Image {
     (__ \ "id").read[String] ~
       (__ \ "uploadTime").read[String].map(unsafeParseDateTime) ~
       (__ \ "uploadedBy").read[String] ~
+      (__ \ "softDeletedMetadata").readNullable[SoftDeletedMetadata] ~
       (__ \ "lastModified").readNullable[String].map(parseOptDateTime) ~
       (__ \ "identifiers").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
       (__ \ "uploadInfo").readNullable[UploadInfo].map(_ getOrElse UploadInfo()) ~
@@ -106,6 +107,7 @@ object Image {
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "uploadedBy").write[String] ~
+      (__ \ "softDeletedMetadata").writeNullable[SoftDeletedMetadata] ~
       (__ \ "lastModified").writeNullable[String].contramap(printOptDateTime) ~
       (__ \ "identifiers").write[Map[String, String]] ~
       (__ \ "uploadInfo").write[UploadInfo] ~
@@ -125,6 +127,5 @@ object Image {
       (__ \ "syndicationRights").writeNullable[SyndicationRights] ~
       (__ \ "userMetadataLastModified").writeNullable[String].contramap(printOptDateTime)
     )(unlift(Image.unapply))
-
 }
 

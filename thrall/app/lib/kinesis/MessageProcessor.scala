@@ -24,6 +24,7 @@ class MessageProcessor(es: ElasticSearch,
     updateMessage match {
       case message: ImageMessage => indexImage(message, logMarker)
       case message: DeleteImageMessage => deleteImage(message, logMarker)
+      case message: SoftDeleteImageMessage => softDeleteImage(message, logMarker)
       case message: DeleteImageExportsMessage => deleteImageExports(message, logMarker)
       case message: UpdateImageExportsMessage => updateImageExports(message, logMarker)
       case message: UpdateImageUserMetadataMessage => updateImageUserMetadata(message, logMarker)
@@ -61,6 +62,9 @@ class MessageProcessor(es: ElasticSearch,
 
     Future.sequence(
       es.deleteImageExports(message.id, message.lastModified)(ec, logMarker))
+
+  private def softDeleteImage(message: SoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+    Future.sequence(es.applySoftDelete(message.id, message.softDeletedMetadata, message.lastModified)(ec, logMarker))
 
   private def updateImageUserMetadata(message: UpdateImageUserMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applyImageMetadataOverride(message.id, message.edits, message.lastModified)(ec, logMarker))

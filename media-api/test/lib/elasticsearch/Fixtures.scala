@@ -54,6 +54,7 @@ trait Fixtures {
       id = id,
       uploadTime = DateTime.now(),
       uploadedBy = testUser,
+      softDeletedMetadata = None,
       lastModified = None,
       identifiers = Map.empty,
       uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),
