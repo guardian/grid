@@ -39,6 +39,7 @@ case object ImageUpload {
       uploadRequest.imageId,
       uploadRequest.uploadTime,
       uploadRequest.uploadedBy,
+      None,
       Some(uploadRequest.uploadTime),
       uploadRequest.identifiers,
       uploadRequest.uploadInfo,

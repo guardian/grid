@@ -21,6 +21,7 @@ object MappingTest {
   private val imageImported: DateTime = imageTaken.plus(Period.days(1).plusHours(1))
   private val imageModified: DateTime = imageImported.plus(Period.hours(2))
   private val imageDenyLeaseExpiry: DateTime = new DateTime(2030, 3, 26, 12, 0)
+  private val imageSoftDeleted: DateTime = imageImported.plus(Period.hours(2))
 
   private val testImageMetadata: ImageMetadata = ImageMetadata(
     dateTaken = Some(imageTaken),
@@ -57,6 +58,7 @@ object MappingTest {
     id = "abcdef1234567890",
     uploadTime = imageImported,
     uploadedBy = testUploader, // Do not change this, we use it to clean up old test images
+    softDeletedMetadata = Some(SoftDeletedMetadata(DateTime.now, "user@test.uk")),
     lastModified = Some(imageModified),
     identifiers = Map("id1" -> "value1"),
     uploadInfo = UploadInfo(

@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, DeleteImage => DeleteImagePermission, EditMetadata, UploadImages}
+import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -14,15 +14,15 @@ import lib._
 import lib.elasticsearch._
 import org.apache.http.entity.ContentType
 import org.http4s.UriTemplate
-import org.joda.time.DateTime
+import org.joda.time.{DateTime, DateTimeZone}
 import play.api.http.HttpEntity
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc._
-
 import java.net.URI
 import java.util.concurrent.TimeUnit
+
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.JsonDiff
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
@@ -222,6 +222,26 @@ class MediaApi(
           ImageCannotBeDeleted
         }
 
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def softDeleteImage(id: String) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(id) map {
+      case Some(_) =>
+        messageSender.publish(
+          UpdateMessage(
+            subject = SoftDeleteImage,
+            id = Some(id),
+            softDeletedMetadata = Some(SoftDeletedMetadata(
+              deleteTime = DateTime.now(DateTimeZone.UTC),
+              deletedBy = request.user.accessor.identity
+            ))
+          )
+        )
+        Accepted
       case _ => ImageNotFound(id)
     }
   }
