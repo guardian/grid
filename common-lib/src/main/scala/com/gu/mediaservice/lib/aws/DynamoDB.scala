@@ -101,6 +101,16 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
       valueMapWithNullForEmptyString(Map(":value" -> value))
     )
 
+  def stringListSet(id: String, keyValueMap: Map[String, JsValue])
+               (implicit ex: ExecutionContext): Future[JsObject] = {
+    val query = keyValueMap.foldLeft("SET ")((acc, kv) => acc + kv._1 + s" = :${kv._1},").dropRight(1)
+    val valueMap = keyValueMap.map {case (key, value) => (s":$key", value)}
+    update(
+      id,
+      query,
+      valueMapWithNullForEmptyString(valueMap)
+    )
+  }
 
   def setGet(id: String, key: String)
             (implicit ex: ExecutionContext): Future[Set[String]] =

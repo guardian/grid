@@ -214,11 +214,8 @@ class EditsController(
   }
 
   def softDelete(id: String) = auth.async { implicit req =>
-    val result = for {
-      _ <- editsStore.stringSet(id, Edits.DeletedAt, JsString(DateTime.now.toString))
-      result <- editsStore.stringSet(id, Edits.DeletedBy, JsString(req.user.accessor.identity))
-    } yield result
-    result
+    editsStore.stringListSet(id, Map(Edits.DeletedAt -> JsString(DateTime.now.toString),
+      Edits.DeletedBy -> JsString(req.user.accessor.identity)))
       .map(publish(id, UpdateImageUserMetadata))
       .map(_ => respond(true))
       .recover{
