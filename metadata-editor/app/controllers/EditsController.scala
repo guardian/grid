@@ -18,6 +18,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.Edit
+import org.joda.time.DateTime
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.{BaseController, ControllerComponents}
@@ -210,6 +211,15 @@ class EditsController(
 
   def metadataAsMap(metadata: ImageMetadata) = {
     (Json.toJson(metadata).as[JsObject]).as[Map[String, JsValue]]
+  }
+
+  def softDelete(id: String) = auth.async { implicit req =>
+    editsStore.stringSet(id, Edits.DeletedAt, JsString(DateTime.now.toString))
+      .map(publish(id, UpdateImageUserMetadata))
+      .map(_ => respond(true))
+      .recover{
+        case error => respond(error.toString)
+      }
   }
 
 
