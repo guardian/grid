@@ -1,20 +1,13 @@
 import angular from 'angular';
 
+import { landscape, portrait, video, square, freeform, cropOptions } from './constants/cropOptions';
+
 const CROP_TYPE_STORAGE_KEY = 'cropType';
 const CUSTOM_CROP_STORAGE_KEY = 'customCrop';
-
-// `ratioString` is sent to the server, being `undefined` for `freeform` is expected 🙈
-const landscape = {key: 'landscape', ratio: 5 / 3, ratioString: '5:3'};
-const portrait = {key: 'portrait', ratio: 4 / 5, ratioString: '4:5'};
-const video = {key: 'video', ratio: 16 / 9, ratioString: '16:9'};
-const square = {key: 'square', ratio: 1, ratioString: '1:1'};
-const freeform = {key: 'freeform', ratio: null};
 
 const customCrop = (label, xRatio, yRatio) => {
   return { key:label, ratio: xRatio / yRatio, ratioString: `${xRatio}:${yRatio}`};
 };
-
-const cropOptions = [landscape, portrait, video, square, freeform];
 
 export const cropUtil = angular.module('util.crop', ['util.storage']);
 
@@ -24,7 +17,7 @@ cropUtil.constant('video', video);
 cropUtil.constant('square', square);
 cropUtil.constant('freeform', freeform);
 cropUtil.constant('cropOptions', cropOptions);
-cropUtil.constant('defaultCrop', landscape);
+cropUtil.constant('defaultCrop', cropOptions[0]);
 
 cropUtil.factory('cropSettings', ['storage', function(storage) {
   function getCropOptions() {
