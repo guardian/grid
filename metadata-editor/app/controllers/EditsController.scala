@@ -62,6 +62,7 @@ class EditsController(
 
   val metadataBaseUri = config.services.metadataBaseUri
   private val AuthenticatedAndAuthorised = auth andThen authorisation.CommonActionFilters.authorisedForArchive
+
   private def getUploader(imageId: String, user: Principal): Future[Option[String]] = gridClient.getUploadedBy(imageId, auth.getOnBehalfOfPrincipal(user))
 
   private def authorisedForEditMetadataOrUploader(imageId: String) = authorisation.actionFilterForUploaderOr(imageId, EditMetadata, getUploader)
@@ -214,8 +215,11 @@ class EditsController(
   }
 
   def softDelete(id: String) = auth.async { implicit req =>
-    editsStore.stringListSet(id, Map(Edits.DeletedAt -> JsString(DateTime.now.toString),
-      Edits.DeletedBy -> JsString(req.user.accessor.identity)))
+    editsStore.stringListSet(
+      id,
+      Edits.DeletedAt -> JsString(DateTime.now.toString),
+      Edits.DeletedBy -> JsString(req.user.accessor.identity)
+    )
       .map(publish(id, UpdateImageUserMetadata))
       .map(_ => respond(true))
       .recover{
