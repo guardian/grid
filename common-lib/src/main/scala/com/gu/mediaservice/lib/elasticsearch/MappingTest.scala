@@ -58,7 +58,7 @@ object MappingTest {
     id = "abcdef1234567890",
     uploadTime = imageImported,
     uploadedBy = testUploader, // Do not change this, we use it to clean up old test images
-    deletedMetadata = None,
+    deletedMetadata = Some(DeletedMetadata(imageModified, "user@test.uk")),
     lastModified = Some(imageModified),
     identifiers = Map("id1" -> "value1"),
     uploadInfo = UploadInfo(
