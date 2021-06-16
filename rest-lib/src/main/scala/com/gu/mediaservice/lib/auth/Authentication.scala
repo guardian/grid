@@ -91,7 +91,8 @@ class Authentication(config: CommonConfig,
       _.compose(_.addHttpHeaders(Authentication.originalServiceHeaderName -> config.appName))
     )
   }
-
+  /** Use this for originating calls to other Grid services (this will sign the request and the receiving service will extract an `InnerServicePrincipal`)
+    * IMPORTANT: Do not use this for simply making ongoing calls to other Grid services - instead use `getOnBehalfOfPrincipal` */
   def innerServiceCall(wsRequest: WSRequest): WSRequest = providers.innerServiceProvider.signRequest(wsRequest)
 }
 
