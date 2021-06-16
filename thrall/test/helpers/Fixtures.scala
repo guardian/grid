@@ -23,6 +23,7 @@ trait Fixtures {
      id = id,
      uploadTime = now,
      uploadedBy = "yellow.giraffe@theguardian.com",
+      deletedMetadata = None,
      lastModified = None,
      identifiers = Map.empty,
      uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),
