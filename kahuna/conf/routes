@@ -2,21 +2,22 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
-GET     /                           controllers.KahunaController.index(ignored="")
-GET     /images/$id<[0-9a-z]+>      controllers.KahunaController.index(id: String)
-GET     /images/$id<[0-9a-z]+>/crop controllers.KahunaController.index(id: String)
-GET     /search                     controllers.KahunaController.index(ignored="")
-GET     /upload                     controllers.KahunaController.index(ignored="")
-GET     /quotas                     controllers.KahunaController.quotas
+GET     /                                             controllers.KahunaController.index(ignored="")
+GET     /images/$id<[0-9a-z]+>                        controllers.KahunaController.index(id: String)
+GET     /images/$id<[0-9a-z]+>/crop                   controllers.KahunaController.index(id: String)
+GET     /search                                       controllers.KahunaController.index(ignored="")
+GET     /upload                                       controllers.KahunaController.index(ignored="")
 
 # Empty page to return to the same domain as the app
-GET     /ok                         controllers.KahunaController.ok
+GET     /ok                                           controllers.KahunaController.ok
 
-GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+GET     /assets/*file                                 controllers.Assets.versioned(path="/public", file: Asset)
 
 # Management
-GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
-GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
+GET     /management/innerServiceStatusCheck           com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.statusCheck(depth: Int)
 
 # Shoo robots away
-GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots

@@ -3,6 +3,7 @@ import akka.stream.scaladsl.Source
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import com.typesafe.scalalogging.StrictLogging
 import controllers.{HealthCheck, ThrallController}
@@ -61,6 +62,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val thrallController = new ThrallController(controllerComponents)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management)
+
+  override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management, InnerServiceStatusCheckController)
 }

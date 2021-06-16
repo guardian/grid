@@ -1,6 +1,6 @@
 package auth
 
-import com.gu.mediaservice.lib.management.Management
+import com.gu.mediaservice.lib.management.{InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.play.GridComponents
 import play.api.ApplicationLoader.Context
 import play.api.{Configuration, Environment}
@@ -14,8 +14,10 @@ class AuthComponents(context: Context) extends GridComponents(context, new AuthC
 
   val controller = new AuthController(auth, providers, config, controllerComponents, authorisation)
   val permissionsAwareManagement = new Management(controllerComponents, buildInfo)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement)
+
+  override val router = new Routes(httpErrorHandler, controller, permissionsAwareManagement, InnerServiceStatusCheckController)
 }
 
 object AuthHttpConfig {

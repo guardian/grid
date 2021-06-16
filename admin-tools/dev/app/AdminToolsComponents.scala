@@ -1,4 +1,5 @@
 import com.gu.mediaservice.lib.config.GridConfigResources
+import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.AdminToolsCtr
 import lib.AdminToolsConfig
@@ -21,6 +22,8 @@ class AdminToolsComponents(context: Context) extends GridComponents(context, Adm
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val controller = new AdminToolsCtr(config, controllerComponents)(wsClient, ec)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override lazy val router = new Routes(httpErrorHandler, controller, management)
+
+  override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)
 }

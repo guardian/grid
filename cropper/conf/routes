@@ -1,13 +1,14 @@
-GET     /                           controllers.CropperController.index
+GET     /                                             controllers.CropperController.index
 
-POST    /crops                      controllers.CropperController.export
+POST    /crops                                        controllers.CropperController.export
 
-GET     /crops/:id                  controllers.CropperController.getCrops(id: String)
-DELETE  /crops/:id                  controllers.CropperController.deleteCrops(id: String)
+GET     /crops/:id                                    controllers.CropperController.getCrops(id: String)
+DELETE  /crops/:id                                    controllers.CropperController.deleteCrops(id: String)
 
 # Management
-GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
-GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 # Shoo robots away
-GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots

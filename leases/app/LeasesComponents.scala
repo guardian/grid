@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.MediaLeaseController
 import lib.{LeaseNotifier, LeaseStore, LeasesConfig}
@@ -11,5 +12,8 @@ class LeasesComponents(context: Context) extends GridComponents(context, new Lea
   val notifications = new LeaseNotifier(config, store)
 
   val controller = new MediaLeaseController(auth, store, config, notifications, controllerComponents)
-  override lazy val router = new Routes(httpErrorHandler, controller, management)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
+
+  override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)
+
 }

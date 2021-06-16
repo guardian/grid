@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{CollectionsController, ImageCollectionsController}
 import lib.{CollectionsConfig, CollectionsMetrics, Notifications}
@@ -14,6 +15,8 @@ class CollectionsComponents(context: Context) extends GridComponents(context, ne
 
   val collections = new CollectionsController(auth, config, store, controllerComponents)
   val imageCollections = new ImageCollectionsController(auth, config, notifications, controllerComponents)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override val router = new Routes(httpErrorHandler, collections, imageCollections, management)
+
+  override val router = new Routes(httpErrorHandler, collections, imageCollections, management, InnerServiceStatusCheckController)
 }

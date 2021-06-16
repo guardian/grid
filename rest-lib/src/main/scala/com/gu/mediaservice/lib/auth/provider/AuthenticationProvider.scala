@@ -1,9 +1,10 @@
 package com.gu.mediaservice.lib.auth.provider
 
 import akka.actor.ActorSystem
-import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.config.{CommonConfig, Provider}
+import play.api.libs.crypto.CookieSigner
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.mvc.{ControllerComponents, RequestHeader, Result}
 
@@ -100,4 +101,22 @@ trait MachineAuthenticationProvider extends AuthenticationProvider {
     * @return An authentication status expressing whether the
     */
   def authenticateRequest(request: RequestHeader): ApiAuthenticationStatus
+}
+
+class InnerServiceAuthenticationProvider(val signer: CookieSigner, val serviceName: String) extends AuthenticationProvider with InnerServiceAuthentication {
+
+  override def onBehalfOf(principal: Principal): Either[String, WSRequest => WSRequest] = principal match {
+    case innerServicePrincipal: InnerServicePrincipal => Right{
+      wsRequest: WSRequest => signRequest(wsRequest, s"${innerServicePrincipal.accessor.identity} via ")
+    }
+    case _ => Left(s"InnerServiceAuthenticationProvider cannot make requests 'onBehalfOf' a ${principal.getClass.toString}")
+  }
+
+  def authenticateRequest(request: RequestHeader): ApiAuthenticationStatus = {
+    request.headers.get(innerServiceSignatureHeaderName).map(verifyRequest(request)) match {
+      case Some(Right(principal)) => Authenticated(principal)
+      case Some(Left(invalidMessage)) => Invalid(invalidMessage)
+      case None => NotAuthenticated
+    }
+  }
 }

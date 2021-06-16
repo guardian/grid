@@ -2,11 +2,13 @@
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
 
-GET     /                           controllers.ThrallController.index
+GET     /                                             controllers.ThrallController.index
 
 # Management
-GET     /management/healthcheck     controllers.HealthCheck.healthCheck
-GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
+GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/innerServiceStatusCheck           com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.statusCheck(depth: Int)
+GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 # Shoo robots away
-GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots

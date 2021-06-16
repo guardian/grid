@@ -1,20 +1,21 @@
-GET     /                                   controllers.MediaLeaseController.index
+GET     /                                             controllers.MediaLeaseController.index
 
 # Leases by Media
-GET     /leases/media/:id                   controllers.MediaLeaseController.getLeasesForMedia(id: String)
-DELETE  /leases/media/:id                   controllers.MediaLeaseController.deleteLeasesForMedia(id: String)
-POST    /leases/media/:id                   controllers.MediaLeaseController.replaceLeasesForMedia(id: String)
+GET     /leases/media/:id                             controllers.MediaLeaseController.getLeasesForMedia(id: String)
+DELETE  /leases/media/:id                             controllers.MediaLeaseController.deleteLeasesForMedia(id: String)
+POST    /leases/media/:id                             controllers.MediaLeaseController.replaceLeasesForMedia(id: String)
 
 # Leases
-GET     /leases/reindex                     controllers.MediaLeaseController.reindex
-GET     /leases/:id                         controllers.MediaLeaseController.getLease(id: String)
-DELETE  /leases/:id                         controllers.MediaLeaseController.deleteLease(id: String)
-POST    /leases                             controllers.MediaLeaseController.postLease
+GET     /leases/reindex                               controllers.MediaLeaseController.reindex
+GET     /leases/:id                                   controllers.MediaLeaseController.getLease(id: String)
+DELETE  /leases/:id                                   controllers.MediaLeaseController.deleteLease(id: String)
+POST    /leases                                       controllers.MediaLeaseController.postLease
 
 # Management
-GET     /management/healthcheck             com.gu.mediaservice.lib.management.Management.healthCheck
-GET     /management/manifest                com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 
 # Shoo robots away
-GET     /robots.txt                         com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots

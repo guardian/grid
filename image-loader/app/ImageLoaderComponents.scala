@@ -3,6 +3,7 @@ import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{ImageLoaderController, UploadStatusController}
 import lib._
@@ -43,6 +44,8 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val controller = new ImageLoaderController(
     auth, downloader, store, uploadStatusTable, notifications, config, uploader, quarantineUploader, projector, controllerComponents, gridClient, authorisation)
   val uploadStatusController = new UploadStatusController(auth, uploadStatusTable, config, controllerComponents, authorisation)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override lazy val router = new Routes(httpErrorHandler, controller, uploadStatusController, management)
+
+  override lazy val router = new Routes(httpErrorHandler, controller, uploadStatusController, management, InnerServiceStatusCheckController)
 }

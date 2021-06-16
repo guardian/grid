@@ -1,17 +1,18 @@
-GET     /                           controllers.ImageLoaderController.index
-POST    /images                     controllers.ImageLoaderController.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
-POST    /imports                    controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
-GET     /images/project/:imageId    controllers.ImageLoaderController.projectImageBy(imageId: String)
+GET     /                                             controllers.ImageLoaderController.index
+POST    /images                                       controllers.ImageLoaderController.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
+POST    /imports                                      controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
+GET     /images/project/:imageId                      controllers.ImageLoaderController.projectImageBy(imageId: String)
 
 # Upload Status
-GET     /uploadStatus/:imageId      controllers.UploadStatusController.getUploadStatus(imageId: String)
-POST    /uploadStatus/:imageId      controllers.UploadStatusController.updateUploadStatus(imageId: String)
+GET     /uploadStatus/:imageId                        controllers.UploadStatusController.getUploadStatus(imageId: String)
+POST    /uploadStatus/:imageId                        controllers.UploadStatusController.updateUploadStatus(imageId: String)
 
 
 
 # Management
-GET     /management/healthcheck     com.gu.mediaservice.lib.management.Management.healthCheck
-GET     /management/manifest        com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/healthcheck                       com.gu.mediaservice.lib.management.Management.healthCheck
+GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 # Shoo robots away
-GET     /robots.txt                 com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots

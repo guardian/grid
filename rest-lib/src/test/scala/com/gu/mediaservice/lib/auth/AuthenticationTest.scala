@@ -11,6 +11,7 @@ import org.scalatestplus.play.PlaySpec
 import play.api.{Configuration, Environment}
 import play.api.http.Status
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.crypto.CookieSigner
 import play.api.libs.json.{Format, Json}
 import play.api.libs.typedmap.{TypedKey, TypedMap}
 import play.api.libs.ws.{DefaultWSCookie, WSRequest}
@@ -29,6 +30,11 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
 
   implicit val actorSystem: ActorSystem = ActorSystem()
   implicit val materializer: ActorMaterializer = ActorMaterializer()
+
+  private val signer = new CookieSigner {
+    override def sign(message: String, key: Array[Byte]): String = "signature"
+    override def sign(message: String): String = "signature"
+  }
 
   private val COOKIE_NAME = "TestGridAuth"
   private val HEADER_NAME = "X-TestMachine-Auth"
@@ -96,7 +102,8 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
           }
         }
         override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = ???
-      }
+      },
+      new InnerServiceAuthenticationProvider(signer, serviceName = "tests")
     )
 
     val auth = makeAuthenticationInstance(testProviders)
@@ -190,7 +197,8 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
           case MachinePrincipal(_, attributes) if attributes.contains(HeaderKey) => Right(req => req.addHttpHeaders(attributes.get(HeaderKey).get))
           case MachinePrincipal(ApiAccessor(identity, _), _) => Left(s"Unable to build onBehalfOf function for $identity")
         }
-      }
+      },
+      new InnerServiceAuthenticationProvider(signer, serviceName = "tests")
     )
     val auth: Authentication = makeAuthenticationInstance(testProviders)
 

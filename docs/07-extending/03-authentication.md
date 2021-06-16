@@ -8,18 +8,23 @@ Overview
 
 ### Authentication
 
-We distinguish between two types of identity:
+We distinguish between three types of identity:
 
-* human users represented by a `UserPrincipal` (people directly using the Grid via the UI)
-* machine users represented by a `MachinePrincipal` (automated ingest, batch processing etc. done by another
+1. internal machine users represented by an `InnerServicePrincipal` (calls originated from internal Grid service to another, e.g. `thrall` calling `media-api`)
+2. external machine users represented by a `MachinePrincipal` (automated ingest, batch processing etc. done by another
   application)
+3. human users represented by a `UserPrincipal` (people directly using the Grid via the UI).
 
-These two types of users are usually be identified using a different strategy. For example, at the Guardian we identify
-machine users by an API key in the header of an API request. Human users are typically identified by looking for a
-cookie that a user has in their browser. If they don't have the cookie, or the cookie is out of date, then we require
-them to authenticate in order to obtain a valid cookie before they can continue using the Grid.
+These three types of users are usually be identified using a different strategy:
 
-In either case, the Grid can make inter-microservice calls. In order to support this a mechanism is provided to call
+1. the internal machine users are identified by the presence of a signature header (this signature is generated from a UUID and timestamp and signed using the shared Play secret) and carries the identity of the originating service and any intermediate services. 
+
+The mechanism for handling the other two types of user is pluggable, for example, at the Guardian:
+
+2. we identify external machine users by an API key in the header of an API request
+3. human users are typically identified by looking for a cookie that a user has in their browser. If they don't have the cookie, or the cookie is out of date, then we require them to authenticate in order to obtain a valid cookie before they can continue using the Grid.
+
+In all cases, the Grid can make further inter-microservice calls. In order to support this a mechanism is provided to call
 other services on behalf of a principal.
 
 ### Authorisation
@@ -42,7 +47,7 @@ permission data can then be used in the function implemented.
 
 ### Authentication
 
-There are separate providers for user and machine authentication which are configured using
+There are separate providers for user and external machine authentication which are configured using
 `authentication.providers.user` and `authentication.providers.machine` respectfully. The provider configured at
 `authentication.providers.user` must implement `UserAuthenticationProvider` and that configured for
 `authentication.providers.machine` must implement `MachineAuthenticationProvider`.

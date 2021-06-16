@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.UsageApi
 import lib._
@@ -34,6 +35,8 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   })
 
   val controller = new UsageApi(auth, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
+  val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
-  override lazy val router = new Routes(httpErrorHandler, controller, management)
+
+  override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)
 }

@@ -61,6 +61,18 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val authBaseUri        = baseUri(authHost)
   val adminToolsBaseUri  = baseUri(adminToolsHost)
 
+  val allInternalUris = Seq(
+    kahunaBaseUri,
+    apiBaseUri,
+    loaderBaseUri,
+    cropperBaseUri,
+    metadataBaseUri,
+    usageBaseUri,
+    collectionsBaseUri,
+    leasesBaseUri,
+    authBaseUri
+  )
+
   val guardianWitnessBaseUri: String = "https://n0ticeapis.com"
 
   val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri)

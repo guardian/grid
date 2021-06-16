@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
-import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, UserPrincipal, OnBehalfOfPrincipal, Principal}
+import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, OnBehalfOfPrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.CommonConfig
 import play.api.libs.typedmap.TypedMap
@@ -42,23 +42,29 @@ class Authentication(config: CommonConfig,
     Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
   }
 
-  def authenticationStatus(requestHeader: RequestHeader) = {
+  def authenticationStatus(requestHeader: RequestHeader): Either[Future[Result], Principal] = {
     def flushToken(resultWhenAbsent: Result): Result = {
       providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
     }
 
-    // Authenticate request. Try with API authenticator first and then with user authenticator
-    providers.apiProvider.authenticateRequest(requestHeader) match {
+    // Authenticate request. Try with inner service authenticator first, then with API authenticator, and finally with user authenticator
+    providers.innerServiceProvider.authenticateRequest(requestHeader) match {
       case Authenticated(authedUser) => Right(authedUser)
       case Invalid(message, throwable) => Left(unauthorised(message, throwable))
-      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
+      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message")) // TODO: see if we can avoid repetition
       case NotAuthenticated =>
-        providers.userProvider.authenticateRequest(requestHeader) match {
-          case NotAuthenticated => Left(unauthorised("Not authenticated"))
-          case Expired(principal) => Left(expired(principal))
+        providers.apiProvider.authenticateRequest(requestHeader) match {
           case Authenticated(authedUser) => Right(authedUser)
-          case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
+          case Invalid(message, throwable) => Left(unauthorised(message, throwable))
           case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
+          case NotAuthenticated =>
+            providers.userProvider.authenticateRequest(requestHeader) match {
+              case NotAuthenticated => Left(unauthorised("Not authenticated"))
+              case Expired(principal) => Left(expired(principal))
+              case Authenticated(authedUser) => Right(authedUser)
+              case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
+              case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
+            }
         }
     }
   }
@@ -76,6 +82,7 @@ class Authentication(config: CommonConfig,
     val provider: AuthenticationProvider = principal match {
       case _:MachinePrincipal => providers.apiProvider
       case _:UserPrincipal      => providers.userProvider
+      case _:InnerServicePrincipal => providers.innerServiceProvider
     }
     val maybeEnrichFn: Either[String, WSRequest => WSRequest] = provider.onBehalfOf(principal)
     maybeEnrichFn.fold(
@@ -84,6 +91,9 @@ class Authentication(config: CommonConfig,
       _.compose(_.addHttpHeaders(Authentication.originalServiceHeaderName -> config.appName))
     )
   }
+  /** Use this for originating calls to other Grid services (this will sign the request and the receiving service will extract an `InnerServicePrincipal`)
+    * IMPORTANT: Do not use this for simply making ongoing calls to other Grid services - instead use `getOnBehalfOfPrincipal` */
+  def innerServiceCall(wsRequest: WSRequest): WSRequest = providers.innerServiceProvider.signRequest(wsRequest)
 }
 
 object Authentication {
@@ -97,6 +107,11 @@ object Authentication {
   }
   /** A machine user doing work automatically for its human programmers */
   case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal
+
+  /** A different Grid microservice (e.g. a call to media-api originating from thrall) */
+  case class InnerServicePrincipal(identity: String, attributes: TypedMap = TypedMap.empty) extends Principal {
+    def accessor: ApiAccessor = ApiAccessor(identity, tier = Internal)
+  }
 
   type Request[A] = AuthenticatedRequest[A, Principal]
 
