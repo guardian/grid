@@ -52,7 +52,7 @@ object Mappings {
         exportsMapping("exports"),
         dateField("uploadTime"),
         keywordField("uploadedBy"),
-        deletedMetadataMapping("deletedMetadata"),
+        softDeletedMetadataMapping("softDeletedMetadata"),
         dateField("lastModified"),
         dynamicObj("identifiers"),
         uploadInfoMapping("uploadInfo"),
@@ -286,7 +286,7 @@ object Mappings {
     dateField("lastModified")
   )
 
-  def deletedMetadataMapping(name: String) = nonDynamicObjectField(name).fields(
+  def softDeletedMetadataMapping(name: String) = nonDynamicObjectField(name).fields(
     dateField("deleteTime"),
     keywordField("deletedBy")
   )

@@ -15,7 +15,7 @@ trait MetadataHelper {
       metadata = metadataMap,
       uploadTime = DateTime.now,
       uploadedBy = "tester",
-      deletedMetadata = None,
+      softDeletedMetadata = None,
       lastModified = None,
       identifiers = Map(),
       uploadInfo = UploadInfo(),

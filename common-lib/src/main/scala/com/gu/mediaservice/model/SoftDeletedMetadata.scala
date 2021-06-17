@@ -7,29 +7,29 @@ import play.api.libs.json.JodaWrites._
 import play.api.libs.functional.syntax._
 
 
-case class DeletedMetadata(
+case class SoftDeletedMetadata(
   deleteTime: DateTime,
   deletedBy: String,
 )
 
-object DeletedMetadata {
+object SoftDeletedMetadata {
 
-  implicit val DeletedMetadataReads: Reads[DeletedMetadata] = (
+  implicit val SoftDeletedMetadataReads: Reads[SoftDeletedMetadata] = (
     (__ \ "deleteTime").read[DateTime] ~
     (__ \ "deletedBy").read[String]
-  )(DeletedMetadata.apply _)
+  )(SoftDeletedMetadata.apply _)
 
-  implicit val DeletedMetadataWrites: Writes[DeletedMetadata] = (
+  implicit val SoftDeletedMetadataWrites: Writes[SoftDeletedMetadata] = (
     (__ \ "deleteTime").write[DateTime] ~
-    (__ \ "deleteTime").write[String]
-  )(unlift(DeletedMetadata.unapply))
+    (__ \ "deletedBy").write[String]
+  )(unlift(SoftDeletedMetadata.unapply))
 }
 
-trait DeletedMetadataResponse {
+trait SoftDeletedMetadataResponse {
 
   // the types are in the arguments because of a whining scala compiler
-  def DeletedMetadataEntity(id: String): Writes[DeletedMetadata] = (
+  def SoftDeletedMetadataEntity(id: String): Writes[SoftDeletedMetadata] = (
       (__ \ "deleteTime").write[DateTime] ~
       (__ \ "deletedBy").write[String]
-    )(unlift(DeletedMetadata.unapply))
+    )(unlift(SoftDeletedMetadata.unapply))
 }

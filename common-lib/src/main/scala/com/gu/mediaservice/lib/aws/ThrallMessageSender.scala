@@ -42,6 +42,7 @@ object UpdateMessage extends GridLogging {
         (__ \ "id").readNullable[String] ~
         (__ \ "usageNotice").readNullable[UsageNotice] ~
         (__ \ "edits").readNullable[Edits] ~
+        (__ \ "softDeletedMetadata").readNullable[SoftDeletedMetadata] ~
         // We seem to get messages from _somewhere which don't have last modified on them.
         (__ \ "lastModified").readNullable[DateTime].map{ d => d match {
           case Some(date) => date
@@ -67,6 +68,7 @@ case class UpdateMessage(
   id: Option[String] = None,
   usageNotice: Option[UsageNotice] = None,
   edits: Option[Edits] = None,
+  softDeletedMetadata: Option[SoftDeletedMetadata] = None,
   lastModified: DateTime = DateTime.now(DateTimeZone.UTC),
   collections: Option[Seq[Collection]] = None,
   leaseId: Option[String] = None,

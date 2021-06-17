@@ -27,7 +27,7 @@ class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
     id = "id",
     uploadTime = new DateTime(),
     uploadedBy = "uploadedBy",
-    deletedMetadata = None,
+    softDeletedMetadata = None,
     lastModified = None,
     identifiers = Map(),
     uploadInfo = UploadInfo(),

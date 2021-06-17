@@ -11,7 +11,7 @@ case class Image(
   id:                  String,
   uploadTime:          DateTime,
   uploadedBy:          String,
-  deletedMetadata:     Option[DeletedMetadata],
+  softDeletedMetadata: Option[SoftDeletedMetadata],
   lastModified:        Option[DateTime],
   identifiers:         Map[String, String],
   uploadInfo:          UploadInfo,
@@ -82,7 +82,7 @@ object Image {
     (__ \ "id").read[String] ~
       (__ \ "uploadTime").read[String].map(unsafeParseDateTime) ~
       (__ \ "uploadedBy").read[String] ~
-      (__ \ "deletedMetadata").readNullable[DeletedMetadata] ~
+      (__ \ "softDeletedMetadata").readNullable[SoftDeletedMetadata] ~
       (__ \ "lastModified").readNullable[String].map(parseOptDateTime) ~
       (__ \ "identifiers").readNullable[Map[String, String]].map(_ getOrElse Map()) ~
       (__ \ "uploadInfo").readNullable[UploadInfo].map(_ getOrElse UploadInfo()) ~
@@ -107,7 +107,7 @@ object Image {
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[String].contramap(printDateTime) ~
       (__ \ "uploadedBy").write[String] ~
-      (__ \ "DeletedMetadata").writeNullable[DeletedMetadata] ~
+      (__ \ "softDeletedMetadata").writeNullable[SoftDeletedMetadata] ~
       (__ \ "lastModified").writeNullable[String].contramap(printOptDateTime) ~
       (__ \ "identifiers").write[Map[String, String]] ~
       (__ \ "uploadInfo").write[UploadInfo] ~

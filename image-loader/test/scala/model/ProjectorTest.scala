@@ -127,7 +127,7 @@ class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with Mockit
       id = id,
       uploadTime = new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC),
       uploadedBy = "test",
-      deletedMetadata = None,
+      softDeletedMetadata = None,
       lastModified = Some(new DateTime("2020-01-24T17:36:08.456Z").withZone(DateTimeZone.UTC)),
       identifiers = Map(),
       uploadInfo = UploadInfo(Some("getty.jpg")),
