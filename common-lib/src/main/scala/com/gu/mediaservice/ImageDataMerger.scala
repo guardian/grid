@@ -95,7 +95,7 @@ object ImageDataMerger extends LazyLogging {
   }
 
   private def mergeMetadata(edits: Option[Edits], originalMetadata: ImageMetadata) = edits match {
-    case Some(Edits(_, _, metadata, _, _, _, _, _)) => originalMetadata.merge(metadata)
+    case Some(Edits(_, _, metadata, _, _, _)) => originalMetadata.merge(metadata)
     case None => originalMetadata
   }
 

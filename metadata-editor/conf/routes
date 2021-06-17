@@ -29,8 +29,6 @@ GET     /metadata/:id/syndication                       controllers.SyndicationC
 PUT     /metadata/:id/syndication                       controllers.SyndicationController.setSyndication(id: String)
 DELETE  /metadata/:id/syndication                       controllers.SyndicationController.deleteSyndication(id: String)
 
-DELETE  /metadata/:id/soft-delete                       controllers.EditsController.softDelete(id: String)
-
 # Management
 GET     /management/healthcheck                         com.gu.mediaservice.lib.management.Management.healthCheck
 GET     /management/manifest                            com.gu.mediaservice.lib.management.Management.manifest

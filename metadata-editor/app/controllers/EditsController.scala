@@ -214,20 +214,6 @@ class EditsController(
     (Json.toJson(metadata).as[JsObject]).as[Map[String, JsValue]]
   }
 
-  def softDelete(id: String) = auth.async { implicit req =>
-    editsStore.stringListSet(
-      id,
-      Edits.DeletedAt -> JsString(DateTime.now.toString),
-      Edits.DeletedBy -> JsString(req.user.accessor.identity)
-    )
-      .map(publish(id, UpdateImageUserMetadata))
-      .map(_ => respond(true))
-      .recover{
-        case error => respond(error.toString)
-      }
-  }
-
-
 }
 
 case class EditsValidationError(key: String, message: String) extends Throwable
