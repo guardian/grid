@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
+import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, EditMetadata, SoftDeleteImages, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -49,7 +49,7 @@ class MediaApi(
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
     "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
-    "uploadedBy", "archived", "valid", "free", "payType",
+    "uploadedBy", "archived", "valid", "free", "isSoftDeleted", "payType",
     "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
     "persisted", "usageStatus", "usagePlatform", "hasRightsAcquired", "syndicationStatus").mkString(",")
 
@@ -70,9 +70,11 @@ class MediaApi(
 
     val userCanUpload: Boolean = authorisation.hasPermissionTo(UploadImages)(user)
     val userCanArchive: Boolean = authorisation.hasPermissionTo(ArchiveImages)(user)
+    val userCanSoftDeleteImages: Boolean = authorisation.hasPermissionTo(SoftDeleteImages)(user)
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
+    val maybeSoftDeleteImageLink: Option[Link] = Some(Link("soft-delete", s"${config.rootUri}/soft-delete/images/{id}")).filter(_ => userCanSoftDeleteImages)
 
     val indexLinks = List(
       searchLink,
@@ -89,9 +91,11 @@ class MediaApi(
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
       Link("admin-tools",     config.adminToolsUri)
-    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
+    ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList ++ maybeSoftDeleteImageLink.toList
     respond(indexData, indexLinks)
   }
+
+  private val AuthenticatedAndAuthorisedSoftDeleteImages = auth andThen authorisation.CommonActionFilters.authorisedForSoftDeleteImages
 
   private def ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
   private def ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
@@ -201,7 +205,7 @@ class MediaApi(
 
   }
 
-  def deleteImage(id: String) = auth.async { request =>
+  def deleteImage(id: String) = AuthenticatedAndAuthorisedSoftDeleteImages.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
@@ -311,7 +315,7 @@ class MediaApi(
     implicit val r = request
 
     val include = getIncludedFromParams(request)
-
+    val userCanViewSoftDeletedImages: Boolean = authorisation.hasPermissionTo(SoftDeleteImages)(request.user)
     def hitToImageEntity(elasticId: String, image: SourceWrapper[Image]): EmbeddedEntity[JsValue] = {
       val writePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, EditMetadata)
       val deletePermission = authorisation.isUploaderOrHasPermission(request.user, image.instance.uploadedBy, DeleteImagePermission)
@@ -340,7 +344,10 @@ class MediaApi(
         // Annoyingly `NonEmptyList` and `IList` don't have `mkString`
         errors.map(_.message).list.reduce(_+ ", " +_), List(searchLink))
       ),
-      params => respondSuccess(params)
+      params => {
+        if(userCanViewSoftDeletedImages) respondSuccess(params)
+        else respondSuccess(params.copy(isSoftDeleted = Some(false)))
+      }
     )
   }
 
