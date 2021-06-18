@@ -23,6 +23,7 @@ class JsonOrderingTest extends FreeSpec with Matchers {
       uploadTime = dt,
       identifiers = Map.empty,
       uploadedBy = "Biden",
+      softDeletedMetadata = None,
       lastModified = None,
       uploadInfo = UploadInfo(None),
       source = Asset(new URI("fileUri"), None, None, None),

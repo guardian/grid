@@ -139,6 +139,7 @@ object ImageTest {
       id = id,
       uploadTime = DateTime.now(),
       uploadedBy = "test.user@theguardian.com",
+      softDeletedMetadata = None,
       lastModified = None,
       identifiers = Map.empty,
       uploadInfo = UploadInfo(filename = Some(s"test_$id.jpeg")),

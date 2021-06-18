@@ -243,6 +243,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (__ \ "id").write[String] ~
       (__ \ "uploadTime").write[DateTime] ~
       (__ \ "uploadedBy").write[String] ~
+      (__ \ "softDeletedMetadata").writeNullable[SoftDeletedMetadata] ~
       (__ \ "lastModified").writeNullable[DateTime] ~
       (__ \ "identifiers").write[Map[String, String]] ~
       (__ \ "uploadInfo").write[UploadInfo] ~

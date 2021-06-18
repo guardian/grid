@@ -190,6 +190,19 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(executeAndLog(updateRequest, s"ES6 updating user metadata on image $id with lastModified $appliedLastModified").map(_ => ElasticSearchUpdateResponse()))
   }
 
+  def applySoftDelete(id: String, softDeletedMetadata: SoftDeletedMetadata, lastModified: DateTime)
+                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+    val applySoftDeleteScript = "ctx._source.softDeletedMetadata = params.softDeletedMetadata;"
+    val softDeletedMetadataParameter = JsDefined(Json.toJson(softDeletedMetadata)).toOption.map(asNestedMap).orNull
+    val updateRequest: UpdateRequest = prepareUpdateRequest(
+      id,
+      applySoftDeleteScript,
+      lastModified,
+      ("softDeletedMetadata", softDeletedMetadataParameter)
+    )
+    List(executeAndLog(updateRequest, s"ES7 soft delete image $id  by ${softDeletedMetadata.deletedBy}").map(_ => ElasticSearchUpdateResponse()))
+  }
+
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])
                                         (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[Image]] = { // TODO could be a Seq
     val inferredSyndicationRights = not(termQuery("syndicationRights.isInferred", false)) // Using 'not' to include nulls
