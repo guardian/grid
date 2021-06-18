@@ -9,6 +9,7 @@ object TestUtils {
     id = "test-id",
     uploadTime = now(),
     uploadedBy = "user",
+    softDeletedMetadata = None,
     lastModified = None,
     identifiers = Map.empty,
     uploadInfo = null,

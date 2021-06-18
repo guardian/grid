@@ -31,6 +31,7 @@ object ThrallMessage{
   implicit val usageNoticeFormat: OFormat[UsageNotice] = Json.format[UsageNotice]
   implicit val replaceImageLeasesMessageFormat: OFormat[ReplaceImageLeasesMessage] = Json.format[ReplaceImageLeasesMessage]
   implicit val deleteImageMessageFormat: OFormat[DeleteImageMessage] = Json.format[DeleteImageMessage]
+  implicit val softDeleteImageMessageFormat: OFormat[SoftDeleteImageMessage] = Json.format[SoftDeleteImageMessage]
   implicit val updateImageSyndicationMetadataMessageFormat: OFormat[UpdateImageSyndicationMetadataMessage] = Json.format[UpdateImageSyndicationMetadataMessage]
   implicit val setImageCollectionsMessageFormat: OFormat[SetImageCollectionsMessage] = Json.format[SetImageCollectionsMessage]
   implicit val updateImageUserMetadataMessageFormat: OFormat[UpdateImageUserMetadataMessage] = Json.format[UpdateImageUserMetadataMessage]
@@ -55,6 +56,8 @@ case class ImageMessage(lastModified: DateTime, image: Image) extends ThrallMess
 }
 
 case class DeleteImageMessage(id: String, lastModified: DateTime) extends ThrallMessage
+
+case class SoftDeleteImageMessage(id: String, lastModified: DateTime, softDeletedMetadata: SoftDeletedMetadata) extends ThrallMessage
 
 case class DeleteImageExportsMessage(id: String, lastModified: DateTime) extends ThrallMessage
 
