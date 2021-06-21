@@ -208,7 +208,8 @@ image.controller('ImageCtrl', [
       return ctrl.image.data.source.dimensions;
     }
 
-    mediaCropper.getCropsFor(image).then(crops => {
+    ctrl.cropsForImage = mediaCropper.getCropsFor(image)
+    ctrl.cropsForImage.then(crops => {
       ctrl.crop = crops.find(crop => crop.id === cropKey);
       ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
       ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
