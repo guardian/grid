@@ -41,7 +41,8 @@ class KahunaController(
       config.scriptsToLoad.filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists)),
       config.staffPhotographerOrganisation,
       config.homeLinkHtml,
-      config.systemName
+      config.systemName,
+      config.canDownloadCrop
     ))
   }
 

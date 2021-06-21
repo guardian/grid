@@ -43,6 +43,8 @@ downloader.controller('DownloaderCtrl', [
 
     let ctrl = this;
 
+    ctrl.canDownloadCrop = $window._clientConfig.canDownloadCrop;
+
     ctrl.downloadCrop = async (crop) => {
         const a = document.createElement("a");
         a.href = await toDataURL(crop.master.file);
@@ -50,7 +52,7 @@ downloader.controller('DownloaderCtrl', [
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-    }
+    };
 
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
         ctrl.images : Array.from(ctrl.images.values());
@@ -126,7 +128,7 @@ downloader.directive('grDownloader', function() {
             images: '=',
             crop: '='
         },
-        template: template,
+        template: template
     };
 });
 
