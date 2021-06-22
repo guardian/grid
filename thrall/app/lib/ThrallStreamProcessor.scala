@@ -44,7 +44,7 @@ case class TaggedRecord[T](payload: T,
 class ThrallStreamProcessor(
   uiSource: Source[KinesisRecord, Future[Done]],
   automationSource: Source[KinesisRecord, Future[Done]],
-  reingestionSource: Source[(UpdateMessage, Instant), Future[Done]],
+  reingestionSource: Source[ReingestionRecord, Future[Done]],
   consumer: ThrallEventConsumer,
   actorSystem: ActorSystem,
   materializer: Materializer
@@ -62,7 +62,7 @@ class ThrallStreamProcessor(
     val automationRecordSource = automationSource.map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
 
-    val reingestionRecordSource = reingestionSource.map { case (updateMessage, time) =>
+    val reingestionMessagesSource: Source[TaggedRecord[UpdateMessage], Future[Done]] = reingestionSource.map { case ReingestionRecord(updateMessage, time) =>
       TaggedRecord(updateMessage, time, ReingestionPriority, () => {})
     }
 
@@ -72,23 +72,25 @@ class ThrallStreamProcessor(
     automationRecordSource  ~> uiAndAutomationRecordsMerge.in(0)
 
     // parse the kinesis records into thrall update messages (dropping those that fail)
-    val uiAndAutomationMessagesSource =
+    val uiAndAutomationMessagesSource: PortOps[TaggedRecord[UpdateMessage]] =
       uiAndAutomationRecordsMerge.out
         .map { taggedRecord =>
           ThrallEventConsumer
             .parseRecord(taggedRecord.payload, taggedRecord.arrivalTimestamp)
-            .map(message => taggedRecord.copy(payload = message))
+            .map(
+              message => taggedRecord.copy(payload = message)
+            )
         }
-        .collect {
-          case Right(record) => record
+        .collect{
+          case Right(taggedRecord) => taggedRecord
         }
 
     // merge in the re-ingestion source (preferring ui/automation)
-    val reingestionMerge = graphBuilder.add(MergePreferred[TaggedRecord[UpdateMessage]](1))
-    uiAndAutomationMessagesSource ~> reingestionMerge.preferred
-    reingestionRecordSource ~> reingestionMerge.in(0)
+    val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[UpdateMessage]](1))
+    uiAndAutomationMessagesSource ~> mergePreferred.preferred
+    reingestionMessagesSource ~> mergePreferred.in(0)
 
-    SourceShape(reingestionMerge.out)
+    SourceShape(mergePreferred.out)
   })
 
   def createStream(): Source[(TaggedRecord[UpdateMessage], Stopwatch, Either[Throwable, ThrallMessage]), NotUsed] = {
