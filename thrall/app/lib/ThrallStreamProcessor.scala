@@ -42,57 +42,58 @@ case class TaggedRecord[T](payload: T,
 }
 
 class ThrallStreamProcessor(
-                             uiSource: Source[KinesisRecord, Future[Done]],
-                             automationSource: Source[KinesisRecord, Future[Done]],
-                             reingestionSource: Source[(UpdateMessage, Instant), Future[Done]],
-                             consumer: ThrallEventConsumer,
-                             actorSystem: ActorSystem,
-                             materializer: Materializer) extends GridLogging {
+  uiSource: Source[KinesisRecord, Future[Done]],
+  automationSource: Source[KinesisRecord, Future[Done]],
+  reingestionSource: Source[(UpdateMessage, Instant), Future[Done]],
+  consumer: ThrallEventConsumer,
+  actorSystem: ActorSystem,
+  materializer: Materializer
+ ) extends GridLogging {
 
   implicit val mat = materializer
   implicit val dispatcher = actorSystem.getDispatcher
 
-  val mergedKinesisSource: Source[TaggedRecord[UpdateMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit g =>
+  val mergedKinesisSource: Source[TaggedRecord[UpdateMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
     import GraphDSL.Implicits._
-    val uiRecordSource =
-      uiSource.map(r => TaggedRecord(r.data.toArray, r.approximateArrivalTimestamp, UiPriority, r.markProcessed))
-    val automationRecordSource =
-      automationSource.map(r => TaggedRecord(r.data.toArray, r.approximateArrivalTimestamp, AutomationPriority, r.markProcessed))
+
+    val uiRecordSource = uiSource.map(kinesisRecord =>
+      TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, UiPriority, kinesisRecord.markProcessed))
+
+    val automationRecordSource = automationSource.map(kinesisRecord =>
+      TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
+
     val reingestionRecordSource = reingestionSource.map { case (updateMessage, time) =>
       TaggedRecord(updateMessage, time, ReingestionPriority, () => {})
     }
 
     // merge together ui and automation kinesis records
-    val uiAutomationRecordsMerge = g.add(MergePreferred[TaggedRecord[Array[Byte]]](1))
-    uiRecordSource ~> uiAutomationRecordsMerge.preferred
-    automationRecordSource  ~> uiAutomationRecordsMerge.in(0)
+    val uiAndAutomationRecordsMerge = graphBuilder.add(MergePreferred[TaggedRecord[Array[Byte]]](1))
+    uiRecordSource ~> uiAndAutomationRecordsMerge.preferred
+    automationRecordSource  ~> uiAndAutomationRecordsMerge.in(0)
 
     // parse the kinesis records into thrall update messages (dropping those that fail)
-    val uiAutomationMessagesSource =
-      uiAutomationRecordsMerge.out
-        .map { tr =>
+    val uiAndAutomationMessagesSource =
+      uiAndAutomationRecordsMerge.out
+        .map { taggedRecord =>
           ThrallEventConsumer
-            .parseRecord(tr.payload, tr.arrivalTimestamp)
-            .map(message => tr.copy(payload = message))
+            .parseRecord(taggedRecord.payload, taggedRecord.arrivalTimestamp)
+            .map(message => taggedRecord.copy(payload = message))
         }
         .collect {
-          case Some(record) => record
+          case Right(record) => record
         }
 
     // merge in the re-ingestion source (preferring ui/automation)
-    val reingestionMerge = g.add(MergePreferred[TaggedRecord[UpdateMessage]](1))
-    uiAutomationMessagesSource ~> reingestionMerge.preferred
-    reingestionRecordSource  ~> reingestionMerge.in(0)
+    val reingestionMerge = graphBuilder.add(MergePreferred[TaggedRecord[UpdateMessage]](1))
+    uiAndAutomationMessagesSource ~> reingestionMerge.preferred
+    reingestionRecordSource ~> reingestionMerge.in(0)
 
     SourceShape(reingestionMerge.out)
   })
 
-  def createStream(): Source[(TaggedRecord, Stopwatch, Either[Throwable, ThrallMessage]), NotUsed] = {
+  def createStream(): Source[(TaggedRecord[UpdateMessage], Stopwatch, Either[Throwable, ThrallMessage]), NotUsed] = {
     mergedKinesisSource.map{ taggedRecord =>
-      taggedRecord -> (for{
-      updateMessage <- ThrallEventConsumer.parseRecord(taggedRecord.payload, taggedRecord.approximateArrivalTimestamp)
-      thrallMessage <- MessageTranslator.translate(updateMessage)
-    } yield thrallMessage)
+      taggedRecord -> MessageTranslator.translate(taggedRecord.payload)
     }.mapAsync(1) { result =>
       val stopwatch = Stopwatch.start
       result match {
@@ -110,7 +111,7 @@ class ThrallStreamProcessor(
 
   def run(): Future[Done] = {
     val stream = this.createStream().runForeach {
-      case (taggedRecord, stopwatch) =>
+      case (taggedRecord, stopwatch, _) =>
         val markers = combineMarkers(taggedRecord, stopwatch.elapsed)
         logger.info(markers, "Record processed")
         taggedRecord.markProcessed()
