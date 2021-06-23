@@ -56,7 +56,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val reingestionSource: Source[ReingestionRecord, Future[Done]] = ReingestionSource(???)
+  val reingestionSource: Source[ReingestionRecord, Future[Done]] = ReingestionSource()
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,
