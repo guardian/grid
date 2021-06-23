@@ -24,14 +24,6 @@ const bytesToSize = (bytes) => {
         `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
 };
 
-async function toDataURL(url) {
-    return fetch(url).then((response) => {
-            return response.blob();
-        }).then(blob => {
-            return URL.createObjectURL(blob);
-        });
-}
-
 downloader.controller('DownloaderCtrl', [
     '$window',
     '$q',
@@ -44,15 +36,6 @@ downloader.controller('DownloaderCtrl', [
     let ctrl = this;
 
     ctrl.canDownloadCrop = $window._clientConfig.canDownloadCrop;
-
-    ctrl.downloadCrop = async (crop) => {
-        const a = document.createElement("a");
-        a.href = await toDataURL(crop.master.file);
-        a.download = "crop.jpg";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    };
 
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
         ctrl.images : Array.from(ctrl.images.values());

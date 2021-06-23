@@ -30,6 +30,7 @@ import com.gu.mediaservice.syntax.MessageSubjects
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 class MediaApi(
                 auth: Authentication,
@@ -199,6 +200,29 @@ class MediaApi(
       case _ => ImageNotFound(imageId)
     }
 
+  }
+
+  def downloadImageExport(imageId: String, exportId: String) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(imageId) map {
+      case Some(source) if hasPermission(request.user, source) =>
+        val maybeResult = for {
+          export <- source.exports.find(_.id.contains(exportId))
+          masterAsset <- export.master
+          s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, masterAsset.file)).toOption
+          file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+          entity = HttpEntity.Streamed(file, masterAsset.size, masterAsset.mimeType.map(_.name))
+          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(source, Source, Some(export)))
+        } yield {
+          if(config.recordDownloadAsUsage) {
+            postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), source.id, Authentication.getIdentity(request.user))
+          }
+          result
+        }
+        maybeResult.getOrElse(ExportNotFound)
+      case _ => ImageNotFound(imageId)
+    }
   }
 
   def deleteImage(id: String) = auth.async { request =>

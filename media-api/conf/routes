@@ -18,6 +18,7 @@ GET     /images/:id/projection/diff                   controllers.MediaApi.diffP
 GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
 GET     /images/:imageId/uploadedBy                   controllers.MediaApi.uploadedBy(imageId: String)
 GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
+GET     /images/:imageId/export/:exportId/download    controllers.MediaApi.downloadImageExport(imageId: String, exportId: String)
 GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
 GET     /images/:imageId/download                     controllers.MediaApi.downloadOriginalImage(imageId: String)
 GET     /images/:imageId/downloadOptimised            controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)

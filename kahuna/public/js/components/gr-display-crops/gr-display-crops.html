@@ -18,8 +18,15 @@
                         <div>{{crop.master.dimensions.width}} x {{crop.master.dimensions.height}}</div>
                     </div>
                     <ul>
-                        <li ng-repeat="asset in crop.assets">
+                        <li ng-if="!ctrl.canDownloadCrop" ng-repeat="asset in crop.assets">
                             <a href="{{asset.file}}">{{asset.dimensions.width}} x {{asset.dimensions.height}}</a>
+                        </li>
+                        <li ng-if="ctrl.canDownloadCrop">
+                            <a href="{{crop.downloadLink}}"
+                                download
+                                rel="noopener"
+                                target="_blank">
+                                {{crop.master.dimensions.width}} x {{crop.master.dimensions.height}}</a>
                         </li>
                     </ul>
                 </li>

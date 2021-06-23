@@ -208,7 +208,14 @@ image.controller('ImageCtrl', [
       return ctrl.image.data.source.dimensions;
     }
 
-    mediaCropper.getCropsFor(image).then(crops => {
+    mediaCropper.getCropsFor(image).then(cropsResource => {
+      let crops = cropsResource.data;
+      debugger;
+      if ($window._clientConfig.canDownloadCrop) {
+        crops.forEach((crop) =>
+          crop.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-${crop.id}-download`))?.href
+        );
+      }
       ctrl.crop = crops.find(crop => crop.id === cropKey);
       ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
       ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');

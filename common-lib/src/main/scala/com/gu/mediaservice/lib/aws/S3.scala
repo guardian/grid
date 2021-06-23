@@ -76,13 +76,15 @@ class S3(config: CommonConfig) extends GridLogging {
     regex.replaceAllIn(filename, "")
   }
 
-  private def getContentDispositionFilename(image: Image, imageType: ImageType, charset: Charset): String = {
+  private def getContentDispositionFilename(image: Image, imageType: ImageType, charset: Charset, maybeCrop: Option[Crop] = None): String = {
 
-    val asset = imageType match {
+    lazy val imageAsset = imageType match {
       case Source => image.source
       case Thumbnail => image.thumbnail.getOrElse(image.source)
       case OptimisedPng => image.optimisedPng.getOrElse(image.source)
     }
+
+    val asset = maybeCrop.flatMap(_.master).getOrElse(imageAsset)
 
     val extension: String = asset.mimeType match {
       case Some(mimeType) => mimeType.fileExtension
@@ -91,8 +93,9 @@ class S3(config: CommonConfig) extends GridLogging {
         ""
     }
 
+    val maybeCropId = maybeCrop.flatMap(_.id).map(id => s"($id)").getOrElse("")
     val baseFilename: String = image.uploadInfo.filename match {
-      case Some(f) => s"${removeExtension(f)} (${image.id})$extension"
+      case Some(f) => s"${removeExtension(f)} (${image.id})$maybeCropId$extension"
       case _ => s"${image.id}$extension"
     }
 
@@ -105,11 +108,11 @@ class S3(config: CommonConfig) extends GridLogging {
     }
   }
 
-  def getContentDisposition(image: Image, imageType: ImageType): String = {
+  def getContentDisposition(image: Image, imageType: ImageType, maybeCrop: Option[Crop] = None): String = {
     // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
     // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
     // See http://tools.ietf.org/html/rfc6266#section-5
-    s"""attachment; filename="${getContentDispositionFilename(image, imageType, StandardCharsets.ISO_8859_1)}"; filename*=UTF-8''${getContentDispositionFilename(image, imageType, StandardCharsets.UTF_8)}"""
+    s"""attachment; filename="${getContentDispositionFilename(image, imageType, StandardCharsets.ISO_8859_1, maybeCrop)}"; filename*=UTF-8''${getContentDispositionFilename(image, imageType, StandardCharsets.UTF_8, maybeCrop)}"""
   }
 
   private def roundDateTime(t: DateTime, d: Duration): DateTime = t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)

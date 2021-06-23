@@ -22,6 +22,9 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
 
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
 
+  //Lazy allows this to be empty and not break things unless used somewhere
+  lazy val imgPublishingBucket = string("publishing.image.bucket")
+
   val imagesAlias: String = string("es.index.aliases.read")
 
   val elasticsearch6Url: String =  string("es6.url")
