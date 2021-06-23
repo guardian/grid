@@ -25,6 +25,8 @@ trait ImageFields {
 
   val sourceFields = List("mimeType")
 
+  val softDeletedFields = List("softDeletedMetadata")
+
   val usageRightsFields = List(
     "category",
     "restrictions",
@@ -45,6 +47,7 @@ trait ImageFields {
   def collectionsField(field: String) = s"collections.$field"
   def usagesField(field: String)      = s"usages.$field"
   def sourceField(field: String)      = s"source.$field"
+  def softDeletedField(field: String) = s"source.$field"
   def photoshootField(field: String) = editsField(s"photoshoot.$field")
 
   val aliases = Map(
@@ -64,6 +67,7 @@ trait ImageFields {
     case f if collectionsFields.contains(f) => collectionsField(f)
     case f if usagesFields.contains(f)      => usagesField(f)
     case f if sourceFields.contains(f)      => sourceField(f)
+    case f if softDeletedFields.contains(f) => softDeletedField(f)
     case f => aliases.getOrElse(f, f)
   }
 

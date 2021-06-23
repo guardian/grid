@@ -11,7 +11,7 @@ trait MatchFields extends ImageFields {
     Seq("description", "title", "byline", "source", "credit", "keywords",
       "subLocation", "city", "state", "country", "suppliersReference",
       "peopleInImage", "englishAnalysedCatchAll").map(metadataField) ++
-    Seq("labels").map(editsField) ++
+    Seq("labels").map(editsField) ++ Seq("isSoftDeleted").map(softDeletedField) ++
     config.queriableIdentifiers.map(identifierField) ++
     Seq("restrictions").map(usageRightsField)
 

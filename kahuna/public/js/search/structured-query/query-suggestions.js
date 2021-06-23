@@ -21,6 +21,7 @@ export const filterFields = [
     'credit',
     'description',
     'fileType',
+    'isSoftDeleted',
     'illustrator',
     'in',
     'keyword',
