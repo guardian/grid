@@ -96,7 +96,6 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
     val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
     val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
-    val isSoftDeletedFilter = params.isSoftDeleted.map(filters.existsOrMissing("softDeletedMetadata", _))
     val costFilter = params.payType match {
       case Some(PayType.Free) => searchFilters.freeFilter
       case Some(PayType.MaybeFree) => searchFilters.maybeFreeFilter
@@ -155,7 +154,6 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
         ++ dateAddedToCollectionFilter
-        ++ isSoftDeletedFilter
       ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
 
     val withFilter = filterOpt.map { f =>
