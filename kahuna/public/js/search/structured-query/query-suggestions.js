@@ -21,7 +21,6 @@ export const filterFields = [
     'credit',
     'description',
     'fileType',
-    'isSoftDeleted',
     'illustrator',
     'in',
     'keyword',
@@ -82,7 +81,8 @@ const isSearch = [
     `${staffPhotographerOrganisation}-owned-photo`,
     `${staffPhotographerOrganisation}-owned-illustration`,
     `${staffPhotographerOrganisation}-owned`,
-  'under-quota'
+  'under-quota',
+  'soft-deleted'
 ];
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
