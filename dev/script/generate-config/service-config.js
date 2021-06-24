@@ -15,6 +15,8 @@ function getCommonConfig(config) {
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
         |thrall.kinesis.stream.name="${config.coreStackProps.ThrallMessageStream}"
         |thrall.kinesis.lowPriorityStream.name="${config.coreStackProps.ThrallLowPriorityMessageStream}"
+        |es.index.aliases.current="Images_Current"
+        |es.index.aliases.migration="Images_Migration"
         |`;
 }
 
@@ -121,7 +123,6 @@ function getMediaApiConfig(config) {
         |s3.config.bucket="${config.coreStackProps.ConfigBucket}"
         |s3.usagemail.bucket="${config.coreStackProps.UsageMailBucket}"
         |persistence.identifier="picdarUrn"
-        |es.index.aliases.read="readAlias"
         |es6.url="${config.es6.url}"
         |es6.cluster="${config.es6.cluster}"
         |es6.shards=${config.es6.shards}
@@ -162,8 +163,6 @@ function getThrallConfig(config) {
         |s3.image.bucket="${config.coreStackProps.ImageBucket}"
         |s3.thumb.bucket="${config.coreStackProps.ThumbBucket}"
         |persistence.identifier="picdarUrn"
-        |es.index.aliases.write="writeAlias"
-        |es.index.aliases.read="readAlias"
         |indexed.image.sns.topic.arn="${config.coreStackProps.IndexedImageTopic}"
         |es6.url="${config.es6.url}"
         |es6.cluster="${config.es6.cluster}"

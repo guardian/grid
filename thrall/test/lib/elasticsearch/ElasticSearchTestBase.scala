@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.count.CountResponse
@@ -28,7 +28,16 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   val tenSeconds = Duration(10, SECONDS)
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(tenSeconds, oneHundredMilliseconds)
 
-  val elasticSearchConfig = ElasticSearchConfig("writealias", esTestUrl, "media-service-test", 1, 0)
+  val elasticSearchConfig = ElasticSearchConfig(
+    aliases = ElasticSearchAliases(
+      current = "Images_Current",
+      migration = Some("Images_Migration")
+    ),
+    url = esTestUrl,
+    cluster = "media-service-test",
+    shards = 1,
+    replicas = 0
+  )
 
   val ES = new ElasticSearch(elasticSearchConfig, None)
   val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")

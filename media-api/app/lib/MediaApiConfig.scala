@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import org.joda.time.DateTime
 
 import scala.util.Try
@@ -10,7 +10,7 @@ case class StoreConfig(
   storeKey: String
 )
 
-class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resources) {
+class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithElastic(resources) {
   val configBucket: String = string("s3.config.bucket")
   val usageMailBucket: String = string("s3.usagemail.bucket")
 
@@ -24,13 +24,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfig(resour
 
   //Lazy allows this to be empty and not break things unless used somewhere
   lazy val imgPublishingBucket = string("publishing.image.bucket")
-
-  val imagesAlias: String = string("es.index.aliases.read")
-
-  val elasticsearch6Url: String =  string("es6.url")
-  val elasticsearch6Cluster: String = string("es6.cluster")
-  val elasticsearch6Shards: Int = string("es6.shards").toInt
-  val elasticsearch6Replicas: Int = string("es6.replicas").toInt
 
   val imageBucket: String = string("s3.image.bucket")
   val thumbBucket: String = string("s3.thumb.bucket")
