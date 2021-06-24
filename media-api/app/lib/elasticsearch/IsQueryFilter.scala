@@ -14,7 +14,7 @@ sealed trait IsQueryFilter extends Query with ImageFields {
     case IsOwnedIllustration(staffPhotographerOrg) => s"$staffPhotographerOrg-owned-illustration"
     case IsOwnedImage(staffPhotographerOrg) => s"$staffPhotographerOrg-owned"
     case _: IsUnderQuota => "under-quota"
-    case _: IsSoftDeleted => "soft-deleted"
+    case IsSoftDeleted => "soft-deleted"
   }
 }
 
