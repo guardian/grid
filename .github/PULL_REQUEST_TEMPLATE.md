@@ -13,7 +13,8 @@
 <!-- Reach the team with @guardian/digital-cms -->
 
 
-## Tested?
+## Tested? Documented?
 - [ ] locally by committer
 - [ ] locally by Guardian reviewer
 - [ ] on the Guardian's TEST environment
+- [ ] relevant documentation added or amended (if needed)
