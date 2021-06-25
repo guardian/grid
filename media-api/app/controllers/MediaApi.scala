@@ -202,18 +202,18 @@ class MediaApi(
 
   }
 
-  def downloadImageExport(imageId: String, exportId: String) = auth.async { request =>
+  def downloadImageExport(imageId: String, exportId: String, width: Int) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(imageId) map {
       case Some(source) if hasPermission(request.user, source) =>
         val maybeResult = for {
           export <- source.exports.find(_.id.contains(exportId))
-          masterAsset <- export.master
-          s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, masterAsset.file)).toOption
+          asset <- export.assets.find(_.dimensions.exists(_.width == width))
+          s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
           file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
-          entity = HttpEntity.Streamed(file, masterAsset.size, masterAsset.mimeType.map(_.name))
-          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(source, Source, Some(export)))
+          entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
+          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(source, export, asset))
         } yield {
           if(config.recordDownloadAsUsage) {
             postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), source.id, Authentication.getIdentity(request.user))

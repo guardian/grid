@@ -81,7 +81,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   private val canDeleteCrops: PrincipalFilter = authorisation.hasPermissionTo(DeleteCrops)
 
-  private def downloadExportLink(imageId: String, exportId: String) = Link(s"crop-$exportId-download", s"${config.apiUri}/images/$imageId/export/$exportId/download")
+  private def downloadExportLink(imageId: String, exportId: String, width: Int) = Link(s"crop-download-$exportId-$width", s"${config.apiUri}/images/$imageId/export/$exportId/asset/$width/download")
 
   def getCrops(id: String) = auth.async { httpRequest =>
 
@@ -91,8 +91,11 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
       lazy val cropDownloadLinks = for {
         crop <- crops
+        asset <- crop.assets
+        dimensions <- asset.dimensions
+        width = dimensions.width
         cropId <- crop.id
-      } yield downloadExportLink(id, cropId)
+      } yield downloadExportLink(id, cropId, width)
 
       val links = (for {
         crop <- crops.headOption
