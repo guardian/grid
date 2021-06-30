@@ -3,43 +3,44 @@
 # ~~~~
 
 # Home page
-GET     /                                             controllers.MediaApi.index
+GET     /                                                           controllers.MediaApi.index
 
 # Image metadata
-GET     /images/metadata/:field                       controllers.SuggestionController.metadataSearch(field: String, q: Option[String])
-GET     /images/edits/:field                          controllers.SuggestionController.editsSearch(field: String, q: Option[String])
+GET     /images/metadata/:field                                     controllers.SuggestionController.metadataSearch(field: String, q: Option[String])
+GET     /images/edits/:field                                        controllers.SuggestionController.editsSearch(field: String, q: Option[String])
 
-GET     /images/aggregations/date/:field              controllers.AggregationController.dateHistogram(field: String, q: Option[String])
+GET     /images/aggregations/date/:field                            controllers.AggregationController.dateHistogram(field: String, q: Option[String])
 
 # Images
-GET     /images/:id                                   controllers.MediaApi.getImage(id: String)
-GET     /images/:id/_elasticsearch                    controllers.MediaApi.getImageFromElasticSearch(id: String)
-GET     /images/:id/projection/diff                   controllers.MediaApi.diffProjection(id: String)
-GET     /images/:id/fileMetadata                      controllers.MediaApi.getImageFileMetadata(id: String)
-GET     /images/:imageId/uploadedBy                   controllers.MediaApi.uploadedBy(imageId: String)
-GET     /images/:imageId/export/:exportId             controllers.MediaApi.getImageExport(imageId: String, exportId: String)
-GET     /images/:imageId/export                       controllers.MediaApi.getImageExports(imageId: String)
-GET     /images/:imageId/download                     controllers.MediaApi.downloadOriginalImage(imageId: String)
-GET     /images/:imageId/downloadOptimised            controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
-DELETE  /images/:id                                   controllers.MediaApi.deleteImage(id: String)
-DELETE  /soft-delete/images/:id                       controllers.MediaApi.softDeleteImage(id: String)
-GET     /images                                       controllers.MediaApi.imageSearch
+GET     /images/:id                                                 controllers.MediaApi.getImage(id: String)
+GET     /images/:id/_elasticsearch                                  controllers.MediaApi.getImageFromElasticSearch(id: String)
+GET     /images/:id/projection/diff                                 controllers.MediaApi.diffProjection(id: String)
+GET     /images/:id/fileMetadata                                    controllers.MediaApi.getImageFileMetadata(id: String)
+GET     /images/:imageId/uploadedBy                                 controllers.MediaApi.uploadedBy(imageId: String)
+GET     /images/:imageId/export/:exportId                           controllers.MediaApi.getImageExport(imageId: String, exportId: String)
+GET     /images/:imageId/export/:exportId/asset/:width/download     controllers.MediaApi.downloadImageExport(imageId: String, exportId: String, width: Int)
+GET     /images/:imageId/export                                     controllers.MediaApi.getImageExports(imageId: String)
+GET     /images/:imageId/download                                   controllers.MediaApi.downloadOriginalImage(imageId: String)
+GET     /images/:imageId/downloadOptimised                          controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
+DELETE  /images/:id                                                 controllers.MediaApi.deleteImage(id: String)
+DELETE  /soft-delete/images/:id                                     controllers.MediaApi.softDeleteImage(id: String)
+GET     /images                                                     controllers.MediaApi.imageSearch
 
 # completion
-GET     /suggest/metadata/credit                      controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
-GET     /suggest/metadata/photoshoot                  controllers.SuggestionController.suggestPhotoshoot(q: Option[String], size: Option[Int])
+GET     /suggest/metadata/credit                                    controllers.SuggestionController.suggestMetadataCredit(q: Option[String], size: Option[Int])
+GET     /suggest/metadata/photoshoot                                controllers.SuggestionController.suggestPhotoshoot(q: Option[String], size: Option[Int])
 
 # usage quotas
-GET     /usage/suppliers                              controllers.UsageController.bySupplier
-GET     /usage/suppliers/:id                          controllers.UsageController.forSupplier(id: String)
-GET     /usage/quotas                                 controllers.UsageController.quotas
-GET     /usage/quotas/:id                             controllers.UsageController.quotaForImage(id: String)
+GET     /usage/suppliers                                            controllers.UsageController.bySupplier
+GET     /usage/suppliers/:id                                        controllers.UsageController.forSupplier(id: String)
+GET     /usage/quotas                                               controllers.UsageController.quotas
+GET     /usage/quotas/:id                                           controllers.UsageController.quotaForImage(id: String)
 
 # Management
-GET     /management/healthcheck                       com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.healthCheck
-GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
-GET     /management/imageCounts                       com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.imageCounts
-GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
+GET     /management/healthcheck                                     com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.healthCheck
+GET     /management/manifest                                        com.gu.mediaservice.lib.management.Management.manifest
+GET     /management/imageCounts                                     com.gu.mediaservice.lib.management.ElasticSearchHealthCheck.imageCounts
+GET     /management/whoAmI                                          com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
 # Shoo robots away
-GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots
+GET     /robots.txt                                                 com.gu.mediaservice.lib.management.Management.disallowRobots

@@ -34,6 +34,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val homeLinkHtml: Option[String] = stringOpt("branding.homeLinkHtml").filterNot(_.isEmpty)
   val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
 
+  val canDownloadCrop: Boolean = boolean("canDownloadCrop")
+
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
   val connectSources: Set[String] = getStringSet("security.connectSources")
 

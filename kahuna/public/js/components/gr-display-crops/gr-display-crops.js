@@ -11,6 +11,8 @@ displayCrops.controller('GrDisplayCrops', [function() {
     let ctrl = this;
 
     ctrl.showCrops = false;
+
+    ctrl.canDownloadCrop = window._clientConfig.canDownloadCrop;
 }]);
 
 displayCrops.directive('grDisplayCrops', [function () {

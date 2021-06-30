@@ -76,40 +76,56 @@ class S3(config: CommonConfig) extends GridLogging {
     regex.replaceAllIn(filename, "")
   }
 
-  private def getContentDispositionFilename(image: Image, imageType: ImageType, charset: Charset): String = {
+  private def getExtension(image: Image, asset: Asset): String = asset.mimeType match {
+    case Some(mimeType) => mimeType.fileExtension
+    case _ =>
+      logger.warn(image.toLogMarker, "Unrecognised mime type")
+      ""
+  }
 
-    val asset = imageType match {
-      case Source => image.source
-      case Thumbnail => image.thumbnail.getOrElse(image.source)
-      case OptimisedPng => image.optimisedPng.getOrElse(image.source)
-    }
-
-    val extension: String = asset.mimeType match {
-      case Some(mimeType) => mimeType.fileExtension
-      case _ =>
-        logger.warn(image.toLogMarker, "Unrecognised mime type")
-        ""
-    }
-
-    val baseFilename: String = image.uploadInfo.filename match {
-      case Some(f) => s"${removeExtension(f)} (${image.id})$extension"
-      case _ => s"${image.id}$extension"
-    }
-
-    charset.displayName() match {
+  private def encodedFilename(charset: Charset, baseFilename: String): String = charset.displayName() match {
       case "UTF-8" =>
         // URLEncoder converts ` ` to `+`, replace it with `%20`
         // See http://docs.oracle.com/javase/6/docs/api/java/net/URLEncoder.html
         URLEncoder.encode(baseFilename, "UTF-8").replace("+", "%20")
       case characterSet => baseFilename.getBytes(characterSet).toString
     }
+
+  private def getBaseFilename(image: Image, filenameSuffix: String): String = image.uploadInfo.filename match {
+    case Some(f) => s"${removeExtension(f)} $filenameSuffix"
+    case _ => filenameSuffix
   }
 
-  def getContentDisposition(image: Image, imageType: ImageType): String = {
+  private def getContentDisposition(filename: String): String = {
     // use both `filename` and `filename*` parameters for compatibility with user agents not implementing RFC 5987
     // they'll fallback to `filename`, which will be a UTF-8 string decoded as Latin-1 - this is a rubbish string, but only rubbish browsers don't support RFC 5987 (IE8 back)
     // See http://tools.ietf.org/html/rfc6266#section-5
-    s"""attachment; filename="${getContentDispositionFilename(image, imageType, StandardCharsets.ISO_8859_1)}"; filename*=UTF-8''${getContentDispositionFilename(image, imageType, StandardCharsets.UTF_8)}"""
+    val filenameISO = encodedFilename(StandardCharsets.ISO_8859_1, filename)
+    val filenameUTF8 = encodedFilename(StandardCharsets.UTF_8, filename)
+    s"""attachment; filename="$filenameISO"; filename*=UTF-8''$filenameUTF8"""
+  }
+
+  def getContentDisposition(image: Image, crop: Crop, asset: Asset): String = {
+    val cropId: String = crop.id.map(id => s"($id)").getOrElse("")
+    val extension: String = getExtension(image, asset)
+    val dimensions: String = asset.dimensions.map(dims => s"(${dims.width} x ${dims.height})").getOrElse("")
+    val filenameSuffix: String = s"(${image.id})$cropId$dimensions$extension"
+    val baseFilename = getBaseFilename(image, filenameSuffix)
+
+    getContentDisposition(baseFilename)
+  }
+
+  def getContentDisposition(image: Image, imageType: ImageType): String = {
+    val asset = imageType match {
+      case Source => image.source
+      case Thumbnail => image.thumbnail.getOrElse(image.source)
+      case OptimisedPng => image.optimisedPng.getOrElse(image.source)
+    }
+    val extension: String = getExtension(image, asset)
+    val filenameSuffix: String = s"(${image.id})$extension"
+    val baseFilename = getBaseFilename(image, filenameSuffix)
+
+    getContentDisposition(baseFilename)
   }
 
   private def roundDateTime(t: DateTime, d: Duration): DateTime = t minus (t.getMillis - (t.getMillis.toDouble / d.getMillis).round * d.getMillis)

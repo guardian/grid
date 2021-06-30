@@ -54,7 +54,7 @@ cropperApi.factory('mediaCropper', ['mediaApi', function(mediaApi) {
     }
 
     function getCropsFor(image) {
-        return image.follow('crops').getData();
+        return image.follow('crops').get();
     }
 
     return {
