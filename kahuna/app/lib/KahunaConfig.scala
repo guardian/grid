@@ -8,7 +8,8 @@ case class ScriptToLoad(
   host: String,
   path: String,
   async: Option[Boolean],
-  permission: Option[SimplePermission]
+  permission: Option[SimplePermission],
+  shouldLoadWhenIFramed: Option[Boolean]
 )
 
 class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resources) {
@@ -41,7 +42,8 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     path = entry.getString("path"),
     async = if (entry.hasPath("async")) Some(entry.getBoolean("async")) else None,
     // FIXME ideally the below would not hardcode reference to pinboard - hopefully future iterations of the pluggable authorisation will support evaluating permissions without a corresponding case object
-    permission = if (entry.hasPath("permission") && entry.getString("permission") == "pinboard") Some(Pinboard) else None
+    permission = if (entry.hasPath("permission") && entry.getString("permission") == "pinboard") Some(Pinboard) else None,
+    shouldLoadWhenIFramed = if (entry.hasPath("shouldLoadWhenIFramed")) Some(entry.getBoolean("shouldLoadWhenIFramed")) else None,
   ))
 
 }
