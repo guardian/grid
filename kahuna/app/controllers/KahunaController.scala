@@ -21,6 +21,12 @@ class KahunaController(
 
     val maybeUser: Option[Authentication.Principal] = authentication.authenticationStatus(req).toOption
 
+    val isIFramed = req.headers.get("Sec-Fetch-Dest").contains("iframe")
+
+    val scriptsToLoad = config.scriptsToLoad
+      .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
+      .filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists))
+
     val okPath = routes.KahunaController.ok.url
     // If the auth is successful, we redirect to the kahuna domain so the iframe
     // is on the same domain and can be read by the JS
@@ -38,7 +44,7 @@ class KahunaController(
       config.invalidSessionHelpLink,
       config.supportEmail,
       fieldAliases,
-      config.scriptsToLoad.filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists)),
+      scriptsToLoad,
       config.staffPhotographerOrganisation,
       config.homeLinkHtml,
       config.systemName
