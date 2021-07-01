@@ -92,8 +92,6 @@ class MediaApi(
     respond(indexData, indexLinks)
   }
 
-  private val AuthenticatedAndAuthorisedSoftDeleteImages = auth andThen authorisation.CommonActionFilters.authorisedForSoftDeleteImages
-
   private def ImageCannotBeDeleted = respondError(MethodNotAllowed, "cannot-delete", "Cannot delete persisted images")
   private def ImageDeleteForbidden = respondError(Forbidden, "delete-not-allowed", "No permission to delete this image")
   private def ImageEditForbidden = respondError(Forbidden, "edit-not-allowed", "No permission to edit this image")
@@ -227,22 +225,32 @@ class MediaApi(
     }
   }
 
-  def softDeleteImage(id: String) = AuthenticatedAndAuthorisedSoftDeleteImages.async { request =>
+  def softDeleteImage(id: String) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
-      case Some(_) =>
-        messageSender.publish(
-          UpdateMessage(
-            subject = SoftDeleteImage,
-            id = Some(id),
-            softDeletedMetadata = Some(SoftDeletedMetadata(
-              deleteTime = DateTime.now(DateTimeZone.UTC),
-              deletedBy = request.user.accessor.identity
-            ))
-          )
-        )
-        Accepted
+      case Some(image) if hasPermission(request.user, image) =>
+        val imageCanBeDeleted = imageResponse.canBeDeleted(image)
+        if (imageCanBeDeleted){
+          val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
+          if(canDelete){
+            messageSender.publish(
+              UpdateMessage(
+                subject = SoftDeleteImage,
+                id = Some(id),
+                softDeletedMetadata = Some(SoftDeletedMetadata(
+                  deleteTime = DateTime.now(DateTimeZone.UTC),
+                  deletedBy = request.user.accessor.identity
+                ))
+              )
+            )
+            Accepted
+          } else {
+            ImageDeleteForbidden
+          }
+        } else {
+          ImageCannotBeDeleted
+        }
       case _ => ImageNotFound(id)
     }
   }
