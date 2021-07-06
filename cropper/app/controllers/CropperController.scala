@@ -81,16 +81,30 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   private val canDeleteCrops: PrincipalFilter = authorisation.hasPermissionTo(DeleteCrops)
 
+  private def downloadExportLink(imageId: String, exportId: String, width: Int) = Link(s"crop-download-$exportId-$width", s"${config.apiUri}/images/$imageId/export/$exportId/asset/$width/download")
+
   def getCrops(id: String) = auth.async { httpRequest =>
 
     store.listCrops(id) map (_.toList) map { crops =>
       val deleteCropsAction =
         ArgoAction("delete-crops", URI.create(s"${config.rootUri}/crops/$id"), "DELETE")
 
+      lazy val cropDownloadLinks = for {
+        crop <- crops
+        asset <- crop.assets
+        dimensions <- asset.dimensions
+        width = dimensions.width
+        cropId <- crop.id
+      } yield downloadExportLink(id, cropId, width)
+
       val links = (for {
         crop <- crops.headOption
         link = Link("image", crop.specification.uri)
-      } yield List(link)) getOrElse List()
+      } yield {
+        if (config.canDownloadCrop) {
+          link :: cropDownloadLinks
+        } else List(link)
+      }) getOrElse List()
 
       if(canDeleteCrops(httpRequest.user) && crops.nonEmpty) {
         respond(crops, links, List(deleteCropsAction))

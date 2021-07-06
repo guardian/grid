@@ -19,7 +19,7 @@
                     </div>
                     <ul>
                         <li ng-repeat="asset in crop.assets">
-                            <a href="{{asset.file}}">{{asset.dimensions.width}} x {{asset.dimensions.height}}</a>
+                            <a href="{{ctrl.canDownloadCrop ? asset.downloadLink : asset.file}}">{{asset.dimensions.width}} x {{asset.dimensions.height}}</a>
                         </li>
                     </ul>
                 </li>

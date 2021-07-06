@@ -208,7 +208,18 @@ image.controller('ImageCtrl', [
       return ctrl.image.data.source.dimensions;
     }
 
-    mediaCropper.getCropsFor(image).then(crops => {
+    mediaCropper.getCropsFor(image).then(cropsResource => {
+      let crops = cropsResource.data;
+      if ($window._clientConfig.canDownloadCrop) {
+        crops.forEach((crop) => {
+          crop.assets.forEach((asset) =>
+            asset.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-download-${crop.id}-${asset.dimensions.width}`))?.href
+          );
+          //set the download link of the crop to be the largest asset
+          let largestAsset = crop.assets.find(asset => asset.dimensions.width == crop.master.dimensions.width);
+          crop.downloadLink = largestAsset.downloadLink;
+        });
+      }
       ctrl.crop = crops.find(crop => crop.id === cropKey);
       ctrl.fullCrop = crops.find(crop => crop.specification.type === 'full');
       ctrl.crops = crops.filter(crop => crop.specification.type === 'crop');
