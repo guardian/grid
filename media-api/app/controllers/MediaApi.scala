@@ -74,7 +74,6 @@ class MediaApi(
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
-
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
@@ -254,18 +253,28 @@ class MediaApi(
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
-      case Some(_) =>
-        messageSender.publish(
-          UpdateMessage(
-            subject = SoftDeleteImage,
-            id = Some(id),
-            softDeletedMetadata = Some(SoftDeletedMetadata(
-              deleteTime = DateTime.now(DateTimeZone.UTC),
-              deletedBy = request.user.accessor.identity
-            ))
-          )
-        )
-        Accepted
+      case Some(image) if hasPermission(request.user, image) =>
+        val imageCanBeDeleted = imageResponse.canBeDeleted(image)
+        if (imageCanBeDeleted){
+          val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
+          if(canDelete){
+            messageSender.publish(
+              UpdateMessage(
+                subject = SoftDeleteImage,
+                id = Some(id),
+                softDeletedMetadata = Some(SoftDeletedMetadata(
+                  deleteTime = DateTime.now(DateTimeZone.UTC),
+                  deletedBy = request.user.accessor.identity
+                ))
+              )
+            )
+            Accepted
+          } else {
+            ImageDeleteForbidden
+          }
+        } else {
+          ImageCannotBeDeleted
+        }
       case _ => ImageNotFound(id)
     }
   }
