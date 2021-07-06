@@ -26,7 +26,13 @@ case object UiPriority extends Priority {
   override def toString = "high"
 }
 
-case class TaggedRecord[T](payload: T,
+/** TaggedRecord represents a message and its associated priority
+  *
+  * Type parameter P represents the type of the payload, so TaggedRecord
+  * can be used to represent both messages from Kinesis and messages
+  * originating within thrall itself
+*/
+case class TaggedRecord[P](payload: P,
                            arrivalTimestamp: Instant,
                            priority: Priority,
                            markProcessed: () => Unit) extends LogMarker {
@@ -38,7 +44,7 @@ case class TaggedRecord[T](payload: T,
     "recordArrivalTime" -> DateTimeUtils.toString (arrivalTimestamp)
   )
 
-  def map[V](f: T => V): TaggedRecord[V] = this.copy(payload = f(payload))
+  def map[V](f: P => V): TaggedRecord[V] = this.copy(payload = f(payload))
 }
 
 class ThrallStreamProcessor(
