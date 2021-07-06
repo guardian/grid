@@ -16,10 +16,10 @@ import spray.json.{JsObject, JsonFormat}
 
 import scala.concurrent.Future
 
-case class ReingestionRecord(payload: UpdateMessage, approximateArrivalTimestamp: Instant)
+case class MigrationRecord(payload: UpdateMessage, approximateArrivalTimestamp: Instant)
 
-object ReingestionSource {
-  def apply(/*implicit es: RestClient*/): Source[ReingestionRecord, Future[Done]] = {
+object MigrationSource {
+  def apply(/*implicit es: RestClient*/): Source[MigrationRecord, Future[Done]] = {
     // Justin's ideas code
 //    implicit val format: JsonFormat[Image] = ???
 //    val x = ElasticsearchSource
@@ -28,12 +28,12 @@ object ReingestionSource {
 //        typeName = "_doc",
 //        query = """{"match_all": {}}"""
 //      )
-//    val y: Source[ReingestionRecord, NotUsed] = x.map { imageResult: ReadResult[Image] =>
-//      ReingestionRecord(UpdateMessage("reproject-image", Some(imageResult.source)), java.time.Instant.now())
+//    val y: Source[MigrationRecord, NotUsed] = x.map { imageResult: ReadResult[Image] =>
+//      MigrationRecord(UpdateMessage("migrate-image", Some(imageResult.source)), java.time.Instant.now())
 //    }
 //    y.mapMaterializedValue(_ => Future.successful(Done))
 
     // return empty Source until we implement the above properly
-    Source.empty[ReingestionRecord].mapMaterializedValue(_ => Future.successful(Done))
+    Source.empty[MigrationRecord].mapMaterializedValue(_ => Future.successful(Done))
   }
 }

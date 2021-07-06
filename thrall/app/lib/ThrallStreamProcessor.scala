@@ -16,14 +16,14 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 sealed trait Priority
+case object UiPriority extends Priority {
+  override def toString = "high"
+}
 case object AutomationPriority extends Priority {
   override def toString = "low"
 }
-case object ReingestionPriority extends Priority {
+case object MigrationPriority extends Priority {
   override def toString = "lowest"
-}
-case object UiPriority extends Priority {
-  override def toString = "high"
 }
 
 /** TaggedRecord represents a message and its associated priority
@@ -50,7 +50,7 @@ case class TaggedRecord[P](payload: P,
 class ThrallStreamProcessor(
   uiSource: Source[KinesisRecord, Future[Done]],
   automationSource: Source[KinesisRecord, Future[Done]],
-  reingestionSource: Source[ReingestionRecord, Future[Done]],
+  migrationSource: Source[MigrationRecord, Future[Done]],
   consumer: ThrallEventConsumer,
   actorSystem: ActorSystem,
   materializer: Materializer
@@ -68,8 +68,8 @@ class ThrallStreamProcessor(
     val automationRecordSource = automationSource.map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
 
-    val reingestionMessagesSource: Source[TaggedRecord[UpdateMessage], Future[Done]] = reingestionSource.map { case ReingestionRecord(updateMessage, time) =>
-      TaggedRecord(updateMessage, time, ReingestionPriority, () => {})
+    val migrationMessagesSource: Source[TaggedRecord[UpdateMessage], Future[Done]] = migrationSource.map { case MigrationRecord(updateMessage, time) =>
+      TaggedRecord(updateMessage, time, MigrationPriority, () => {})
     }
 
     // merge together ui and automation kinesis records
@@ -94,7 +94,7 @@ class ThrallStreamProcessor(
     // merge in the re-ingestion source (preferring ui/automation)
     val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[UpdateMessage]](1))
     uiAndAutomationMessagesSource ~> mergePreferred.preferred
-    reingestionMessagesSource ~> mergePreferred.in(0)
+    migrationMessagesSource ~> mergePreferred.in(0)
 
     SourceShape(mergePreferred.out)
   })
