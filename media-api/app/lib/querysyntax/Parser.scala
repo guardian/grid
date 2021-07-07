@@ -2,8 +2,14 @@ package lib.querysyntax
 
 object Parser {
 
-  def run(input: String): List[Condition] =
-    normalise(parse(input))
+  def run(input: String): List[Condition] = {
+    normalise(
+      parse(
+        if(input.contains("is:deleted")) input
+        else input.concat(" -is:deleted").trim
+      )
+    )
+  }
 
   def parse(input: String): List[Condition] =
     new QuerySyntax(input.trim).Query.run().map(_.toList) getOrElse List()
