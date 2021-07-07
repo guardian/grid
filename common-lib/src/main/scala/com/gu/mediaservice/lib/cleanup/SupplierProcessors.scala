@@ -430,6 +430,7 @@ object RexParser extends ImageProcessor {
     case (Some("Rex Features"), _)      => image.copy(usageRights = rexAgency)
     case (_, Some(SlashRex()))          => image.copy(usageRights = rexAgency)
     case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = rexAgency)
+    case (_, Some("Shutterstock"))      => image.copy(usageRights = rexAgency)
     case _ => image
   }
 }
