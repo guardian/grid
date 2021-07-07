@@ -45,7 +45,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   val elasticConfig = ElasticSearchConfig(
     aliases = ElasticSearchAliases(
       current = "Images_Current",
-      migration = Some("Images_Migration")
+      migration = "Images_Migration"
     ),
     url = es6TestUrl,
     cluster = "media-service-test",

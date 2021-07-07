@@ -6,13 +6,8 @@ class CommonConfigWithElastic(resources: GridConfigResources) extends CommonConf
 
   val esConfig = ElasticSearchConfig(
     aliases = ElasticSearchAliases(
-      // TODO: reinstate this once everyone's config has been updated...
-//      current = string("es.index.aliases.current"),
-      // TODO: ...and then remove this
-      current = stringOpt("es.index.aliases.read") getOrElse stringOpt("es.index.aliases.write")
-        .getOrElse(string("es.index.aliases.current")),
-
-      migration = stringOpt("es.index.aliases.migration")
+      current = string("es.index.aliases.current"),
+      migration = string("es.index.aliases.migration")
     ),
     url = string("es6.url"),
     cluster =  string("es6.cluster"),

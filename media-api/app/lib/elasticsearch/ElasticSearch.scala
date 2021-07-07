@@ -27,7 +27,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency])
   extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging {
 
-  lazy val imagesAlias = elasticConfig.aliases.current
+  lazy val imagesCurrentAlias = elasticConfig.aliases.current
+  lazy val imagesMigrationAlias = elasticConfig.aliases.migration
   lazy val url = elasticConfig.url
   lazy val cluster = elasticConfig.cluster
   lazy val shards = elasticConfig.shards
@@ -54,7 +55,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   def getImageWithSourceById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[SourceWrapper[Image]]] = {
     implicit val logMarker = MarkerMap("id" -> id)
-    executeAndLog(get(imagesAlias, id), s"get image by id $id").map { r =>
+    executeAndLog(get(imagesCurrentAlias, id), s"get image by id $id").map { r =>
       r.status match {
         case Status.OK => mapImageFrom(r.result.sourceAsString, id)
         case _ => None
@@ -64,7 +65,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
 
   def getImageUploaderById(id: String)(implicit ex: ExecutionContext): Future[Option[String]] = {
     implicit val logMarker = MarkerMap("id" -> id)
-    val request = get(imagesAlias, id).fetchSourceInclude("uploadedBy")
+    val request = get(imagesCurrentAlias, id).fetchSourceInclude("uploadedBy")
     executeAndLog(request, s"get image uploader by id $id").map { r =>
 
       r.status match {
@@ -251,7 +252,7 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     implicit val logMarker = MarkerMap()
     val completionSuggestion =
       ElasticDsl.completionSuggestion(name, name).text(q).skipDuplicates(true)
-    val search = ElasticDsl.search(imagesAlias) suggestions completionSuggestion
+    val search = ElasticDsl.search(imagesCurrentAlias) suggestions completionSuggestion
     executeAndLog(search, "completion suggestion query").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("suggestion-completion")))(_.result.took).map { r =>
       logSearchQueryIfTimedOut(search, r.result)
@@ -266,14 +267,14 @@ class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics
     }
   }
 
-  def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesAlias)).map {
+  def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesCurrentAlias)).map {
     _.result.totalHits
   }
 
   def withSearchQueryTimeout(sr: SearchRequest): SearchRequest = sr timeout SearchQueryTimeout
 
   private def prepareSearch(query: Query): SearchRequest = {
-    val sr = ElasticDsl.search(imagesAlias) query query
+    val sr = ElasticDsl.search(imagesCurrentAlias) query query
     withSearchQueryTimeout(sr)
   }
 

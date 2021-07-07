@@ -31,7 +31,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   val elasticSearchConfig = ElasticSearchConfig(
     aliases = ElasticSearchAliases(
       current = "Images_Current",
-      migration = Some("Images_Migration")
+      migration = "Images_Migration"
     ),
     url = esTestUrl,
     cluster = "media-service-test",
