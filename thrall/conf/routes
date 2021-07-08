@@ -10,5 +10,7 @@ GET     /management/manifest                          com.gu.mediaservice.lib.ma
 GET     /management/innerServiceStatusCheck           com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.statusCheck(depth: Int)
 GET     /management/whoAmI                            com.gu.mediaservice.lib.management.InnerServiceStatusCheckController.whoAmI(depth: Int)
 
+GET     /assets/*file                                 controllers.Assets.versioned(path="/public", file: Asset)
+
 # Shoo robots away
 GET     /robots.txt                                   com.gu.mediaservice.lib.management.Management.disallowRobots

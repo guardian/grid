@@ -1,17 +1,31 @@
 package controllers
 
-import play.api.mvc.{BaseController, ControllerComponents}
+import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
+import com.gu.mediaservice.lib.config.Services
+import lib.elasticsearch.ElasticSearch
+import play.api.mvc.ControllerComponents
 
-import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
-class ThrallController(override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext) extends BaseController {
+class ThrallController(
+  es: ElasticSearch,
+  override val auth: Authentication,
+  override val services: Services,
+  override val controllerComponents: ControllerComponents
+)(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects {
 
-  private implicit val ctx: ExecutionContext =
-    ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
-
-  def index = Action {
-    Ok("This is a thrall.")
+  def index = withLoginRedirectAsync {
+    for {
+      currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias).map(indexOpt => indexOpt.map(_.index).getOrElse("ERROR - no index found! Please investigate this!"))
+      migrationIndex <- es.getIndexForAlias(es.imagesMigrationAlias).map(indexOpt => indexOpt.map(_.index))
+    } yield {
+      Ok(views.html.index(
+        currentAlias = es.imagesCurrentAlias,
+        currentIndex = currentIndex,
+        migrationAlias = es.imagesMigrationAlias,
+        migrationIndex = migrationIndex
+      ))
+    }
   }
 
 }
