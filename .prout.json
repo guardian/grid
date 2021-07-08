@@ -9,6 +9,7 @@
     "leases": { "url": "https://media-leases.gutools.co.uk/management/manifest", "overdue": "30M" },
     "media-api": { "url": "https://api.media.gutools.co.uk/management/manifest", "overdue": "30M" },
     "metadata-editor": { "url": "https://media-metadata.gutools.co.uk/management/manifest", "overdue": "30M" },
+    "thrall": { "url": "https://thrall.media.gutools.co.uk/management/manifest", "overdue": "30M" },
     "usage": { "url": "https://media-usage.gutools.co.uk/management/manifest", "overdue": "30M" }
   }
 }
