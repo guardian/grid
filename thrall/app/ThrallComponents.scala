@@ -27,15 +27,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val esConfig = ElasticSearchConfig(
-    alias = config.writeAlias,
-    url = config.elasticsearch6Url,
-    cluster = config.elasticsearch6Cluster,
-    shards = config.elasticsearch6Shards,
-    replicas = config.elasticsearch6Replicas
-  )
-
-  val es = new ElasticSearch(esConfig, Some(thrallMetrics))
+  val es = new ElasticSearch(config.esConfig, Some(thrallMetrics))
   es.ensureAliasAssigned()
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check

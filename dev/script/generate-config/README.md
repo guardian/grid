@@ -3,7 +3,7 @@
 Generate the configuration files for the various Grid services.
 
 ## Requirements
-- Node 8
+- Node 14
 - Write access to `~/`
 
 ## Usage

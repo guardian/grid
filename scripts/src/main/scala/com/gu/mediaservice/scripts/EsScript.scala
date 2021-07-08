@@ -340,8 +340,8 @@ object GetSettings extends EsScript {
 abstract class EsScript {
   // FIXME: Get from config (no can do as Config is coupled to Play)
   final val esCluster = "media-service"
-  final val esImagesAlias = "writeAlias"
-  final val esImagesReadAlias = "readAlias"
+  final val esImagesAlias = "Images_Current"
+  final val esImagesReadAlias = "Images_Current"
   final val esShards = 5
   final val esReplicas = 0
 

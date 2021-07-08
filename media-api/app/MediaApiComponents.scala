@@ -19,14 +19,6 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
   val mediaApiMetrics = new MediaApiMetrics(config)
 
-  val es6Config: ElasticSearchConfig = ElasticSearchConfig(
-    alias = config.imagesAlias,
-    url = config.elasticsearch6Url,
-    cluster = config.elasticsearch6Cluster,
-    shards = config.elasticsearch6Shards,
-    replicas = config.elasticsearch6Replicas
-  )
-
   val s3Client = new S3Client(config)
 
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)
@@ -34,7 +26,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   usageQuota.scheduleUpdates()
   applicationLifecycle.addStopHook(() => Future{usageQuota.stopUpdates()})
 
-  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, es6Config, () => usageQuota.usageStore.overQuotaAgencies)
+  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, config.esConfig, () => usageQuota.usageStore.overQuotaAgencies)
   elasticSearch.ensureAliasAssigned()
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
