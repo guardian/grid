@@ -7,16 +7,16 @@ import org.scalatest.prop.{Checkers, PropertyChecks}
 import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.{JsArray, JsSuccess, Json}
 
-class ThrallMessageTest extends FreeSpec with Matchers with Checkers with PropertyChecks {
-  //This doesn't test any messsage contents as we assume they have their own checks.
+class ExternalThrallMessageTest extends FreeSpec with Matchers with Checkers with PropertyChecks {
+  //This doesn't test any message contents as we assume they have their own checks.
   val now = DateTime.now(DateTimeZone.forOffsetHours(9))
   val nowUtc = new DateTime(now.getMillis()).toDateTime(DateTimeZone.UTC)
 
-  def roundTrip(m: ThrallMessage) = {
+  def roundTrip(m: ExternalThrallMessage) = {
     val json = m.toJson
     val string = Json.stringify(json)
     val parsed = Json.parse(string)
-    val reformed = parsed.validate[ThrallMessage]
+    val reformed = parsed.validate[ExternalThrallMessage](Json.reads[ExternalThrallMessage])
     reformed should equal(JsSuccess(m))
   }
 

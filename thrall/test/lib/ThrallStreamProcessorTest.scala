@@ -30,8 +30,8 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     encryptionType = ""
   )
 
-  def createReingestionRecord: ReingestionRecord = ReingestionRecord(
-    payload = UpdateMessage(subject = "example-reingestion"),
+  def createMigrationRecord: MigrationRecord = MigrationRecord(
+    payload = UpdateMessage(subject = "example-migration"),
     approximateArrivalTimestamp = OffsetDateTime.now().toInstant
   )
 
@@ -42,14 +42,14 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
   val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
     Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
-  val reingestionPrioritySource: Source[ReingestionRecord, Future[Done.type]] =
-    Source.repeat(createReingestionRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+  val migrationPrioritySource: Source[MigrationRecord, Future[Done.type]] =
+    Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
 
   lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
   lazy val streamProcessor = new ThrallStreamProcessor(
     uiPrioritySource,
     automationPrioritySource,
-    reingestionPrioritySource,
+    migrationPrioritySource,
     mockConsumer,
     actorSystem,
     materializer
@@ -81,11 +81,11 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
 
       firstBatch.count(p => p == UiPriority) should be > MINIMUM_RECORDS
       middleBatch.count(p => p == AutomationPriority) should be > MINIMUM_RECORDS
-      lastBatch.count(p => p == ReingestionPriority) should be > MINIMUM_RECORDS
+      lastBatch.count(p => p == MigrationPriority) should be > MINIMUM_RECORDS
 
       output.count(p => p == UiPriority) should be (COUNT_EACH)
       output.count(p => p == AutomationPriority) should be (COUNT_EACH)
-      output.count(p => p == ReingestionPriority) should be (COUNT_EACH)
+      output.count(p => p == MigrationPriority) should be (COUNT_EACH)
     }
   }
 }
