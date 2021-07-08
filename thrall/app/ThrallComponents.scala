@@ -2,6 +2,7 @@ import akka.Done
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.elasticsearch.ElasticSearchConfig
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
@@ -13,6 +14,7 @@ import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
+import java.time.Instant
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
@@ -52,11 +54,26 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val highPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisConfig)
   val lowPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
 
-  val highPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
-  val lowPrioritySource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
+  val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
+  val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
+  val reingestionSource: Source[ReingestionRecord, Future[Done]] = ReingestionSource()
 
-  val thrallEventConsumer = new ThrallEventConsumer(es, thrallMetrics, store, metadataEditorNotifications, actorSystem)
-  val thrallStreamProcessor = new ThrallStreamProcessor(highPrioritySource, lowPrioritySource, thrallEventConsumer, actorSystem, materializer)
+  val thrallEventConsumer = new ThrallEventConsumer(
+    es,
+    thrallMetrics,
+    store,
+    metadataEditorNotifications,
+    actorSystem
+  )
+
+  val thrallStreamProcessor = new ThrallStreamProcessor(
+    uiSource,
+    automationSource,
+    reingestionSource,
+    thrallEventConsumer,
+    actorSystem,
+    materializer
+  )
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
