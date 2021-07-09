@@ -1,3 +1,4 @@
+import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
@@ -17,12 +18,14 @@ class MetadataEditorComponents(context: Context) extends GridComponents(context,
   val metrics = new MetadataEditorMetrics(config)
   val messageConsumer = new MetadataSqsMessageConsumer(config, metrics, editsStore)
 
+  val s3Client = new S3(config)
+
   messageConsumer.startSchedule()
   context.lifecycle.addStopHook {
     () => messageConsumer.actorSystem.terminate()
   }
 
-  val editsController = new EditsController(auth, editsStore, notifications, config, wsClient, authorisation, controllerComponents)
+  val editsController = new EditsController(auth, editsStore, notifications, config, wsClient, s3Client, authorisation, controllerComponents)
   val syndicationController = new SyndicationController(auth, editsStore, syndicationStore, notifications, config, controllerComponents)
   val controller = new EditsApi(auth, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)

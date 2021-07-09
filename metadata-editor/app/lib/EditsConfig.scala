@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 class EditsConfig(resources: GridConfigResources) extends CommonConfig(resources) {
   val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
 
+  val imageBucket: String = string("s3.image.bucket")
   val collectionsBucket: String = string("s3.collections.bucket")
 
   val editsTable = string("dynamo.table.edits")
@@ -18,4 +19,7 @@ class EditsConfig(resources: GridConfigResources) extends CommonConfig(resources
   val rootUri: String = services.metadataBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val loginUriTemplate: String = services.loginUriTemplate
+
+  val archivedTagKey = "archive"
+  val tagArchived = true
 }

@@ -65,6 +65,7 @@ class S3(config: CommonConfig) extends GridLogging {
   type Bucket = String
   type Key = String
   type UserMetadata = Map[String, String]
+  type S3Tag = (String, String)
 
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   // also create a legacy client that uses v2 signatures for URL signing
@@ -165,6 +166,12 @@ class S3(config: CommonConfig) extends GridLogging {
     finally {
       stream.close()
     }
+  }
+
+  def setTags(bucket: Bucket, id: Key, tags: List[S3Tag])(implicit ex: ExecutionContext): Future[Unit] = {
+    val objectTaggings: List[Tag] = tags.map{ case (k,v) => new Tag(k, v) }
+    val request: SetObjectTaggingRequest = new SetObjectTaggingRequest(bucket, id, new ObjectTagging(objectTaggings.asJava))
+    Future(client.setObjectTagging(request))
   }
 
   def store(bucket: Bucket, id: Key, file: File, mimeType: Option[MimeType], meta: UserMetadata = Map.empty, cacheControl: Option[String] = None)

@@ -3,16 +3,15 @@ package controllers
 
 import java.net.URI
 import java.net.URLDecoder.decode
-
 import com.amazonaws.AmazonServiceException
 import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.ImageIngestOperations
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model._
-import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound, S3}
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.Permissions.EditMetadata
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
-import com.gu.mediaservice.lib.aws.NoItemFound
 import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.syntax.MessageSubjects
@@ -50,6 +49,7 @@ class EditsController(
                        val notifications: Notifications,
                        val config: EditsConfig,
                        ws: WSClient,
+                       s3: S3,
                        authorisation: Authorisation,
                        override val controllerComponents: ControllerComponents
                      )(implicit val ec: ExecutionContext)
@@ -94,14 +94,23 @@ class EditsController(
     }
   }
 
+  private def setArchivedS3Tag(id: String): Future[Unit] = {
+    val key: String = ImageIngestOperations.fileKeyFromId(id)
+    s3.setTags(config.imageBucket, key, List(config.archivedTagKey -> "true"))
+  }
+
   def setArchived(id: String) = AuthenticatedAndAuthorised.async(parse.json) { implicit req =>
     (req.body \ "data").validate[Boolean].fold(
       errors =>
         Future.successful(BadRequest(errors.toString())),
-      archived =>
+      archived => {
+        if (archived && config.tagArchived) {
+          setArchivedS3Tag(id)
+        }
         editsStore.booleanSetOrRemove(id, "archived", archived)
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.archived))
+      }
     )
   }
 
