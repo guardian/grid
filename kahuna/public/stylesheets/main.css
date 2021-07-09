@@ -68,6 +68,7 @@ z-index
 }
 
 html {
+    overflow-y: scroll;
     font: 62.5%/1.5 "Guardian Agate Sans Web", Georgia;
 }
 
