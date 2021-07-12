@@ -3,7 +3,7 @@ package com.gu.mediaservice.syntax
 trait MessageSubjects {
 
   val Image = "image"
-  val ReingestImage = "reingest-image" // FIXME: this will conflict with reingest, suggest remove
+  val ReingestImage = "reingest-image" // FIXME: the new migration process will replace the legacy reingest lambda etc
   val DeleteImage = "delete-image"
   val SoftDeleteImage = "soft-delete-image"
   val UpdateImage = "update-image" // TODO: this appears unused https://logs.gutools.co.uk/s/editorial-tools/goto/f0a03ca3c37261985b2e6292adb8de0f

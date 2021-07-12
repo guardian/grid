@@ -35,6 +35,8 @@ downloader.controller('DownloaderCtrl', [
 
     let ctrl = this;
 
+    ctrl.canDownloadCrop = $window._clientConfig.canDownloadCrop;
+
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
         ctrl.images : Array.from(ctrl.images.values());
 
@@ -106,7 +108,8 @@ downloader.directive('grDownloader', function() {
         controllerAs: 'ctrl',
         bindToController: true,
         scope: {
-            images: '='
+            images: '=',
+            crop: '='
         },
         template: template
     };

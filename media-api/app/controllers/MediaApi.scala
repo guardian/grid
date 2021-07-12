@@ -30,6 +30,7 @@ import com.gu.mediaservice.syntax.MessageSubjects
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 class MediaApi(
                 auth: Authentication,
@@ -73,7 +74,6 @@ class MediaApi(
 
     val maybeLoaderLink: Option[Link] = Some(Link("loader", config.loaderUri)).filter(_ => userCanUpload)
     val maybeArchiveLink: Option[Link] = Some(Link("archive", s"${config.metadataUri}/metadata/{id}/archived")).filter(_ => userCanArchive)
-
     val indexLinks = List(
       searchLink,
       Link("image",           s"${config.rootUri}/images/{id}"),
@@ -201,6 +201,29 @@ class MediaApi(
 
   }
 
+  def downloadImageExport(imageId: String, exportId: String, width: Int) = auth.async { request =>
+    implicit val r = request
+
+    elasticSearch.getImageById(imageId) map {
+      case Some(source) if hasPermission(request.user, source) =>
+        val maybeResult = for {
+          export <- source.exports.find(_.id.contains(exportId))
+          asset <- export.assets.find(_.dimensions.exists(_.width == width))
+          s3Object <- Try(s3Client.getObject(config.imgPublishingBucket, asset.file)).toOption
+          file = StreamConverters.fromInputStream(() => s3Object.getObjectContent)
+          entity = HttpEntity.Streamed(file, asset.size, asset.mimeType.map(_.name))
+          result = Result(ResponseHeader(OK), entity).withHeaders("Content-Disposition" -> s3Client.getContentDisposition(source, export, asset))
+        } yield {
+          if(config.recordDownloadAsUsage) {
+            postToUsages(config.usageUri + "/usages/download", auth.getOnBehalfOfPrincipal(request.user), source.id, Authentication.getIdentity(request.user))
+          }
+          result
+        }
+        maybeResult.getOrElse(ExportNotFound)
+      case _ => ImageNotFound(imageId)
+    }
+  }
+
   def deleteImage(id: String) = auth.async { request =>
     implicit val r = request
 
@@ -230,18 +253,28 @@ class MediaApi(
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
-      case Some(_) =>
-        messageSender.publish(
-          UpdateMessage(
-            subject = SoftDeleteImage,
-            id = Some(id),
-            softDeletedMetadata = Some(SoftDeletedMetadata(
-              deleteTime = DateTime.now(DateTimeZone.UTC),
-              deletedBy = request.user.accessor.identity
-            ))
-          )
-        )
-        Accepted
+      case Some(image) if hasPermission(request.user, image) =>
+        val imageCanBeDeleted = imageResponse.canBeDeleted(image)
+        if (imageCanBeDeleted){
+          val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
+          if(canDelete){
+            messageSender.publish(
+              UpdateMessage(
+                subject = SoftDeleteImage,
+                id = Some(id),
+                softDeletedMetadata = Some(SoftDeletedMetadata(
+                  deleteTime = DateTime.now(DateTimeZone.UTC),
+                  deletedBy = request.user.accessor.identity
+                ))
+              )
+            )
+            Accepted
+          } else {
+            ImageDeleteForbidden
+          }
+        } else {
+          ImageCannotBeDeleted
+        }
       case _ => ImageNotFound(id)
     }
   }

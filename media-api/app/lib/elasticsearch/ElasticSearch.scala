@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class ElasticSearch(val config: MediaApiConfig, mediaApiMetrics: MediaApiMetrics, elasticConfig: ElasticSearchConfig, overQuotaAgencies: () => List[Agency])
   extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging {
 
-  lazy val imagesAlias = elasticConfig.alias
+  lazy val imagesAlias = elasticConfig.aliases.current
   lazy val url = elasticConfig.url
   lazy val cluster = elasticConfig.cluster
   lazy val shards = elasticConfig.shards

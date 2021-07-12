@@ -14,7 +14,8 @@
   scriptsToLoad: List[ScriptToLoad],
   staffPhotographerOrganisation: String,
   homeLinkHtml: Option[String],
-  systemName: String
+  systemName: String,
+  canDownloadCrop: Boolean
 )
 <!DOCTYPE html>
 <html>
@@ -55,7 +56,8 @@
           staffPhotographerOrganisation: "@Html(staffPhotographerOrganisation)",
           fieldAliases: @Html(fieldAliases),
           homeLinkHtml: '@Html(homeLinkHtml.getOrElse(""))',
-          systemName: "@Html(systemName)"
+          systemName: "@Html(systemName)",
+          canDownloadCrop: @canDownloadCrop
         }
     </script>
 

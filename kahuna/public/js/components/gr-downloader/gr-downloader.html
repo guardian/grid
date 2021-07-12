@@ -14,7 +14,7 @@
         <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
     </a>
 
-    <button ng-if="ctrl.imageCount() == 1"
+    <button ng-if="ctrl.imageCount() == 1 && !ctrl.canDownloadCrop"
             class="drop-menu clickable inner-clickable side-padded button-right-side"
             ng-click="showExpandedDownload = !showExpandedDownload">
         <span>▾</span>
@@ -25,6 +25,18 @@
             rel="noopener"
             target="_blank">
             <gr-icon-label gr-icon="file_download">Download low-res</gr-icon-label>
+        </a>
+    </button>
+
+
+    <button ng-if="ctrl.imageCount() == 1 && ctrl.crop && ctrl.canDownloadCrop"
+            class="drop-menu clickable inner-clickable side-padded button-right-side"
+            ng-click="showExpandedDownload = !showExpandedDownload">
+        <span>▾</span>
+        <a ng-if="showExpandedDownload"
+            class="drop-menu__items drop-menu__items--nopad"
+            href="{{ ctrl.crop.downloadLink }}" download rel="noopener" target="_blank">
+            <gr-icon-label gr-icon="file_download">Download selected crop</gr-icon-label>
         </a>
     </button>
 

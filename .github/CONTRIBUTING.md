@@ -30,7 +30,6 @@ Each has a short readme, but they are summarised below for convenience:
  * leases - recording leases on a per-image basis in dynamodb
  * scripts - the usual motley crew of useful script tasks
  * collections - recording collections on a per-image basis in dynamodb
- * migration - scripts used to migrate between ElasticSearch versions.
  * image-counter-lambda - metrics emitting lambda
  * media-api - main api for querying and viewing images
 

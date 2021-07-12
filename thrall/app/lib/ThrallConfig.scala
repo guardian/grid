@@ -3,7 +3,7 @@ package lib
 import com.amazonaws.auth.AWSCredentialsProvider
 import com.amazonaws.services.kinesis.metrics.interfaces.MetricsLevel
 import com.gu.mediaservice.lib.aws.AwsClientBuilderUtils
-import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
+import com.gu.mediaservice.lib.config.{CommonConfigWithElastic, GridConfigResources}
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 
@@ -28,17 +28,11 @@ object KinesisReceiverConfig {
   )
 }
 
-class ThrallConfig(resources: GridConfigResources) extends CommonConfig(resources) {
+class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElastic(resources) {
   val imageBucket: String = string("s3.image.bucket")
-
-  val writeAlias: String = string("es.index.aliases.write")
 
   val thumbnailBucket: String = string("s3.thumb.bucket")
 
-  val elasticsearch6Url: String =  string("es6.url")
-  val elasticsearch6Cluster: String = string("es6.cluster")
-  val elasticsearch6Shards: Int = string("es6.shards").toInt
-  val elasticsearch6Replicas: Int = string("es6.replicas").toInt
 
   val metadataTopicArn: String = string("indexed.image.sns.topic.arn")
 

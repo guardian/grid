@@ -6,7 +6,7 @@ import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
-import com.gu.mediaservice.model.ThrallMessage
+import com.gu.mediaservice.model.ExternalThrallMessage
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
@@ -35,7 +35,7 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def processUpdateMessage(updateMessage: ThrallMessage): Future[ThrallMessage]  = {
+  def processUpdateMessage(updateMessage: ExternalThrallMessage): Future[ExternalThrallMessage]  = {
     val marker = updateMessage
 
     val stopwatch = Stopwatch.start

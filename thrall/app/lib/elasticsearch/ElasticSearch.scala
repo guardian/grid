@@ -25,7 +25,7 @@ object ImageNotDeletable extends Throwable("Image cannot be deleted")
 class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient
   with ImageFields with ElasticSearchExecutions {
 
-  lazy val imagesAlias: String = config.alias
+  lazy val imagesAlias: String = config.aliases.current
   lazy val url: String = config.url
   lazy val cluster: String = config.cluster
   lazy val shards: Int = config.shards

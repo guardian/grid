@@ -47,7 +47,8 @@ class KahunaController(
       scriptsToLoad,
       config.staffPhotographerOrganisation,
       config.homeLinkHtml,
-      config.systemName
+      config.systemName,
+      config.canDownloadCrop
     ))
   }
 

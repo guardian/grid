@@ -227,6 +227,7 @@ lazy val thrall = playProject("thrall", 9002).settings(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
+    "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "2.0.2",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )
@@ -255,15 +256,6 @@ lazy val scripts = project("scripts")
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.6.4"
     )
   )
-
-lazy val migration = project("migration")
-  .dependsOn(commonLib).
-  settings(commonSettings,
-    mainClass in Compile := Some("Main"),
-    assemblyMergeStrategy in assembly := {
-      case PathList("META-INF", xs@_*) => MergeStrategy.discard
-      case _ => MergeStrategy.first
-    })
 
 def project(projectName: String, path: Option[String] = None): Project =
   Project(projectName, file(path.getOrElse(projectName)))
