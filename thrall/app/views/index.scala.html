@@ -1,24 +1,29 @@
+@import helper._
 
 @(currentAlias: String,
   currentIndex: String,
   migrationAlias: String,
   migrationIndex: Option[String]
 )
-@migrationNameCell = {
+
+@migrationIndexCell = {
     @migrationIndex match {
         case Some(indexName) => {
             @indexName <button>Migrate single image</button>
         }
         case None => {
-            <button>Start migration</button>
+            @form(routes.ThrallController.startMigration()) {
+                <input type="submit" value="Start migration">
+            }
         }
     }
 }
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Current elasticsearch indices</title>
+    <title>Thrall Control Panel</title>
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 </head>
 <body>
@@ -34,7 +39,7 @@
         </tr>
         <tr>
             <td>@migrationAlias</td>
-            <td>@migrationNameCell</td>
+            <td>@migrationIndexCell</td>
         </tr>
     </table>
 </body>

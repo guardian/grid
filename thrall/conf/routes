@@ -4,6 +4,9 @@
 
 GET     /                                             controllers.ThrallController.index
 
++ nocsrf
+POST    /startMigration                               controllers.ThrallController.startMigration
+
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
