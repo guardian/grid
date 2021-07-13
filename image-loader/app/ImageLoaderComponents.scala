@@ -38,7 +38,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
     case (false, _) => None
   }
 
-  val services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  val services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   private val gridClient = GridClient(services)(wsClient)
 
   val controller = new ImageLoaderController(
