@@ -26,9 +26,12 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   def imagesAlias: String
 
+  @deprecated("This index should not be used directly.")
   protected val imagesIndexPrefix = "images"
+
   protected val imageType = "image"
 
+  @deprecated("This should always be used from config (imagesAlias) instead")
   val initialImagesIndex = "images"
 
   def shards: Int
@@ -40,6 +43,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     ElasticClient(client)
   }
 
+  @deprecated("This should be handled by the migration code.")
   def ensureAliasAssigned() {
     logger.info(s"Checking alias $imagesAlias is assigned to index…")
     if (getCurrentAlias.isEmpty) {
@@ -144,8 +148,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   // Elastic only allows one index in an alias set to be the write index.
   // To mirror index updates to all indexes in the alias group, the grid queries the alias set and explicitly executes
   // each update on every aliased index.
+  @deprecated("This does nothing.")
   def getCurrentIndices: List[String] = ???
 
+  @deprecated("This should be handled by the migration code. (Deprecated because of static index/alias reference)")
   def assignAliasTo(index: String): Unit = {
     logger.info(s"Assigning alias $imagesAlias to $index")
     val aliasActionResponse = Await.result(client.execute {
@@ -156,6 +162,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     logger.info("Got alias action response: " + aliasActionResponse)
   }
 
+  @deprecated("This should be part of the migration code. (Deprecated because of static index/alias reference)\")
   def changeAliasTo(newIndex: String, oldIndex: String, alias: String = imagesAlias): Unit = {
     logger.info(s"Assigning alias $alias to $newIndex")
     val aliasActionResponse = Await.result(client.execute {
@@ -167,6 +174,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     logger.info("Got alias action response: " + aliasActionResponse)
   }
 
+  @deprecated("This does nothing.")
  def removeAliasFrom(index: String) = ???
 
 }
