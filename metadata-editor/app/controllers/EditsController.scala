@@ -57,7 +57,7 @@ class EditsController(
 
   import UsageRightsMetadataMapper.usageRightsToMetadata
 
-  val services: Services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
 
   val metadataBaseUri = config.services.metadataBaseUri

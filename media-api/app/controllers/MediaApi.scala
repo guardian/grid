@@ -45,7 +45,7 @@ class MediaApi(
                 authorisation: Authorisation
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers {
 
-  val services: Services = new Services(config.domainRoot, ServiceHosts.guardianPrefixes, Set.empty)
+  val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
 
   private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
