@@ -1,9 +1,7 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.UpdateMessage
 import lib.elasticsearch.ElasticSearchTestBase
 import org.scalatest.mockito.MockitoSugar
-import play.api.libs.json.Json
 
 class ThrallEventConsumerTest extends ElasticSearchTestBase with MockitoSugar {
   "parse message" - {
@@ -11,24 +9,14 @@ class ThrallEventConsumerTest extends ElasticSearchTestBase with MockitoSugar {
       val j =
         """
           |{
-          | "subject":"test"
-          |}
-          |""".stripMargin.getBytes()
-      val m2 = ThrallEventConsumer.parseRecord(j, java.time.Instant.EPOCH)
-      m2.isRight shouldEqual (true)
-      m2.right.get.subject shouldBe "test"
-    }
-    "parse near minimal message" in {
-      val j =
-        """
-          |{
-          | "subject":"test",
+          | "subject":"delete-image",
+          | "id":"123",
           | "lastModified":"2021-01-25T10:21:18.006Z"
           |}
           |""".stripMargin.getBytes()
       val m2 = ThrallEventConsumer.parseRecord(j, java.time.Instant.EPOCH)
       m2.isRight shouldEqual (true)
-      m2.right.get.subject shouldBe "test"
+      m2.right.get.subject shouldBe "DeleteImageMessage"
     }
   }
 }

@@ -9,7 +9,11 @@ import akka.util.ByteString
 import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
+import com.gu.mediaservice.model.{DeleteImageMessage, ExternalThrallMessage}
 import lib.kinesis.ThrallEventConsumer
+import org.joda.time.{DateTime, DateTimeZone}
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
@@ -20,8 +24,11 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
   private implicit val actorSystem: ActorSystem = ActorSystem()
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
+  val now = DateTime.now(DateTimeZone.forOffsetHours(9))
+  val nowUtc = new DateTime(now.getMillis()).toDateTime(DateTimeZone.UTC)
+
   def createKinesisRecord: KinesisRecord = KinesisRecord(
-    data = ByteString(JsonByteArrayUtil.toByteArray(UpdateMessage(subject = "example-kinesis"))),
+    data = ByteString(JsonByteArrayUtil.toByteArray(UpdateMessage(subject = "delete-image", id = Some("my-id")))),
     partitionKey = "",
     explicitHashKey = None,
     sequenceNumber = "",
@@ -31,7 +38,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
   )
 
   def createMigrationRecord: MigrationRecord = MigrationRecord(
-    payload = UpdateMessage(subject = "example-migration"),
+    payload = DeleteImageMessage("hey", nowUtc),
     approximateArrivalTimestamp = OffsetDateTime.now().toInstant
   )
 
@@ -46,6 +53,9 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
 
   lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
+  when(mockConsumer.processUpdateMessage(any[ExternalThrallMessage]))
+    .thenAnswer(i => Future.successful(i.getArgument(0)))
+
   lazy val streamProcessor = new ThrallStreamProcessor(
     uiPrioritySource,
     automationPrioritySource,

@@ -1,9 +1,8 @@
 package controllers
 
-import java.util.concurrent.Executors
-
 import play.api.mvc.{BaseController, ControllerComponents}
 
+import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 
 class ThrallController(override val controllerComponents: ControllerComponents)(implicit val ec: ExecutionContext) extends BaseController {

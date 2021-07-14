@@ -59,7 +59,7 @@ class ThrallStreamProcessor(
   implicit val mat = materializer
   implicit val dispatcher = actorSystem.getDispatcher
 
-  val mergedKinesisSource: Source[TaggedRecord[UpdateMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
+  val mergedKinesisSource: Source[TaggedRecord[ExternalThrallMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
     import GraphDSL.Implicits._
 
     val uiRecordSource = uiSource.map(kinesisRecord =>
@@ -68,8 +68,8 @@ class ThrallStreamProcessor(
     val automationRecordSource = automationSource.map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
 
-    val migrationMessagesSource: Source[TaggedRecord[UpdateMessage], Future[Done]] = migrationSource.map { case MigrationRecord(updateMessage, time) =>
-      TaggedRecord(updateMessage, time, MigrationPriority, () => {})
+    val migrationMessagesSource: Source[TaggedRecord[ExternalThrallMessage], Future[Done]] = migrationSource.map { case MigrationRecord(externalThrallMessage, time) =>
+      TaggedRecord(externalThrallMessage, time, MigrationPriority, () => {})
     }
 
     // merge together ui and automation kinesis records
@@ -78,7 +78,7 @@ class ThrallStreamProcessor(
     automationRecordSource  ~> uiAndAutomationRecordsMerge.in(0)
 
     // parse the kinesis records into thrall update messages (dropping those that fail)
-    val uiAndAutomationMessagesSource: PortOps[TaggedRecord[UpdateMessage]] =
+    val uiAndAutomationMessagesSource: PortOps[TaggedRecord[ExternalThrallMessage]] =
       uiAndAutomationRecordsMerge.out
         .map { taggedRecord =>
           ThrallEventConsumer
@@ -92,31 +92,23 @@ class ThrallStreamProcessor(
         }
 
     // merge in the re-ingestion source (preferring ui/automation)
-    val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[UpdateMessage]](1))
+    val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[ExternalThrallMessage]](1))
     uiAndAutomationMessagesSource ~> mergePreferred.preferred
     migrationMessagesSource ~> mergePreferred.in(0)
 
     SourceShape(mergePreferred.out)
   })
 
-  def createStream(): Source[(TaggedRecord[UpdateMessage], Stopwatch, Either[Throwable, ExternalThrallMessage]), NotUsed] = {
-    mergedKinesisSource.map{ taggedRecord =>
-      taggedRecord -> MessageTranslator.translate(taggedRecord.payload)
-    }.mapAsync(1) { result =>
+  def createStream(): Source[(TaggedRecord[ExternalThrallMessage], Stopwatch, ExternalThrallMessage), NotUsed] = {
+    mergedKinesisSource.mapAsync(1) { result =>
       val stopwatch = Stopwatch.start
-      result match {
-        case (record, Right(updateMessage)) =>
-          consumer.processUpdateMessage(updateMessage)
-            .recover { case _ => () }
-            .map(_ => (record, stopwatch, Right(updateMessage)))
-        case (record, Left(whoops)) => {
-          logger.warn("Unable to parse message.", whoops)
-          Future.successful((record, stopwatch, Left(whoops)))
-        }
+      consumer.processUpdateMessage(result.payload)
+        .recover { case _ => () }
+        .map(_ => (result, stopwatch, result.payload))
       }
-    }
-  }
 
+
+  }
   def run(): Future[Done] = {
     val stream = this.createStream().runForeach {
       case (taggedRecord, stopwatch, _) =>
@@ -133,3 +125,4 @@ class ThrallStreamProcessor(
     stream
   }
 }
+

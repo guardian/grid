@@ -48,9 +48,9 @@ object ExternalThrallMessage{
   implicit val createMigrationIndexMessage = Json.format[CreateMigrationIndexMessage]
 
   implicit val writes = Json.writes[ExternalThrallMessage]
+  implicit val reads = Json.reads[ExternalThrallMessage]
 
 }
-
 
 
 case class ImageMessage(lastModified: DateTime, image: Image) extends ExternalThrallMessage {
