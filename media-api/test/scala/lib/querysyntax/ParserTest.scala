@@ -411,42 +411,42 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
     it("should combination of terms (negated faceted word, word)") {
       Parser.run("""-credit:cats dogs""") should be (List(
         Negation(Match(creditField, Words("cats"))),
-        Match(AnyField, Words("dogs"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(AnyField, Words("dogs")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should combination of terms (negated faceted phrase, word)") {
       Parser.run("""-credit:"cats dogs" unicorns""") should be (List(
         Negation(Match(creditField, Phrase("cats dogs"))),
-        Match(AnyField, Words("unicorns"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(AnyField, Words("unicorns")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should combination of terms (multiple words, label)") {
       Parser.run("""cats dogs #unicorns""") should be (List(
         Match(AnyField, Words("cats dogs")),
-        Match(labelsField, Words("unicorns"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(labelsField, Words("unicorns")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should combination of terms (multiple words, label interleaved)") {
       Parser.run("""cats #unicorns dogs""") should be (List(
         Match(AnyField, Words("cats")),
         Match(labelsField, Words("unicorns")),
-        Match(AnyField, Words("dogs"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(AnyField, Words("dogs")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should combination of terms (negated word, word)") {
       Parser.run("""-cats dogs""") should be (List(
         Negation(Match(AnyField, Words("cats"))),
-        Match(AnyField, Words("dogs"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(AnyField, Words("dogs")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
   }
@@ -454,138 +454,138 @@ class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFie
   describe("has filter") {
     it("should find images with crops") {
       Parser.run("has:crops") should be (List(
-        Match(HasField, HasValue("crops"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(HasField, HasValue("crops")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match multiple terms and the has query") {
       Parser.run("cats dogs has:rightsSyndication") should be (List(
         Match(AnyField, Words("cats dogs")),
-        Match(HasField, HasValue("rightsSyndication"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(HasField, HasValue("rightsSyndication")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match negated has queries") {
       Parser.run("-has:foo") should be (List(
-        Negation(Match(HasField, HasValue("foo")))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Negation(Match(HasField, HasValue("foo"))),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match aliases and a has query") {
       Parser.run("by:cats has:paws") should be (List(
         Match(bylineField, Words("cats")),
-        Match(HasField, HasValue("paws"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(HasField, HasValue("paws")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
   }
 
   describe("fileType filter") {
     it("should find jpegs images") {
       Parser.run("fileType:jpeg") should be (List(
-        Match(SingleField(getFieldPath("mimeType")), Words("image/jpeg"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField(getFieldPath("mimeType")), Words("image/jpeg")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should find png images") {
       Parser.run("fileType:png") should be (List(
-        Match(SingleField(getFieldPath("mimeType")), Words("image/png"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField(getFieldPath("mimeType")), Words("image/png")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should find tiff images when searching for file type 'tif'") {
       Parser.run("fileType:tif") should be (List(
-        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should find tiff images when searching for file type 'tiff'") {
       Parser.run("fileType:tiff") should be (List(
-        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match multiple terms and the fileType query") {
       Parser.run("fileType:tiff cats dogs") should be (List(
         Match(SingleField(getFieldPath("mimeType")), Words("image/tiff")),
-        Match(AnyField, Words("cats dogs"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(AnyField, Words("cats dogs")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match negated fileType queries") {
       Parser.run("-fileType:jpeg") should be (List(
-        Negation(Match(SingleField(getFieldPath("mimeType")), Words("image/jpeg")))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Negation(Match(SingleField(getFieldPath("mimeType")), Words("image/jpeg"))),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match aliases and a fileType query") {
       Parser.run("by:cats fileType:tiff") should be (List(
         Match(bylineField, Words("cats")),
-        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField(getFieldPath("mimeType")), Words("image/tiff")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should not match unrelated file types") {
       Parser.run("fileType:catsdogs") should be (List(
-        Match(SingleField("fileType"), Words("catsdogs"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField("fileType"), Words("catsdogs")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
   }
 
   describe("quoted field search") {
     it("should match a quoted field search") {
       Parser.run(""""fieldDogs":cats""") should be (List(
-        Match(SingleField("fieldDogs"), Words("cats"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField("fieldDogs"), Words("cats")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match a quoted field search with  colons") {
       Parser.run(""""fieldDogs:dinosaur:lemur":cats""") should be (List(
-        Match(SingleField("fieldDogs:dinosaur:lemur"), Words("cats"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField("fieldDogs:dinosaur:lemur"), Words("cats")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match a quoted field search colons, and a search term with quotes and colons") {
       Parser.run(""""fieldDogs":"cats:are:fun"""") should be (List(
-        Match(SingleField("fieldDogs"), Phrase("cats:are:fun"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField("fieldDogs"), Phrase("cats:are:fun")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match a quoted field search with colons and spaces") {
       Parser.run(""""fieldDogs: dinosaur:lemur":cats""") should be (List(
-        Match(SingleField("fieldDogs: dinosaur:lemur"), Words("cats"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField("fieldDogs: dinosaur:lemur"), Words("cats")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match a field search with colons and spaces") {
       Parser.run("fieldDogs : dinosaur:lemur:cats") should be (List(
         Match(AnyField,Words("fieldDogs :")),
-        Match(SingleField("dinosaur"),Words("lemur:cats"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField("dinosaur"),Words("lemur:cats")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
 
     it("should match two field queries") {
       Parser.run("fieldDogs:dinosaur lemur:cats") should be (List(
         Match(SingleField("fieldDogs"),Words("dinosaur")),
-        Match(SingleField("lemur"),Words("cats"))
-      ),
-      Match(IsField,IsValue("not-deleted")))
+        Match(SingleField("lemur"),Words("cats")),
+        Match(IsField,IsValue("not-deleted"))
+      ))
     }
   }
 }
