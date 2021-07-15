@@ -3,8 +3,12 @@ package lib.querysyntax
 object Parser {
 
   def run(input: String): List[Condition] = {
-    val inputString = if(!input.contains("is:deleted")) input.concat(" is:not-deleted").trim else input
-    normalise(parse(inputString))
+    normalise(
+      parse(
+        if(input.contains("is:deleted")) input
+        else input.concat(" -is:deleted").trim
+      )
+    )
   }
 
   def parse(input: String): List[Condition] =
