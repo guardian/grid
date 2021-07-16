@@ -41,6 +41,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     ElasticClient(client)
   }
 
+  //TODO: this function should fail and cause healthcheck fails
   def ensureAliasAssigned() {
     logger.info(s"Checking alias $imagesCurrentAlias is assigned to index…")
     if (getCurrentAlias.isEmpty) {
