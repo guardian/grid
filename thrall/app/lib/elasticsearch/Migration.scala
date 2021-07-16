@@ -21,12 +21,21 @@ class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) ex
 
   def newMigrationIndexName() = "videos" //motion pictures come after pictures, it's just logic
 
-  def getStatus():MigrationStatus = Error
+  def getStatus():MigrationStatus = {
+    val aliases = getCurrentAliases()
+    val imagesIndices = aliases.getOrElse(imagesAlias, Seq())
+    val migrationIndices = aliases.getOrElse(migrationAlias, Seq())
+
+    (imagesIndices.length, migrationIndices.length) match {
+      case (1,0) => NotRunning
+      case (1,1) => InProgress
+      case _ =>     Error
+    }
+  }
 
   def startMigration() = {
     val newIndexName = newMigrationIndexName()
     createImageIndex(newIndexName)
     assignAliasTo(newIndexName, migrationAlias)
-
   }
 }

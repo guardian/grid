@@ -141,10 +141,25 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     None // TODO
   }
 
-  // Elastic only allows one index in an alias set to be the write index.
-  // To mirror index updates to all indexes in the alias group, the grid queries the alias set and explicitly executes
-  // each update on every aliased index.
-  def getCurrentIndices: List[String] = ???
+  def getCurrentIndices: List[String] = {
+    Await.result(client.execute( {
+      catIndices()
+    }) map { response =>
+      response.result.toList map { catIndex =>
+        catIndex.index
+      }
+    }, tenSeconds)
+  }
+
+  def getCurrentAliases(): Map[String, Seq[String]] = {
+    Await.result(client.execute( {
+        getAliases()
+    }) map {response =>
+      response.result.mappings map { case (index, alii) =>
+        index.name -> alii.map(_.name)
+      }
+    }, tenSeconds)
+  }
 
   def assignAliasTo(index: String, alias: String = imagesCurrentAlias): Unit = {
     logger.info(s"Assigning alias $alias to $index")
