@@ -146,11 +146,11 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   // each update on every aliased index.
   def getCurrentIndices: List[String] = ???
 
-  def assignAliasTo(index: String): Unit = {
-    logger.info(s"Assigning alias $imagesCurrentAlias to $index")
+  def assignAliasTo(index: String, alias: String = imagesCurrentAlias): Unit = {
+    logger.info(s"Assigning alias $alias to $index")
     val aliasActionResponse = Await.result(client.execute {
       aliases(
-        addAlias(imagesCurrentAlias, index)
+        addAlias(alias, index)
       )
     }, tenSeconds)
     logger.info("Got alias action response: " + aliasActionResponse)
