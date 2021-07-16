@@ -25,7 +25,7 @@ class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) ex
     val aliases = getCurrentAliases()
     val imagesIndices = aliases.getOrElse(imagesAlias, Seq())
     val migrationIndices = aliases.getOrElse(migrationAlias, Seq())
-
+    // 90% sure this is inverted, need to look closer
     (imagesIndices.length, migrationIndices.length) match {
       case (1,0) => NotRunning
       case (1,1) => InProgress
