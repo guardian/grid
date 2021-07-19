@@ -36,18 +36,15 @@ object JsonByteArrayUtil extends PlayJsonHelpers with GridLogging {
 
   def toByteArray[T](obj: T)(implicit writes: Writes[T]): Array[Byte] = compress(Json.toBytes(Json.toJson(obj)))
 
-  def fromByteArray[T](bytes: Array[Byte])(implicit reads: Reads[T]): Option[T] = {
+  def fromByteArray[T](bytes: Array[Byte])(implicit reads: Reads[T]): Either[JsError, T] = {
     val string = new String(
       if (hasCompressionMarker(bytes)) decompress(bytes) else bytes,
       StandardCharsets.UTF_8
     )
 
     Json.parse(string).validate[T] match {
-      case JsSuccess(obj, _) => Some(obj)
-      case e: JsError => {
-        logParseErrors(e)
-        None
-      }
+      case JsSuccess(obj, _) => Right(obj)
+      case e: JsError => Left(e)
     }
   }
 }
