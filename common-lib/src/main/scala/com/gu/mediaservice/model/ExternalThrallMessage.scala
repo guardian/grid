@@ -44,10 +44,13 @@ object ExternalThrallMessage{
   implicit val addImageLeaseMessage = Json.format[AddImageLeaseMessage]
   implicit val removeImageLeaseMessage = Json.format[RemoveImageLeaseMessage]
   implicit val updateImageExportsMessage = Json.format[UpdateImageExportsMessage]
+
+  implicit val createMigrationIndexMessage = Json.format[CreateMigrationIndexMessage]
+
   implicit val writes = Json.writes[ExternalThrallMessage]
+  implicit val reads = Json.reads[ExternalThrallMessage]
 
 }
-
 
 
 case class ImageMessage(lastModified: DateTime, image: Image) extends ExternalThrallMessage {
@@ -88,5 +91,19 @@ object DeleteUsagesMessage {
 case class UpdateImageSyndicationMetadataMessage(id: String, lastModified: DateTime, maybeSyndicationRights: Option[SyndicationRights]) extends ExternalThrallMessage
 
 case class UpdateImagePhotoshootMetadataMessage(id: String, lastModified: DateTime, edits: Edits) extends ExternalThrallMessage
+
+/**
+  * Message to start a new 'migration' (for re-index, re-ingestion etc.)
+  * @param migrationStart timestamp representing when a migration commenced
+  * @param gitHash the git commit hash (of the grid repo) at the point the migration commenced
+  */
+case class CreateMigrationIndexMessage(
+  migrationStart: DateTime,
+  gitHash: String
+) extends ExternalThrallMessage {
+  val id: String = "N/A"
+  val lastModified: DateTime = migrationStart
+}
+
 
 

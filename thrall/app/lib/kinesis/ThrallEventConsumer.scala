@@ -86,20 +86,52 @@ class ThrallEventConsumer(es: ElasticSearch,
 
 object ThrallEventConsumer extends GridLogging {
 
-  def parseRecord(r: Array[Byte], timestamp: Instant):Either[Throwable,UpdateMessage] = {
+  def parseRecordAsUpdateMessage(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
     Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
       case Success(Some(updateMessage: UpdateMessage)) => {
-        logger.info(updateMessage.toLogMarker, s"Received ${updateMessage.subject} message at $timestamp")
-        Right(updateMessage)
+        MessageTranslator.translate(updateMessage)
       }
       case Success(None)=> {
         val message = new String(r)
-        logger.warn(s"No message present in record at $timestamp", message)
         Left(NoMessageException(timestamp, message)) //No message received
       }
       case Failure(e) => {
-        logger.error(s"Exception during process record block at $timestamp", e)
         Left(e)
+      }
+    }
+  }
+
+  def parseRecordAsExternalThrallMessage(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
+    Try(JsonByteArrayUtil.fromByteArray[ExternalThrallMessage](r)) match {
+      case Success(Some(message: ExternalThrallMessage)) => {
+        Right(message)
+      }
+      case Success(None)=> {
+        val message = new String(r)
+        Left(NoMessageException(timestamp, message)) //No message received
+      }
+      case Failure(e) => {
+        Left(e)
+      }
+    }
+  }
+
+  def parseRecord(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
+    (parseRecordAsExternalThrallMessage(r, timestamp) match {
+      case Right(message) => Right(message)
+      case _ => parseRecordAsUpdateMessage(r, timestamp)
+    }) match {
+      case Right(message) => {
+        logger.info(message.toLogMarker, s"Received ${message.subject} message at $timestamp")
+        Right(message)
+      }
+      case left@Left(NoMessageException(timestamp, message)) => {
+        logger.warn(s"No message present in record at $timestamp", message)
+        left
+      }
+      case left@Left(e) => {
+        logger.error(s"Exception during process record block at $timestamp", e)
+        left
       }
     }
   }
