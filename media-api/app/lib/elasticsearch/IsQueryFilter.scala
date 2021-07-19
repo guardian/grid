@@ -13,6 +13,7 @@ sealed trait IsQueryFilter extends Query with ImageFields {
     case IsOwnedPhotograph(staffPhotographerOrg) => s"$staffPhotographerOrg-owned-photo"
     case IsOwnedIllustration(staffPhotographerOrg) => s"$staffPhotographerOrg-owned-illustration"
     case IsOwnedImage(staffPhotographerOrg) => s"$staffPhotographerOrg-owned"
+    case _: IsDeleted => "deleted"
     case _: IsUnderQuota => "under-quota"
   }
 }
@@ -26,6 +27,7 @@ object IsQueryFilter {
       case s if s == s"$organisation-owned-illustration" => Some(IsOwnedIllustration(organisation))
       case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
+      case "deleted" => Some(IsDeleted(true))
       case _ => None
     }
   }
@@ -53,4 +55,10 @@ case class IsUnderQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter {
   override def query: Query = overQuotaAgencies.toNel
     .map(agency => filters.mustNot(filters.terms(usageRightsField("supplier"), agency.map(_.supplier))))
     .getOrElse(matchAllQuery)
+}
+
+case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
+  override def query: Query = filters.or(
+    (filters.existsOrMissing("softDeletedMetadata", _))(isDeleted)
+  )
 }

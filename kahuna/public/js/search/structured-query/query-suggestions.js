@@ -81,7 +81,8 @@ const isSearch = [
     `${staffPhotographerOrganisation}-owned-photo`,
     `${staffPhotographerOrganisation}-owned-illustration`,
     `${staffPhotographerOrganisation}-owned`,
-  'under-quota'
+  'under-quota',
+  'deleted'
 ];
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
