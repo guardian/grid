@@ -2,16 +2,14 @@ package com.gu.mediaservice.lib.aws
 
 import java.nio.ByteBuffer
 import java.util.UUID
-
 import com.amazonaws.services.kinesis.model.PutRecordRequest
 import com.amazonaws.services.kinesis.{AmazonKinesis, AmazonKinesisClientBuilder}
-import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.usage.UsageNotice
 import net.logstash.logback.marker.{LogstashMarker, Markers}
 import play.api.libs.json.{JodaWrites, Json, Writes}
 import com.amazonaws.auth.AWSCredentialsProvider
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import org.joda.time.DateTime
 
 case class KinesisSenderConfig(
@@ -30,7 +28,7 @@ class Kinesis(config: KinesisSenderConfig) extends GridLogging{
 
   private lazy val kinesisClient: AmazonKinesis = getKinesisClient
 
-  def publish(message: UpdateMessage) {
+  def publish[T <: LogMarker](message: T)(implicit messageWrites: Writes[T]) {
     val partitionKey = UUID.randomUUID().toString
 
     implicit val yourJodaDateWrites: Writes[DateTime] = JodaWrites.JodaDateTimeWrites

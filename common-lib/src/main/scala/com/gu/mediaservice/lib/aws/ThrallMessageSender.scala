@@ -1,13 +1,11 @@
 package com.gu.mediaservice.lib.aws
 
-import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
-import net.logstash.logback.marker.LogstashMarker
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.functional.syntax.{toFunctionalBuilderOps, unlift}
+import play.api.libs.functional.syntax.{toFunctionalBuilderOps}
 import play.api.libs.json.{JodaReads, JodaWrites, Json, __}
 
 // TODO MRB: replace this with the simple Kinesis class once we migrate off SNS
@@ -15,7 +13,11 @@ class ThrallMessageSender(config: KinesisSenderConfig) {
   private val kinesis = new Kinesis(config)
 
   def publish(updateMessage: UpdateMessage): Unit = {
-    kinesis.publish(updateMessage)
+    kinesis.publish(updateMessage)(UpdateMessage.writes)
+  }
+
+  def publish(externalThrallMessage: ExternalThrallMessage) = {
+    kinesis.publish(externalThrallMessage)
   }
 }
 
