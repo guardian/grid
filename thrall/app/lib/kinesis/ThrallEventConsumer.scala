@@ -84,15 +84,16 @@ class ThrallEventConsumer(es: ElasticSearch,
 
 }
 
-object ThrallEventConsumer extends GridLogging {
+object ThrallEventConsumer extends GridLogging with PlayJsonHelpers {
 
   def parseRecordAsUpdateMessage(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
     Try(JsonByteArrayUtil.fromByteArray[UpdateMessage](r)) match {
-      case Success(Some(updateMessage: UpdateMessage)) => {
+      case Success(Right(updateMessage: UpdateMessage)) => {
         MessageTranslator.translate(updateMessage)
       }
-      case Success(None)=> {
+      case Success(Left(cause)) => {
         val message = new String(r)
+        logParseErrors(cause)
         Left(NoMessageException(timestamp, message)) //No message received
       }
       case Failure(e) => {
@@ -103,10 +104,12 @@ object ThrallEventConsumer extends GridLogging {
 
   def parseRecordAsExternalThrallMessage(r: Array[Byte], timestamp: Instant):Either[Throwable,ExternalThrallMessage] = {
     Try(JsonByteArrayUtil.fromByteArray[ExternalThrallMessage](r)) match {
-      case Success(Some(message: ExternalThrallMessage)) => {
+      case Success(Right(message: ExternalThrallMessage)) => {
         Right(message)
       }
-      case Success(None)=> {
+      case Success(Left(_)) => {
+        // We expect this to fail validation until `UpdateMessage`s are phased out completely,
+        // so we do not log the cause of this Left.
         val message = new String(r)
         Left(NoMessageException(timestamp, message)) //No message received
       }
