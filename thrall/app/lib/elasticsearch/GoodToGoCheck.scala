@@ -73,7 +73,7 @@ object GoodToGoCheck extends StrictLogging {
   def deleteTestImage(es: ElasticSearch, imageId: String)(implicit ex: ExecutionContext, lm: LogMarker): Future[Response[DeleteResponse]] = {
     import com.sksamuel.elastic4s.ElasticDsl._
     // this manipulates the underlying ES API as the built in delete API guards against deleting images that are in use
-    es.executeAndLog(deleteById(es.imagesAlias, imageId), s"Deleting good to go test image $imageId")
+    es.executeAndLog(deleteById(es.imagesCurrentAlias, imageId), s"Deleting good to go test image $imageId")
   }
 
   def deleteOldTestImages(es: ElasticSearch, now: DateTime)(implicit ex: ExecutionContext, lm: LogMarker): Future[Long] = {
@@ -86,7 +86,7 @@ object GoodToGoCheck extends StrictLogging {
     )
     // this manipulates the underlying ES API as the built in delete API guards against deleting images that are in use
     val eventualResult = es.executeAndLog(
-      deleteByQuery(es.imagesAlias, query),
+      deleteByQuery(es.imagesCurrentAlias, query),
       s"Deleting any old test images uploaded by ${MappingTest.testImage.uploadedBy}"
     )
     eventualResult.map(_.result.deleted)

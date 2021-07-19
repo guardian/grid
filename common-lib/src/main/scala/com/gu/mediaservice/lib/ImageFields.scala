@@ -47,7 +47,7 @@ trait ImageFields {
   def sourceField(field: String)      = s"source.$field"
   def photoshootField(field: String) = editsField(s"photoshoot.$field")
 
-  val aliases = Map(
+  val fieldAliases = Map(
     "crops"     -> "exports",
     "croppedBy" -> "exports.author",
     "filename"  -> "uploadInfo.filename",
@@ -64,7 +64,7 @@ trait ImageFields {
     case f if collectionsFields.contains(f) => collectionsField(f)
     case f if usagesFields.contains(f)      => usagesField(f)
     case f if sourceFields.contains(f)      => sourceField(f)
-    case f => aliases.getOrElse(f, f)
+    case f => fieldAliases.getOrElse(f, f)
   }
 
 }

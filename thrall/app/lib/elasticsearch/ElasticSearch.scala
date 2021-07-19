@@ -25,7 +25,8 @@ object ImageNotDeletable extends Throwable("Image cannot be deleted")
 class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient
   with ImageFields with ElasticSearchExecutions {
 
-  lazy val imagesAlias: String = config.aliases.current
+  lazy val imagesCurrentAlias: String = config.aliases.current
+  lazy val imagesMigrationAlias: String = config.aliases.migration
   lazy val url: String = config.url
   lazy val cluster: String = config.cluster
   lazy val shards: Int = config.shards
@@ -39,7 +40,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       val document = Json.stringify(Json.toJson(img))
       (
         requestsSoFar :+
-        indexInto(imagesAlias)
+        indexInto(imagesCurrentAlias)
           .id(img.id)
           .source(document),
         sizeSoFar + document.length()
@@ -87,7 +88,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson)))
     )
 
-    val indexRequest = updateById(imagesAlias, id).
+    val indexRequest = updateById(imagesCurrentAlias, id).
       upsert(Json.stringify(insertImageAsJson)).
       script(script)
 
@@ -99,7 +100,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   }
 
   def getImage(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
-    executeAndLog(get(imagesAlias, id), s"ES6 get image by $id").map { r =>
+    executeAndLog(get(imagesCurrentAlias, id), s"ES6 get image by $id").map { r =>
       if (r.result.found) {
         Some(Json.parse(r.result.sourceAsString).as[Image])
       } else {
@@ -220,7 +221,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       filter
     )
 
-    val request = search(imagesAlias) bool filteredMatches limit 200 // TODO no order?
+    val request = search(imagesCurrentAlias) bool filteredMatches limit 200 // TODO no order?
 
     executeAndLog(request, s"ES6 get images in photoshoot ${photoshoot.title} with inferred syndication rights (excluding $excludedImageId)").map { r =>
       r.result.hits.hits.toList.map { h =>
@@ -248,7 +249,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val syndicationRightsPublishedDescending = fieldSort("syndicationRights.published").order(SortOrder.DESC)
 
-    val request = search(imagesAlias) bool filteredMatches sortBy syndicationRightsPublishedDescending
+    val request = search(imagesCurrentAlias) bool filteredMatches sortBy syndicationRightsPublishedDescending
 
     executeAndLog(request, s"ES6 get image in photoshoot ${photoshoot.title} with latest rcs syndication rights (excluding $excludedImageId)").map { r =>
       r.result.hits.hits.toList.headOption.map { h =>
@@ -269,9 +270,9 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       nestedQuery("usages").query(existsQuery("usages"))
     )
 
-    val eventualDeleteResponse = executeAndLog(count(imagesAlias).query(deletableImage), s"ES6 searching for image to delete: $id").flatMap { r =>
+    val eventualDeleteResponse = executeAndLog(count(imagesCurrentAlias).query(deletableImage), s"ES6 searching for image to delete: $id").flatMap { r =>
       val deleteFuture = r.result.count match {
-        case 1 => executeAndLog(deleteById(imagesAlias, id), s"ES6 deleting image $id")
+        case 1 => executeAndLog(deleteById(imagesCurrentAlias, id), s"ES6 deleting image $id")
         case _ => Future.failed(ImageNotDeletable)
       }
       deleteFuture
@@ -320,7 +321,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   }
 
   private def getUpdateRequest(id: String, script: String) =
-    updateById(imagesAlias, id)
+    updateById(imagesCurrentAlias, id)
       .script(Script(script = script).lang("painless"))
 
   def replaceImageLeases(id: String, leases: Seq[MediaLease], lastModified: DateTime)
@@ -345,10 +346,10 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     Script(script = scriptSource).lang("painless").param("lastModified", printDateTime(lastModified)).params(params)
 
   private def prepareUpdateRequest(id: String, scriptSource: String, lastModified: DateTime, params: (String, Object)*) =
-    updateById(imagesAlias, id).script(prepareScript(scriptSource, lastModified, params:_*))
+    updateById(imagesCurrentAlias, id).script(prepareScript(scriptSource, lastModified, params:_*))
 
   private def prepareUpdateRequest(id: String, scriptSource: String, lastModified: DateTime) =
-    updateById(imagesAlias, id).script(prepareScript(scriptSource, lastModified))
+    updateById(imagesCurrentAlias, id).script(prepareScript(scriptSource, lastModified))
 
   def addImageLease(id: String, lease: MediaLease, lastModified: DateTime)
                    (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
