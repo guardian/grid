@@ -23,6 +23,7 @@ object RedundantTokenRemover extends MetadataCleaner {
     "Uncredited",
     "uncredited",
     "XXSTRINGERXX xxxxx",
+    "AFP Contributor",
     "AFP Contributor#AFP"
   )
 
