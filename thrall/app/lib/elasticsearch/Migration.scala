@@ -11,8 +11,8 @@ case object Complete extends MigrationStatus
 case object Error extends MigrationStatus
 
 class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient{
-  lazy val imagesAlias: String = config.aliases.current
-  lazy val migrationAlias: String = "relocation" //cf googles thesaurus
+  lazy val imagesCurrentAlias: String = config.aliases.current
+  lazy val imagesMigrationAlias: String = "relocation" //cf googles thesaurus
 
   lazy val url: String = config.url
   lazy val cluster: String = config.cluster
@@ -23,9 +23,9 @@ class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) ex
 
   def getStatus():MigrationStatus = {
     val aliases = getCurrentAliases()
-    val imagesIndices = aliases.getOrElse(imagesAlias, Seq())
-    val migrationIndices = aliases.getOrElse(migrationAlias, Seq())
-    // 90% sure this is inverted, need to look closer
+
+    val imagesIndices = aliases.getOrElse(imagesCurrentAlias, Seq())
+    val migrationIndices = aliases.getOrElse(imagesMigrationAlias, Seq())
     (imagesIndices.length, migrationIndices.length) match {
       case (1,0) => NotRunning
       case (1,1) => InProgress
@@ -36,6 +36,6 @@ class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) ex
   def startMigration() = {
     val newIndexName = newMigrationIndexName()
     createImageIndex(newIndexName)
-    assignAliasTo(newIndexName, migrationAlias)
+    assignAliasTo(newIndexName, imagesMigrationAlias)
   }
 }
