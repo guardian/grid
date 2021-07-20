@@ -1,0 +1,41 @@
+
+@(currentAlias: String,
+  currentIndex: String,
+  migrationAlias: String,
+  migrationIndex: Option[String]
+)
+@migrationNameCell = {
+    @migrationIndex match {
+        case Some(indexName) => {
+            @indexName <button>Migrate single image</button>
+        }
+        case None => {
+            <button>Start migration</button>
+        }
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Current elasticsearch indices</title>
+    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+</head>
+<body>
+    <h1>Current elasticsearch indices</h1>
+    <table>
+        <tr>
+            <th>Alias</th>
+            <th>Index</th>
+        </tr>
+        <tr>
+            <td>@currentAlias</td>
+            <td>@currentIndex</td>
+        </tr>
+        <tr>
+            <td>@migrationAlias</td>
+            <td>@migrationNameCell</td>
+        </tr>
+    </table>
+</body>
+</html>

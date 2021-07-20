@@ -77,7 +77,9 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
 
   val corsAllowedDomains: Set[String] = corsAllowedOrigins.map(baseUri)
 
-  val loginUriTemplate = s"$authBaseUri/login{?redirectUri}"
+  val redirectUriParam = "redirectUri"
+  val redirectUriPlaceholder = s"{?$redirectUriParam}"
+  val loginUriTemplate = s"$authBaseUri/login$redirectUriPlaceholder"
 
   def baseUri(host: String) = s"https://$host"
 }
