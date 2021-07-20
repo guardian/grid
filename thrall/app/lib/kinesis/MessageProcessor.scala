@@ -23,7 +23,7 @@ class MessageProcessor(es: ElasticSearch,
                        migrationClient: MigrationClient
                       ) extends GridLogging with MessageSubjects {
 
-  def process(updateMessage: ExternalThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
+  def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     updateMessage match {
       case message: ImageMessage => indexImage(message, logMarker)
       case message: DeleteImageMessage => deleteImage(message, logMarker)
@@ -40,6 +40,7 @@ class MessageProcessor(es: ElasticSearch,
       case message: UpdateImageSyndicationMetadataMessage => upsertSyndicationRightsOnly(message, logMarker)
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
+      case _: MigrateImageMessage => Future.successful(logger.warn(logMarker, "TODO implement handler for MigrateImageMessage"))
     }
   }
 

@@ -6,7 +6,7 @@ import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
-import com.gu.mediaservice.model.ExternalThrallMessage
+import com.gu.mediaservice.model.{ExternalThrallMessage, ThrallMessage}
 import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
@@ -36,8 +36,8 @@ class ThrallEventConsumer(es: ElasticSearch,
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def processUpdateMessage(updateMessage: ExternalThrallMessage): Future[ExternalThrallMessage]  = {
-    val marker = updateMessage
+  def processMessage(message: ThrallMessage): Future[ThrallMessage]  = {
+    val marker = message
 
     val stopwatch = Stopwatch.start
     //Try to process the update message twice, and give them both 30 seconds to run.
@@ -49,15 +49,15 @@ class ThrallEventConsumer(es: ElasticSearch,
           *
            */
           (marker) => {
-            messageProcessor.process(updateMessage, marker)
+            messageProcessor.process(message, marker)
           }, attempts, attemptTimeout, delay, marker
         ).transform {
           case Success(_) => {
             logger.info(
               combineMarkers(marker, stopwatch.elapsed),
-              s"Completed processing of ${updateMessage.subject} message"
+              s"Completed processing of ${message.subject} message"
             )
-            Success(updateMessage)
+            Success(message)
           }
           case Failure(processorNotFoundException: ProcessorNotFoundException) => {
             logger.error(
@@ -68,7 +68,7 @@ class ThrallEventConsumer(es: ElasticSearch,
           case Failure(timeoutException: TimeoutException) => {
             logger.error(
               combineMarkers(marker, stopwatch.elapsed),
-              s"Timeout of $timeout reached while processing ${updateMessage.subject} message; message will be ignored:",
+              s"Timeout of $timeout reached while processing ${message.subject} message; message will be ignored:",
               timeoutException
             )
             Failure(timeoutException)
@@ -76,7 +76,7 @@ class ThrallEventConsumer(es: ElasticSearch,
           case Failure(e: Throwable) => {
             logger.error(
               combineMarkers(marker, stopwatch.elapsed),
-              s"Failed to process ${updateMessage.subject} message; message will be ignored:", e
+              s"Failed to process ${message.subject} message; message will be ignored:", e
             )
             Failure(e)
           }

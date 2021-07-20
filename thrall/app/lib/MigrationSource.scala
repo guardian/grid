@@ -6,7 +6,7 @@ import akka.stream.alpakka.elasticsearch.ReadResult
 import akka.stream.alpakka.elasticsearch.scaladsl.ElasticsearchSource
 import akka.stream.scaladsl.Source
 import com.gu.mediaservice.lib.aws.UpdateMessage
-import com.gu.mediaservice.model.{ExternalThrallMessage, Image}
+import com.gu.mediaservice.model.{ExternalThrallMessage, Image, InternalThrallMessage}
 import com.gu.mediaservice.model.Image.ImageReads
 import lib.elasticsearch.ElasticSearch
 import org.elasticsearch.client.RestClient
@@ -16,7 +16,7 @@ import spray.json.{JsObject, JsonFormat}
 
 import scala.concurrent.Future
 
-case class MigrationRecord(payload: ExternalThrallMessage, approximateArrivalTimestamp: Instant)
+case class MigrationRecord(payload: InternalThrallMessage, approximateArrivalTimestamp: Instant)
 
 object MigrationSource {
   def apply(/*implicit es: RestClient*/): Source[MigrationRecord, Future[Done]] = {

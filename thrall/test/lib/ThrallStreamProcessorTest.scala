@@ -9,7 +9,7 @@ import akka.util.ByteString
 import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
-import com.gu.mediaservice.model.{DeleteImageMessage, ExternalThrallMessage}
+import com.gu.mediaservice.model.{MigrateImageMessage, ThrallMessage}
 import lib.kinesis.ThrallEventConsumer
 import org.joda.time.{DateTime, DateTimeZone}
 import org.mockito.ArgumentMatchers.any
@@ -38,7 +38,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
   )
 
   def createMigrationRecord: MigrationRecord = MigrationRecord(
-    payload = DeleteImageMessage("hey", nowUtc),
+    payload = MigrateImageMessage("id"),
     approximateArrivalTimestamp = OffsetDateTime.now().toInstant
   )
 
@@ -53,7 +53,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
 
   lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
-  when(mockConsumer.processUpdateMessage(any[ExternalThrallMessage]))
+  when(mockConsumer.processMessage(any[ThrallMessage]))
     .thenAnswer(i => Future.successful(i.getArgument(0)))
 
   lazy val streamProcessor = new ThrallStreamProcessor(
