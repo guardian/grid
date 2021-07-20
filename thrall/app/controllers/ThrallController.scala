@@ -3,21 +3,25 @@ package controllers
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.QueueOfferResult
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
 import lib.OptionalFutureRunner
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.CreateMigrationIndexMessage
+import com.gu.mediaservice.model.MigrationMessage
 import lib.elasticsearch.ElasticSearch
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.mvc.ControllerComponents
 
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 
 class ThrallController(
   es: ElasticSearch,
+  sendMigrationMessage: MigrationMessage => Future[QueueOfferResult],
   messageSender: ThrallMessageSender,
   actorSystem: ActorSystem,
   override val auth: Authentication,
