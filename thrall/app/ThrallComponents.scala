@@ -48,7 +48,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSource: Source[MigrationRecord, Future[Done]] = MigrationSource()
+  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer)
 
   val migrationClient: MigrationClient = new MigrationClient(config.esConfig, Some(thrallMetrics))
 
@@ -64,7 +64,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val thrallStreamProcessor = new ThrallStreamProcessor(
     uiSource,
     automationSource,
-    migrationSource,
+    migrationSourceWithSender.source,
     thrallEventConsumer,
     actorSystem,
     materializer

@@ -22,11 +22,11 @@ sealed trait ThrallMessage extends GridLogging with LogMarker {
 /**
   * INTERNAL THRALL MESSAGES (these never leave Thrall)
   */
-sealed trait InternalThrallMessage extends ThrallMessage {
+sealed trait InternalThrallMessage extends ThrallMessage {}
 
-}
+sealed trait MigrationMessage extends InternalThrallMessage {}
 
-case class MigrateImageMessage(id: String) extends InternalThrallMessage
+case class MigrateImageMessage(id: String) extends MigrationMessage
 
 /**
   * EXTERNAL THRALL MESSAGES (these go over Kinesis)
