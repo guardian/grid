@@ -154,12 +154,14 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   }
 
   def getCurrentAliases(): Map[String, Seq[String]] = {
-    Await.result(client.execute( {
+    // 90% sure this is inverted, need to look closer
+
+  Await.result(client.execute( {
         getAliases()
     }) map {response =>
-      response.result.mappings map { case (index, alii) =>
-        index.name -> alii.map(_.name)
-      }
+      response.result.mappings.toList.flatMap { case (index, aliases) =>
+        aliases.map(index.name -> _.name)
+      }.groupBy(_._2).mapValues(_.map(_._1))
     }, tenSeconds)
   }
 
