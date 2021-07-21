@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig}
+import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ThrallMetrics
 
 sealed trait MigrationStatus
@@ -19,8 +20,6 @@ class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) ex
   lazy val shards: Int = config.shards
   lazy val replicas: Int = config.replicas
 
-  def newMigrationIndexName() = "videos" //motion pictures come after pictures, it's just logic
-
   def getStatus():MigrationStatus = {
     val aliases = getCurrentAliases()
 
@@ -33,9 +32,10 @@ class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) ex
     }
   }
 
-  def startMigration() = {
-    val newIndexName = newMigrationIndexName()
+  def startMigration(newIndexName: String)(implicit logMarker: LogMarker) = {
     createImageIndex(newIndexName)
+    logger.info(logMarker,s"Created index ${newIndexName}")
     assignAliasTo(newIndexName, imagesMigrationAlias)
+    logger.info(logMarker, s"Assigned migration index ${imagesMigrationAlias} to ${newIndexName}")
   }
 }
