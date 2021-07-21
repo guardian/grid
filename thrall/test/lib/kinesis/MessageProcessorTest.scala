@@ -1,14 +1,13 @@
 package lib.kinesis
 
 import java.util.UUID
-
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model.usage.UsageNotice
 import com.gu.mediaservice.model.{Edits, ImageMetadata}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib.{MetadataEditorNotifications, ThrallStore}
-import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse}
+import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, Migration}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.JsArray
@@ -23,7 +22,8 @@ class MessageProcessorTest extends ElasticSearchTestBase with MessageSubjects wi
     val messageProcessor = new MessageProcessor(
       es = ES,
       store = mock[ThrallStore],
-      metadataEditorNotifications = mock[MetadataEditorNotifications])
+      metadataEditorNotifications = mock[MetadataEditorNotifications],
+      migration = mock[Migration])
 
       // tests here were specific to syndication rights, and have been deleted.
 
