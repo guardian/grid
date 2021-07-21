@@ -14,7 +14,7 @@ class MigrationTest extends ElasticSearchTestBase {
       assert(migration.getStatus() === NotRunning)
     }
     "starting a migration should change the migration status" in {
-      migration.startMigration()
+      migration.startMigration("images-test-migration")
       assert(migration.getStatus() === InProgress)
     }
   }
