@@ -52,7 +52,7 @@ buildWatcher() {
 
 buildSbt() {
   echo "##teamcity[compilationStarted compiler='sbt']"
-  sbt clean test scripts/compile riffRaffUpload
+  sbt clean test:compile test scripts/compile riffRaffUpload
   echo "##teamcity[compilationFinished compiler='sbt']"
 }
 
