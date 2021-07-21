@@ -2,6 +2,7 @@ package lib.kinesis
 
 import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
+import com.gu.mediaservice.lib.formatting.dateTimeFormat
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.MediaLease
@@ -9,6 +10,7 @@ import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
+import org.joda.time.format.DateTimeFormatter
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json._
 
@@ -18,6 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
+                       migration: Migration
                       ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ExternalThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -36,7 +39,7 @@ class MessageProcessor(es: ElasticSearch,
       case message: DeleteUsagesMessage => deleteAllUsages(message, logMarker)
       case message: UpdateImageSyndicationMetadataMessage => upsertSyndicationRightsOnly(message, logMarker)
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
-      case _: CreateMigrationIndexMessage => Future.successful(logger.warn(logMarker, "TODO implement handler for CreateMigrationIndexMessage"))
+      case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
     }
   }
 
@@ -128,6 +131,13 @@ class MessageProcessor(es: ElasticSearch,
       prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))
       _ <- updateImageUserMetadata(UpdateImageUserMetadataMessage(message.id, message.lastModified, message.edits), logMarker)
     } yield logger.info(marker, s"Moved image ${message.id} from $prevPhotoshootOpt to ${message.edits.photoshoot}")
+  }
+
+  def createMigrationIndex(message: CreateMigrationIndexMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+    Future{
+      logger.info(s"Received CreateMigrationIndexMessage")
+      migration.startMigration(s"images-${message.migrationStart.toString(dateTimeFormat)}-${message.gitHash}")(logMarker)
+    }
   }
 }
 
