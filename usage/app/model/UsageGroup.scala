@@ -44,7 +44,8 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
   def buildId(downloadUsageRequest: DownloadUsageRequest): String = s"download/${
     MD5.hash(List(
       downloadUsageRequest.mediaId,
-      downloadUsageRequest.metadata.downloadedBy
+      downloadUsageRequest.metadata.downloadedBy,
+      downloadUsageRequest.dateAdded.getMillis.toString
     ).mkString("_"))
   }"
 
