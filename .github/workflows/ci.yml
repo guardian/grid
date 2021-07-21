@@ -64,4 +64,4 @@ jobs:
         ES6_TEST_URL: http://elasticsearch:9200
         LOCALSTACK_ENDPOINT: http://localstack:4566
       with:
-        args: clean compile test
+        args: clean compile test:compile test
