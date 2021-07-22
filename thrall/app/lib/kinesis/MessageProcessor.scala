@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class MessageProcessor(es: ElasticSearch,
                        store: ThrallStore,
                        metadataEditorNotifications: MetadataEditorNotifications,
-                       migration: Migration
+                       migration: MigrationClient
                       ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ExternalThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {

@@ -21,7 +21,7 @@ class ThrallEventConsumer(es: ElasticSearch,
                           thrallMetrics: ThrallMetrics,
                           store: ThrallStore,
                           metadataEditorNotifications: MetadataEditorNotifications,
-                          migration: Migration,
+                          migration: MigrationClient,
                           actorSystem: ActorSystem) extends PlayJsonHelpers with GridLogging {
 
   private val attemptTimeout = FiniteDuration(20, SECONDS)

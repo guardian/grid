@@ -11,7 +11,7 @@ case object InProgress extends MigrationStatus
 case object Complete extends MigrationStatus
 case object Error extends MigrationStatus
 
-class Migration (config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient{
+class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient{
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = "relocation" //cf googles thesaurus
 
