@@ -2,12 +2,12 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.logging.LogMarker
 
-class MigrationTest extends ElasticSearchTestBase {
+class MigrationClientTest extends ElasticSearchTestBase {
   implicit val lm: LogMarker = new LogMarker{
     override def markerContents: Map[String, Any] = Map.empty
   }
 
-  val migration: Migration = new Migration(elasticSearchConfig, None)
+  val migration: MigrationClient = new MigrationClient(elasticSearchConfig, None)
 
   "Migration" - {
     "status should return as NotRunning on a clean ES" in {

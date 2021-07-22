@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.usage.UsageNotice
 import com.gu.mediaservice.model.{Edits, ImageMetadata}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib.{MetadataEditorNotifications, ThrallStore}
-import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, Migration}
+import lib.elasticsearch.{ElasticSearchTestBase, ElasticSearchUpdateResponse, MigrationClient}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.mockito.MockitoSugar
 import play.api.libs.json.JsArray
@@ -23,7 +23,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MessageSubjects wi
       es = ES,
       store = mock[ThrallStore],
       metadataEditorNotifications = mock[MetadataEditorNotifications],
-      migration = mock[Migration])
+      migration = mock[MigrationClient])
 
       // tests here were specific to syndication rights, and have been deleted.
 
