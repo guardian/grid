@@ -32,7 +32,7 @@ class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics
     }
   }
 
-  def startMigration(newIndexName: String)(implicit logMarker: LogMarker) = {
+  def startMigration(newIndexName: String)(implicit logMarker: LogMarker): Unit = {
     val currentStatus = getStatus()
     if (currentStatus != NotRunning) {
       logger.error(logMarker, s"Could not start migration to ${newIndexName} when status is ${currentStatus}")
