@@ -33,9 +33,17 @@ class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics
   }
 
   def startMigration(newIndexName: String)(implicit logMarker: LogMarker) = {
+    val currentStatus = getStatus()
+    if (currentStatus != NotRunning) {
+      logger.error(logMarker, s"Could not start migration to ${newIndexName} when status is ${currentStatus}")
+      throw new MigrationAlreadyRunningError
+    }
     createImageIndex(newIndexName)
     logger.info(logMarker,s"Created index ${newIndexName}")
     assignAliasTo(newIndexName, imagesMigrationAlias)
     logger.info(logMarker, s"Assigned migration index ${imagesMigrationAlias} to ${newIndexName}")
   }
 }
+
+
+case class MigrationAlreadyRunningError() extends Exception
