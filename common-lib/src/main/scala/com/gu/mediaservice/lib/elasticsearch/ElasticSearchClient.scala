@@ -147,9 +147,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     Await.result(client.execute( {
       catIndices()
     }) map { response =>
-      response.result.toList map { catIndex =>
-        catIndex.index
-      }
+      response.result.toList.map(_.index)
     }, tenSeconds)
   }
 
