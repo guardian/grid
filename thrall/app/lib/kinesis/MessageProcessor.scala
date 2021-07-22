@@ -135,7 +135,6 @@ class MessageProcessor(es: ElasticSearch,
 
   def createMigrationIndex(message: CreateMigrationIndexMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
     Future{
-      logger.info(s"Received CreateMigrationIndexMessage")
       migration.startMigration(s"images-${message.migrationStart.toString(dateTimeFormat)}-${message.gitHash}")(logMarker)
     }
   }
