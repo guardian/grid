@@ -6,7 +6,7 @@ import _root_.play.api.mvc.{BaseController, ControllerComponents}
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.auth.Permissions.{DeleteCrops, PrincipalFilter}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteCropsOrUsages, PrincipalFilter}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
@@ -37,6 +37,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
+
+  val AuthenticatedAndAuthorisedToDeleteCrops = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
 
   val indexResponse = {
     val indexData = Map("description" -> "This is the Cropper Service")
@@ -79,7 +81,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     }
   }
 
-  private val canDeleteCrops: PrincipalFilter = authorisation.hasPermissionTo(DeleteCrops)
+  private val canDeleteCrops: PrincipalFilter = authorisation.hasPermissionTo(DeleteCropsOrUsages)
 
   private def downloadExportLink(imageId: String, exportId: String, width: Int) = Link(s"crop-download-$exportId-$width", s"${config.apiUri}/images/$imageId/export/$exportId/asset/$width/download")
 
@@ -114,17 +116,13 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     }
   }
 
-  def deleteCrops(id: String) = auth.async { httpRequest =>
-    if(canDeleteCrops(httpRequest.user)) {
-      store.deleteCrops(id).map { _ =>
-        val updateMessage = UpdateMessage(subject = DeleteImageExports, id = Some(id))
-        notifications.publish(updateMessage)
-        Accepted
-      } recover {
-        case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
-      }
-    } else {
-      Future.successful(respondError(Unauthorized, "permission-denied", "You cannot delete crops"))
+  def deleteCrops(id: String) = AuthenticatedAndAuthorisedToDeleteCrops.async { httpRequest =>
+    store.deleteCrops(id).map { _ =>
+      val updateMessage = UpdateMessage(subject = DeleteImageExports, id = Some(id))
+      notifications.publish(updateMessage)
+      Accepted
+    } recover {
+      case _ => respondError(BadRequest, "deletion-error", "Could not delete crops")
     }
   }
 

@@ -53,7 +53,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
     permissionContext match {
       case EditMetadata => hasPermission(Permissions.EditMetadata)
       case DeleteImage => hasPermission(Permissions.DeleteImage)
-      case DeleteCrops => hasPermission(Permissions.DeleteCrops)
+      case DeleteCropsOrUsages => hasPermission(Permissions.DeleteCrops)
       case ShowPaid => hasPermission(Permissions.ShowPaid)
       case Pinboard => hasPermission(Permissions.Pinboard)
       case UploadImages => true

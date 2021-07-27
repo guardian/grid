@@ -1,11 +1,10 @@
 package controllers
 
 import java.net.URI
-
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoAction}
-import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
@@ -19,9 +18,11 @@ import play.utils.UriEncoding
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGroupOps, notifications: Notifications, config: UsageConfig, usageRecorder: UsageRecorder, liveContentApi: LiveContentApi,
+class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: UsageTable, usageGroup: UsageGroupOps, notifications: Notifications, config: UsageConfig, usageRecorder: UsageRecorder, liveContentApi: LiveContentApi,
   override val controllerComponents: ControllerComponents, playBodyParsers: PlayBodyParsers)(implicit val ec: ExecutionContext)
   extends BaseController with MessageSubjects with ArgoHelpers {
+
+  private val AuthenticatedAndAuthorisedToDelete = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
 
   private def wrapUsage(usage: Usage): EntityResponse[Usage] = {
     EntityResponse(
@@ -204,7 +205,7 @@ class UsageApi(auth: Authentication, usageTable: UsageTable, usageGroup: UsageGr
     )
   }}
 
-  def deleteUsages(mediaId: String) = auth.async {
+  def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async {
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)
     }).recover{

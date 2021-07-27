@@ -5,7 +5,7 @@ import com.google.common.net.HttpHeaders
 import com.gu.mediaservice.lib.argo._
 import com.gu.mediaservice.lib.argo.model.{Action, _}
 import com.gu.mediaservice.lib.auth.Authentication._
-import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCrops, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
+import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, EditMetadata, UploadImages, DeleteImage => DeleteImagePermission}
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.{S3Metadata, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -108,7 +108,7 @@ class MediaApi(
   }
 
   def canUserDeleteCropsOrUsages(principal: Principal): Boolean =
-    authorisation.hasPermissionTo(DeleteCrops)(principal)
+    authorisation.hasPermissionTo(DeleteCropsOrUsages)(principal)
 
   private def isAvailableForSyndication(image: Image): Boolean = image.syndicationRights.exists(_.isAvailableForSyndication)
 
