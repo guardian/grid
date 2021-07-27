@@ -50,14 +50,14 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
   val migrationSource: Source[MigrationRecord, Future[Done]] = MigrationSource()
 
-  val migration: MigrationClient = new MigrationClient(config.esConfig, Some(thrallMetrics))
+  val migrationClient: MigrationClient = new MigrationClient(config.esConfig, Some(thrallMetrics))
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,
     thrallMetrics,
     store,
     metadataEditorNotifications,
-    migration,
+    migrationClient,
     actorSystem
   )
 

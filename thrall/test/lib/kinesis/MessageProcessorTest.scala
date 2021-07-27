@@ -23,7 +23,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MessageSubjects wi
       es = ES,
       store = mock[ThrallStore],
       metadataEditorNotifications = mock[MetadataEditorNotifications],
-      migration = mock[MigrationClient])
+      migrationClient = mock[MigrationClient])
 
       // tests here were specific to syndication rights, and have been deleted.
 
