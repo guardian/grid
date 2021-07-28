@@ -26,7 +26,7 @@ sealed trait InternalThrallMessage extends ThrallMessage {}
 
 sealed trait MigrationMessage extends InternalThrallMessage {}
 
-case class MigrateImageMessage(id: String) extends MigrationMessage
+case class MigrateImageMessage(id: String, maybeImageWithVersion: Either[String, (Image, Long)]) extends MigrationMessage
 
 /**
   * EXTERNAL THRALL MESSAGES (these go over Kinesis)

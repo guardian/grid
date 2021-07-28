@@ -115,6 +115,16 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     }
   }
 
+  def getImageVersion(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[Option[Long]] = {
+    executeAndLog(get(imagesCurrentAlias, id), s"ES6 get image version by $id").map { r =>
+      if (r.result.found) {
+        Some(r.result.version)
+      } else {
+        None
+      }
+    }
+  }
+
   def updateImageUsages(id: String, usages: Seq[Usage], lastModified: DateTime)
                        (implicit ex: ExecutionContext,logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     val replaceUsagesScript = loadUpdatingModificationPainless(s"""
