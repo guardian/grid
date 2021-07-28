@@ -10,8 +10,8 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.Index
-import com.sksamuel.elastic4s.requests.indexes.IndexRequest
+import com.sksamuel.elastic4s.{Index, Response}
+import com.sksamuel.elastic4s.requests.indexes.{IndexRequest, IndexResponse}
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
@@ -38,6 +38,14 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
   }
 
+  def setMigrationInfo(imageId: String, migrationInfo: MigrationEsInfo)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[IndexResponse]] = {
+    val request = indexInto(imagesCurrentAlias)
+      .id(imageId)
+      .source(Json.stringify(Json.toJson(migrationInfo)))
+
+    executeAndLog(request, s"Setting migration info on image id: ${imageId}")
+  }
+
   def bulkInsert(images: Seq[Image], indexName: String = imagesCurrentAlias)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchBulkUpdateResponse]] = {
     val (requests, totalSize) =
       images.foldLeft[(Seq[IndexRequest], Int)](List(), 0)
@@ -57,7 +65,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
 
     val response = executeAndLog(request, s"Bulk inserting ${images.length} images, total size $totalSize")
 
-    List(response.map(_ => ElasticSearchBulkUpdateResponse()))
+    List(response.map(resp => ElasticSearchBulkUpdateResponse(indexNames = resp.result.items.map(item => item.index))))
   }
 
   def indexImage(id: String, image: Image, lastModified: DateTime, indexName: String = imagesCurrentAlias)

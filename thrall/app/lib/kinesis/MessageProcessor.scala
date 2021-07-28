@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
-import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
@@ -13,6 +13,7 @@ import lib.elasticsearch._
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 
 class MessageProcessor(
@@ -59,21 +60,45 @@ class MessageProcessor(
       es.indexImage(message.id, message.image, message.lastModified)(ec, logMarker)
     )
 
+  sealed trait MigrationFailure extends Exception
+
+  case class ProjectionFailure(message: String) extends MigrationFailure
+  case class GetVersionFailure(message: String) extends MigrationFailure
+  case class VersionComparisonFailure(message: String) extends MigrationFailure
+  case class InsertImageFailure(message: String) extends MigrationFailure
+
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
-    gridClient.getImageLoaderProjection(mediaId = message.id, auth.innerServiceCall)
-      .flatMap {
-        // TODO which ElasticSearch method to use? indexImage has special handling for the lastModified field via painless
-        // scripts, which we don't know if we want to use. Alternatively, we could use bulkInsert on a single image, but
-        // could this run into problems if we eg. attempt to migrate an already-migrated image? Could updates be lost?
-        // Are there other downsides?
-        case Some(image) =>
-//          val lastModified = image.lastModified.getOrElse(DateTime.now())
-//          Future.sequence(es.indexImage(message.id, image, lastModified)(ec, logMarker))
-           Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)(ec, logMarker))
-        case None =>
-          logger.error(s"There is no existing image with id ${message.id}")
-          Future.successful(List())
+    implicit val implicitLogMarker: LogMarker = logMarker
+    val maybeStart = message.maybeImageWithVersion match {
+      case Left(errorMessage) =>
+        Future.failed(ProjectionFailure(errorMessage))
+      case Right((image, expectedVersion)) => Future.successful((image, expectedVersion))
+    }
+    maybeStart.flatMap {
+      case (image, expectedVersion) => es.getImageVersion(message.id).transformWith {
+        case Success(Some(currentVersion)) => Future.successful((image, expectedVersion, currentVersion))
+        case Success(None) => Future.failed(GetVersionFailure(s"No version found for image id: ${image.id}"))
+        case Failure(exception) => Future.failed(GetVersionFailure(exception.toString))
       }
+    }.flatMap {
+      case (image, expectedVersion, currentVersion) => if (expectedVersion == currentVersion) {
+        Future.successful(image)
+      } else {
+        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id}"))
+      }
+    }.flatMap(
+      image => Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)).transform {
+        case s@Success(_) => s
+        case Failure(exception) => Failure(InsertImageFailure(exception.toString))
+      }
+    ).flatMap { insertResult =>
+      logger.info(s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
+      es.setMigrationInfo(imageId = message.id, migrationInfo = MigratedTo(List(insertResult.head.indexNames.head)))
+    }.recoverWith {
+      case failure: MigrationFailure =>
+        logger.error(failure.getMessage)
+        es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationFailures(List(failure.getMessage)))
+    }
   }
 
   private def updateImageExports(message: UpdateImageExportsMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
