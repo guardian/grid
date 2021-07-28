@@ -34,7 +34,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
     Future.successful(())
   })
 
-  val controller = new UsageApi(auth, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
+  val controller = new UsageApi(auth, authorisation, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 
