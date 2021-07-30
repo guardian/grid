@@ -57,7 +57,7 @@ async.factory("apiPoll", [
   "$q",
   ($q) => {
     const wait = () => new Promise(resolve => {
-      setTimeout(() => resolve(), 500);
+      setTimeout(() => resolve(), 1500);
     });
     const poll = async (func, n) => {
       const [{ status, value }] = await Promise.allSettled([
