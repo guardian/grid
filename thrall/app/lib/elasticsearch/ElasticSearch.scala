@@ -38,10 +38,12 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
   }
 
-  def setMigrationInfo(imageId: String, migrationInfo: MigrationEsInfo)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[IndexResponse]] = {
-    val request = indexInto(imagesCurrentAlias)
-      .id(imageId)
-      .source(Json.stringify(Json.toJson(migrationInfo)))
+  def setMigrationInfo(imageId: String, migrationInfo: MigrationEsInfo)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[Any]] = {
+    val esInfo = EsInfo(migration = Some(migrationInfo))
+    val container = Json.obj("esInfo" -> Json.toJson(esInfo))
+
+    val request = updateById(imagesCurrentAlias, imageId)
+      .doc(Json.stringify(container))
 
     executeAndLog(request, s"Setting migration info on image id: ${imageId}")
   }

@@ -15,6 +15,12 @@ import play.api.libs.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+sealed trait MigrationFailure
+
+case class ProjectionFailure(message: String) extends Exception(message) with MigrationFailure
+case class GetVersionFailure(message: String) extends Exception(message) with MigrationFailure
+case class VersionComparisonFailure(message: String) extends Exception(message) with MigrationFailure
+case class InsertImageFailure(message: String) extends Exception(message) with MigrationFailure
 
 class MessageProcessor(
   es: ElasticSearch,
@@ -60,13 +66,6 @@ class MessageProcessor(
       es.indexImage(message.id, message.image, message.lastModified)(ec, logMarker)
     )
 
-  sealed trait MigrationFailure extends Exception
-
-  case class ProjectionFailure(message: String) extends MigrationFailure
-  case class GetVersionFailure(message: String) extends MigrationFailure
-  case class VersionComparisonFailure(message: String) extends MigrationFailure
-  case class InsertImageFailure(message: String) extends MigrationFailure
-
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     implicit val implicitLogMarker: LogMarker = logMarker
     val maybeStart = message.maybeImageWithVersion match {
@@ -93,11 +92,11 @@ class MessageProcessor(
       }
     ).flatMap { insertResult =>
       logger.info(s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
-      es.setMigrationInfo(imageId = message.id, migrationInfo = MigratedTo(List(insertResult.head.indexNames.head)))
+      es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationEsInfo(migratedTo = List(insertResult.head.indexNames.head)))
     }.recoverWith {
       case failure: MigrationFailure =>
         logger.error(failure.getMessage)
-        es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationFailures(List(failure.getMessage)))
+        es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationEsInfo(failures = List(failure.getMessage)))
     }
   }
 

@@ -79,10 +79,9 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
-  val thrallController = new ThrallController(es, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents)
+  val thrallController = new ThrallController(es, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
-
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management, InnerServiceStatusCheckController, assets)
 }
