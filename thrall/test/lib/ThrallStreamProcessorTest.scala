@@ -1,6 +1,5 @@
 package lib
 
-import java.time.OffsetDateTime
 import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -9,19 +8,21 @@ import akka.util.ByteString
 import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
-import com.gu.mediaservice.model.{MigrateImageMessage, ThrallMessage}
+import com.gu.mediaservice.model.{MigrateImageMessage, StaffPhotographer, ThrallMessage}
+import helpers.Fixtures
 import lib.kinesis.ThrallEventConsumer
-import org.joda.time.{DateTime, DateTimeZone}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
+import java.time.OffsetDateTime
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar with Fixtures {
   private implicit val actorSystem: ActorSystem = ActorSystem()
+  private implicit val ec: ExecutionContext = actorSystem.dispatcher
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   describe("Stream merging strategy") {
@@ -36,7 +37,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     )
 
     def createMigrationRecord: MigrationRecord = MigrationRecord(
-      payload = MigrateImageMessage("id"),
+      payload = MigrateImageMessage("id", Right((createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")), 1L))),
       approximateArrivalTimestamp = OffsetDateTime.now().toInstant
     )
 
@@ -118,7 +119,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     it("can send messages manually") {
       val stream = streamProcessor.createStream()
 
-      val expectedMigrationMessage = MigrateImageMessage("id")
+      val expectedMigrationMessage = MigrateImageMessage("id", Right((createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")), 1L)))
 
       migrationSourceWithSender.send(expectedMigrationMessage)
 
