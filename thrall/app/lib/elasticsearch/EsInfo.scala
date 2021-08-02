@@ -1,17 +1,38 @@
 package lib.elasticsearch
 
-import play.api.libs.json.Json
+import play.api.libs.json.{Format, JsResult, JsValue, Json, __}
 
-case class MigrationEsInfo(
-  migratedTo: List[String] = Nil,
-  failures: List[String] = Nil,
+case class MigrationTo(
+  migratedTo: String
 )
-object MigrationEsInfo {
-  implicit val format = Json.format[MigrationEsInfo]
+object MigrationTo {
+  implicit val format = Json.format[MigrationTo]
 }
 
-case class EsInfo(migration: Option[MigrationEsInfo] = None)
+case class MigrationFailure(
+  failure: String
+)
+object MigrationFailure {
+  implicit val format = Json.format[MigrationFailure]
+}
+
+case class EsInfo(migration: Option[Either[MigrationFailure, MigrationTo]] = None)
 object EsInfo {
+  implicit val eitherFormat: Format[Either[MigrationFailure, MigrationTo]] = new Format[Either[MigrationFailure, MigrationTo]] {
+    def reads(json: JsValue): JsResult[Either[MigrationFailure, MigrationTo]] = {
+      MigrationTo.format.reads(json) map {
+        Right(_)
+      }
+    } orElse{
+      MigrationFailure.format.reads(json) map {
+        Left(_)
+      }
+    }
+
+    def writes(c: Either[MigrationFailure, MigrationTo]) = c match {
+      case Left(a) => MigrationFailure.format.writes(a)
+      case Right(b) => MigrationTo.format.writes(b)
+    }
+  }
   implicit val format = Json.format[EsInfo]
 }
-

@@ -92,11 +92,11 @@ class MessageProcessor(
       }
     ).flatMap { insertResult =>
       logger.info(s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
-      es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationEsInfo(migratedTo = List(insertResult.head.indexNames.head)))
+      es.setMigrationInfo(imageId = message.id, migrationInfo = Right(MigrationTo(migratedTo = insertResult.head.indexNames.head)))
     }.recoverWith {
       case failure: MigrationFailure =>
         logger.error(failure.getMessage)
-        es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationEsInfo(failures = List(failure.getMessage)))
+        es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failure = failure.getMessage)))
     }
   }
 

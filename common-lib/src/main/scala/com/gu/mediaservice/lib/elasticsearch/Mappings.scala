@@ -180,7 +180,7 @@ object Mappings {
   def esInfoMapping(name: String) = nonDynamicObjectField(name).fields(
     nonDynamicObjectField("migration").fields(
       keywordField("migratedTo"),
-      textField("failures"),
+      textField("failure"),
     )
   )
 

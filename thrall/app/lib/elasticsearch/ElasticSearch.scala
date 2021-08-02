@@ -38,7 +38,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
   }
 
-  def setMigrationInfo(imageId: String, migrationInfo: MigrationEsInfo)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[Any]] = {
+  def setMigrationInfo(imageId: String, migrationInfo: Either[MigrationFailure, MigrationTo])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[Any]] = {
     val esInfo = EsInfo(migration = Some(migrationInfo))
     val container = Json.obj("esInfo" -> Json.toJson(esInfo))
 
