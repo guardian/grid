@@ -1,27 +1,28 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
-import com.gu.mediaservice.lib.formatting.dateTimeFormat
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
-import org.joda.time.format.DateTimeFormatter
-import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class MessageProcessor(es: ElasticSearch,
-                       store: ThrallStore,
-                       metadataEditorNotifications: MetadataEditorNotifications,
-                       migrationClient: MigrationClient
-                      ) extends GridLogging with MessageSubjects {
+class MessageProcessor(
+  es: ElasticSearch,
+  store: ThrallStore,
+  metadataEditorNotifications: MetadataEditorNotifications,
+  migrationClient: MigrationClient,
+  gridClient: GridClient,
+  auth: Authentication
+) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     updateMessage match {
@@ -40,7 +41,7 @@ class MessageProcessor(es: ElasticSearch,
       case message: UpdateImageSyndicationMetadataMessage => upsertSyndicationRightsOnly(message, logMarker)
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
-      case _: MigrateImageMessage => Future.successful(logger.warn(logMarker, "TODO implement handler for MigrateImageMessage"))
+      case message: MigrateImageMessage => migrateImage(message, logMarker)
     }
   }
 
@@ -58,6 +59,22 @@ class MessageProcessor(es: ElasticSearch,
       es.indexImage(message.id, message.image, message.lastModified)(ec, logMarker)
     )
 
+  private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    gridClient.getImageLoaderProjection(mediaId = message.id, auth.innerServiceCall)
+      .flatMap {
+        // TODO which ElasticSearch method to use? indexImage has special handling for the lastModified field via painless
+        // scripts, which we don't know if we want to use. Alternatively, we could use bulkInsert on a single image, but
+        // could this run into problems if we eg. attempt to migrate an already-migrated image? Could updates be lost?
+        // Are there other downsides?
+        case Some(image) =>
+//          val lastModified = image.lastModified.getOrElse(DateTime.now())
+//          Future.sequence(es.indexImage(message.id, image, lastModified)(ec, logMarker))
+           Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)(ec, logMarker))
+        case None =>
+          logger.error(s"There is no existing image with id ${message.id}")
+          Future.successful(List())
+      }
+  }
 
   private def updateImageExports(message: UpdateImageExportsMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(

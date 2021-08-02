@@ -2,6 +2,8 @@ import akka.Done
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
@@ -52,13 +54,18 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val migrationClient: MigrationClient = new MigrationClient(config.esConfig, Some(thrallMetrics))
 
+  val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
+  val gridClient: GridClient = GridClient(services)(wsClient)
+
   val thrallEventConsumer = new ThrallEventConsumer(
     es,
     thrallMetrics,
     store,
     metadataEditorNotifications,
     migrationClient,
-    actorSystem
+    actorSystem,
+    gridClient,
+    auth
   )
 
   val thrallStreamProcessor = new ThrallStreamProcessor(

@@ -1,35 +1,37 @@
 package lib.kinesis
 
-import java.time.Instant
-import java.util.concurrent.Executors
 import akka.actor.ActorSystem
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.model.{ExternalThrallMessage, ThrallMessage}
-import com.gu.mediaservice.model.usage.UsageNotice
 import lib._
 import lib.elasticsearch._
-import org.joda.time.DateTime
-import play.api.libs.json.{JodaReads, Json, Reads}
 
+import java.time.Instant
+import java.util.concurrent.Executors
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS, SECONDS}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 class ThrallEventConsumer(es: ElasticSearch,
-                          thrallMetrics: ThrallMetrics,
-                          store: ThrallStore,
-                          metadataEditorNotifications: MetadataEditorNotifications,
-                          migrationClient: MigrationClient,
-                          actorSystem: ActorSystem) extends PlayJsonHelpers with GridLogging {
+  thrallMetrics: ThrallMetrics,
+  store: ThrallStore,
+  metadataEditorNotifications: MetadataEditorNotifications,
+  migrationClient: MigrationClient,
+  actorSystem: ActorSystem,
+  gridClient: GridClient,
+  auth: Authentication
+) extends PlayJsonHelpers with GridLogging {
 
   private val attemptTimeout = FiniteDuration(20, SECONDS)
   private val delay = FiniteDuration(1, MILLISECONDS)
   private val attempts = 2
   private val timeout = attemptTimeout * attempts + delay * (attempts - 1)
 
-  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, migrationClient)
+  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, migrationClient, gridClient, auth)
 
   private implicit val implicitActorSystem: ActorSystem = actorSystem
 

@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import akka.http.javadsl.model.headers.LastModified
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -37,7 +38,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
   }
 
-  def bulkInsert(images: Seq[Image])(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchBulkUpdateResponse]] = {
+  def bulkInsert(images: Seq[Image], indexName: String = imagesCurrentAlias)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchBulkUpdateResponse]] = {
     val (requests, totalSize) =
       images.foldLeft[(Seq[IndexRequest], Int)](List(), 0)
       { (collector: (Seq[IndexRequest], Int), img) =>
@@ -45,7 +46,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       val document = Json.stringify(Json.toJson(img))
       (
         requestsSoFar :+
-        indexInto(imagesCurrentAlias)
+        indexInto(indexName)
           .id(img.id)
           .source(document),
         sizeSoFar + document.length()
@@ -59,7 +60,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
     List(response.map(_ => ElasticSearchBulkUpdateResponse()))
   }
 
-  def indexImage(id: String, image: Image, lastModified: DateTime)
+  def indexImage(id: String, image: Image, lastModified: DateTime, indexName: String = imagesCurrentAlias)
                 (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     // On insert, we know we will not have a lastModified to consider, so we always take the one we get
     val insertImage = image.copy(lastModified = Some(lastModified))
@@ -93,7 +94,7 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
       ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson)))
     )
 
-    val indexRequest = updateById(imagesCurrentAlias, id).
+    val indexRequest = updateById(indexName, id).
       upsert(Json.stringify(insertImageAsJson)).
       script(script)
 
