@@ -2,8 +2,10 @@
 
 @(currentAlias: String,
   currentIndex: String,
+  currentIndexCount: String,
   migrationAlias: String,
-  migrationIndex: Option[String]
+  migrationIndex: Option[String],
+  migrationIndexCount: String,
 )
 
 @migrationIndexCell = {
@@ -32,14 +34,17 @@
         <tr>
             <th>Alias</th>
             <th>Index</th>
+            <th>Image count</th>
         </tr>
         <tr>
             <td>@currentAlias</td>
             <td>@currentIndex</td>
+            <td>@currentIndexCount</td>
         </tr>
         <tr>
             <td>@migrationAlias</td>
             <td>@migrationIndexCell</td>
+            <td>@migrationIndexCount</td>
         </tr>
     </table>
 </body>

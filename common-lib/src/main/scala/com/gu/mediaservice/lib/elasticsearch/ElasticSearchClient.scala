@@ -65,12 +65,11 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
   }
 
-
-  def countImages(): Future[ElasticSearchImageCounts] = {
+  def countImages(indexName: String = "images"): Future[ElasticSearchImageCounts] = {
     implicit val logMarker = MarkerMap()
-    val queryCatCount = catCount("images") // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
-    val queryImageSearch = search("images") limit 0 // hits that match the query defined in the request
-    val queryStats = indexStats("images") // total accumulated values of an index for both primary and replica shards
+    val queryCatCount = catCount(indexName) // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
+    val queryImageSearch = search(indexName) limit 0 // hits that match the query defined in the request
+    val queryStats = indexStats(indexName) // total accumulated values of an index for both primary and replica shards
 
     for {
       catCount <- executeAndLog(queryCatCount, "Images cat count")
@@ -79,7 +78,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     } yield
       ElasticSearchImageCounts(catCount.result.count,
                                imageSearch.result.hits.total.value,
-                               stats.result.indices("images").total.docs.count)
+                               stats.result.indices(indexName).total.docs.count)
   }
 
   def ensureIndexExists(index: String): Unit = {

@@ -6,6 +6,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
+import lib.OptionalFutureRunner
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.CreateMigrationIndexMessage
 import lib.elasticsearch.ElasticSearch
@@ -25,15 +26,26 @@ class ThrallController(
 )(implicit val ec: ExecutionContext) extends BaseControllerWithLoginRedirects with GridLogging {
 
   def index = withLoginRedirectAsync {
+    val countDocsInIndex = OptionalFutureRunner.run(es.countImages) _
     for {
-      currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias).map(indexOpt => indexOpt.map(_.index).getOrElse("ERROR - no index found! Please investigate this!"))
-      migrationIndex <- es.getIndexForAlias(es.imagesMigrationAlias).map(indexOpt => indexOpt.map(_.index))
+      currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
+      currentIndexName = currentIndex.map(_.name)
+      currentIndexCount <- countDocsInIndex(currentIndexName)
+
+      migrationIndex <- es.getIndexForAlias(es.imagesMigrationAlias)
+      migrationIndexName = migrationIndex.map(_.name)
+      migrationIndexCount <- countDocsInIndex(migrationIndexName)
+
+      currentIndexCountFormatted = currentIndexCount.map(_.catCount.toString).getOrElse("!")
+      migrationIndexCountFormatted = migrationIndexCount.map(_.catCount.toString).getOrElse("-")
     } yield {
       Ok(views.html.index(
         currentAlias = es.imagesCurrentAlias,
-        currentIndex = currentIndex,
+        currentIndex = currentIndexName.getOrElse("ERROR - No index found! Please investigate this!"),
+        currentIndexCount = currentIndexCountFormatted,
         migrationAlias = es.imagesMigrationAlias,
-        migrationIndex = migrationIndex
+        migrationIndex = migrationIndexName,
+        migrationIndexCount = migrationIndexCountFormatted
       ))
     }
   }
