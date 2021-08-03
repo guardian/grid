@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.auth
 
-import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, Principal, Request, UserPrincipal}
-import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteImage, EditMetadata, PrincipalFilter, UploadImages}
+import com.gu.mediaservice.lib.auth.Permissions.{ArchiveImages, DeleteCropsOrUsages, PrincipalFilter, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import play.api.mvc.{ActionFilter, Result, Results}
 
@@ -57,6 +56,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
   object CommonActionFilters {
     lazy val authorisedForUpload = actionFilterFor(UploadImages)
     lazy val authorisedForArchive = actionFilterFor(ArchiveImages)
+    lazy val authorisedForDeleteCropsOrUsages = actionFilterFor(DeleteCropsOrUsages)
   }
 
   def isUploaderOrHasPermission(
