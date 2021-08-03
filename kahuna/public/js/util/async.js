@@ -56,8 +56,8 @@ const queue = new PQueue({ concurrency: 10 });
 async.factory("apiPoll", [
   "$q",
   ($q) => {
-    const wait = () => new Promise(resolve => {
-      setTimeout(() => resolve(), 500);
+    const wait = (timeout) => new Promise(resolve => {
+      setTimeout(() => resolve(), timeout);
     });
     const poll = async (func, n) => {
       const [{ status, value }] = await Promise.allSettled([
@@ -72,7 +72,7 @@ async.factory("apiPoll", [
       if (n > 100) {
         throw new Error('gave up after 100 tries (apiPoll failed)');
       }
-      await wait();
+      await wait(500 + n * 10);
       return poll(func, n + 1);
     };
     return func => poll(func, 1);
