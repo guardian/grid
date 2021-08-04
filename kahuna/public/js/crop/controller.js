@@ -131,7 +131,7 @@ crop.controller('ImageCropCtrl', [
         ctrl.inputY = ctrl.cropY();
       });
 
-      ctrl.cropSizeWarning = () => ctrl.cropWidth() < 500;
+      ctrl.cropSizeWarning = () => ctrl.cropWidth() < 1000;
 
       function crop() {
         // TODO: show crop
