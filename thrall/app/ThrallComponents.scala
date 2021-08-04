@@ -2,6 +2,7 @@ import akka.Done
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import com.typesafe.scalalogging.StrictLogging
@@ -12,7 +13,6 @@ import lib.kinesis.{KinesisConfig, ThrallEventConsumer}
 import play.api.ApplicationLoader.Context
 import router.Routes
 
-import java.time.Instant
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
@@ -41,6 +41,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
       throw new IllegalStateException("Good to go test didn't pass or throw exception")
   }
 
+  val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
+
   val highPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisConfig)
   val lowPriorityKinesisConfig: KinesisClientLibConfiguration = KinesisConfig.kinesisConfig(config.kinesisLowPriorityConfig)
 
@@ -67,7 +69,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
-  val thrallController = new ThrallController(es, auth, config.services, controllerComponents)
+  val thrallController = new ThrallController(es, messageSender, actorSystem, auth, config.services, controllerComponents)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
