@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.elasticsearch
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http.JavaClient
-import com.sksamuel.elastic4s.{ElasticClient, ElasticProperties, Response}
+import com.sksamuel.elastic4s.{ElasticClient, ElasticError, ElasticProperties, Response}
 import com.sksamuel.elastic4s.requests.common.HealthStatus
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
@@ -98,7 +98,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }
   }
 
-  def createImageIndex(index: String): Unit = {
+  def createImageIndex(index: String): Either[ElasticError, Boolean] = {
     logger.info(s"Creating image index '$index' with $shards shards and $replicas replicas")
 
     val eventualCreateIndexResponse: Future[Response[CreateIndexResponse]] = client.execute {
@@ -134,6 +134,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     logger.info("Got index create result: " + createIndexResponse)
     if (createIndexResponse.isError) {
       logger.error(createIndexResponse.error.reason)
+      Left(createIndexResponse.error)
+    }
+    else {
+      Right(createIndexResponse.result.acknowledged)
     }
   }
 
@@ -162,7 +166,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }, tenSeconds)
   }
 
-  def assignAliasTo(index: String, alias: String = imagesCurrentAlias): Unit = {
+  def assignAliasTo(index: String, alias: String = imagesCurrentAlias): Either[ElasticError, Boolean] = {
     logger.info(s"Assigning alias $alias to $index")
     val aliasActionResponse = Await.result(client.execute {
       aliases(
@@ -170,6 +174,12 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
       )
     }, tenSeconds)
     logger.info("Got alias action response: " + aliasActionResponse)
+    if(aliasActionResponse.isError){
+      Left(aliasActionResponse.error)
+    }
+    else {
+      Right(aliasActionResponse.result.success)
+    }
   }
 
   def changeAliasTo(newIndex: String, oldIndex: String, alias: String = imagesCurrentAlias): Unit = {

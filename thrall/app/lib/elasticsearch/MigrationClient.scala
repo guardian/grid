@@ -13,7 +13,7 @@ case object Error extends MigrationStatus
 
 class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient{
   lazy val imagesCurrentAlias: String = config.aliases.current
-  lazy val imagesMigrationAlias: String = "relocation" //cf googles thesaurus
+  lazy val imagesMigrationAlias: String = config.aliases.migration
 
   lazy val url: String = config.url
   lazy val cluster: String = config.cluster
@@ -35,13 +35,15 @@ class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics
   def startMigration(newIndexName: String)(implicit logMarker: LogMarker): Unit = {
     val currentStatus = getStatus()
     if (currentStatus != NotRunning) {
-      logger.error(logMarker, s"Could not start migration to ${newIndexName} when migration status is ${currentStatus}")
+      logger.error(logMarker, s"Could not start migration to $newIndexName when migration status is $currentStatus")
       throw new MigrationAlreadyRunningError
     }
-    createImageIndex(newIndexName)
-    logger.info(logMarker,s"Created index ${newIndexName}")
-    assignAliasTo(newIndexName, imagesMigrationAlias)
-    logger.info(logMarker, s"Assigned migration index ${imagesMigrationAlias} to ${newIndexName}")
+    for {
+      _ <- createImageIndex(newIndexName)
+      _ = logger.info(logMarker,s"Created index $newIndexName")
+      _ <- assignAliasTo(newIndexName, imagesMigrationAlias)
+      _ = logger.info(logMarker, s"Assigned migration index $imagesMigrationAlias to $newIndexName")
+    } yield ()
   }
 }
 

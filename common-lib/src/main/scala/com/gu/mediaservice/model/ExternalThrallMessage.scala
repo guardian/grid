@@ -2,10 +2,10 @@ package com.gu.mediaservice.model
 
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
+import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json
 import play.api.libs.json.{JodaReads, JodaWrites, JsValue, Json, Reads}
-
 
 sealed trait ExternalThrallMessage extends ThrallMessage {
   implicit val yourJodaDateReads: Reads[DateTime] = JodaReads.DefaultJodaDateTimeReads.map(d => d.withZone(DateTimeZone.UTC))
@@ -103,6 +103,9 @@ case class CreateMigrationIndexMessage(
 ) extends ExternalThrallMessage {
   val id: String = "N/A"
   val lastModified: DateTime = migrationStart
+
+  val newIndexName =
+    s"images_${migrationStart.toString(DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss").withZoneUTC())}_${gitHash.take(7)}"
 }
 
 
