@@ -79,39 +79,51 @@ class ImageLoaderController(auth: Authentication,
     val parsedBody = DigestBodyParser.create(tempFile)
 
     AuthenticatedAndAuthorised.async(parsedBody) { req =>
-      val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
-      val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
+      val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
+      val isSoftDeleted = gridClient.getImageSoftDeletedStatus(req.body.digest, onBehalfOfFn)
+      isSoftDeleted.flatMap{
+        case true => {
+          val error = FailureResponse.imageAlreadyExists(new Exception("image-already-exists"))
+          val response = FailureResponse.responseToResult(error)
+          Future.successful(response)
+        }
+        case false => {
+          val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
+          val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
 
-      val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
-      val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
-      val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
-      val result = for {
-        uploadRequest <- uploader.loadFile(
-          req.body,
-          uploadedByToRecord,
-          identifiers,
-          uploadTimeToRecord,
-          filename.flatMap(_.trim.nonEmptyOpt),
-          context.requestId)
-        _ <- uploadStatusTable.setStatus(record)
-        result <- quarantineOrStoreImage(uploadRequest)
-      } yield result
-      result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
-      result map { r =>
-        val result = Accepted(r).as(ArgoMediaType)
-        logger.info("loadImage request end")
-        result
-      } recover {
-        case NonFatal(e) =>
-          logger.error("loadImage request ended with a failure", e)
-          val response = e match {
-            case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
-            case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes)
-            case e: java.io.IOException => FailureResponse.badImage(e)
-            case other => FailureResponse.internalError(other)
+          val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
+          val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
+          val record = UploadStatusRecord(req.body.digest, filename, uploadedByToRecord, printDateTime(uploadTimeToRecord), identifiers, uploadStatus, None, uploadExpiry)
+          val result = for {
+            uploadRequest <- uploader.loadFile(
+              req.body,
+              uploadedByToRecord,
+              identifiers,
+              uploadTimeToRecord,
+              filename.flatMap(_.trim.nonEmptyOpt),
+              context.requestId)
+            _ <- uploadStatusTable.setStatus(record)
+            result <- quarantineOrStoreImage(uploadRequest)
+          } yield result
+          result.onComplete( _ => Try { deleteTempFile(tempFile) } )
+
+          result map { r =>
+            val result = Accepted(r).as(ArgoMediaType)
+            logger.info("loadImage request end")
+            result
+          } recover {
+            case NonFatal(e) =>
+              logger.error("loadImage request ended with a failure", e)
+              val response = e match {
+                case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
+                case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes)
+                case e: java.io.IOException => FailureResponse.badImage(e)
+                case other => FailureResponse.internalError(other)
+              }
+              FailureResponse.responseToResult(response)
           }
-          FailureResponse.responseToResult(response)
+        }
       }
     }
   }
