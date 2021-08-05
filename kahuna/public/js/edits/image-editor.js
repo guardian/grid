@@ -29,6 +29,7 @@ imageEditor.controller('ImageEditorCtrl', [
     'editsApi',
     'imageService',
     'collections',
+    'mediaApi',
 
     function($rootScope,
              $scope,
@@ -36,9 +37,17 @@ imageEditor.controller('ImageEditorCtrl', [
              editsService,
              editsApi,
              imageService,
-             collections) {
+             collections,
+             mediaApi) {
 
     var ctrl = this;
+    ctrl.canUndelete = false;
+    ctrl.isDeleted = false;
+
+    mediaApi.getSession().then(session => {
+        if (ctrl.image.data.softDeletedMetadata !== undefined && session.user.permissions.canDelete) { ctrl.canUndelete = true; }
+        if (ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
+    });
 
     editsService.canUserEdit(ctrl.image).then(editable => {
         ctrl.userCanEdit = editable;
@@ -55,6 +64,8 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.usageRights = imageService(ctrl.image).usageRights;
     ctrl.invalidReasons = ctrl.image.data.invalidReasons;
     ctrl.systemName = window._clientConfig.systemName;
+
+    ctrl.undelete = undelete;
 
     //TODO put collections in their own directive
     ctrl.addCollection = false;
@@ -206,6 +217,13 @@ imageEditor.controller('ImageEditorCtrl', [
 
     function getCollectionStyle(collection) {
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
+    }
+
+    function undelete() {
+        const imageId = ctrl.image.data.id;
+        mediaApi.undelete(imageId).then(
+            ctrl.canUndelete = ctrl.isDeleted = false
+        );
     }
 }]);
 

@@ -24,6 +24,7 @@ GET     /images/:imageId/download                                   controllers.
 GET     /images/:imageId/downloadOptimised                          controllers.MediaApi.downloadOptimisedImage(imageId: String, width: Int, height: Int, quality: Int)
 DELETE  /images/:id                                                 controllers.MediaApi.deleteImage(id: String)
 DELETE  /soft-delete/images/:id                                     controllers.MediaApi.softDeleteImage(id: String)
+PUT     /images/:id/undelete                                        controllers.MediaApi.unSoftDeleteImage(id: String)
 GET     /images                                                     controllers.MediaApi.imageSearch
 
 # completion

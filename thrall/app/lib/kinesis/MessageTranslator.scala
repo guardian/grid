@@ -2,7 +2,7 @@ package lib.kinesis
 
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{AddImageLeaseMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ExternalThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
+import com.gu.mediaservice.model.{AddImageLeaseMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ExternalThrallMessage, ImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, UnSoftDeleteImageMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.syntax.MessageSubjects._
 
 object MessageTranslator extends GridLogging {
@@ -19,6 +19,10 @@ object MessageTranslator extends GridLogging {
       }
       case SoftDeleteImage => (updateMessage.id, updateMessage.softDeletedMetadata) match {
         case (Some(id) , Some(deletedMetadata)) => Right(SoftDeleteImageMessage(id, updateMessage.lastModified, deletedMetadata))
+        case _ => Left(MissingFieldsException(updateMessage.subject))
+      }
+      case UnSoftDeleteImage => (updateMessage.id) match {
+        case (Some(id)) => Right(UnSoftDeleteImageMessage(id, updateMessage.lastModified))
         case _ => Left(MissingFieldsException(updateMessage.subject))
       }
       case DeleteImageExports => (updateMessage.id) match {

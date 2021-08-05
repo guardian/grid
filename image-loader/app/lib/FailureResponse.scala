@@ -54,6 +54,16 @@ object FailureResponse extends ArgoHelpers with Results {
     )
   }
 
+  def imageAlreadyExists(exception: Exception): Response = {
+    logger.info(s"Rejected request to load file: image file already exists and is soft deleted", exception)
+
+    Response(
+      BadRequest,
+      "image-already-exists",
+      s"Image already exists: image file already exists and is soft deleted."
+    )
+  }
+
   def internalError(exception: Throwable): Response = {
     logger.info(s"Unhandled exception", exception)
 
