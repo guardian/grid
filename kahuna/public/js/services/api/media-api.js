@@ -92,6 +92,10 @@ mediaApi.factory('mediaApi',
         return root.getLink('loader').then(() => true, () => false);
     }
 
+    function undelete(id) {
+        return root.follow('undelete', {id: id}).put();
+    }
+
     function canUserArchive() {
         return root.getLink('archive').then(() => true, () => false);
     }
@@ -106,6 +110,7 @@ mediaApi.factory('mediaApi',
         labelsSuggest,
         delete: delete_,
         canUserUpload,
-        canUserArchive
+        canUserArchive,
+        undelete
     };
 }]);
