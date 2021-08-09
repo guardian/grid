@@ -12,7 +12,8 @@ import lib._
 import lib.elasticsearch._
 import play.api.libs.json._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 sealed trait MigrationFailure
@@ -96,7 +97,8 @@ class MessageProcessor(
     }.recoverWith {
       case failure: MigrationFailure =>
         logger.error(failure.getMessage)
-        es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failure = failure.getMessage)))
+        val migrationIndexName = Await.result(es.getIndexForAlias(es.imagesMigrationAlias), atMost = 3.seconds).map(_.name).getOrElse("Unknown migration index name")
+        es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failures = Map(migrationIndexName -> failure.getMessage))))
     }
   }
 

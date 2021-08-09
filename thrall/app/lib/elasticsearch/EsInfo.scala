@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import play.api.libs.json.{Format, JsResult, JsValue, Json, __}
+import play.api.libs.json.{Format, JsResult, JsValue, Json}
 
 case class MigrationTo(
   migratedTo: String
@@ -10,7 +10,7 @@ object MigrationTo {
 }
 
 case class MigrationFailure(
-  failure: String
+  failures: Map[String, String]
 )
 object MigrationFailure {
   implicit val format = Json.format[MigrationFailure]
