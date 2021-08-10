@@ -65,7 +65,19 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
   )
 
   val contractedPhotographers = List(
-    PublicationPhotographers(GuardianPublication, List(
+    PublicationPhotographers(ObserverPublication, List(
+      "Andy Hall",
+      "Antonio Olmos",
+      "Gary Calton",
+      "Jane Bown",
+      "Jonathan Lovekin",
+      "Karen Robinson",
+      "Katherine Anne Rose",
+      "Richard Saker",
+      "Sophia Evans",
+      "Suki Dhanda"
+    )),
+     PublicationPhotographers(GuardianPublication, List(
       "Alicia Canter",
       "Antonio Olmos",
       "Christopher Thomond",
@@ -82,20 +94,8 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
       "Tom Jenkins",
       "Tristram Kenton",
       "Jill Mead",
-    )),
-    PublicationPhotographers(ObserverPublication, List(
-      "Andy Hall",
-      "Antonio Olmos",
-      "Gary Calton",
-      "Jane Bown",
-      "Jonathan Lovekin",
-      "Karen Robinson",
-      "Katherine Anne Rose",
-      "Richard Saker",
-      "Sophia Evans",
-      "Suki Dhanda"
     ))
-  )
+ )
 
   val staffIllustrators = List(
     "Guardian Design"
