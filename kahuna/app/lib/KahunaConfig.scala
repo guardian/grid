@@ -30,9 +30,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val invalidSessionHelpLink: Option[String]= stringOpt("links.invalidSessionHelp").filterNot(_.isEmpty)
   val supportEmail: Option[String]= stringOpt("links.supportEmail").filterNot(_.isEmpty)
 
-  val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
   val homeLinkHtml: Option[String] = stringOpt("branding.homeLinkHtml").filterNot(_.isEmpty)
-  val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
 
   val canDownloadCrop: Boolean = boolean("canDownloadCrop")
 
