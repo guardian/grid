@@ -51,8 +51,14 @@ buildWatcher() {
 }
 
 buildSbt() {
+  echo "##teamcity[compilationStarted compiler='sbt-spam']"
+  sbt clean update
+  echo "##teamcity[compilationFinished compiler='sbt-spam']"
+  echo "##teamcity[compilationStarted compiler='sbt-test']"
+  sbt test:compile test
+  echo "##teamcity[compilationFinished compiler='sbt-test']"
   echo "##teamcity[compilationStarted compiler='sbt']"
-  sbt clean test scripts/compile riffRaffUpload
+  sbt scripts/compile riffRaffUpload
   echo "##teamcity[compilationFinished compiler='sbt']"
 }
 
