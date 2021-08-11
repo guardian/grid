@@ -1,5 +1,6 @@
 package com.gu.mediaservice.model
 
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.scalalogging.StrictLogging
@@ -23,7 +24,7 @@ sealed trait Illustrator extends UsageRights
 sealed trait UsageRightsSpec {
   val category: String
   val name: String
-  val description: String
+  def description(config: CommonConfig): String
   val defaultCost: Option[Cost]
 
   val defaultRestrictions: Option[String] = None
@@ -147,7 +148,7 @@ case object NoRights
   val defaultCost = None
   val restrictions = None
   val name = "No Rights"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images which we do not currently have the rights to use."
 
   override val caution =
@@ -169,10 +170,10 @@ object Chargeable extends UsageRightsSpec {
   val category = "chargeable"
   val defaultCost = Some(Pay)
   val name = "Chargeable supplied / on spec"
-  val description =
-    "Images acquired by or supplied to GNM that do not fit other categories in the Grid and " +
+  def description(commonConfig: CommonConfig) =
+    s"Images acquired by or supplied to ${commonConfig.staffPhotographerOrganisation} that do not fit other categories in ${commonConfig.systemName} and " +
       "therefore fees will be payable per use. Unless negotiated otherwise, fees should be based on " +
-      "standard published GNM rates for stock and speculative images."
+      s"standard published ${commonConfig.staffPhotographerOrganisation} rates for stock and speculative images."
 
   implicit val formats: Format[Chargeable] =
     UsageRights.subtypeFormat(Chargeable.category)(Json.format[Chargeable])
@@ -207,7 +208,7 @@ object Agency extends UsageRightsSpec {
   val category = "agency"
   val defaultCost = None
   val name = "Agency - subscription"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Agencies such as Getty, Reuters, Press Association, etc. where subscription fees are paid to access and use pictures."
 
   implicit val formats: Format[Agency] =
@@ -222,7 +223,7 @@ object CommissionedAgency extends UsageRightsSpec {
   val category = "commissioned-agency"
   val defaultCost = Some(Free)
   val name = "Agency - commissioned"
-  val description = "Images commissioned from agencies on an ad hoc basis."
+  def description(commonConfig: CommonConfig) = "Images commissioned from agencies on an ad hoc basis."
 
   implicit val formats: Format[CommissionedAgency] =
     UsageRights.subtypeFormat(CommissionedAgency.category)(Json.format[CommissionedAgency])
@@ -236,7 +237,7 @@ object PrImage extends UsageRightsSpec {
   val category = "PR Image"
   val defaultCost = Some(Conditional)
   val name = "PR Image"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images supplied for publicity purposes such as press launches, charity events, travel, " +
       "promotional images, etc."
 
@@ -255,7 +256,7 @@ object Handout extends UsageRightsSpec {
   val category = "handout"
   val defaultCost = Some(Conditional)
   val name = "Handout"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images supplied on general release to all media e.g. images provided by police for new " +
       "stories, family shots in biographical pieces, etc."
 
@@ -276,8 +277,8 @@ object Screengrab extends UsageRightsSpec {
   val category = "screengrab"
   val defaultCost = Some(Free)
   val name = "Screengrab"
-  val description =
-    "Stills created by GNM from moving footage in television broadcasts usually in relation to " +
+  def description(commonConfig: CommonConfig) =
+    s"Stills created by ${commonConfig.staffPhotographerOrganisation} from moving footage in television broadcasts usually in relation to " +
       "breaking news stories."
 
   implicit val formats: Format[Screengrab] =
@@ -292,7 +293,7 @@ object GuardianWitness extends UsageRightsSpec {
   val category = "guardian-witness"
   val defaultCost = Some(Free)
   val name = "GuardianWitness"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images provided by readers in response to callouts and assignments on GuardianWitness."
 
   implicit val formats: Format[GuardianWitness] =
@@ -307,7 +308,7 @@ object SocialMedia extends UsageRightsSpec {
   val category = "social-media"
   val defaultCost = Some(Conditional)
   val name = "Social Media"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images grabbed from social media to support breaking news where no other image is available " +
       "from usual sources."
 
@@ -325,7 +326,7 @@ object Bylines extends UsageRightsSpec {
   val category = "Bylines"
   val defaultCost = Some(Free)
   val name = "Bylines"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images acquired from private sources, for the purposes of bylines"
 
   implicit val formats: Format[Bylines] =
@@ -339,7 +340,7 @@ object Obituary extends UsageRightsSpec {
   val category = "obituary"
   val defaultCost = Some(Free)
   val name = "Obituary"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images acquired from private sources, e.g. family members, for the purposes of obituaries."
 
   implicit val formats: Format[Obituary] =
@@ -355,7 +356,7 @@ object StaffPhotographer extends UsageRightsSpec {
   val category = "staff-photographer"
   val defaultCost = Some(Free)
   val name = "Photographer - staff"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images from photographers who are or were members of staff."
 
   implicit val formats: Format[StaffPhotographer] =
@@ -371,7 +372,7 @@ object ContractPhotographer extends UsageRightsSpec {
   val category = "contract-photographer"
   val defaultCost = Some(Free)
   val name = "Photographer - contract"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images from freelance photographers on fixed-term contracts."
 
   implicit val formats: Format[ContractPhotographer] =
@@ -387,7 +388,7 @@ object CommissionedPhotographer extends UsageRightsSpec {
   val category = "commissioned-photographer"
   val defaultCost = Some(Free)
   val name = "Photographer - commissioned"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images commissioned from freelance photographers on an ad hoc basis."
 
   implicit val formats: Format[CommissionedPhotographer] =
@@ -402,7 +403,7 @@ object Pool extends UsageRightsSpec {
   val category = "pool"
   val defaultCost = Some(Conditional)
   val name = "Pool"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images issued during major national events that are free to use and shared amongst news " +
       "media organisations. Rights revert to the copyright holder when the pool is terminated."
 
@@ -418,7 +419,7 @@ object CrownCopyright extends UsageRightsSpec {
   val category = "crown-copyright"
   val defaultCost = Some(Free)
   val name = "Crown copyright"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Crown copyright covers material created by Government. Material may be used subject to " +
       "acknowledgement."
 
@@ -434,7 +435,7 @@ object StaffIllustrator extends UsageRightsSpec {
   val category = "staff-illustrator"
   val defaultCost = Some(Free)
   val name = "Illustrator - staff"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images from illustrators who are or were members of staff."
 
   implicit val formats: Format[StaffIllustrator] =
@@ -449,7 +450,7 @@ object ContractIllustrator extends UsageRightsSpec {
   val category = "contract-illustrator"
   val defaultCost = Some(Free)
   val name = "Illustrator - contract"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Illustrations from freelance illustrators on fixed-term contracts."
 
   implicit val formats: Format[ContractIllustrator] =
@@ -464,7 +465,7 @@ object CommissionedIllustrator extends UsageRightsSpec {
   val category = "commissioned-illustrator"
   val defaultCost = Some(Free)
   val name = "Illustrator - commissioned"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Illustrations commissioned from freelance illustrators on an ad hoc basis."
 
   implicit val formats: Format[CommissionedIllustrator] =
@@ -480,7 +481,7 @@ object CreativeCommons extends UsageRightsSpec {
   val category = "creative-commons"
   val defaultCost = Some(Free)
   val name = "Creative Commons"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images made available by rights holders on open licence terms that grant third parties " +
       "permission to use and share copyright material for free."
 
@@ -498,7 +499,7 @@ object Composite extends UsageRightsSpec {
   val category = "composite"
   val defaultCost = Some(Free)
   val name = "Composite"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Any restricted images within the composite must be identified."
 
   override val caution = Some("All images should be free to use, or restrictions applied")
@@ -514,7 +515,7 @@ object PublicDomain extends UsageRightsSpec {
   val category = "public-domain"
   val defaultCost = Some(Free)
   val name = "Public Domain"
-  val description =
+  def description(commonConfig: CommonConfig) =
     "Images out of copyright or bequeathed to the public."
 
   override val caution = Some("ONLY use if out of copyright or bequeathed to public")

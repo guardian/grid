@@ -38,6 +38,10 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val requestMetricsEnabled: Boolean = boolean("metrics.request.enabled")
 
+  val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
+
+  val systemName: String = stringOpt("branding.systemName").filterNot(_.isEmpty).getOrElse("the Grid")
+
   // Note: had to make these lazy to avoid init order problems ;_;
   val domainRoot: String = string("domain.root")
   val rootAppName: String = stringDefault("app.name.root", "media")

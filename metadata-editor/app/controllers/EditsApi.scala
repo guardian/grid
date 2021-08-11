@@ -38,7 +38,7 @@ class EditsApi(auth: Authentication, config: EditsConfig,
     val usageRights = config.applicableUsageRights.toList
 
     val usageRightsData = usageRights
-      .map(u => CategoryResponse.fromUsageRights(u, photographersConfig))
+      .map(u => CategoryResponse.fromUsageRights(u, photographersConfig, config))
 
     respond(usageRightsData)
   }
@@ -58,12 +58,12 @@ case class CategoryResponse(
 object CategoryResponse {
   // I'd like to have an override of the `apply`, but who knows how you do that
   // with the JSON parsing stuff
-  def fromUsageRights(u: UsageRightsSpec, photographersConfig: UsageRightsConfigProvider): CategoryResponse =
+  def fromUsageRights(u: UsageRightsSpec, photographersConfig: UsageRightsConfigProvider, config: EditsConfig): CategoryResponse =
     CategoryResponse(
       value               = u.category,
       name                = u.name,
       cost                = u.defaultCost.getOrElse(Pay).toString,
-      description         = u.description,
+      description         = u.description(config),
       defaultRestrictions = u.defaultRestrictions,
       caution             = u.caution,
       properties          = UsageRightsProperty.getPropertiesForSpec(u, photographersConfig)
