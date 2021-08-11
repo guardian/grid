@@ -59,10 +59,11 @@ object Mappings {
         simpleSuggester("suggestMetadataCredit"),
         usagesMapping("usages"),
         keywordField("usagesPlatform"),
-        keywordField("usagesStatus"),  // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
-        dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explict copy_to rollup field for nested field which is also used for image filtering
+        keywordField("usagesStatus"),  // TODO ES1 include_in_parent emulated with explicit copy_to rollup field for nested field which is also used for image filtering
+        dateField("usagesLastModified"),   // TODO ES1 include_in_parent emulated with explicit copy_to rollup field for nested field which is also used for image filtering
         leasesMapping("leases"),
-        collectionMapping("collections")
+        collectionMapping("collections"),
+        esInfoMapping("esInfo")
       )
     )
   }
@@ -175,6 +176,13 @@ object Mappings {
       actionDataMapping("actionData")
     )
   }
+
+  def esInfoMapping(name: String) = nonDynamicObjectField(name).fields(
+    nonDynamicObjectField("migration").fields(
+      keywordField("migratedTo"),
+      dynamicObj("failures"),
+    )
+  )
 
   def photoshootMapping(name: String) = {
     nonDynamicObjectField(name).fields(

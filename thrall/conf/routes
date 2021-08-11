@@ -4,8 +4,11 @@
 
 GET     /                                             controllers.ThrallController.index
 
-+ nocsrf
++nocsrf
 POST    /startMigration                               controllers.ThrallController.startMigration
+
++nocsrf
+POST    /migrate                                      controllers.ThrallController.migrateSingleImage
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

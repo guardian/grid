@@ -1,6 +1,5 @@
 package lib
 
-import java.time.OffsetDateTime
 import akka.Done
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -9,63 +8,61 @@ import akka.util.ByteString
 import com.contxt.kinesis.KinesisRecord
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
-import com.gu.mediaservice.model.{DeleteImageMessage, ExternalThrallMessage}
+import com.gu.mediaservice.model.{MigrateImageMessage, StaffPhotographer, ThrallMessage}
+import helpers.Fixtures
 import lib.kinesis.ThrallEventConsumer
-import org.joda.time.{DateTime, DateTimeZone}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
+import java.time.OffsetDateTime
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar {
+class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar with Fixtures {
   private implicit val actorSystem: ActorSystem = ActorSystem()
+  private implicit val ec: ExecutionContext = actorSystem.dispatcher
   private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-  val now = DateTime.now(DateTimeZone.forOffsetHours(9))
-  val nowUtc = new DateTime(now.getMillis()).toDateTime(DateTimeZone.UTC)
-
-  def createKinesisRecord: KinesisRecord = KinesisRecord(
-    data = ByteString(JsonByteArrayUtil.toByteArray(UpdateMessage(subject = "delete-image", id = Some("my-id")))),
-    partitionKey = "",
-    explicitHashKey = None,
-    sequenceNumber = "",
-    subSequenceNumber = None,
-    approximateArrivalTimestamp = OffsetDateTime.now().toInstant,
-    encryptionType = ""
-  )
-
-  def createMigrationRecord: MigrationRecord = MigrationRecord(
-    payload = DeleteImageMessage("hey", nowUtc),
-    approximateArrivalTimestamp = OffsetDateTime.now().toInstant
-  )
-
-  val COUNT_EACH = 2000 // Arbitrary number
-  val COUNT_TOTAL = 3 * COUNT_EACH
-
-  val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
-    Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
-  val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
-    Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
-  val migrationPrioritySource: Source[MigrationRecord, Future[Done.type]] =
-    Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
-
-  lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
-  when(mockConsumer.processUpdateMessage(any[ExternalThrallMessage]))
-    .thenAnswer(i => Future.successful(i.getArgument(0)))
-
-  lazy val streamProcessor = new ThrallStreamProcessor(
-    uiPrioritySource,
-    automationPrioritySource,
-    migrationPrioritySource,
-    mockConsumer,
-    actorSystem,
-    materializer
-  )
-
   describe("Stream merging strategy") {
+    def createKinesisRecord: KinesisRecord = KinesisRecord(
+      data = ByteString(JsonByteArrayUtil.toByteArray(UpdateMessage(subject = "delete-image", id = Some("my-id")))),
+      partitionKey = "",
+      explicitHashKey = None,
+      sequenceNumber = "",
+      subSequenceNumber = None,
+      approximateArrivalTimestamp = OffsetDateTime.now().toInstant,
+      encryptionType = ""
+    )
+
+    def createMigrationRecord: MigrationRecord = MigrationRecord(
+      payload = MigrateImageMessage("id", Right((createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")), 1L))),
+      approximateArrivalTimestamp = OffsetDateTime.now().toInstant
+    )
+
+    val COUNT_EACH = 2000 // Arbitrary number
+    val COUNT_TOTAL = 3 * COUNT_EACH
+
+    val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
+      Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+    val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
+      Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+    val migrationPrioritySource: Source[MigrationRecord, Future[Done.type]] =
+      Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+
+    lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
+    when(mockConsumer.processMessage(any[ThrallMessage]))
+      .thenAnswer(i => Future.successful(i.getArgument(0)))
+
+    lazy val streamProcessor = new ThrallStreamProcessor(
+      uiPrioritySource,
+      automationPrioritySource,
+      migrationPrioritySource,
+      mockConsumer,
+      actorSystem,
+      materializer
+    )
     it("should process high priority events first") {
       val stream = streamProcessor.createStream()
 
@@ -96,6 +93,39 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
       output.count(p => p == UiPriority) should be (COUNT_EACH)
       output.count(p => p == AutomationPriority) should be (COUNT_EACH)
       output.count(p => p == MigrationPriority) should be (COUNT_EACH)
+    }
+  }
+
+  describe("Migration source with sender") {
+    val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
+      Source.empty[KinesisRecord].mapMaterializedValue(_ => Future.successful(Done))
+    val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
+      Source.empty[KinesisRecord].mapMaterializedValue(_ => Future.successful(Done))
+    val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer)
+
+    lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
+    when(mockConsumer.processMessage(any[ThrallMessage]))
+      .thenAnswer(i => Future.successful(i.getArgument(0)))
+
+    lazy val streamProcessor = new ThrallStreamProcessor(
+      uiPrioritySource,
+      automationPrioritySource,
+      migrationSourceWithSender.source,
+      mockConsumer,
+      actorSystem,
+      materializer
+    )
+
+    it("can send messages manually") {
+      val stream = streamProcessor.createStream()
+
+      val expectedMigrationMessage = MigrateImageMessage("id", Right((createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")), 1L)))
+
+      migrationSourceWithSender.send(expectedMigrationMessage)
+
+      val (_, _, firstMessageReceived) = Await.result(stream.take(1).runWith(Sink.seq), 5.seconds).head
+
+      firstMessageReceived shouldBe expectedMigrationMessage
     }
   }
 }

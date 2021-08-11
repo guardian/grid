@@ -2,6 +2,8 @@ import akka.Done
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
@@ -48,9 +50,12 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSource: Source[MigrationRecord, Future[Done]] = MigrationSource()
+  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer)
 
   val migrationClient: MigrationClient = new MigrationClient(config.esConfig, Some(thrallMetrics))
+
+  val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
+  val gridClient: GridClient = GridClient(services)(wsClient)
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,
@@ -58,13 +63,15 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     store,
     metadataEditorNotifications,
     migrationClient,
-    actorSystem
+    actorSystem,
+    gridClient,
+    auth
   )
 
   val thrallStreamProcessor = new ThrallStreamProcessor(
     uiSource,
     automationSource,
-    migrationSource,
+    migrationSourceWithSender.source,
     thrallEventConsumer,
     actorSystem,
     materializer
@@ -72,10 +79,9 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
 
-  val thrallController = new ThrallController(es, messageSender, actorSystem, auth, config.services, controllerComponents)
+  val thrallController = new ThrallController(es, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
-
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, healthCheckController, management, InnerServiceStatusCheckController, assets)
 }

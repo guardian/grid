@@ -6,12 +6,18 @@
   migrationAlias: String,
   migrationIndex: Option[String],
   migrationIndexCount: String,
+  migrateSingleImageForm: Form[MigrateSingleImageForm],
 )
 
 @migrationIndexCell = {
     @migrationIndex match {
         case Some(indexName) => {
-            @indexName <button>Migrate single image</button>
+            @indexName
+            @form(action = routes.ThrallController.migrateSingleImage){
+                <label for="id">Image ID:</label>
+                <input type="text" id="id" name="id">
+                <input type="submit" value="Migrate single image">
+            }
         }
         case None => {
             @form(routes.ThrallController.startMigration()) {

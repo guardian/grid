@@ -1,29 +1,38 @@
 package lib.kinesis
 
-import com.gu.mediaservice.lib.aws.{EsResponse, UpdateMessage}
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
+import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
-import com.gu.mediaservice.lib.formatting.dateTimeFormat
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
-import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.MediaLease
+import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
-import org.joda.time.format.DateTimeFormatter
-import org.joda.time.{DateTime, DateTimeZone}
 import play.api.libs.json._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
+sealed trait MigrationFailure
 
-class MessageProcessor(es: ElasticSearch,
-                       store: ThrallStore,
-                       metadataEditorNotifications: MetadataEditorNotifications,
-                       migrationClient: MigrationClient
-                      ) extends GridLogging with MessageSubjects {
+case class ProjectionFailure(message: String) extends Exception(message) with MigrationFailure
+case class GetVersionFailure(message: String) extends Exception(message) with MigrationFailure
+case class VersionComparisonFailure(message: String) extends Exception(message) with MigrationFailure
+case class InsertImageFailure(message: String) extends Exception(message) with MigrationFailure
 
-  def process(updateMessage: ExternalThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
+class MessageProcessor(
+  es: ElasticSearch,
+  store: ThrallStore,
+  metadataEditorNotifications: MetadataEditorNotifications,
+  migrationClient: MigrationClient,
+  gridClient: GridClient,
+  auth: Authentication
+) extends GridLogging with MessageSubjects {
+
+  def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
     updateMessage match {
       case message: ImageMessage => indexImage(message, logMarker)
       case message: DeleteImageMessage => deleteImage(message, logMarker)
@@ -40,6 +49,7 @@ class MessageProcessor(es: ElasticSearch,
       case message: UpdateImageSyndicationMetadataMessage => upsertSyndicationRightsOnly(message, logMarker)
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
+      case message: MigrateImageMessage => migrateImage(message, logMarker)
     }
   }
 
@@ -57,6 +67,40 @@ class MessageProcessor(es: ElasticSearch,
       es.indexImage(message.id, message.image, message.lastModified)(ec, logMarker)
     )
 
+  private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
+    implicit val implicitLogMarker: LogMarker = logMarker
+    val maybeStart = message.maybeImageWithVersion match {
+      case Left(errorMessage) =>
+        Future.failed(ProjectionFailure(errorMessage))
+      case Right((image, expectedVersion)) => Future.successful((image, expectedVersion))
+    }
+    maybeStart.flatMap {
+      case (image, expectedVersion) => es.getImageVersion(message.id).transformWith {
+        case Success(Some(currentVersion)) => Future.successful((image, expectedVersion, currentVersion))
+        case Success(None) => Future.failed(GetVersionFailure(s"No version found for image id: ${image.id}"))
+        case Failure(exception) => Future.failed(GetVersionFailure(exception.toString))
+      }
+    }.flatMap {
+      case (image, expectedVersion, currentVersion) => if (expectedVersion == currentVersion) {
+        Future.successful(image)
+      } else {
+        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id}"))
+      }
+    }.flatMap(
+      image => Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)).transform {
+        case s@Success(_) => s
+        case Failure(exception) => Failure(InsertImageFailure(exception.toString))
+      }
+    ).flatMap { insertResult =>
+      logger.info(s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
+      es.setMigrationInfo(imageId = message.id, migrationInfo = Right(MigrationTo(migratedTo = insertResult.head.indexNames.head)))
+    }.recoverWith {
+      case failure: MigrationFailure =>
+        logger.error(failure.getMessage)
+        val migrationIndexName = Await.result(es.getIndexForAlias(es.imagesMigrationAlias), atMost = 3.seconds).map(_.name).getOrElse("Unknown migration index name")
+        es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failures = Map(migrationIndexName -> failure.getMessage))))
+    }
+  }
 
   private def updateImageExports(message: UpdateImageExportsMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(

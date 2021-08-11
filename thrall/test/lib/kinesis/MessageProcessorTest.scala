@@ -1,5 +1,8 @@
 package lib.kinesis
 
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
+
 import java.util.UUID
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.MarkerMap
@@ -23,7 +26,10 @@ class MessageProcessorTest extends ElasticSearchTestBase with MessageSubjects wi
       es = ES,
       store = mock[ThrallStore],
       metadataEditorNotifications = mock[MetadataEditorNotifications],
-      migrationClient = mock[MigrationClient])
+      migrationClient = mock[MigrationClient],
+      auth = mock[Authentication],
+      gridClient = mock[GridClient]
+    )
 
       // tests here were specific to syndication rights, and have been deleted.
 

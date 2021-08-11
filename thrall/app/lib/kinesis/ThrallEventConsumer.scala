@@ -1,43 +1,45 @@
 package lib.kinesis
 
-import java.time.Instant
-import java.util.concurrent.Executors
 import akka.actor.ActorSystem
+import com.gu.mediaservice.GridClient
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.{JsonByteArrayUtil, PlayJsonHelpers}
 import com.gu.mediaservice.lib.logging._
-import com.gu.mediaservice.model.ExternalThrallMessage
-import com.gu.mediaservice.model.usage.UsageNotice
+import com.gu.mediaservice.model.{ExternalThrallMessage, ThrallMessage}
 import lib._
 import lib.elasticsearch._
-import org.joda.time.DateTime
-import play.api.libs.json.{JodaReads, Json, Reads}
 
+import java.time.Instant
+import java.util.concurrent.Executors
 import scala.concurrent.duration.{FiniteDuration, MILLISECONDS, SECONDS}
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 class ThrallEventConsumer(es: ElasticSearch,
-                          thrallMetrics: ThrallMetrics,
-                          store: ThrallStore,
-                          metadataEditorNotifications: MetadataEditorNotifications,
-                          migrationClient: MigrationClient,
-                          actorSystem: ActorSystem) extends PlayJsonHelpers with GridLogging {
+  thrallMetrics: ThrallMetrics,
+  store: ThrallStore,
+  metadataEditorNotifications: MetadataEditorNotifications,
+  migrationClient: MigrationClient,
+  actorSystem: ActorSystem,
+  gridClient: GridClient,
+  auth: Authentication
+) extends PlayJsonHelpers with GridLogging {
 
   private val attemptTimeout = FiniteDuration(20, SECONDS)
   private val delay = FiniteDuration(1, MILLISECONDS)
   private val attempts = 2
   private val timeout = attemptTimeout * attempts + delay * (attempts - 1)
 
-  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, migrationClient)
+  private val messageProcessor = new MessageProcessor(es, store, metadataEditorNotifications, migrationClient, gridClient, auth)
 
   private implicit val implicitActorSystem: ActorSystem = actorSystem
 
   private implicit val executionContext: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def processUpdateMessage(updateMessage: ExternalThrallMessage): Future[ExternalThrallMessage]  = {
-    val marker = updateMessage
+  def processMessage(message: ThrallMessage): Future[ThrallMessage]  = {
+    val marker = message
 
     val stopwatch = Stopwatch.start
     //Try to process the update message twice, and give them both 30 seconds to run.
@@ -49,15 +51,15 @@ class ThrallEventConsumer(es: ElasticSearch,
           *
            */
           (marker) => {
-            messageProcessor.process(updateMessage, marker)
+            messageProcessor.process(message, marker)
           }, attempts, attemptTimeout, delay, marker
         ).transform {
           case Success(_) => {
             logger.info(
               combineMarkers(marker, stopwatch.elapsed),
-              s"Completed processing of ${updateMessage.subject} message"
+              s"Completed processing of ${message.subject} message"
             )
-            Success(updateMessage)
+            Success(message)
           }
           case Failure(processorNotFoundException: ProcessorNotFoundException) => {
             logger.error(
@@ -68,7 +70,7 @@ class ThrallEventConsumer(es: ElasticSearch,
           case Failure(timeoutException: TimeoutException) => {
             logger.error(
               combineMarkers(marker, stopwatch.elapsed),
-              s"Timeout of $timeout reached while processing ${updateMessage.subject} message; message will be ignored:",
+              s"Timeout of $timeout reached while processing ${message.subject} message; message will be ignored:",
               timeoutException
             )
             Failure(timeoutException)
@@ -76,7 +78,7 @@ class ThrallEventConsumer(es: ElasticSearch,
           case Failure(e: Throwable) => {
             logger.error(
               combineMarkers(marker, stopwatch.elapsed),
-              s"Failed to process ${updateMessage.subject} message; message will be ignored:", e
+              s"Failed to process ${message.subject} message; message will be ignored:", e
             )
             Failure(e)
           }
