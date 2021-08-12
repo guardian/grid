@@ -1,12 +1,10 @@
 package lib.kinesis
 
-import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
-import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
+import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
@@ -27,9 +25,7 @@ class MessageProcessor(
   es: ElasticSearch,
   store: ThrallStore,
   metadataEditorNotifications: MetadataEditorNotifications,
-  migrationClient: MigrationClient,
-  gridClient: GridClient,
-  auth: Authentication
+  migrationClient: MigrationClient
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {

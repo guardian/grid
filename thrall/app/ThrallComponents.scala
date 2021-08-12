@@ -63,9 +63,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     store,
     metadataEditorNotifications,
     migrationClient,
-    actorSystem,
-    gridClient,
-    auth
+    actorSystem
   )
 
   val thrallStreamProcessor = new ThrallStreamProcessor(
