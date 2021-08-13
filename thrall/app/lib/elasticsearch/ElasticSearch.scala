@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, ElasticSearchExecutions, MigrationAwareElasticSearchClient}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -10,12 +10,12 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.Response
 import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.UpdateRequest
-import com.sksamuel.elastic4s.{Index, Response}
 import lib.ThrallMetrics
 import org.joda.time.DateTime
 import play.api.libs.json._
@@ -24,8 +24,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics], val scheduler: Scheduler) extends ElasticSearchClient
-  with ImageFields with ElasticSearchExecutions {
+class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics], val scheduler: Scheduler)
+  extends MigrationAwareElasticSearchClient with ImageFields with ElasticSearchExecutions {
 
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration

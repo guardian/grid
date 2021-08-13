@@ -1,7 +1,7 @@
 package lib.elasticsearch
 
 import akka.actor.Scheduler
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchConfig, MigrationAwareElasticSearchClient}
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ThrallMetrics
 
@@ -12,7 +12,9 @@ case object InProgress extends MigrationStatus
 case object Complete extends MigrationStatus
 case object Error extends MigrationStatus
 
-class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics], val scheduler: Scheduler) extends ElasticSearchClient{
+class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics], val scheduler: Scheduler)
+  extends MigrationAwareElasticSearchClient {
+
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration
 

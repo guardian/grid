@@ -1,15 +1,13 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import akka.actor.Scheduler
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s._
 import com.sksamuel.elastic4s.http.JavaClient
 import com.sksamuel.elastic4s.requests.common.HealthStatus
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
-import com.sksamuel.elastic4s._
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -29,20 +27,6 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   def imagesCurrentAlias: String
   def imagesMigrationAlias: String
-
-  def scheduler: Scheduler
-
-  val maybeMigrationIndexName = new AtomicReference[Option[String]](None)
-
-  private val migrationIndexNameRefresher = scheduler.schedule(
-    initialDelay = 0.seconds,
-    interval = 1.minute
-  )(
-    () => {
-      // TODO what happens if this times out/fails?
-      maybeMigrationIndexName.set(Await.result(getIndexForAlias(imagesMigrationAlias), 5.seconds).map(_.name))
-    }
-  )
 
   protected val imagesIndexPrefix = "images"
   protected val imageType = "image"
