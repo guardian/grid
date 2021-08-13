@@ -18,8 +18,16 @@ trait MigrationAwareElasticSearchClient extends ElasticSearchClient {
     interval = 1.minute
   )(
     () => {
-      // TODO what happens if this times out/fails?
-      maybeMigrationIndexName.set(Await.result(getIndexForAlias(imagesMigrationAlias), 5.seconds).map(_.name))
+      Await.result(
+        getIndexForAlias(imagesMigrationAlias)
+          .map(maybeName => maybeMigrationIndexName.set(maybeName.map(_.name)))
+          .recover { case e =>
+            // Emits log messages when requesting the name fails, then swallows exception to prevent bubbling up
+            // `maybeMigrationIndexName` will remain the previous value until next scheduled execution
+            logger.error("Failed to get name of index for ongoing migration", e)
+            ()
+          }, 5.seconds
+      )
     }
   )
 }
