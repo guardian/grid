@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import akka.actor.Scheduler
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.LogMarker
 import lib.ThrallMetrics
@@ -11,7 +12,7 @@ case object InProgress extends MigrationStatus
 case object Complete extends MigrationStatus
 case object Error extends MigrationStatus
 
-class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient{
+class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics], val scheduler: Scheduler) extends ElasticSearchClient{
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration
 
@@ -43,6 +44,7 @@ class MigrationClient(config: ElasticSearchConfig, metrics: Option[ThrallMetrics
       _ = logger.info(logMarker,s"Created index $newIndexName")
       _ <- assignAliasTo(newIndexName, imagesMigrationAlias)
       _ = logger.info(logMarker, s"Assigned migration index $imagesMigrationAlias to $newIndexName")
+      _ = maybeMigrationIndexName.set(Some(newIndexName))
     } yield ()
   }
 }
