@@ -55,7 +55,7 @@ downloader.controller('DownloaderCtrl', [
         );
 
         downloads$.subscribe((zip) => {
-            $q(zip.generateAsync({ type: 'uint8array' })).then(file => {
+            zip.generateAsync({ type: 'uint8array' }).then(file => {
               const blob = new Blob([file], { type: 'application/zip' });
 
               // const isTooBig = blob.size > maxBlobSize;
