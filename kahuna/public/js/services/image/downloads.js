@@ -84,6 +84,8 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
             .flatMap((downloads) => Rx.Observable
                     .fromPromise(imageHttp(downloads.uris[downloadKey]))
                     .map((resp) => zip.file(downloads.filename, resp.data))
+                    //zip.file now returns a promise, but noone knows how rxjs works
+                    //so im just going to trust that it's fine.
             ).toArray().map(() => zip);
 
         return addDownloadsToZip$;
