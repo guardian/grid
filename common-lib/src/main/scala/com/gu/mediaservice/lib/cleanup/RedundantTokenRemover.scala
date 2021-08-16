@@ -14,6 +14,8 @@ object RedundantTokenRemover extends MetadataCleaner {
     "Pool",
     "POOL",
     "POOL New",
+    "STAFF",
+    "Staff",
     "STRINGER",
     "stringer",
     "Stringer",
