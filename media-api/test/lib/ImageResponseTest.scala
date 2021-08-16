@@ -108,7 +108,7 @@ class ImageResponseTest extends FunSpec with Matchers with Fixtures {
         )))
     )
     val json = Json.toJson(image)
-    val sourceWrapper = SourceWrapper[Image](json, image)
+    val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
 
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 
@@ -127,7 +127,7 @@ class ImageResponseTest extends FunSpec with Matchers with Fixtures {
       fileMetadata = Some(FileMetadata())
     )
     val json = Json.toJson(image)
-    val sourceWrapper = SourceWrapper[Image](json, image)
+    val sourceWrapper = SourceWrapper[Image](json, image, fromIndex="test_index")
 
     val extractedFields = ImageResponse.extractAliasFieldValues(mediaApiConfig, sourceWrapper)
 

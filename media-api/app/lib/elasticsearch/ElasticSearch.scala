@@ -3,7 +3,7 @@ package lib.elasticsearch
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, InProgress, MigrationStatusProvider}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
@@ -63,7 +63,7 @@ class ElasticSearch(
     implicit val logMarker = MarkerMap("id" -> id)
     executeAndLog(get(imagesCurrentAlias, id), s"get image by id $id").map { r =>
       r.status match {
-        case Status.OK => mapImageFrom(r.result.sourceAsString, id)
+        case Status.OK => mapImageFrom(r.result.sourceAsString, id, r.result.index)
         case _ => None
       }
     }
@@ -83,7 +83,7 @@ class ElasticSearch(
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
     implicit val logMarker = MarkerMap()
-    def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id)
+    def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id, hit.index)
 
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
@@ -280,14 +280,22 @@ class ElasticSearch(
   def withSearchQueryTimeout(sr: SearchRequest): SearchRequest = sr timeout SearchQueryTimeout
 
   private def prepareSearch(query: Query): SearchRequest = {
-    val sr = ElasticDsl.search(imagesCurrentAlias) query query
-    withSearchQueryTimeout(sr)
+    val indexes = migrationStatus match {
+      case InProgress(migrationIndexName) => List(imagesCurrentAlias, migrationIndexName)
+      case _ => List(imagesCurrentAlias)
+    }
+    val migrationAwareQuery = migrationStatus match {
+      case InProgress(migrationIndexName) => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", migrationIndexName)))
+      case _ => query
+    }
+    val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery
+    withSearchQueryTimeout(searchRequest)
   }
 
-  private def mapImageFrom(sourceAsString: String, id: String) = {
+  private def mapImageFrom(sourceAsString: String, id: String, fromIndex: String) = {
     val source = Json.parse(sourceAsString)
     source.validate[Image] match {
-      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value))
+      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value, fromIndex))
       case e: JsError =>
         logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None
