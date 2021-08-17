@@ -10,11 +10,12 @@ class MigrationClientTest extends ElasticSearchTestBase {
 
   "Migration" - {
     "status should return as NotRunning on a clean ES" in {
-      assert(ES.migration.getStatus() === NotRunning)
+      assert(ES.migration.refreshAndRetrieveStatus() === NotRunning)
     }
     "starting a migration should change the migration status" in {
-      ES.migration.startMigration("images-test-migration")
-      assert(ES.migration.getStatus() === InProgress)
+      val newIndexName = "images-test-migration"
+      ES.startMigration(newIndexName)
+      assert(ES.migration.refreshAndRetrieveStatus() === InProgress(newIndexName))
     }
   }
 

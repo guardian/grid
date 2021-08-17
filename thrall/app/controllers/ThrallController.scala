@@ -129,6 +129,5 @@ class ThrallController(
       "id" -> text
     )(MigrateSingleImageForm.apply)(MigrateSingleImageForm.unapply)
   )
-
 }
 

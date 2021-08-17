@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, MigrationClient}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
 class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics], val scheduler: Scheduler, val ec: ExecutionContext)
-  extends ElasticSearchClient with ImageFields with ElasticSearchExecutions with MigrationClient {
+  extends ElasticSearchClient with ImageFields with ElasticSearchExecutions with ThrallMigrationClient {
 
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration
