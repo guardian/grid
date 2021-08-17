@@ -55,37 +55,40 @@ downloader.controller('DownloaderCtrl', [
         );
 
         downloads$.subscribe((zip) => {
-            const file = zip.generate({ type: 'uint8array' });
-            const blob = new Blob([file], { type: 'application/zip' });
+            zip.generateAsync({ type: 'uint8array' }).then(file => {
+              const blob = new Blob([file], { type: 'application/zip' });
 
-            const isTooBig = blob.size > maxBlobSize;
+              // const isTooBig = blob.size > maxBlobSize;
+              const isTooBig = false;
 
-            const createDownload = () => {
-                const url = $window.URL.createObjectURL(blob);
-                $window.location = url;
-            };
+              const createDownload = () => {
+                  const url = $window.URL.createObjectURL(blob);
+                  $window.location = url;
+                  $window.URL.revokeObjectURL(url);
+              };
 
-            const refuseDownload = () => {
-                const maxSize = bytesToSize(maxBlobSize);
-                const blobSize = bytesToSize(blob.size);
+              const refuseDownload = () => {
+                  const maxSize = bytesToSize(maxBlobSize);
+                  const blobSize = bytesToSize(blob.size);
 
-                // the things we do for a happy linter...
-                const message = [
-                    'Download is too big!',
-                    `Max file size: ${maxSize}. Your download: ${blobSize}.`,
-                    'Consider downloading smaller batches.'
-                ].join('\n');
+                  // the things we do for a happy linter...
+                  const message = [
+                      'Download is too big!',
+                      `Max file size: ${maxSize}. Your download: ${blobSize}.`,
+                      'Consider downloading smaller batches.'
+                  ].join('\n');
 
-                $window.alert(message);
-            };
+                  $window.alert(message);
+              };
 
-            if (isTooBig) {
-                refuseDownload();
-            } else {
-                createDownload();
-            }
+              if (isTooBig) {
+                  refuseDownload();
+              } else {
+                  createDownload();
+              }
 
-            ctrl.downloading = false;
+              ctrl.downloading = false;
+            });
         },
         (e) => {
             const message = [
