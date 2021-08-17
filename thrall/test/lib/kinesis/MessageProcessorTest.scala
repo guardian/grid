@@ -2,7 +2,7 @@ package lib.kinesis
 
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.syntax.MessageSubjects
-import lib.elasticsearch.{ElasticSearchTestBase, MigrationClient}
+import lib.elasticsearch.ElasticSearchTestBase
 import lib.{MetadataEditorNotifications, ThrallStore}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.mockito.MockitoSugar
@@ -14,8 +14,7 @@ class MessageProcessorTest extends ElasticSearchTestBase with MessageSubjects wi
     val messageProcessor = new MessageProcessor(
       es = ES,
       store = mock[ThrallStore],
-      metadataEditorNotifications = mock[MetadataEditorNotifications],
-      migrationClient = mock[MigrationClient]
+      metadataEditorNotifications = mock[MetadataEditorNotifications]
     )
 
       // tests here were specific to syndication rights, and have been deleted.

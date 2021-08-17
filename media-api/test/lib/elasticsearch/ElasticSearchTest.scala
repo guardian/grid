@@ -1,25 +1,23 @@
 package lib.elasticsearch
 
-import akka.actor.Scheduler
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
-import com.gu.mediaservice.lib.config.{GridConfigLoader, GridConfigResources}
+import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.DenySyndicationLease
 import com.gu.mediaservice.model.usage.PublishedUsageStatus
-import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.http._
+import com.sksamuel.elastic4s.ElasticDsl._
 import com.whisk.docker.{DockerContainer, DockerReadyChecker}
 import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
+import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
-import play.api.{Configuration, Mode}
 import play.api.libs.json.{JsString, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
@@ -55,7 +53,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   )
 
 
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty, mock[Scheduler])
+  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
   val client = ES.client
 
   def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
@@ -431,7 +429,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
       val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition), length = 50)
-      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies, mock[Scheduler])
+      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies)
 
       whenReady(elasticsearch.search(search), timeout, interval) { result => {
         val overQuotaImages = List(

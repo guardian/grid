@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import akka.actor.Scheduler
+import com.gu.mediaservice.lib.elasticsearch.{InProgress, NotRunning}
 import com.gu.mediaservice.lib.logging.LogMarker
 
 class MigrationClientTest extends ElasticSearchTestBase {
@@ -8,17 +8,14 @@ class MigrationClientTest extends ElasticSearchTestBase {
     override def markerContents: Map[String, Any] = Map.empty
   }
 
-  val migrationClient: MigrationClient = new MigrationClient(elasticSearchConfig, None, mock[Scheduler])
-
   "Migration" - {
     "status should return as NotRunning on a clean ES" in {
-      assert(migrationClient.getStatus() === NotRunning)
+      assert(ES.migration.getStatus() === NotRunning)
     }
     "starting a migration should change the migration status" in {
-      migrationClient.startMigration("images-test-migration")
-      assert(migrationClient.getStatus() === InProgress)
+      ES.migration.startMigration("images-test-migration")
+      assert(ES.migration.getStatus() === InProgress)
     }
   }
-
 
 }

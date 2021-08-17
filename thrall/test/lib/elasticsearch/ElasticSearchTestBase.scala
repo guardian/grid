@@ -16,6 +16,7 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
 import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.global
 import scala.concurrent.duration._
 import scala.util.Properties
 
@@ -40,7 +41,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     replicas = 0
   )
 
-  val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
+  val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler], global)
   val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")

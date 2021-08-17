@@ -4,7 +4,8 @@ import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
-import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
+// import all except `Right`, which otherwise shadows the type used in `Either`s
+import com.gu.mediaservice.model.{Right => _, _}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
@@ -24,7 +25,6 @@ class MessageProcessor(
   es: ElasticSearch,
   store: ThrallStore,
   metadataEditorNotifications: MetadataEditorNotifications,
-  migrationClient: MigrationClient
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -92,7 +92,7 @@ class MessageProcessor(
     }.recoverWith {
       case failure: MigrationFailure =>
         logger.error(failure.getMessage)
-        val migrationIndexName = es.maybeMigrationIndexName.get().getOrElse("Unknown migration index name")
+        val migrationIndexName = es.migration.indexName.getOrElse("Unknown migration index name")
         es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failures = Map(migrationIndexName -> failure.getMessage))))
     }
   }
@@ -102,7 +102,6 @@ class MessageProcessor(
       es.updateImageExports(message.id, message.crops, message.lastModified)(ec, logMarker))
 
   private def deleteImageExports(message: DeleteImageExportsMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
-
     Future.sequence(
       es.deleteImageExports(message.id, message.lastModified)(ec, logMarker))
 
@@ -173,8 +172,8 @@ class MessageProcessor(
   }
 
   def createMigrationIndex(message: CreateMigrationIndexMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
-    Future{
-      migrationClient.startMigration(message.newIndexName)(logMarker)
+    Future {
+      es.migration.startMigration(message.newIndexName)(logMarker)
     }
   }
 }

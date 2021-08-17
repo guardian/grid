@@ -27,7 +27,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val metadataEditorNotifications = new MetadataEditorNotifications(config)
   val thrallMetrics = new ThrallMetrics(config)
 
-  val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
+  val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler, actorSystem.dispatcher)
   es.ensureAliasAssigned()
 
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
@@ -52,8 +52,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
   val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer)
 
-  val migrationClient: MigrationClient = new MigrationClient(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
-
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(wsClient)
 
@@ -62,7 +60,6 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     thrallMetrics,
     store,
     metadataEditorNotifications,
-    migrationClient,
     actorSystem
   )
 
