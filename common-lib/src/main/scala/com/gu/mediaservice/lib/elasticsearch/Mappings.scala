@@ -105,7 +105,7 @@ object Mappings {
     keywordField("source").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     nonAnalysedList("keywords").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     nonAnalysedList("subjects"),
-    keywordField("specialInstructions"),
+    standardAnalysed("specialInstructions").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     standardAnalysed("subLocation").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     standardAnalysed("city").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     standardAnalysed("state").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
