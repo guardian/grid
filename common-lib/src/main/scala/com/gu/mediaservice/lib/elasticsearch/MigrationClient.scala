@@ -27,40 +27,36 @@ trait MigrationClient {
   def scheduler: Scheduler
   implicit def ec: ExecutionContext
 
-  // provides namespacing of migration-related logic after being mixed into an Elasticsearch client class
-  object migration {
-    private val migrationStatusRef = new AtomicReference[MigrationStatus](NotRunning)
+  private val migrationStatusRef = new AtomicReference[MigrationStatus](NotRunning)
 
-    private def refreshMigrationStatus(): Unit = {
-      val statusFuture = getIndexForAlias(imagesMigrationAlias)
-        .map {
-          case Some(index) => InProgress(index.name)
-          case None => NotRunning
-        }
-        .recover { case e =>
-          // Emits log messages when requesting the name fails, then swallows exception to prevent bubbling up
-          // `migrationStatusRef` will remain the previous value until next scheduled execution
-          logger.error("Failed to get name of index for ongoing migration", e)
-          Error
-        }
+  private def refreshMigrationStatus(): Unit = {
+    val statusFuture = getIndexForAlias(imagesMigrationAlias)
+      .map {
+        case Some(index) => InProgress(index.name)
+        case None => NotRunning
+      }
+      .recover { case e =>
+        // Emits log messages when requesting the name fails, then swallows exception to prevent bubbling up
+        // `migrationStatusRef` will remain the previous value until next scheduled execution
+        logger.error("Failed to get name of index for ongoing migration", e)
+        Error
+      }
 
-      migrationStatusRef.set(
-        Await.result(statusFuture, atMost = 5.seconds)
-      )
-    }
+    migrationStatusRef.set(
+      Await.result(statusFuture, atMost = 5.seconds)
+    )
+  }
 
-    private val migrationStatusRefresher = scheduler.schedule(
-      initialDelay = 0.seconds,
-      interval = 1.minute
-    ) { refreshMigrationStatus() }
+  private val migrationStatusRefresher = scheduler.schedule(
+    initialDelay = 0.seconds,
+    interval = 60.seconds
+  ) { refreshMigrationStatus() }
 
-    def migrationStatus: MigrationStatus = migrationStatusRef.get()
-    def refreshAndRetrieveStatus(): MigrationStatus = {
-      refreshMigrationStatus()
-      migrationStatus
-    }
+  def migrationStatus: MigrationStatus = migrationStatusRef.get()
+  def refreshAndRetrieveMigrationStatus(): MigrationStatus = {
+    refreshMigrationStatus()
+    migrationStatus
   }
 }
-
 
 case class MigrationAlreadyRunningError() extends Exception

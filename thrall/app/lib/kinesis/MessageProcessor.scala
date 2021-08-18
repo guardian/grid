@@ -92,7 +92,7 @@ class MessageProcessor(
     }.recoverWith {
       case failure: MigrationFailure =>
         logger.error(failure.getMessage)
-        val migrationIndexName = es.migration.migrationStatus.getOrElse("Unknown migration index name")
+        val migrationIndexName = es.migrationStatus.getOrElse("Unknown migration index name")
         es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failures = Map(migrationIndexName -> failure.getMessage))))
     }
   }
