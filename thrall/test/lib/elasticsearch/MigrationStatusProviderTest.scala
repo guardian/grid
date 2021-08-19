@@ -3,7 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, NotRunning}
 import com.gu.mediaservice.lib.logging.LogMarker
 
-class MigrationClientTest extends ElasticSearchTestBase {
+class MigrationStatusProviderTest extends ElasticSearchTestBase {
   implicit val lm: LogMarker = new LogMarker{
     override def markerContents: Map[String, Any] = Map.empty
   }

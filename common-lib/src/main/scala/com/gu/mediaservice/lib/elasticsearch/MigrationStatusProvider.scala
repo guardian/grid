@@ -3,8 +3,9 @@ package com.gu.mediaservice.lib.elasticsearch
 import akka.actor.Scheduler
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 sealed trait MigrationStatus
 object MigrationStatus {
@@ -31,11 +32,10 @@ object StatusRefreshError {
   }
 }
 
-trait MigrationClient {
+trait MigrationStatusProvider {
   self: ElasticSearchClient =>
 
   def scheduler: Scheduler
-  implicit def ec: ExecutionContext
 
   private val migrationStatusRef = new AtomicReference[MigrationStatus](NotRunning)
 

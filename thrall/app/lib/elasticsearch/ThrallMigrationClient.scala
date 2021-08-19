@@ -1,9 +1,9 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, MigrationAlreadyRunningError, MigrationClient, NotRunning}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, MigrationAlreadyRunningError, MigrationStatusProvider, NotRunning}
 import com.gu.mediaservice.lib.logging.LogMarker
 
-trait ThrallMigrationClient extends MigrationClient {
+trait ThrallMigrationClient extends MigrationStatusProvider {
   self: ElasticSearchClient =>
 
   def startMigration(newIndexName: String)(implicit logMarker: LogMarker): Unit = {
