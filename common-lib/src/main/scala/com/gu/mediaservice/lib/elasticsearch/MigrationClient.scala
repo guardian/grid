@@ -49,7 +49,7 @@ trait MigrationClient {
 
   private val migrationStatusRefresher = scheduler.schedule(
     initialDelay = 0.seconds,
-    interval = 60.seconds
+    interval = 5.seconds
   ) { refreshMigrationStatus() }
 
   def migrationStatus: MigrationStatus = migrationStatusRef.get()
