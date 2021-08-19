@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import akka.actor.Scheduler
+import com.sksamuel.elastic4s.Index
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Await
@@ -37,23 +38,26 @@ trait MigrationStatusProvider {
 
   def scheduler: Scheduler
 
-  private val migrationStatusRef = new AtomicReference[MigrationStatus](NotRunning)
+  private val migrationStatusRef = new AtomicReference[MigrationStatus](fetchMigrationStatus(bubbleErrors = true))
 
-  private def refreshMigrationStatus(): Unit = {
+  private def fetchMigrationStatus(bubbleErrors: Boolean): MigrationStatus = {
     val statusFuture = getIndexForAlias(imagesMigrationAlias)
       .map {
         case Some(index) => InProgress(index.name)
         case None => NotRunning
       }
-      .recover { case e =>
-        // Emits log messages when requesting the name fails, then swallows exception to prevent bubbling up
-        // `migrationStatusRef` will remain the previous value until next scheduled execution
-        logger.error("Failed to get name of index for ongoing migration", e)
-        StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef.get())
+      .recover {
+        case e if !bubbleErrors =>
+          logger.error("Failed to get name of index for ongoing migration", e)
+          StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef.get())
       }
 
+    Await.result(statusFuture, atMost = 5.seconds)
+  }
+
+  private def refreshMigrationStatus(): Unit = {
     migrationStatusRef.set(
-      Await.result(statusFuture, atMost = 5.seconds)
+      fetchMigrationStatus(bubbleErrors = false)
     )
   }
 
