@@ -71,6 +71,13 @@ trait MigrationStatusProvider {
     refreshMigrationStatus()
     migrationStatus
   }
+
+  def migrationStatusRefresherHealth: Option[String] = {
+    migrationStatusRef.get() match {
+      case StatusRefreshError(_, _) => Some("Could not determine status of migration")
+      case _ => None
+    }
+  }
 }
 
 case class MigrationAlreadyRunningError() extends Exception

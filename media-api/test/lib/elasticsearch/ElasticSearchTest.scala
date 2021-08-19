@@ -1,5 +1,6 @@
 package lib.elasticsearch
 
+import akka.actor.Scheduler
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.config.GridConfigResources
@@ -53,8 +54,6 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   )
 
 
-  private val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty)
-  val client = ES.client
 
   def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
@@ -63,6 +62,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       DockerReadyChecker.HttpResponseCode(9200, "/", Some("0.0.0.0")).within(10.minutes).looped(40, 1250.millis)
     )
   ) else None
+  private lazy val ES = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => List.empty, mock[Scheduler])
+  lazy val client = ES.client
 
   private val expectedNumberOfImages = images.size
 
@@ -429,7 +430,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
       val search = SearchParams(tier = Internal, structuredQuery = List(isUnderQuotaCondition), length = 50)
-      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies)
+      val elasticsearch = new ElasticSearch(mediaApiConfig, mediaApiMetrics, elasticConfig, () => overQuotaAgencies, mock[Scheduler])
 
       whenReady(elasticsearch.search(search), timeout, interval) { result => {
         val overQuotaImages = List(

@@ -41,7 +41,6 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     replicas = 0
   )
 
-  val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler], global)
   val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
@@ -49,6 +48,8 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       DockerReadyChecker.HttpResponseCode(9200, "/", Some("0.0.0.0")).within(10.minutes).looped(40, 1250.millis)
     )
   ) else None
+
+  lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
 
   override def beforeAll {
     super.beforeAll()
