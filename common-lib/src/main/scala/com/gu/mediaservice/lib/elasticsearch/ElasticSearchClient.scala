@@ -118,7 +118,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
       // Deep pagination. It's fairly easy to scroll the grid past the default Elastic 6 pagination limit.
       // Elastic start talking about why this is problematic in the 2.x docs and by 6 it's been defaulted to 10k.
       // https://www.elastic.co/guide/en/elasticsearch/guide/current/pagination.html
-      // Override to 100,000 to preserve the existing behaviour without comprising the Elastic cluster.
+      // Override to 25,000 to preserve the existing behaviour without comprising the Elastic cluster.
       // The grid UI should consider scrolling by datetime offsets if possible.
       val maximumPaginationOverride = Map("max_result_window" -> 25000)
 
