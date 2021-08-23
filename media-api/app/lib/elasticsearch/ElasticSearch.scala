@@ -273,9 +273,6 @@ class ElasticSearch(
     }
   }
 
-  def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesCurrentAlias)).map {
-    _.result.totalHits
-  }
 
   def withSearchQueryTimeout(sr: SearchRequest): SearchRequest = sr timeout SearchQueryTimeout
 
