@@ -28,6 +28,9 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   val oneHundredMilliseconds = Duration(100, MILLISECONDS)
   val fiveSeconds = Duration(5, SECONDS)
   val tenSeconds = Duration(10, SECONDS)
+
+  val migrationIndexName = "migration-index"
+
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(tenSeconds, oneHundredMilliseconds)
 
   val elasticSearchConfig = ElasticSearchConfig(
@@ -54,6 +57,7 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
   override def beforeAll {
     super.beforeAll()
     ES.ensureAliasAssigned()
+    ES.ensureIndexExists(migrationIndexName)
   }
 
   override protected def beforeEach(): Unit = {

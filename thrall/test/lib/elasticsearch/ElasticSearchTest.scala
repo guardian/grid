@@ -1,11 +1,11 @@
 package lib.elasticsearch
 
 import java.util.UUID
-
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
+import com.gu.mediaservice.model.usage.Usage
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.http._
@@ -757,14 +757,118 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       }
     }
 
-  "date checks" - {
-    "correct zone" in {
-      import com.gu.mediaservice.lib.formatting.parseOptDateTime
-      val parsedDate = parseOptDateTime(Some("2021-01-13T15:26:27.234Z"))
-      parsedDate.get.getZone shouldEqual(DateTimeZone.UTC)
+    "date checks" - {
+      "correct zone" in {
+        import com.gu.mediaservice.lib.formatting.parseOptDateTime
+        val parsedDate = parseOptDateTime(Some("2021-01-13T15:26:27.234Z"))
+        parsedDate.get.getZone shouldEqual(DateTimeZone.UTC)
+      }
     }
-  }
 
+    "migration aware" - {
+      "updates" - {
+        "when only the current index exists, migration index is silently ignored" in {
+          val id = UUID.randomUUID().toString
+          val photog = StaffPhotographer("Tom Jenkins", "The Guardian")
+          val image = createImage(id = UUID.randomUUID().toString, photog)
+          Await.result(Future.sequence(ES.indexImage(id, image, now)), fiveSeconds)
+
+          val updateDoc = """
+            |{
+            |  "identifiers": {
+            |    "test": "done"
+            |  }
+            |}""".stripMargin
+
+          // does not throw, despite migration index not existing
+          Await.result(ES.migrationAwareUpdater(
+            indexName => update(id).in(indexName).doc(updateDoc),
+            indexName => s"update $id for $indexName"
+          ), fiveSeconds)
+
+          ES.getImage(id).await.get.identifiers shouldEqual Map("test" -> "done")
+        }
+
+        "when migration alias also exists, but does not contain doc to be updated" in {
+          ES.assignAliasTo(migrationIndexName, ES.imagesMigrationAlias)
+          val id = UUID.randomUUID().toString
+          val photog = StaffPhotographer("Tom Jenkins", "The Guardian")
+          val image = createImage(id = UUID.randomUUID().toString, photog)
+          Await.result(Future.sequence(ES.indexImage(id, image, now, ES.imagesCurrentAlias)), fiveSeconds)
+
+          val updateDoc = """
+            |{
+            |  "identifiers": {
+            |    "test": "done"
+            |  }
+            |}""".stripMargin
+
+          // does not throw, despite migration index not containing doc with id `id`
+          Await.result(ES.migrationAwareUpdater(
+            indexName => update(id).in(indexName).doc(updateDoc),
+            indexName => s"update $id for $indexName"
+          ), fiveSeconds)
+
+          val getRequest = get(ES.imagesCurrentAlias, id)
+          val result = ES.executeAndLog(getRequest, "").await.result
+
+          result.found shouldBe true
+
+          val requestedImage = Json.parse(result.sourceAsString).as[Image]
+
+          requestedImage.identifiers shouldEqual Map("test" -> "done")
+
+          ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+        }
+
+        "when migration index contains doc, both are updated" in {
+          ES.assignAliasTo(migrationIndexName, ES.imagesMigrationAlias)
+          ES.refreshAndRetrieveMigrationStatus()
+
+          val id = UUID.randomUUID().toString
+          val photog = StaffPhotographer("Tom Jenkins", "The Guardian")
+          val image = createImage(id = UUID.randomUUID().toString, photog)
+          Await.result(Future.sequence(ES.indexImage(id, image, now, ES.imagesCurrentAlias)), fiveSeconds)
+
+          val migratedImage = image.copy(identifiers = Map("migrated-index?" -> "yes"))
+          Await.result(Future.sequence(ES.indexImage(id, migratedImage, now, ES.imagesMigrationAlias)), fiveSeconds)
+
+          val updateDoc = """
+            |{
+            |  "identifiers": {
+            |    "test": "done"
+            |  }
+            |}""".stripMargin
+
+          Await.result(ES.migrationAwareUpdater(
+            indexName => update(id).in(indexName).doc(updateDoc),
+            indexName => s"update $id for $indexName"
+          ), fiveSeconds)
+
+          // update done in current index
+          val getRequestCurrent = get(ES.imagesCurrentAlias, id)
+          val resultCurrent = ES.executeAndLog(getRequestCurrent, "").await.result
+
+          resultCurrent.found shouldBe true
+
+          val requestedImageCurrent = Json.parse(resultCurrent.sourceAsString).as[Image]
+
+          requestedImageCurrent.identifiers shouldEqual Map("test" -> "done")
+
+          // update also done in migration index
+          val getRequestMigration = get(ES.imagesMigrationAlias, id)
+          val resultMigration = ES.executeAndLog(getRequestMigration, "").await.result
+
+          resultMigration.found shouldBe true
+
+          val requestedImageMigration = Json.parse(resultMigration.sourceAsString).as[Image]
+
+          requestedImageMigration.identifiers shouldEqual Map("test" -> "done", "migrated-index?" -> "yes")
+
+          ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+        }
+      }
+    }
   }
   private def now = DateTime.now(DateTimeZone.UTC)
 }
