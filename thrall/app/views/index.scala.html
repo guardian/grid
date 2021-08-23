@@ -7,6 +7,7 @@
   migrationIndex: Option[String],
   migrationIndexCount: String,
   migrateSingleImageForm: Form[MigrateSingleImageForm],
+  migrationStatusProviderValue: String,
 )
 
 @migrationIndexCell = {
@@ -53,5 +54,9 @@
             <td>@migrationIndexCount</td>
         </tr>
     </table>
+
+    <h2>MigrationStatus (from the MigrationStatusProvider, a.k.a. 'migration status refresher')</h2>
+    <pre>@migrationStatusProviderValue</pre>
+    <em>Note that the above represents the value at the point this page was loaded.</em>
 </body>
 </html>
