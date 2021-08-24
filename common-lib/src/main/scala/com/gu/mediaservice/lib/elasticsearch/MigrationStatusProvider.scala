@@ -9,15 +9,6 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 
 sealed trait MigrationStatus
-object MigrationStatus {
-  import scala.language.implicitConversions
-  implicit def migrationStatusToOptionOfMigrationIndexName(migrationStatus: MigrationStatus): Option[String] =
-    migrationStatus match {
-      case StatusRefreshError(_, previousStatus) => migrationStatusToOptionOfMigrationIndexName(previousStatus)
-      case InProgress(migrationIndexName) => Some(migrationIndexName)
-      case _ => None
-    }
-}
 
 case object NotRunning extends MigrationStatus
 case class InProgress(migrationIndexName: String) extends MigrationStatus
