@@ -57,7 +57,8 @@ class ThrallController(
         migrationAlias = es.imagesMigrationAlias,
         migrationIndex = migrationIndexName,
         migrationIndexCount = migrationIndexCountFormatted,
-        migrateSingleImageForm = migrateSingleImageForm
+        migrateSingleImageForm = migrateSingleImageForm,
+        migrationStatusProviderValue = es.migrationStatus.toString
       ))
     }
   }
@@ -129,6 +130,5 @@ class ThrallController(
       "id" -> text
     )(MigrateSingleImageForm.apply)(MigrateSingleImageForm.unapply)
   )
-
 }
 

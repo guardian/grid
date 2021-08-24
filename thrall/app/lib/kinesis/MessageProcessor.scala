@@ -1,19 +1,17 @@
 package lib.kinesis
 
-import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.ElasticNotFoundException
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
-import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
+// import all except `Right`, which otherwise shadows the type used in `Either`s
+import com.gu.mediaservice.model.{Right => _, _}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import lib.elasticsearch._
 import play.api.libs.json._
 
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 sealed trait MigrationFailure
@@ -27,9 +25,6 @@ class MessageProcessor(
   es: ElasticSearch,
   store: ThrallStore,
   metadataEditorNotifications: MetadataEditorNotifications,
-  migrationClient: MigrationClient,
-  gridClient: GridClient,
-  auth: Authentication
 ) extends GridLogging with MessageSubjects {
 
   def process(updateMessage: ThrallMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
@@ -97,7 +92,7 @@ class MessageProcessor(
     }.recoverWith {
       case failure: MigrationFailure =>
         logger.error(failure.getMessage)
-        val migrationIndexName = Await.result(es.getIndexForAlias(es.imagesMigrationAlias), atMost = 3.seconds).map(_.name).getOrElse("Unknown migration index name")
+        val migrationIndexName = es.migrationStatus.getOrElse("Unknown migration index name")
         es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failures = Map(migrationIndexName -> failure.getMessage))))
     }
   }
@@ -107,7 +102,6 @@ class MessageProcessor(
       es.updateImageExports(message.id, message.crops, message.lastModified)(ec, logMarker))
 
   private def deleteImageExports(message: DeleteImageExportsMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
-
     Future.sequence(
       es.deleteImageExports(message.id, message.lastModified)(ec, logMarker))
 
@@ -178,8 +172,8 @@ class MessageProcessor(
   }
 
   def createMigrationIndex(message: CreateMigrationIndexMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
-    Future{
-      migrationClient.startMigration(message.newIndexName)(logMarker)
+    Future {
+      es.startMigration(message.newIndexName)(logMarker)
     }
   }
 }

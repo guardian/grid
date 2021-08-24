@@ -1,24 +1,26 @@
 package lib.elasticsearch
 
+import akka.actor.Scheduler
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.count.CountResponse
-import com.sksamuel.elastic4s.{ElasticDsl, Response}
 import com.whisk.docker.impl.spotify.DockerKitSpotify
 import com.whisk.docker.scalatest.DockerTestKit
 import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import helpers.Fixtures
 import org.joda.time.DateTime
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
 import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.global
 import scala.concurrent.duration._
 import scala.util.Properties
 
-trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify {
+trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar {
 
   val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
   val esTestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")
@@ -39,7 +41,6 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
     replicas = 0
   )
 
-  val ES = new ElasticSearch(elasticSearchConfig, None)
   val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
@@ -47,6 +48,8 @@ trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with Be
       DockerReadyChecker.HttpResponseCode(9200, "/", Some("0.0.0.0")).within(10.minutes).looped(40, 1250.millis)
     )
   ) else None
+
+  lazy val ES = new ElasticSearch(elasticSearchConfig, None, mock[Scheduler])
 
   override def beforeAll {
     super.beforeAll()

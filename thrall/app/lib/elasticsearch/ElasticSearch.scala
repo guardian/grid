@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import akka.http.javadsl.model.headers.LastModified
+import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.formatting.printDateTime
@@ -10,8 +10,8 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.{Index, Response}
-import com.sksamuel.elastic4s.requests.indexes.{IndexRequest, IndexResponse}
+import com.sksamuel.elastic4s.Response
+import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
@@ -24,8 +24,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
 
-class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics]) extends ElasticSearchClient
-  with ImageFields with ElasticSearchExecutions {
+class ElasticSearch(
+  config: ElasticSearchConfig,
+  metrics: Option[ThrallMetrics],
+  val scheduler: Scheduler
+) extends ElasticSearchClient with ImageFields with ElasticSearchExecutions with ThrallMigrationClient {
 
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration
@@ -33,10 +36,6 @@ class ElasticSearch(config: ElasticSearchConfig, metrics: Option[ThrallMetrics])
   lazy val cluster: String = config.cluster
   lazy val shards: Int = config.shards
   lazy val replicas: Int = config.replicas
-
-  def getIndexForAlias(alias: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[Option[Index]] = {
-    executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
-  }
 
   def setMigrationInfo(imageId: String, migrationInfo: Either[MigrationFailure, MigrationTo])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[Any]] = {
     val esInfo = EsInfo(migration = Some(migrationInfo))

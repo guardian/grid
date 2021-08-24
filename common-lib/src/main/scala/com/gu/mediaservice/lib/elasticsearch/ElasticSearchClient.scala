@@ -1,12 +1,13 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s._
 import com.sksamuel.elastic4s.http.JavaClient
-import com.sksamuel.elastic4s.{ElasticClient, ElasticError, ElasticProperties, Response}
 import com.sksamuel.elastic4s.requests.common.HealthStatus
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -64,6 +65,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     implicit val logMarker = MarkerMap()
     val request = search(imagesCurrentAlias) limit 0
     executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
+  }
+
+  def getIndexForAlias(alias: String)(implicit logMarker: LogMarker = MarkerMap()): Future[Option[Index]] = {
+    executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
   }
 
   def countImages(indexName: String = "images"): Future[ElasticSearchImageCounts] = {
