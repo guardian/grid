@@ -45,6 +45,7 @@ class MessageProcessor(
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
       case message: MigrateImageMessage => migrateImage(message, logMarker)
+      case MigrationScramMessage => haltMigration(logMarker)
     }
   }
 
@@ -61,6 +62,13 @@ class MessageProcessor(
     Future.sequence(
       es.indexImage(message.id, message.image, message.lastModified)(ec, logMarker)
     )
+
+  private def haltMigration(marker: LogMarker)(implicit  ec: ExecutionContext) = {
+    es.getIndexForAlias(es.imagesMigrationAlias) flatMap {
+      case Some(index) => es.removeAliasFrom(index.index, es.imagesMigrationAlias).map(Some(_))
+      case None => Future.successful(None)
+    }
+  }
 
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     implicit val implicitLogMarker: LogMarker = logMarker

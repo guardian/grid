@@ -28,6 +28,8 @@ sealed trait MigrationMessage extends InternalThrallMessage {}
 
 case class MigrateImageMessage(id: String, maybeImageWithVersion: Either[String, (Image, Long)]) extends MigrationMessage
 
+case object MigrationScramMessage extends MigrationMessage
+
 /**
   * EXTERNAL THRALL MESSAGES (these go over Kinesis)
   */

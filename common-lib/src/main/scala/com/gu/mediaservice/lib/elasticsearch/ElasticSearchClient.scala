@@ -196,6 +196,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     logger.info("Got alias action response: " + aliasActionResponse)
   }
 
- def removeAliasFrom(index: String) = ???
+ def removeAliasFrom(index: String, alias: String) = client.execute {
+   aliases(
+     removeAlias(alias, index)
+   )
+ }
 
 }

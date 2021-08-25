@@ -10,8 +10,7 @@ import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
 import lib.OptionalFutureRunner
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.CreateMigrationIndexMessage
-import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
+import com.gu.mediaservice.model.{CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage, MigrationScramMessage}
 import lib.elasticsearch.ElasticSearch
 import play.api.data.Form
 import play.api.data.Forms._
@@ -100,6 +99,11 @@ class ThrallController(
         )
 
     }
+  }
+
+  def haltMigration: Action[AnyContent] = withLoginRedirect { implicit request =>
+    sendMigrationMessage(MigrationScramMessage)
+    Ok("you have swung the axe, the rope shall be cut. image migration should cease fairly soon.")
   }
 
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>

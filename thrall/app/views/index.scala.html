@@ -19,6 +19,10 @@
                 <input type="text" id="id" name="id">
                 <input type="submit" value="Migrate single image">
             }
+            @form(action = routes.ThrallController.haltMigration){
+                <input type="submit" value="Stop Migration"/>
+            }
+
         }
         case None => {
             @form(routes.ThrallController.startMigration()) {

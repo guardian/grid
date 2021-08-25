@@ -10,6 +10,9 @@ POST    /startMigration                               controllers.ThrallControll
 +nocsrf
 POST    /migrate                                      controllers.ThrallController.migrateSingleImage
 
++nocsrf
+POST    /scram                                        controllers.ThrallController.haltMigration
+
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck
 GET     /management/manifest                          com.gu.mediaservice.lib.management.Management.manifest
