@@ -21,3 +21,5 @@ We can use [create-root-collection.sh](../../dev/script/create-root-collection.s
 ```shell script
 ./dev/script/create-root-collection.sh COLLECTION_NAME
 ```
+
+You'll need an API key to make this request – see the [authentication docs](./01-authentication.md) to create one.
