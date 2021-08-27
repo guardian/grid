@@ -9,12 +9,13 @@ import akka.stream.alpakka.elasticsearch.scaladsl.ElasticsearchSource
 import akka.stream.scaladsl.Source
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{ExternalThrallMessage, Image, InternalThrallMessage, MigrationMessage}
+import com.gu.mediaservice.model.{ExternalThrallMessage, Image, InternalThrallMessage, MigrateImageMessage, MigrationMessage}
 import com.gu.mediaservice.model.Image.ImageReads
 import lib.elasticsearch.ElasticSearch
 import org.elasticsearch.client.RestClient
 import org.scalacheck.Prop.True
 import play.api.libs.json.Json
+import play.api.libs.ws.WSRequest
 import spray.json.DefaultJsonProtocol.jsonFormat1
 import spray.json.{JsObject, JsonFormat}
 
@@ -28,19 +29,29 @@ case class MigrationSourceWithSender(
 )
 
 object MigrationSourceWithSender extends GridLogging {
-  def apply(materializer: Materializer)(implicit ec: ExecutionContext /*es: RestClient*/): MigrationSourceWithSender = {
+  def apply(materializer: Materializer, innerServiceCall: WSRequest => WSRequest)(implicit ec: ExecutionContext, es: RestClient): MigrationSourceWithSender = {
     // Justin's ideas code
-//    implicit val format: JsonFormat[Image] = ???
-//    val x = ElasticsearchSource
-//      .typed[Image](
-//        indexName = "source",
-//        typeName = "_doc",
-//        query = """{"match_all": {}}"""
-//      )
-//    val y: Source[MigrationRecord, NotUsed] = x.map { imageResult: ReadResult[Image] =>
-//      MigrationRecord(UpdateMessage("migrate-image", Some(imageResult.source)), java.time.Instant.now())
-//    }
-//    y.mapMaterializedValue(_ => Future.successful(Done))
+    implicit val format: JsonFormat[Image] = ???
+    val x = ElasticsearchSource
+      .typed[Image](
+        indexName = "source",
+        typeName = "_doc",
+        query = """{"match_all": {}}"""
+      )
+    val y: Source[MigrationRecord, NotUsed] = x.map { imageResult: ReadResult[Image] => {
+      val imageId = imageResult.id
+      val migrateImageMessage = (
+        for {
+        maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
+        maybeVersion = imageResult.version
+      } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
+      ).recover {
+        case error => MigrateImageMessage(imageId, Left(s"Failed to project image for id: ${imageId}, message: ${error}"))
+      }
+      MigrationRecord(migrateImageMessage, java.time.Instant.now())
+    }
+    }
+    y.mapMaterializedValue(_ => Future.successful(Done))
 
     // return manually-updatable source until we implement the above properly
     val sourceDeclaration = Source.queue[MigrationRecord](bufferSize = 2, OverflowStrategy.backpressure)

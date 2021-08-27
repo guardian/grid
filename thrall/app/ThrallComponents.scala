@@ -50,7 +50,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer)
+  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer, auth.innerServiceCall)
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(wsClient)
