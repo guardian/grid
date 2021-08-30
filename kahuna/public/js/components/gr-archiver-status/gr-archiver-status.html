@@ -4,10 +4,16 @@
       ng-class="{'gr-archiver-status--interactive': ctrl.archivedState !== 'kept',
                  'gr-archiver-status--archived':    ctrl.archivedState !== 'unarchived',
                  'gr-archiver-status--unarchived':  ctrl.archivedState === 'unarchived'}">
-    <span ng-switch-when="kept"
+    <span ng-if="!ctrl.isDeleted" ng-switch-when="kept"
           title="Kept in Library because the image has been {{ctrl.archivedExplanation}}.">
         <gr-library-locked-icon class="gr-archiver-status__icon"></gr-library-locked-icon>
     </span>
+
+    <span ng-if="ctrl.isDeleted && !ctrl.canUndelete"
+          title="Image has been deleted">
+        <gr-library-locked-icon class="gr-archiver-status__icon"></gr-library-locked-icon>
+    </span>
+
     <button ng-switch-when="archived"
             type="button"
             class="gr-archiver-status__button inner-clickable"
@@ -23,6 +29,13 @@
             title="Add to Library"
             ng-click="ctrl.archive()"
             ng-disabled="ctrl.archiving">
+        <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
+    </button>
+    <button ng-if="ctrl.canUndelete && ctrl.isDeleted"
+            type="button"
+            class="gr-archiver-status__button inner-clickable"
+            title="Add to Library"
+            ng-click="ctrl.undelete()">
         <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
     </button>
 </span>
