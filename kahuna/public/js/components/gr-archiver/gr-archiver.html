@@ -1,11 +1,19 @@
 <div class="batch-archive"
      ng-switch="ctrl.archivedState">
-    <span ng-switch-when="kept"
+    <span ng-if="!ctrl.isDeleted" ng-switch-when="kept"
           class="side-padded batch-archive__button batch-archive__button--disabled"
           gr-tooltip="{{ctrl.archivedExplanation}}"
           gr-tooltip-updates>
         <gr-library-locked-icon class="batch-archive__icon"></gr-library-locked-icon>
         <span class="icon-label">Kept in Library</span>
+    </span>
+
+    <span ng-if="ctrl.isDeleted && !ctrl.canUndelete"
+          class="side-padded batch-archive__button batch-archive__button--disabled"
+          gr-tooltip="Image has been deleted"
+          gr-tooltip-updates>
+        <gr-library-locked-icon class="batch-archive__icon"></gr-library-locked-icon>
+        <span class="icon-label">Image Deleted</span>
     </span>
 
     <button ng-switch-when="archived"
@@ -23,6 +31,15 @@
             class="clickable side-padded batch-archive__button"
             ng-click="ctrl.archive()"
             ng-disabled="ctrl.archiving">
+        <gr-library-add-icon class="batch-archive__icon"></gr-library-add-icon>
+        <span ng-if="!ctrl.archiving">Add to Library</span>
+        <span ng-if="ctrl.archiving">Adding to Library…</span>
+    </button>
+
+    <button ng-if="ctrl.canUndelete && ctrl.isDeleted"
+            type="button"
+            class="clickable side-padded batch-archive__button"
+            ng-click="ctrl.undelete()">
         <gr-library-add-icon class="batch-archive__icon"></gr-library-add-icon>
         <span ng-if="!ctrl.archiving">Add to Library</span>
         <span ng-if="ctrl.archiving">Adding to Library…</span>
