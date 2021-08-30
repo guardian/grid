@@ -225,7 +225,7 @@ class MediaApi(
     }
   }
 
-  def deleteImage(id: String) = auth.async { request =>
+  def hardDeleteImage(id: String) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
@@ -250,7 +250,7 @@ class MediaApi(
     }
   }
 
-  def softDeleteImage(id: String) = auth.async { request =>
+  def deleteImage(id: String) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
