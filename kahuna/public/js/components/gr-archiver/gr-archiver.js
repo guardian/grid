@@ -38,6 +38,16 @@ module.controller('grArchiverCtrl', [
         ctrl.archiving = false;
         ctrl.canArchive = false;
 
+        ctrl.canUndelete = false;
+        ctrl.isDeleted = false;
+
+        ctrl.undelete = undelete;
+
+        mediaApi.getSession().then(session => {
+            if (ctrl.image.data.softDeletedMetadata !== undefined && session.user.permissions.canDelete) { ctrl.canUndelete = true; }
+            if (ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
+        });
+
         mediaApi.canUserArchive().then(canArchive => {
             ctrl.canArchive = canArchive;
         });
@@ -100,6 +110,12 @@ module.controller('grArchiverCtrl', [
                 map(items => new Set(items)).
                 reduce((all, items) => all.union(items)).
                 toArray();
+        }
+        function undelete() {
+            const imageId = ctrl.image.data.id;
+            mediaApi.undelete(imageId).then(
+                ctrl.canUndelete = ctrl.isDeleted = false
+            );
         }
     }
 ]);
