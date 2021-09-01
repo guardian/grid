@@ -3,12 +3,13 @@ package lib.elasticsearch
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, InProgress, MigrationStatusProvider}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.searches._
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.queries.Query
@@ -59,31 +60,60 @@ class ElasticSearch(
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
     getImageWithSourceById(id).map(_.map(_.instance))
 
-  def getImageWithSourceById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[SourceWrapper[Image]]] = {
+  private def migrationAwareGetter[T](
+    id: String,
+    logMessagePart: String,
+    requestFromIndexName: String => GetRequest,
+    resultTransformer: GetResponse => Option[T]
+  )(
+    implicit ex: ExecutionContext
+  ): Future[Option[T]] = {
     implicit val logMarker = MarkerMap("id" -> id)
-    executeAndLog(get(imagesCurrentAlias, id), s"get image by id $id").map { r =>
+
+    def getFromCurrentIndex = executeAndLog(
+      request = requestFromIndexName(imagesCurrentAlias),
+      message = s"get $logMessagePart by id $id from index with alias $imagesCurrentAlias"
+    ).map { r =>
       r.status match {
-        case Status.OK => mapImageFrom(r.result.sourceAsString, id)
+        case Status.OK => resultTransformer(r.result)
         case _ => None
       }
+    }
+    migrationStatus match {
+      case InProgress(migrationIndexName) => executeAndLog(
+        request = requestFromIndexName(migrationIndexName),
+        message = s"get $logMessagePart by id $id from migration index $migrationIndexName"
+      ).flatMap { r =>
+        r.status match {
+          case Status.OK => Future.successful(resultTransformer(r.result))
+          case _ => getFromCurrentIndex
+        }
+      }
+      case _ => getFromCurrentIndex
     }
   }
 
-  def getImageUploaderById(id: String)(implicit ex: ExecutionContext): Future[Option[String]] = {
-    implicit val logMarker = MarkerMap("id" -> id)
-    val request = get(imagesCurrentAlias, id).fetchSourceInclude("uploadedBy")
-    executeAndLog(request, s"get image uploader by id $id").map { r =>
+  def getImageWithSourceById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[SourceWrapper[Image]]] = {
+    migrationAwareGetter(
+      id,
+      logMessagePart = "image",
+      requestFromIndexName = indexName => get(indexName, id),
+      resultTransformer = (result: GetResponse) => mapImageFrom(result.sourceAsString, id, result.index)
+    )
+  }
 
-      r.status match {
-        case Status.OK => r.result.sourceFieldOpt("uploadedBy").collect{case s: String => s}
-        case _ => None
-      }
-    }
+  def getImageUploaderById(id: String)(implicit ex: ExecutionContext): Future[Option[String]] = {
+    migrationAwareGetter(
+      id,
+      logMessagePart = "image uploader",
+      requestFromIndexName = indexName => get(indexName, id).fetchSourceInclude("uploadedBy"),
+      resultTransformer = _.sourceFieldOpt("uploadedBy").collect { case s: String => s }
+    )
   }
 
   def search(params: SearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[SearchResults] = {
     implicit val logMarker = MarkerMap()
-    def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id)
+    def resolveHit(hit: SearchHit) = mapImageFrom(hit.sourceAsString, hit.id, hit.index)
 
     val query: Query = queryBuilder.makeQuery(params.structuredQuery)
 
@@ -273,21 +303,26 @@ class ElasticSearch(
     }
   }
 
-  def totalImages()(implicit ex: ExecutionContext): Future[Long] = client.execute(ElasticDsl.search(imagesCurrentAlias)).map {
-    _.result.totalHits
-  }
 
   def withSearchQueryTimeout(sr: SearchRequest): SearchRequest = sr timeout SearchQueryTimeout
 
   private def prepareSearch(query: Query): SearchRequest = {
-    val sr = ElasticDsl.search(imagesCurrentAlias) query query
-    withSearchQueryTimeout(sr)
+    val indexes = migrationStatus match {
+      case InProgress(migrationIndexName) => List(imagesCurrentAlias, migrationIndexName)
+      case _ => List(imagesCurrentAlias)
+    }
+    val migrationAwareQuery = migrationStatus match {
+      case InProgress(migrationIndexName) => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", migrationIndexName)))
+      case _ => query
+    }
+    val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery
+    withSearchQueryTimeout(searchRequest)
   }
 
-  private def mapImageFrom(sourceAsString: String, id: String) = {
+  private def mapImageFrom(sourceAsString: String, id: String, fromIndex: String) = {
     val source = Json.parse(sourceAsString)
     source.validate[Image] match {
-      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value))
+      case i: JsSuccess[Image] => Some(SourceWrapper(source, i.value, fromIndex))
       case e: JsError =>
         logger.error("Failed to parse image from source string " + id + ": " + e.toString)
         None

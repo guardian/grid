@@ -104,7 +104,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
-      .flatMap(_.transform(addAliases(aliases))).get
+      .flatMap(_.transform(addAliases(aliases)))
+      .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex))).get
+
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
@@ -221,6 +223,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
+
+  def addFromIndex(fromIndex: String): Reads[JsObject] =
+  __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
 
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))

@@ -455,7 +455,9 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     })
   }
 
-  private def totalImages: Long = Await.result(ES.totalImages(), oneHundredMilliseconds)
+  private def totalImages: Long = Await.result(ES.client.execute(ElasticDsl.search(ES.imagesCurrentAlias)).map {
+    _.result.totalHits
+  }, oneHundredMilliseconds)
 
   private def purgeTestImages = {
     implicit val logMarker: LogMarker = MarkerMap()
