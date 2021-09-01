@@ -15,6 +15,7 @@
     </span>
 
     <button ng-switch-when="archived"
+            ng-if="!ctrl.isDeleted"
             type="button"
             class="gr-archiver-status__button inner-clickable"
             title="Remove from Library"
@@ -23,7 +24,7 @@
         <gr-library-added-icon class="gr-archiver-status__icon"></gr-library-added-icon>
         <gr-library-remove-icon class="gr-archiver-status__icon"></gr-library-remove-icon>
     </button>
-    <button ng-if="ctrl.canArchive" ng-switch-when="unarchived"
+    <button ng-if="ctrl.canArchive && !ctrl.isDeleted" ng-switch-when="unarchived"
             type="button"
             class="gr-archiver-status__button inner-clickable"
             title="Add to Library"
@@ -34,7 +35,7 @@
     <button ng-if="ctrl.canUndelete && ctrl.isDeleted"
             type="button"
             class="gr-archiver-status__button inner-clickable"
-            title="Add to Library"
+            title="Undelete"
             ng-click="ctrl.undelete()">
         <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
     </button>

@@ -40,6 +40,7 @@ module.controller('grArchiverCtrl', [
 
         ctrl.canUndelete = false;
         ctrl.isDeleted = false;
+        ctrl.undeleting = false;
 
         ctrl.undelete = undelete;
 
@@ -112,10 +113,16 @@ module.controller('grArchiverCtrl', [
                 toArray();
         }
         function undelete() {
+            ctrl.undeleting = true
             const imageId = ctrl.image.data.id;
-            mediaApi.undelete(imageId).then(
-                ctrl.canUndelete = ctrl.isDeleted = false
-            );
+            mediaApi.undelete(imageId)
+                .then(
+                  ctrl.canUndelete = ctrl.isDeleted = false
+                ).catch(() => {
+                     $window.alert('Failed to undelete image, please try again.');
+                }).finally(() => {
+                     ctrl.undeleting = false;
+                });
         }
     }
 ]);
