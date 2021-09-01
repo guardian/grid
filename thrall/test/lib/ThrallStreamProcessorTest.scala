@@ -110,7 +110,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     lazy val streamProcessor = new ThrallStreamProcessor(
       uiPrioritySource,
       automationPrioritySource,
-      migrationSourceWithSender.source,
+      migrationSourceWithSender.manualSource,
       mockConsumer,
       actorSystem,
       materializer

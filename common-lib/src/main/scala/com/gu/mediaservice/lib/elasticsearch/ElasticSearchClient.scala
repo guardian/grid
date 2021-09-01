@@ -3,10 +3,13 @@ package com.gu.mediaservice.lib.elasticsearch
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s._
-import com.sksamuel.elastic4s.http.JavaClient
+import com.sksamuel.elastic4s.http.{JavaClient, NoOpHttpClientConfigCallback, NoOpRequestConfigCallback}
+import com.sksamuel.elastic4s.http.JavaClient.{fromRestClient, logger}
 import com.sksamuel.elastic4s.requests.common.HealthStatus
 import com.sksamuel.elastic4s.requests.indexes.CreateIndexResponse
 import com.sksamuel.elastic4s.requests.indexes.admin.IndexExistsResponse
+import org.apache.http.HttpHost
+import org.elasticsearch.client.RestClient
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -15,6 +18,7 @@ import scala.concurrent.{Await, Future}
 case class ElasticSearchImageCounts(catCount: Long,
                                     searchResponseCount: Long,
                                     indexStatsCount: Long)
+
 
 trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
@@ -36,11 +40,22 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   def shards: Int
   def replicas: Int
 
-  lazy val client = {
+  lazy val restClient: RestClient = {
     logger.info("Connecting to Elastic 7: " + url)
-    val client = JavaClient(ElasticProperties(url))
-    ElasticClient(client)
+    val props = ElasticProperties(url)
+    val hosts = props.endpoints.map {
+      case ElasticNodeEndpoint(protocol, host, port, _) => new HttpHost(host, port, protocol)
+    }
+    logger.info(s"Creating HTTP client on ${hosts.mkString(",")}")
+
+    RestClient
+      .builder(hosts: _*)
+      .setRequestConfigCallback(NoOpRequestConfigCallback)
+      .setHttpClientConfigCallback(NoOpHttpClientConfigCallback)
+      .build()
   }
+
+  lazy val client: ElasticClient = ElasticClient(fromRestClient(restClient))
 
   //TODO: this function should fail and cause healthcheck fails
   def ensureAliasAssigned() {

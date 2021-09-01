@@ -4,9 +4,10 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 
 import java.time.{Instant, OffsetDateTime}
 import akka.{Done, NotUsed}
-import akka.stream.alpakka.elasticsearch.ReadResult
+import akka.stream.alpakka.elasticsearch.{ElasticsearchSourceSettings, ReadResult}
 import akka.stream.alpakka.elasticsearch.scaladsl.ElasticsearchSource
 import akka.stream.scaladsl.Source
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{ExternalThrallMessage, Image, InternalThrallMessage, MigrateImageMessage, MigrationMessage}
@@ -19,45 +20,66 @@ import play.api.libs.ws.WSRequest
 import spray.json.DefaultJsonProtocol.jsonFormat1
 import spray.json.{JsObject, JsonFormat}
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 case class MigrationRecord(payload: MigrationMessage, approximateArrivalTimestamp: Instant)
 
 case class MigrationSourceWithSender(
   send: MigrationMessage => Future[Boolean],
-  source: Source[MigrationRecord, Future[Done]]
+  manualSource: Source[MigrationRecord, Future[Done]],
+  ongoingEsQuerySource: Source[MigrationRecord, Future[Done]]
 )
 
 object MigrationSourceWithSender extends GridLogging {
-  def apply(materializer: Materializer, innerServiceCall: WSRequest => WSRequest)(implicit ec: ExecutionContext, es: RestClient): MigrationSourceWithSender = {
-    // Justin's ideas code
-    implicit val format: JsonFormat[Image] = ???
-    val x = ElasticsearchSource
-      .typed[Image](
-        indexName = "source",
+  def apply(
+    materializer: Materializer,
+    innerServiceCall: WSRequest => WSRequest,
+    es: ElasticSearch,
+    gridClient: GridClient
+  )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
+
+    val esQuerySource = ElasticsearchSource
+      .create(
+        indexName = es.imagesCurrentAlias,
         typeName = "_doc",
-        query = """{"match_all": {}}"""
-      )
-    val y: Source[MigrationRecord, NotUsed] = x.map { imageResult: ReadResult[Image] => {
-      val imageId = imageResult.id
-      val migrateImageMessage = (
+        settings = ElasticsearchSourceSettings().withIncludeDocumentVersion(true),
+        query = s"""{
+                  |  "query": {
+                  |    "bool": {
+                  |      "must_not": [
+                  |        {
+                  |          "match": {
+                  |            "esInfo.migration.migratedTo": "images_2021-08-26_10-29-39_4c142c5"
+                  |          }
+                  |        },
+                  |        {
+                  |          "exists": {
+                  |            "field": "esInfo.migration.failures.images_2021-08-26_10-29-39_4c142c5"
+                  |          }
+                  |        }
+                  |      ]
+                  |    }
+                  |  }
+                  |}""".stripMargin
+      )(es.restClient).throttle(1, per = 1.minute)
+    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 1) { rawImageResult: ReadResult[JsObject] => {
+      val imageId = rawImageResult.id
+      val migrateImageMessageFuture = (
         for {
-        maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
-        maybeVersion = imageResult.version
-      } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
+          maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
+          maybeVersion = rawImageResult.version
+        } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
       ).recover {
         case error => MigrateImageMessage(imageId, Left(s"Failed to project image for id: ${imageId}, message: ${error}"))
       }
-      MigrationRecord(migrateImageMessage, java.time.Instant.now())
-    }
-    }
-    y.mapMaterializedValue(_ => Future.successful(Done))
+      migrateImageMessageFuture.map(message => MigrationRecord(message, java.time.Instant.now()))
+    }}
 
-    // return manually-updatable source until we implement the above properly
-    val sourceDeclaration = Source.queue[MigrationRecord](bufferSize = 2, OverflowStrategy.backpressure)
-    val (sourceMat, source) = sourceDeclaration.preMaterialize()(materializer)
+    val manualSourceDeclaration = Source.queue[MigrationRecord](bufferSize = 2, OverflowStrategy.backpressure)
+    val (manualSourceMat, manualSource) = manualSourceDeclaration.preMaterialize()(materializer)
     MigrationSourceWithSender(
-      send = (migrationMessage: MigrationMessage) => sourceMat.offer(MigrationRecord(
+      send = (migrationMessage: MigrationMessage) => manualSourceMat.offer(MigrationRecord(
         migrationMessage,
         approximateArrivalTimestamp = OffsetDateTime.now().toInstant
       )).map {
@@ -70,7 +92,8 @@ object MigrationSourceWithSender extends GridLogging {
           logger.error(s"Failed to add migration message to migration queue: ${migrationMessage}", error)
           false
       },
-      source = source.mapMaterializedValue(_ => Future.successful(Done))
+      manualSource = manualSource.mapMaterializedValue(_ => Future.successful(Done)),
+      ongoingEsQuerySource = projectedImageSource.mapMaterializedValue(_ => Future.successful(Done))
     )
 
   }
