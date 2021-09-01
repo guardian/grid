@@ -15,7 +15,6 @@
     "@guardian/node-riffraff-artifact": "^0.1.5",
     "@types/jest": "^24.9.0",
     "@types/node": "^13.1.8",
-    "@types/node-fetch": "^2.5.4",
     "@zeit/ncc": "^0.21.0",
     "jest": "^24.9.0",
     "ts-jest": "^24.3.0",

@@ -22,7 +22,7 @@ const getImageCount = async (
   };
   const response = await fetch(endpoint, params);
 
-  return await response.json();
+  return await response.json() as ImageCounts;
 };
 
 const metric = (key: string, value: number) => ({
