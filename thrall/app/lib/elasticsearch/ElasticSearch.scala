@@ -339,17 +339,12 @@ class ElasticSearch(
       nestedQuery("usages").query(existsQuery("usages"))
     )
 
-    // Uses the cached migration status to determine if a migration is in progress: if there is not, this will be None
-    // and get flattened out
-    val migrationAliasIfActive = migrationStatus match {
-      case InProgress(_) => Some(imagesMigrationAlias)
-      case _ => None
+    (migrationStatus match {
+      case InProgress(migrationIndexName) => List(imagesCurrentAlias, migrationIndexName)
+      case _ => List(imagesCurrentAlias)
+    }).map { index =>
+      deleteFromIndex(id, index, deletableImage).map { _ => ElasticSearchDeleteResponse() }
     }
-    List(Some(imagesCurrentAlias), migrationAliasIfActive)
-      .flatten
-      .map { indexAlias => deleteFromIndex(id, indexAlias, deletableImage).map { _ =>
-        ElasticSearchDeleteResponse()
-      }}
   }
 
   def deleteAllImageUsages(id: String,
