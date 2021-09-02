@@ -96,6 +96,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.collectionsPanel = panels.collectionsPanel;
 
         ctrl.images = [];
+        if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
         ctrl.newImagesCount = 0;
 
         // Preview control
@@ -350,6 +351,7 @@ results.controller('SearchResultsCtrl', [
 
 
         function canBeDeleted(image) {
+            if (image && image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
             return image.getAction('delete').then(angular.isDefined);
         }
         // TODO: move to helper?
