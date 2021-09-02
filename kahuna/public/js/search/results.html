@@ -62,12 +62,12 @@
 
                 <gr-delete-image class="results-toolbar-item results-toolbar-item--right"
                                  images="ctrl.selectedImages"
-                                 ng-if="ctrl.selectionIsDeletable && ctrl.selectionCount > 0">
+                                 ng-if="ctrl.selectionIsDeletable && ctrl.selectionCount > 0 && !ctrl.isDeleted">
                 </gr-delete-image>
 
                 <gr-archiver class="results-toolbar-item results-toolbar-item--right"
                              gr-images="ctrl.selectedImages"
-                             ng-if="ctrl.selectionCount > 0">
+                             ng-if="ctrl.selectionCount > 0 && !ctrl.isDeleted">
                 </gr-archiver>
 
                 <gr-toggle-button class="results-toolbar-item results-toolbar-item--no-hover results-toolbar-item--right"

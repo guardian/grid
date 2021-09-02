@@ -45,8 +45,8 @@ module.controller('grArchiverCtrl', [
         ctrl.undelete = undelete;
 
         mediaApi.getSession().then(session => {
-            if (ctrl.image.data.softDeletedMetadata !== undefined && session.user.permissions.canDelete) { ctrl.canUndelete = true; }
-            if (ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
+            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined && session.user.permissions.canDelete) { ctrl.canUndelete = true; }
+            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
         });
 
         mediaApi.canUserArchive().then(canArchive => {

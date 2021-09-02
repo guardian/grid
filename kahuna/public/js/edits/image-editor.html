@@ -88,7 +88,7 @@
              ng-class="{
                          'status--invalid': !ctrl.canUndelete
                      }">
-            <span ng-if="ctrl.canUndelete">Image deleted (this image already exists and has been deleted. Click Add to Library to undelete it)</span>
+            <span ng-if="ctrl.canUndelete && ctrl.isDeleted">Image deleted (this image already exists and has been deleted. Click Undelete to recover it)</span>
             <span ng-if="!ctrl.canUndelete">Image deleted (this image already exists and has been deleted. Click View image to see details)</span>
         </div>
 
@@ -256,7 +256,7 @@
                     class="clickable side-padded batch-archive__button undelete_button"
                     ng-click="ctrl.undelete()">
                 <gr-library-add-icon class="batch-archive__icon"></gr-library-add-icon>
-                <span>Add to Library</span>
+                <span>Undelete</span>
             </button>
         </section>
     </div>
