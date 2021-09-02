@@ -4,21 +4,20 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 
 import java.time.{Instant, OffsetDateTime}
 import akka.{Done, NotUsed}
-import akka.stream.alpakka.elasticsearch.{ElasticsearchSourceSettings, ReadResult}
-import akka.stream.alpakka.elasticsearch.scaladsl.ElasticsearchSource
 import akka.stream.scaladsl.Source
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.elasticsearch.InProgress
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{ExternalThrallMessage, Image, InternalThrallMessage, MigrateImageMessage, MigrationMessage}
 import com.gu.mediaservice.model.Image.ImageReads
+import com.sksamuel.elastic4s.akka.streams.{ElasticSource, SourceSettings}
+import com.sksamuel.elastic4s.requests.searches.SearchHit
 import lib.elasticsearch.ElasticSearch
 import org.elasticsearch.client.RestClient
 import org.scalacheck.Prop.True
 import play.api.libs.json.Json
 import play.api.libs.ws.WSRequest
-import spray.json.DefaultJsonProtocol.jsonFormat1
-import spray.json.{JsObject, JsonFormat}
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,36 +38,23 @@ object MigrationSourceWithSender extends GridLogging {
     gridClient: GridClient
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
 
-    val esQuerySource = ElasticsearchSource
-      .create(
-        indexName = es.imagesCurrentAlias,
-        typeName = "_doc",
-        settings = ElasticsearchSourceSettings().withIncludeDocumentVersion(true),
-        query = s"""{
-                  |  "query": {
-                  |    "bool": {
-                  |      "must_not": [
-                  |        {
-                  |          "match": {
-                  |            "esInfo.migration.migratedTo": "images_2021-08-26_10-29-39_4c142c5"
-                  |          }
-                  |        },
-                  |        {
-                  |          "exists": {
-                  |            "field": "esInfo.migration.failures.images_2021-08-26_10-29-39_4c142c5"
-                  |          }
-                  |        }
-                  |      ]
-                  |    }
-                  |  }
-                  |}""".stripMargin
-      )(es.restClient).throttle(1, per = 1.minute)
-    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 1) { rawImageResult: ReadResult[JsObject] => {
-      val imageId = rawImageResult.id
+//    val esQuerySource = (es.migrationStatus match {
+//      case InProgress(migrationIndexName) => Source.fromGraph(new ElasticSource(es.client, SourceSettings(
+//        search = es.getNextBatchOfImageIdsToMigrate(migrationIndexName),
+//        maxItems = 10,
+//        warm = false,
+//      )))
+//      case _ => Source.empty
+//    }).throttle(1, per = 1.minute)
+
+    val esQuerySource = .throttle(1, per = 1.minute)
+
+    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 1) { searchHit: SearchHit => {
+      val imageId = searchHit.id
       val migrateImageMessageFuture = (
         for {
           maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
-          maybeVersion = rawImageResult.version
+          maybeVersion = Some(searchHit.version)
         } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
       ).recover {
         case error => MigrateImageMessage(imageId, Left(s"Failed to project image for id: ${imageId}, message: ${error}"))
