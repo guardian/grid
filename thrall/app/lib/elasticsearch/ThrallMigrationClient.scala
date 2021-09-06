@@ -18,7 +18,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
       existsQuery(s"esInfo.migration.failures.$migrationIndexName")
     )
     executeAndLog(search, "retrieving next batch of image ids to migrate").map { response =>
-      response.result.hits.hits
+      response.result.hits.hits.toList
     }
   }
 

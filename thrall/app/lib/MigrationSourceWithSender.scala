@@ -11,7 +11,6 @@ import com.gu.mediaservice.lib.elasticsearch.InProgress
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{ExternalThrallMessage, Image, InternalThrallMessage, MigrateImageMessage, MigrationMessage}
 import com.gu.mediaservice.model.Image.ImageReads
-import com.sksamuel.elastic4s.akka.streams.{ElasticSource, SourceSettings}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 import lib.elasticsearch.ElasticSearch
 import org.elasticsearch.client.RestClient
@@ -38,16 +37,26 @@ object MigrationSourceWithSender extends GridLogging {
     gridClient: GridClient
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
 
-//    val esQuerySource = (es.migrationStatus match {
-//      case InProgress(migrationIndexName) => Source.fromGraph(new ElasticSource(es.client, SourceSettings(
-//        search = es.getNextBatchOfImageIdsToMigrate(migrationIndexName),
-//        maxItems = 10,
-//        warm = false,
-//      )))
-//      case _ => Source.empty
-//    }).throttle(1, per = 1.minute)
-
-    val esQuerySource = .throttle(1, per = 1.minute)
+    val esQuerySource =
+      Source.repeat(Unit)
+        .throttle(1, per = 1.minute)
+        .mapAsync(1)(_ => {
+          es.migrationStatus match {
+            case InProgress(migrationIndexName) => es.getNextBatchOfImageIdsToMigrate(migrationIndexName)
+            case _ => Future.successful(List.empty)
+          }
+        })
+        .mapConcat(searchHits => {
+          logger.info(s"Flattening ${searchHits.size} image ids to migrate")
+          searchHits
+        })
+        .throttle(1, per = 1.minute)
+        .filter(_ => {
+          es.migrationStatus match {
+            case InProgress(_) => true
+            case _ => false
+          }
+        })
 
     val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 1) { searchHit: SearchHit => {
       val imageId = searchHit.id
