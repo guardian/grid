@@ -32,13 +32,6 @@
             ng-disabled="ctrl.archiving">
         <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
     </button>
-    <button ng-if="ctrl.canUndelete && ctrl.isDeleted"
-            type="button"
-            class="gr-archiver-status__button inner-clickable"
-            title="Undelete"
-            ng-click="ctrl.undelete()">
-        <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
-    </button>
 </span>
 
 <span ng-if="ctrl.readonly"
