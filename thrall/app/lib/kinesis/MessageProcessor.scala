@@ -79,7 +79,7 @@ class MessageProcessor(
       case (image, expectedVersion, currentVersion) => if (expectedVersion == currentVersion) {
         Future.successful(image)
       } else {
-        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id}"))
+        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id} -> current = $currentVersion, expected = $expectedVersion"))
       }
     }.flatMap(
       image => Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)).transform {
