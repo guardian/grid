@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.{MigrateImageMessage, StaffPhotographer, ThrallMessage}
 import helpers.Fixtures
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import lib.kinesis.ThrallEventConsumer
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
@@ -108,8 +108,10 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
       .thenReturn(Future.successful(Some(createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")))))
 
     lazy val mockEs = mock[ElasticSearch]
-    when(mockEs.getNextBatchOfImageIdsToMigrate(any())(any(), any()))
-      .thenReturn(Future.successful(List.empty))
+    when(mockEs.continueScrollingImageIdsToMigrate(any())(any(), any()))
+      .thenReturn(Future.successful(ScrolledSearchResults(List.empty, None)))
+    when(mockEs.startScrollingImageIdsToMigrate(any())(any(), any()))
+    .thenReturn(Future.successful(ScrolledSearchResults(List.empty, None)))
 
     val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.empty[KinesisRecord].mapMaterializedValue(_ => Future.successful(Done))

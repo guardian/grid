@@ -5,20 +5,33 @@ import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.searches.SearchHit
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
+
+
+final case class ScrolledSearchResults(hits: List[SearchHit], scrollId: Option[String])
 
 trait ThrallMigrationClient extends MigrationStatusProvider {
   self: ElasticSearchClient =>
 
-  def getNextBatchOfImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
+  private val scrollKeepAlive = 2.minutes
+
+  def startScrollingImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
-    val search = ElasticDsl.search(imagesCurrentAlias).version(true) query not(
+    val search = ElasticDsl.search(imagesCurrentAlias).version(true).scroll(scrollKeepAlive) query not(
       matchQuery("esInfo.migration.migratedTo", migrationIndexName),
       existsQuery(s"esInfo.migration.failures.$migrationIndexName")
     )
     executeAndLog(search, "retrieving next batch of image ids to migrate").map { response =>
-      response.result.hits.hits.toList
+      ScrolledSearchResults(response.result.hits.hits.toList, response.result.scrollId)
+    }
+  }
+  def continueScrollingImageIdsToMigrate(scrollId: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
+    val search = ElasticDsl.searchScroll(scrollId).keepAlive(scrollKeepAlive)
+    executeAndLog(search, "retrieving next batch of image ids to migrate, continuation of scroll").map { response =>
+      ScrolledSearchResults(response.result.hits.hits.toList, response.result.scrollId)
     }
   }
 
