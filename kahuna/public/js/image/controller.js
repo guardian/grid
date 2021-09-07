@@ -23,6 +23,7 @@ import '../components/gr-display-crops/gr-display-crops';
 import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
+import { List } from 'immutable';
 
 
 const image = angular.module('kahuna.image.controller', [
@@ -141,6 +142,8 @@ image.controller('ImageCtrl', [
     ctrl.image = image;
     ctrl.optimisedImageUri = optimisedImageUri;
     ctrl.lowResImageUri = lowResImageUri;
+
+    ctrl.singleImageList = ctrl.image ? new List([ctrl.image]) : new List([]);
 
     const usages = imageUsagesService.getUsages(ctrl.image);
     const usagesCount$ = usages.count$;
