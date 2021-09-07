@@ -96,11 +96,15 @@ class ThrallStreamProcessor(
           case Right(taggedRecord) => taggedRecord
         }
 
+    // merge the migration sources (preferring manually requested migrations)
+    val mergedMigrationMessagesSources = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](1))
+    migrationManualMessagesSource ~> mergedMigrationMessagesSources.preferred
+    migrationOngoingMessagesSource ~> mergedMigrationMessagesSources.in(0)
+
     // merge in the re-ingestion source (preferring ui/automation)
-    val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](2))
+    val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](1))
     uiAndAutomationMessagesSource ~> mergePreferred.preferred
-    migrationManualMessagesSource ~> mergePreferred.in(0)
-    migrationOngoingMessagesSource ~> mergePreferred.in(1)
+    mergedMigrationMessagesSources ~> mergePreferred.in(0)
 
     SourceShape(mergePreferred.out)
   })
