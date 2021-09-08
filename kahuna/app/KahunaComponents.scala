@@ -39,7 +39,7 @@ object KahunaSecurityConfig {
 
     val gaHost = "www.google-analytics.com"
 
-    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com"
+    val frameSources = s"frame-src ${config.services.authBaseUri} ${config.services.kahunaBaseUri} https://accounts.google.com ${config.scriptsToLoad.map(_.host).mkString(" ")}"
     val frameAncestors = s"frame-ancestors ${config.frameAncestors.mkString(" ")}"
     val connectSources = s"connect-src 'self' ${(services :+ config.imageOrigin).mkString(" ")} $gaHost ${config.connectSources.mkString(" ")}"
 
