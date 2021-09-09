@@ -37,6 +37,12 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val cloudFrontDomainThumbBucket: Option[String] = stringOpt("cloudfront.domain.thumbbucket")
   val cloudFrontKeyPairId: Option[String]         = stringOpt("cloudfront.keypair.id")
 
+  val fuzzySearchEnabled: Boolean = boolean("search.fuzziness.enabled")
+  val fuzzySearchEditDistance: String = stringOpt("search.fuzziness.editDistance") match {
+    case Some(editDistance) if convertToInt(editDistance).isDefined => editDistance
+    case None => "AUTO"
+  }
+
   val rootUri: String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val cropperUri: String = services.cropperBaseUri

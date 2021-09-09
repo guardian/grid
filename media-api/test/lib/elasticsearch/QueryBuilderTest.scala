@@ -20,8 +20,9 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 
+  private val commonConfigurations = USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap
   private val mediaApiConfig = new MediaApiConfig(GridConfigResources(
-    Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap),
+    Configuration.from(commonConfigurations),
     null,
     new ApplicationLifecycle {
       override def addStopHook(hook: () => Future[_]): Unit = {}
@@ -127,6 +128,28 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
       multiMatchClause.fields.map(_.field) shouldBe matchFields
       multiMatchClause.operator shouldBe Some(Operator.AND)
       multiMatchClause.`type` shouldBe Some(MultiMatchQueryBuilderType.CROSS_FIELDS)
+    }
+
+    it("any field words queries should be applied to all of the match fields with best fields type and fuzziness, operator and analyzers set") {
+      val mediaApiConfigWithFuzzySearch = new MediaApiConfig(GridConfigResources(
+        Configuration.from(commonConfigurations ++ Map("search.fuzziness.enabled" -> true)),
+        null,
+        new ApplicationLifecycle {
+          override def addStopHook(hook: () => Future[_]): Unit = {}
+          override def stop(): Future[_] = Future.successful(())
+        }
+      ))
+      val queryBuilder = new QueryBuilder(matchFields, () => Nil, mediaApiConfigWithFuzzySearch)
+      val query = queryBuilder.makeQuery(List(anyFieldWordsCondition)).asInstanceOf[BoolQuery]
+
+      query.must.size shouldBe 1
+      val multiMatchClause = query.must.head.asInstanceOf[MultiMatchQuery]
+      multiMatchClause.text shouldBe "cats dogs"
+      multiMatchClause.fields.map(_.field) shouldBe matchFields
+      multiMatchClause.operator shouldBe Some(Operator.AND)
+      multiMatchClause.`type` shouldBe Some(MultiMatchQueryBuilderType.BEST_FIELDS)
+      multiMatchClause.fuzziness shouldBe defined
+      multiMatchClause.fuzziness shouldBe Some("AUTO")
     }
 
     it("multiple field queries should query against the requested fields only") {

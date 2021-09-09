@@ -26,10 +26,18 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
     ElasticDsl.multiMatchQuery(value).fields(fields).matchType(MultiMatchQueryBuilderType.PHRASE)
 
+  private def multiMatchWordQuery(value: String, fields: Seq[String]): MultiMatchQuery = {
+    val multiMatchQuery = ElasticDsl.multiMatchQuery(value).fields(fields).operator(Operator.AND)
+
+    if (config.fuzzySearchEnabled) {
+      multiMatchQuery.matchType(MultiMatchQueryBuilderType.BEST_FIELDS).fuzziness(config.fuzzySearchEditDistance)
+    } else {
+      multiMatchQuery.matchType(MultiMatchQueryBuilderType.CROSS_FIELDS)
+    }
+  }
+
   private def makeMultiQuery(value: Value, fields: Seq[String]): MultiMatchQuery = value match {
-    case Words(value) => ElasticDsl.multiMatchQuery(value).fields(fields).
-      operator(Operator.AND).
-      matchType(MultiMatchQueryBuilderType.CROSS_FIELDS)
+    case Words(value) => multiMatchWordQuery(value, fields)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
     case e => throw InvalidQuery(s"Cannot do multiQuery on $e")
