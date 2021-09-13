@@ -425,13 +425,19 @@ object RexParser extends ImageProcessor {
   val rexAgency = Agencies.get("rex")
   val SlashRex = ".+/ Rex Features".r
 
-  def apply(image: Image): Image = (image.metadata.source, image.metadata.credit) match {
+  def apply(image: Image): Image = {
+    val usageRights: UsageRights =
+      if (image.metadata.specialInstructions exists(_.toLowerCase.startsWith("exclusive"))) NoRights
+      else rexAgency
+
+    (image.metadata.source, image.metadata.credit) match {
     // TODO: cleanup byline/credit
-    case (Some("Rex Features"), _)      => image.copy(usageRights = rexAgency)
-    case (_, Some(SlashRex()))          => image.copy(usageRights = rexAgency)
-    case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = rexAgency)
-    case (Some("Shutterstock"), _)      => image.copy(usageRights = rexAgency)
+    case (Some("Rex Features"), _)      => image.copy(usageRights = usageRights)
+    case (_, Some(SlashRex()))          => image.copy(usageRights = usageRights)
+    case (Some("REX/Shutterstock"), _)  => image.copy(usageRights = usageRights)
+    case (Some("Shutterstock"), _)      => image.copy(usageRights = usageRights)
     case _ => image
+  }
   }
 }
 
