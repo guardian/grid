@@ -427,7 +427,7 @@ object RexParser extends ImageProcessor {
 
   def apply(image: Image): Image = {
     val usageRights: UsageRights =
-      if (image.metadata.specialInstructions exists(_.startsWith("Exclusive"))) NoRights
+      if (image.metadata.specialInstructions exists(_.toLowerCase.startsWith("exclusive"))) NoRights
       else rexAgency
 
     (image.metadata.source, image.metadata.credit) match {
