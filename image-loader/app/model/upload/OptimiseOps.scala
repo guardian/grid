@@ -5,9 +5,11 @@ import java.io.File
 import com.gu.mediaservice.lib.{ImageWrapper, StorableImage}
 import com.gu.mediaservice.lib.logging.{LogMarker, Stopwatch}
 import com.gu.mediaservice.model.{FileMetadata, MimeType, Png, Tiff}
+import com.gu.mediaservice.lib.logging.MarkerMap
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
+import scala.collection.JavaConverters._
 
 trait OptimiseOps {
   def toOptimisedFile(file: File, imageWrapper: ImageWrapper, tempDir: File)
@@ -25,11 +27,15 @@ object OptimiseWithPngQuant extends OptimiseOps {
                      (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)] = Future {
 
     val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + imageWrapper.id + optimiseMimeType.fileExtension
+    val marker = MarkerMap(
+      "fileName" -> file.getName()
+    )
+
     Stopwatch("pngquant") {
       val result = Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
       if (result>0)
         throw new Exception(s"pngquant failed to convert to optimised png file (rc = $result)")
-    }
+    }(marker)
 
     val optimisedFile = new File(optimisedFilePath)
     if (optimisedFile.exists()) {
