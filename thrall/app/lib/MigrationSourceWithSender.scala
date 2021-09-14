@@ -49,7 +49,7 @@ object MigrationSourceWithSender extends GridLogging {
           var maybeScrollId: Option[String] = None
 
           _ => {
-            val nextIdsToMigrate = (es.migrationStatus, maybeScrollId) match {
+            val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
               case (InProgress(migrationIndexName), None) =>
                 es.startScrollingImageIdsToMigrate(migrationIndexName).map(resp => {
                   maybeScrollId = if (resp.hits.isEmpty) None else resp.scrollId
@@ -61,6 +61,9 @@ object MigrationSourceWithSender extends GridLogging {
                   resp.hits
                 })
               case _ => Future.successful(List.empty)
+            }).recover { case _ =>
+              maybeScrollId = None
+              List.empty
             }
             List(nextIdsToMigrate)
           }
