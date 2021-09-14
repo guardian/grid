@@ -16,7 +16,7 @@ final case class ScrolledSearchResults(hits: List[SearchHit], scrollId: Option[S
 trait ThrallMigrationClient extends MigrationStatusProvider {
   self: ElasticSearchClient =>
 
-  private val scrollKeepAlive = 2.minutes
+  private val scrollKeepAlive = 30.minutes
 
   def startScrollingImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
