@@ -33,7 +33,7 @@ object MigrationSourceWithSender extends GridLogging {
 
     val esQuerySource =
       Source.repeat(())
-        .throttle(1, per = 30.seconds)
+        .throttle(1, per = 10.seconds)
         .statefulMapConcat(() => {
           // This Akka-provided stage is explicitly provided as a way to safely wrap around mutable state.
           // Required here to keep a marker of the current search scroll. Scrolling prevents the
@@ -75,7 +75,7 @@ object MigrationSourceWithSender extends GridLogging {
           logger.info(s"Flattening ${searchHits.size} image ids to migrate")
           searchHits
         })
-        .throttle(1, per = 5.seconds)
+        .throttle(1, per = 1.seconds)
         .filter(_ => {
           es.migrationStatus match {
             case InProgress(_) => true
