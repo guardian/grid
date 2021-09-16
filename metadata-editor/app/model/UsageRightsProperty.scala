@@ -103,8 +103,10 @@ object UsageRightsProperty {
       illustratorField(sortPublicationList(p.contractIllustrators), "publication")
     )
 
-    case StaffIllustrator => List(
-      requiredStringField("creator", "Illustrator", Some(sortList(p.staffIllustrators))))
+    case StaffIllustrator =>
+      val options = if (p.staffIllustrators.isEmpty) None else Some(sortList(p.staffIllustrators))
+      List(
+      requiredStringField("creator", "Illustrator", options))
 
     case CommissionedIllustrator => List(
       publicationField(required = false, optionsFromPublicationList(p.staffPhotographers)),
