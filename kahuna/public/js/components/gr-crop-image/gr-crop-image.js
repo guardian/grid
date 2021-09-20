@@ -15,7 +15,7 @@ cropImage.controller('grCropImageCtrl', [
 
         function updateState () {
             ctrl.image.get().then(image => {
-                ctrl.canBeCropped = image.data.valid;
+                ctrl.canBeCropped = image.data.valid && image.data.softDeletedMetadata === undefined;
             });
         }
 
