@@ -4,9 +4,13 @@ import com.gu.mediaservice.model._
 
 object UsageRightsMetadataMapper {
 
-  def usageRightsToMetadata(usageRights: UsageRights): Option[ImageMetadata] = {
+  def usageRightsToMetadata(usageRights: UsageRights, originalMetadata: ImageMetadata): Option[ImageMetadata] = {
     val toImageMetadata: PartialFunction[UsageRights, ImageMetadata] = (ur: UsageRights) => ur match {
-      case u: StaffPhotographer        => ImageMetadata(byline = Some(u.photographer), credit = Some(u.publication))
+      case u: StaffPhotographer        => ImageMetadata(
+          byline = Some(u.photographer),
+          credit = Some(u.publication),
+          copyright = originalMetadata.copyright.orElse(Some(u.publication))
+        )
       case u: ContractPhotographer     => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
       case u: CommissionedPhotographer => ImageMetadata(byline = Some(u.photographer), credit = u.publication)
       case u: ContractIllustrator      => ImageMetadata(byline = Some(u.creator),      credit = u.publication)

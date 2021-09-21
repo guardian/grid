@@ -166,12 +166,13 @@ class EditsController(
     editsStore.get(id) flatMap { dynamoEntry =>
       val edits = dynamoEntry.as[Edits]
       val originalMetadata = edits.metadata
-      val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
+      val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, originalMetadata))
 
       metadataOpt map { metadata =>
         val mergedMetadata = originalMetadata.copy(
           byline = metadata.byline orElse originalMetadata.byline,
-          credit = metadata.credit orElse originalMetadata.credit
+          credit = metadata.credit orElse originalMetadata.credit,
+          copyright = metadata.copyright orElse originalMetadata.copyright
         )
 
         editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
