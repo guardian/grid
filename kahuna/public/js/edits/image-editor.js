@@ -45,7 +45,7 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.isDeleted = false;
 
     mediaApi.getSession().then(session => {
-        if (ctrl.image.data.softDeletedMetadata !== undefined && session.user.permissions.canDelete) { ctrl.canUndelete = true; }
+        if (ctrl.image.data.softDeletedMetadata !== undefined && session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy) { ctrl.canUndelete = true; }
         if (ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
     });
 
