@@ -33,7 +33,6 @@ object MigrationSourceWithSender extends GridLogging {
 
     val esQuerySource =
       Source.repeat(())
-        .throttle(1, per = 5.seconds)
         .statefulMapConcat(() => {
           // This Akka-provided stage is explicitly provided as a way to safely wrap around mutable state.
           // Required here to keep a marker of the current search scroll. Scrolling prevents the
