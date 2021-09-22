@@ -81,7 +81,7 @@ object MigrationSourceWithSender extends GridLogging {
           }
         })
 
-    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 1) { searchHit: SearchHit => {
+    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 4) { searchHit: SearchHit => {
       val imageId = searchHit.id
       val migrateImageMessageFuture = (
         for {
@@ -92,7 +92,7 @@ object MigrationSourceWithSender extends GridLogging {
         case error => MigrateImageMessage(imageId, Left(s"Failed to project image for id: ${imageId}, message: ${error}"))
       }
       migrateImageMessageFuture.map(message => MigrationRecord(message, java.time.Instant.now()))
-    }}.withAttributes(Attributes.inputBuffer(0, 0))
+    }}
 
     val manualSourceDeclaration = Source.queue[MigrationRecord](bufferSize = 2, OverflowStrategy.backpressure)
     val (manualSourceMat, manualSource) = manualSourceDeclaration.preMaterialize()(materializer)
