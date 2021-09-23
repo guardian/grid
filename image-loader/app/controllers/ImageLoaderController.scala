@@ -71,11 +71,11 @@ class ImageLoaderController(auth: Authentication,
         "filename" -> filename.getOrElse(FALLBACK)
       )
     )
-    logger.info("loadImage request start")
+    logger.info(context, "loadImage request start")
 
     // synchronous write to file
     val tempFile = createTempFile("requestBody")
-    logger.info("body parsed")
+    logger.info(context, "body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
     AuthenticatedAndAuthorised.async(parsedBody) { req =>
@@ -100,11 +100,11 @@ class ImageLoaderController(auth: Authentication,
 
       result map { r =>
         val result = Accepted(r).as(ArgoMediaType)
-        logger.info("loadImage request end")
+        logger.info(context, "loadImage request end")
         result
       } recover {
         case NonFatal(e) =>
-          logger.error("loadImage request ended with a failure", e)
+          logger.error(context, "loadImage request ended with a failure", e)
           val response = e match {
             case e: UnsupportedMimeTypeException => FailureResponse.unsupportedMimeType(e, config.supportedMimeTypes)
             case e: ImageProcessingException => FailureResponse.notAnImage(e, config.supportedMimeTypes)
@@ -133,15 +133,17 @@ class ImageLoaderController(auth: Authentication,
 
       result.map {
         case Some(img) =>
-          logger.info("image found")
+          logger.info(context, "image found")
           Ok(Json.toJson(img)).as(ArgoMediaType)
         case None =>
           val s3Path = "s3://" + config.imageBucket + "/" + ImageIngestOperations.fileKeyFromId(imageId)
-          logger.info("image not found")
+          logger.info(context, "image not found")
           respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
       } recover {
         case _: NoSuchImageExistsInS3 => NotFound(Json.obj("imageId" -> imageId))
-        case e => InternalServerError(Json.obj("imageId" -> imageId, "exception" -> e.getMessage))
+        case e =>
+          logger.error(context, s"projectImageBy request for id $imageId ended with a failure", e)
+          InternalServerError(Json.obj("imageId" -> imageId, "exception" -> e.getMessage))
       }
     }
   }
@@ -162,7 +164,7 @@ class ImageLoaderController(auth: Authentication,
         )
       )
 
-      logger.info("importImage request start")
+      logger.info(context, "importImage request start")
 
       val tempFile = createTempFile("download")
       val digestedFileFuture = for {
@@ -185,7 +187,7 @@ class ImageLoaderController(auth: Authentication,
           context.requestId)
         result <- uploader.storeFile(uploadRequest)
       } yield {
-        logger.info("importImage request end")
+        logger.info(context, "importImage request end")
         // NB This return code (202) is explicitly required by s3-watcher
         // Anything else (eg 200) will be logged as an error. DAMHIKIJKOK.
         Accepted(result).as(ArgoMediaType)
@@ -221,9 +223,9 @@ class ImageLoaderController(auth: Authentication,
         }
         uploadStatusTable.updateStatus(digestedFile.digest, status).flatMap{status =>
           status match {
-            case Left(_: ConditionNotMet) => logger.info(s"no image upload status to update for image ${digestedFile.digest}")
-            case Left(error) => logger.error(s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}")
-            case Right(_) => logger.info(s"image upload status updated successfully, image-id: ${digestedFile.digest}")
+            case Left(_: ConditionNotMet) => logger.info(context, s"no image upload status to update for image ${digestedFile.digest}")
+            case Left(error) => logger.error(context, s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:${error}")
+            case Right(_) => logger.info(context, s"image upload status updated successfully, image-id: ${digestedFile.digest}")
           }
           Future.successful(res)
         }
@@ -246,15 +248,15 @@ class ImageLoaderController(auth: Authentication,
   // then clear them up again at the end.  This avoids leaks.
   def createTempFile(prefix: String)(implicit logMarker: LogMarker): File = {
     val tempFile = File.createTempFile(prefix, "", config.tempDir)
-    logger.info(s"Created temp file ${tempFile.getName} in ${config.tempDir}")
+    logger.info(logMarker, s"Created temp file ${tempFile.getName} in ${config.tempDir}")
     tempFile
   }
 
   def deleteTempFile(tempFile: File)(implicit logMarker: LogMarker): Future[Unit] = Future {
     if (tempFile.delete()) {
-      logger.info(s"Deleted temp file $tempFile")
+      logger.info(logMarker, s"Deleted temp file $tempFile")
     } else {
-      logger.warn(s"Unable to delete temp file $tempFile in ${config.tempDir}")
+      logger.warn(logMarker, s"Unable to delete temp file $tempFile in ${config.tempDir}")
     }
   }
 
