@@ -166,7 +166,8 @@ class EditsController(
     editsStore.get(id) flatMap { dynamoEntry =>
       val edits = dynamoEntry.as[Edits]
       val originalMetadata = edits.metadata
-      val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, originalMetadata))
+      val staffPhotographerPublications: Set[String] = config.usageRightsConfig.staffPhotographers.map(_.name).toSet
+      val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, originalMetadata, staffPhotographerPublications))
 
       metadataOpt map { metadata =>
         val mergedMetadata = originalMetadata.copy(

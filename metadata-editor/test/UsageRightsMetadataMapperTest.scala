@@ -11,24 +11,29 @@ class UsageRightsMetadataMapperTest extends FunSpec with Matchers {
     val metadataWithoutCopyright = ImageMetadata(copyright = None)
     val metadataWithCopyright = ImageMetadata(copyright = Some("BBC"))
 
-    it ("should convert StaffPhotographers") {
-      val ur = StaffPhotographer("Alicia Canter", "The Guardian")
-      usageRightsToMetadata(ur, metadataWithCopyright) should be
-        Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("BBC")))
-    }
-
-    it ("should convert ContractPhotographers") {
-      val ur = StaffPhotographer("Andy Hall", "The Observer")
-      usageRightsToMetadata(ur, metadataWithCopyright) should be
-        Some(ImageMetadata(credit = Some("The Observer"), byline = Some("Andy Hall"), copyright = metadataWithCopyright.copyright))
-    }
-
-    it("should add copyright to StaffPhotographers when original metadata doesn't have it") {
+    it("should convert StaffPhotographers adding copyright when original metadata doesn't have it") {
       val ur = StaffPhotographer("Alicia Canter", "The Guardian")
       usageRightsToMetadata(ur, metadataWithoutCopyright) should be
       Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("The Guardian")))
     }
 
+    it ("should convert StaffPhotographers changing copyright when original copyright is a publication") {
+      val ur = StaffPhotographer("Alicia Canter", "The Guardian")
+      usageRightsToMetadata(ur, metadataWithCopyright, Set("The Observer", "BBC")) should be
+        Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("The Guardian")))
+    }
+
+    it ("should convert StaffPhotographers keeping original copyright when original copyright is not a publication") {
+      val ur = StaffPhotographer("Alicia Canter", "The Guardian")
+      usageRightsToMetadata(ur, metadataWithCopyright, Set("The Observer", "BBC Studio")) should be
+      Some(ImageMetadata(credit = Some("The Guardian"), byline = Some("Alicia Canter"), copyright = Some("BBC")))
+    }
+
+    it ("should convert ContractPhotographers") {
+      val ur = ContractPhotographer("Andy Hall", Some("The Observer"), None)
+      usageRightsToMetadata(ur, metadataWithCopyright) should be
+        Some(ImageMetadata(credit = Some("The Observer"), byline = Some("Andy Hall")))
+    }
 
     it ("should convert CommissionedPhotographers") {
       val ur = CommissionedPhotographer("Mr. Photo", Some("Weekend Magazine"))
