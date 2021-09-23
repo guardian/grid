@@ -106,6 +106,9 @@ class Projector(config: ImageUploadOpsCfg,
 
       val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
       val finalImage = Await.result(finalImageFuture, Duration.Inf)
+
+      s3Source.close()
+
       Some(finalImage)
     }
   }
