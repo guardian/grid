@@ -141,7 +141,9 @@ class ImageLoaderController(auth: Authentication,
           respondError(NotFound, "image-not-found", s"Could not find image: $imageId in s3 at $s3Path")
       } recover {
         case _: NoSuchImageExistsInS3 => NotFound(Json.obj("imageId" -> imageId))
-        case e => InternalServerError(Json.obj("imageId" -> imageId, "exception" -> e.getMessage))
+        case e =>
+          logger.error(s"projectImageBy request for id $imageId ended with a failure", e)
+          InternalServerError(Json.obj("imageId" -> imageId, "exception" -> e.getMessage))
       }
     }
   }
