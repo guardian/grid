@@ -181,15 +181,6 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     }
   }
 
-  def getImageSoftDeletedStatus(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Boolean] = {
-    logger.info("attempt to get Image Soft Deleted Status")
-    val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
-      case Found(json, _) if (json \ "data" \ "softDeletedMetadata").isDefined => true
-      case _ => false
-    }
-  }
-
   def getCrops(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[List[Crop]] = {
     logger.info("attempt to get crops")
     val url = new URL(s"${services.cropperBaseUri}/crops/$mediaId")

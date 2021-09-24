@@ -42,7 +42,7 @@
         </ui-image-editor>
 
         <gr-delete-image class="flex-right"
-                         ng-if="job.canBeDeleted && !ctrl.isDeleted"
+                         ng-if="job.canBeDeleted && !job.isDeleted"
                          images="[job.image]">
         </gr-delete-image>
     </li>
