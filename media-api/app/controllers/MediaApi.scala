@@ -89,7 +89,7 @@ class MediaApi(
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
       Link("admin-tools",     config.adminToolsUri),
-      Link("undelete",        s"${config.rootUri}/images/{id}/undelete ")
+      Link("undelete",        s"${config.rootUri}/images/{id}/undelete")
     ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
   }
