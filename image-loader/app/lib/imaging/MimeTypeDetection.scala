@@ -30,8 +30,14 @@ object MimeTypeDetection extends GridLogging {
   private def usingTika(file: File): MimeType = MimeType(new Tika().detect(file))
 
   private def usingMetadataExtractor(file: File) : MimeType = {
-    val stream = new BufferedInputStream(new FileInputStream(file))
-    val fileType = FileTypeDetector.detectFileType(stream)
-    MimeType(fileType.getMimeType)
+    val fis = new FileInputStream(file)
+    val stream = new BufferedInputStream(fis)
+    try {
+      val fileType = FileTypeDetector.detectFileType(stream)
+      MimeType(fileType.getMimeType)
+    } finally {
+      stream.close()
+      fis.close()
+    }
   }
 }

@@ -101,21 +101,28 @@ class Projector(config: ImageUploadOpsCfg,
       Logger.info(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection")
 
       val s3Source = s3.getObject(config.originalFileBucket, s3Key)
-      val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
-      val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
+      try {
+        val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
+        val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
-      val finalImage = Await.result(finalImageFuture, Duration.Inf)
+        val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
+        val finalImage = Await.result(finalImageFuture, Duration.Inf)
 
-      s3Source.close()
-
-      Some(finalImage)
+        Some(finalImage)
+      } finally {
+        s3Source.close()
+      }
     }
   }
 
   private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
-    IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
-    DigestedFile(tempFile, imageId)
+    val fos = new FileOutputStream(tempFile)
+    try {
+      IOUtils.copy(s3Src.getObjectContent, fos)
+      DigestedFile(tempFile, imageId)
+    } finally {
+      fos.close()
+    }
   }
 
   def projectImage(srcFileDigest: DigestedFile,
