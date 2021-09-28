@@ -55,7 +55,14 @@ object OptimiseWithPngQuant extends OptimiseOps {
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      case Some(Tiff) => true // TODO This should be done better, it could be better optimised into a jpeg if there is no transparency.
+      // imagemagick seems to populate the png metadata when we bring in tiffs
+      // otherwise ExtraSamples on the tifftags is what we want*
+      // *it is needless to say this is not available here.
+      case Some(Tiff) => fileMetadata.colourModelInformation.get("colorType") match {
+        case Some("True Color") => false
+        case Some("True Color with Alpha") => true
+        case _ => false
+      }
       case _ => false
     }
 }
