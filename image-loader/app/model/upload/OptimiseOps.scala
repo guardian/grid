@@ -55,12 +55,8 @@ object OptimiseWithPngQuant extends OptimiseOps {
           case Some("True Color with Alpha") => true
           case _ => false
         }
-      // imagemagick seems to populate the png metadata when we bring in tiffs
-      // otherwise ExtraSamples on the tifftags is what we want*
-      // *it is needless to say this is not available here.
-      case Some(Tiff) => fileMetadata.colourModelInformation.get("colorType") match {
-        case Some("True Color") => false
-        case Some("True Color with Alpha") => true
+      case Some(Tiff) => fileMetadata.colourModelInformation.get("hasAlpha") match {
+        case Some("true") => true
         case _ => false
       }
       case _ => false
