@@ -32,7 +32,7 @@ object OptimiseWithPngQuant extends OptimiseOps {
     )
 
     Stopwatch("pngquant") {
-      val result = Seq("pngquant", "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
+      val result = Seq("pngquant","-s10",  "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
       if (result>0)
         throw new Exception(s"pngquant failed to convert to optimised png file (rc = $result)")
     }(marker)
