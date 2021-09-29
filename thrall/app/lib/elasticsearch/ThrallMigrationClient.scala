@@ -20,7 +20,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
 
   def startScrollingImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
-    val search = ElasticDsl.search(imagesCurrentAlias).version(true).scroll(scrollKeepAlive) query not(
+    val search = ElasticDsl.search(imagesCurrentAlias).version(true).scroll(scrollKeepAlive).size(100) query not(
       matchQuery("esInfo.migration.migratedTo", migrationIndexName),
       existsQuery(s"esInfo.migration.failures.$migrationIndexName")
     )
