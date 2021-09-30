@@ -221,10 +221,32 @@ object ImageOperations {
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
 
         for {
-          output <- runIdentifyCmd(formatter)
+          output <- runIdentifyCmd(formatter, false)
           colourModel = output.headOption
         } yield colourModel
+      case Tiff =>
+        val source = addImage(sourceFile)
+        val formatter = format(source)("%[colorspace]")
 
+        for {
+          output <- runIdentifyCmd(formatter, true)
+          colourModel = output.headOption
+        } yield colourModel match {
+          case Some("sRGB") => Some("RGB")
+          case _ => colourModel
+        }
+      case Png =>
+        val source = addImage(sourceFile)
+        val formatter = format(source)("%r")
+
+        for {
+          output <- runIdentifyCmd(formatter, false)
+          colourModel = output.headOption
+        } yield colourModel match {
+          case Some("Bilevel") => colourModel
+          case Some("GrayscaleMatte") => colourModel
+          case _ => Some("RGB")
+        }
       case _ =>
         // assume that the colour model is RGB for other image types
         Future.successful(Some("RGB"))

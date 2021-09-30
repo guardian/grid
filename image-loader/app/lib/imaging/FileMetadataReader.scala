@@ -206,7 +206,7 @@ object FileMetadataReader {
 
     val formatter = format(source)("%r")
 
-    runIdentifyCmd(formatter).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
+    runIdentifyCmd(formatter, useImageMagick = mimeType == Tiff).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 
