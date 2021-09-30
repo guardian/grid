@@ -169,7 +169,8 @@ class ImageOperations(playPath: String) extends GridLogging {
       // png suffix is used by imagemagick to infer the required type
       outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       transformSource = addImage(sourceFile)
-      addOutput       = addDestImage(transformSource)(outputFile)
+      strippedMeta    = stripMeta(transformSource)
+      addOutput       = addDestImage(strippedMeta)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       _               <- checkForOutputFileChange(outputFile)
     } yield (outputFile, optimisedMimeType)
