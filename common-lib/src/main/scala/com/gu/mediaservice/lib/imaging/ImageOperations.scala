@@ -245,6 +245,7 @@ object ImageOperations {
         } yield colourModel match {
           case Some("Bilevel") => colourModel
           case Some("GrayscaleMatte") => colourModel
+          case Some("Grayscale") => colourModel
           case _ => Some("RGB")
         }
       case _ =>
