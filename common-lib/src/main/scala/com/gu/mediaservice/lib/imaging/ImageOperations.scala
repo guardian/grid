@@ -233,19 +233,20 @@ object ImageOperations {
           colourModel = output.headOption
         } yield colourModel match {
           case Some("sRGB") => Some("RGB")
+          case Some("Grey") => Some("GRAYSCALE")
+          case Some("CIELab") => Some("LAB")
           case _ => colourModel
         }
       case Png =>
         val source = addImage(sourceFile)
-        val formatter = format(source)("%r")
+        val formatter = format(source)("%[colorspace]")
 
         for {
-          output <- runIdentifyCmd(formatter, false)
+          output <- runIdentifyCmd(formatter, true)
           colourModel = output.headOption
         } yield colourModel match {
-          case Some("Bilevel") => colourModel
-          case Some("GrayscaleMatte") => colourModel
-          case Some("Grayscale") => colourModel
+          case Some("sRGB") => Some("RGB")
+          case Some("Grey") => Some("GRAYSCALE")
           case _ => Some("RGB")
         }
       case _ =>
