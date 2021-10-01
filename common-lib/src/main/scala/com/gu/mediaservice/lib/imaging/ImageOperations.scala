@@ -1,12 +1,11 @@
 package com.gu.mediaservice.lib.imaging
 
 import java.io._
-
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.StorableThumbImage
 import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
-import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addDestImage, addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model._
@@ -225,11 +224,12 @@ object ImageOperations {
           colourModel = output.headOption
         } yield colourModel
       case Tiff =>
-        val source = addImage(sourceFile)
-        val formatter = format(source)("%[colorspace]")
+        val op = new IMOperation()
+        val formatter = format(op)("%[colorspace]")
+        val withSource = addDestImage(formatter)(sourceFile)
 
         for {
-          output <- runIdentifyCmd(formatter, true)
+          output <- runIdentifyCmd(withSource, true)
           colourModel = output.headOption
         } yield colourModel match {
           case Some("sRGB") => Some("RGB")
@@ -238,11 +238,12 @@ object ImageOperations {
           case _ => colourModel
         }
       case Png =>
-        val source = addImage(sourceFile)
-        val formatter = format(source)("%[colorspace]")
+        val op = new IMOperation()
+        val formatter = format(op)("%[colorspace]")
+        val withSource = addDestImage(formatter)(sourceFile)
 
         for {
-          output <- runIdentifyCmd(formatter, true)
+          output <- runIdentifyCmd(withSource, true)
           colourModel = output.headOption
         } yield colourModel match {
           case Some("sRGB") => Some("RGB")
