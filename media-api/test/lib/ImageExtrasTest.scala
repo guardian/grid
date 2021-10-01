@@ -1,13 +1,13 @@
 package lib
 
 import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
-
-import java.net.URI
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
-import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{FunSpec, Matchers}
+
+import java.net.URI
 
 class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
 

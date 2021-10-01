@@ -4,7 +4,7 @@ import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, SyndicationStatus}
-import lib.querysyntax.{Condition, Parser}
+import lib.querysyntax.{Condition, Parser, SubQuery}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.mvc.{AnyContent, Request}
@@ -46,18 +46,18 @@ object AggregateSearchParams {
 
   def apply(field: String, request: Request[AnyContent]): AggregateSearchParams = {
     val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List[Condition]()
+    val structuredQuery = query.map(Parser.run) getOrElse List[SubQuery]()
     new AggregateSearchParams(
       field,
       query,
-      structuredQuery
+      structuredQuery.headOption.map(_.conditions).getOrElse(List())
     )
   }
 }
 
 case class SearchParams(
                          query: Option[String] = None,
-                         structuredQuery: List[Condition] = List.empty,
+                         structuredQuery: List[SubQuery] = List.empty,
                          ids: Option[List[String]] = None,
                          offset: Int = 0,
                          length: Int = 10,

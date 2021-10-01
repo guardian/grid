@@ -8,7 +8,7 @@ import com.gu.mediaservice.model.Agency
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.common.Operator
-import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.{BoolQuery, Query}
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax._
 import lib.MediaApiConfig
@@ -68,7 +68,13 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
     }
   }
 
-  def makeQuery(conditions: List[Condition]) = conditions match {
+  def makeQuery(subqueries: List[SubQuery]): Query = subqueries match {
+    case Nil => matchAllQuery
+    case subq :: Nil => makeSubQuery(subq.conditions)
+    case subqueries => boolQuery().withShould(subqueries.map(subq => makeSubQuery(subq.conditions)))
+  }
+
+  def makeSubQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery
     case condList => {
 

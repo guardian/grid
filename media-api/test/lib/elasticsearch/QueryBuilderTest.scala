@@ -7,7 +7,7 @@ import com.sksamuel.elastic4s.requests.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhrase, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
 import com.sksamuel.elastic4s.requests.searches.queries.term.{TermQuery, TermsQuery}
-import lib.querysyntax.Negation
+import lib.querysyntax.{Negation, SubQuery}
 import org.scalatest.{FunSpec, Matchers}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import lib.MediaApiConfig
@@ -45,7 +45,7 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("single condition should give a must query") {
-      val conditions = List(fieldPhraseMatchCondition)
+      val conditions = List(SubQuery(List(fieldPhraseMatchCondition)))
 
       val query = queryBuilder.makeQuery(conditions).asInstanceOf[BoolQuery]
 
@@ -55,7 +55,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("multiple conditions should give multiple must conditions") {
-      val query = queryBuilder.makeQuery(List(fieldPhraseMatchCondition, anotherFieldPhraseMatchCondition)).asInstanceOf[BoolQuery]
+      val conditions = List(SubQuery(List(fieldPhraseMatchCondition, anotherFieldPhraseMatchCondition)))
+      val query = queryBuilder.makeQuery(conditions).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 2
       query.must(0).asInstanceOf[MatchPhrase].field shouldBe "afield"
@@ -63,7 +64,7 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("negated conditions should be expressed using must not clauses") {
-      val negatedCondition = Negation(fieldPhraseMatchCondition)
+      val negatedCondition = SubQuery(List(Negation(fieldPhraseMatchCondition)))
 
       val query = queryBuilder.makeQuery(List(negatedCondition)).asInstanceOf[BoolQuery]
 
@@ -73,7 +74,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("word list matches should set the AND operator so that all words need to match") {
-      val query = queryBuilder.makeQuery(List(wordsMatchCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(wordsMatchCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       val wordsClause = query.must.head.asInstanceOf[MatchQuery]
@@ -83,7 +85,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("date ranges are expressed range queries which include the lower and upper bounds") {
-      val query = queryBuilder.makeQuery(List(dateMatchCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(dateMatchCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       val dateRangeClause = query.must.head.asInstanceOf[RangeQuery]
@@ -92,7 +95,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("has field conditions are expressed as exists filters") {
-      val query = queryBuilder.makeQuery(List(hasFieldCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(hasFieldCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       val hasClause = query.must.head.asInstanceOf[BoolQuery]
@@ -102,14 +106,16 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
      }
 
     it("hierarchy field phrase is expressed as a term query") {
-      val query = queryBuilder.makeQuery(List(hierarchyFieldPhraseCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(hierarchyFieldPhraseCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       query.must.head.asInstanceOf[TermQuery].value shouldBe "foo"
     }
 
     it("any field phrase queries should be applied to all of the match fields") {
-      val query = queryBuilder.makeQuery(List(anyFieldPhraseCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(anyFieldPhraseCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       val multiMatchClause = query.must.head.asInstanceOf[MultiMatchQuery]
@@ -119,7 +125,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("any field words queries should be applied to all of the match fields with cross fields type, operator and analyzers set") {
-      val query = queryBuilder.makeQuery(List(anyFieldWordsCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(anyFieldWordsCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       val multiMatchClause = query.must.head.asInstanceOf[MultiMatchQuery]
@@ -130,7 +137,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("multiple field queries should query against the requested fields only") {
-      val query = queryBuilder.makeQuery(List(multipleFieldWordsCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(multipleFieldWordsCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       val multiMatchClause = query.must.head.asInstanceOf[MultiMatchQuery]
@@ -139,7 +147,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("nested queries should be expressed using nested queries") {
-      val query = queryBuilder.makeQuery(List(nestedCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(nestedCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       val nestedQuery = query.must.head.asInstanceOf[NestedQuery]
@@ -150,7 +159,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("multiple nested queries result in multiple must clauses") {
-      val query = queryBuilder.makeQuery(List(nestedCondition, anotherNestedCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(nestedCondition, anotherNestedCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 2
     }
@@ -158,7 +168,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
 
   describe("is search filter") {
     it("should correctly construct an is owned photo query") {
-      val query = queryBuilder.makeQuery(List(isOwnedPhotoCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(isOwnedPhotoCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
 
@@ -174,7 +185,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("should correctly construct an is owned illustration query") {
-      val query = queryBuilder.makeQuery(List(isOwnedIllustrationCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(isOwnedIllustrationCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
 
@@ -190,7 +202,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("should correctly construct an is owned image query") {
-      val query = queryBuilder.makeQuery(List(isOwnedImageCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(isOwnedImageCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
 
@@ -206,7 +219,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
 
     it("should return the match none query on an invalid is query") {
-      val query = queryBuilder.makeQuery(List(isInvalidCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(isInvalidCondition))
+      val query = queryBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
       query.must.head shouldBe ElasticDsl.matchNoneQuery()
@@ -214,7 +228,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
 
     it("should return the match all query when no agencies are over quota") {
       val qBuilder = new QueryBuilder(matchFields, () => List.empty, mediaApiConfig)
-      val query = qBuilder.makeQuery(List(isUnderQuotaCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(isUnderQuotaCondition))
+      val query = qBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
       query.must.head shouldBe ElasticDsl.matchAllQuery()
     }
@@ -223,7 +238,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
       def overQuotaAgencies = List(Agency("Getty Images"), Agency("AP"))
 
       val qBuilder = new QueryBuilder(matchFields, () => overQuotaAgencies, mediaApiConfig)
-      val query = qBuilder.makeQuery(List(isUnderQuotaCondition)).asInstanceOf[BoolQuery]
+      val condition = SubQuery(List(isUnderQuotaCondition))
+      val query = qBuilder.makeQuery(List(condition)).asInstanceOf[BoolQuery]
       query.must.size shouldBe 1
 
       val mustQuery = query.must.head.asInstanceOf[BoolQuery]

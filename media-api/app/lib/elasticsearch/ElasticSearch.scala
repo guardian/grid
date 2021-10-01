@@ -13,7 +13,7 @@ import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.searches._
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.querysyntax.{HierarchyField, Match, Phrase}
+import lib.querysyntax.{HierarchyField, Match, Phrase, SubQuery}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -159,7 +159,7 @@ class ElasticSearch(
     val dateAddedToCollectionFilter = {
       params.orderBy match {
         case Some("dateAddedToCollection") => {
-          val pathHierarchyOpt = params.structuredQuery.flatMap {
+          val pathHierarchyOpt = params.structuredQuery.flatMap(_.conditions).flatMap {
             case Match(HierarchyField, Phrase(value)) => Some(value)
             case _ => None
           }.headOption
@@ -269,7 +269,7 @@ class ElasticSearch(
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
     implicit val logMarker = MarkerMap()
     logger.info("aggregate search: " + name + " / " + params + " / " + aggregation)
-    val query = queryBuilder.makeQuery(params.structuredQuery)
+    val query = queryBuilder.makeQuery(SubQuery(params.structuredQuery) :: Nil)
     val search = prepareSearch(query) aggregations aggregation size 0
 
     executeAndLog(search, s"$name aggregate search")

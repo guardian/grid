@@ -4,6 +4,7 @@ import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model.{Jpeg, MimeType, Png, Tiff}
 import org.joda.time.DateTime
 import org.parboiled2._
+import shapeless.HNil
 
 case class InvalidQuery(message: String) extends Exception(message)
 
@@ -15,11 +16,11 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   def tomorrow = today.plusDays(1)
   def yesterday = today.minusDays(1)
 
-  def Query = rule { Expression ~ EOI }
+  def Query = rule { (oneOrMore(Expression) separatedBy (Whitespace ~ "**" ~ Whitespace)) ~ EOI }
 
-  def Expression = rule { zeroOrMore(Term) separatedBy Whitespace }
+  def Expression = rule { (zeroOrMore(Term) separatedBy Whitespace) ~> (s => SubQuery(conditions = s.toList)) }
 
-  def Term = rule { NestedFilter | NegatedFilter | Filter }
+  def Term: Rule1[Condition] = rule { NestedFilter | NegatedFilter | Filter  }
 
   def NegatedFilter = rule { '-' ~ Filter ~> Negation }
 
@@ -28,7 +29,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     NestedDateMatch
   }
 
-  def Filter = rule {
+  def Filter: Rule1[Match] = rule {
     HasMatch ~> Match |
     IsMatch ~> Match |
     DateConstraintMatch |
@@ -146,7 +147,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
   // Note: order matters, check for quoted string first
   def MatchValue = rule { QuotedString ~> Phrase | String ~> Words }
 
-  def String = rule { capture(Chars) }
+  def String = rule { capture(NotAsterisk) }
 
   def StringWithoutColon = rule { capture(NotColon) }
 
@@ -255,6 +256,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   def Whitespace = rule { oneOrMore(' ') }
   def Chars = rule { oneOrMore(visibleChars) }
+  def NotAsterisk = rule { oneOrMore(charsMinusAsterisk) }
   def NotColon = rule { oneOrMore(charsMinusColon) }
 
   // Note: this is a somewhat arbitrarily list of common Unicode ranges that we
@@ -269,6 +271,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
 
   val visibleChars = CharPredicate.Visible ++ extraVisibleCharacters
   val charsMinusColon = visibleChars -- ':'
+  val charsMinusAsterisk = visibleChars -- '*'
 
 }
 
