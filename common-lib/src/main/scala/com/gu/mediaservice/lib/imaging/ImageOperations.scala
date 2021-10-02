@@ -233,7 +233,7 @@ object ImageOperations {
           colourModel = output.headOption
         } yield colourModel match {
           case Some("sRGB") => Some("RGB")
-          case Some("Grey") => Some("GRAYSCALE")
+          case Some("Gray") => Some("GRAYSCALE")
           case Some("CIELab") => Some("LAB")
           case _ => colourModel
         }
@@ -247,7 +247,7 @@ object ImageOperations {
           colourModel = output.headOption
         } yield colourModel match {
           case Some("sRGB") => Some("RGB")
-          case Some("Grey") => Some("GRAYSCALE")
+          case Some("Gray") => Some("GRAYSCALE")
           case _ => Some("RGB")
         }
       case _ =>
