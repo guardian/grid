@@ -239,6 +239,7 @@ object ImageOperations {
           case Some("sRGBsRGB") => Some("RGB")
           case Some("GrayGray") => Some("GRAYSCALE")
           case Some("CIELabCIELab") => Some("LAB")
+          case Some("CMYKCMYK") => Some("CMYK")
           case _ => colourModel
         }
       case Png =>
