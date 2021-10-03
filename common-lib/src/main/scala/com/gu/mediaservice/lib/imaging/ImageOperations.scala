@@ -235,6 +235,10 @@ object ImageOperations {
           case Some("sRGB") => Some("RGB")
           case Some("Gray") => Some("GRAYSCALE")
           case Some("CIELab") => Some("LAB")
+          // IM returns doubles for TIFFs with transparency
+          case Some("sRGBsRGB") => Some("RGB")
+          case Some("GrayGray") => Some("GRAYSCALE")
+          case Some("CIELabCIELab") => Some("LAB")
           case _ => colourModel
         }
       case Png =>
