@@ -136,7 +136,7 @@ class ImageOperations(playPath: String) extends GridLogging {
                       sourceMimeType: Option[MimeType],
                       width: Int,
                       qual: Double = 100d,
-                      tempDir: File,
+                      outputFile: File,
                       iccColourSpace: Option[String],
                       colourModel: Option[String]): Future[(File, MimeType)] = {
     val cropSource  = addImage(sourceFile)
@@ -150,7 +150,6 @@ class ImageOperations(playPath: String) extends GridLogging {
     val interlaced  = interlace(qualified)(interlacedHow)
     val addOutput   = {file:File => addDestImage(interlaced)(file)}
     for {
-      outputFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
       _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
     } yield (outputFile, thumbMimeType)
   }

@@ -1,5 +1,7 @@
 package model
 
+import com.gu.mediaservice.lib.Files.createTempFile
+
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -13,6 +15,7 @@ import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.imaging.ImageOperations.thumbMimeType
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.net.URI
@@ -72,7 +75,8 @@ case class ImageUploadOpsDependencies(
                                        imageOps: ImageOperations,
                                        storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
                                        storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
-                                       storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object]
+                                       storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
+                                       tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None)
 )
 
 object Uploader extends GridLogging {
@@ -228,12 +232,24 @@ object Uploader extends GridLogging {
                                 browserViewableImage: BrowserViewableImage,
                                 deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
     import deps._
+
+
     for {
-      colourModel <- colourModelFuture
-      iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
-      (thumb, thumbMimeType) <- imageOps
-        .createThumbnail(browserViewableImage.file, Some(browserViewableImage.mimeType), config.thumbWidth,
-          config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
+      tempFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, config.tempDir)
+      maybeThumbFile <- deps.tryFetchThumbFile(browserViewableImage.id, tempFile)
+      (thumb, thumbMimeType) <- {
+        if (maybeThumbFile.isDefined) {
+          Future.successful(maybeThumbFile.get)
+        } else {
+           for {
+            colourModel <- colourModelFuture
+            iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
+            details <- imageOps
+              .createThumbnail(browserViewableImage.file, Some(browserViewableImage.mimeType), config.thumbWidth,
+                config.thumbQuality, tempFile, iccColourSpace, colourModel)
+          } yield details
+        }
+      }
     } yield browserViewableImage
       .copy(file = thumb, mimeType = thumbMimeType)
       .asStorableThumbImage

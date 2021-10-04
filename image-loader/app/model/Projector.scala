@@ -6,15 +6,17 @@ import java.util.UUID
 import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
+import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
+import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.lib.imaging.ImageOperations.thumbMimeType
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
-import com.gu.mediaservice.model.{Image, UploadInfo}
+import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
@@ -87,7 +89,7 @@ class Projector(config: ImageUploadOpsCfg,
                 processor: ImageProcessor,
                 auth: Authentication) {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3)
 
   def projectS3ImageById(imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -159,7 +161,9 @@ class Projector(config: ImageUploadOpsCfg,
 
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
-                               processor: ImageProcessor) {
+                               processor: ImageProcessor,
+                               s3: AmazonS3
+) {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
 
@@ -167,7 +171,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
     val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
-    projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
+      projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model, fetchThumbFile)
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
@@ -179,5 +183,23 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage) =
     Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket))
+
+  private def fetchThumbFile(imageId: String, outFile: File)(implicit ec: ExecutionContext): Future[Option[(File, MimeType)]] = {
+    val key = fileKeyFromId(imageId)
+    val doesFileExist = Future { s3.doesObjectExist(config.thumbBucket, key) }
+    doesFileExist.map {
+      case false => None // falls back to creating from original file
+      case true =>
+        val obj = s3.getObject(new GetObjectRequest(config.thumbBucket, key))
+        val fos = new FileOutputStream(outFile)
+        try {
+          IOUtils.copy(obj.getObjectContent, fos)
+        } finally {
+          fos.close()
+          obj.close()
+        }
+        Some((outFile, thumbMimeType))
+    }
+  }
 
 }
