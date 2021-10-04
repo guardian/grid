@@ -82,7 +82,7 @@ object MigrationSourceWithSender extends GridLogging {
           }
         })
 
-    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 8) { searchHit: SearchHit => {
+    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsync(parallelism = 20) { searchHit: SearchHit => {
       val imageId = searchHit.id
       val migrateImageMessageFuture = (
         for {
