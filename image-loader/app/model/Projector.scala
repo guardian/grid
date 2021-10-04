@@ -12,7 +12,6 @@ import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.imaging.ImageOperations.thumbMimeType
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
 import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
@@ -86,7 +85,7 @@ class Projector(config: ImageUploadOpsCfg,
                 s3: AmazonS3,
                 imageOps: ImageOperations,
                 processor: ImageProcessor,
-                auth: Authentication) {
+                auth: Authentication) extends GridLogging {
 
   private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3)
 
@@ -99,9 +98,10 @@ class Projector(config: ImageUploadOpsCfg,
       if (!s3.doesObjectExist(config.originalFileBucket, s3Key))
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
 
-      Logger.info(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection")
+      val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
+        s3.getObject(config.originalFileBucket, s3Key)
+      }(logMarker)
 
-      val s3Source = s3.getObject(config.originalFileBucket, s3Key)
       try {
         val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
         val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
@@ -178,6 +178,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
       tryFetchThumbFile = fetchThumbFile,
       tryFetchOptimisedFile = fetchOptimisedFile,
     )
+
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 

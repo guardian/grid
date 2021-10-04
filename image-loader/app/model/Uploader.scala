@@ -176,7 +176,7 @@ object Uploader extends GridLogging {
 
       val processedImage = processor(baseImage)
 
-      logger.info("Ending image ops")
+      logger.info(logMarker, s"Ending image ops")
       // FIXME: dirty hack to sync the originalUsageRights and originalMetadata as well
       processedImage.copy(
         originalMetadata = processedImage.metadata,
