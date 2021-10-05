@@ -2,12 +2,11 @@ package model
 
 import java.io.{File, FileOutputStream}
 import java.util.UUID
-
 import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
-import com.gu.mediaservice.lib.ImageIngestOperations.fileKeyFromId
+import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.aws.S3Object
@@ -163,15 +162,22 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
                                processor: ImageProcessor,
                                s3: AmazonS3
-) {
+) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
-    val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
-      projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model, fetchThumbFile)
+    val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(
+      config,
+      imageOps,
+      projectOriginalFileAsS3Model,
+      projectThumbnailFileAsS3Model,
+      projectOptimisedPNGFileAsS3Model,
+      tryFetchThumbFile = fetchThumbFile,
+      tryFetchOptimisedFile = fetchOptimisedFile,
+    )
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
@@ -184,13 +190,33 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage) =
     Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket))
 
-  private def fetchThumbFile(imageId: String, outFile: File)(implicit ec: ExecutionContext): Future[Option[(File, MimeType)]] = {
+  private def fetchThumbFile(
+    imageId: String, outFile: File
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     val key = fileKeyFromId(imageId)
-    val doesFileExist = Future { s3.doesObjectExist(config.thumbBucket, key) }
-    doesFileExist.map {
-      case false => None // falls back to creating from original file
+
+    fetchFile(config.thumbBucket, key, outFile)
+  }
+
+  private def fetchOptimisedFile(
+    imageId: String, outFile: File
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
+    val key = optimisedPngKeyFromId(imageId)
+
+    fetchFile(config.originalFileBucket, key, outFile)
+  }
+
+  private def fetchFile(
+    bucket: String, key: String, outFile: File
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
+    logger.info(logMarker, s"Trying fetch existing image from S3 bucket - $bucket at key $key")
+    val doesFileExist = Future { s3.doesObjectExist(bucket, key) }
+    doesFileExist.flatMap {
+      case false =>
+        logger.warn(logMarker, s"image did not exist in bucket $bucket at key $key")
+        Future.successful(None) // falls back to creating from original file
       case true =>
-        val obj = s3.getObject(new GetObjectRequest(config.thumbBucket, key))
+        val obj = s3.getObject(new GetObjectRequest(bucket, key))
         val fos = new FileOutputStream(outFile)
         try {
           IOUtils.copy(obj.getObjectContent, fos)
@@ -198,7 +224,11 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
           fos.close()
           obj.close()
         }
-        Some((outFile, thumbMimeType))
+
+        MimeTypeDetection.guessMimeType(outFile) match {
+          case Right(mimeType) => Future.successful(Some((outFile, mimeType)))
+          case Left(e) => Future.failed(e)
+        }
     }
   }
 
