@@ -3,6 +3,7 @@ import angular from 'angular';
 import '../util/rx';
 import '../services/image/usages';
 import '../image/service';
+import '../edits/service';
 
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-photoshoot/gr-photoshoot';
@@ -70,6 +71,7 @@ image.controller('ImageCtrl', [
   'mediaCropper',
   'imageService',
   'imageUsagesService',
+  'editsService',
   'keyboardShortcut',
   'cropSettings',
 
@@ -89,6 +91,7 @@ image.controller('ImageCtrl', [
             mediaCropper,
             imageService,
             imageUsagesService,
+            editsService,
             keyboardShortcut,
             cropSettings) {
 
@@ -144,6 +147,10 @@ image.controller('ImageCtrl', [
     ctrl.lowResImageUri = lowResImageUri;
 
     ctrl.singleImageList = ctrl.image ? new List([ctrl.image]) : new List([]);
+
+    editsService.canUserEdit(ctrl.image).then(editable => {
+      ctrl.canUserEdit = editable;
+    });
 
     const usages = imageUsagesService.getUsages(ctrl.image);
     const usagesCount$ = usages.count$;

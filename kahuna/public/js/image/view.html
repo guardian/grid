@@ -137,7 +137,7 @@
   <div class="image-details image-details--scroll">
     <gr-image-metadata
         gr-images="ctrl.singleImageList"
-        gr-user-can-edit="true"
+        gr-user-can-edit="ctrl.canUserEdit"
         ng-if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
     <gr-image-usage gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'usages'"></gr-image-usage>
   </div>
