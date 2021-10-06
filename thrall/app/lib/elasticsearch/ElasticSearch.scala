@@ -15,8 +15,8 @@ import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.{BoolQuery, Query}
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.{UpdateRequest, UpdateResponse}
-import com.sksamuel.elastic4s.{Executor, Functor, Handler, Response}
-import lib.ThrallMetrics
+import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
+import lib.{FailedMigrationDetails, ThrallMetrics}
 import org.joda.time.DateTime
 import play.api.libs.json._
 

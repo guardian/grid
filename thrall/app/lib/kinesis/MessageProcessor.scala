@@ -76,7 +76,7 @@ class MessageProcessor(
         case Failure(exception) => Future.failed(GetVersionFailure(exception.toString))
       }
     }.flatMap {
-      case (image, expectedVersion, currentVersion) => if (expectedVersion == currentVersion) {
+      case (image, expectedVersion, currentVersion) => if (expectedVersion != currentVersion) {
         Future.successful(image)
       } else {
         Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id} -> current = $currentVersion, expected = $expectedVersion"))

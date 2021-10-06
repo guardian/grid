@@ -23,7 +23,7 @@ object EsInfo {
       MigrationTo.format.reads(json) map {
         Right(_)
       }
-    } orElse{
+    } orElse {
       MigrationFailure.format.reads(json) map {
         Left(_)
       }

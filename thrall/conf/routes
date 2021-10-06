@@ -3,6 +3,7 @@
 # ~~~~
 
 GET     /                                             controllers.ThrallController.index
+GET     /migrationFailures                            controllers.ThrallController.migrationFailures
 
 +nocsrf
 POST    /startMigration                               controllers.ThrallController.startMigration

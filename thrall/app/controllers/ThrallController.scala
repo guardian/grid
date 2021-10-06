@@ -8,7 +8,8 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
-import lib.OptionalFutureRunner
+import com.gu.mediaservice.lib.elasticsearch.InProgress
+import lib.{FailedMigrationDetails, OptionalFutureRunner}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.CreateMigrationIndexMessage
 import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
@@ -63,7 +64,17 @@ class ThrallController(
     }
   }
 
-  implicit val pollingMaterializer:ActorMaterializer = ActorMaterializer()(actorSystem)
+  def migrationFailures = withLoginRedirectAsync {
+    es.migrationStatus match {
+      case InProgress(migrationIndexName) =>
+        es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, 200).map(details =>
+          Ok(views.html.migrationFailures(details, 200))
+        )
+      case _ => Future.successful(Ok("No current migration"))
+    }
+  }
+
+  implicit val pollingMaterializer: ActorMaterializer = ActorMaterializer()(actorSystem)
 
   def startMigration = withLoginRedirectAsync {
     val msgFailedToFetchIndex = s"Could not fetch ES index details for alias '${es.imagesMigrationAlias}'"

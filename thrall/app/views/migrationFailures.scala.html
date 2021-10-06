@@ -1,0 +1,41 @@
+@import lib.FailedMigrationDetails
+
+@(failures: Seq[FailedMigrationDetails],
+    maxDisplayableFailures: Int)
+
+@truncatedFailures = @{ failures.size > maxDisplayableFailures }
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>All images that have failed to migrate</title>
+    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+</head>
+<body>
+    <h1>
+        Showing
+        @if(failures.size > maxDisplayableFailures) {
+            first @maxDisplayableFailures
+        } else {
+            all
+        }
+        images that have failed to migrate:
+    </h1>
+    <table>
+        <tr>
+            <th>Image ID</th>
+            <th>Failure cause</th>
+        </tr>
+        @for(failure <- failures.take(maxDisplayableFailures)) {
+            <tr>
+                <td>@failure.imageId</td>
+                <td>@failure.cause</td>
+            </tr>
+        }
+    </table>
+    @if(truncatedFailures) {
+        <p>... and @(failures.size - maxDisplayableFailures) more!</p>
+    }
+</body>
+</html>

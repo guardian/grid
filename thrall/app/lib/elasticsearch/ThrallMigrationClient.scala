@@ -5,12 +5,15 @@ import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.searches.SearchHit
+import lib.FailedMigrationDetails
+import play.api.libs.json.{JsError, JsSuccess, Json, Reads, __}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 
 final case class ScrolledSearchResults(hits: List[SearchHit], scrollId: Option[String])
+final case class EsInfoContainer(esInfo: EsInfo)
 
 trait ThrallMigrationClient extends MigrationStatusProvider {
   self: ElasticSearchClient =>
@@ -47,5 +50,37 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
       _ = logger.info(logMarker, s"Assigned migration index $imagesMigrationAlias to $newIndexName")
       _ = refreshAndRetrieveMigrationStatus()
     } yield ()
+  }
+
+
+  def getMigrationFailures(
+    currentIndexName: String, migrationIndexName: String, maxReturn: Int
+  )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[Seq[FailedMigrationDetails]] = {
+
+
+    val q = ElasticDsl.search(currentIndexName).size(maxReturn) query must(
+      existsQuery(s"esInfo.migration.failures.$migrationIndexName"),
+      not(matchQuery("esInfo.migration.migratedTo", migrationIndexName))
+    )
+    executeAndLog(q, s"retrieving list of migration failures")
+      .map { resp =>
+        logger.info(logMarker, s"failed migrations - got ${resp.result.hits.size} hits")
+        val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits
+          .map(hit => {
+            logger.info(logMarker, s"failed migrations - got hit $hit.id")
+            val source = hit.sourceAsString
+            val cause = Json.parse(source).validate(Json.reads[EsInfoContainer]) match {
+              case JsSuccess(EsInfoContainer(EsInfo(Some(Left(migrationFailure)))), _) =>
+                migrationFailure.failures.getOrElse(migrationIndexName, "UNKNOWN - NO FAILURE MATCHING MIGRATION INDEX NAME")
+              case JsError(errors) =>
+                logger.error(logMarker, s"Could not parse EsInfo for ${hit.id} - $errors")
+                "Could not extract migration info from ES due to parsing failure"
+              case _ => "UNKNOWN - NO FAILURE MATCHING MIGRATION INDEX NAME"
+            }
+            FailedMigrationDetails(imageId = hit.id, cause = cause)
+        })
+
+        failedMigrationDetails
+      }
   }
 }
