@@ -1,9 +1,17 @@
-@import lib.FailedMigrationDetails
+@import lib.FailedMigrationSummary
 
-@(failures: Seq[FailedMigrationDetails],
-    maxDisplayableFailures: Int)
+@import views.html.helper.form
+@(failures: FailedMigrationSummary, migrateSingleImageForm: Form[MigrateSingleImageForm])
 
-@truncatedFailures = @{ failures.size > maxDisplayableFailures }
+@truncatedFailures = @{ failures.returned < failures.totalFailed }
+
+@quantityMoreFailures = @{
+    ("... and " + failures.totalFailedRelation match {
+        case "lte" | "lt" => "Less than "
+        case "gte" | "gt" => "More than "
+        case _ => ""
+    }) + (failures.totalFailed - failures.returned) + "more!"
+}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -13,29 +21,39 @@
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 </head>
 <body>
-    <h1>
-        Showing
-        @if(failures.size > maxDisplayableFailures) {
-            first @maxDisplayableFailures
-        } else {
-            all
-        }
-        images that have failed to migrate:
-    </h1>
-    <table>
-        <tr>
-            <th>Image ID</th>
-            <th>Failure cause</th>
-        </tr>
-        @for(failure <- failures.take(maxDisplayableFailures)) {
+    @if(failures.details.nonEmpty) {
+        <h1>
+            Showing
+            @if(truncatedFailures) {
+                first @failures.returned
+            } else {
+                all
+            }
+            images that have failed to migrate:
+        </h1>
+        <table>
             <tr>
-                <td>@failure.imageId</td>
-                <td>@failure.cause</td>
+                <th>Image ID</th>
+                <th>Failure cause</th>
+                <th>Click to reattempt migration</th>
             </tr>
-        }
-    </table>
+            @for(failure <- failures.details) {
+                <tr>
+                    <td>@failure.imageId</td>
+                    <td>@failure.cause</td>
+                    <td>@form(action = routes.ThrallController.migrateSingleImage){
+                        <label for="id" class="hidden">Image ID:</label>
+                        <input type="text" id="id" value="@failure.imageId" name="id" class="hidden">
+                        <input type="submit" value="Reattempt migration">
+                    }</td>
+                </tr>
+            }
+        </table>
+    } else {
+        <h1>No failures in current migration!</h1>
+    }
     @if(truncatedFailures) {
-        <p>... and @(failures.size - maxDisplayableFailures) more!</p>
+        <p>... and @(failures.totalFailed - failures.returned) more!</p>
     }
 </body>
 </html>

@@ -65,10 +65,14 @@ class ThrallController(
   }
 
   def migrationFailures = withLoginRedirectAsync {
+    val maxReturn = 200
     es.migrationStatus match {
       case InProgress(migrationIndexName) =>
-        es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, 200).map(details =>
-          Ok(views.html.migrationFailures(details, 200))
+        es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, maxReturn).map(failures =>
+          Ok(views.html.migrationFailures(
+            failures = failures,
+            migrateSingleImageForm = migrateSingleImageForm
+          ))
         )
       case _ => Future.successful(Ok("No current migration"))
     }

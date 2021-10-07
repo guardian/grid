@@ -5,3 +5,7 @@ table, td, th {
 td, th {
   padding: 10px 20px;
 }
+
+.hidden {
+  display: none;
+}

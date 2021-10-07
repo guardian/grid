@@ -3,9 +3,10 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, MigrationAlreadyRunningError, MigrationStatusProvider, NotRunning}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
+import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.searches.SearchHit
-import lib.FailedMigrationDetails
+import lib.{FailedMigrationDetails, FailedMigrationSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json, Reads, __}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,21 +53,17 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     } yield ()
   }
 
-
   def getMigrationFailures(
     currentIndexName: String, migrationIndexName: String, maxReturn: Int
-  )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[Seq[FailedMigrationDetails]] = {
-
-
-    val q = ElasticDsl.search(currentIndexName).size(maxReturn) query must(
+  )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationSummary] = {
+    val search = ElasticDsl.search(currentIndexName).size(maxReturn) query must(
       existsQuery(s"esInfo.migration.failures.$migrationIndexName"),
       not(matchQuery("esInfo.migration.migratedTo", migrationIndexName))
     )
-    executeAndLog(q, s"retrieving list of migration failures")
+    executeAndLog(search, s"retrieving list of migration failures")
       .map { resp =>
         logger.info(logMarker, s"failed migrations - got ${resp.result.hits.size} hits")
-        val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits
-          .map(hit => {
+        val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits.map { hit =>
             logger.info(logMarker, s"failed migrations - got hit $hit.id")
             val source = hit.sourceAsString
             val cause = Json.parse(source).validate(Json.reads[EsInfoContainer]) match {
@@ -78,9 +75,14 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
               case _ => "UNKNOWN - NO FAILURE MATCHING MIGRATION INDEX NAME"
             }
             FailedMigrationDetails(imageId = hit.id, cause = cause)
-        })
+        }
 
-        failedMigrationDetails
+        FailedMigrationSummary(
+          totalFailed = resp.result.hits.total.value,
+          totalFailedRelation = resp.result.hits.total.relation,
+          returned = resp.result.hits.hits.length,
+          details = failedMigrationDetails
+        )
       }
   }
 }
