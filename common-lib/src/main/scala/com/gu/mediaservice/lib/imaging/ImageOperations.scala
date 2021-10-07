@@ -1,14 +1,13 @@
 package com.gu.mediaservice.lib.imaging
 
 import java.io._
-
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
 import com.gu.mediaservice.lib.StorableThumbImage
 import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, addMarkers}
 import com.gu.mediaservice.model._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -136,9 +135,10 @@ class ImageOperations(playPath: String) extends GridLogging {
                       sourceMimeType: Option[MimeType],
                       width: Int,
                       qual: Double = 100d,
-                      tempDir: File,
+                      outputFile: File,
                       iccColourSpace: Option[String],
-                      colourModel: Option[String]): Future[(File, MimeType)] = {
+                      colourModel: Option[String])(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+
     val cropSource  = addImage(sourceFile)
     val thumbnailed = thumbnail(cropSource)(width)
     val corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
@@ -150,7 +150,6 @@ class ImageOperations(playPath: String) extends GridLogging {
     val interlaced  = interlace(qualified)(interlacedHow)
     val addOutput   = {file:File => addDestImage(interlaced)(file)}
     for {
-      outputFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
       _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
     } yield (outputFile, thumbMimeType)
   }
@@ -164,7 +163,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     * @param tempDir Location to create optimised file
     * @return The file created and the mimetype of the content of that file, in a future.
     */
-  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File): Future[(File, MimeType)] = {
+  def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     for {
       // png suffix is used by imagemagick to infer the required type
       outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)

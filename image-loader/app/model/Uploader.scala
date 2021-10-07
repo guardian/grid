@@ -1,5 +1,7 @@
 package model
 
+import com.gu.mediaservice.lib.Files.createTempFile
+
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -13,6 +15,7 @@ import com.gu.mediaservice.lib.aws.{S3Object, UpdateMessage}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.formatting._
 import com.gu.mediaservice.lib.imaging.ImageOperations
+import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.logging._
 import com.gu.mediaservice.lib.metadata.{FileMetadataHelper, ImageMetadataConverter}
 import com.gu.mediaservice.lib.net.URI
@@ -68,11 +71,13 @@ case class ImageUploadOpsCfg(
 )
 
 case class ImageUploadOpsDependencies(
-                                       config: ImageUploadOpsCfg,
-                                       imageOps: ImageOperations,
-                                       storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
-                                       storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
-                                       storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object]
+  config: ImageUploadOpsCfg,
+  imageOps: ImageOperations,
+  storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object],
+  storeOrProjectThumbFile: StorableThumbImage => Future[S3Object],
+  storeOrProjectOptimisedImage: StorableOptimisedImage => Future[S3Object],
+  tryFetchThumbFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
+  tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]] = (_, _) => Future.successful(None),
 )
 
 object Uploader extends GridLogging {
@@ -150,7 +155,8 @@ object Uploader extends GridLogging {
       optimisedFileMetadata <- FileMetadataReader.fromIPTCHeadersWithColorInfo(browserViewableImage)
       thumbViewableImage <- createThumbFuture(optimisedFileMetadata, colourModelFuture, browserViewableImage, deps)
       s3Thumb <- storeOrProjectThumbFile(thumbViewableImage)
-      maybeStorableOptimisedImage <- getStorableOptimisedImage(makeNewDirInTempDirHere, optimiseOps, browserViewableImage, optimisedFileMetadata)
+      maybeStorableOptimisedImage <- getStorableOptimisedImage(
+        makeNewDirInTempDirHere, optimiseOps, browserViewableImage, optimisedFileMetadata, deps.tryFetchOptimisedFile)
       s3PngOption <- maybeStorableOptimisedImage match {
         case Some(storableOptimisedImage) => storeOrProjectOptimisedFile(storableOptimisedImage).map(a=>Some(a))
         case None => Future.successful(None)
@@ -188,11 +194,20 @@ object Uploader extends GridLogging {
                                          tempDir: File,
                                          optimiseOps: OptimiseOps,
                                          browserViewableImage: BrowserViewableImage,
-                                         optimisedFileMetadata: FileMetadata)
+                                         optimisedFileMetadata: FileMetadata,
+    tryFetchOptimisedFile: (String, File) => Future[Option[(File, MimeType)]]
+  )
            (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[StorableOptimisedImage]] = {
     if (optimiseOps.shouldOptimise(Some(browserViewableImage.mimeType), optimisedFileMetadata)) {
       for {
-        (optimisedFile: File, optimisedMimeType: MimeType) <- optimiseOps.toOptimisedFile(browserViewableImage.file, browserViewableImage, tempDir)
+        tempFile <- createTempFile("optimisedpng-", optimisedMimeType.fileExtension, tempDir)
+        maybeDownloadedOptimisedFile <- tryFetchOptimisedFile(browserViewableImage.id, tempFile)
+        (optimisedFile, optimisedMimeType) <- {
+          maybeDownloadedOptimisedFile match {
+            case Some(optData) => Future.successful(optData)
+            case None => optimiseOps.toOptimisedFile(browserViewableImage.file, browserViewableImage, tempFile)
+          }
+        }
       } yield Some(
         browserViewableImage.copy(
           file = optimisedFile,
@@ -226,22 +241,43 @@ object Uploader extends GridLogging {
   private def createThumbFuture(fileMetadata: FileMetadata,
                                 colourModelFuture: Future[Option[String]],
                                 browserViewableImage: BrowserViewableImage,
-                                deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext) = {
+                                deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext, logMarker: LogMarker) = {
     import deps._
+
+    def generateThumbnail(tempFile: File) = {
+      for {
+        colourModel <- colourModelFuture
+        iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
+        thumbData <- imageOps.createThumbnail(
+          browserViewableImage.file,
+          Some(browserViewableImage.mimeType),
+          config.thumbWidth,
+          config.thumbQuality,
+          tempFile,
+          iccColourSpace,
+          colourModel)
+      } yield thumbData
+    }
+
     for {
-      colourModel <- colourModelFuture
-      iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(fileMetadata)
-      (thumb, thumbMimeType) <- imageOps
-        .createThumbnail(browserViewableImage.file, Some(browserViewableImage.mimeType), config.thumbWidth,
-          config.thumbQuality, config.tempDir, iccColourSpace, colourModel)
+      tempFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, config.tempDir)
+      maybeThumbFile <- deps.tryFetchThumbFile(browserViewableImage.id, tempFile)
+      (thumb, thumbMimeType) <- {
+        maybeThumbFile match {
+          case Some(thumbData) => Future.successful(thumbData)
+          case None => generateThumbnail(tempFile)
+        }
+      }
     } yield browserViewableImage
       .copy(file = thumb, mimeType = thumbMimeType)
       .asStorableThumbImage
   }
 
-  private def createBrowserViewableFileFuture(uploadRequest: UploadRequest,
-                                              tempDir: File,
-                                        deps: ImageUploadOpsDependencies)(implicit ec: ExecutionContext): Future[BrowserViewableImage] = {
+  private def createBrowserViewableFileFuture(
+    uploadRequest: UploadRequest,
+    tempDir: File,
+    deps: ImageUploadOpsDependencies
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[BrowserViewableImage] = {
     import deps._
     uploadRequest.mimeType match {
       case Some(mime) if config.transcodedMimeTypes.contains(mime) =>
@@ -281,9 +317,6 @@ class Uploader(val store: ImageLoaderStore,
                val notifications: Notifications,
                imageProcessor: ImageProcessor)
               (implicit val ec: ExecutionContext) extends MessageSubjects with ArgoHelpers {
-
-
-
 
   def fromUploadRequest(uploadRequest: UploadRequest)
                        (implicit logMarker: LogMarker): Future[ImageUpload] = {

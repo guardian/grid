@@ -23,21 +23,21 @@ object OptimiseWithPngQuant extends OptimiseOps {
 
   override def optimiseMimeType: MimeType = Png
 
-  def toOptimisedFile(file: File, imageWrapper: ImageWrapper, tempDir: File)
+  def toOptimisedFile(file: File, imageWrapper: ImageWrapper, optimisedFile: File)
                      (implicit ec: ExecutionContext, logMarker: LogMarker): Future[(File, MimeType)] = Future {
 
-    val optimisedFilePath = tempDir.getAbsolutePath + "/optimisedpng - " + imageWrapper.id + optimiseMimeType.fileExtension
     val marker = MarkerMap(
       "fileName" -> file.getName()
     )
 
     Stopwatch("pngquant") {
-      val result = Seq("pngquant","-s10",  "--quality", "1-85", file.getAbsolutePath, "--output", optimisedFilePath).!
-      if (result>0)
+      val result = Seq("pngquant", "-s10", "--quality", "1-85", file.getAbsolutePath,
+        "--force", "--output", optimisedFile.getAbsolutePath
+      ).!
+      if (result > 0)
         throw new Exception(s"pngquant failed to convert to optimised png file (rc = $result)")
     }(marker)
 
-    val optimisedFile = new File(optimisedFilePath)
     if (optimisedFile.exists()) {
       (optimisedFile, optimiseMimeType)
     } else {
