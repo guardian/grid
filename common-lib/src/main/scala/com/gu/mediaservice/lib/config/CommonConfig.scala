@@ -63,6 +63,43 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
+  /**
+   * Load in a list of domain metadata specifications from configuration. For example:
+   * {{{
+   *   domainMetadata.specifications = [
+   *     {
+   *       type: "specificationa"
+   *       name: "Specification A"
+   *       description: "Description of specification A"
+   *       fields = [
+   *         {
+   *           name = "field-a"
+   *           label = "Field A"
+   *           type = "string" # type can either be string, integer, select or datetime
+   *         }
+   *         {
+   *           name = "field-b"
+   *           label = "Field B"
+   *           type = "integer"
+   *         }
+   *         {
+   *           name = "field-c"
+   *           label = "Field C"
+   *           type = "datetime"
+   *         }
+   *         {
+   *           name = "field-d"
+   *           label = "Field D"
+   *           type = "select"
+   *           options = ["Option 1", "Option 2"]
+   *         }
+   *       ]
+   *     }
+   *   ]
+   * }}}
+   */
+  val domainMetadataSpecs: Seq[DomainMetadataSpec] = configuration.getOptional[Seq[DomainMetadataSpec]]("domainMetadata.specifications").getOrElse(Seq.empty)
+
   val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
 
   /**

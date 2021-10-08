@@ -26,6 +26,7 @@ case class ImageMetadata(
   country:             Option[String]   = None,
   subjects:            List[String]     = Nil,
   peopleInImage:       Set[String]      = Set(),
+  domainMetadata:      Map[String, Map[String, JsValue]] = Map()
 ) {
   def merge(that: ImageMetadata) = this.copy(
     dateTaken = (that.dateTaken ++ this.dateTaken).headOption,
@@ -45,7 +46,8 @@ case class ImageMetadata(
     state = (that.state ++ this.state).headOption,
     country = (that.country ++ this.country).headOption,
     subjects = that.subjects ++ this.subjects,
-    peopleInImage = that.peopleInImage ++ this.peopleInImage
+    peopleInImage = that.peopleInImage ++ this.peopleInImage,
+    domainMetadata = that.domainMetadata ++ this.domainMetadata
   )
 
 }
@@ -71,7 +73,8 @@ object ImageMetadata {
       (__ \ "state").readNullable[String] ~
       (__ \ "country").readNullable[String] ~
       (__ \ "subjects").readNullable[List[String]].map(_ getOrElse Nil) ~
-      (__ \ "peopleInImage").readNullable[Set[String]].map(_ getOrElse Set())
+      (__ \ "peopleInImage").readNullable[Set[String]].map(_ getOrElse Set()) ~
+      (__ \ "domainMetadata").readNullable[Map[String, Map[String, JsValue]]].map(_ getOrElse Map())
     )(ImageMetadata.apply _)
 
   implicit val IptcMetadataWrites: Writes[ImageMetadata] = (
@@ -92,7 +95,8 @@ object ImageMetadata {
       (__ \ "state").writeNullable[String] ~
       (__ \ "country").writeNullable[String] ~
       (__ \ "subjects").writeNullable[List[String]].contramap((l: List[String]) => if (l.isEmpty) None else Some(l)) ~
-      (__ \ "peopleInImage").writeNullable[Set[String]].contramap((l: Set[String]) => if (l.isEmpty) None else Some(l))
+      (__ \ "peopleInImage").writeNullable[Set[String]].contramap((l: Set[String]) => if (l.isEmpty) None else Some(l)) ~
+      (__ \ "domainMetadata").writeNullable[Map[String, Map[String, JsValue]]].contramap((l: Map[String, Map[String, JsValue]]) => if (l.isEmpty) None else Some(l))
     )(unlift(ImageMetadata.unapply))
 
 }

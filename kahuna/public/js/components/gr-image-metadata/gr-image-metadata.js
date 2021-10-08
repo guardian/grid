@@ -33,6 +33,8 @@ module.controller('grImageMetadataCtrl', [
 
     let ctrl = this;
 
+    // Deep copying window._clientConfig.domainMetadataModels
+    ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.fieldAliases = window._clientConfig.fieldAliases;
     ctrl.showUsageRights = false;
     ctrl.usageRights = imageService(ctrl.image).usageRights;
@@ -69,7 +71,8 @@ module.controller('grImageMetadataCtrl', [
     const ignoredMetadata = [
       'title', 'description', 'copyright', 'keywords', 'byline',
       'credit', 'subLocation', 'city', 'state', 'country',
-      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
+      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage',
+      'domainMetadata'
     ];
 
     ctrl.metadataSearch = (field, q) => {
@@ -105,6 +108,41 @@ module.controller('grImageMetadataCtrl', [
       });
     }
 
+    ctrl.domainMetadata = ctrl.domainMetadataSpecs
+      .filter(spec => spec.fields.length > 0)
+      .reduce((acc, curr) => {
+        let spec = { ...curr };
+
+        if (ctrl.image.data.metadata.domainMetadata) {
+          spec.fields = curr.fields.map(field => setDomainMetadataFieldValueOrDefault(ctrl.image.data.metadata.domainMetadata, field, curr));
+        }
+
+        acc.push(spec);
+
+        return acc;
+      }, []);
+
+    function setDomainMetadataFieldValueOrDefault(domainMetadata, field, spec) {
+      let fieldValue = undefined;
+
+      if (domainMetadata.hasOwnProperty(spec.type)) {
+        fieldValue = domainMetadata[spec.type][field.name];
+
+        if (field.fieldType === 'datetime' && fieldValue) {
+          fieldValue = new Date(fieldValue);
+        }
+
+        if (field.fieldType === 'select' && field.options.length > 0) {
+          field.options = [""].concat(field.options);
+        }
+      }
+
+      return {
+        ...field,
+        value: fieldValue
+      };
+    }
+
     const updateHandler = (updatedImage) => {
       ctrl.image = updatedImage;
       ctrl.usageRights = imageService(ctrl.image).usageRights;
@@ -118,6 +156,48 @@ module.controller('grImageMetadataCtrl', [
     const freeUpdateListener = $rootScope.$on('images-updated',
       (e, updatedImages) => updatedImages.map(updatedImage => updateHandler(updatedImage))
       );
+
+    ctrl.updateDomainMetadataField = function(type, field, value) {
+      return editsService.updateDomainMetadataField(ctrl.image, type, field, value)
+        .then((updatedImage) => {
+          if (updatedImage) {
+            ctrl.image = updatedImage;
+            updateAbilities(updatedImage);
+            $rootScope.$emit(
+              'track:event',
+              'Metadata',
+              'Edit',
+              'Success',
+              null,
+              {
+                field: field,
+                value: value
+              }
+            );
+          }
+        })
+        .catch(() => {
+          $rootScope.$emit(
+            'track:event',
+            'Metadata',
+            'Edit',
+            'Failure',
+            null,
+            {
+              field: field,
+              value: value
+            }
+          );
+          /*
+           Save failed.
+           Per the angular-xeditable docs, returning a string indicates an error and will
+           not update the local model, nor will the form close (so the edit is not lost).
+           Instead, a message is shown and the field keeps focus for user to edit again.
+           http://vitalets.github.io/angular-xeditable/#onbeforesave
+           */
+          return 'failed to save (press esc to cancel)';
+        });
+    };
 
     ctrl.updateMetadataField = function (field, value) {
         return editsService.updateMetadataField(ctrl.image, field, value)

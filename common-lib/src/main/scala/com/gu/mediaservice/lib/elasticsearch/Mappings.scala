@@ -100,7 +100,8 @@ object Mappings {
     standardAnalysed("state").copyTo("metadata.englishAnalysedCatchAll"),
     standardAnalysed("country").copyTo("metadata.englishAnalysedCatchAll"),
     nonAnalysedList("peopleInImage").copyTo("metadata.englishAnalysedCatchAll"),
-    sStemmerAnalysed("englishAnalysedCatchAll")
+    sStemmerAnalysed("englishAnalysedCatchAll"),
+    dynamicObj("domainMetadata")
   )
 
   def usageRightsMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
