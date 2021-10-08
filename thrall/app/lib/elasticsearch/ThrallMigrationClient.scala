@@ -15,7 +15,7 @@ final case class ScrolledSearchResults(hits: List[SearchHit], scrollId: Option[S
 trait ThrallMigrationClient extends MigrationStatusProvider {
   self: ElasticSearchClient =>
 
-  private val scrollKeepAlive = 30.minutes
+  private val scrollKeepAlive = 5.minutes
 
   def startScrollingImageIdsToMigrate(migrationIndexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
     // TODO create constant for field name "esInfo.migration.migratedTo"
@@ -31,6 +31,12 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     val query = searchScroll(scrollId).keepAlive(scrollKeepAlive)
     executeAndLog(query, "retrieving next batch of image ids to migrate, continuation of scroll").map { response =>
       ScrolledSearchResults(response.result.hits.hits.toList, response.result.scrollId)
+    }
+  }
+  def closeScroll(scrollId: String)(implicit ex: ExecutionContext, logMarker: LogMarker = MarkerMap()) = {
+    val close = clearScroll(scrollId)
+    executeAndLog(close, s"Closing unwanted scroll").failed.foreach { e =>
+      logger.error(logMarker, "ES closeScroll request failed", e)
     }
   }
 
