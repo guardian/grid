@@ -29,6 +29,8 @@ object ImageMagick extends GridLogging {
   def format(op: IMOperation)(definition: String): IMOperation = op <| (_.format(definition))
   def depth(op: IMOperation)(depth: Int): IMOperation = op <| (_.depth(depth))
   def interlace(op: IMOperation)(interlacedHow: String): IMOperation = op <| (_.interlace(interlacedHow))
+  def setBackgroundColour(op: IMOperation)(backgroundColour: String): IMOperation = op <| (_.background(backgroundColour))
+  def flatten(op: IMOperation): IMOperation = op <| (_.flatten())
 
   def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = {
     logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging conversion operation $op")

@@ -117,6 +117,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
   val interlacedHow = "Line"
+  val backgroundColour = "#333333"
 
   /**
     * Given a source file containing a png (the 'browser viewable' file),
@@ -138,16 +139,19 @@ class ImageOperations(playPath: String) extends GridLogging {
                       tempDir: File,
                       iccColourSpace: Option[String],
                       colourModel: Option[String]): Future[(File, MimeType)] = {
-    val cropSource  = addImage(sourceFile)
-    val thumbnailed = thumbnail(cropSource)(width)
-    val corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
-    val converted   = applyOutputProfile(corrected, optimised = true)
-    val stripped    = stripMeta(converted)
-    val profiled    = applyOutputProfile(stripped, optimised = true)
-    val unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-    val qualified   = quality(unsharpened)(qual)
-    val interlaced  = interlace(qualified)(interlacedHow)
-    val addOutput   = {file:File => addDestImage(interlaced)(file)}
+    val cropSource     = addImage(sourceFile)
+    val thumbnailed    = thumbnail(cropSource)(width)
+    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel)
+    val converted      = applyOutputProfile(corrected, optimised = true)
+    val stripped       = stripMeta(converted)
+    val profiled       = applyOutputProfile(stripped, optimised = true)
+    val withBackground = setBackgroundColour(profiled)(backgroundColour)
+    val flattened      = flatten(withBackground)
+    val unsharpened    = unsharp(flattened)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+    val depthAdjusted  = depth(unsharpened)(8)
+    val qualified      = quality(depthAdjusted)(qual)
+    val interlaced     = interlace(qualified)(interlacedHow)
+    val addOutput      = {file:File => addDestImage(interlaced)(file)}
     for {
       outputFile <- createTempFile(s"thumb-", thumbMimeType.fileExtension, tempDir)
       _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
