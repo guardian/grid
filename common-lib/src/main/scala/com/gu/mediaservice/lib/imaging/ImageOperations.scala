@@ -148,8 +148,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val withBackground = setBackgroundColour(profiled)(backgroundColour)
     val flattened      = flatten(withBackground)
     val unsharpened    = unsharp(flattened)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-    val depthAdjusted  = depth(unsharpened)(8)
-    val qualified      = quality(depthAdjusted)(qual)
+    val qualified      = quality(unsharpened)(qual)
     val interlaced     = interlace(qualified)(interlacedHow)
     val addOutput      = {file:File => addDestImage(interlaced)(file)}
     for {
