@@ -2,19 +2,20 @@ package model
 
 import java.io.{File, FileOutputStream}
 import java.util.UUID
-
 import com.amazonaws.services.s3.AmazonS3
 import com.gu.mediaservice.{GridClient, ImageDataMerger}
 import com.gu.mediaservice.lib.auth.Authentication
-import com.amazonaws.services.s3.model.{ObjectMetadata, S3Object => AwsS3Object}
+import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
+import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.lib.imaging.ImageOperations.thumbMimeType
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.lib.net.URI
-import com.gu.mediaservice.model.{Image, UploadInfo}
+import com.gu.mediaservice.model.{Image, MimeType, UploadInfo}
 import lib.imaging.{MimeTypeDetection, NoSuchImageExistsInS3}
 import lib.{DigestedFile, ImageLoaderConfig}
 import model.upload.UploadRequest
@@ -87,7 +88,7 @@ class Projector(config: ImageUploadOpsCfg,
                 processor: ImageProcessor,
                 auth: Authentication) {
 
-  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor)
+  private val imageUploadProjectionOps = new ImageUploadProjectionOps(config, imageOps, processor, s3)
 
   def projectS3ImageById(imageId: String, tempFile: File, requestId: UUID, gridClient: GridClient, onBehalfOfFn: WSRequest => WSRequest)
                         (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {
@@ -101,18 +102,28 @@ class Projector(config: ImageUploadOpsCfg,
       Logger.info(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection")
 
       val s3Source = s3.getObject(config.originalFileBucket, s3Key)
-      val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
-      val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
+      try {
+        val digestedFile = getSrcFileDigestForProjection(s3Source, imageId, tempFile)
+        val extractedS3Meta = S3FileExtractedMetadata(s3Source.getObjectMetadata)
 
-      val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
-      val finalImage = Await.result(finalImageFuture, Duration.Inf)
-      Some(finalImage)
+        val finalImageFuture = projectImage(digestedFile, extractedS3Meta, requestId, gridClient, onBehalfOfFn)
+        val finalImage = Await.result(finalImageFuture, Duration.Inf)
+
+        Some(finalImage)
+      } finally {
+        s3Source.close()
+      }
     }
   }
 
   private def getSrcFileDigestForProjection(s3Src: AwsS3Object, imageId: String, tempFile: File) = {
-    IOUtils.copy(s3Src.getObjectContent, new FileOutputStream(tempFile))
-    DigestedFile(tempFile, imageId)
+    val fos = new FileOutputStream(tempFile)
+    try {
+      IOUtils.copy(s3Src.getObjectContent, fos)
+      DigestedFile(tempFile, imageId)
+    } finally {
+      fos.close()
+    }
   }
 
   def projectImage(srcFileDigest: DigestedFile,
@@ -149,15 +160,24 @@ class Projector(config: ImageUploadOpsCfg,
 
 class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
                                imageOps: ImageOperations,
-                               processor: ImageProcessor) {
+                               processor: ImageProcessor,
+                               s3: AmazonS3
+) extends GridLogging {
 
   import Uploader.{fromUploadRequestShared, toMetaMap}
 
 
   def projectImageFromUploadRequest(uploadRequest: UploadRequest)
                                    (implicit ec: ExecutionContext, logMarker: LogMarker): Future[Image] = {
-    val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(config, imageOps,
-    projectOriginalFileAsS3Model, projectThumbnailFileAsS3Model, projectOptimisedPNGFileAsS3Model)
+    val dependenciesWithProjectionsOnly = ImageUploadOpsDependencies(
+      config,
+      imageOps,
+      projectOriginalFileAsS3Model,
+      projectThumbnailFileAsS3Model,
+      projectOptimisedPNGFileAsS3Model,
+      tryFetchThumbFile = fetchThumbFile,
+      tryFetchOptimisedFile = fetchOptimisedFile,
+    )
     fromUploadRequestShared(uploadRequest, dependenciesWithProjectionsOnly, processor)
   }
 
@@ -169,5 +189,47 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
 
   private def projectOptimisedPNGFileAsS3Model(storableOptimisedImage: StorableOptimisedImage) =
     Future.successful(storableOptimisedImage.toProjectedS3Object(config.originalFileBucket))
+
+  private def fetchThumbFile(
+    imageId: String, outFile: File
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
+    val key = fileKeyFromId(imageId)
+
+    fetchFile(config.thumbBucket, key, outFile)
+  }
+
+  private def fetchOptimisedFile(
+    imageId: String, outFile: File
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
+    val key = optimisedPngKeyFromId(imageId)
+
+    fetchFile(config.originalFileBucket, key, outFile)
+  }
+
+  private def fetchFile(
+    bucket: String, key: String, outFile: File
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
+    logger.info(logMarker, s"Trying fetch existing image from S3 bucket - $bucket at key $key")
+    val doesFileExist = Future { s3.doesObjectExist(bucket, key) }
+    doesFileExist.flatMap {
+      case false =>
+        logger.warn(logMarker, s"image did not exist in bucket $bucket at key $key")
+        Future.successful(None) // falls back to creating from original file
+      case true =>
+        val obj = s3.getObject(new GetObjectRequest(bucket, key))
+        val fos = new FileOutputStream(outFile)
+        try {
+          IOUtils.copy(obj.getObjectContent, fos)
+        } finally {
+          fos.close()
+          obj.close()
+        }
+
+        MimeTypeDetection.guessMimeType(outFile) match {
+          case Right(mimeType) => Future.successful(Some((outFile, mimeType)))
+          case Left(e) => Future.failed(e)
+        }
+    }
+  }
 
 }
