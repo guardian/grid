@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 
 import com.adobe.internal.xmp.XMPMetaFactory
 import com.drew.imaging.ImageMetadataReader
-import com.drew.metadata.exif.{ExifDirectoryBase, ExifIFD0Directory, ExifSubIFDDirectory}
+import com.drew.metadata.exif.{ExifDirectoryBase, ExifIFD0Directory, ExifSubIFDDirectory, ExifInteropDirectory}
 import com.drew.metadata.icc.IccDirectory
 import com.drew.metadata.iptc.IptcDirectory
 import com.drew.metadata.jpeg.JpegDirectory
@@ -73,6 +73,7 @@ object FileMetadataReader {
       iptc = exportDirectory(metadata, classOf[IptcDirectory]),
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
+      exifInterop = exportDirectory(metadata, classOf[ExifInteropDirectory]),
       xmp = exportXmpPropertiesInTransformedSchema(metadata, imageId),
       icc = exportDirectory(metadata, classOf[IccDirectory]),
       getty = exportGettyDirectory(metadata, imageId),
