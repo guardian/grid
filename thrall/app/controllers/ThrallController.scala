@@ -105,16 +105,12 @@ class ThrallController(
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     val imageId = migrateSingleImageForm.bindFromRequest.get.id
 
-    val migrateImageMessage = (for {
-      projection <- gridClient.getImageLoaderProjection(mediaId = imageId, auth.innerServiceCall)
-      version <- es.getImageVersion(imageId)
-    } yield {
-      (projection, version) match {
-        case (Some(projection), Some(version)) => MigrateImageMessage(imageId, Right((projection, version)))
-        case (None, _) => MigrateImageMessage(imageId, Left(s"There was no projection returned for id: ${imageId}"))
-        case _ => MigrateImageMessage(imageId, Left(s"There was no version returned for id: ${imageId}"))
-      }
-  }).recover{
+    val migrateImageMessage = (
+      for {
+        maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, auth.innerServiceCall)
+        maybeVersion <- es.getImageVersion(imageId)
+      } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
+    ).recover {
       case error => MigrateImageMessage(imageId, Left(s"Failed to project image for id: ${imageId}, message: ${error}"))
     }
 

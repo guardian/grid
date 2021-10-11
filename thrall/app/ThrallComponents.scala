@@ -30,6 +30,9 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val es = new ElasticSearch(config.esConfig, Some(thrallMetrics), actorSystem.scheduler)
   es.ensureAliasAssigned()
 
+  val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
+  val gridClient: GridClient = GridClient(services)(wsClient)
+
   // before firing up anything to consume streams or say we are OK let's do the critical good to go check
   private val goodToGoCheckResult = Await.ready(GoodToGoCheck.run(es), 30 seconds)
   goodToGoCheckResult.value match {
@@ -50,10 +53,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
 
   val uiSource: Source[KinesisRecord, Future[Done]] = KinesisSource(highPriorityKinesisConfig)
   val automationSource: Source[KinesisRecord, Future[Done]] = KinesisSource(lowPriorityKinesisConfig)
-  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer)
-
-  val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
-  val gridClient: GridClient = GridClient(services)(wsClient)
+  val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer, auth.innerServiceCall, es, gridClient)
 
   val thrallEventConsumer = new ThrallEventConsumer(
     es,
@@ -66,7 +66,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val thrallStreamProcessor = new ThrallStreamProcessor(
     uiSource,
     automationSource,
-    migrationSourceWithSender.source,
+    migrationSourceWithSender.manualSource,
+    migrationSourceWithSender.ongoingEsQuerySource,
     thrallEventConsumer,
     actorSystem,
     materializer

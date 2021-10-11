@@ -6,15 +6,18 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import com.contxt.kinesis.KinesisRecord
+import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.json.JsonByteArrayUtil
 import com.gu.mediaservice.model.{MigrateImageMessage, StaffPhotographer, ThrallMessage}
 import helpers.Fixtures
+import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import lib.kinesis.ThrallEventConsumer
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import play.api.libs.ws.WSRequest
 
 import java.time.OffsetDateTime
 import scala.concurrent.duration._
@@ -42,13 +45,15 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     )
 
     val COUNT_EACH = 2000 // Arbitrary number
-    val COUNT_TOTAL = 3 * COUNT_EACH
+    val COUNT_TOTAL = 4 * COUNT_EACH
 
     val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
     val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
     val migrationPrioritySource: Source[MigrationRecord, Future[Done.type]] =
+      Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
+    val migrationManualPrioritySource: Source[MigrationRecord, Future[Done.type]] =
       Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
 
     lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
@@ -59,6 +64,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
       uiPrioritySource,
       automationPrioritySource,
       migrationPrioritySource,
+      migrationManualPrioritySource,
       mockConsumer,
       actorSystem,
       materializer
@@ -92,16 +98,31 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
 
       output.count(p => p == UiPriority) should be (COUNT_EACH)
       output.count(p => p == AutomationPriority) should be (COUNT_EACH)
-      output.count(p => p == MigrationPriority) should be (COUNT_EACH)
+      output.count(p => p == MigrationPriority) should be (COUNT_EACH * 2) // two migration sources so *2
     }
   }
 
   describe("Migration source with sender") {
+    lazy val mockGrid = mock[GridClient]
+    when(mockGrid.getImageLoaderProjection(any(), any())(any()))
+      .thenReturn(Future.successful(Some(createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")))))
+
+    lazy val mockEs = mock[ElasticSearch]
+    when(mockEs.continueScrollingImageIdsToMigrate(any())(any(), any()))
+      .thenReturn(Future.successful(ScrolledSearchResults(List.empty, None)))
+    when(mockEs.startScrollingImageIdsToMigrate(any())(any(), any()))
+    .thenReturn(Future.successful(ScrolledSearchResults(List.empty, None)))
+
     val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.empty[KinesisRecord].mapMaterializedValue(_ => Future.successful(Done))
     val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.empty[KinesisRecord].mapMaterializedValue(_ => Future.successful(Done))
-    val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(materializer)
+    val migrationSourceWithSender: MigrationSourceWithSender = MigrationSourceWithSender(
+      materializer,
+      (req: WSRequest) => req,
+      mockEs,
+      mockGrid
+    )
 
     lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
     when(mockConsumer.processMessage(any[ThrallMessage]))
@@ -110,7 +131,8 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
     lazy val streamProcessor = new ThrallStreamProcessor(
       uiPrioritySource,
       automationPrioritySource,
-      migrationSourceWithSender.source,
+      migrationSourceWithSender.manualSource,
+      migrationSourceWithSender.ongoingEsQuerySource,
       mockConsumer,
       actorSystem,
       materializer

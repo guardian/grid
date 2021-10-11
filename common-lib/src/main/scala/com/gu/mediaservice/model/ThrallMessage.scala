@@ -28,6 +28,14 @@ sealed trait MigrationMessage extends InternalThrallMessage {}
 
 case class MigrateImageMessage(id: String, maybeImageWithVersion: Either[String, (Image, Long)]) extends MigrationMessage
 
+object MigrateImageMessage {
+  def apply(imageId: String, maybeProjection: Option[Image], maybeVersion: Option[Long]): MigrateImageMessage = (maybeProjection, maybeVersion) match {
+    case (Some(projection), Some(version)) => MigrateImageMessage(imageId, scala.Right((projection, version)))
+    case (None, _) => MigrateImageMessage(imageId, Left(s"There was no projection returned for id: ${imageId}"))
+    case _ => MigrateImageMessage(imageId, Left(s"There was no version returned for id: ${imageId}"))
+  }
+}
+
 /**
   * EXTERNAL THRALL MESSAGES (these go over Kinesis)
   */
