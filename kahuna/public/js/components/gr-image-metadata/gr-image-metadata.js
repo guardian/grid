@@ -218,6 +218,8 @@ module.controller('grImageMetadataCtrl', [
       }).toObject();
     }
 
+    ctrl.displayLeases = () => ctrl.userCanEdit || (ctrl.singleImage && imageAccessor.readLeases(ctrl.singleImage).leases.length > 0);
+
     // Map of metadata location field to query filter name
     ctrl.locationFieldMap = {
       'subLocation': 'location',

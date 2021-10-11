@@ -138,7 +138,7 @@
               <p>{{::ctrl.formatEndTimestamp(lease.endDate)}}</p>
               <div>{{lease.notes}}</div>
             </div>
-            <gr-confirm-delete data-cy="it-confirm-delete-lease" class="gr-delete-lease flex-right"
+            <gr-confirm-delete ng-if="ctrl.userCanEdit" data-cy="it-confirm-delete-lease" class="gr-delete-lease flex-right"
               gr-on-confirm="ctrl.delete(lease)">
             </gr-confirm-delete>
 

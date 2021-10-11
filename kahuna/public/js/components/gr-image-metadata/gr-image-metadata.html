@@ -21,7 +21,7 @@
                 class="image-info__edit">✎</button>
         </dl>
     </div>
-    <div class="image-info__group">
+    <div class="image-info__group" ng-if="ctrl.displayLeases()">
         <dl class="image-info__wrap metadata-line image-info__leases">
             <div class="image-info__heading image-info__heading--lease">
                 <span>Leases</span>
@@ -143,13 +143,14 @@
     </dl>
     </div>
     
-    <div class="image-info__group" ng-if="ctrl.metadata.specialInstructions">
+    <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions">
         <dl class="image-info__wrap">
             <button class="image-info__edit"
                     ng-if="ctrl.userCanEdit"
                     ng-click="specialInstructionsEditForm.$show()"
                     ng-hide="specialInstructionsEditForm.$visible">✎</button>
             <dt class="metadata-line metadata-line__key">Special instructions</dt>
+
             <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
             editable-textarea="ctrl.metadata.specialInstructions"
             ng-hide="specialInstructionsEditForm.$visible"
