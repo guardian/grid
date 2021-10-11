@@ -171,7 +171,10 @@ class ImageOperations(playPath: String) extends GridLogging {
       // png suffix is used by imagemagick to infer the required type
       outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       transformSource = addImage(sourceFile)
-      addOutput       = addDestImage(transformSource)(outputFile)
+      converted       = applyOutputProfile(transformSource, optimised = true)
+      stripped        = stripMeta(converted)
+      profiled        = applyOutputProfile(stripped, optimised = true)
+      addOutput       = addDestImage(profiled)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       _               <- checkForOutputFileChange(outputFile)
       _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating browser-viewable image")
