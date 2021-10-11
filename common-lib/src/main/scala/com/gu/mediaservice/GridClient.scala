@@ -1,10 +1,9 @@
 package com.gu.mediaservice
 
 import java.net.URL
-
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -204,6 +203,16 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => unpackUsagesFromEntityResponse(json).map(_.as[Usage])
       case NotFound(_, _) => Nil
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
+  def getMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[ImageMetadata] = {
+    logger.info("attempt to get metadata")
+    val url = new URL(s"${services.apiBaseUri}/images/$mediaId")
+    makeGetRequestAsync(url, authFn) map {
+      case Found(json, _) => (json \ "data" \ "metadata").as[ImageMetadata]
+      case nf@NotFound(_, _) => Error(nf.status, url, nf.underlying).logErrorAndThrowException()
       case e@Error(_, _, _) => e.logErrorAndThrowException()
     }
   }

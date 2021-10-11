@@ -164,22 +164,26 @@ class EditsController(
 
   def setMetadataFromUsageRights(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async { req =>
     editsStore.get(id) flatMap { dynamoEntry =>
-      val edits = dynamoEntry.as[Edits]
-      val originalMetadata = edits.metadata
-      val metadataOpt = edits.usageRights.flatMap(usageRightsToMetadata)
+      gridClient.getMetadata(id, auth.getOnBehalfOfPrincipal(req.user)) flatMap { imageMetadata =>
+        val edits = dynamoEntry.as[Edits]
+        val originalUserMetadata = edits.metadata
+        val staffPhotographerPublications: Set[String] = config.usageRightsConfig.staffPhotographers.map(_.name).toSet
+        val metadataOpt = edits.usageRights.flatMap(ur => usageRightsToMetadata(ur, imageMetadata, staffPhotographerPublications))
 
-      metadataOpt map { metadata =>
-        val mergedMetadata = originalMetadata.copy(
-          byline = metadata.byline orElse originalMetadata.byline,
-          credit = metadata.credit orElse originalMetadata.credit
-        )
+        metadataOpt map { metadata =>
+          val mergedMetadata = originalUserMetadata.copy(
+            byline = metadata.byline orElse originalUserMetadata.byline,
+            credit = metadata.credit orElse originalUserMetadata.credit,
+            copyright = metadata.copyright orElse originalUserMetadata.copyright
+          )
 
-        editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
-          .map(publish(id, UpdateImageUserMetadata))
-          .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
-      } getOrElse {
-        // just return the unmodified
-        Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
+          editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(mergedMetadata))
+            .map(publish(id, UpdateImageUserMetadata))
+            .map(edits => respond(edits.metadata, uri = Some(metadataUri(id))))
+        } getOrElse {
+          // just return the unmodified
+          Future.successful(respond(edits.metadata, uri = Some(metadataUri(id))))
+        }
       }
     } recover {
       case NoItemFound => respondError(NotFound, "item-not-found", "Could not find image")
