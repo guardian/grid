@@ -47,12 +47,18 @@ object ImageDataMerger extends LazyLogging {
     logger.info(s"starting to aggregate image")
     val mediaId = image.id
     // NB original metadata should already be added, cleaned, and copied to metadata.
+
+    val collectionsF = gridClient.getCollections(mediaId, authFunction)
+    val editsF = gridClient.getEdits(mediaId, authFunction)
+    val leasesF = gridClient.getLeases(mediaId, authFunction)
+    val usagesF = gridClient.getUsages(mediaId, authFunction)
+    val cropsF = gridClient.getCrops(mediaId, authFunction)
     for {
-      collections <- gridClient.getCollections(mediaId, authFunction)
-      edits <- gridClient.getEdits(mediaId, authFunction)
-      leases <- gridClient.getLeases(mediaId, authFunction)
-      usages <- gridClient.getUsages(mediaId, authFunction)
-      crops <- gridClient.getCrops(mediaId, authFunction)
+      collections <- collectionsF
+      edits <- editsF
+      leases <- leasesF
+      usages <- usagesF
+      crops <- cropsF
     } yield {
       val updatedImage = image.copy(
         collections = collections,
