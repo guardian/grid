@@ -135,7 +135,7 @@ lazy val cropper = playProject("cropper", 9006)
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
     "org.apache.tika" % "tika-core" % "1.20",
-    "com.drewnoakes" % "metadata-extractor" % "2.15.0"
+    "com.drewnoakes" % "metadata-extractor" % "2.16.0"
   )
 }
 
