@@ -44,9 +44,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   type MediaLeaseEntity = EmbeddedEntity[MediaLease]
   type MediaLeasesEntity = EmbeddedEntity[LeasesByMedia]
 
-  private val imgPersistenceReasons = ImagePersistenceReasons.apply(config.persistedRootCollections, config.persistenceIdentifier)
+  private val imgPersistenceReasons = ImagePersistenceReasons(config.persistedRootCollections, config.persistenceIdentifier)
 
-  def imagePersistenceReasons(image: Image): List[String] = imgPersistenceReasons.getImagePersistenceReasons(image)
+  def imagePersistenceReasons(image: Image): List[String] = imgPersistenceReasons.reasons(image)
 
   def canBeDeleted(image: Image) = image.canBeDeleted
 
