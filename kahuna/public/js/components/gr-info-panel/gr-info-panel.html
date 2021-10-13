@@ -333,6 +333,40 @@
                     </span>
                 </dd>
 
+                <dt ng-if="ctrl.rawMetadata.peopleInImage || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
+                <dd ng-if="ctrl.rawMetadata.peopleInImage || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                    <button class="image-info__edit"
+                            ng-if="ctrl.userCanEdit"
+                            ng-click="peopleInImageEditForm.$show()"
+                            ng-hide="peopleInImageEditForm.$visible"
+                    >✎</button>
+                    <span ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.peopleInImage)}"
+                          editable-text="ctrl.metadata.peopleInImage"
+                          ng-hide="peopleInImageEditForm.$visible"
+                          onbeforesave="ctrl.updateMetadataField('peopleInImage', $data)"
+                          e:form="peopleInImageEditForm"
+                          e:ng-class="{'image-info__editor--error': $error,
+                                       'image-info__editor--saving': peopleInImageEditForm.$waiting,
+                                       'text-input': true}">
+
+                        <span class="metadata-line__info" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.peopleInImage) && ctrl.userCanEdit">
+                            Multiple people (click ✎ to edit <strong>all</strong>)
+                        </span>
+
+                        <span class="metadata-line__info" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.peopleInImage) && !ctrl.userCanEdit">
+                            Multiple people
+                        </span>
+
+                        <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.peopleInImage)">
+                            <span ng:repeat="person in ctrl.metadata.peopleInImage">
+                                <a ui:sref="search.results({query: (person | queryFilter:'person')})">{{person}}</a><span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1">
+                            </span>
+
+                            <span ng-if="!ctrl.metadata.peopleInImage && ctrl.userCanEdit">Unknown (click ✎ to add the people)</span>
+                        </span>
+                    </span>
+                </dd>
+
                 <dt ng-if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
                 <dd ng-if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                     <span ng-if="ctrl.hasMultipleValues(ctrl.extraInfo.filename)">Multiple filenames</span>

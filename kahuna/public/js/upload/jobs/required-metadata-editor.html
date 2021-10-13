@@ -122,6 +122,26 @@
                 ng-click="ctrl.batchApplyMetadata('specialInstructions')"
             >⇔</button>
         </label>
+        <label ng-if="ctrl.peopleInImageWasInitiallyThere" class="job-info--editor__field flex-center">
+            <div class="job-info--editor__label text-small">People</div>
+            <input
+                type="text"
+                name="peopleInImage"
+                class="text-input job-info--editor__input job-info--editor__input--peopleInImage"
+                ng-model="ctrl.metadata.peopleInImage"
+                ng-change="ctrl.save()"
+                ng-model-options="{updateOn: 'default blur', debounce: { default: ctrl.saveOnTime, blur: 0 }}"
+                ng-class="{ 'job-info--editor__input--with-batch': ctrl.withBatch }"
+            />
+
+            <button
+                class="job-editor__apply-to-all"
+                title="Apply this field to all your current uploads"
+                type="button"
+                ng-if="ctrl.withBatch"
+                ng-click="ctrl.batchApplyMetadata('peopleInImage')"
+            >⇔</button>
+        </label>
     </div>
     <!-- Angular doesn't submit a form without a submit element, bonza!
     see: https://docs.angularjs.org/api/ng/directive/form#submitting-a-form-and-preventing-the-default-action -->
