@@ -57,8 +57,8 @@
                             Multiple titles (click ✎ to edit <strong>all</strong>)
                         </dd>
     
-                        <dd class="image-info__title" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "unknown (click ✎ to add the title)"}}
+                        <dd class="image-info__title" class="editable-empty" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                            {{ctrl.metadata.title || "Unknown (click ✎ to add)"}}
                         </dd>
                     </div>
     
@@ -68,7 +68,7 @@
                         </dd>
     
                         <dd class="image-info__title" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "unknown"}}
+                            {{ctrl.metadata.title || "Unknown"}}
                         </dd>
                     </div>
                 </div>
@@ -88,10 +88,10 @@
                             >Multiple descriptions (click ✎ to edit <strong>all</strong>)
                         </dd>
     
-                        <dd class="image-info__description"
+                        <dd class="image-info__description editable-empty"
                             ng-click="descriptionEditForm.$show()"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
-                            >{{ctrl.metadata.description || "Unknown (click ✎ to add the description)"}}
+                            >{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}
                         </dd>
                     </div>
     
@@ -103,7 +103,7 @@
     
                         <dd class="image-info__description"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
-                            >{{ctrl.metadata.description || "unknown"}}
+                            >{{ctrl.metadata.description || "Unknown"}}
                         </dd>
                     </div>
                 </div>
@@ -190,6 +190,10 @@
 
     <div class="image-info__group">
         <dl class="image-info__group--dl metadata-line">
+            <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel" ng-if="ctrl.metadata.dateTaken">Taken on</dt>
+            <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
+
+
             <dt ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
             <dd ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
                 <button class="image-info__edit"
@@ -219,7 +223,7 @@
                             <a ui-sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
                         </span>
     
-                        <span ng-if="!ctrl.metadata.byline && ctrl.userCanEdit">Unknown (click ✎ to add the byline)</span>
+                        <span class="editable-empty" ng-if="!ctrl.metadata.byline && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
                     </span>
                 </span>
             </dd>
@@ -255,7 +259,7 @@
                             <a ui-sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
                         </span>
     
-                        <span ng-if="!ctrl.metadata.credit && ctrl.userCanEdit">unknown (click ✎ to add the credit)</span>
+                        <span class="editable-empty" ng-if="!ctrl.metadata.credit && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
                     </span>
                 </span>
             </dd>
@@ -305,7 +309,7 @@
                             <a ui-sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
                         </span>
     
-                        <span ng-if="!ctrl.metadata.copyright && ctrl.userCanEdit">Unknown (click ✎ to add the copyright)</span>
+                        <span class="editable-empty" ng-if="!ctrl.metadata.copyright && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
                     </span>
                 </span>
             </dd>
@@ -367,7 +371,7 @@
                             <span ng-if="ctrl.metadata.peopleInImage.length > 1 && $index != ctrl.metadata.peopleInImage.length - 1"></span>
                         </span>
 
-                        <span ng-if="!ctrl.metadata.peopleInImage && ctrl.userCanEdit">Unknown (click ✎ to add the people)</span>
+                        <span class="editable-empty" ng-if="!ctrl.metadata.peopleInImage && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
                     </span>
                 </span>
             </dd>
