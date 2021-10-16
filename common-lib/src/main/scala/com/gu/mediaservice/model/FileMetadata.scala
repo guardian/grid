@@ -54,7 +54,7 @@ object FileMetadata {
     (__ \ "iptc").read[Map[String,String]] ~
     (__ \ "exif").read[Map[String,String]] ~
     (__ \ "exifSub").read[Map[String,String]] ~
-    (__ \ "exifInterop").read[Map[String,String]] ~
+    (__ \ "exifInterop").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
     (__ \ "xmp").read[Map[String,JsValue]] ~
     (__ \ "icc").readNullable[Map[String,String]].map(_ getOrElse Map()).map(removeLongValues) ~
     (__ \ "getty").readNullable[Map[String,String]].map(_ getOrElse Map()) ~
