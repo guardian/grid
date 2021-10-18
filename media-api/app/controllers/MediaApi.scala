@@ -35,6 +35,7 @@ import scala.util.Try
 class MediaApi(
                 auth: Authentication,
                 messageSender: ThrallMessageSender,
+                imageStatusTable: SoftDeletedMetadataTable,
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
@@ -259,16 +260,20 @@ class MediaApi(
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
           if(canDelete){
-            messageSender.publish(
-              UpdateMessage(
-                subject = SoftDeleteImage,
-                id = Some(id),
-                softDeletedMetadata = Some(SoftDeletedMetadata(
-                  deleteTime = DateTime.now(DateTimeZone.UTC),
-                  deletedBy = request.user.accessor.identity
-                ))
+            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+            imageStatusTable.setStatus(imageStatusRecord)
+            .map { _ =>
+              messageSender.publish(
+                UpdateMessage(
+                  subject = SoftDeleteImage,
+                  id = Some(id),
+                  softDeletedMetadata = Some(SoftDeletedMetadata(
+                    deleteTime = DateTime.now(DateTimeZone.UTC),
+                    deletedBy = request.user.accessor.identity
+                  ))
+                )
               )
-            )
+            }
             Accepted
           } else {
             ImageDeleteForbidden
@@ -286,12 +291,15 @@ class MediaApi(
       case Some(image) if hasPermission(request.user, image) =>
         val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
         if(canDelete){
-          messageSender.publish(
-            UpdateMessage(
-              subject = UnSoftDeleteImage,
-              id = Some(id)
-            )
-          )
+          imageStatusTable.updateStatus(id, false)
+          .map { _ =>
+            messageSender.publish(
+              UpdateMessage(
+                subject = UnSoftDeleteImage,
+                id = Some(id)
+              )
+             )
+          }
           Accepted
         } else {
           ImageDeleteForbidden
