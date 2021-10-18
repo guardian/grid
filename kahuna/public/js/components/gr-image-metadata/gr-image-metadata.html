@@ -37,7 +37,7 @@
     
     <div class="image-info__group">
         <dl>
-            <div class="image-info__wrap" ng-if="ctrl.rawMetadata.title">
+            <div class="image-info__wrap">
                 <button class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
                         ng-click="titleEditForm.$show()"
@@ -57,7 +57,9 @@
                             Multiple titles (click ✎ to edit <strong>all</strong>)
                         </dd>
     
-                        <dd class="image-info__title" class="editable-empty" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                        <dd class="image-info__title"
+                            ng-class="{'editable-empty': !ctrl.metadata.title}"
+                            ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
                             {{ctrl.metadata.title || "Unknown (click ✎ to add)"}}
                         </dd>
                     </div>
@@ -67,7 +69,9 @@
                             Multiple titles
                         </dd>
     
-                        <dd class="image-info__title" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                        <dd class="image-info__title"
+                            ng-class="{'editable-empty': !ctrl.metadata.title}"
+                            ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
                             {{ctrl.metadata.title || "Unknown"}}
                         </dd>
                     </div>
@@ -88,7 +92,8 @@
                             >Multiple descriptions (click ✎ to edit <strong>all</strong>)
                         </dd>
     
-                        <dd class="image-info__description editable-empty"
+                        <dd class="image-info__description"
+                            ng-class="{'editable-empty': !ctrl.metadata.description}"
                             ng-click="descriptionEditForm.$show()"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                             >{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}
@@ -102,6 +107,7 @@
                         </dd>
     
                         <dd class="image-info__description"
+                            ng-class="{'editable-empty': !ctrl.metadata.description}"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                             >{{ctrl.metadata.description || "Unknown"}}
                         </dd>
@@ -321,17 +327,18 @@
                 </span>
             </dd>
 
-            <dt ng-if="ctrl.singleImage" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Uploader</dt>
-            <dd ng-if="ctrl.singleImage" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+            <dt ng-if="!ctrl.hasMultipleValues(ctrl.singleImage.data.uploadedBy)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Uploader</dt>
+            <dd ng-if="!ctrl.hasMultipleValues(ctrl.singleImage.data.uploadedBy)" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <span class="metadata-line__info">
                     <a ui-sref="search.results({query: (ctrl.singleImage.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.singleImage.data.uploadedBy | stripEmailDomain}}</a>
                 </span>
             </dd>
 
-            <dt ng-if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
-            <dd ng-if="ctrl.extraInfo.filename" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
-                <span ng-if="ctrl.hasMultipleValues(ctrl.extraInfo.filename)">Multiple filenames</span>
-                <span ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)">{{ctrl.extraInfo.filename}}</span>
+            <dt ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Filename</dt>
+            <dd ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.filename)" class="metadata-line metadata-line__info image-info__group--dl__value image-info__group--dl__value--panel">
+                <span
+                    class="metadata-line__info select-all-wrap"
+                    title="{{ctrl.extraInfo.filename}}">{{ctrl.extraInfo.filename}}</span>
             </dd>
     
             <dt ng-if="ctrl.metadata.subjects.length > 0"
