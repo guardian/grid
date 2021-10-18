@@ -49,6 +49,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
     stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
     stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
     stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
+    stringDefault("hosts.projectionPrefix", s"loader-projection.$rootAppName."),
     stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
     stringDefault("hosts.adminToolsPrefix", s"admin-tools.$rootAppName."),
     stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
