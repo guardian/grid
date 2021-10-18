@@ -131,6 +131,7 @@ function getMediaApiConfig(config) {
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
         |image.record.download=false
+        |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         |`;
 }
 
