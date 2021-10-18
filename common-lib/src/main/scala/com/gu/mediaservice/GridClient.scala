@@ -127,7 +127,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
 
   def getImageLoaderProjection(mediaId: String, authFn: WSRequest => WSRequest)
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
-    getImageLoaderProjection(mediaId, services.loaderBaseUri, authFn)
+    getImageLoaderProjection(mediaId, services.projectionBaseUri, authFn)
   }
 
   def getImageLoaderProjection(mediaId: String, imageLoaderEndpoint: String, authFn: WSRequest => WSRequest)
