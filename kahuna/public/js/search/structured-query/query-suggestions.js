@@ -81,14 +81,11 @@ const isSearch = [
     `${staffPhotographerOrganisation}-owned-photo`,
     `${staffPhotographerOrganisation}-owned-illustration`,
     `${staffPhotographerOrganisation}-owned`,
-  'under-quota'
+  'under-quota',
+  'deleted'
 ];
 
 querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(mediaApi, editsApi) {
-
-    mediaApi.getSession().then(session => {
-        if (session.user.permissions.canDelete) { isSearch.push('deleted'); }
-    });
 
     function prefixFilter(prefix) {
         const lowerPrefix = prefix.toLowerCase();
