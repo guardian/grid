@@ -22,7 +22,7 @@
         </dl>
     </div>
     <div class="image-info__group" ng-if="ctrl.displayLeases()">
-        <dl class="image-info__wrap metadata-line image-info__leases">
+        <dl class="image-info__wrap image-info__leases">
             <div class="image-info__heading image-info__heading--lease">
                 <span>Leases</span>
             </div>
@@ -327,10 +327,10 @@
                 </span>
             </dd>
 
-            <dt ng-if="!ctrl.hasMultipleValues(ctrl.singleImage.data.uploadedBy)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Uploader</dt>
-            <dd ng-if="!ctrl.hasMultipleValues(ctrl.singleImage.data.uploadedBy)" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+            <dt ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.uploadedBy)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Uploader</dt>
+            <dd ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.uploadedBy)" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <span class="metadata-line__info">
-                    <a ui-sref="search.results({query: (ctrl.singleImage.data.uploadedBy | queryFilter:'uploader')})">{{ctrl.singleImage.data.uploadedBy | stripEmailDomain}}</a>
+                    <a ui-sref="search.results({query: (ctrl.extraInfo.uploadedBy | queryFilter:'uploader')})">{{ctrl.extraInfo.uploadedBy | stripEmailDomain}}</a>
                 </span>
             </dd>
 
@@ -436,32 +436,34 @@
     </dl>
 </div>
 
-<div class="image-info__group">
-    <div class="image-info__heading">
-        <span>Labels</span>
-        <gr-add-label ng-blur="ctrl.cancel"
-                      gr-small="true"
-                      images="ctrl.selectedImages">
-        </gr-add-label>
-    </div>
-    <ul class="labels">
-        <li class="label"
-            ng-repeat="label in ctrl.selectedLabels | orderBy:'data'"
-            ng-class="{'label--partial': label.count < ctrl.selectedImages.size}">
-            <button ng-if="label.count < ctrl.selectedImages.size"
-                    class="label__add"
-                    title="Apply label to all"
-                    ng-click="ctrl.addLabel(label.data)">
-                <gr-icon>library_add</gr-icon>
-            </button>
-            <span class="label__value">{{label.data}}</span>
-            <button class="label__remove"
-                    title="Remove label from all"
-                    ng-click="ctrl.removeLabel(label.data)">
-                <gr-icon>close</gr-icon>
-            </button>
-        </li>
-    </ul>
+<div class="image-info">
+    <dl class="image-info__group">
+        <dt class="flex-container">
+            <span class="metadata-line__key  flex-spacer">Labels</span>
+            <gr-add-label ng-blur="ctrl.cancel"
+                        gr-small="true"
+                        images="ctrl.selectedImages">
+            </gr-add-label>
+        </dt>
+        <dd class="labels">
+            <li class="label"
+                ng-repeat="label in ctrl.selectedLabels | orderBy:'data'"
+                ng-class="{'label--partial': label.count < ctrl.selectedImages.size}">
+                <button ng-if="label.count < ctrl.selectedImages.size"
+                        class="label__add"
+                        title="Apply label to all"
+                        ng-click="ctrl.addLabel(label.data)">
+                    <gr-icon>library_add</gr-icon>
+                </button>
+                <span class="label__value">{{label.data}}</span>
+                <button class="label__remove"
+                        title="Remove label from all"
+                        ng-click="ctrl.removeLabel(label.data)">
+                    <gr-icon>close</gr-icon>
+                </button>
+            </li>
+        </dd>
+    </dl>
 </div>
 
 <div class="image-info__group">

@@ -35,7 +35,8 @@ imageAccessor.factory('imageAccessor', function() {
 
     function readExtraInfo(image) {
         return {
-            filename: image.data.uploadInfo && image.data.uploadInfo.filename
+            filename: image.data.uploadInfo && image.data.uploadInfo.filename,
+            uploadedBy: image.data.uploadedBy
         };
     }
 
