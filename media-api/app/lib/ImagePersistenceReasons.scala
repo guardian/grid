@@ -1,99 +1,135 @@
 package lib
 
-import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageMetadata, Photographer, UsageRights}
+import com.gu.mediaservice.model.{CommissionedAgency, Illustrator, Image, ImageMetadata, Photographer}
+import com.sksamuel.elastic4s.requests.searches.queries.Query
+import lib.elasticsearch.PersistedQueries
 
-import scala.collection.mutable.ListBuffer
 
-object ImagePersistenceReasons {
-  def apply(persistedRootCollections: List[String], persistenceIdentifier: String): ImagePersistenceReasons =
-    new ImagePersistenceReasons(persistedRootCollections, persistenceIdentifier)
+case class ImagePersistenceReasons(persistedRootCollections: List[String], persistenceIdentifier: String) {
+  val allReasons: List[PersistenceReason] =
+    List(
+      HasPersistenceIdentifier(persistenceIdentifier),
+      HasExports,
+      HasUsages,
+      IsArchived,
+      IsPhotographerCategory,
+      IsIllustratorCategory,
+      IsAgencyCommissionedCategory,
+      HasLeases,
+      IsInPersistedCollection(persistedRootCollections),
+      AddedToPhotoshoot,
+      HasLabels,
+      HasUserEdits
+    )
+
+  def reasons(image: Image): List[String] = allReasons.filter(_.shouldPersist(image)).map(_.reason)
 }
 
-class ImagePersistenceReasons(persistedRootCollections: List[String], persistenceIdentifier: String) {
+sealed trait PersistenceReason {
+  def shouldPersist(image: Image): Boolean
+  val query: Query
+  val reason: String
+}
 
-  def getImagePersistenceReasons(image: Image) = {
-    val reasons = ListBuffer[String]()
+case class HasPersistenceIdentifier(persistenceIdentifier: String) extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.identifiers.contains(persistenceIdentifier)
 
-    if (hasPersistenceIdentifier(image, persistenceIdentifier))
-      reasons += "persistence-identifier"
+  override val reason: String = "persistence-identifier"
 
-    if (image.hasExports)
-      reasons += "exports"
+  override val query: Query = PersistedQueries.existedPreGrid(persistenceIdentifier)
+}
 
-    if (image.hasUsages)
-      reasons += "usages"
+object HasExports extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.hasExports
 
-    if (isArchived(image))
-      reasons += "archived"
+  override val query: Query = PersistedQueries.hasCrops
 
-    if (isPhotographerCategory(image.usageRights))
-      reasons += "photographer-category"
+  override val reason: String = "exports"
+}
 
-    if (isIllustratorCategory(image.usageRights))
-      reasons += "illustrator-category"
+object HasUsages extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.hasUsages
 
-    if (isAgencyCommissionedCategory(image.usageRights))
-      reasons += CommissionedAgency.category
+  override val query: Query = PersistedQueries.usedInContent
 
-    if (hasLeases(image))
-      reasons += "leases"
+  override val reason: String = "usages"
+}
 
-    if (isInPersistedCollection(image, persistedRootCollections))
-      reasons += "persisted-collection"
+object IsArchived extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(_.archived)
 
-    if (hasPhotoshoot(image))
-      reasons += "photoshoot"
+  override val query: Query = PersistedQueries.addedToLibrary
+  override val reason: String = "archived"
+}
 
-    if (hasLabels(image))
-      reasons += "labeled"
-
-    if (hasUserEdits(image))
-      reasons += "edited"
-
-    reasons.toList
+object IsPhotographerCategory extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.usageRights match {
+    case _: Photographer => true
+    case _ => false
   }
 
-  private def isInPersistedCollection(image: Image, persistedRootCollections: List[String]): Boolean = {
+  override val query: Query = PersistedQueries.hasPhotographerUsageRights
+  override val reason: String = "photographer-category"
+}
+
+object IsIllustratorCategory extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.usageRights match {
+    case _: Illustrator => true
+    case _ => false
+  }
+
+  override val query: Query = PersistedQueries.hasIllustratorUsageRights
+  override val reason: String = "illustrator-category"
+}
+
+object IsAgencyCommissionedCategory extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.usageRights match {
+    case _: CommissionedAgency => true
+    case _ => false
+  }
+
+
+  override val query: Query = PersistedQueries.hasAgencyCommissionedUsageRights
+  override val reason: String = CommissionedAgency.category
+}
+
+object HasLeases extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.leases.leases.nonEmpty
+
+  override val query: Query = PersistedQueries.hasLeases
+  override val reason: String = "leases"
+}
+
+case class IsInPersistedCollection(persistedCollections: List[String]) extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = {
     // list of the first element of each collection's `path`, i.e all the root collections
     val collectionPaths: List[String] = image.collections.flatMap(_.path.headOption)
 
     // is image in at least one persisted collection?
-    (collectionPaths diff persistedRootCollections).length < collectionPaths.length
+    (collectionPaths diff persistedCollections).length < collectionPaths.length
   }
 
-  private def hasLabels(image: Image) = image.userMetadata.exists(_.labels.nonEmpty)
+  override val query: Query = PersistedQueries.addedGNMArchiveOrPersistedCollections(persistedCollections)
+  override val reason: String = "persisted-collection"
+}
 
-  private def hasUserEdits(image: Image) =
-    image.userMetadata.exists(ed => ed.metadata != ImageMetadata.empty)
+object AddedToPhotoshoot extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(_.photoshoot.isDefined)
 
-  private def isIllustratorCategory[T <: UsageRights](usageRights: T) =
-    usageRights match {
-      case _: Illustrator => true
-      case _ => false
-    }
+  override val query: Query = PersistedQueries.addedToPhotoshoot
+  override val reason: String = "photoshoot"
+}
 
-  private def isAgencyCommissionedCategory[T <: UsageRights](usageRights: T) =
-    usageRights match {
-      case _: CommissionedAgency => true
-      case _ => false
-    }
+object HasLabels extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(_.labels.nonEmpty)
 
-  private def isPhotographerCategory[T <: UsageRights](usageRights: T) =
-    usageRights match {
-      case _: Photographer => true
-      case _ => false
-    }
+  override val query: Query = PersistedQueries.hasLabels
+  override val reason: String = "labeled"
+}
 
-  private def hasPhotoshoot(image: Image): Boolean = image.userMetadata.exists(_.photoshoot.isDefined)
+object HasUserEdits extends PersistenceReason {
+  override def shouldPersist(image: Image): Boolean = image.userMetadata.exists(ed => ed.metadata != ImageMetadata.empty)
 
-  private def hasPersistenceIdentifier(image: Image, persistenceIdentifier: String) = {
-    image.identifiers.contains(persistenceIdentifier)
-  }
-
-  private def isArchived(image: Image) =
-    image.userMetadata.exists(_.archived)
-
-  private def hasLeases(image: Image) =
-    image.leases.leases.nonEmpty
-
+  override val query: Query = PersistedQueries.hasUserEditsToImageMetadata
+  override val reason: String = "edited"
 }
