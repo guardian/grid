@@ -88,13 +88,11 @@
                     <div ng-if="ctrl.userCanEdit">
                         <dd class="image-info__description"
                             ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
-                            ng-click="descriptionEditForm.$show()"
                             >Multiple descriptions (click ✎ to edit <strong>all</strong>)
                         </dd>
     
                         <dd class="image-info__description"
                             ng-class="{'editable-empty': !ctrl.metadata.description}"
-                            ng-click="descriptionEditForm.$show()"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                             >{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}
                         </dd>
