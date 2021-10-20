@@ -1,4 +1,4 @@
-package lib
+package com.gu.mediaservice.lib.metadata
 
 import com.gu.mediaservice.model._
 

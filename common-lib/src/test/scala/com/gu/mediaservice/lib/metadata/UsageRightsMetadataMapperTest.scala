@@ -1,11 +1,11 @@
-package lib
+package com.gu.mediaservice.lib.metadata
 
 import com.gu.mediaservice.model._
 import org.scalatest.{FunSpec, Matchers}
 
 class UsageRightsMetadataMapperTest extends FunSpec with Matchers {
 
-  import UsageRightsMetadataMapper.usageRightsToMetadata
+  import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper.usageRightsToMetadata
 
   describe("UsageRights => ImageMetadata") {
     val metadataWithoutCopyright = ImageMetadata(copyright = None)
