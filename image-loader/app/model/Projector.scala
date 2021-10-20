@@ -211,7 +211,7 @@ class ImageUploadProjectionOps(config: ImageUploadOpsCfg,
     bucket: String, key: String, outFile: File
   )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[(File, MimeType)]] = {
     logger.info(logMarker, s"Trying fetch existing image from S3 bucket - $bucket at key $key")
-    val doesFileExist = Future { s3.doesObjectExist(bucket, key) }
+    val doesFileExist = Future { s3.doesObjectExist(bucket, key) } recover { case _ => false }
     doesFileExist.flatMap {
       case false =>
         logger.warn(logMarker, s"image did not exist in bucket $bucket at key $key")
