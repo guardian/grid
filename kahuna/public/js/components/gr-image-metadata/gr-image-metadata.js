@@ -1,10 +1,18 @@
 import angular from 'angular';
+import Rx from 'rx';
 
 import template from './gr-image-metadata.html';
 
 import '../../image/service';
 import '../../edits/service';
 import '../gr-description-warning/gr-description-warning';
+import { editOptions, overwrite } from '../../util/constants/editOptions';
+import '../../services/image-accessor';
+import '../../services/image-list';
+import '../../services/label';
+import { List } from 'immutable';
+
+
 
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
@@ -16,47 +24,201 @@ module.controller('grImageMetadataCtrl', [
   '$rootScope',
   '$scope',
   '$window',
-  'imageService',
   'editsService',
   'mediaApi',
   'editsApi',
   'collections',
+  'imageList',
+  'imageAccessor',
+  'inject$',
+  'labelService',
+
 
   function ($rootScope,
     $scope,
     $window,
-    imageService,
     editsService,
     mediaApi,
     editsApi,
-    collections) {
+    collections,
+    imageList,
+    imageAccessor,
+    inject$,
+    labelService) {
 
     let ctrl = this;
-
-    ctrl.fieldAliases = window._clientConfig.fieldAliases;
     ctrl.showUsageRights = false;
-    ctrl.usageRights = imageService(ctrl.image).usageRights;
-    ctrl.additionalMetadata = Object.fromEntries(
-      Object.entries(ctrl.image.data.aliases)
-        .map(([key, val]) => {
-          let match = ctrl.fieldAliases.find(_ => _.alias === key);
-          if (match) {
-            return [match.label, val];
-          } else {
-            return [key, val];
-          }
-        }));
+    $scope.$watchCollection('ctrl.selectedImages', function() {
+      ctrl.singleImage = singleImage();
+      ctrl.selectedLabels = selectedLabels();
+      ctrl.usageRights = selectedUsageRights();
+      inject$($scope, Rx.Observable.fromPromise(selectedUsageCategory(ctrl.usageRights)), ctrl, 'usageCategory');
+      ctrl.rawMetadata = rawMetadata();
+      ctrl.metadata = displayMetadata();
+      ctrl.extraInfo = extraInfo();
+      if (ctrl.singleImage) {
+        updateSingleImage();
+      }
 
-    // Alias for convenience in view
-    ctrl.metadata = ctrl.image.data.metadata;
-    ctrl.identifiers = ctrl.image.data.identifiers;
+    });
+
+    const freeUpdateListener = $rootScope.$on('images-updated',
+    (e, updatedImages) => updateHandler(updatedImages));
+
+    const updateHandler = (updatedImages) => {
+      ctrl.selectedImages = new List(updatedImages);
+    };
+
+    ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
+
+    ctrl.credits = function(searchText) {
+      return ctrl.metadataSearch('credit', searchText);
+    };
+
+    ctrl.metadataSearch = (field, q) => {
+      return mediaApi.metadataSearch(field,  { q }).then(resource => {
+        return resource.data.map(d => d.key);
+      });
+    };
+
+    ctrl.descriptionOption = overwrite.key;
+
+    ctrl.descriptionOptions = editOptions;
+
+    ctrl.updateDescriptionField = function() {
+      ctrl.updateMetadataField('description', ctrl.metadata.description);
+    };
+
+    ctrl.updateMetadataField = function (field, value) {
+      var imageArray = Array.from(ctrl.selectedImages);
+
+      return editsService.batchUpdateMetadataField(
+        imageArray,
+        field,
+        value,
+        ctrl.descriptionOption
+      );
+    };
+
+    ctrl.addLabel = function (label) {
+      var imageArray = Array.from(ctrl.selectedImages);
+      labelService.batchAdd(imageArray, [label]);
+    };
+
+    ctrl.removeLabel = function (label) {
+      var imageArray = Array.from(ctrl.selectedImages);
+      labelService.batchRemove(imageArray, label);
+    };
+
+    const ignoredMetadata = [
+      'title', 'description', 'copyright', 'keywords', 'byline',
+      'credit', 'subLocation', 'city', 'state', 'country',
+      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
+    ];
+
+    function updateSingleImage() {
+      // Alias for convenience in view
+      ctrl.identifiers = ctrl.singleImage.data.identifiers;
+
+      ctrl.additionalMetadata = Object.fromEntries(
+        Object.entries(ctrl.singleImage.data.aliases)
+          .map(([key, val]) => {
+            let match = ctrl.fieldAliases.find(_ => _.alias === key);
+            if (match) {
+              return [match.label, val];
+            } else {
+              return [key, val];
+            }
+        })
+      );
+    }
+
+    function isUsefulMetadata(metadataKey) {
+      return ignoredMetadata.indexOf(metadataKey) === -1;
+    }
 
     ctrl.isUsefulMetadata = isUsefulMetadata;
 
-    ctrl.hasLocationInformation = ctrl.metadata.subLocation ||
-      ctrl.metadata.city ||
-      ctrl.metadata.state ||
-      ctrl.metadata.country;
+    function hasLocationInformation() {
+      return ctrl.metadata && (
+        ctrl.metadata.subLocation ||
+        ctrl.metadata.city ||
+        ctrl.metadata.state ||
+        ctrl.metadata.country
+      );
+    }
+
+    ctrl.hasLocationInformation = hasLocationInformation;
+
+    function singleImage() {
+      if (ctrl.selectedImages.size === 1){
+        return ctrl.selectedImages.first();
+      }
+    }
+
+    function selectedLabels() {
+      const labels = imageList.getLabels(ctrl.selectedImages);
+      return imageList.getOccurrences(labels);
+    }
+
+    function selectedUsageRights() {
+      return ctrl.selectedImages.map(image => {
+        return {
+          image: image,
+          data: imageAccessor.readUsageRights(image)
+        };
+      });
+    }
+
+    function selectedUsageCategory(usageRights) {
+      const categoriesPromise = editsApi.getUsageRightsCategories();
+      return categoriesPromise.then(categories => {
+        const categoryCode = usageRights.reduce((m, o) => {
+          return (m == o.data.category) ? o.data.category : 'multiple categories';
+        }, usageRights && usageRights.first().data.category);
+
+        const usageCategory = categories.find(cat => cat.value === categoryCode);
+        return usageCategory ? usageCategory.name : categoryCode;
+      });
+    }
+
+    function selectedMetadata() {
+      const metadata = imageList.getMetadata(ctrl.selectedImages);
+      return imageList.getSetOfProperties(metadata);
+    }
+
+    function rawMetadata() {
+      return selectedMetadata().map((values) => {
+        switch (values.size) {
+          case 0:  return undefined;
+          case 1:  return values.first();
+          default: return Array.from(values);
+        }
+      }).toObject();
+    }
+
+    function displayMetadata() {
+      return selectedMetadata().map((values) => {
+        switch (values.size) {
+          case 1:  return values.first();
+          default: return undefined;
+        }
+      }).toObject();
+    }
+
+    function extraInfo() {
+      const info = imageList.getExtraInfo(ctrl.selectedImages);
+      const properties = imageList.getSetOfProperties(info);
+      return properties.map((values) => {
+        switch (values.size) {
+          case 0:  return undefined;
+          case 1:  return values.first();
+          default: return Array.from(values);
+        }
+      }).toObject();
+    }
+
+    ctrl.displayLeases = () => ctrl.userCanEdit || (ctrl.singleImage && imageAccessor.readLeases(ctrl.singleImage).leases.length > 0);
 
     // Map of metadata location field to query filter name
     ctrl.locationFieldMap = {
@@ -66,108 +228,14 @@ module.controller('grImageMetadataCtrl', [
       'country': 'country'
     };
 
-    const ignoredMetadata = [
-      'title', 'description', 'copyright', 'keywords', 'byline',
-      'credit', 'subLocation', 'city', 'state', 'country',
-      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
-    ];
+    ctrl.fieldAliases = $window._clientConfig.fieldAliases;
 
-    ctrl.metadataSearch = (field, q) => {
-      return mediaApi.metadataSearch(field, { q }).then(resource => {
-        return resource.data.map(d => d.key);
-      });
-    };
-
-    ctrl.credits = function (searchText) {
-      return ctrl.metadataSearch('credit', searchText);
-    };
-
-    ctrl.setUsageCategory = (cats, categoryCode) => {
-      const usageCategory = cats.find(cat => cat.value === categoryCode);
-
-      ctrl.usageCategory = usageCategory ? usageCategory.name : categoryCode;
-    };
-
-    editsApi.getUsageRightsCategories().then((cats) => {
-      ctrl.usageCategories = cats;
-      ctrl.setUsageCategory(cats, ctrl.usageRights.data.category);
-    });
-
-    updateAbilities(ctrl.image);
-
-    function isUsefulMetadata(metadataKey) {
-      return ignoredMetadata.indexOf(metadataKey) === -1;
-    }
-
-    function updateAbilities(image) {
-      editsService.canUserEdit(image).then(editable => {
-        ctrl.userCanEdit = editable;
-      });
-    }
-
-    const updateHandler = (updatedImage) => {
-      ctrl.image = updatedImage;
-      ctrl.usageRights = imageService(ctrl.image).usageRights;
-      ctrl.metadata = updatedImage.data.metadata;
-      ctrl.setUsageCategory(ctrl.usageCategories, ctrl.usageRights.data.category);
-    };
-
-    // It is not clear that this handler would handle multiple images in a meaningful way.
-    // This replicates the previous logic where the event handler handled a single image.
-    // Call it to "free" the listener
-    const freeUpdateListener = $rootScope.$on('images-updated',
-      (e, updatedImages) => updatedImages.map(updatedImage => updateHandler(updatedImage))
-      );
-
-    ctrl.updateMetadataField = function (field, value) {
-        return editsService.updateMetadataField(ctrl.image, field, value)
-            .then((updatedImage) => {
-                if (updatedImage) {
-                    ctrl.image = updatedImage;
-                    updateAbilities(updatedImage);
-                    $rootScope.$emit(
-                      'track:event',
-                      'Metadata',
-                      'Edit',
-                      'Success',
-                      null,
-                      {
-                        field: field,
-                        value: value
-                      }
-                    );
-                }
-            })
-            .catch(() => {
-              $rootScope.$emit(
-                'track:event',
-                'Metadata',
-                'Edit',
-                'Failure',
-                null,
-                {
-                  field: field,
-                  value: value
-                }
-              );
-                /*
-                 Save failed.
-                 Per the angular-xeditable docs, returning a string indicates an error and will
-                 not update the local model, nor will the form close (so the edit is not lost).
-                 Instead, a message is shown and the field keeps focus for user to edit again.
-                 http://vitalets.github.io/angular-xeditable/#onbeforesave
-                 */
-                return 'failed to save (press esc to cancel)';
-            });
-    };
     ctrl.removeImageFromCollection = (collection) => {
-        ctrl.removingCollection = collection;
-        collections.removeImageFromCollection(collection, ctrl.image)
-            .then(() => ctrl.removingCollection = false);
+      ctrl.removingCollection = collection;
+      collections.removeImageFromCollection(collection, ctrl.singleImage)
+          .then(() => ctrl.removingCollection = false);
     };
-    ctrl.displayLeases = () => {
-        return ctrl.userCanEdit || ctrl.image.leases > 0;
-    };
+
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });
@@ -180,7 +248,8 @@ module.directive('grImageMetadata', [function () {
         template: template,
         transclude: true,
         scope: {
-            image: '=grImage'
+            selectedImages: '=grImages',
+            userCanEdit: '=grUserCanEdit'
         },
         controller: 'grImageMetadataCtrl',
         controllerAs: 'ctrl',
