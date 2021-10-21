@@ -3,6 +3,7 @@ import angular from 'angular';
 import '../util/rx';
 import '../services/image/usages';
 import '../image/service';
+import '../edits/service';
 
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-photoshoot/gr-photoshoot';
@@ -23,6 +24,7 @@ import '../components/gr-display-crops/gr-display-crops';
 import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
+import { List } from 'immutable';
 
 
 const image = angular.module('kahuna.image.controller', [
@@ -69,6 +71,7 @@ image.controller('ImageCtrl', [
   'mediaCropper',
   'imageService',
   'imageUsagesService',
+  'editsService',
   'keyboardShortcut',
   'cropSettings',
 
@@ -88,6 +91,7 @@ image.controller('ImageCtrl', [
             mediaCropper,
             imageService,
             imageUsagesService,
+            editsService,
             keyboardShortcut,
             cropSettings) {
 
@@ -141,6 +145,12 @@ image.controller('ImageCtrl', [
     ctrl.image = image;
     ctrl.optimisedImageUri = optimisedImageUri;
     ctrl.lowResImageUri = lowResImageUri;
+
+    ctrl.singleImageList = ctrl.image ? new List([ctrl.image]) : new List([]);
+
+    editsService.canUserEdit(ctrl.image).then(editable => {
+      ctrl.canUserEdit = editable;
+    });
 
     const usages = imageUsagesService.getUsages(ctrl.image);
     const usagesCount$ = usages.count$;

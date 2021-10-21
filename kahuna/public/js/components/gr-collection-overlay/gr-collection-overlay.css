@@ -53,3 +53,13 @@
     /*to sit below the fixed heading */
     margin-top: 35px;
 }
+
+/* This is to fix collections modal showing behind the top bar in the image browser */
+[name="infoPanel"] .collection-overlay {
+    top: 85px;
+}
+
+[name="infoPanel"] .collection-overlay__collections {
+    height: calc(100vh - 145px);
+    top: 105px;
+}
