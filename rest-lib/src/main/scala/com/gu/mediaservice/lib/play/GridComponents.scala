@@ -21,7 +21,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
   // first of all create the config for the service
   val config: Config = loadConfig(GridConfigResources(configuration, actorSystem, applicationLifecycle))
   // next thing is to set up log shipping
-  LogConfig.initKinesisLogging(config)
+  // LogConfig.initKinesisLogging(config)
   LogConfig.initLocalLogShipping(config)
 
   def buildInfo: BuildInfo
