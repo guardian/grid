@@ -222,10 +222,10 @@ module.controller('grImageMetadataCtrl', [
     const expandedDomainMetadataSections = [];
     ctrl.expandDomainMetadataSection = (key) => {
       expandedDomainMetadataSections.push(key);
-    }
+    };
     ctrl.isDomainMetadataSectionExpanded = (key) => {
       return expandedDomainMetadataSections.includes(key);
-    }
+    };
 
     function isUsefulMetadata(metadataKey) {
       return ignoredMetadata.indexOf(metadataKey) === -1;
