@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.StorableThumbImage
 import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
-import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, addMarkers}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch, addLogMarkers}
 import com.gu.mediaservice.model._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -138,6 +138,7 @@ class ImageOperations(playPath: String) extends GridLogging {
                       outputFile: File,
                       iccColourSpace: Option[String],
                       colourModel: Option[String])(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+    val stopwatch = Stopwatch.start
 
     val cropSource  = addImage(sourceFile)
     val thumbnailed = thumbnail(cropSource)(width)
@@ -151,6 +152,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val addOutput   = {file:File => addDestImage(interlaced)(file)}
     for {
       _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
+      _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
     } yield (outputFile, thumbMimeType)
   }
 
@@ -164,13 +166,18 @@ class ImageOperations(playPath: String) extends GridLogging {
     * @return The file created and the mimetype of the content of that file, in a future.
     */
   def transformImage(sourceFile: File, sourceMimeType: Option[MimeType], tempDir: File)(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+    val stopwatch = Stopwatch.start
     for {
       // png suffix is used by imagemagick to infer the required type
       outputFile      <- createTempFile(s"transformed-", optimisedMimeType.fileExtension, tempDir)
       transformSource = addImage(sourceFile)
-      addOutput       = addDestImage(transformSource)(outputFile)
+      converted       = applyOutputProfile(transformSource, optimised = true)
+      stripped        = stripMeta(converted)
+      profiled        = applyOutputProfile(stripped, optimised = true)
+      addOutput       = addDestImage(profiled)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       _               <- checkForOutputFileChange(outputFile)
+      _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating browser-viewable image")
     } yield (outputFile, optimisedMimeType)
   }
 

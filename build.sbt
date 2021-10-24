@@ -135,7 +135,7 @@ lazy val cropper = playProject("cropper", 9006)
 lazy val imageLoader = playProject("image-loader", 9003).settings {
   libraryDependencies ++= Seq(
     "org.apache.tika" % "tika-core" % "1.20",
-    "com.drewnoakes" % "metadata-extractor" % "2.15.0"
+    "com.drewnoakes" % "metadata-extractor" % "2.16.0"
   )
 }
 
@@ -227,7 +227,6 @@ lazy val thrall = playProject("thrall", 9002).settings(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
     "com.amazonaws" % "amazon-kinesis-client" % "1.8.10",
-    "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "2.0.2",
     "com.whisk" %% "docker-testkit-scalatest" % "0.9.8" % Test,
     "com.whisk" %% "docker-testkit-impl-spotify" % "0.9.8" % Test
   )

@@ -35,8 +35,7 @@ object filters {
   def missing(fields: NonEmptyList[String]): Query =
     fields.map(f => not(existsQuery(f)): Query).foldRight1(and(_, _))
 
-  @scala.annotation.tailrec
-  def ids(idList: List[String]): Query = ids(idList)
+  def ids(idList: List[String]): Query = idsQuery(idList)
 
   def bool() = BoolQuery()
 

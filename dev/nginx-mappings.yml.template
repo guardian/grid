@@ -9,6 +9,8 @@ mappings:
   - prefix: loader.media
     port: 9003
     client_max_body_size: 20m
+  - prefix: loader-projection.media
+    port: 9003
   - prefix: media
     port: 9005
   - prefix: cropper.media

@@ -79,7 +79,7 @@ class MessageProcessor(
       case (image, expectedVersion, currentVersion) => if (expectedVersion == currentVersion) {
         Future.successful(image)
       } else {
-        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id}"))
+        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id} -> current = $currentVersion, expected = $expectedVersion"))
       }
     }.flatMap(
       image => Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)).transform {
@@ -87,11 +87,11 @@ class MessageProcessor(
         case Failure(exception) => Failure(InsertImageFailure(exception.toString))
       }
     ).flatMap { insertResult =>
-      logger.info(s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
+      logger.info(logMarker, s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
       es.setMigrationInfo(imageId = message.id, migrationInfo = Right(MigrationTo(migratedTo = insertResult.head.indexNames.head)))
     }.recoverWith {
       case failure: MigrationFailure =>
-        logger.error(failure.getMessage)
+        logger.error(logMarker, s"Failed to migrate image with id: ${message.id}: cause: ${failure.getMessage}, attaching failure to document in current index")
         val migrationIndexName = es.migrationStatus match {
           case InProgress(migrationIndexName) => migrationIndexName
           case _ => "Unknown migration index name"

@@ -4,6 +4,7 @@ case class ServiceHosts(
   kahunaPrefix: String,
   apiPrefix: String,
   loaderPrefix: String,
+  projectionPrefix: String,
   cropperPrefix: String,
   adminToolsPrefix: String,
   metadataPrefix: String,
@@ -24,6 +25,7 @@ object ServiceHosts {
       kahunaPrefix = s"$rootAppName.",
       apiPrefix = s"api.$rootAppName.",
       loaderPrefix = s"loader.$rootAppName.",
+      projectionPrefix = s"loader-projection.$rootAppName",
       cropperPrefix = s"cropper.$rootAppName.",
       adminToolsPrefix = s"admin-tools.$rootAppName.",
       metadataPrefix = s"$rootAppName-metadata.",
@@ -48,10 +50,12 @@ class Services(val domainRoot: String, hosts: ServiceHosts, corsAllowedOrigins: 
   val leasesHost: String      = s"${hosts.leasesPrefix}$domainRoot"
   val authHost: String        = s"${hosts.authPrefix}$domainRoot"
   val adminToolsHost: String  = s"${hosts.adminToolsPrefix}$domainRoot"
+  val projectionHost: String  = s"${hosts.projectionPrefix}$domainRoot"
 
   val kahunaBaseUri      = baseUri(kahunaHost)
   val apiBaseUri         = baseUri(apiHost)
   val loaderBaseUri      = baseUri(loaderHost)
+  val projectionBaseUri  = baseUri(projectionHost)
   val cropperBaseUri     = baseUri(cropperHost)
   val metadataBaseUri    = baseUri(metadataHost)
   val imgopsBaseUri      = baseUri(imgopsHost)
