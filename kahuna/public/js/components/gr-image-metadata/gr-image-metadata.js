@@ -219,10 +219,15 @@ module.controller('grImageMetadataCtrl', [
       };
     }
 
-    const expandedDomainMetadataSections = [];
+    let expandedDomainMetadataSections = [];
     ctrl.expandDomainMetadataSection = (key) => {
-      expandedDomainMetadataSections.push(key);
+      if (ctrl.isDomainMetadataSectionExpanded(key)) {
+        expandedDomainMetadataSections = expandedDomainMetadataSections.filter(section => section !== key);
+      } else {
+        expandedDomainMetadataSections.push(key);
+      }
     };
+
     ctrl.isDomainMetadataSectionExpanded = (key) => {
       return expandedDomainMetadataSections.includes(key);
     };

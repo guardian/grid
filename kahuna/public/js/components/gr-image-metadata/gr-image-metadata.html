@@ -411,8 +411,8 @@
 
     <div ng-if="ctrl.singleImage" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata">
         <button class="metadata-reveal" ng-click="ctrl.expandDomainMetadataSection(spec.type)">
-            <span ng-hide="spec.metadataExpanded">▸ Show</span>
-            <span ng-show="spec.metadataExpanded">▾ Hide</span>
+            <span ng-hide="ctrl.isDomainMetadataSectionExpanded(spec.type)">▸ Show</span>
+            <span ng-show="ctrl.isDomainMetadataSectionExpanded(spec.type)">▾ Hide</span>
             {{spec.name}} metadata
         </button>
 
