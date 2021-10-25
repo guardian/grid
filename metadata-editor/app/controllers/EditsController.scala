@@ -55,7 +55,7 @@ class EditsController(
                      )(implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers with EditsResponse with MessageSubjects with Edit {
 
-  import UsageRightsMetadataMapper.usageRightsToMetadata
+  import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper.usageRightsToMetadata
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
