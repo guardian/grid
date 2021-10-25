@@ -3,6 +3,7 @@ package lib.kinesis
 import com.gu.mediaservice.lib.aws.EsResponse
 import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, InProgress}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
+import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, UnSoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 // import all except `Right`, which otherwise shadows the type used in `Either`s
 import com.gu.mediaservice.model.{Right => _, _}
@@ -32,6 +33,7 @@ class MessageProcessor(
       case message: ImageMessage => indexImage(message, logMarker)
       case message: DeleteImageMessage => deleteImage(message, logMarker)
       case message: SoftDeleteImageMessage => softDeleteImage(message, logMarker)
+      case message: UnSoftDeleteImageMessage => unSoftDeleteImage(message, logMarker)
       case message: DeleteImageExportsMessage => deleteImageExports(message, logMarker)
       case message: UpdateImageExportsMessage => updateImageExports(message, logMarker)
       case message: UpdateImageUserMetadataMessage => updateImageUserMetadata(message, logMarker)
@@ -110,6 +112,9 @@ class MessageProcessor(
 
   private def softDeleteImage(message: SoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applySoftDelete(message.id, message.softDeletedMetadata, message.lastModified)(ec, logMarker))
+
+  private def unSoftDeleteImage(message: UnSoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+    Future.sequence(es.applyUnSoftDelete(message.id, message.lastModified)(ec, logMarker))
 
   private def updateImageUserMetadata(message: UpdateImageUserMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applyImageMetadataOverride(message.id, message.edits, message.lastModified)(ec, logMarker))

@@ -1,9 +1,10 @@
 package com.gu.mediaservice
 
 import java.net.URL
+
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -166,6 +167,16 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
     val url = new URL(s"${services.metadataBaseUri}/edits/$mediaId")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[Edits])
+      case NotFound(_, _) => None
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
+  def getSoftDeletedMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[ImageStatusRecord]] = {
+    logger.info("attempt to get soft deleted metadata")
+    val url = new URL(s"${services.apiBaseUri}/$mediaId/softDeletedMetadata")
+    makeGetRequestAsync(url, authFn) map {
+      case Found(json, _) => Some((json \ "data").as[ImageStatusRecord])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logErrorAndThrowException()
     }

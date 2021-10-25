@@ -39,9 +39,9 @@ downloader.controller('DownloaderCtrl', [
 
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
         ctrl.images : Array.from(ctrl.images.values());
-
     ctrl.imageCount = () => ctrl.imagesArray().length;
 
+    ctrl.isDeleted = ctrl.images && ctrl.images.length == 1 && ctrl.images[0].data.softDeletedMetadata !== undefined;
     const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
     inject$($scope, uris$, ctrl, 'firstImageUris');
 

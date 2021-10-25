@@ -36,14 +36,13 @@
                                gr-on-confirm="ctrl.removeJob(job)">
             </gr-confirm-delete>
         </div>
-
         <ui-image-editor ng-if="job.image"
                          image="job.image"
                          with-batch="ctrl.jobs.length > 1">
         </ui-image-editor>
 
         <gr-delete-image class="flex-right"
-                         ng-if="job.canBeDeleted"
+                         ng-if="job.canBeDeleted && !job.isDeleted"
                          images="[job.image]">
         </gr-delete-image>
     </li>

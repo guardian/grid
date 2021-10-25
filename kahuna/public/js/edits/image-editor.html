@@ -64,11 +64,14 @@
 
             <div class="result-editor__info-item"
                  ng-switch="ctrl.status">
-                <a class="result-editor__status status status--valid"
+                <a ng-if="ctrl.isDeleted" class="result-editor__status status status--valid"
+                   ui-sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
+
+                <a ng-if="!ctrl.isDeleted" class="result-editor__status status status--valid"
                    ng-switch-when="ready"
                    ui-sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
 
-                <a class="result-editor__status status status--invalid"
+                <a ng-if="!ctrl.isDeleted" class="result-editor__status status status--invalid"
                    ng-switch-when="invalid"
                    ui-sref="image({imageId: ctrl.image.data.id})">
                         Unusable
@@ -80,6 +83,15 @@
                                 image="ctrl.image">
             </gr-archiver-status>
         </div>
+
+        <div ng-if="ctrl.isDeleted" class="job-status status deleted_image_warning"
+             ng-class="{
+                         'status--invalid': !ctrl.canUndelete
+                     }">
+            <span ng-if="ctrl.canUndelete && ctrl.isDeleted">Image deleted (this image already exists and has been deleted. Click Undelete to recover it)</span>
+            <span ng-if="!ctrl.canUndelete">Image deleted (this image already exists and has been deleted. Click View image to see details)</span>
+        </div>
+
         <span class="result-editor__save-status-container">
             <span class="result-editor__save-status"
                   ng-show="ctrl.saving">Saving… <span class="saving">⧖</span>
@@ -93,6 +105,7 @@
     </div>
 
     <div class="result-editor__editor">
+
         <section>
             <h1>Image Rights</h1>
             <div class="result-editor__field-container image-info__wrap">
@@ -236,6 +249,15 @@
                 <div class="result-editor__field-label text-small">File type</div>
                 <div class="result-editor__field-value">{{ctrl.image.data.source.mimeType}}</div>
             </div>
+        </section>
+        <section>
+            <button ng-if="ctrl.canUndelete"
+                    type="button"
+                    class="clickable side-padded batch-archive__button undelete_button"
+                    ng-click="ctrl.undelete()">
+                <gr-library-add-icon class="batch-archive__icon"></gr-library-add-icon>
+                <span>Undelete</span>
+            </button>
         </section>
     </div>
 </div>

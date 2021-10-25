@@ -143,6 +143,7 @@ image.controller('ImageCtrl', [
     ctrl.selectedTab = 'metadata';
 
     ctrl.image = image;
+    if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
     ctrl.optimisedImageUri = optimisedImageUri;
     ctrl.lowResImageUri = lowResImageUri;
 
