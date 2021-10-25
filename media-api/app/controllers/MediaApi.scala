@@ -203,6 +203,16 @@ class MediaApi(
 
   }
 
+  def getSoftDeletedMetadata(id: String) = auth.async {
+    imageStatusTable.getStatus(id)
+      .map {
+        case Some(scala.Right(record)) => respond(record)
+        case Some(Left(error)) => respondError(BadRequest, "cannot-get", s"Cannot get soft-deleted metadata ${error}")
+        case None => respondNotFound(s"No soft-deleted metadata found for image id: ${id}")
+      }
+      .recover{ case error => respondError(InternalServerError, "cannot-get", s"Cannot get soft-deleted metadata ${error}") }
+  }
+
   def downloadImageExport(imageId: String, exportId: String, width: Int) = auth.async { request =>
     implicit val r = request
 
