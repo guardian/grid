@@ -1,8 +1,8 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.scanamo.error.DynamoReadError
 import com.gu.mediaservice.model.ImageStatusRecord
+import com.gu.scanamo.error.DynamoReadError
 import com.gu.scanamo._
 import com.gu.scanamo.syntax._
 
