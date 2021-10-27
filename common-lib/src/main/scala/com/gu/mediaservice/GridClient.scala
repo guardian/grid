@@ -174,7 +174,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
 
   def getSoftDeletedMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[Option[ImageStatusRecord]] = {
     logger.info("attempt to get soft deleted metadata")
-    val url = new URL(s"${services.apiBaseUri}/$mediaId/softDeletedMetadata")
+    val url = new URL(s"${services.apiBaseUri}/images/$mediaId/softDeletedMetadata")
     makeGetRequestAsync(url, authFn) map {
       case Found(json, _) => Some((json \ "data").as[ImageStatusRecord])
       case NotFound(_, _) => None

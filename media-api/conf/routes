@@ -9,6 +9,7 @@ GET     /                                                           controllers.
 GET     /images/metadata/:field                                     controllers.SuggestionController.metadataSearch(field: String, q: Option[String])
 GET     /images/edits/:field                                        controllers.SuggestionController.editsSearch(field: String, q: Option[String])
 
+GET     /images/:id/softDeletedMetadata                             controllers.MediaApi.getSoftDeletedMetadata(id: String)
 GET     /images/aggregations/date/:field                            controllers.AggregationController.dateHistogram(field: String, q: Option[String])
 
 # Images
