@@ -378,14 +378,14 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   // People in Image
 
   it("should populate peopleInImage field of ImageMetadata from corresponding xmp iptc ext fields") {
-    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage" -> JsArray(Seq(JsString("person 1")))))
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage" -> JsArray(Seq(JsString("person 1")))))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
     imageMetadata.peopleInImage should be (Set("person 1"))
   }
 
   it("should populate peopleInImage field of ImageMetadata from multiple corresponding people xmp fields") {
     val fileMetadata = FileMetadata(
-      Map(), Map(), Map(),
+      Map(), Map(), Map(), Map(),
       Map("Iptc4xmpExt:PersonInImage" ->
         JsArray(Seq(
           JsString("person 1"),
@@ -400,7 +400,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   }
 
   it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp iptc ext fields") {
-    val fileMetadata = FileMetadata(Map(), Map(), Map(),
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map(),
       Map("Iptc4xmpExt:PersonInImage" ->
         JsArray(Seq(
           JsString("person 1"),
@@ -413,7 +413,7 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
   }
 
   it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp people fields") {
-    val fileMetadata = FileMetadata(Map(), Map(), Map(),
+    val fileMetadata = FileMetadata(Map(), Map(), Map(), Map(),
       Map(
         "Iptc4xmpExt:PersonInImage" -> JsArray(Seq(
           JsString("person 1"),

@@ -83,6 +83,7 @@ object MappingTest {
       iptc = Map("iptc1" -> "value1"),
       exif = Map("exif1" -> "value1"),
       exifSub = Map("exifSub1" -> "value1"),
+      exifInterop = Map("exifInterop1" -> "value1"),
       xmp = Map(
         "xmp1" -> JsString("value1"),
         "xmp2" -> JsNumber(12345),
