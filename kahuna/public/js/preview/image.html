@@ -62,15 +62,19 @@
                 </li>
             </ul>
 
-            <ui-labeller-compact class="preview__labeller"
-                                 image="ctrl.image"
+            <ui-list-editor-compact class="preview__labeller"
+                                 images="ctrl.imageAsArray"
                                  disabled="ctrl.selectionMode"
-                                 ng-if="!ctrl.inputtingLabel">
-            </ui-labeller-compact>
+                                 ng-if="!ctrl.inputtingLabel"
+                                 add-to-images="ctrl.addLabelToImages"
+                                 remove-from-images="ctrl.removeLabelFromImages"
+                                 accessor="ctrl.labelAccessor"
+                                 query-filter="queryLabelFilter">
+            </ui-list-editor-compact>
             <span class="flex-spacer"></span>
             <gr-add-label class="gr-add-label"
                           ng-if="!ctrl.selectionMode"
-                          images="[ctrl.image]"
+                          images="ctrl.imageAsArray"
                           gr-small="true"
                           active="ctrl.inputtingLabel"
                           ng-class="{'gr-add-label--inactive': !ctrl.inputtingLabel}">

@@ -6,8 +6,8 @@ import template from './gr-image-metadata.html';
 import '../../image/service';
 import '../../edits/service';
 import '../gr-description-warning/gr-description-warning';
-import { editOptions, overwrite } from '../../util/constants/editOptions';
 import '../../util/storage';
+import { editOptions, overwrite } from '../../util/constants/editOptions';
 import '../../services/image-accessor';
 import '../../services/image-list';
 import '../../services/label';
@@ -146,15 +146,39 @@ module.controller('grImageMetadataCtrl', [
         });
     };
 
-    ctrl.addLabel = function (label) {
-      var imageArray = Array.from(ctrl.selectedImages);
-      labelService.batchAdd(imageArray, [label]);
+    ctrl.addLabelToImages = labelService.batchAdd;
+    ctrl.removeLabelFromImages = labelService.batchRemove;
+    ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
+
+    ctrl.peopleAccessor = (image) => imageAccessor.readPeopleInImage(image);
+    ctrl.removePersonFromImages = (images, removedPerson) => {
+      images.map((image) => {
+        const maybeNewPeopleInImage = ctrl.peopleAccessor(image)?.filter((person) => person !== removedPerson);
+        const newPeopleInImage = maybeNewPeopleInImage ? maybeNewPeopleInImage : [];
+        editsService.batchUpdateMetadataField(
+          [image],
+          'peopleInImage',
+          newPeopleInImage,
+          ctrl.descriptionOption
+        );
+      });
+      return Promise.resolve(ctrl.selectedImages);
+    };
+    ctrl.addPersonToImages = (images, addedPerson) => {
+      images.map((image) => {
+        const currentPeopleInImage = ctrl.peopleAccessor(image);
+        const newPeopleInImage = currentPeopleInImage ? [...currentPeopleInImage, addedPerson] : [addedPerson];
+        editsService.batchUpdateMetadataField(
+          [image],
+          'peopleInImage',
+          newPeopleInImage,
+          ctrl.descriptionOption
+        );
+      });
+      return Promise.resolve(ctrl.selectedImages);
     };
 
-    ctrl.removeLabel = function (label) {
-      var imageArray = Array.from(ctrl.selectedImages);
-      labelService.batchRemove(imageArray, label);
-    };
+    ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
 
     const ignoredMetadata = [
       'title', 'description', 'copyright', 'keywords', 'byline',

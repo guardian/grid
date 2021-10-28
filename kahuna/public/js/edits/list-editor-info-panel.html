@@ -1,0 +1,16 @@
+<li class="element"
+    ng-repeat="element in ctrl.listWithOccurrences"
+    ng-class="{'element--partial': element.count < ctrl.images.size}">
+    <button ng-if="element.count < ctrl.images.size"
+            class="element__add"
+            title="Apply {{ctrl.elementName}} to all"
+            ng-click="ctrl.addElements([element.data])">
+        <gr-icon>library_add</gr-icon>
+    </button>
+    <a ui-sref="search.results({query: (element.data | {{ctrl.queryFilter}})})" class="element__value">{{element.data}}</a>
+    <button class="element__remove"
+            title="Remove {{ctrl.elementName}} from all"
+            ng-click="ctrl.removeElement(element.data)">
+        <gr-icon>close</gr-icon>
+    </button>
+</li>
