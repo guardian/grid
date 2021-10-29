@@ -1,5 +1,8 @@
 package controllers
 
+import akka.actor.Scheduler
+import akka.pattern.after
+
 import java.io.File
 import java.net.URI
 import com.drew.imaging.ImageProcessingException
@@ -24,6 +27,7 @@ import java.time.Instant
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -39,7 +43,9 @@ class ImageLoaderController(auth: Authentication,
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
                             gridClient: GridClient,
-                            authorisation: Authorisation)
+                            authorisation: Authorisation,
+  scheduler: Scheduler
+)
                            (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -260,4 +266,7 @@ class ImageLoaderController(auth: Authentication,
     }
   }
 
+  def goslow() = AuthenticatedAndAuthorised.async { request =>
+    after(85.seconds, scheduler)(Future.successful(Ok("done after 85 secs")))
+  }
 }
