@@ -37,13 +37,14 @@ trait MigrationStatusProvider {
         case Some(index) => InProgress(index.name)
         case None => NotRunning
       }
-      .recover {
-        case e if !bubbleErrors =>
-          logger.error("Failed to get name of index for ongoing migration", e)
-          StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef.get())
-      }
 
-    Await.result(statusFuture, atMost = 5.seconds)
+    try {
+      Await.result(statusFuture, atMost = 5.seconds)
+    } catch {
+      case e if !bubbleErrors =>
+        logger.error("Failed to get name of index for ongoing migration", e)
+        StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef.get())
+    }
   }
 
   private def refreshMigrationStatus(): Unit = {
