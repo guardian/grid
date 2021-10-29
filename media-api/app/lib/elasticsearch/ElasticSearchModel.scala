@@ -39,14 +39,20 @@ object BucketResult {
 
 case class AggregateSearchParams(field: String,
                                  q: Option[String],
-                                 structuredQuery: List[Condition])
+                                 structuredQuery: List[List[Condition]])
 
 object AggregateSearchParams {
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
 
   def apply(field: String, request: Request[AnyContent]): AggregateSearchParams = {
     val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List[Condition]()
+    val structuredQuery = query.map { querystring =>
+      querystring
+        .split(" OR ")
+        .map(_.trim)
+        .map(Parser.run)
+        .toList
+    }.getOrElse(List())
     new AggregateSearchParams(
       field,
       query,
@@ -57,7 +63,7 @@ object AggregateSearchParams {
 
 case class SearchParams(
                          query: Option[String] = None,
-                         structuredQuery: List[Condition] = List.empty,
+                         structuredQuery: List[List[Condition]] = List.empty,
                          ids: Option[List[String]] = None,
                          offset: Int = 0,
                          length: Int = 10,
@@ -122,7 +128,13 @@ object SearchParams {
     def commaSep(key: String): List[String] = request.getQueryString(key).toList.flatMap(commasToList)
 
     val query = request.getQueryString("q")
-    val structuredQuery = query.map(Parser.run) getOrElse List()
+    val structuredQuery: List[List[Condition]] = query.map { querystring =>
+      querystring
+        .split(" OR ")
+        .map(_.trim)
+        .map(Parser.run)
+        .toList
+    }.getOrElse(List())
 
     SearchParams(
       query,
