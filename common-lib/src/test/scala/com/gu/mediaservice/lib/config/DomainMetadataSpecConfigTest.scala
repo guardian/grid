@@ -9,8 +9,8 @@ class DomainMetadataSpecConfigTest extends FreeSpec with Matchers {
     val configuration = Configuration.from(Map(
       "domainMetadata.specifications" -> List(
         Map(
-          "type" -> "a",
-          "name" -> "A",
+          "name" -> "a",
+          "label" -> "A",
           "description" -> "Description of A",
           "fields" -> List(
             Map(
@@ -37,8 +37,8 @@ class DomainMetadataSpecConfigTest extends FreeSpec with Matchers {
           )
         ),
         Map(
-          "type" -> "b",
-          "name" -> "B",
+          "name" -> "b",
+          "label" -> "B",
           "description" -> "Description of B",
           "fields" -> List(
             Map(
@@ -61,8 +61,8 @@ class DomainMetadataSpecConfigTest extends FreeSpec with Matchers {
       domainMetadataSpecifications.headOption.nonEmpty shouldBe true
       val specificationA = domainMetadataSpecifications.head
 
-      specificationA.`type` shouldBe "a"
-      specificationA.name shouldBe "A"
+      specificationA.name shouldBe "a"
+      specificationA.label shouldBe "A"
       specificationA.description shouldBe Some("Description of A")
       specificationA.fields.length shouldBe 4
       specificationA.fields.map(_.name) shouldBe List("a.a", "a.b", "a.c", "a.d")
@@ -74,8 +74,8 @@ class DomainMetadataSpecConfigTest extends FreeSpec with Matchers {
       domainMetadataSpecifications.lastOption.nonEmpty shouldBe true
       val specificationB = domainMetadataSpecifications.last
 
-      specificationB.`type` shouldBe "b"
-      specificationB.name shouldBe "B"
+      specificationB.name shouldBe "b"
+      specificationB.label shouldBe "B"
       specificationB.description shouldBe Some("Description of B")
       specificationB.fields.length shouldBe 1
     }

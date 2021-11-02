@@ -17,8 +17,8 @@ object DomainMetadataField {
 }
 
 case class DomainMetadataSpec(
-  `type`: String,
   name: String,
+  label: String,
   description: Option[String] = None,
   fields: Seq[DomainMetadataField] = Nil
 )
@@ -42,8 +42,8 @@ object DomainMetadataSpec {
         })
 
         DomainMetadataSpec(
-          config.getString("type"),
           config.getString("name"),
+          config.getString("label"),
           description,
           fields
         )

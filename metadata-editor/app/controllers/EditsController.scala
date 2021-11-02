@@ -156,7 +156,7 @@ class EditsController(
     (req.body \ "data").validate[ImageMetadata].fold(
       errors => Future.successful(BadRequest(errors.toString())),
       metadata => {
-        val specsAsMap = config.domainMetadataSpecs.groupBy(_.`type`).mapValues(_.flatMap(_.fields.map(_.name)))
+        val specsAsMap = config.domainMetadataSpecs.groupBy(_.name).mapValues(_.flatMap(_.fields.map(_.name)))
         val validatedDomainMetadata = metadata.domainMetadata
           .filterKeys(specsAsMap.keySet)
           .flatMap(specData => {

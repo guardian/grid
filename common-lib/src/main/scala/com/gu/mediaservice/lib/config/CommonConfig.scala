@@ -69,8 +69,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    * {{{
    *   domainMetadata.specifications = [
    *     {
-   *       type: "specificationa"
-   *       name: "Specification A"
+   *       name: "specificationa"
+   *       label: "Specification A"
    *       description: "Description of specification A"
    *       fields = [
    *         {

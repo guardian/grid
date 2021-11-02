@@ -22,11 +22,11 @@ For example, the configuration below specifies two specifications `specification
 domainMetadata.specifications = [
   {
     # Uniquely identifies a specification
-    type: "specificationa"
+    name: "specificationa"
 
     # Represents a human readable name for the specification. Used to render domain metadata collapsible header on the
     # user interface.
-    name: "Specification A"
+    label: "Specification A"
 
     # Optional string that represents a human readable description of the specification. Rendered in the domain metadata
     # collapsible.
@@ -68,6 +68,18 @@ domainMetadata.specifications = [
         label = "Field D"
         type = "select"
         options = ["Option 1", "Option 2"]
+      }
+    ]
+  }
+  {
+    name = "specificationb"
+    label: "Specification B"
+    description: "Description of specification B"
+    fields = [
+      {
+        name = "field-a"
+        label = "Field A"
+        type = "string"
       }
     ]
   }
