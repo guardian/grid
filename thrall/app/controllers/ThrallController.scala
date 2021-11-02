@@ -64,17 +64,27 @@ class ThrallController(
     }
   }
 
-  def migrationFailures = withLoginRedirectAsync {
-    val maxReturn = 200
-    es.migrationStatus match {
-      case InProgress(migrationIndexName) =>
-        es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, maxReturn).map(failures =>
-          Ok(views.html.migrationFailures(
-            failures = failures,
-            migrateSingleImageForm = migrateSingleImageForm
-          ))
-        )
-      case _ => Future.successful(Ok("No current migration"))
+  def migrationFailures(maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
+    val pageSize = 250
+    // pages are indexed from 1
+    val page = maybePage.getOrElse(1)
+    val from = (page - 1) * pageSize
+    if (page < 1) {
+      Future.successful(BadRequest(s"Value for page parameter should be >= 1"))
+    } else {
+      es.migrationStatus match {
+        case InProgress(migrationIndexName) =>
+          es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, from, pageSize).map(failures =>
+            Ok(views.html.migrationFailures(
+              apiBaseUrl = services.apiBaseUri,
+              uiBaseUrl = services.kahunaBaseUri,
+              page = page,
+              failures = failures,
+              migrateSingleImageForm = migrateSingleImageForm
+            ))
+          )
+        case _ => Future.successful(Ok("No current migration"))
+      }
     }
   }
 

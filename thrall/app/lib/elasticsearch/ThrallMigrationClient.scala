@@ -54,9 +54,9 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
   }
 
   def getMigrationFailures(
-    currentIndexName: String, migrationIndexName: String, maxReturn: Int
+    currentIndexName: String, migrationIndexName: String, from: Int, pageSize: Int
   )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationSummary] = {
-    val search = ElasticDsl.search(currentIndexName).size(maxReturn) query must(
+    val search = ElasticDsl.search(currentIndexName).from(from).size(pageSize) query must(
       existsQuery(s"esInfo.migration.failures.$migrationIndexName"),
       not(matchQuery("esInfo.migration.migratedTo", migrationIndexName))
     )

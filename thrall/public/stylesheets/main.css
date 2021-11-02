@@ -9,3 +9,7 @@ td, th {
 .hidden {
   display: none;
 }
+
+.imageId {
+  display: inline;
+}
