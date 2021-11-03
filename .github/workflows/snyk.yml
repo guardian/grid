@@ -25,7 +25,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./image-counter-lambda/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/image-counter-lambda --file=./image-counter-lambda/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in reaper
@@ -33,7 +33,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./reaper/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/reaper --file=./reaper/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in s3watcher lambda
@@ -41,7 +41,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./s3watcher/lambda/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/s3watcher-lambda --file=./s3watcher/lambda/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in s3watcher scripts
@@ -49,7 +49,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./s3watcher/scripts/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/s3watcher-scripts --file=./s3watcher/scripts/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in kahuna
@@ -57,7 +57,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./kahuna/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/kahuna --file=./kahuna/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in inadvisable-metadata-backup script
@@ -65,7 +65,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./scripts/inadvisable-metadata-backup/yarn.lock
+          args: --org=guardian --project-name=${{ github.repository }}/inadvisable-metadata-backup-script --file=./scripts/inadvisable-metadata-backup/yarn.lock
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in reindex-images script
@@ -73,7 +73,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./scripts/reindex-images/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/reindex-images-script --file=./scripts/reindex-images/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in sample-images script
@@ -81,7 +81,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./scripts/sample-images/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/sample-images/script --file=./scripts/sample-images/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor for Node vulnerabilities in generate-config dev script
@@ -89,7 +89,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./dev/script/generate-config/package-lock.json
+          args: --org=guardian --project-name=${{ github.repository }}/generate-config-script --file=./dev/script/generate-config/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
       - name: Run Snyk to monitor Scala vulnerabilities at root level
@@ -97,5 +97,5 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./build.sbt
+          args: --org=guardian --project-name=${{ github.repository }}/root --file=./build.sbt
           command: ${{ env.SNYK_COMMAND }}
