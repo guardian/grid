@@ -7,8 +7,8 @@ on:
   schedule:
     - cron: "0 6 * * *"
   push:
-    branches:
-      - main
+#    branches:
+#      - main
   workflow_dispatch:
 
 jobs:
@@ -20,12 +20,12 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v2
 
-      - name: Get node version
-        run: echo NODE_VERSION=$(cat .nvmrc) >> $GITHUB_ENV
+#      - name: Get node version
+#        run: echo NODE_VERSION=$(cat .nvmrc) >> $GITHUB_ENV
 
       - uses: snyk/actions/setup@0.3.0
 
-      - name: Snyk monitor everything
+      - name: Snyk monitor all projects
         run: snyk monitor --all-projects
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
