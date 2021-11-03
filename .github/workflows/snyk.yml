@@ -92,14 +92,6 @@ jobs:
           args: --org=guardian --project-name=${{ github.repository }} --file=./dev/script/generate-config/package-lock.json
           command: ${{ env.SNYK_COMMAND }}
 
-      - name: Run Snyk to check for Python vulnerabilities in quarantine status lambda
-        uses: snyk/actions/python@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./quarantine-status/lambda/requirements.txt
-          command: ${{ env.SNYK_COMMAND }}
-
       - name: Run Snyk to monitor Scala vulnerabilities at root level
         uses: snyk/actions/scala@0.3.0
         env:
