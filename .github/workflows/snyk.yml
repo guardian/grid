@@ -14,30 +14,96 @@ on:
 jobs:
   snyk-monitor:
     runs-on: ubuntu-latest
+    env:
+      SNYK_COMMAND: monitor
     steps:
       - name: Checkout branch
         uses: actions/checkout@v2
 
-      - name: Run Snyk to monitor for Node vulnerabilities
+      - name: Run Snyk to monitor for Node vulnerabilities in image-counter-lambda
         uses: snyk/actions/node@0.3.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian
-          command: monitor --all-projects --exclude=quarantine-status,./
+          args: --org=guardian --project-name=${{ github.repository }} --file=./image-counter-lambda/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
 
-      - name: Run Snyk to check for Python vulnerabilities in
+      - name: Run Snyk to monitor for Node vulnerabilities in reaper
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./reaper/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to monitor for Node vulnerabilities in s3watcher lambda
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./s3watcher/lambda/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to monitor for Node vulnerabilities in s3watcher scripts
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./s3watcher/scripts/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to monitor for Node vulnerabilities in kahuna
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./kahuna/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to monitor for Node vulnerabilities in inadvisable-metadata-backup script
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./scripts/inadvisable-metadata-backup/yarn.lock
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to monitor for Node vulnerabilities in reindex-images script
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./scripts/reindex-images/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to monitor for Node vulnerabilities in sample-images script
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./scripts/sample-images/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to monitor for Node vulnerabilities in generate-config dev script
+        uses: snyk/actions/node@0.3.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --org=guardian --project-name=${{ github.repository }} --file=./dev/script/generate-config/package-lock.json
+          command: ${{ env.SNYK_COMMAND }}
+
+      - name: Run Snyk to check for Python vulnerabilities in quarantine status lambda
         uses: snyk/actions/python@0.3.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --org=guardian --project-name=${{ github.repository }} --file=./quarantine-status/requirements.txt
-          command: monitor
+          args: --org=guardian --project-name=${{ github.repository }} --file=./quarantine-status/lambda/requirements.txt
+          command: ${{ env.SNYK_COMMAND }}
 
-      - name: Run Snyk to monitor Scala vulnerabilities
+      - name: Run Snyk to monitor Scala vulnerabilities at root level
         uses: snyk/actions/scala@0.3.0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --org=guardian --project-name=${{ github.repository }} --file=./build.sbt
-          command: monitor
+          command: ${{ env.SNYK_COMMAND }}
