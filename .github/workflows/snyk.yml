@@ -33,13 +33,14 @@ jobs:
           java-version: "8"
           distribution: "adopt"
 
-      - name: Snyk monitor scala
-        run: snyk monitor --file=./build.sbt
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+#      - name: Snyk monitor scala
+#        run: snyk monitor --file=./build.sbt
+#        env:
+#          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
-      - name: Snyk monitor node
-        run: snyk monitor --all-projects --exclude=build.sbt
+      - name: Snyk monitor everything
+#        run: snyk monitor --all-projects --exclude=build.sbt
+        run: snyk monitor --all-projects
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
