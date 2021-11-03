@@ -7,8 +7,8 @@ on:
   schedule:
     - cron: "0 6 * * *"
   push:
-#    branches:
-#      - main
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -25,22 +25,7 @@ jobs:
 
       - uses: snyk/actions/setup@0.3.0
 
-#      - uses: actions/setup-node@v2
-#        with:
-#          node-version: ${{ env.NODE_VERSION }}
-#
-#      - uses: actions/setup-java@v2
-#        with:
-#          java-version: "8"
-#          distribution: "adopt"
-
-#      - name: Snyk monitor scala
-#        run: snyk monitor --file=./build.sbt
-#        env:
-#          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-
       - name: Snyk monitor everything
-#        run: snyk monitor --all-projects --exclude=build.sbt
         run: snyk monitor --all-projects
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
