@@ -7,8 +7,8 @@ on:
   schedule:
     - cron: "0 6 * * *"
   push:
-    branches:
-      - main
+#    branches:
+#      - main
   workflow_dispatch:
 
 jobs:
@@ -20,82 +20,26 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v2
 
-      - name: Run Snyk to monitor for Node vulnerabilities in image-counter-lambda
-        uses: snyk/actions/node@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/image-counter-lambda --file=./image-counter-lambda/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
+      - name: Get node version
+        run: echo NODE_VERSION=$(cat .nvmrc) >> $GITHUB_ENV
 
-      - name: Run Snyk to monitor for Node vulnerabilities in reaper
-        uses: snyk/actions/node@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - uses: snyk/actions/setup@0.3.0
+      - uses: actions/setup-node@v2
         with:
-          args: --org=guardian --project-name=${{ github.repository }}/reaper --file=./reaper/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Run Snyk to monitor for Node vulnerabilities in s3watcher lambda
-        uses: snyk/actions/node@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - uses: actions/setup-java@v2
         with:
-          args: --org=guardian --project-name=${{ github.repository }}/s3watcher-lambda --file=./s3watcher/lambda/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
+          java-version: "8"
+          distribution: "adopt"
 
-      - name: Run Snyk to monitor for Node vulnerabilities in s3watcher scripts
-        uses: snyk/actions/node@0.3.0
+      - name: Snyk monitor scala
+        run: snyk monitor --file=./build.sbt
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/s3watcher-scripts --file=./s3watcher/scripts/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
 
-      - name: Run Snyk to monitor for Node vulnerabilities in kahuna
-        uses: snyk/actions/node@0.3.0
+      - name: Snyk monitor node
+        run: snyk monitor --all-projects --exclude=build.sbt
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/kahuna --file=./kahuna/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
 
-      - name: Run Snyk to monitor for Node vulnerabilities in inadvisable-metadata-backup script
-        uses: snyk/actions/node@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/inadvisable-metadata-backup-script --file=./scripts/inadvisable-metadata-backup/yarn.lock
-          command: ${{ env.SNYK_COMMAND }}
-
-      - name: Run Snyk to monitor for Node vulnerabilities in reindex-images script
-        uses: snyk/actions/node@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/reindex-images-script --file=./scripts/reindex-images/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
-
-      - name: Run Snyk to monitor for Node vulnerabilities in sample-images script
-        uses: snyk/actions/node@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/sample-images/script --file=./scripts/sample-images/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
-
-      - name: Run Snyk to monitor for Node vulnerabilities in generate-config dev script
-        uses: snyk/actions/node@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/generate-config-script --file=./dev/script/generate-config/package-lock.json
-          command: ${{ env.SNYK_COMMAND }}
-
-      - name: Run Snyk to monitor Scala vulnerabilities at root level
-        uses: snyk/actions/scala@0.3.0
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --org=guardian --project-name=${{ github.repository }}/root --file=./build.sbt
-          command: ${{ env.SNYK_COMMAND }}
