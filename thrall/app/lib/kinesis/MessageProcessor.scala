@@ -92,7 +92,7 @@ class MessageProcessor(
     }.recoverWith {
       case versionComparisonFailure: VersionComparisonFailure =>
         logger.error(logMarker, s"Postponed migration of image with id: ${message.id}: cause: ${versionComparisonFailure.getMessage}, this will get picked up shortly")
-        Future.successful()
+        Future.successful(())
       case failure: MigrationFailure =>
         logger.error(logMarker, s"Failed to migrate image with id: ${message.id}: cause: ${failure.getMessage}, attaching failure to document in current index")
         val migrationIndexName = es.migrationStatus match {
