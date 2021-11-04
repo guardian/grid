@@ -58,5 +58,9 @@
     <h2>MigrationStatus (from the MigrationStatusProvider, a.k.a. 'migration status refresher')</h2>
     <pre>@migrationStatusProviderValue</pre>
     <em>Note that the above represents the value at the point this page was loaded.</em>
+
+    @if(migrationStatusProviderValue.startsWith("InProgress")) {
+        <p><a href="@routes.ThrallController.migrationFailures(None)">View images that have failed to migrate and retry.</a></p>
+    }
 </body>
 </html>
