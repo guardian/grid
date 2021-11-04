@@ -1,6 +1,6 @@
-# This action runs every day at 6 AM and on every push
-# If the branch it's running on is main then it will run snyk monitor (reports vulnerabilities to snyk.io)
-# Otherwise it will run snyk test
+# This action runs every day at 6 AM
+# If the branch it's running on is main then it will run Snyk monitor (reports vulnerabilities to snyk.io)
+
 name: Snyk
 
 on:
