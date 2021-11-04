@@ -22,15 +22,15 @@ For example, the configuration below specifies two specifications `specification
 domainMetadata.specifications = [
   {
     # Uniquely identifies a specification
-    name: "specificationa"
+    name = "specificationa"
 
     # Represents a human readable name for the specification. Used to render domain metadata collapsible header on the
     # user interface.
-    label: "Specification A"
+    label = "Specification A"
 
     # Optional string that represents a human readable description of the specification. Rendered in the domain metadata
     # collapsible.
-    description: "Description of specification A"
+    description = "Description of specification A"
 
     # List of fields belonging to this particular specification.
     fields = [
@@ -73,7 +73,7 @@ domainMetadata.specifications = [
   }
   {
     name = "specificationb"
-    label: "Specification B"
+    label = "Specification B"
     description: "Description of specification B"
     fields = [
       {
@@ -85,3 +85,32 @@ domainMetadata.specifications = [
   }
 ]
 ```
+
+Modification
+--------
+
+> *"With great power comes great responsibility"*
+
+### Adding a field
+
+New fields will be rendered on the user interface (`Kahuna`) under the domain metadata specification section and its value will be persisted during metadata updates.
+
+### Removing a field
+
+Removed fields will not be rendered on the user interface (`Kahuna`) under the domain metadata specification section (even if it has a value). Metadata updates will ignore the deleted field and its value will not be persisted.
+
+### Updating a field type
+
+Just like changing types on persistable models, this has its drawbacks and should be done at a minimum if possible. Changing types on fields that have values may not be backward compatible due to formatting or parsing errors that may occur.
+
+The modified field and its value will be rendered on the user interface. However, formatting errors maybe thrown when rendering the edit (input) field on a field that already has a value. For example:
+
+  * Changing the type from `string` to `integer`, the user interface will throw "Expected `String` to be a number" error and not render the value in the edit field.
+	
+  * Changing the type from `string` to `datetime`, the user interface will throw "Expected `11` to be a date" error.
+	
+  * Changing the type from `integer` to `datetime`, the user interface will throw "Expected `1` to be a date" error.
+
+Despite these format errors, a user can still modify and save the value of the field using the new type on the user interface.
+
+**TIP** Aim to make the choice of field types as final as possible to avoid any client-side format errors.
