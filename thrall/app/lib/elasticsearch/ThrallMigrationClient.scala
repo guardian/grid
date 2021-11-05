@@ -67,8 +67,8 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
             logger.info(logMarker, s"failed migrations - got hit $hit.id")
             val source = hit.sourceAsString
             val cause = Json.parse(source).validate(Json.reads[EsInfoContainer]) match {
-              case JsSuccess(EsInfoContainer(EsInfo(Some(Left(migrationFailure)))), _) =>
-                migrationFailure.failures.getOrElse(migrationIndexName, "UNKNOWN - NO FAILURE MATCHING MIGRATION INDEX NAME")
+              case JsSuccess(EsInfoContainer(EsInfo(Some(MigrationInfo(Some(failures), _)))), _) =>
+                failures.getOrElse(migrationIndexName, "UNKNOWN - NO FAILURE MATCHING MIGRATION INDEX NAME")
               case JsError(errors) =>
                 logger.error(logMarker, s"Could not parse EsInfo for ${hit.id} - $errors")
                 "Could not extract migration info from ES due to parsing failure"
