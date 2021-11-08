@@ -1,0 +1,63 @@
+@import lib.FailedMigrationSummary
+
+@import views.html.helper.form
+@(
+    failures: FailedMigrationSummary,
+    migrateSingleImageForm: Form[MigrateSingleImageForm],
+    apiBaseUrl: String,
+    uiBaseUrl: String,
+    page: Int,
+)
+
+@navigation = {
+    @if(page > 1) {
+        <a href="?page=@(page - 1)">Previous page</a>
+    }
+    <a href="?page=@(page + 1)">Next page</a>
+}
+
+@totalFailures = @{
+    (failures.totalFailedRelation match {
+        case "lte" | "lt" => "Less than "
+        case "gte" | "gt" => "More than "
+        case _ => ""
+    }) + failures.totalFailed + " images failed in total!"
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Migration Failures - Page @(page)</title>
+    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+</head>
+<body>
+    <h1>
+        Migration Failures - Page @(page)
+    </h1>
+    <p>@totalFailures</p>
+    @navigation
+    <table>
+        <tr>
+            <th>Image ID</th>
+            <th>Failure cause</th>
+            <th>Click to reattempt migration</th>
+        </tr>
+        @for(failure <- failures.details) {
+            <tr>
+                <td><pre class="imageId">@failure.imageId</pre>
+                    <a href="@uiBaseUrl/images/@failure.imageId" target="_blank">[Grid]</a>
+                    <a href="@apiBaseUrl/images/@failure.imageId" target="_blank">[API]</a>
+                </td>
+                <td>@failure.cause</td>
+                <td>@form(action = routes.ThrallController.migrateSingleImage){
+                    <label for="id" class="hidden">Image ID:</label>
+                    <input type="text" id="id" value="@failure.imageId" name="id" class="hidden">
+                    <input type="submit" value="Reattempt migration">
+                }</td>
+            </tr>
+        }
+    </table>
+    @navigation
+</body>
+</html>

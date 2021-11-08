@@ -8,7 +8,8 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
-import lib.OptionalFutureRunner
+import com.gu.mediaservice.lib.elasticsearch.InProgress
+import lib.{FailedMigrationDetails, OptionalFutureRunner}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.CreateMigrationIndexMessage
 import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
@@ -63,7 +64,31 @@ class ThrallController(
     }
   }
 
-  implicit val pollingMaterializer:ActorMaterializer = ActorMaterializer()(actorSystem)
+  def migrationFailures(maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
+    val pageSize = 250
+    // pages are indexed from 1
+    val page = maybePage.getOrElse(1)
+    val from = (page - 1) * pageSize
+    if (page < 1) {
+      Future.successful(BadRequest(s"Value for page parameter should be >= 1"))
+    } else {
+      es.migrationStatus match {
+        case InProgress(migrationIndexName) =>
+          es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, from, pageSize).map(failures =>
+            Ok(views.html.migrationFailures(
+              apiBaseUrl = services.apiBaseUri,
+              uiBaseUrl = services.kahunaBaseUri,
+              page = page,
+              failures = failures,
+              migrateSingleImageForm = migrateSingleImageForm
+            ))
+          )
+        case _ => Future.successful(Ok("No current migration"))
+      }
+    }
+  }
+
+  implicit val pollingMaterializer: ActorMaterializer = ActorMaterializer()(actorSystem)
 
   def startMigration = withLoginRedirectAsync {
     val msgFailedToFetchIndex = s"Could not fetch ES index details for alias '${es.imagesMigrationAlias}'"

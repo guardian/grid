@@ -88,7 +88,7 @@ class MessageProcessor(
       }
     ).flatMap { insertResult =>
       logger.info(logMarker, s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
-      es.setMigrationInfo(imageId = message.id, migrationInfo = Right(MigrationTo(migratedTo = insertResult.head.indexNames.head)))
+      es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationInfo(migratedTo = Some(insertResult.head.indexNames.head)))
     }.recoverWith {
       case versionComparisonFailure: VersionComparisonFailure =>
         logger.error(logMarker, s"Postponed migration of image with id: ${message.id}: cause: ${versionComparisonFailure.getMessage}, this will get picked up shortly")
@@ -99,7 +99,7 @@ class MessageProcessor(
           case InProgress(migrationIndexName) => migrationIndexName
           case _ => "Unknown migration index name"
         }
-        es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failures = Map(migrationIndexName -> failure.getMessage))))
+        es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationInfo(failures = Some(Map(migrationIndexName -> failure.getMessage))))
     }
   }
 
