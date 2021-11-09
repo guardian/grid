@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.elasticsearch.InProgress
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
-import lib.elasticsearch.ElasticSearch
+import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import play.api.libs.ws.WSRequest
 
 import java.time.{Instant, OffsetDateTime}
@@ -48,20 +48,27 @@ object MigrationSourceWithSender extends GridLogging {
           // - Define an Akka actor to handle the querying and wrap around the state.
           var maybeScrollId: Option[String] = None
 
+          def handleScrollResponse(resp: ScrolledSearchResults) = {
+            maybeScrollId = if (resp.hits.isEmpty) {
+              // close scroll with provided ID if it exists
+              resp.scrollId.foreach(es.closeScroll)
+              None
+            } else {
+              resp.scrollId
+            }
+            resp.hits
+          }
+
           _ => {
             val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
               case (InProgress(migrationIndexName), None) =>
-                es.startScrollingImageIdsToMigrate(migrationIndexName).map(resp => {
-                  maybeScrollId = if (resp.hits.isEmpty) None else resp.scrollId
-                  resp.hits
-                })
+                es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
               case (InProgress(_), Some(scrollId)) =>
-                es.continueScrollingImageIdsToMigrate(scrollId).map(resp => {
-                  maybeScrollId = if (resp.hits.isEmpty) None else resp.scrollId
-                  resp.hits
-                })
+                es.continueScrollingImageIdsToMigrate(scrollId).map(handleScrollResponse)
               case _ => Future.successful(List.empty)
             }).recover { case _ =>
+              // close existing scroll if it exists
+              maybeScrollId.foreach(es.closeScroll)
               maybeScrollId = None
               List.empty
             }
