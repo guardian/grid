@@ -111,6 +111,7 @@ a:hover {
 
 input,
 option,
+select,
 textarea,
 button {
     font-family: "Guardian Agate Sans Web", Helvetica, Arial;
@@ -1849,6 +1850,10 @@ FIXME: what to do with touch devices
     text-align: left;
 }
 
+.metadata__description {
+  margin: 10px 0;
+}
+
 .metadata__body {
     font-size: 1.3rem;
 }
@@ -2348,7 +2353,7 @@ FIXME: what to do with touch devices
     height: 1px;
     overflow: hidden;
     position: absolute;
-    white-space: nowrap; 
+    white-space: nowrap;
     width: 1px;
 }
 

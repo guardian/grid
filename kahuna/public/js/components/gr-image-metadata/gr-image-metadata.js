@@ -7,17 +7,17 @@ import '../../image/service';
 import '../../edits/service';
 import '../gr-description-warning/gr-description-warning';
 import { editOptions, overwrite } from '../../util/constants/editOptions';
+import '../../util/storage';
 import '../../services/image-accessor';
 import '../../services/image-list';
 import '../../services/label';
 import { List } from 'immutable';
 
-
-
 export const module = angular.module('gr.imageMetadata', [
     'gr.image.service',
     'kahuna.edits.service',
-    'gr.descriptionWarning'
+    'gr.descriptionWarning',
+    'util.storage'
 ]);
 
 module.controller('grImageMetadataCtrl', [
@@ -32,6 +32,7 @@ module.controller('grImageMetadataCtrl', [
   'imageAccessor',
   'inject$',
   'labelService',
+  'storage',
 
 
   function ($rootScope,
@@ -44,9 +45,13 @@ module.controller('grImageMetadataCtrl', [
     imageList,
     imageAccessor,
     inject$,
-    labelService) {
+    labelService,
+    storage) {
 
     let ctrl = this;
+
+    // Deep copying window._clientConfig.domainMetadataModels
+    ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
     $scope.$watchCollection('ctrl.selectedImages', function() {
       ctrl.singleImage = singleImage();
@@ -100,6 +105,47 @@ module.controller('grImageMetadataCtrl', [
       );
     };
 
+    ctrl.updateDomainMetadataField = function(name, field, value) {
+      return editsService.updateDomainMetadataField(ctrl.singleImage, name, field, value)
+        .then((updatedImage) => {
+          if (updatedImage) {
+            ctrl.singleImage = updatedImage;
+            $rootScope.$emit(
+              'track:event',
+              'Metadata',
+              'Edit',
+              'Success',
+              null,
+              {
+                field: field,
+                value: value
+              }
+            );
+          }
+        })
+        .catch(() => {
+          $rootScope.$emit(
+            'track:event',
+            'Metadata',
+            'Edit',
+            'Failure',
+            null,
+            {
+              field: field,
+              value: value
+            }
+          );
+          /*
+           Save failed.
+           Per the angular-xeditable docs, returning a string indicates an error and will
+           not update the local model, nor will the form close (so the edit is not lost).
+           Instead, a message is shown and the field keeps focus for user to edit again.
+           http://vitalets.github.io/angular-xeditable/#onbeforesave
+           */
+          return 'failed to save (press esc to cancel)';
+        });
+    };
+
     ctrl.addLabel = function (label) {
       var imageArray = Array.from(ctrl.selectedImages);
       labelService.batchAdd(imageArray, [label]);
@@ -113,7 +159,8 @@ module.controller('grImageMetadataCtrl', [
     const ignoredMetadata = [
       'title', 'description', 'copyright', 'keywords', 'byline',
       'credit', 'subLocation', 'city', 'state', 'country',
-      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage'
+      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage',
+      'domainMetadata'
     ];
 
     function updateSingleImage() {
@@ -131,7 +178,73 @@ module.controller('grImageMetadataCtrl', [
             }
         })
       );
+
+      registerSectionStore('additionalMetadata');
+
+      ctrl.domainMetadata = ctrl.domainMetadataSpecs
+        .filter(domainMetadataSpec => domainMetadataSpec.fields.length > 0)
+        .reduce((acc, domainMetadataSpec) => {
+          let domainMetadata = { ...domainMetadataSpec };
+
+          if (ctrl.singleImage.data.metadata) {
+            const imageDomainMetadata = ctrl.singleImage.data.metadata.domainMetadata ? ctrl.singleImage.data.metadata.domainMetadata : {};
+            domainMetadata.fields = domainMetadataSpec.fields.map(field => setDomainMetadataFieldValueOrDefault(imageDomainMetadata, field, domainMetadataSpec));
+          }
+
+          acc.push(domainMetadata);
+
+          return acc;
+        }, []);
+
+      ctrl.domainMetadata.forEach(domainMetadata => registerSectionStore(domainMetadata.name));
     }
+
+    const registerSectionStore = (key) => {
+      const storeName = generateStoreName(key);
+      const state = storage.getJs(storeName) || {hidden: true};
+      storage.setJs(storeName, state);
+    };
+
+    const generateStoreName = (key) => `${key}MetadataSection`;
+
+    function setDomainMetadataFieldValueOrDefault(domainMetadata, field, spec) {
+      let fieldValue = undefined;
+
+      if (field.fieldType === 'datetime' && fieldValue) {
+        fieldValue = new Date(fieldValue);
+      }
+
+      if (field.fieldType === 'select' && field.options.length > 0) {
+        field.selectOptions = field.options
+          .filter(option => option)
+          .map(option => {
+            return { value: option, text: option };
+          });
+      }
+
+      if (domainMetadata.hasOwnProperty(spec.name)) {
+        fieldValue = domainMetadata[spec.name][field.name];
+
+        if (field.fieldType === 'select' && fieldValue) {
+          field.selectOptions = [{value: "", text: ""}].concat(field.selectOptions);
+        }
+      }
+
+      return {
+        ...field,
+        value: fieldValue
+      };
+    }
+
+    ctrl.showMetadataSection = (key) => {
+      const storeName = generateStoreName(key);
+      const state = storage.getJs(storeName);
+      storage.setJs(storeName, {hidden: !state.hidden});
+    };
+
+    ctrl.isMetadataSectionHidden = (key) => {
+      return storage.getJs(generateStoreName(key)).hidden;
+    };
 
     function isUsefulMetadata(metadataKey) {
       return ignoredMetadata.indexOf(metadataKey) === -1;

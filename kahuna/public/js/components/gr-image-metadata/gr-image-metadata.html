@@ -390,13 +390,13 @@
     <!-- FIXME: iff has useful metadata -->
     <div ng-if="ctrl.singleImage" class="image-info__group image-info__group--full-metadata">
         <button class="metadata-reveal"
-                ng-click="metadataExpanded = !metadataExpanded">
-            <span ng-hide="metadataExpanded">▸ Show</span>
-            <span ng-show="metadataExpanded">▾ Hide</span>
+                ng-click="ctrl.showMetadataSection('additionalMetadata')">
+            <span ng-show="ctrl.isMetadataSectionHidden('additionalMetadata')">▸ Show</span>
+            <span ng-hide="ctrl.isMetadataSectionHidden('additionalMetadata')">▾ Hide</span>
             additional metadata
         </button>
 
-        <div ng-if="metadataExpanded" class="metadata metadata-line image-info__group--dl">
+        <div ng-if="!ctrl.isMetadataSectionHidden('additionalMetadata')" class="metadata metadata-line image-info__group--dl">
             <dl ng-repeat="(key, value) in ctrl.metadata" ng-if="ctrl.isUsefulMetadata(key)" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
                 <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
@@ -410,6 +410,154 @@
             <dl ng-repeat="(key, value) in ctrl.identifiers" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
                 <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div ng-if="ctrl.singleImage" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata">
+        <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)">
+            <span ng-show="ctrl.isMetadataSectionHidden(spec.name)">▸ Show</span>
+            <span ng-hide="ctrl.isMetadataSectionHidden(spec.name)">▾ Hide</span>
+            {{spec.label}} metadata
+        </button>
+
+        <div ng-if="!ctrl.isMetadataSectionHidden(spec.name)" class="metadata metadata-line image-info__group--dl">
+            <span class="metadata__description" ng-if="spec.description">{{spec.description}}</span>
+
+            <dl ng-repeat="specField in spec.fields" class="metadata__body image-info__group--dl">
+                <dt class="image-info__{{specField.name}} image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="ctrl.userCanEdit">{{specField.label}}</dt>
+                <dd data-cy="metadata-{{specField.name}}" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="ctrl.userCanEdit">
+
+                    <div ng-switch="specField.fieldType">
+                        <span ng-switch-when="string">
+                            <button data-cy="it-edit-{{specField.name}}-button"
+                                    class="image-info__edit"
+                                    ng-if="ctrl.userCanEdit"
+                                    ng-click="domainMetadataEditForm.$show()"
+                                    ng-hide="domainMetadataEditForm.$visible"
+                            >✎</button>
+                            <span class="image-info__{{specField.name}}"
+                                  editable-text="specField.value"
+                                  ng-hide="domainMetadataEditForm.$visible"
+                                  onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
+                                  e:ng-class="{'image-info__editor--error': $error,
+                               'image-info__editor--saving': domainMetadataEditForm.$waiting,
+                               'text-input': true}"
+                                  e:form="domainMetadataEditForm">
+
+                                <span ng-if="specField.value">
+                                    {{specField.value}}
+                                </span>
+                                <span class="editable-empty" ng-if="! specField.value">
+                                    Unknown (click ✎ to add)
+                                </span>
+                            </span>
+                        </span>
+
+                        <span ng-switch-when="datetime">
+                            <button data-cy="it-edit-{{specField.name}}-button"
+                                    class="image-info__edit"
+                                    ng-if="ctrl.userCanEdit"
+                                    ng-click="domainMetadataEditForm.$show()"
+                                    ng-hide="domainMetadataEditForm.$visible"
+                            >✎</button>
+                            <span class="image-info__{{specField.name}}"
+                                  editable-datetime-local="specField.value"
+                                  ng-hide="domainMetadataEditForm.$visible"
+                                  onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
+                                  e:ng-class="{'image-info__editor--error': $error,
+                               'image-info__editor--saving': domainMetadataEditForm.$waiting,
+                               'text-input': true}"
+                                  e:form="domainMetadataEditForm">
+
+                                <span ng-if="specField.value">
+                                    {{specField.value | date:'d MMM yyyy, HH:mm'}}
+                                </span>
+                                <span class="editable-empty" ng-if="! specField.value">
+                                    Unknown (click ✎ to add)
+                                </span>
+                            </span>
+                        </span>
+
+                        <span ng-switch-when="integer">
+                            <button data-cy="it-edit-{{specField.name}}-button"
+                                    class="image-info__edit"
+                                    ng-if="ctrl.userCanEdit"
+                                    ng-click="domainMetadataEditForm.$show()"
+                                    ng-hide="domainMetadataEditForm.$visible"
+                            >✎</button>
+                            <span class="image-info__{{specField.name}}"
+                                  editable-number="specField.value"
+                                  e-min="0"
+                                  ng-hide="domainMetadataEditForm.$visible"
+                                  onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
+                                  e:ng-class="{'image-info__editor--error': $error,
+                               'image-info__editor--saving': domainMetadataEditForm.$waiting,
+                               'text-input': true}"
+                                  e:form="domainMetadataEditForm">
+
+                                <span ng-if="specField.value">
+                                    {{specField.value}}
+                                </span>
+                                <span class="editable-empty" ng-if="! specField.value">
+                                    Unknown (click ✎ to add)
+                                </span>
+                            </span>
+                        </span>
+
+                        <span ng-switch-when="select">
+                            <button data-cy="it-edit-{{specField.name}}-button"
+                                    class="image-info__edit"
+                                    ng-if="ctrl.userCanEdit"
+                                    ng-click="domainMetadataEditForm.$show()"
+                                    ng-hide="domainMetadataEditForm.$visible"
+                            >✎</button>
+                            <span class="image-info__{{specField.name}}"
+                                  editable-select="specField.value"
+                                  e-ng-options="option.value as option.text for option in specField.selectOptions"
+                                  ng-hide="domainMetadataEditForm.$visible"
+                                  onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
+                                  e:ng-class="{'image-info__editor--error': $error,
+                               'image-info__editor--saving': domainMetadataEditForm.$waiting,
+                               'text-input': true}"
+                                  e:form="domainMetadataEditForm">
+
+                                <span ng-if="specField.value">
+                                    {{specField.value}}
+                                </span>
+                                <span class="editable-empty" ng-if="! specField.value">
+                                    Unknown (click ✎ to add)
+                                </span>
+                            </span>
+                        </span>
+
+                        <span ng-switch-default>
+                            <button data-cy="it-edit-{{specField.name}}-button"
+                                    class="image-info__edit"
+                                    ng-if="ctrl.userCanEdit"
+                                    ng-click="domainMetadataEditForm.$show()"
+                                    ng-hide="domainMetadataEditForm.$visible"
+                            >✎</button>
+                            <span class="image-info__{{specField.name}}"
+                                  editable-text="specField.value"
+                                  ng-hide="domainMetadataEditForm.$visible"
+                                  onbeforesave="ctrl.updateDomainMetadataField(spec.name, specField.name, $data)"
+                                  e:ng-class="{'image-info__editor--error': $error,
+                               'image-info__editor--saving': domainMetadataEditForm.$waiting,
+                               'text-input': true}"
+                                  e:form="domainMetadataEditForm">
+
+                                <span ng-if="specField.value">
+                                    {{specField.value}}
+                                </span>
+                                <span class="editable-empty" ng-if="! specField.value">
+                                    Unknown (click ✎ to add)
+                                </span>
+                            </span>
+                        </span>
+                    </div>
+
+                </dd>
             </dl>
         </div>
     </div>

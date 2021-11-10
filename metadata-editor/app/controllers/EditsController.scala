@@ -155,10 +155,20 @@ class EditsController(
   def setMetadata(id: String) = (auth andThen authorisedForEditMetadataOrUploader(id)).async(parse.json) { req =>
     (req.body \ "data").validate[ImageMetadata].fold(
       errors => Future.successful(BadRequest(errors.toString())),
-      metadata =>
-        editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(metadata))
+      metadata => {
+        val specsAsMap = config.domainMetadataSpecs.groupBy(_.name).mapValues(_.flatMap(_.fields.map(_.name)))
+        val validatedDomainMetadata = metadata.domainMetadata
+          .filterKeys(specsAsMap.keySet)
+          .flatMap(specData => {
+            val fields = specsAsMap.getOrElse(specData._1, List())
+            Map(specData._1 -> specData._2.filterKeys(fields.toSet))
+          })
+
+        val validatedMetadata = metadata.copy(domainMetadata = validatedDomainMetadata)
+        editsStore.jsonAdd(id, Edits.Metadata, metadataAsMap(validatedMetadata))
           .map(publish(id, UpdateImageUserMetadata))
           .map(edits => respond(edits.metadata))
+      }
     )
   }
 

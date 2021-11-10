@@ -286,6 +286,31 @@ service.factory('editsService',
           .then(() => image.get());
     }
 
+    function updateDomainMetadataField (image, domainMetadataName, field, value) {
+        const domainMetadata = image.data.metadata.domainMetadata;
+
+        if (domainMetadata && domainMetadata[domainMetadataName] && domainMetadata[domainMetadataName][field] && domainMetadata[domainMetadataName][field] === value) {
+            /*
+            Nothing has changed.
+            */
+
+            return $q.when(false);
+        }
+
+        let proposedDomainMetadata = domainMetadata ? angular.copy(domainMetadata) : {};
+        // if model and field exists, update value
+        // else if model exists and field does not exist, add field and value else
+        if (domainMetadata && domainMetadata[domainMetadataName]) {
+            proposedDomainMetadata[domainMetadataName][field] = value;
+        } else {
+            proposedDomainMetadata[domainMetadataName] = { [field]: value };
+        }
+
+        const changed = getMetadataDiff(image, { ...image.data.metadata, domainMetadata: proposedDomainMetadata });
+
+        return update(image.data.userMetadata.data.metadata, changed, image).then(() => image.get());
+    }
+
     function getNewFieldValue(image, field, value, editOption) {
       switch (editOption) {
         case prepend.key:
@@ -307,7 +332,7 @@ service.factory('editsService',
 
     return {
         update, add, on, canUserEdit, updateMetadataFromUsageRights,
-        updateMetadataField, batchUpdateMetadataField
+        updateMetadataField, batchUpdateMetadataField, updateDomainMetadataField
     };
 
 }]);
