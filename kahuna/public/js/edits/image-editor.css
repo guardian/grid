@@ -6,3 +6,12 @@
     color: orange;
     font-size: 13px;
 }
+
+.undelete_button {
+    float: right;
+    padding: 0px;
+}
+
+.deleted_image_warning{
+  margin-top: 10px
+}

@@ -7,7 +7,7 @@
 
     <gr-top-bar-actions>
         <gr-delete-image class="top-bar-item clickable"
-                         ng-if="ctrl.canBeDeleted"
+                         ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"
                          images="[ctrl.image]">
         </gr-delete-image>
 

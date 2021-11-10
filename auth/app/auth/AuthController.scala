@@ -3,16 +3,16 @@ package auth
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, UserPrincipal}
-import com.gu.mediaservice.lib.auth.Permissions.{ShowPaid, UploadImages}
+import com.gu.mediaservice.lib.auth.Permissions.{DeleteImage, ShowPaid, UploadImages}
 import com.gu.mediaservice.lib.auth.provider.{AuthenticationProviders, LocalAuthenticationProvider}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
 import com.gu.pandomainauth.service.CookieUtils
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
-
 import java.net.URI
 import java.util.Date
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -48,6 +48,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
   def session = auth { request =>
     val showPaid = authorisation.hasPermissionTo(ShowPaid)(request.user)
     val canUpload = authorisation.hasPermissionTo(UploadImages)(request.user)
+    val canDelete = authorisation.hasPermissionTo(DeleteImage)(request.user)
     request.user match {
       case UserPrincipal(firstName, lastName, email, _) =>
 
@@ -61,7 +62,8 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
               "permissions" ->
                 Json.obj(
                   "showPaid" -> showPaid,
-                  "canUpload" -> canUpload
+                  "canUpload" -> canUpload,
+                  "canDelete" -> canDelete,
                 )
             )
           )

@@ -51,17 +51,23 @@ object ImageDataMerger extends LazyLogging {
     // Start these futures outside of the for-comprehension to allow them to run in parallel
     val collectionsF = gridClient.getCollections(mediaId, authFunction)
     val editsF = gridClient.getEdits(mediaId, authFunction)
+    val imageStatusF = gridClient.getSoftDeletedMetadata(mediaId, authFunction)
     val leasesF = gridClient.getLeases(mediaId, authFunction)
     val usagesF = gridClient.getUsages(mediaId, authFunction)
     val cropsF = gridClient.getCrops(mediaId, authFunction)
     for {
       collections <- collectionsF
       edits <- editsF
+      softDeletedMetadata <- imageStatusF
       leases <- leasesF
       usages <- usagesF
       crops <- cropsF
     } yield {
       val updatedImage = image.copy(
+        softDeletedMetadata = softDeletedMetadata.flatMap(meta => meta.isDeleted match {
+          case true => Some(SoftDeletedMetadata(DateTime.parse(meta.deleteTime), meta.deletedBy))
+          case false => None
+        }),
         collections = collections,
         userMetadata = edits,
         leases = leases,

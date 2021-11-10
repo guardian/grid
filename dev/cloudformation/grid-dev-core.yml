@@ -239,6 +239,20 @@ Resources:
         AttributeName: expires
         Enabled: true
 
+  SoftDeletedMetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: SoftDeletedMetadataTable
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
 Outputs:
   ImageBucket:
     Value: !Ref 'ImageBucket'
@@ -282,3 +296,5 @@ Outputs:
     Value: !Ref 'PreviewContentPollTable'
   UploadStatusTable:
     Value: !Ref 'UploadStatusTable'
+  SoftDeletedMetadataTable:
+    Value: !Ref 'SoftDeletedMetadataTable'
