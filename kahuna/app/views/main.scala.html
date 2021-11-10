@@ -15,7 +15,8 @@
   staffPhotographerOrganisation: String,
   homeLinkHtml: Option[String],
   systemName: String,
-  canDownloadCrop: Boolean
+  canDownloadCrop: Boolean,
+  domainMetadataSpecs: String
 )
 <!DOCTYPE html>
 <html>
@@ -57,7 +58,8 @@
           fieldAliases: @Html(fieldAliases),
           homeLinkHtml: '@Html(homeLinkHtml.getOrElse(""))',
           systemName: "@Html(systemName)",
-          canDownloadCrop: @canDownloadCrop
+          canDownloadCrop: @canDownloadCrop,
+          domainMetadataSpecs: @Html(domainMetadataSpecs)
         }
     </script>
 

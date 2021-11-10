@@ -4,7 +4,7 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{DenyUseLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import org.joda.time.{DateTime, Period}
-import play.api.libs.json.{JsArray, JsNumber, JsString}
+import play.api.libs.json.{JsArray, JsNumber, JsString, JsValue}
 
 import java.net.{URI, URL}
 
@@ -41,7 +41,13 @@ object MappingTest {
     state = Some("California"),
     country = Some("USA"),
     subjects = List("Bill", "Friends"),
-    peopleInImage = Set("Bill", "Friends", "Other friends")
+    peopleInImage = Set("Bill", "Friends", "Other friends"),
+    domainMetadata = Map(
+      "important-domain" -> Map(
+        "foo" -> JsString("bar"),
+        "size" -> JsNumber(12345)
+      )
+    )
   )
 
   private val testAsset: Asset = Asset(
