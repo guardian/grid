@@ -5,7 +5,7 @@ import lib.imaging.FileMetadataReader
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{FunSpec, Matchers}
-import play.api.libs.json.{JsArray, JsString, JsValue}
+import play.api.libs.json.{JsArray, JsString, JsValue, Json}
 
 /**
  * Test that the Reader returns the expected FileMetadata.
@@ -124,6 +124,23 @@ class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
       sameMaps(metadata.exifSub, Map())
       sameMaps(metadata.getty, getty)
       sameMaps(metadata.xmp, xmp)
+    }
+  }
+
+  it("should 'redact' any long 'icc' fields") {
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("longICC.png"), "dummy")
+    whenReady(metadataFuture) { metadata =>
+      metadata.icc("Color space") should be("RGB")
+      metadata.icc("Blue TRC") should be(FileMetadataReader.redactionReplacementValue)
+    }
+  }
+
+  it("should 'redact' any long 'xmp' fields") {
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("longXMP.jpg"), "dummy")
+    whenReady(metadataFuture) { metadata =>
+      println(metadata.xmp)
+      metadata.xmp("photoshop:Instructions") should be(JsString(FileMetadataReader.redactionReplacementValue))
+      metadata.xmp("dc:publisher") should be(Json.toJson(List("Gu Grid Tests")))
     }
   }
 
