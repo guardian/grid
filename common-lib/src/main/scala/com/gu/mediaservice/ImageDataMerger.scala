@@ -55,6 +55,7 @@ object ImageDataMerger extends LazyLogging {
     val leasesF = gridClient.getLeases(mediaId, authFunction)
     val usagesF = gridClient.getUsages(mediaId, authFunction)
     val cropsF = gridClient.getCrops(mediaId, authFunction)
+    val syndicationRightsF = gridClient.getSyndicationRights(mediaId, authFunction)
     for {
       collections <- collectionsF
       edits <- editsF
@@ -62,6 +63,7 @@ object ImageDataMerger extends LazyLogging {
       leases <- leasesF
       usages <- usagesF
       crops <- cropsF
+      syndicationRights <- syndicationRightsF
     } yield {
       val updatedImage = image.copy(
         softDeletedMetadata = softDeletedMetadata.flatMap(meta => meta.isDeleted match {
@@ -74,7 +76,8 @@ object ImageDataMerger extends LazyLogging {
         usages = usages,
         exports = crops,
         metadata = ImageDataMerger.mergeMetadata(edits, image.metadata),
-        usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
+        usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights),
+        syndicationRights = syndicationRights
       )
       val inferredLastModified = ImageDataMerger.inferLastModifiedDate(updatedImage)
       updatedImage.copy(
