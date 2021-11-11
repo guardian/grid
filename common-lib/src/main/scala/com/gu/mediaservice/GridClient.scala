@@ -1,10 +1,9 @@
 package com.gu.mediaservice
 
 import java.net.URL
-
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SyndicationRights}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -97,6 +96,7 @@ object GridClient extends LazyLogging {
 }
 
 class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLogging {
+
 
   def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest)
                          (implicit ec: ExecutionContext): Future[Response] = {
@@ -225,6 +225,15 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
       case Found(json, _) => (json \ "data" \ "metadata").as[ImageMetadata]
       case nf@NotFound(_, _) => Error(nf.status, url, nf.underlying).logErrorAndThrowException()
       case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
+  def getSyndicationRights(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
+    val url = new URL(s"${services.metadataBaseUri}/metadata/$mediaId/syndication")
+    makeGetRequestAsync(url, authFn) map {
+      case Found(json, _) => Some((json \ "data").as[SyndicationRights])
+      case _: NotFound => None
+      case e: Error => e.logErrorAndThrowException()
     }
   }
 
