@@ -4,7 +4,7 @@ import akka.stream.scaladsl.Source
 import akka.stream.{Attributes, Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.elasticsearch.InProgress
+import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
@@ -61,6 +61,7 @@ object MigrationSourceWithSender extends GridLogging {
 
           _ => {
             val nextIdsToMigrate = ((es.migrationStatus, maybeScrollId) match {
+              case (Paused(_), _) => Future.successful(List.empty)
               case (InProgress(migrationIndexName), None) =>
                 es.startScrollingImageIdsToMigrate(migrationIndexName).map(handleScrollResponse)
               case (InProgress(_), Some(scrollId)) =>
@@ -84,6 +85,7 @@ object MigrationSourceWithSender extends GridLogging {
         })
         .filter(_ => {
           es.migrationStatus match {
+            case Paused(_) => false
             case InProgress(_) => true
             case _ => false
           }

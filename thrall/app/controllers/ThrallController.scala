@@ -3,26 +3,22 @@ package controllers
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.QueueOfferResult
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.lib.elasticsearch.InProgress
-import lib.{FailedMigrationDetails, OptionalFutureRunner}
+import com.gu.mediaservice.lib.elasticsearch.Running
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.CreateMigrationIndexMessage
-import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
+import com.gu.mediaservice.model.{CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
+import lib.OptionalFutureRunner
 import lib.elasticsearch.ElasticSearch
+import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
-import org.joda.time.{DateTime, DateTimeZone}
-import play.api.mvc.ControllerComponents
 
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 case class MigrateSingleImageForm(id: String)
 
@@ -59,7 +55,8 @@ class ThrallController(
         migrationIndex = migrationIndexName,
         migrationIndexCount = migrationIndexCountFormatted,
         migrateSingleImageForm = migrateSingleImageForm,
-        migrationStatusProviderValue = es.migrationStatus.toString
+        migrationStatusProviderValue = es.migrationStatus.toString,
+        isMigrationRunning = es.migrationStatus.isInstanceOf[Running]
       ))
     }
   }
@@ -73,8 +70,8 @@ class ThrallController(
       Future.successful(BadRequest(s"Value for page parameter should be >= 1"))
     } else {
       es.migrationStatus match {
-        case InProgress(migrationIndexName) =>
-          es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, from, pageSize).map(failures =>
+        case running: Running =>
+          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, from, pageSize).map(failures =>
             Ok(views.html.migrationFailures(
               apiBaseUrl = services.apiBaseUri,
               uiBaseUrl = services.kahunaBaseUri,

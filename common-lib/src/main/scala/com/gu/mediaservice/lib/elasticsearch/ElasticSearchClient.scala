@@ -67,8 +67,14 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
   }
 
-  def getIndexForAlias(alias: String)(implicit logMarker: LogMarker = MarkerMap()): Future[Option[Index]] = {
-    executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
+  case class IndexWithAliases(name: String, aliases: Seq[String])
+  def getIndexForAlias(alias: String)(implicit logMarker: LogMarker = MarkerMap()): Future[Option[IndexWithAliases]] = {
+    executeAndLog(getAliases(alias, Nil), s"Looking up index for alias '$alias'").map(_.result.mappings.headOption.map{
+      case (index, aliases) => IndexWithAliases(
+        name = index.name,
+        aliases = aliases.map(_.name),
+      )
+    })
   }
 
   def countImages(indexName: String = "images"): Future[ElasticSearchImageCounts] = {

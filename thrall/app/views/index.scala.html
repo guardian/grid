@@ -8,6 +8,7 @@
   migrationIndexCount: String,
   migrateSingleImageForm: Form[MigrateSingleImageForm],
   migrationStatusProviderValue: String,
+  isMigrationRunning: Boolean
 )
 
 @migrationIndexCell = {
@@ -59,7 +60,7 @@
     <pre>@migrationStatusProviderValue</pre>
     <em>Note that the above represents the value at the point this page was loaded.</em>
 
-    @if(migrationStatusProviderValue.startsWith("InProgress")) {
+    @if(isMigrationRunning) {
         <p><a href="@routes.ThrallController.migrationFailures(None)">View images that have failed to migrate and retry.</a></p>
     }
 </body>
