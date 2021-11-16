@@ -27,19 +27,21 @@ object StatusRefreshError {
   }
 }
 
+object MigrationStatusProvider {
+  val PAUSED_ALIAS = "MIGRATION_PAUSED"
+}
+
 trait MigrationStatusProvider {
   self: ElasticSearchClient =>
 
   def scheduler: Scheduler
-
-  val PAUSED_ALIAS = "MIGRATION_PAUSED"
 
   private val migrationStatusRef = new AtomicReference[MigrationStatus](fetchMigrationStatus(bubbleErrors = true))
 
   private def fetchMigrationStatus(bubbleErrors: Boolean): MigrationStatus = {
     val statusFuture = getIndexForAlias(imagesMigrationAlias)
       .map {
-        case Some(index) if index.aliases.contains(PAUSED_ALIAS) => Paused(index.name)
+        case Some(index) if index.aliases.contains(MigrationStatusProvider.PAUSED_ALIAS) => Paused(index.name)
         case Some(index) => InProgress(index.name)
         case None => NotRunning
       }

@@ -52,11 +52,8 @@ class ThrallController(
         currentIndex = currentIndexName.getOrElse("ERROR - No index found! Please investigate this!"),
         currentIndexCount = currentIndexCountFormatted,
         migrationAlias = es.imagesMigrationAlias,
-        migrationIndex = migrationIndexName,
         migrationIndexCount = migrationIndexCountFormatted,
-        migrateSingleImageForm = migrateSingleImageForm,
-        migrationStatusProviderValue = es.migrationStatus.toString,
-        isMigrationRunning = es.migrationStatus.isInstanceOf[Running]
+        migrationStatus = es.migrationStatus
       ))
     }
   }
@@ -76,8 +73,7 @@ class ThrallController(
               apiBaseUrl = services.apiBaseUri,
               uiBaseUrl = services.kahunaBaseUri,
               page = page,
-              failures = failures,
-              migrateSingleImageForm = migrateSingleImageForm
+              failures = failures
             ))
           )
         case _ => Future.successful(Ok("No current migration"))
@@ -124,8 +120,20 @@ class ThrallController(
     }
   }
 
+  def pauseMigration = withLoginRedirect {
+    es.pauseMigration
+    es.refreshAndRetrieveMigrationStatus()
+    Redirect(routes.ThrallController.index)
+  }
+
+  def resumeMigration = withLoginRedirect {
+    es.resumeMigration
+    es.refreshAndRetrieveMigrationStatus()
+    Redirect(routes.ThrallController.index)
+  }
+
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
-    val imageId = migrateSingleImageForm.bindFromRequest.get.id
+    val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
 
     val migrateImageMessage = (
       for {
@@ -143,7 +151,7 @@ class ThrallController(
     })
   }
 
-  val migrateSingleImageForm: Form[MigrateSingleImageForm] = Form(
+  val migrateSingleImageFormReader: Form[MigrateSingleImageForm] = Form(
     mapping(
       "id" -> text
     )(MigrateSingleImageForm.apply)(MigrateSingleImageForm.unapply)

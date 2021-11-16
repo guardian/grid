@@ -7,7 +7,10 @@ GET     /migrationFailures                            controllers.ThrallControll
 
 +nocsrf
 POST    /startMigration                               controllers.ThrallController.startMigration
-
++nocsrf
+POST    /pauseMigration                               controllers.ThrallController.pauseMigration
++nocsrf
+POST    /resumeMigration                               controllers.ThrallController.resumeMigration
 +nocsrf
 POST    /migrate                                      controllers.ThrallController.migrateSingleImage
 
