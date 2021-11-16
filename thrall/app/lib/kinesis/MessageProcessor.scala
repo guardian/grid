@@ -1,7 +1,7 @@
 package lib.kinesis
 
 import com.gu.mediaservice.lib.aws.EsResponse
-import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, InProgress}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
 import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, UnSoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
@@ -98,7 +98,7 @@ class MessageProcessor(
       case failure: MigrationFailure =>
         logger.error(logMarker, s"Failed to migrate image with id: ${message.id}: cause: ${failure.getMessage}, attaching failure to document in current index")
         val migrationIndexName = es.migrationStatus match {
-          case InProgress(migrationIndexName) => migrationIndexName
+          case running: Running => running.migrationIndexName
           case _ => "Unknown migration index name"
         }
         es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationInfo(failures = Some(Map(migrationIndexName -> failure.getMessage))))

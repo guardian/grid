@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, MigrationAlreadyRunningError, MigrationStatusProvider, NotRunning}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, InProgress, MigrationAlreadyRunningError, MigrationStatusProvider, NotRunning, Paused}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl
@@ -41,6 +41,28 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     val close = clearScroll(scrollId)
     executeAndLog(close, s"Closing unwanted scroll").failed.foreach { e =>
       logger.error(logMarker, "ES closeScroll request failed", e)
+    }
+  }
+
+  def pauseMigration: Unit = {
+    val currentStatus = refreshAndRetrieveMigrationStatus()
+    currentStatus match {
+      case InProgress(migrationIndexName) =>
+        assignAliasTo(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
+      case _ =>
+        logger.error(s"Could not pause migration when migration status is $currentStatus")
+        throw new MigrationAlreadyRunningError
+    }
+  }
+
+  def resumeMigration: Unit = {
+    val currentStatus = refreshAndRetrieveMigrationStatus()
+    currentStatus match {
+      case Paused(migrationIndexName) =>
+        removeAliasFrom(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
+      case _ =>
+        logger.error( s"Could not resume migration when migration status is $currentStatus")
+        throw new MigrationAlreadyRunningError
     }
   }
 

@@ -3,7 +3,7 @@ package lib.elasticsearch
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, InProgress, MigrationStatusProvider}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, Image}
@@ -80,9 +80,9 @@ class ElasticSearch(
       }
     }
     migrationStatus match {
-      case InProgress(migrationIndexName) => executeAndLog(
-        request = requestFromIndexName(migrationIndexName),
-        message = s"get $logMessagePart by id $id from migration index $migrationIndexName"
+      case running: Running => executeAndLog(
+        request = requestFromIndexName(running.migrationIndexName),
+        message = s"get $logMessagePart by id $id from migration index ${running.migrationIndexName}"
       ).flatMap { r =>
         r.status match {
           case Status.OK => Future.successful(resultTransformer(r.result))
@@ -308,11 +308,11 @@ class ElasticSearch(
 
   private def prepareSearch(query: Query): SearchRequest = {
     val indexes = migrationStatus match {
-      case InProgress(migrationIndexName) => List(imagesCurrentAlias, migrationIndexName)
+      case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
     }
     val migrationAwareQuery = migrationStatus match {
-      case InProgress(migrationIndexName) => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", migrationIndexName)))
+      case running: Running => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
       case _ => query
     }
     val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery

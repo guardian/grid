@@ -1,30 +1,34 @@
 @import helper._
+@import com.gu.mediaservice.lib.elasticsearch.MigrationStatus
+@import com.gu.mediaservice.lib.elasticsearch.Running
 
+@import com.gu.mediaservice.lib.elasticsearch.InProgress
+@import com.gu.mediaservice.lib.elasticsearch.Paused
+@import com.gu.mediaservice.lib.elasticsearch.NotRunning
 @(currentAlias: String,
   currentIndex: String,
   currentIndexCount: String,
   migrationAlias: String,
-  migrationIndex: Option[String],
   migrationIndexCount: String,
-  migrateSingleImageForm: Form[MigrateSingleImageForm],
-  migrationStatusProviderValue: String,
+  migrationStatus: MigrationStatus
 )
 
 @migrationIndexCell = {
-    @migrationIndex match {
-        case Some(indexName) => {
-            @indexName
+    @migrationStatus match {
+        case running: Running => {
+            @running.migrationIndexName
             @form(action = routes.ThrallController.migrateSingleImage){
                 <label for="id">Image ID:</label>
                 <input type="text" id="id" name="id">
                 <input type="submit" value="Migrate single image">
             }
         }
-        case None => {
+        case NotRunning => {
             @form(routes.ThrallController.startMigration) {
                 <input type="submit" value="Start migration">
             }
         }
+        case _ => {}
     }
 }
 
@@ -51,15 +55,31 @@
         <tr>
             <td>@migrationAlias</td>
             <td>@migrationIndexCell</td>
-            <td>@migrationIndexCount</td>
+            <td>
+                @migrationIndexCount
+                @migrationStatus match {
+                    case Paused(_) => {
+                        @form(routes.ThrallController.resumeMigration) {
+                            PAUSED
+                            <input type="submit" value="Resume">
+                        }
+                    }
+                    case InProgress(_) => {
+                        @form(routes.ThrallController.pauseMigration) {
+                            <input type="submit" value="Pause">
+                        }
+                    }
+                    case _ => {}
+                }
+            </td>
         </tr>
     </table>
 
     <h2>MigrationStatus (from the MigrationStatusProvider, a.k.a. 'migration status refresher')</h2>
-    <pre>@migrationStatusProviderValue</pre>
+    <pre>@migrationStatus</pre>
     <em>Note that the above represents the value at the point this page was loaded.</em>
 
-    @if(migrationStatusProviderValue.startsWith("InProgress")) {
+    @if(migrationStatus.isInstanceOf[Running]) {
         <p><a href="@routes.ThrallController.migrationFailures(None)">View images that have failed to migrate and retry.</a></p>
     }
 </body>

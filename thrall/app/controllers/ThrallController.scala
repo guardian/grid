@@ -3,26 +3,22 @@ package controllers
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import akka.stream.QueueOfferResult
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.lib.elasticsearch.InProgress
-import lib.{FailedMigrationDetails, OptionalFutureRunner}
+import com.gu.mediaservice.lib.elasticsearch.Running
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.CreateMigrationIndexMessage
-import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
+import com.gu.mediaservice.model.{CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
+import lib.OptionalFutureRunner
 import lib.elasticsearch.ElasticSearch
+import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
-import org.joda.time.{DateTime, DateTimeZone}
-import play.api.mvc.ControllerComponents
 
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 case class MigrateSingleImageForm(id: String)
 
@@ -56,10 +52,8 @@ class ThrallController(
         currentIndex = currentIndexName.getOrElse("ERROR - No index found! Please investigate this!"),
         currentIndexCount = currentIndexCountFormatted,
         migrationAlias = es.imagesMigrationAlias,
-        migrationIndex = migrationIndexName,
         migrationIndexCount = migrationIndexCountFormatted,
-        migrateSingleImageForm = migrateSingleImageForm,
-        migrationStatusProviderValue = es.migrationStatus.toString
+        migrationStatus = es.migrationStatus
       ))
     }
   }
@@ -73,14 +67,13 @@ class ThrallController(
       Future.successful(BadRequest(s"Value for page parameter should be >= 1"))
     } else {
       es.migrationStatus match {
-        case InProgress(migrationIndexName) =>
-          es.getMigrationFailures(es.imagesCurrentAlias, migrationIndexName, from, pageSize).map(failures =>
+        case running: Running =>
+          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, from, pageSize).map(failures =>
             Ok(views.html.migrationFailures(
               apiBaseUrl = services.apiBaseUri,
               uiBaseUrl = services.kahunaBaseUri,
               page = page,
-              failures = failures,
-              migrateSingleImageForm = migrateSingleImageForm
+              failures = failures
             ))
           )
         case _ => Future.successful(Ok("No current migration"))
@@ -127,8 +120,20 @@ class ThrallController(
     }
   }
 
+  def pauseMigration = withLoginRedirect {
+    es.pauseMigration
+    es.refreshAndRetrieveMigrationStatus()
+    Redirect(routes.ThrallController.index)
+  }
+
+  def resumeMigration = withLoginRedirect {
+    es.resumeMigration
+    es.refreshAndRetrieveMigrationStatus()
+    Redirect(routes.ThrallController.index)
+  }
+
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
-    val imageId = migrateSingleImageForm.bindFromRequest.get.id
+    val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
 
     val migrateImageMessage = (
       for {
@@ -146,7 +151,7 @@ class ThrallController(
     })
   }
 
-  val migrateSingleImageForm: Form[MigrateSingleImageForm] = Form(
+  val migrateSingleImageFormReader: Form[MigrateSingleImageForm] = Form(
     mapping(
       "id" -> text
     )(MigrateSingleImageForm.apply)(MigrateSingleImageForm.unapply)

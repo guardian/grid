@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, InProgress}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Running}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -56,7 +56,7 @@ class ElasticSearch(
     // Update requests to the alias throw if the alias does not exist, but the exception is very generic and not cause is not obvious
     // ("index names must be all upper case")
     val runForMigrationIndex: Future[Option[Response[UpdateResponse]]] = migrationStatus match {
-      case InProgress(_) => executeAndLog(requestFromIndexName(imagesMigrationAlias), logMessageFromIndexName(imagesMigrationAlias), notFoundSuccessful = true).map(Some(_))
+      case _: Running => executeAndLog(requestFromIndexName(imagesMigrationAlias), logMessageFromIndexName(imagesMigrationAlias), notFoundSuccessful = true).map(Some(_))
       case _ => Future.successful(None)
     }
     // remove the optionality of the completed futures. runForCurrentIndex will always be Some, so there will always be a head.
@@ -355,7 +355,7 @@ class ElasticSearch(
     )
 
     (migrationStatus match {
-      case InProgress(migrationIndexName) => List(imagesCurrentAlias, migrationIndexName)
+      case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
     }).map { index =>
       deleteFromIndex(id, index, deletableImage).map { _ => ElasticSearchDeleteResponse() }
