@@ -9,8 +9,7 @@ templates:
     type: autoscaling
     parameters:
       bucket: media-service-dist
-    dependencies:
-      - app-ami-update
+    dependencies: [app-ami-update, media-service-fluentbit]
 
   usage-autoscaling:
     type: autoscaling
@@ -121,3 +120,9 @@ deployments:
         PROD:
           filename: s3watcher.zip
           name: media-service-PROD-S3WatcherLamdbaFunction-11VPCX7ETKU5O
+
+  media-service-fluentbit:
+    type: aws-s3
+    parameters:
+      bucket: media-service-dist
+      cacheControl: private
