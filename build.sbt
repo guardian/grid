@@ -52,7 +52,9 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
       // pull in s3watcher build
       file("s3watcher/lambda/target/s3watcher.zip") -> "s3watcher/s3watcher.zip",
-      file("riff-raff.yaml") -> "riff-raff.yaml"
+      file("riff-raff.yaml") -> "riff-raff.yaml",
+      file("fluentbit/td-agent-bit.conf") -> "media-service-fluentbit/td-agent-bit.conf",
+      file("fluentbit/parsers.conf") -> "media-service-fluentbit/parsers.conf"
     )
   )
 
@@ -99,7 +101,7 @@ lazy val commonLib = project("common-lib").settings(
     "org.scalaz.stream" %% "scalaz-stream" % "0.8.6",
     "org.im4java" % "im4java" % "1.4.0",
     "com.gu" % "kinesis-logback-appender" % "1.4.2",
-    "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
+    "net.logstash.logback" % "logstash-logback-encoder" % "6.6",
     "com.typesafe.play" %% "play-logback" % "2.6.15", // needed when running the scripts
     "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
     "org.scalacheck" %% "scalacheck" % "1.14.0",
