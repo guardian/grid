@@ -24,13 +24,11 @@ archiver.controller('ArchiverCtrl',
     ctrl.unarchive = unarchive;
     ctrl.archiving = false;
     ctrl.canUndelete = false;
-    ctrl.isDeleted = false;
 
     ctrl.undelete = undelete;
 
     mediaApi.getSession().then(session => {
         if (ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
-        if (ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
     });
 
     mediaApi.canUserArchive().then(canArchive => {
@@ -74,6 +72,7 @@ archiver.directive('grArchiverStatus', [function() {
         controllerAs: 'ctrl',
         scope: {
             image: '=',
+            isDeleted: '=',
             readonly: '='
         },
         bindToController: true,

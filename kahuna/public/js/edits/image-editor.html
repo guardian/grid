@@ -78,9 +78,18 @@
                    <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon>
                 </a>
             </div>
+            <a ng-if="ctrl.canUndelete && ctrl.isDeleted"
+               type="button"
+               class="gr-archiver-status__button inner-clickable  gr-archiver-status--archived"
+               title="Undelete"
+               ng-click="ctrl.undelete()">
+                <gr-library-add-icon class="gr-archiver-status__icon"></gr-library-add-icon>
+            </a>
 
-            <gr-archiver-status class="result-editor__archiver"
-                                image="ctrl.image">
+
+            <gr-archiver-status ng-if="!ctrl.isDeleted" class="result-editor__archiver"
+                                image="ctrl.image"
+                                isDeleted="ctrl.isDeleted">
             </gr-archiver-status>
         </div>
 
