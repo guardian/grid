@@ -9,7 +9,9 @@ templates:
     type: autoscaling
     parameters:
       bucket: media-service-dist
-    dependencies: [app-ami-update, media-service-fluentbit]
+    dependencies:
+      - app-ami-update
+      - media-service-fluentbit
 
   usage-autoscaling:
     type: autoscaling
@@ -17,6 +19,9 @@ templates:
     contentDirectory: usage
     parameters:
       bucket: media-service-dist
+    dependencies:
+      - app-ami-update
+      - media-service-fluentbit
 
   usage-deploy:
     template: usage-autoscaling
@@ -61,8 +66,6 @@ deployments:
     template: usage-autoscaling
     actions:
       - uploadArtifacts
-    dependencies:
-      - app-ami-update
 
   usage-api:
     template: usage-deploy
