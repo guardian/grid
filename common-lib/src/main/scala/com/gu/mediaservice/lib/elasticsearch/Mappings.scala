@@ -292,7 +292,7 @@ object Mappings {
     dateField("startDate"),
     dateField("endDate"),
     keywordField("access"),
-    keywordField("active"),
+    keywordField("active"), //TODO should probably not be stored in ES, as its a snapshot in time rather than a calculated field
     sStemmerAnalysed("notes"),
     keywordField("mediaId"),
     dateField("createdAt")
