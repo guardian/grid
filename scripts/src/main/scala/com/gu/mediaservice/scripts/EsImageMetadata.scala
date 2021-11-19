@@ -1,20 +1,16 @@
 package com.gu.mediaservice.scripts
 
-import ch.qos.logback.classic.{Level, Logger}
+import com.sksamuel.elastic4s.ElasticClient
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.{ElasticClient, Response}
-import com.sksamuel.elastic4s.requests.indexes.GetIndexResponse
 import com.sksamuel.elastic4s.requests.searches.{SearchHit, SearchResponse}
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream
-import org.slf4j.LoggerFactory
 import play.api.libs.json._
-import java.io.{BufferedWriter, File, FileOutputStream, OutputStreamWriter, Writer}
+
+import java.io.{BufferedWriter, File, FileOutputStream, OutputStreamWriter}
 import java.util.concurrent.TimeUnit
-
 import scala.annotation.tailrec
-
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.{Await, Future}
 
 object EsImageMetadata extends EsScript {
   override def run(esUrl: String, args: List[String]): Unit = {

@@ -1,15 +1,16 @@
 package com.gu.mediaservice.scripts
 
-import java.util.concurrent.TimeUnit
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, Mappings}
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.handlers.index.GetIndexResponse
 import com.sksamuel.elastic4s.requests.bulk.BulkResponse
-import com.sksamuel.elastic4s.requests.indexes.{GetIndexResponse, IndexRequest}
+import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.searches.{SearchHit, SearchResponse}
-import com.sksamuel.elastic4s.{Indexes, IndexesAndType, IndexesAndTypes, Response}
+import com.sksamuel.elastic4s.{Indexes, Response}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.{Duration, FiniteDuration, SECONDS}
 import scala.concurrent.{Await, Future}
@@ -202,7 +203,7 @@ object UpdateMapping extends EsScript {
 
         val result = client.execute {
           putMapping(Indexes(index)) as {
-            Mappings.imageMapping.fields
+            Mappings.imageMapping.properties
           }
         }.await
 

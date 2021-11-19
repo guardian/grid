@@ -3,17 +3,19 @@ package lib.elasticsearch
 import com.gu.mediaservice.model.{Agency, UsageRights}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.requests.common.Operator
-import com.sksamuel.elastic4s.requests.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries._
-import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhrase, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
-import com.sksamuel.elastic4s.requests.searches.queries.term.{TermQuery, TermsQuery}
+import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax.Negation
 import org.scalatest.{FunSpec, Matchers}
 import com.gu.mediaservice.lib.config.GridConfigResources
+import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
+import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
 import lib.MediaApiConfig
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with Fixtures {
@@ -50,16 +52,16 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
       val query = queryBuilder.makeQuery(conditions).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 1
-      query.must.head.asInstanceOf[MatchPhrase].field shouldBe "afield"
-      query.must.head.asInstanceOf[MatchPhrase].value shouldBe "avalue"
+      query.must.head.asInstanceOf[MatchPhraseQuery].field shouldBe "afield"
+      query.must.head.asInstanceOf[MatchPhraseQuery].value shouldBe "avalue"
     }
 
     it("multiple conditions should give multiple must conditions") {
       val query = queryBuilder.makeQuery(List(fieldPhraseMatchCondition, anotherFieldPhraseMatchCondition)).asInstanceOf[BoolQuery]
 
       query.must.size shouldBe 2
-      query.must(0).asInstanceOf[MatchPhrase].field shouldBe "afield"
-      query.must(1).asInstanceOf[MatchPhrase].field shouldBe "anotherfield"
+      query.must(0).asInstanceOf[MatchPhraseQuery].field shouldBe "afield"
+      query.must(1).asInstanceOf[MatchPhraseQuery].field shouldBe "anotherfield"
     }
 
     it("negated conditions should be expressed using must not clauses") {
@@ -68,8 +70,8 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
       val query = queryBuilder.makeQuery(List(negatedCondition)).asInstanceOf[BoolQuery]
 
       query.not.size shouldBe 1
-      query.not.head.asInstanceOf[MatchPhrase].field shouldBe "afield"
-      query.not.head.asInstanceOf[MatchPhrase].value shouldBe "avalue"
+      query.not.head.asInstanceOf[MatchPhraseQuery].field shouldBe "afield"
+      query.not.head.asInstanceOf[MatchPhraseQuery].value shouldBe "avalue"
     }
 
     it("word list matches should set the AND operator so that all words need to match") {
@@ -247,6 +249,7 @@ class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with
     }
   }
 
+  @nowarn("cat=deprecation") // TODO QueryBuilderFn.bytes is deprecated but no upgrade path given
   def asJsonString(query: Query) = {
     new String(QueryBuilderFn.apply(query).bytes)
   }

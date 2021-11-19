@@ -1,9 +1,9 @@
 package com.gu.mediaservice.lib.elasticsearch
 
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.fields.{DynamicField, KeywordField, NestedField, ObjectField}
+import com.sksamuel.elastic4s.requests.mappings.MappingDefinition
 import com.sksamuel.elastic4s.requests.mappings.dynamictemplate.{DynamicMapping, DynamicTemplateRequest}
-import com.sksamuel.elastic4s.requests.mappings.{FieldDefinition, MappingDefinition, NestedField, ObjectField}
-import org.yaml.snakeyaml.introspector.FieldProperty
 import play.api.libs.json.{JsObject, Json}
 
 object Mappings {
@@ -21,22 +21,33 @@ object Mappings {
       // Unicode characters require more than 1 byte so allow some head room
       val maximumStringLengthToStore = (maximumBytesOfKeywordInUnderlyingLuceneIndex * .9).toInt
 
-      dynamicTemplate("file_metadata_fields_as_keywords").
-        mapping(dynamicKeywordField().index(true).store(true).ignoreAbove(maximumStringLengthToStore)).
-        pathMatch("fileMetadata.*").matchMappingType("string")
+      DynamicTemplateRequest(
+        name = "file_metadata_fields_as_keywords",
+        mapping = KeywordField(
+          name = "",
+          index = Some(true),
+          store = Some(true),
+          ignoreAbove = Some(maximumStringLengthToStore)
+        )
+      ).pathMatch("fileMetadata.*").matchMappingType("string")
     }
 
     def storedJsonObjectTemplate: DynamicTemplateRequest = {
-      dynamicTemplate("stored_json_object_template").
-        mapping(dynamicType().index(true).store(true)).
-        pathMatch("fileMetadata.*")
+      DynamicTemplateRequest(
+        name = "stored_json_object_template",
+        mapping = DynamicField(
+          name = "",
+          index = Some(true),
+          store = Some(true)
+        )
+      ).pathMatch("fileMetadata.*")
     }
 
     MappingDefinition(
       dynamic = Some(DynamicMapping.Strict),
       dateDetection = Some(false),
       templates = Seq(filemetaDataStringsAsKeyword, storedJsonObjectTemplate),
-      fields = List(
+      properties = List(
         keywordField("id"),
         metadataMapping("metadata"),
         metadataMapping("originalMetadata"),
@@ -68,43 +79,43 @@ object Mappings {
     )
   }
 
-  def dimensionsMapping(name: String) = nonDynamicObjectField(name).fields(
+  def dimensionsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     intField("width"),
     intField("height")
-  )
+  ))
 
-  def assetMapping(name: String) = nonDynamicObjectField(name).fields(
+  def assetMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     nonIndexedString("file"),
     nonIndexedString("secureUrl"),
     intField("size"),
     keywordField("mimeType"),
     dimensionsMapping("dimensions")
-  )
+  ))
 
-  def metadataMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def metadataMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     dateField("dateTaken"),
     sStemmerAnalysed("description"),
-    standardAnalysed("byline").copyTo("metadata.englishAnalysedCatchAll"),
+    standardAnalysed("byline").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     standardAnalysed("bylineTitle"),
     sStemmerAnalysed("title"),
-    keywordField("credit").copyTo("metadata.englishAnalysedCatchAll"),
+    keywordField("credit").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     keywordField("creditUri"),
     standardAnalysed("copyright"),
-    standardAnalysed("suppliersReference").copyTo("metadata.englishAnalysedCatchAll"),
-    keywordField("source").copyTo("metadata.englishAnalysedCatchAll"),
-    nonAnalysedList("keywords").copyTo("metadata.englishAnalysedCatchAll"),
+    standardAnalysed("suppliersReference").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
+    keywordField("source").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
+    nonAnalysedList("keywords").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     nonAnalysedList("subjects"),
     keywordField("specialInstructions"),
-    standardAnalysed("subLocation").copyTo("metadata.englishAnalysedCatchAll"),
-    standardAnalysed("city").copyTo("metadata.englishAnalysedCatchAll"),
-    standardAnalysed("state").copyTo("metadata.englishAnalysedCatchAll"),
-    standardAnalysed("country").copyTo("metadata.englishAnalysedCatchAll"),
-    nonAnalysedList("peopleInImage").copyTo("metadata.englishAnalysedCatchAll"),
+    standardAnalysed("subLocation").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
+    standardAnalysed("city").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
+    standardAnalysed("state").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
+    standardAnalysed("country").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
+    nonAnalysedList("peopleInImage").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     sStemmerAnalysed("englishAnalysedCatchAll"),
     dynamicObj("domainMetadata")
-  )
+  ))
 
-  def usageRightsMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def usageRightsMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("category"),
     standardAnalysed("restrictions"),
     keywordField("supplier"),
@@ -116,34 +127,34 @@ object Mappings {
     keywordField("source"),
     keywordField("contentLink"),
     standardAnalysed("suppliers")
-  )
+  ))
 
-  def syndicationRightsPropertiesMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def syndicationRightsPropertiesMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("propertyCode"),
     dateField("expiresOn"),
     keywordField("value")
-  )
+  ))
 
-  def syndicationRightsListMapping(name: String) = nonDynamicObjectField(name).fields(
+  def syndicationRightsListMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("rightCode"),
     booleanField("acquired"),
     syndicationRightsPropertiesMapping("properties")
-  )
+  ))
 
-  def suppliersMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def suppliersMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("supplierId"),
     keywordField("supplierName"),
     booleanField("prAgreement")
-  )
+  ))
 
-  def syndicationRightsMapping(name: String) = nonDynamicObjectField(name).fields(
+  def syndicationRightsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     dateField("published"),
     suppliersMapping("suppliers"),
     syndicationRightsListMapping("rights"),
     booleanField("isInferred")
-  )
+  ))
 
-  def exportsMapping(name: String) = nonDynamicObjectField(name).fields(
+  def exportsMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("id"),
     keywordField("type"),
     keywordField("author"),
@@ -151,13 +162,13 @@ object Mappings {
     dynamicObj("specification"),
     assetMapping("master"),
     assetMapping("assets")
-  )
+  ))
 
   def actionDataMapping(name: String) = {
-    nonDynamicObjectField(name).fields(
+    nonDynamicObjectField(name).copy(properties = Seq(
       keywordField("author"),
       dateField("date")
-    )
+    ))
   }
 
   /*
@@ -169,59 +180,59 @@ object Mappings {
       "actionData" -> actionDataMapping
     ))*/
   def collectionMapping(name: String) = { // TODO withIndexName appeared to have no effect on the 1.7 index
-    nonDynamicObjectField(name).fields(
+    nonDynamicObjectField(name).copy(properties = Seq(
       nonAnalysedList("path"),
-      keywordField("pathId").copyTo("collections.pathHierarchy"),
+      keywordField("pathId").copy(copyTo = Seq("collections.pathHierarchy")),
       hierarchyAnalysed("pathHierarchy"),
       keywordField("description"),
       actionDataMapping("actionData")
-    )
+    ))
   }
 
-  def esInfoMapping(name: String) = nonDynamicObjectField(name).fields(
-    nonDynamicObjectField("migration").fields(
+  def esInfoMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
+    nonDynamicObjectField("migration").copy(properties = Seq(
       keywordField("migratedTo"),
       dynamicObj("failures"),
-    )
-  )
+    ))
+  ))
 
   def photoshootMapping(name: String) = {
-    nonDynamicObjectField(name).fields(
+    nonDynamicObjectField(name).copy(properties = Seq(
       keywordField("title"),
       simpleSuggester("suggest")
-    )
+    ))
   }
 
-  def userMetadataMapping(name: String) = nonDynamicObjectField(name).fields(
+  def userMetadataMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     booleanField("archived"),
-    nonAnalysedList("labels").copyTo("metadata.englishAnalysedCatchAll"),
+    nonAnalysedList("labels").copy(copyTo = Seq("metadata.englishAnalysedCatchAll")),
     metadataMapping("metadata"),
     usageRightsMapping("usageRights"),
     photoshootMapping("photoshoot"),
     dateField("lastModified")
-  )
+  ))
 
-  def uploadInfoMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def uploadInfoMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("filename")
-  )
+  ))
 
   def usageReference(name: String): ObjectField = {
-    nonDynamicObjectField(name).fields(
+    nonDynamicObjectField(name).copy(properties = Seq(
       keywordField("type"),
       keywordField("uri"),
       sStemmerAnalysed("name")
-    )
+    ))
   }
 
   def printUsageSize(name: String): ObjectField = {
-    nonDynamicObjectField(name).fields(
+    nonDynamicObjectField(name).copy(properties = Seq(
       intField("x"),
       intField("y")
-    )
+    ))
   }
 
   def printUsageMetadata(name: String): ObjectField = {
-    nonDynamicObjectField(name).fields(
+    nonDynamicObjectField(name).copy(properties = Seq(
       keywordField("sectionName"),
       dateField("issueDate"),
       intField("pageNumber"),
@@ -235,37 +246,36 @@ object Mappings {
       keywordField("sectionCode"),
       keywordField("notes"),
       keywordField("source")
-    )
+    ))
   }
 
-  def digitalUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def digitalUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("webTitle"),
     keywordField("webUrl"),
     keywordField("sectionId"),
     keywordField("composerUrl")
-  )
+  ))
 
-  def syndicationUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def syndicationUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("partnerName")
-  )
+  ))
 
-  def frontUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def frontUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("addedBy"),
     keywordField("front")
-  )
+  ))
 
-  def downloadUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def downloadUsageMetadata(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("downloadedBy")
-  )
+  ))
 
-  def usagesMapping(name: String): NestedField = nestedField(name).
-    fields(
+  def usagesMapping(name: String): NestedField = nestedField(name).copy( properties = Seq(
     keywordField("id"),
     sStemmerAnalysed("title"),
     usageReference("references"),
-    keywordField("platform").copyTo("usagesPlatform"),
+    KeywordField(name = "platform", copyTo = Seq("usagesPlatform")),
     keywordField("media"),
-    keywordField("status").copyTo("usagesStatus"),
+    KeywordField(name = "status", copyTo = Seq("usagesStatus")),
     dateField("dateAdded"),
     dateField("dateRemoved"),
     dateField("lastModified"),
@@ -274,9 +284,9 @@ object Mappings {
     syndicationUsageMetadata("syndicationUsageMetadata"),
     frontUsageMetadata("frontUsageMetadata"),
     downloadUsageMetadata("downloadUsageMetadata")
-  )
+  ))
 
-  def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def leaseMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     keywordField("id"),
     keywordField("leasedBy"),
     dateField("startDate"),
@@ -286,23 +296,23 @@ object Mappings {
     sStemmerAnalysed("notes"),
     keywordField("mediaId"),
     dateField("createdAt")
-  )
+  ))
 
-  def leasesMapping(name: String): ObjectField = nonDynamicObjectField(name).fields(
+  def leasesMapping(name: String): ObjectField = nonDynamicObjectField(name).copy(properties = Seq(
     leaseMapping("leases"),
     dateField("lastModified")
-  )
+  ))
 
-  def softDeletedMetadataMapping(name: String) = nonDynamicObjectField(name).fields(
+  def softDeletedMetadataMapping(name: String) = nonDynamicObjectField(name).copy(properties = Seq(
     dateField("deleteTime"),
     keywordField("deletedBy")
-  )
+  ))
 
-  private def nonDynamicObjectField(name: String) = ObjectField(name).dynamic("strict")
+  private def nonDynamicObjectField(name: String) = ObjectField(name = name, dynamic = Some("strict"))
 
   private def nestedField(name: String) = NestedField(name).dynamic("strict") // ES1 include_in_parent needs to be emulated with field bby field copy_tos
 
-  private def dynamicObj(name: String) = objectField(name).dynamic(true)
+  private def dynamicObj(name: String) = objectField(name).copy(dynamic = Some("true"))
 
   private def nonIndexedString(name: String) = textField(name).index(false)
 

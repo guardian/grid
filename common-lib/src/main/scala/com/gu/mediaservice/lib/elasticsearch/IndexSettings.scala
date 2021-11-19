@@ -1,8 +1,6 @@
 package com.gu.mediaservice.lib.elasticsearch
 
-import com.sksamuel.elastic4s.requests.analysis.{Analysis, CustomAnalyzer, PathHierarchyTokenizer, StandardTokenizer, StemmerTokenFilter, StopTokenFilter, TokenFilter}
-import com.sksamuel.elastic4s.requests.analyzers.{AsciiFoldingTokenFilter, LowercaseTokenFilter}
-import org.elasticsearch.index.analysis.ASCIIFoldingTokenFilterFactory
+import com.sksamuel.elastic4s.analysis.{Analysis, CustomAnalyzer, PathHierarchyTokenizer, StandardTokenizer, StemmerTokenFilter, StopTokenFilter, TokenFilter}
 
 object IndexSettings {
 
@@ -35,8 +33,8 @@ object IndexSettings {
       standard,
       List(),
       List(
-        LowercaseTokenFilter.name,
-        AsciiFoldingTokenFilter.name,
+        "lowercase",
+        "asciifolding",
         english_possessive_stemmer,
         gu_stopwords,
         s_stemmer
@@ -47,7 +45,7 @@ object IndexSettings {
       hierarchyAnalyserName,
       path_hierarchy,
       List(),
-      List(LowercaseTokenFilter.name)
+      List("lowercase")
     )
 
     val analyzers = List(englishSStemmerAnalyzer, hierarchyAnalyzer)

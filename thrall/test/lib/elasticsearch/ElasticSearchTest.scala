@@ -782,7 +782,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
           // does not throw, despite migration index not existing
           Await.result(ES.migrationAwareUpdater(
-            indexName => update(id).in(indexName).doc(updateDoc),
+            indexName => updateById(index = indexName, id = id).doc(updateDoc),
             indexName => s"update $id for $indexName"
           ), fiveSeconds)
 
@@ -805,7 +805,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
           // does not throw, despite migration index not containing doc with id `id`
           Await.result(ES.migrationAwareUpdater(
-            indexName => update(id).in(indexName).doc(updateDoc),
+            indexName => updateById(index = indexName, id = id).doc(updateDoc),
             indexName => s"update $id for $indexName"
           ), fiveSeconds)
 
@@ -841,7 +841,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
             |}""".stripMargin
 
           Await.result(ES.migrationAwareUpdater(
-            indexName => update(id).in(indexName).doc(updateDoc),
+            indexName => updateById(index = indexName, id = id).doc(updateDoc),
             indexName => s"update $id for $indexName"
           ), fiveSeconds)
 
