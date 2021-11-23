@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
-import com.gu.mediaservice.model.{Agencies, Agency, Image}
+import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
@@ -208,7 +208,30 @@ class ElasticSearch(
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
     val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) from params.offset size params.length sortBy sort
 
-    executeAndLog(searchRequest, "image search").
+    val searchHandler =
+      if(params.syndicationStatus.contains(AwaitingReviewForSyndication)) // TODO consider also checking the ES version, if available from the client
+        SearchHandlerWithRuntimeFields(
+          (msg: String) => logger.info(msg),
+          Map(
+            syndicationFilter.hasActiveDeny.field -> RuntimeFieldDefinition(`type` = "boolean", script = RuntimeFieldScript(
+              s"""
+                |long nowInMillis = new Date().getTime();
+                |if (params['_source'].leases == null || params['_source'].leases.leases == null) {
+                |    emit(false); return;
+                |}
+                |for (lease in params['_source'].leases.leases) {
+                |    if (lease.access == 'deny-syndication' && (lease.endDate == null || ZonedDateTime.parse(lease.endDate).toInstant().toEpochMilli() > nowInMillis)) {
+                |        emit(true); return;
+                |    }
+                |}
+                |emit(false);
+                |""".stripMargin
+            ))
+          ))
+      else
+        SearchHandler
+
+    executeAndLog(searchHandler)(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       logSearchQueryIfTimedOut(searchRequest, r.result)
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
