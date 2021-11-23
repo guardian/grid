@@ -34,6 +34,9 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
     DenySyndicationLease.name
   )
 
+  val hasActiveDeny =
+    filters.boolTerm("hasActiveDenySyndicationLease", value = true)
+
   private val hasSyndicationUsage: Query = filters.term(
     "usagesPlatform",
     SyndicationUsage.toString
@@ -44,7 +47,7 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
     filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
   )
 
-  private val leaseHasEnded: Query = filters.or(
+  private val leaseHasNotExpired: Query = filters.or(
     filters.existsOrMissing("leases.leases.endDate", exists = false),
     filters.date("leases.leases.endDate", Some(DateTime.now), None).get
   )
@@ -83,9 +86,11 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
           hasAllowLease,
           filters.and(
             hasDenyLease,
-            leaseHasEnded
-          )
-        )
+            leaseHasNotExpired
+          ),
+          // this is last, to ensure runtime field is not computed unnecessarily
+          hasActiveDeny,
+        ),
       )
 
       config.syndicationStartDate match {
