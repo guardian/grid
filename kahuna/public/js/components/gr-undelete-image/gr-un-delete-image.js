@@ -29,7 +29,7 @@ undeleteImage.controller('grUnDeleteImageCtrl', [
                 });
         };
 
-        ctrl.undelete = function () {
+        ctrl.unDeleteSelected = function () {
             // HACK to wait for thrall to process the message so that when we
             // poll the api, it will be up to date.
             return $q.all(Array.from(ctrl.images.values()).map(image => ctrl.unDeleteImage(image)))
@@ -43,7 +43,7 @@ undeleteImage.directive('grUnDeleteImage', [function () {
         restrict: 'E',
         template: `
             <gr-confirm-delete class="gr-delete-image"
-                               gr-on-confirm="ctrl.undelete()" gr-label="Undelete" gr-confirm="Confirm Undelete" gr-tooltip="UnDelete image" >
+                               gr-on-confirm="ctrl.unDeleteSelected()" gr-label="Undelete" gr-confirm="Confirm Undelete" gr-tooltip="Undelete image" >
             </gr-confirm-delete>`,
         controller: 'grUnDeleteImageCtrl',
         controllerAs: 'ctrl',
