@@ -2,7 +2,6 @@ package lib.imaging
 
 import java.io.File
 import java.util.concurrent.Executors
-
 import com.adobe.internal.xmp.XMPMetaFactory
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.{ExifDirectoryBase, ExifIFD0Directory, ExifSubIFDDirectory}
@@ -14,6 +13,7 @@ import com.drew.metadata.xmp.XmpDirectory
 import com.drew.metadata.{Directory, Metadata}
 import com.gu.mediaservice.lib.{ImageWrapper, StorableImage}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick._
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import model.upload.UploadRequest
@@ -24,7 +24,7 @@ import play.api.libs.json.JsValue
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-object FileMetadataReader {
+object FileMetadataReader extends GridLogging {
 
   /*
   The XMPMetaFactory in the Adobe xmpcore library keeps a stateful list of previously seen prefix (namespace) to schema
@@ -74,7 +74,7 @@ object FileMetadataReader {
       exif = exportDirectory(metadata, classOf[ExifIFD0Directory]),
       exifSub = exportDirectory(metadata, classOf[ExifSubIFDDirectory]),
       xmp = exportXmpPropertiesInTransformedSchema(metadata, imageId),
-      icc = exportDirectory(metadata, classOf[IccDirectory]),
+      icc = redactLongFieldValues(imageId, "ICC")(exportDirectory(metadata, classOf[IccDirectory])),
       getty = exportGettyDirectory(metadata, imageId),
       colourModel = None,
       colourModelInformation = Map()
@@ -119,6 +119,16 @@ object FileMetadataReader {
       case (key, Some(value)) => key -> value
     }
   }
+
+  private val redactionThreshold = 5000
+  val redactionReplacementValue = s"REDACTED (value longer than $redactionThreshold characters, please refer to the metadata stored in the file itself)"
+  private def redactLongFieldValues(imageId:String, metadataType: String)(props: Map[String, String]) = props.map {
+    case (fieldName, value) if value.length > redactionThreshold =>
+      logger.warn(s"Redacting '$fieldName' $metadataType field for image $imageId, as it's problematically long (longer than $redactionThreshold characters")
+      fieldName -> redactionReplacementValue
+    case keyValuePair => keyValuePair
+  }
+
   private def exportRawXmpProperties(metadata: Metadata, imageId:String): Map[String, String] = {
     val directories = metadata.getDirectoriesOfType(classOf[XmpDirectory]).asScala.toList
     val props: Map[String, String] = directories.foldLeft[Map[String, String]](Map.empty)((acc, dir) => {
@@ -128,7 +138,7 @@ object FileMetadataReader {
       // if there is no space in the previous one as directories have a maximum size.
       acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
     })
-    props
+    redactLongFieldValues(imageId, "XMP")(props)
   }
   private def exportXmpPropertiesInTransformedSchema(metadata: Metadata, imageId:String): Map[String, JsValue] = {
     val props = exportRawXmpProperties(metadata, imageId)
