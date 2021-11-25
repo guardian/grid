@@ -336,10 +336,7 @@ class ElasticSearch(
       case _ => List(imagesCurrentAlias)
     }
     val migrationAwareQuery = migrationStatus match {
-      case running: Running => filters.and(query, filters.and(
-        filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)),
-        filters.mustNot(filters.exists(NonEmptyList("esInfo.migration.failures.syndicationRightsMissing"))
-      )))
+      case running: Running => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
       case _ => query
     }
     val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery
