@@ -5,6 +5,7 @@ import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.searches.queries.{NestedQuery, Query}
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
+import com.sksamuel.elastic4s.requests.searches.term.TermQuery
 import org.joda.time.DateTime
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable1._
@@ -19,7 +20,7 @@ object filters {
     should(queries.list: _*)
   }
 
-  def boolTerm(field: String, value: Boolean): Query = termQuery(field, value)
+  def boolTerm(field: String, value: Boolean): TermQuery = termQuery(field, value)
 
   def date(field: String, from: Option[DateTime], to: Option[DateTime]): Option[Query] =
     if (from.isDefined || to.isDefined) {

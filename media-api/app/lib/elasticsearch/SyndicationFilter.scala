@@ -34,6 +34,9 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
     DenySyndicationLease.name
   )
 
+  val hasActiveDeny =
+    filters.boolTerm("hasActiveDenySyndicationLease", value = true)
+
   private val hasSyndicationUsage: Query = filters.term(
     "usagesPlatform",
     SyndicationUsage.toString
@@ -44,7 +47,7 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
     filters.date("leases.leases.startDate", None, Some(DateTime.now)).get
   )
 
-  private val leaseHasEnded: Query = filters.or(
+  private val leaseHasNotExpired: Query = filters.or(
     filters.existsOrMissing("leases.leases.endDate", exists = false),
     filters.date("leases.leases.endDate", Some(DateTime.now), None).get
   )
@@ -76,16 +79,24 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
       hasDenyLease
     )
     case AwaitingReviewForSyndication => {
+
+      val mustNotClauses = List(
+        hasAllowLease,
+        filters.and(
+          hasDenyLease,
+          leaseHasNotExpired
+        ),
+      ) ++ (
+        if(config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
+          List(hasActiveDeny) // this is last, to ensure runtime field is not computed unnecessarily
+        else
+          Nil
+      )
+
       val rightsAcquiredNoLeaseFilter = filters.and(
         hasRightsAcquired,
         syndicatableCategory,
-        filters.mustNot(
-          hasAllowLease,
-          filters.and(
-            hasDenyLease,
-            leaseHasEnded
-          )
-        )
+        filters.mustNot(mustNotClauses:_*),
       )
 
       config.syndicationStartDate match {

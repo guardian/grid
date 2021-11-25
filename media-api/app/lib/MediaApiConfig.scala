@@ -68,5 +68,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
   }.toOption.flatten
+  val useRuntimeFieldsToFixSyndicationReviewQueueQuery = boolean("syndication.review.useRuntimeFieldsFix")
 
 }

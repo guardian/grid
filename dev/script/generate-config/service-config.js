@@ -132,6 +132,7 @@ function getMediaApiConfig(config) {
         |metrics.request.enabled=false
         |image.record.download=false
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
+        |syndication.review.useRuntimeFieldsFix=true
         |`;
 }
 
