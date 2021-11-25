@@ -209,7 +209,7 @@ class ElasticSearch(
     val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) from params.offset size params.length sortBy sort
 
     val searchHandler =
-      if(params.syndicationStatus.contains(AwaitingReviewForSyndication)) // TODO consider also checking the ES version, if available from the client
+      if(params.syndicationStatus.contains(AwaitingReviewForSyndication) && config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
         SearchHandlerWithRuntimeFields(
           (msg: String) => logger.info(msg),
           Map(

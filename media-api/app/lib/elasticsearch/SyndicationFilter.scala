@@ -79,18 +79,24 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
       hasDenyLease
     )
     case AwaitingReviewForSyndication => {
+
+      val mustNotClauses = List(
+        hasAllowLease,
+        filters.and(
+          hasDenyLease,
+          leaseHasNotExpired
+        ),
+      ) ++ (
+        if(config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
+          List(hasActiveDeny) // this is last, to ensure runtime field is not computed unnecessarily
+        else
+          Nil
+      )
+
       val rightsAcquiredNoLeaseFilter = filters.and(
         hasRightsAcquired,
         syndicatableCategory,
-        filters.mustNot(
-          hasAllowLease,
-          filters.and(
-            hasDenyLease,
-            leaseHasNotExpired
-          ),
-          // this is last, to ensure runtime field is not computed unnecessarily
-          hasActiveDeny,
-        ),
+        filters.mustNot(mustNotClauses:_*),
       )
 
       config.syndicationStartDate match {
