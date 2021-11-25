@@ -12,6 +12,8 @@ import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.searches._
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
+import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
+import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
@@ -242,11 +244,10 @@ class ElasticSearch(
 
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
 
-    def fromDateHistogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.dateHistogram(name).
+    def fromDateHistogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.result[DateHistogram](name).
       buckets.map(b => BucketResult(b.date, b.docCount))
 
-    val aggregation = dateHistogramAggregation(params.field).
-      field(params.field).
+    val aggregation = dateHistogramAgg(name = params.field, field = params.field).
       calendarInterval(DateHistogramInterval.Month).
       minDocCount(0)
     aggregateSearch(params.field, params, aggregation, fromDateHistogramAggregation)
@@ -254,16 +255,16 @@ class ElasticSearch(
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
-    aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)), fromTermAggregation)
+    aggregateSearch("metadata", params, termsAgg(name = "metadata", field = metadataField(params.field)), fromTermAggregation)
   }
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     logger.info("Edit aggregation requested with params.field: " + params.field)
     val field = "labels" // TODO was - params.field
-    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(field)), fromTermAggregation)
+    aggregateSearch("edits", params, termsAgg(name = "edits", field = editsField(field)), fromTermAggregation)
   }
 
-  private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.terms(name).
+  private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.result[Terms](name).
     buckets.map(b => BucketResult(b.key, b.docCount))
 
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {

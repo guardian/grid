@@ -86,10 +86,14 @@ object GoodToGoCheck extends StrictLogging {
     )
     // this manipulates the underlying ES API as the built in delete API guards against deleting images that are in use
     val eventualResult = es.executeAndLog(
-      deleteByQuery(es.imagesCurrentAlias, query),
+      deleteByQuery(es.imagesCurrentAlias, query).copy(waitForCompletion = Some(true)),
       s"Deleting any old test images uploaded by ${MappingTest.testImage.uploadedBy}"
     )
-    eventualResult.map(_.result.deleted)
+    eventualResult.map(_.result match {
+      case Left(deleteResponse) => deleteResponse.deleted
+      // The Right (createdTask) response doesn't make sense - we have wait for completion enabled, but elastic4s forces us to still consider this case
+      case Right(createdTask) => throw new IllegalArgumentException("Request to delete_by_query returned an asynchronous task, despite wait_for_completion requested")
+    })
   }
 
   /** This function computes an approximate equality for some objects which is fuzzy when it comes to Joda DateTimes

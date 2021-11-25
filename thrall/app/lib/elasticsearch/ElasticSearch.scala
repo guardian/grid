@@ -12,14 +12,16 @@ import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.script.Script
-import com.sksamuel.elastic4s.requests.searches.queries.{BoolQuery, Query}
+import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.{UpdateRequest, UpdateResponse}
-import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
-import lib.{FailedMigrationDetails, ThrallMetrics}
+import com.sksamuel.elastic4s.{Executor, Functor, Handler, Response}
+import lib.ThrallMetrics
 import org.joda.time.DateTime
 import play.api.libs.json._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
@@ -351,7 +353,7 @@ class ElasticSearch(
     val deletableImage = boolQuery.withMust(
       idsQuery(id)).withNot(
       existsQuery("exports"),
-      nestedQuery("usages").query(existsQuery("usages"))
+      nestedQuery(path = "usages", query = existsQuery("usages"))
     )
 
     (migrationStatus match {
@@ -575,6 +577,7 @@ class ElasticSearch(
       | }
     """.stripMargin
 
+  @nowarn("cat=deprecation") // TODO ScalaObjectMapper is deprecated because unusable in Scala 3
   private def asNestedMap(sr: SyndicationRights) = { // TODO not great; there must be a better way to flatten a case class into a Map
     import com.fasterxml.jackson.databind.ObjectMapper
     import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -584,6 +587,7 @@ class ElasticSearch(
     mapper.readValue[Map[String, Object]](Json.stringify(Json.toJson(sr)))
   }
 
+  @nowarn("cat=deprecation") // TODO ScalaObjectMapper is deprecated because unusable in Scala 3
   private def asNestedMap(i: JsValue) = { // TODO not great; there must be a better way to flatten a case class into a Map
     import com.fasterxml.jackson.databind.ObjectMapper
     import com.fasterxml.jackson.module.scala.DefaultScalaModule

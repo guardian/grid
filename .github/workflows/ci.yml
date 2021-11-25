@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-18.04
     services:
       elasticsearch:
-        image: elasticsearch:7.5.2
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.15.2
         # Wait for elasticsearch to report healthy before continuing.
         # see https://github.com/actions/example-services/blob/master/.github/workflows/postgres-service.yml#L28
         options: -e "discovery.type=single-node" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10

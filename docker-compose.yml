@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   elasticsearch:
-    image: elasticsearch:7.5.2
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.2
     volumes:
       - "./dev/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
     ports:
