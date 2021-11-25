@@ -141,7 +141,7 @@ class ThrallController(
         maybeVersion <- es.getImageVersion(imageId)
       } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
     ).recover {
-      case error => MigrateImageMessage(imageId, Left(s"Failed to project image for id: ${imageId}, message: ${error}"))
+      case error => MigrateImageMessage(imageId, Left(error.toString))
     }
 
     val msgFailedToMigrateImage = s"Failed to send migrate image message ${imageId}"

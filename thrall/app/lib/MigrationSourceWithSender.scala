@@ -99,7 +99,7 @@ object MigrationSourceWithSender extends GridLogging {
           maybeVersion = Some(searchHit.version)
         } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
       ).recover {
-        case error => MigrateImageMessage(imageId, Left(s"Failed to project image for id: ${imageId}, message: ${error}"))
+        case error => MigrateImageMessage(imageId, Left(error.toString))
       }
       migrateImageMessageFuture.map(message => MigrationRecord(message, java.time.Instant.now()))
     }}

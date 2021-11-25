@@ -65,7 +65,7 @@ class MessageProcessor(
     )
 
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
-    implicit val implicitLogMarker: LogMarker = logMarker
+    implicit val implicitLogMarker: LogMarker = logMarker ++ Map("imageId" -> message.id)
     val maybeStart = message.maybeImageWithVersion match {
       case Left(errorMessage) =>
         Future.failed(ProjectionFailure(errorMessage))
