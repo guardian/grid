@@ -3,7 +3,8 @@
 # ~~~~
 
 GET     /                                             controllers.ThrallController.index
-GET     /migrationFailures                            controllers.ThrallController.migrationFailures(page: Option[Int])
+GET     /migrationFailuresOverview                     controllers.ThrallController.migrationFailuresOverview()
+GET     /migrationFailures                            controllers.ThrallController.migrationFailures(filter: String, page: Option[Int])
 
 +nocsrf
 POST    /startMigration                               controllers.ThrallController.startMigration

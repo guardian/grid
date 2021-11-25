@@ -6,7 +6,9 @@ import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.searches.SearchHit
-import lib.{FailedMigrationDetails, FailedMigrationSummary}
+import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.Terms
+import com.sksamuel.elastic4s.requests.searches.aggs.responses.metrics.TopHits
+import lib.{FailedMigrationDetails, FailedMigrationSummary, FailedMigrationsGrouping, FailedMigrationsOverview}
 import play.api.libs.json.{JsError, JsSuccess, Json, Reads, __}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -81,34 +83,54 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
     } yield ()
   }
 
-  def getMigrationFailures(
-    currentIndexName: String, migrationIndexName: String, from: Int, pageSize: Int
-  )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationSummary] = {
-    val search = ElasticDsl.search(currentIndexName).from(from).size(pageSize) query must(
+  def getMigrationFailuresOverview(
+    currentIndexName: String, migrationIndexName: String
+  )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationsOverview] = {
+
+    val examplesSubAggregation = topHitsAgg("examples")
+      .fetchSource(false)
+      .size(3)
+
+    val aggregateOnFailureMessage =
+      termsAgg("failures", s"esInfo.migration.failures.$migrationIndexName.keyword")
+        .size(1000)
+        .subAggregations(examplesSubAggregation)
+
+    val aggSearch = ElasticDsl.search(currentIndexName).trackTotalHits(true) query must(
       existsQuery(s"esInfo.migration.failures.$migrationIndexName"),
+      not(matchQuery("esInfo.migration.migratedTo", migrationIndexName))
+    ) aggregations aggregateOnFailureMessage
+
+    executeAndLog(aggSearch, s"retrieving grouped overview of migration failures").map { response =>
+      FailedMigrationsOverview(
+        totalFailed = response.result.hits.total.value,
+        grouped = response.result.aggregations.result[Terms](aggregateOnFailureMessage.name).buckets.map { bucket  =>
+          FailedMigrationsGrouping(
+            message = bucket.key,
+            count = bucket.docCount,
+            exampleIDs = bucket.result[TopHits](examplesSubAggregation.name).hits.map(_.id)
+          )
+        }
+      )
+    }
+  }
+
+  def getMigrationFailures(
+    currentIndexName: String, migrationIndexName: String, from: Int, pageSize: Int, filter: String
+  )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationSummary] = {
+    val search = ElasticDsl.search(currentIndexName).trackTotalHits(true).from(from).size(pageSize) query must(
+      existsQuery(s"esInfo.migration.failures.$migrationIndexName"),
+      termQuery(s"esInfo.migration.failures.$migrationIndexName.keyword", filter),
       not(matchQuery("esInfo.migration.migratedTo", migrationIndexName))
     )
     executeAndLog(search, s"retrieving list of migration failures")
       .map { resp =>
-        logger.info(logMarker, s"failed migrations - got ${resp.result.hits.size} hits")
         val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits.map { hit =>
-            logger.info(logMarker, s"failed migrations - got hit $hit.id")
-            val source = hit.sourceAsString
-            val cause = Json.parse(source).validate(Json.reads[EsInfoContainer]) match {
-              case JsSuccess(EsInfoContainer(EsInfo(Some(MigrationInfo(Some(failures), _)))), _) =>
-                failures.getOrElse(migrationIndexName, "UNKNOWN - NO FAILURE MATCHING MIGRATION INDEX NAME")
-              case JsError(errors) =>
-                logger.error(logMarker, s"Could not parse EsInfo for ${hit.id} - $errors")
-                "Could not extract migration info from ES due to parsing failure"
-              case _ => "UNKNOWN - NO FAILURE MATCHING MIGRATION INDEX NAME"
-            }
-            FailedMigrationDetails(imageId = hit.id, cause = cause)
+            FailedMigrationDetails(imageId = hit.id)
         }
 
         FailedMigrationSummary(
           totalFailed = resp.result.hits.total.value,
-          totalFailedRelation = resp.result.hits.total.relation,
-          returned = resp.result.hits.hits.length,
           details = failedMigrationDetails
         )
       }

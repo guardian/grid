@@ -80,7 +80,7 @@
     <em>Note that the above represents the value at the point this page was loaded.</em>
 
     @if(migrationStatus.isInstanceOf[Running]) {
-        <p><a href="@routes.ThrallController.migrationFailures(None)">View images that have failed to migrate and retry.</a></p>
+        <p><a href="@routes.ThrallController.migrationFailuresOverview()">View images that have failed to migrate and retry.</a></p>
     }
 </body>
 </html>

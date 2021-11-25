@@ -1,0 +1,49 @@
+@import lib.FailedMigrationsOverview
+@(
+    failuresOverview: FailedMigrationsOverview,
+    apiBaseUrl: String,
+    uiBaseUrl: String
+)
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Migration Failures Overview</title>
+    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+</head>
+<body>
+    <h1>
+        Migration Failures Overview
+    </h1>
+    <p>@failuresOverview.totalFailed images failed in total!</p>
+    <table>
+        <tr>
+            <th>Failure cause</th>
+            <th>Count</th>
+            <th>Examples</th>
+        </tr>
+        @for(failureGrouping <- failuresOverview.grouped) {
+            <tr>
+                <td>
+                    <a href="@routes.ThrallController.migrationFailures(failureGrouping.message, None)">
+                        @failureGrouping.message
+                    </a>
+                </td>
+                <td>@failureGrouping.count</td>
+                <td>
+                    <ul>
+                    @for(failureExampleID <- failureGrouping.exampleIDs) {
+                        <li>
+                            <pre class="imageId">@failureExampleID</pre>
+                            <a href="@uiBaseUrl/images/@failureExampleID" target="_blank">[Grid]</a>
+                            <a href="@apiBaseUrl/images/@failureExampleID" target="_blank">[API]</a>
+                        </li>
+                    }
+                    </ul>
+                </td>
+            </tr>
+        }
+    </table>
+</body>
+</html>

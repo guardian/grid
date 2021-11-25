@@ -5,41 +5,37 @@
     failures: FailedMigrationSummary,
     apiBaseUrl: String,
     uiBaseUrl: String,
+    filter: String,
     page: Int,
 )
 
 @navigation = {
     @if(page > 1) {
-        <a href="?page=@(page - 1)">Previous page</a>
+        <a href="@routes.ThrallController.migrationFailures(filter, Some(page - 1))">Previous page</a>
     }
-    <a href="?page=@(page + 1)">Next page</a>
-}
-
-@totalFailures = @{
-    (failures.totalFailedRelation match {
-        case "lte" | "lt" => "Less than "
-        case "gte" | "gt" => "More than "
-        case _ => ""
-    }) + failures.totalFailed + " images failed in total!"
+    <a href="@routes.ThrallController.migrationFailures(filter, Some(page + 1))">Next page</a>
 }
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Migration Failures - Page @(page)</title>
+    <title>Migration Failures - Page @(page) - @filter</title>
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 </head>
 <body>
-    <h1>
-        Migration Failures - Page @(page)
-    </h1>
-    <p>@totalFailures</p>
-    @navigation
+    <div style="position: sticky; background: white; top: 8px;">
+        <a href="@routes.ThrallController.migrationFailuresOverview()">&lt; back to Migration Failures Overview</a>
+        <h1>
+            Migration Failures - Page @(page) - <code>@filter</code>
+        </h1>
+        <p>@failures.totalFailed images failed with the above message!</p>
+        @navigation
+    </div>
+
     <table>
-        <tr>
+        <tr style="position: sticky; background: white; top: 158px;">
             <th>Image ID</th>
-            <th>Failure cause</th>
             <th>Click to reattempt migration</th>
         </tr>
         @for(failure <- failures.details) {
@@ -48,7 +44,6 @@
                     <a href="@uiBaseUrl/images/@failure.imageId" target="_blank">[Grid]</a>
                     <a href="@apiBaseUrl/images/@failure.imageId" target="_blank">[API]</a>
                 </td>
-                <td>@failure.cause</td>
                 <td>@form(action = routes.ThrallController.migrateSingleImage){
                     <label for="id" class="hidden">Image ID:</label>
                     <input type="text" id="id" value="@failure.imageId" name="id" class="hidden">

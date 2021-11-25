@@ -1,5 +1,9 @@
 package lib
 
-final case class FailedMigrationDetails(imageId: String, cause: String)
+final case class FailedMigrationDetails(imageId: String)
 
-final case class FailedMigrationSummary(totalFailed: Long, totalFailedRelation: String, returned: Long, details: Seq[FailedMigrationDetails])
+final case class FailedMigrationSummary(totalFailed: Long, details: Seq[FailedMigrationDetails])
+
+final case class FailedMigrationsGrouping(message: String, count: Long, exampleIDs: Seq[String])
+
+final case class FailedMigrationsOverview(totalFailed: Long, grouped: Seq[FailedMigrationsGrouping])
