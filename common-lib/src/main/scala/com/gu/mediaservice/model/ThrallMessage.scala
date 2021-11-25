@@ -31,8 +31,8 @@ case class MigrateImageMessage(id: String, maybeImageWithVersion: Either[String,
 object MigrateImageMessage {
   def apply(imageId: String, maybeProjection: Option[Image], maybeVersion: Option[Long]): MigrateImageMessage = (maybeProjection, maybeVersion) match {
     case (Some(projection), Some(version)) => MigrateImageMessage(imageId, scala.Right((projection, version)))
-    case (None, _) => MigrateImageMessage(imageId, Left(s"There was no projection returned for id: ${imageId}"))
-    case _ => MigrateImageMessage(imageId, Left(s"There was no version returned for id: ${imageId}"))
+    case (None, _) => MigrateImageMessage(imageId, Left("There was no projection returned"))
+    case _ => MigrateImageMessage(imageId, Left("There was no version returned"))
   }
 }
 
