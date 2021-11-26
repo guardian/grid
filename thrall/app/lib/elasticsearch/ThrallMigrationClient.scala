@@ -2,6 +2,7 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, InProgress, MigrationAlreadyRunningError, MigrationStatusProvider, NotRunning, Paused}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
@@ -122,11 +123,21 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
       existsQuery(s"esInfo.migration.failures.$migrationIndexName"),
       termQuery(s"esInfo.migration.failures.$migrationIndexName.keyword", filter),
       not(matchQuery("esInfo.migration.migratedTo", migrationIndexName))
-    )
+    ) sortByFieldDesc "lastModified"
     executeAndLog(search, s"retrieving list of migration failures")
       .map { resp =>
         val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits.map { hit =>
-            FailedMigrationDetails(imageId = hit.id)
+
+          Json.parse(hit.sourceAsString).asOpt[Image].fold(
+            FailedMigrationDetails(hit.id, "ES DOC CORRUPT", "ES DOC CORRUPT", "ES DOC CORRUPT")
+          )( image =>
+            FailedMigrationDetails(
+              imageId = hit.id,
+              lastModified = image.lastModified.fold("")(_.toString),
+              crops = image.exports.size.toString,
+              usages = image.usages.size.toString
+            )
+          )
         }
 
         FailedMigrationSummary(

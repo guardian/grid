@@ -13,10 +13,12 @@
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 </head>
 <body>
-    <h1>
-        Migration Failures Overview
-    </h1>
-    <p>@failuresOverview.totalFailed images failed in total!</p>
+    <div class="sticky headingSection">
+        <h1>
+            Migration Failures Overview
+        </h1>
+        <p>@failuresOverview.totalFailed images failed in total!</p>
+    </div>
     <table>
         <tr>
             <th>Failure cause</th>

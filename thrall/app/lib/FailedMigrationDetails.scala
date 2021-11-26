@@ -1,6 +1,6 @@
 package lib
 
-final case class FailedMigrationDetails(imageId: String)
+final case class FailedMigrationDetails(imageId: String, lastModified: String, crops: String, usages: String)
 
 final case class FailedMigrationSummary(totalFailed: Long, details: Seq[FailedMigrationDetails])
 

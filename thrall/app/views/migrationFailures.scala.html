@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 </head>
 <body>
-    <div style="position: sticky; background: white; top: 8px;">
+    <div class="sticky headingSection">
         <a href="@routes.ThrallController.migrationFailuresOverview()">&lt; back to Migration Failures Overview</a>
         <h1>
             Migration Failures - Page @(page) - <code>@filter</code>
@@ -34,8 +34,11 @@
     </div>
 
     <table>
-        <tr style="position: sticky; background: white; top: 158px;">
+        <tr class="sticky headingRow">
             <th>Image ID</th>
+            <th>Last Modified</th>
+            <th>Crop Count</th>
+            <th>Usage Count</th>
             <th>Click to reattempt migration</th>
         </tr>
         @for(failure <- failures.details) {
@@ -43,6 +46,15 @@
                 <td><pre class="imageId">@failure.imageId</pre>
                     <a href="@uiBaseUrl/images/@failure.imageId" target="_blank">[Grid]</a>
                     <a href="@apiBaseUrl/images/@failure.imageId" target="_blank">[API]</a>
+                </td>
+                <td>@failure.lastModified</td>
+                <td>@failure.crops</td>
+                <td>
+                    @failure.usages
+                    <br/>
+                    <a href="https://content.guardianapis.com/search?q=@failure.imageId&format=json&api-key=[KEY]">
+                        Full Usage Search in CAPI
+                    </a>
                 </td>
                 <td>@form(action = routes.ThrallController.migrateSingleImage){
                     <label for="id" class="hidden">Image ID:</label>
