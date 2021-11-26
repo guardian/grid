@@ -58,7 +58,21 @@ class ThrallController(
     }
   }
 
-  def migrationFailures(maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
+  def migrationFailuresOverview(): Action[AnyContent] = withLoginRedirectAsync {
+    es.migrationStatus match {
+      case running: Running =>
+        es.getMigrationFailuresOverview(es.imagesCurrentAlias, running.migrationIndexName).map(failuresOverview =>
+          Ok(views.html.migrationFailuresOverview(
+            failuresOverview,
+            apiBaseUrl = services.apiBaseUri,
+            uiBaseUrl = services.kahunaBaseUri,
+          ))
+        )
+      case _ => Future.successful(Ok("No current migration"))
+    }
+  }
+
+  def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
     val pageSize = 250
     // pages are indexed from 1
     val page = maybePage.getOrElse(1)
@@ -68,12 +82,13 @@ class ThrallController(
     } else {
       es.migrationStatus match {
         case running: Running =>
-          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, from, pageSize).map(failures =>
+          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, from, pageSize, filter).map(failures =>
             Ok(views.html.migrationFailures(
+              failures,
               apiBaseUrl = services.apiBaseUri,
               uiBaseUrl = services.kahunaBaseUri,
-              page = page,
-              failures = failures
+              filter,
+              page
             ))
           )
         case _ => Future.successful(Ok("No current migration"))

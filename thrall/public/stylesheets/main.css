@@ -1,5 +1,6 @@
 table, td, th {
   border: 1px solid black;
+  margin: 8px;
 }
 
 td, th {
@@ -12,4 +13,22 @@ td, th {
 
 .imageId {
   display: inline;
+}
+
+body {
+  margin: 0;
+}
+
+.sticky {
+  position: sticky;
+  background: white;
+}
+
+.headingSection {
+  padding: 8px;
+  top: 0;
+}
+
+.headingRow {
+  top: 166px;
 }
