@@ -17,6 +17,7 @@ function getCommonConfig(config) {
         |thrall.kinesis.lowPriorityStream.name="${config.coreStackProps.ThrallLowPriorityMessageStream}"
         |es.index.aliases.current="Images_Current"
         |es.index.aliases.migration="Images_Migration"
+        |image.record.download=false
         |`;
 }
 
@@ -130,7 +131,6 @@ function getMediaApiConfig(config) {
         |quota.store.key="rcs-quota.json"
         |security.cors.allowedOrigins="${getCorsAllowedOriginString(config)}"
         |metrics.request.enabled=false
-        |image.record.download=false
         |dynamo.table.softDelete.metadata="SoftDeletedMetadataTable"
         |syndication.review.useRuntimeFieldsFix=true
         |`;

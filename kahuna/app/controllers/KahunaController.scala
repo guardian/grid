@@ -50,7 +50,8 @@ class KahunaController(
       config.homeLinkHtml,
       config.systemName,
       config.canDownloadCrop,
-      domainMetadataSpecs
+      domainMetadataSpecs,
+      config.recordDownloadAsUsage
     ))
   }
 
