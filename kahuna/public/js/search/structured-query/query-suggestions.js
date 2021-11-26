@@ -165,7 +165,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         then(results => results.data.map(res => res.key));
     }
 
-    function listUsagesPlatforms() {
+    function listUsagePlatforms() {
       let suggestions = ['print', 'digital'];
       if (window._clientConfig.recordDownloadAsUsage === true) {
         suggestions.push('download');
@@ -177,7 +177,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
     function getFilterSuggestions(field, value) {
         switch (field) {
         case 'usages@status': return ['published', 'pending', 'removed'];
-        case 'usages@platform': return listUsagesPlatforms();
+        case 'usages@platform': return listUsagePlatforms();
         case 'subject':  return prefixFilter(value)(subjects);
         case 'fileType': return prefixFilter(value)(fileTypes);
         case 'label':    return suggestLabels(value);
