@@ -16,7 +16,8 @@
   homeLinkHtml: Option[String],
   systemName: String,
   canDownloadCrop: Boolean,
-  domainMetadataSpecs: String
+  domainMetadataSpecs: String,
+  recordDownloadAsUsage: Boolean
 )
 <!DOCTYPE html>
 <html>
@@ -59,7 +60,8 @@
           homeLinkHtml: '@Html(homeLinkHtml.getOrElse(""))',
           systemName: "@Html(systemName)",
           canDownloadCrop: @canDownloadCrop,
-          domainMetadataSpecs: @Html(domainMetadataSpecs)
+          domainMetadataSpecs: @Html(domainMetadataSpecs),
+          recordDownloadAsUsage: @recordDownloadAsUsage
         }
     </script>
 
