@@ -17,7 +17,6 @@ import scala.concurrent.duration.DurationInt
 
 
 final case class ScrolledSearchResults(hits: List[SearchHit], scrollId: Option[String])
-final case class EsInfoContainer(esInfo: EsInfo)
 
 trait ThrallMigrationClient extends MigrationStatusProvider {
   self: ElasticSearchClient =>

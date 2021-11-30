@@ -39,7 +39,7 @@ object GoodToGoCheck extends StrictLogging {
         _ <- if (checkAbsent.nonEmpty) deleteTestImage(es, image.id) else Future.successful(())
         // now index and retrieve the test image
         _ <- Future.successful(logger.info(s"Indexing test image ${image.id}"))
-        indexResult <- Future.sequence(es.indexImage(image.id, image, lastModified))
+        indexResult <- Future.sequence(es.migrationAwareIndexImage(image.id, image, lastModified))
         _ <- Future.successful(logger.info(s"Retrieving test image ${image.id}"))
         maybeRetrieveResult <- es.getImage(image.id)
         _ <- Future.successful(logger.info(s"Validating test image"))

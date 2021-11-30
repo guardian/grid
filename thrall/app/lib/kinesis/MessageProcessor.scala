@@ -61,7 +61,7 @@ class MessageProcessor(
 
   private def indexImage(message: ImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(
-      es.indexImage(message.id, message.image, message.lastModified)(ec, logMarker)
+      es.migrationAwareIndexImage(message.id, message.image, message.lastModified)(ec, logMarker)
     )
 
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
@@ -84,13 +84,13 @@ class MessageProcessor(
         Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id} -> current = $currentVersion, expected = $expectedVersion"))
       }
     }.flatMap(
-      image => Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)).transform {
+      image => es.directInsert(image, es.imagesMigrationAlias).transform {
         case s@Success(_) => s
         case Failure(exception) => Failure(InsertImageFailure(exception.toString))
       }
     ).flatMap { insertResult =>
       logger.info(logMarker, s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
-      es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationInfo(migratedTo = Some(insertResult.head.indexNames.head)))
+      es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationInfo(migratedTo = Some(insertResult.indexName)))
     }.recoverWith {
       case versionComparisonFailure: VersionComparisonFailure =>
         logger.error(logMarker, s"Postponed migration of image with id: ${message.id}: cause: ${versionComparisonFailure.getMessage}, this will get picked up shortly")
