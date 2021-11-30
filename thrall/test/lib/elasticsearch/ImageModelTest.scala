@@ -52,7 +52,7 @@ class ImageModelTest extends ElasticSearchTestBase {
        */
       val image = MappingTest.testImage
 
-      Await.result(Future.sequence(ES.indexImage(image.id, image, image.lastModified.get)), fiveSeconds)
+      Await.result(Future.sequence(ES.migrationAwareIndexImage(image.id, image, image.lastModified.get)), fiveSeconds)
       eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(image.id).map(_.id) shouldBe Some(image.id))
 
       val retrievedImage = reloadedImage(image.id).get

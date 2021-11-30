@@ -10,7 +10,6 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
@@ -75,69 +74,71 @@ class ElasticSearch(
     executeAndLog(request, s"Setting migration info on image id: ${imageId}")
   }
 
-  def bulkInsert(images: Seq[Image], indexName: String = imagesCurrentAlias)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchBulkUpdateResponse]] = {
-    val (requests, totalSize) =
-      images.foldLeft[(Seq[IndexRequest], Int)](List(), 0)
-      { (collector: (Seq[IndexRequest], Int), img) =>
-      val (requestsSoFar, sizeSoFar) = collector
-      val document = Json.stringify(Json.toJson(img))
-      (
-        requestsSoFar :+
-        indexInto(indexName)
-          .id(img.id)
-          .source(document),
-        sizeSoFar + document.length()
-      )
-    }
+  def directInsert(image: Image, indexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchInsertResponse] =
+    executeAndLog(
+      indexInto(indexName).id(image.id).source(Json.stringify(Json.toJson(image))),
+      s"ES6 indexing image ${image.id} into index '$indexName'"
+    ).map(indexResponse =>
+      ElasticSearchInsertResponse(indexResponse.result.index)
+    )
 
-    val request = bulk { requests }
 
-    val response = executeAndLog(request, s"Bulk inserting ${images.length} images, total size $totalSize")
+  def migrationAwareIndexImage(id: String, image: Image, lastModified: DateTime)
+                              (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
-    List(response.map(resp => ElasticSearchBulkUpdateResponse(indexNames = resp.result.items.map(item => item.index))))
-  }
-
-  def indexImage(id: String, image: Image, lastModified: DateTime, indexName: String = imagesCurrentAlias)
-                (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     // On insert, we know we will not have a lastModified to consider, so we always take the one we get
     val insertImage = image.copy(lastModified = Some(lastModified))
     val insertImageAsJson = Json.toJson(insertImage)
 
-    // On update, we do not want to take the one we have been given unless it is newer - see updateLastModifiedScript script
-    val updateImage = image.copy(lastModified = None)
-    val upsertImageAsJson = Json.toJson(updateImage)
+    val runInsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex: Future[JsObject] = migrationStatus match {
+      case running: Running =>
+        directInsert(image, running.migrationIndexName)
+          .map(_ => EsInfo(Some(MigrationInfo(migratedTo = Some(running.migrationIndexName)))))
+          .recover{ case error => EsInfo(Some(MigrationInfo(failures = Some(Map(
+            running.migrationIndexName -> error.getMessage
+          )))))}
+          .map(esInfo => Json.obj("esInfo" -> Json.toJson(esInfo)))
+      case _ => Future.successful(JsObject.empty)
+    }
 
-    val painlessSource =
+    val runInsertIntoCurrentIndex = runInsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex.flatMap { esInfoToAddToCurrentIndex =>
+
+      // On update, we do not want to take the one we have been given unless it is newer - see updateLastModifiedScript script
+      val updateImage = image.copy(lastModified = None)
+      val upsertImageAsJson = Json.toJson(updateImage)
+
+      val painlessSource =
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
+        """
+          | if (ctx._source.identifiers != null) {
+          |   ctx._source.identifiers.putAll(params.update_doc.identifiers);
+          |   params.update_doc.identifiers = ctx._source.identifiers
+          | }
+          |
+          | ctx._source.putAll(params.update_doc);
+          |
+          | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
+          |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
+          | }
       """
-        | if (ctx._source.identifiers != null) {
-        |   ctx._source.identifiers.putAll(params.update_doc.identifiers);
-        |   params.update_doc.identifiers = ctx._source.identifiers
-        | }
-        |
-        | ctx._source.putAll(params.update_doc);
-        |
-        | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
-        |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
-        | }
-      """
 
-    val scriptSource = loadUpdatingModificationPainless(s"""
-                                       |$painlessSource
-                                       |$refreshEditsScript
-                                       | """)
+      val scriptSource = loadUpdatingModificationPainless(s"""
+                                                             |$painlessSource
+                                                             |$refreshEditsScript
+                                                             | """)
 
-    val script: Script = prepareScript(scriptSource, lastModified,
-      ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson)))
-    )
+      val script: Script = prepareScript(scriptSource, lastModified,
+        ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)))
+      )
 
-    val indexRequest = updateById(indexName, id).
-      upsert(Json.stringify(insertImageAsJson)).
-      script(script)
+      val indexRequest = updateById(imagesCurrentAlias, id).
+        upsert(Json.stringify(insertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)).
+        script(script)
 
-    val indexResponse = executeAndLog(indexRequest, s"ES6 indexing image $id")
+      executeAndLog(indexRequest, s"ES6 indexing image $id into index aliased by '$imagesCurrentAlias'")
+    }
 
-    List(indexResponse.map { _ =>
+    List(runInsertIntoCurrentIndex.map { _ =>
       ElasticSearchUpdateResponse()
     })
   }
