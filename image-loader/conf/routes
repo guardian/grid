@@ -1,4 +1,5 @@
 GET     /                                             controllers.ImageLoaderController.index
+GET /goslow controllers.ImageLoaderController.goslow
 POST    /images                                       controllers.ImageLoaderController.loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 POST    /imports                                      controllers.ImageLoaderController.importImage(uri: String, uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String])
 GET     /images/project/:imageId                      controllers.ImageLoaderController.projectImageBy(imageId: String)

@@ -1,5 +1,7 @@
 package controllers
 
+import akka.actor.ActorSystem
+
 import java.io.File
 import java.net.URI
 import com.drew.imaging.ImageProcessingException
@@ -24,7 +26,8 @@ import java.time.Instant
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
@@ -39,7 +42,9 @@ class ImageLoaderController(auth: Authentication,
                             projector: Projector,
                             override val controllerComponents: ControllerComponents,
                             gridClient: GridClient,
-                            authorisation: Authorisation)
+                            authorisation: Authorisation,
+  system: Option[ActorSystem] = None
+)
                            (implicit val ec: ExecutionContext)
   extends BaseController with ArgoHelpers {
 
@@ -52,6 +57,19 @@ class ImageLoaderController(auth: Authentication,
       Link("import", s"${config.rootUri}/imports{?uri,uploadedBy,identifiers,uploadTime,filename}")
     )
     respond(indexData, indexLinks)
+  }
+
+  def goslow = Action.async {
+    system match {
+      case Some(system) =>
+        val promise = Promise[String]
+        system.scheduler.scheduleOnce(100.seconds) {
+          promise.success("Done")
+        }
+        promise.future.map(Ok(_))
+      case None => Future.successful(InternalServerError("Wasn't given an actor system"))
+    }
+
   }
 
   def index: Action[AnyContent] = AuthenticatedAndAuthorised { indexResponse }
