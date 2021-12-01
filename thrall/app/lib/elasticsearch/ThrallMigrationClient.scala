@@ -1,11 +1,11 @@
 package lib.elasticsearch
 
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, InProgress, MigrationAlreadyRunningError, MigrationStatusProvider, NotRunning, Paused}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, InProgress, MigrationAlreadyRunningError, MigrationNotRunningError, MigrationStatusProvider, NotRunning, Paused, Running}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchQuery, not}
 import com.sksamuel.elastic4s.ElasticDsl
-import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.ElasticDsl.{addAlias, aliases, removeAlias, _}
 import com.sksamuel.elastic4s.requests.searches.SearchHit
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.Terms
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.metrics.TopHits
@@ -14,6 +14,7 @@ import play.api.libs.json.{JsError, JsSuccess, Json, Reads, __}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 
 
 final case class ScrolledSearchResults(hits: List[SearchHit], scrollId: Option[String])
@@ -81,6 +82,33 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
       _ = logger.info(logMarker, s"Assigned migration index $imagesMigrationAlias to $newIndexName")
       _ = refreshAndRetrieveMigrationStatus()
     } yield ()
+  }
+
+  def completeMigration(logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+    val currentStatus = refreshAndRetrieveMigrationStatus()
+    currentStatus match {
+      case running: Running => for {
+          currentIndex <- getIndexForAlias(imagesCurrentAlias)
+          currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '$imagesCurrentAlias' alias")))
+          _ <- client.execute { aliases (
+            removeAlias(imagesMigrationAlias, running.migrationIndexName),
+            removeAlias(imagesCurrentAlias, currentIndexName),
+            addAlias(imagesCurrentAlias, running.migrationIndexName)
+          )}.transform {
+            case Success(response) if response.result.success =>
+              Success(())
+            case Success(response) if response.isError =>
+              Failure(new Exception("Failed to complete migration (alias switching failed)", response.error.asException))
+            case _ =>
+              Failure(new Exception("Failed to complete migration (alias switching failed)"))
+          }
+          _ = logger.info(logMarker, s"Completed Migration (by switching & removing aliases)")
+          _ = refreshAndRetrieveMigrationStatus()
+      } yield ()
+      case _ =>
+        logger.error(logMarker, s"Cannot complete migration when migration status is $currentStatus")
+        throw new MigrationNotRunningError
+    }
   }
 
   def getMigrationFailuresOverview(

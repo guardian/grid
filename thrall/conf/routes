@@ -3,7 +3,7 @@
 # ~~~~
 
 GET     /                                             controllers.ThrallController.index
-GET     /migrationFailuresOverview                     controllers.ThrallController.migrationFailuresOverview()
+GET     /migrationFailuresOverview                    controllers.ThrallController.migrationFailuresOverview()
 GET     /migrationFailures                            controllers.ThrallController.migrationFailures(filter: String, page: Option[Int])
 
 +nocsrf
@@ -14,6 +14,8 @@ POST    /pauseMigration                               controllers.ThrallControll
 POST    /resumeMigration                               controllers.ThrallController.resumeMigration
 +nocsrf
 POST    /migrate                                      controllers.ThrallController.migrateSingleImage
++nocsrf
+POST    /completeMigration                            controllers.ThrallController.completeMigration
 
 # Management
 GET     /management/healthcheck                       controllers.HealthCheck.healthCheck

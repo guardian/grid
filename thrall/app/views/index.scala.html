@@ -80,7 +80,16 @@
     <em>Note that the above represents the value at the point this page was loaded.</em>
 
     @if(migrationStatus.isInstanceOf[Running]) {
-        <p><a href="@routes.ThrallController.migrationFailuresOverview()">View images that have failed to migrate and retry.</a></p>
+        <p><a href="@routes.ThrallController.migrationFailuresOverview">View images that have failed to migrate and retry.</a></p>
+
+        <h3>Complete Migration?</h3>
+        <p>
+            If you're happy that the migration is complete (typically when it hasn't migrated any images in a good while
+            and we're happy that all images in failure can become inaccessible).
+            @form(routes.ThrallController.completeMigration) {
+                <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">
+            }
+        </p>
     }
 </body>
 </html>

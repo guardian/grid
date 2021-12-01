@@ -7,9 +7,9 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
 import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.lib.elasticsearch.Running
+import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
+import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
 import lib.OptionalFutureRunner
 import lib.elasticsearch.ElasticSearch
 import org.joda.time.{DateTime, DateTimeZone}
@@ -19,6 +19,8 @@ import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
+
+import scala.language.postfixOps
 
 case class MigrateSingleImageForm(id: String)
 
@@ -132,6 +134,32 @@ class ThrallController(
           atMost = 12 seconds
         )
 
+    }
+  }
+
+  def completeMigration = withLoginRedirectAsync {
+    es.refreshAndRetrieveMigrationStatus() match {
+      case _: Running =>
+        messageSender.publish(CompleteMigrationMessage(
+          lastModified = DateTime.now(DateTimeZone.UTC),
+        ))
+        // poll until images migration status is not running or error, giving up after 10 seconds
+        Source(1 to 20)
+          .throttle(1, 500 millis)
+          .map(_ => es.refreshAndRetrieveMigrationStatus())
+          .takeWhile(_.isInstanceOf[Running], inclusive = true)
+          .runWith(Sink.last)
+          .map {
+            case NotRunning => Redirect(routes.ThrallController.index)
+            case migrationStatus =>
+              val timedOutMessage = s"MigrationStatus was still '$migrationStatus' after 10 seconds."
+              logger.error(timedOutMessage)
+              InternalServerError(timedOutMessage)
+          }
+      case migrationStatus =>
+        Future.successful(
+          BadRequest(s"MigrationStatus is $migrationStatus so cannot complete migration.")
+        )
     }
   }
 
