@@ -361,11 +361,19 @@
             <dt ng-if="(ctrl.rawMetadata.peopleInImage || ctrl.userCanEdit)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
             <dd ng-if="(ctrl.rawMetadata.peopleInImage || ctrl.userCanEdit)" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-people-button"
-                        class="image-info__edit"
-                        ng-if="ctrl.userCanEdit"
+                        class="metadata-people__button"
+                        ng-class="{'small': ctrl.grSmall}"
                         ng-click="peopleInImageEditForm.$show()"
                         ng-hide="peopleInImageEditForm.$visible"
-                >✎</button>
+                        ng-if="ctrl.userCanEdit"
+                        gr-tooltip="Add People"
+                        gr-tooltip-position="left">
+
+                    <gr-icon ng-class="{'spin': ctrl.adding}">add_box</gr-icon>
+                    <span>
+                        <span ng-show="ctrl.adding">Adding...</span>
+                    </span>
+                </button>
                 <span ng-class="{'image-info--multiple': ctrl.selectedImages.size > 1}"
                       editable-text="ctrl.metadata.peopleInImage"
                       ng-hide="peopleInImageEditForm.$visible"
@@ -375,7 +383,6 @@
                                    'image-info__editor--saving': peopleInImageEditForm.$waiting,
                                    'text-input': true}">
 
-                <span class="editable-empty" ng-if="!ctrl.metadata.peopleInImage && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
                 <ui-list-editor-info-panel
                         images="ctrl.selectedImages"
                         add-to-images="ctrl.addPersonToImages"

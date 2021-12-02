@@ -2,7 +2,7 @@ import angular from 'angular';
 import Rx from 'rx';
 
 import template from './gr-image-metadata.html';
-
+import './gr-image-metadata.css';
 import '../../image/service';
 import '../../edits/service';
 import '../gr-description-warning/gr-description-warning';
