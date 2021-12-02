@@ -81,3 +81,4 @@ trait MigrationStatusProvider {
 }
 
 case class MigrationAlreadyRunningError() extends Exception
+case class MigrationNotRunningError() extends Exception

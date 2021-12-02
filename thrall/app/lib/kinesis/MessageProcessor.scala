@@ -47,6 +47,7 @@ class MessageProcessor(
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
       case message: MigrateImageMessage => migrateImage(message, logMarker)
+      case _: CompleteMigrationMessage => completeMigration(logMarker)
     }
   }
 
@@ -186,5 +187,9 @@ class MessageProcessor(
     Future {
       es.startMigration(message.newIndexName)(logMarker)
     }
+  }
+
+  def completeMigration(logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+    es.completeMigration(logMarker)
   }
 }

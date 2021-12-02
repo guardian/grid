@@ -80,6 +80,7 @@ object ExternalThrallMessage{
   implicit val updateImageExportsMessage = Json.format[UpdateImageExportsMessage]
 
   implicit val createMigrationIndexMessage = Json.format[CreateMigrationIndexMessage]
+  implicit val completeMigrationMessage = Json.format[CompleteMigrationMessage]
 
   implicit val writes = Json.writes[ExternalThrallMessage]
   implicit val reads = Json.reads[ExternalThrallMessage]
@@ -142,4 +143,8 @@ case class CreateMigrationIndexMessage(
 
   val newIndexName =
     s"images_${migrationStart.toString(DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss").withZoneUTC())}_${gitHash.take(7)}"
+}
+
+case class CompleteMigrationMessage(lastModified: DateTime) extends ExternalThrallMessage {
+  val id: String = "N/A"
 }
