@@ -98,6 +98,12 @@ object GridClient extends LazyLogging {
 
 class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLogging {
 
+  /*
+   * `requestTimeout` will set the max duration of the request before timing out. You may also want to increase the
+   * idle timeout (which can only be done via config - `play.ws.timeout.idle`) if the request takes a long time to
+   * process before returning data.
+   * See also https://www.playframework.com/documentation/2.6.x/ScalaWS#Configuring-Timeouts
+   */
   def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
                          (implicit ec: ExecutionContext): Future[Response] = {
     val request: WSRequest = wsClient.url(url.toString)
