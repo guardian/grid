@@ -27,6 +27,7 @@ element--partial is part of gr-panel.
 .element--partial .element__remove {
     background-color: white;
     color: #00adee;
+    font-style: normal;
 }
 
 .element__value,
@@ -92,4 +93,18 @@ element--partial is part of gr-panel.
     background-color: #222;
     color: #999;
     border-radius: 8px;
+}
+
+.image-info__people  .element--partial .element__value,
+.image-info__people .element--partial .element__remove,
+ .image-info__people .element--partial .element__add{
+    background-color: white;
+    color: #222;
+}
+
+.image-info__people .element__value,
+.image-info__people .element__remove,
+.image-info__people .element__add {
+    background-color: #222;
+    color: #999;
 }
