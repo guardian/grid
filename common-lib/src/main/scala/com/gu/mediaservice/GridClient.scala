@@ -10,6 +10,7 @@ import com.typesafe.scalalogging.LazyLogging
 import play.api.http.HeaderNames
 import play.api.libs.json.{JsArray, JsObject, JsValue, Json, Reads}
 
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import play.api.libs.ws.{WSClient, WSRequest, WSResponse}
@@ -97,11 +98,17 @@ object GridClient extends LazyLogging {
 
 class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLogging {
 
-
-  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest)
+  /*
+   * `requestTimeout` will set the max duration of the request before timing out. You may also want to increase the
+   * idle timeout (which can only be done via config - `play.ws.timeout.idle`) if the request takes a long time to
+   * process before returning data.
+   * See also https://www.playframework.com/documentation/2.6.x/ScalaWS#Configuring-Timeouts
+   */
+  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
                          (implicit ec: ExecutionContext): Future[Response] = {
     val request: WSRequest = wsClient.url(url.toString)
-    val authorisedRequest = authFn(request)
+    val requestWithTimeout = requestTimeout.fold(request)(request.withRequestTimeout)
+    val authorisedRequest = authFn(requestWithTimeout)
     authorisedRequest.get().map { response => validateResponse(response, url)}
   }
 
@@ -135,7 +142,7 @@ class GridClient(services: Services)(implicit wsClient: WSClient) extends LazyLo
                               (implicit ec: ExecutionContext): Future[Option[Image]] = {
     logger.info("attempt to get image projection from image-loader")
     val url = new URL(s"$imageLoaderEndpoint/images/project/$mediaId")
-    makeGetRequestAsync(url, authFn) map {
+    makeGetRequestAsync(url, authFn, requestTimeout = Some(300.seconds)) map {
       case Found(json, _) => Some(json.as[Image])
       case NotFound(_, _) => None
       case e@Error(_, _, _) => e.logErrorAndThrowException()
