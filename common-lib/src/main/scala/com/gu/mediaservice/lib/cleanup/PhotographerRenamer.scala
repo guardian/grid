@@ -337,6 +337,7 @@ object PhotographerRenamer extends MetadataCleaner {
     "Mehmet Kumcagiz" -> "Mehmet Kumcağız",
     "Michal Cizek" -> "Michal Čížek",
     "Michal Fludra" -> "Michał Fludra",
+    "Michal Kosc" -> "Michał Kość",
     "Michal Wachucik" -> "Michał Wachucik",
     "Michael Mccoy" -> "Michael McCoy",
     "Michelle Mcloughlin" -> "Michelle McLoughlin",
