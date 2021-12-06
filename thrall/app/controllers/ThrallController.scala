@@ -46,6 +46,8 @@ class ThrallController(
       migrationIndexName = migrationIndex.map(_.name)
       migrationIndexCount <- countDocsInIndex(migrationIndexName)
 
+      historicalIndex <- es.getIndexForAlias(es.imagesHistoricalAlias)
+
       currentIndexCountFormatted = currentIndexCount.map(_.catCount.toString).getOrElse("!")
       migrationIndexCountFormatted = migrationIndexCount.map(_.catCount.toString).getOrElse("-")
     } yield {
@@ -55,7 +57,8 @@ class ThrallController(
         currentIndexCount = currentIndexCountFormatted,
         migrationAlias = es.imagesMigrationAlias,
         migrationIndexCount = migrationIndexCountFormatted,
-        migrationStatus = es.migrationStatus
+        migrationStatus = es.migrationStatus,
+        hasHistoricalIndex = historicalIndex.isDefined,
       ))
     }
   }
@@ -70,7 +73,16 @@ class ThrallController(
             uiBaseUrl = services.kahunaBaseUri,
           ))
         )
-      case _ => Future.successful(Ok("No current migration"))
+      case _ => for {
+        currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
+        currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '${es.imagesCurrentAlias}' alias")))
+        failuresOverview <- es.getMigrationFailuresOverview(es.imagesHistoricalAlias, currentIndexName)
+        response = Ok(views.html.migrationFailuresOverview(
+          failuresOverview,
+          apiBaseUrl = services.apiBaseUri,
+          uiBaseUrl = services.kahunaBaseUri,
+        ))
+      } yield response
     }
   }
 
@@ -90,10 +102,23 @@ class ThrallController(
               apiBaseUrl = services.apiBaseUri,
               uiBaseUrl = services.kahunaBaseUri,
               filter,
-              page
+              page,
+              shouldAllowReattempts = true
             ))
           )
-        case _ => Future.successful(Ok("No current migration"))
+        case _ => for {
+          currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
+          currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '${es.imagesCurrentAlias}' alias")))
+          failures <- es.getMigrationFailures(es.imagesHistoricalAlias, currentIndexName, from, pageSize, filter)
+          response = Ok(views.html.migrationFailures(
+            failures,
+            apiBaseUrl = services.apiBaseUri,
+            uiBaseUrl = services.kahunaBaseUri,
+            filter,
+            page,
+            shouldAllowReattempts = false
+          ))
+        } yield response
       }
     }
   }

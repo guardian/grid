@@ -10,7 +10,8 @@
   currentIndexCount: String,
   migrationAlias: String,
   migrationIndexCount: String,
-  migrationStatus: MigrationStatus
+  migrationStatus: MigrationStatus,
+  hasHistoricalIndex: Boolean
 )
 
 @migrationIndexCell = {
@@ -79,9 +80,17 @@
     <pre>@migrationStatus</pre>
     <em>Note that the above represents the value at the point this page was loaded.</em>
 
-    @if(migrationStatus.isInstanceOf[Running]) {
-        <p><a href="@routes.ThrallController.migrationFailuresOverview">View images that have failed to migrate and retry.</a></p>
+    @if(migrationStatus.isInstanceOf[Running] || hasHistoricalIndex) {
+        <p><a href="@routes.ThrallController.migrationFailuresOverview">
+            View images that have failed to migrate @if(migrationStatus.isInstanceOf[Running]) {
+            <span>and retry.</span>
+        } else {
+            <span>in the PREVIOUS MIGRATION.</span>
+        }
+        </a></p>
+    }
 
+    @if(migrationStatus.isInstanceOf[Running]) {
         <h3>Complete Migration?</h3>
         <p>
             If you're happy that the migration is complete (typically when it hasn't migrated any images in a good while
@@ -91,5 +100,6 @@
             }
         </p>
     }
+
 </body>
 </html>

@@ -7,6 +7,7 @@
     uiBaseUrl: String,
     filter: String,
     page: Int,
+    shouldAllowReattempts: Boolean,
 )
 
 @navigation = {
@@ -39,7 +40,7 @@
             <th>Last Modified</th>
             <th>Crop Count</th>
             <th>Usage Count</th>
-            <th>Click to reattempt migration</th>
+            @if(shouldAllowReattempts) { <th>Click to reattempt migration</th> }
         </tr>
         @for(failure <- failures.details) {
             <tr>
@@ -56,11 +57,13 @@
                         Full Usage Search in CAPI
                     </a>
                 </td>
-                <td>@form(action = routes.ThrallController.migrateSingleImage){
-                    <label for="id" class="hidden">Image ID:</label>
-                    <input type="text" id="id" value="@failure.imageId" name="id" class="hidden">
-                    <input type="submit" value="Reattempt migration">
-                }</td>
+                @if(shouldAllowReattempts) {
+                    <td>@form(action = routes.ThrallController.migrateSingleImage){
+                        <label for="id" class="hidden">Image ID:</label>
+                        <input type="text" id="id" value="@failure.imageId" name="id" class="hidden">
+                        <input type="submit" value="Reattempt migration">
+                    }</td>
+                }
             </tr>
         }
     </table>

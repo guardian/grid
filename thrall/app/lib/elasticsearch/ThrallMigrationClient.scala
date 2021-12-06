@@ -93,7 +93,8 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
           _ <- client.execute { aliases (
             removeAlias(imagesMigrationAlias, running.migrationIndexName),
             removeAlias(imagesCurrentAlias, currentIndexName),
-            addAlias(imagesCurrentAlias, running.migrationIndexName)
+            addAlias(imagesCurrentAlias, running.migrationIndexName),
+            addAlias(imagesHistoricalAlias, currentIndexName)
           )}.transform {
             case Success(response) if response.result.success =>
               Success(())
