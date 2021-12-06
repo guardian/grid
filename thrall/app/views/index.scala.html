@@ -26,6 +26,7 @@
         }
         case NotRunning => {
             @form(routes.ThrallController.startMigration) {
+                <input type="text" id="start-confirmation" name="start-confirmation" placeholder="Type 'start' to confirm" required>
                 <input type="submit" value="Start migration">
             }
         }
@@ -96,6 +97,7 @@
             If you're happy that the migration is complete (typically when it hasn't migrated any images in a good while
             and we're happy that all images in failure can become inaccessible).
             @form(routes.ThrallController.completeMigration) {
+                <input type="text" id="complete-confirmation" name="complete-confirmation" placeholder="Type 'complete' to confirm" required>
                 <input type="submit" value="ONLY CLICK THIS BUTTON IF YOU'RE SURE">
             }
         </p>

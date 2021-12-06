@@ -125,66 +125,75 @@ class ThrallController(
 
   implicit val pollingMaterializer: ActorMaterializer = ActorMaterializer()(actorSystem)
 
-  def startMigration = withLoginRedirectAsync {
-    val msgFailedToFetchIndex = s"Could not fetch ES index details for alias '${es.imagesMigrationAlias}'"
-    es.getIndexForAlias(es.imagesMigrationAlias) recover { case error: Throwable =>
-      logger.error(msgFailedToFetchIndex, error)
-      InternalServerError(msgFailedToFetchIndex)
-    } map {
-      case Some(index) =>
-        BadRequest(s"There is already an index '${index}' for alias '${es.imagesMigrationAlias}', and thus a migration underway.")
-      case None =>
-        messageSender.publish(CreateMigrationIndexMessage(
-          migrationStart = DateTime.now(DateTimeZone.UTC),
-          gitHash = utils.buildinfo.BuildInfo.gitCommitId
-        ))
-        // poll until images migration alias is created, giving up after 10 seconds
-        Await.result(
-          Source(1 to 20)
-            .throttle(1, 500 millis)
-            .mapAsync(parallelism = 1)(_ => es.getIndexForAlias(es.imagesMigrationAlias))
-            .takeWhile(_.isEmpty, inclusive = true)
-            .runWith(Sink.last)
-            .map(_.fold {
-              val timedOutMessage = s"Still no index for alias '${es.imagesMigrationAlias}' after 10 seconds."
-              logger.error(timedOutMessage)
-              InternalServerError(timedOutMessage)
-            }{ _ =>
-              Redirect(routes.ThrallController.index)
-            })
-            .recover { case error: Throwable =>
-              logger.error(msgFailedToFetchIndex, error)
-              InternalServerError(msgFailedToFetchIndex)
-            },
-          atMost = 12 seconds
-        )
+  def startMigration = withLoginRedirectAsync { implicit request =>
 
+    if(Form(single("start-confirmation" -> text)).bindFromRequest.get != "start"){
+      Future.successful(BadRequest("you did not enter 'start' in the text box"))
+    } else {
+      val msgFailedToFetchIndex = s"Could not fetch ES index details for alias '${es.imagesMigrationAlias}'"
+      es.getIndexForAlias(es.imagesMigrationAlias) recover { case error: Throwable =>
+        logger.error(msgFailedToFetchIndex, error)
+        InternalServerError(msgFailedToFetchIndex)
+      } map {
+        case Some(index) =>
+          BadRequest(s"There is already an index '${index}' for alias '${es.imagesMigrationAlias}', and thus a migration underway.")
+        case None =>
+          messageSender.publish(CreateMigrationIndexMessage(
+            migrationStart = DateTime.now(DateTimeZone.UTC),
+            gitHash = utils.buildinfo.BuildInfo.gitCommitId
+          ))
+          // poll until images migration alias is created, giving up after 10 seconds
+          Await.result(
+            Source(1 to 20)
+              .throttle(1, 500 millis)
+              .mapAsync(parallelism = 1)(_ => es.getIndexForAlias(es.imagesMigrationAlias))
+              .takeWhile(_.isEmpty, inclusive = true)
+              .runWith(Sink.last)
+              .map(_.fold {
+                val timedOutMessage = s"Still no index for alias '${es.imagesMigrationAlias}' after 10 seconds."
+                logger.error(timedOutMessage)
+                InternalServerError(timedOutMessage)
+              } { _ =>
+                Redirect(routes.ThrallController.index)
+              })
+              .recover { case error: Throwable =>
+                logger.error(msgFailedToFetchIndex, error)
+                InternalServerError(msgFailedToFetchIndex)
+              },
+            atMost = 12 seconds
+          )
+      }
     }
   }
 
-  def completeMigration = withLoginRedirectAsync {
-    es.refreshAndRetrieveMigrationStatus() match {
-      case _: Running =>
-        messageSender.publish(CompleteMigrationMessage(
-          lastModified = DateTime.now(DateTimeZone.UTC),
-        ))
-        // poll until images migration status is not running or error, giving up after 10 seconds
-        Source(1 to 20)
-          .throttle(1, 500 millis)
-          .map(_ => es.refreshAndRetrieveMigrationStatus())
-          .takeWhile(_.isInstanceOf[Running], inclusive = true)
-          .runWith(Sink.last)
-          .map {
-            case NotRunning => Redirect(routes.ThrallController.index)
-            case migrationStatus =>
-              val timedOutMessage = s"MigrationStatus was still '$migrationStatus' after 10 seconds."
-              logger.error(timedOutMessage)
-              InternalServerError(timedOutMessage)
-          }
-      case migrationStatus =>
-        Future.successful(
-          BadRequest(s"MigrationStatus is $migrationStatus so cannot complete migration.")
-        )
+  def completeMigration: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+
+    if(Form(single("complete-confirmation" -> text)).bindFromRequest.get != "complete"){
+      Future.successful(BadRequest("you did not enter 'complete' in the text box"))
+    } else {
+      es.refreshAndRetrieveMigrationStatus() match {
+        case _: Running =>
+          messageSender.publish(CompleteMigrationMessage(
+            lastModified = DateTime.now(DateTimeZone.UTC),
+          ))
+          // poll until images migration status is not running or error, giving up after 10 seconds
+          Source(1 to 20)
+            .throttle(1, 500 millis)
+            .map(_ => es.refreshAndRetrieveMigrationStatus())
+            .takeWhile(_.isInstanceOf[Running], inclusive = true)
+            .runWith(Sink.last)
+            .map {
+              case NotRunning => Redirect(routes.ThrallController.index)
+              case migrationStatus =>
+                val timedOutMessage = s"MigrationStatus was still '$migrationStatus' after 10 seconds."
+                logger.error(timedOutMessage)
+                InternalServerError(timedOutMessage)
+            }
+        case migrationStatus =>
+          Future.successful(
+            BadRequest(s"MigrationStatus is $migrationStatus so cannot complete migration.")
+          )
+      }
     }
   }
 
