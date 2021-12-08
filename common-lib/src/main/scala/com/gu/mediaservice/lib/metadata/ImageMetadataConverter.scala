@@ -150,7 +150,12 @@ object ImageMetadataConverter extends GridLogging {
       // So we refuse the (apparently successful) EU parse result.
       case (None, formatter) => safeParsing(formatter.parseDateTime(str))
         .filter(d => maxDate.forall(md => d.isBefore(md)))
-    }.map(_.withZone(DateTimeZone.UTC))
+    }.map(_.withZone(DateTimeZone.UTC)).flatMap{
+      case date if date.getYear > 2100 && str.length > 8 && str.substring(4,9) == "0000-" => parseRandomDate(str.substring(0, 4)+"0101", maxDate)
+      case date if date.getYear > 2100 && str.length > 8 && str.substring(6,9) ==  "00-" => parseRandomDate(str.substring(0, 6)+"01", maxDate)
+      case date if date.getYear > 2100 && str.length > 8 && str.charAt(8) == '-' => parseRandomDate(str.substring(0, 8), maxDate)
+      case date => Some(date)
+    }
   }
 
   private def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption

@@ -269,6 +269,23 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
     imageMetadata.dateTaken should be(Some(DateTime.parse("2014-12-16T00:00:00Z")))
   }
 
+  it("should populate the dateTaken field of ImageMetadata from partial date but with extra placeholder chars (19250000-01-01T00:00:00.000Z)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> JsString("19250000-01-01T00:00:00.000Z")))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be(Some(DateTime.parse("1925-01-01T00:00:00Z")))
+  }
+
+  it("should populate the dateTaken field of ImageMetadata from partial date but with extra placeholder chars (19250200-01-01T00:00:00.000Z)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> JsString("19250200-01-01T00:00:00.000Z")))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be(Some(DateTime.parse("1925-02-01T00:00:00Z")))
+  }
+  it("should populate the dateTaken field of ImageMetadata from partial date but with extra placeholder chars (19250201-01-01T00:00:00.000Z)") {
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> JsString("19250201-01-01T00:00:00.000Z")))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be(Some(DateTime.parse("1925-02-01T00:00:00Z")))
+  }
+
   it("should leave the dateTaken field of ImageMetadata empty if no date present") {
     val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
