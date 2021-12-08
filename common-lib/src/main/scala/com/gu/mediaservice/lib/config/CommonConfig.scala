@@ -203,6 +203,9 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
   final def boolean(key: String): Boolean =
     configuration.getOptional[Boolean](key).getOrElse(false)
 
+  final def booleanOpt(key: String): Option[Boolean] =
+    configuration.getOptional[Boolean](key)
+
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")
 }

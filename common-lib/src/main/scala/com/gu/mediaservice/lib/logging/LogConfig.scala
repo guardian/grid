@@ -86,8 +86,11 @@ object LogConfig {
   }
 
   def initKinesisLogging(config: CommonConfig): Unit = {
-    if (config.isDev) {
-      rootLogger.info("Kinesis logging disabled in DEV")
+
+    val kinesisLoggingEnabled = config.booleanOpt("logger.kinesis.enabled").getOrElse(true)
+
+    if (config.isDev || !kinesisLoggingEnabled) {
+      rootLogger.info("Kinesis logging is disabled by config")
     } else {
       Try {
         rootLogger.info("LogConfig initializing")

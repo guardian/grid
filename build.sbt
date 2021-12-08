@@ -52,7 +52,9 @@ lazy val root = project("grid", path = Some("."))
       (packageBin in Debian in mediaApi).value -> s"${(name in mediaApi).value}/${(name in mediaApi).value}.deb",
       // pull in s3watcher build
       file("s3watcher/lambda/target/s3watcher.zip") -> "s3watcher/s3watcher.zip",
-      file("riff-raff.yaml") -> "riff-raff.yaml"
+      file("riff-raff.yaml") -> "riff-raff.yaml",
+      file("fluentbit/td-agent-bit.conf") -> "media-service-fluentbit/td-agent-bit.conf",
+      file("fluentbit/parsers.conf") -> "media-service-fluentbit/parsers.conf"
     )
   )
 
