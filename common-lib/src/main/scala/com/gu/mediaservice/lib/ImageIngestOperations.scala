@@ -54,8 +54,8 @@ sealed trait ImageWrapper {
   val meta: Map[String, String]
 }
 sealed trait StorableImage extends ImageWrapper {
-  def toProjectedS3Object(thumbBucket: String): S3Object = S3Object(
-    thumbBucket,
+  def toProjectedS3Object(bucket: String): S3Object = S3Object(
+    bucket,
     ImageIngestOperations.fileKeyFromId(id),
     file,
     Some(mimeType),

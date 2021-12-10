@@ -8,8 +8,7 @@ import com.gu.mediaservice.lib.auth.Authentication
 import com.amazonaws.services.s3.model.{GetObjectRequest, ObjectMetadata, S3Object => AwsS3Object}
 import com.gu.mediaservice.lib.ImageIngestOperations.{fileKeyFromId, optimisedPngKeyFromId}
 import com.gu.mediaservice.lib.{ImageIngestOperations, ImageStorageProps, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
-import com.gu.mediaservice.lib.aws.S3Ops
-import com.gu.mediaservice.lib.aws.S3Object
+import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3Ops}
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
@@ -99,7 +98,10 @@ class Projector(config: ImageUploadOpsCfg,
         throw new NoSuchImageExistsInS3(config.originalFileBucket, s3Key)
 
       val s3Source = Stopwatch(s"object exists, getting s3 object at s3://${config.originalFileBucket}/$s3Key to perform Image projection"){
-        s3.getObject(config.originalFileBucket, s3Key)
+        val source = s3.getObject(config.originalFileBucket, s3Key)
+        val metadata = s3.getObjectMetadata(config.originalFileBucket, s3Key)
+        source.setObjectMetadata(metadata)
+        source
       }(logMarker)
 
       try {

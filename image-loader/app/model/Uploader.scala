@@ -146,7 +146,7 @@ object Uploader extends GridLogging {
     )
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
-    
+
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
@@ -165,7 +165,10 @@ object Uploader extends GridLogging {
       colourModel <- colourModelFuture
     } yield {
       val fullFileMetadata = fileMetadata.copy(colourModel = colourModel)
-      val metadata = ImageMetadataConverter.fromFileMetadata(fullFileMetadata, s3Source.metadata.objectMetadata.lastModified)
+      val metadata = ImageMetadataConverter.fromFileMetadata(
+        fullFileMetadata,
+        latestAllowedDateTime = s3Source.metadata.objectMetadata.lastModified
+      )
 
       val sourceAsset = Asset.fromS3Object(s3Source, sourceDimensions)
       val thumbAsset = Asset.fromS3Object(s3Thumb, thumbDimensions)
