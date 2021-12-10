@@ -27,13 +27,13 @@ element--partial is part of gr-panel.
 .element--partial .element__remove {
     background-color: white;
     color: #00adee;
-    font-style: normal;
 }
 
 .element__value,
 .element__remove {
     color: white;
     background-color: #00adee;
+    font-style: normal;
 }
 
 .element__link:hover,
@@ -89,10 +89,8 @@ element--partial is part of gr-panel.
     color: #FFF;
 }
 
-.image-info__keywords .element__value {
+.image-info__keyword .element__value {
     background-color: #222;
-    color: #999;
-    border-radius: 8px;
 }
 
 .image-info__people  .element--partial .element__value,
@@ -100,6 +98,7 @@ element--partial is part of gr-panel.
  .image-info__people .element--partial .element__add{
     background-color: white;
     color: #222;
+    border-bottom: 0px;
 }
 
 .image-info__people .element__value,
@@ -107,4 +106,19 @@ element--partial is part of gr-panel.
 .image-info__people .element__add {
     background-color: #222;
     color: #999;
+    border-bottom: 0px;
+}
+
+.image-info__people .element__link:hover,
+.image-info__people .element__remove:hover {
+    color: #00adee;
+    background-color: white;
+}
+
+.image-info__people .element--partial .element__add:hover gr-icon {
+    color: #717171;
+}
+
+.image-info__people .element--partial .element__remove:hover gr-icon {
+    color: #717171;
 }
