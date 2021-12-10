@@ -156,11 +156,19 @@ object ImageMetadataConverter extends GridLogging {
   private def safeParsing[A](parse: => A): Option[A] = Try(parse).toOption
 
   private def cleanDateFormat = ISODateTimeFormat.dateTime
-  def cleanDate(dirtyDate: String, fieldName: String = "none", imageId:String = "none"): String = parseRandomDate(dirtyDate) match {
-    case Some(cleanDate) => cleanDateFormat.print(cleanDate)
-    case None => {
-      logger.info(s"Unable to parse date $dirtyDate from field $fieldName for image $imageId")
-      dirtyDate
+  def cleanDate(dirtyDate: String, fieldName: String = "none", imageId:String = "none"): String = {
+    val slightlyCleanedDate = dirtyDate match {
+      case d if d.length == 8 && d.endsWith("0000") => d.take(4) + "0101"
+      case d if d.length == 8 && d.endsWith("00") => d.take(6) + "01"
+      case d => d
+    }
+    parseRandomDate(slightlyCleanedDate) match {
+      case Some(cleanDate) =>
+        cleanDateFormat.print(cleanDate)
+      case None => {
+        logger.info(s"Unable to parse date $dirtyDate from field $fieldName for image $imageId")
+        dirtyDate
+      }
     }
   }
 
