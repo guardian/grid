@@ -1,6 +1,15 @@
 package lib
 
-final case class FailedMigrationDetails(imageId: String, lastModified: String, crops: String, usages: String)
+final case class FailedMigrationDetails(
+  imageId: String,
+  lastModified: String,
+  crops: String,
+  usages: String,
+  uploadedBy: String,
+  uploadTime:String,
+  sourceJson: String,
+  esDocAsImageValidationFailures: Option[String]
+)
 
 final case class FailedMigrationSummary(totalFailed: Long, details: Seq[FailedMigrationDetails])
 
