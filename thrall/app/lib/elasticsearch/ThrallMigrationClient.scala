@@ -10,7 +10,7 @@ import com.sksamuel.elastic4s.requests.searches.SearchHit
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.Terms
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.metrics.TopHits
 import lib.{FailedMigrationDetails, FailedMigrationSummary, FailedMigrationsGrouping, FailedMigrationsOverview}
-import play.api.libs.json.{JsError, JsSuccess, Json, Reads, __}
+import play.api.libs.json.{JsObject, Json}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -156,15 +156,17 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
       .map { resp =>
         val failedMigrationDetails: Seq[FailedMigrationDetails] = resp.result.hits.hits.map { hit =>
 
-          Json.parse(hit.sourceAsString).asOpt[Image].fold(
-            FailedMigrationDetails(hit.id, "ES DOC CORRUPT", "ES DOC CORRUPT", "ES DOC CORRUPT")
-          )( image =>
-            FailedMigrationDetails(
-              imageId = hit.id,
-              lastModified = image.lastModified.fold("")(_.toString),
-              crops = image.exports.size.toString,
-              usages = image.usages.size.toString
-            )
+          val sourceJson = Json.parse(hit.sourceAsString)
+
+          FailedMigrationDetails(
+            imageId = hit.id,
+            lastModified = (sourceJson \ "lastModified").asOpt[String].getOrElse("-"),
+            crops = (sourceJson \ "exports").asOpt[List[JsObject]].map(_.size.toString).getOrElse("-"),
+            usages = (sourceJson \ "usages").asOpt[List[JsObject]].map(_.size.toString).getOrElse("-"),
+            uploadedBy = (sourceJson \ "uploadedBy").asOpt[String].getOrElse("-"),
+            uploadTime = (sourceJson \ "uploadTime").asOpt[String].getOrElse("-"),
+            sourceJson = Json.prettyPrint(sourceJson),
+            esDocAsImageValidationFailures = sourceJson.validate[Image].fold(failure => Some(failure.toString()), _ => None)
           )
         }
 

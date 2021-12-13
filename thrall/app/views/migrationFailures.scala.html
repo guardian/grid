@@ -40,7 +40,10 @@
             <th>Last Modified</th>
             <th>Crop Count</th>
             <th>Usage Count</th>
+            <th>Uploaded By</th>
+            <th>Uploaded Time</th>
             @if(shouldAllowReattempts) { <th>Click to reattempt migration</th> }
+            <th>ES Doc</th>
         </tr>
         @for(failure <- failures.details) {
             <tr>
@@ -50,13 +53,9 @@
                 </td>
                 <td>@failure.lastModified</td>
                 <td>@failure.crops</td>
-                <td>
-                    @failure.usages
-                    <br/>
-                    <a href="https://content.guardianapis.com/search?q=@failure.imageId&format=json&api-key=[KEY]">
-                        Full Usage Search in CAPI
-                    </a>
-                </td>
+                <td>@failure.usages</td>
+                <td>@failure.uploadedBy</td>
+                <td>@failure.uploadTime</td>
                 @if(shouldAllowReattempts) {
                     <td>@form(action = routes.ThrallController.migrateSingleImage){
                         <label for="id" class="hidden">Image ID:</label>
@@ -64,6 +63,18 @@
                         <input type="submit" value="Reattempt migration">
                     }</td>
                 }
+                <td>
+                    @failure.esDocAsImageValidationFailures.fold(<span/>)(validationFailures =>
+                        <div>
+                            <strong>Conversion to <code>Image</code> problems</strong>
+                            <p>@validationFailures</p>
+                        </div>
+                    )
+                    <details>
+                        <summary>View JSON</summary>
+                        <pre>@failure.sourceJson</pre>
+                    </details>
+                </td>
             </tr>
         }
     </table>
