@@ -298,7 +298,7 @@ module.controller('grImageMetadataCtrl', [
     }
 
     function selectedPeople() {
-    let peopleInSelectedImages = []
+    let peopleInSelectedImages = [];
       ctrl.selectedImages.map((image) => {
         const currentPeopleInImage = ctrl.peopleAccessor(image);
         peopleInSelectedImages = peopleInSelectedImages.concat(currentPeopleInImage);
