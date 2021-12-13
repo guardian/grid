@@ -27,7 +27,7 @@ object S3Object {
   def apply(bucket: String, key: String, size: Long, metadata: S3Metadata): S3Object =
     apply(objectUrl(bucket, key), size, metadata)
 
-  def apply(bucket: String, key: String, file: File, mimeType: Option[MimeType],
+  def apply(bucket: String, key: String, file: File, mimeType: Option[MimeType], lastModified: Option[DateTime],
             meta: Map[String, String] = Map.empty, cacheControl: Option[String] = None): S3Object = {
     S3Object(
       bucket,
@@ -37,7 +37,8 @@ object S3Object {
         meta,
         S3ObjectMetadata(
           mimeType,
-          cacheControl
+          cacheControl,
+          lastModified
         )
       )
     )
@@ -59,7 +60,7 @@ object S3Metadata {
   }
 }
 
-case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime] = None)
+case class S3ObjectMetadata(contentType: Option[MimeType], cacheControl: Option[String], lastModified: Option[DateTime])
 
 class S3(config: CommonConfig) extends GridLogging {
   type Bucket = String

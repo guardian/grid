@@ -142,11 +142,12 @@ object Uploader extends GridLogging {
       uploadRequest.imageId,
       uploadRequest.tempFile,
       originalMimeType,
+      uploadRequest.uploadTime,
       toMetaMap(uploadRequest)
     )
     val sourceStoreFuture = storeOrProjectOriginalFile(storableOriginalImage)
     val eventualBrowserViewableImage = createBrowserViewableFileFuture(uploadRequest, tempDirForRequest, deps)
-    
+
     val eventualImage = for {
       browserViewableImage <- eventualBrowserViewableImage
       s3Source <- sourceStoreFuture
