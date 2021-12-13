@@ -1,11 +1,11 @@
 package com.gu.mediaservice.lib
 
 import java.io.File
-
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.aws.S3Object
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.{MimeType, Png}
+import org.joda.time.DateTime
 
 import scala.concurrent.Future
 
@@ -59,19 +59,30 @@ sealed trait StorableImage extends ImageWrapper {
     ImageIngestOperations.fileKeyFromId(id),
     file,
     Some(mimeType),
+    lastModified = None,
     meta
   )
 }
 
 case class StorableThumbImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
-case class StorableOriginalImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage
+case class StorableOriginalImage(id: String, file: File, mimeType: MimeType, lastModified: DateTime, meta: Map[String, String] = Map.empty) extends StorableImage {
+  override def toProjectedS3Object(thumbBucket: String): S3Object = S3Object(
+    thumbBucket,
+    ImageIngestOperations.fileKeyFromId(id),
+    file,
+    Some(mimeType),
+    lastModified = Some(lastModified),
+    meta
+  )
+}
 case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty) extends StorableImage {
   override def toProjectedS3Object(thumbBucket: String): S3Object = S3Object(
     thumbBucket,
     ImageIngestOperations.optimisedPngKeyFromId(id),
     file,
     Some(mimeType),
-    meta
+    lastModified = None,
+    meta = meta
   )
 }
 

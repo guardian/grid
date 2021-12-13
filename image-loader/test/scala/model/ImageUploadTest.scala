@@ -53,7 +53,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
 
     def mockStore = (a: StorableImage) =>
       Future.successful(
-        S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), a.meta, None)
+        S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore
