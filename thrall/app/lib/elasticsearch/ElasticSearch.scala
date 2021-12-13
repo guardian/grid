@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Running}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchError, ElasticSearchException, ElasticSearchExecutions, Running}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -10,6 +10,7 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
+import com.sksamuel.elastic4s.requests.indexes.IndexResponse
 import com.sksamuel.elastic4s.requests.script.Script
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
@@ -74,13 +75,59 @@ class ElasticSearch(
     executeAndLog(request, s"Setting migration info on image id: ${imageId}")
   }
 
-  def directInsert(image: Image, indexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchInsertResponse] =
-    executeAndLog(
-      indexInto(indexName).id(image.id).source(Json.stringify(Json.toJson(image))),
-      s"ES6 indexing image ${image.id} into index '$indexName'"
-    ).map(indexResponse =>
-      ElasticSearchInsertResponse(indexResponse.result.index)
+  val malformedInsertRegex =
+   """(?:object mapping for|Existing mapping for) \[((?:fileMetadata\.[^,\]]+,?\s*)+)\] (?:tried to parse field|must be of type)""".r
+
+  def recoverMalformed[R](
+    imageJson: JsValue,
+    indexingMessage: String,
+    exec: (JsValue, String) => Future[Response[R]]
+  )(implicit
+    ex: ExecutionContext,
+    logMarker: LogMarker
+  ): PartialFunction[Throwable, Future[Response[R]]] = {
+    case elasticSearchError: ElasticSearchError =>
+      malformedInsertRegex.findFirstMatchIn(elasticSearchError.error.reason).map(_.group(1)).fold[Future[Response[R]]](
+        Future.failed(elasticSearchError)
+      ){ problematicFieldListStr =>
+        println
+        val problematicFields = problematicFieldListStr.split(",").map(_.trim)
+        logger.error(logMarker,"some fileMetadata FIELDS DO NOT CONFORM TO ES MAPPING", elasticSearchError)
+        val filteredJson = problematicFields.foldLeft(imageJson.as[JsObject]){(jsObject, problematicField) =>
+
+          println(problematicField)
+          val allPathParts = problematicField.split('.').toList
+          val finalPathParts = (
+            if(allPathParts.size > 3) allPathParts.take(2) ++ List(allPathParts.drop(2).mkString("."))
+            else allPathParts.take(3)
+          )
+          println(finalPathParts)
+          val jsPath = finalPathParts.foldLeft(JsPath())((path, part) => path \ part)
+          println(jsPath)
+
+          jsPath.prune(jsObject).getOrElse(jsObject)
+        }
+        exec(filteredJson, s"[retrying] $indexingMessage, with $problematicFields dropped")
+    }
+  }
+
+  def directInsert(image: Image, indexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchInsertResponse] = {
+
+    def exec(jsValue: JsValue, message: String) = executeAndLog(
+      indexInto(indexName).id(image.id).source(Json.stringify(jsValue)),
+      message
     )
+
+    val indexingMessage = s"ES6 indexing image ${image.id} into index '$indexName'"
+
+    val imageJson = Json.toJson(image)
+
+    exec(imageJson, indexingMessage)
+      .recoverWith(recoverMalformed(imageJson, indexingMessage, exec))
+      .map(indexResponse =>
+        ElasticSearchInsertResponse(indexResponse.result.index)
+      )
+  }
 
 
   def migrationAwareIndexImage(id: String, image: Image, lastModified: DateTime)
@@ -131,11 +178,17 @@ class ElasticSearch(
         ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)))
       )
 
-      val indexRequest = updateById(imagesCurrentAlias, id).
-        upsert(Json.stringify(insertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)).
-        script(script)
+      val imageJson = insertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex
 
-      executeAndLog(indexRequest, s"ES6 indexing image $id into index aliased by '$imagesCurrentAlias'")
+      val indexingMessage = s"ES6 indexing image $id into index aliased by '$imagesCurrentAlias'"
+
+      def exec(jsValue: JsValue, message: String) = executeAndLog(
+        updateById(imagesCurrentAlias, id).upsert(Json.stringify(jsValue)).script(script),
+        message
+      )
+
+      exec(imageJson, indexingMessage)
+        .recoverWith(recoverMalformed(imageJson, indexingMessage, exec))
     }
 
     List(runInsertIntoCurrentIndex.map { _ =>

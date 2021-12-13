@@ -1,17 +1,17 @@
 package lib.elasticsearch
 
-import java.util.UUID
+import com.gu.mediaservice.lib.elasticsearch.ElasticSearchException
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
-import com.gu.mediaservice.model.usage.Usage
-import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.http._
+import com.sksamuel.elastic4s.{ElasticError, Response}
+import com.sksamuel.elastic4s.requests.indexes.IndexResponse
 import org.joda.time.{DateTime, DateTimeZone}
-import play.api.libs.json.{JsDefined, JsLookupResult, JsObject, JsString, Json}
+import play.api.libs.json.{JsString, JsValue, Json}
 
+import java.util.UUID
 import scala.concurrent.{Await, Future}
 
 class ElasticSearchTest extends ElasticSearchTestBase {
@@ -161,6 +161,67 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
           reloadedImage(id).get.uploadTime.getMillis shouldBe image.uploadTime.getMillis
           reloadedImage(id).get.uploadedBy shouldBe image.uploadedBy
+        }
+
+        "can find malformed fileMetadata fields list from ElasticSearchError reason" in {
+          ES.malformedInsertRegex.findFirstMatchIn(
+            "query failed because: object mapping for [fileMetadata.xmp.avm:Distance] tried to parse field [null] as object, but found a concrete value"
+          ).map(_.group(1)) shouldBe Some("fileMetadata.xmp.avm:Distance")
+
+          ES.malformedInsertRegex.findFirstMatchIn(
+            "query failed because: object mapping for [fileMetadata.foo, fileMetadata.bar] tried to parse field [null] as object, but found a concrete value"
+          ).map(_.group(1)) shouldBe Some("fileMetadata.foo, fileMetadata.bar")
+
+          ES.malformedInsertRegex.findFirstMatchIn(
+            "query failed because: object mapping for [foo, bar] tried to parse field [null] as object, but found a concrete value"
+          ).map(_.group(1)) shouldBe None
+
+          ES.malformedInsertRegex.findFirstMatchIn(
+            "query failed because: object mapping for [foo, fileMetadata.bar] tried to parse field [null] as object, but found a concrete value"
+          ).map(_.group(1)) shouldBe None
+
+          ES.malformedInsertRegex.findFirstMatchIn(
+            "Existing mapping for [fileMetadata.xmp.avm:Distance] must be of type"
+          ).map(_.group(1)) shouldBe Some("fileMetadata.xmp.avm:Distance")
+
+          ES.malformedInsertRegex.findFirstMatchIn(
+            "object mapping for [fileMetadata.invalid] tried to parse field [null] as object, but found a concrete value"
+          ).map(_.group(1)) shouldBe Some("fileMetadata.invalid")
+
+        }
+
+        "can filter out malformed fileMetadata fields" in {
+
+          val fakeElasticError = ElasticError.fromThrowable(new RuntimeException(
+            "object mapping for [fileMetadata.invalid] tried to parse field [null] as object, but found a concrete value"
+          ))
+
+          Await.result(
+            Future.failed(ElasticSearchException(fakeElasticError)).recoverWith(ES.recoverMalformed(
+              imageJson = Json.obj("fileMetadata" -> Json.obj("valid" -> "valid", "invalid" -> "invalid")),
+              indexingMessage = "testing indexing of malformed fileMetadata fields",
+              exec = (filteredJson: JsValue, _) => Future {
+                filteredJson shouldBe Json.obj("fileMetadata" -> Json.obj("valid" -> "valid"))
+                mock[Response[IndexResponse]]
+              }
+            )),
+            atMost = fiveSeconds
+          ).isError shouldBe false
+
+          Await.result(
+            Future.failed(ElasticSearchException(ElasticError.fromThrowable(new RuntimeException(
+              "Could not dynamically add mapping for field [avm:Distance.Notes]. Existing mapping for [fileMetadata.xmp.avm:Distance] must be of type object but found [keyword]"
+            )))).recoverWith(ES.recoverMalformed(
+              imageJson = Json.obj("fileMetadata" -> Json.obj("valid" -> "valid", "xmp" -> Json.obj("avm:Distance.Notes" -> "invalid"))),
+              indexingMessage = "testing indexing of malformed fileMetadata fields",
+              exec = (filteredJson: JsValue, _) => Future {
+                filteredJson shouldBe Json.obj("fileMetadata" -> Json.obj("valid" -> "valid"))
+                mock[Response[IndexResponse]]
+              }
+            )),
+            atMost = fiveSeconds
+          ).isError shouldBe false
+
         }
 
       }
