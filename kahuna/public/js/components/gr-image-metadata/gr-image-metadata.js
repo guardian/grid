@@ -60,6 +60,7 @@ module.controller('grImageMetadataCtrl', [
       inject$($scope, Rx.Observable.fromPromise(selectedUsageCategory(ctrl.usageRights)), ctrl, 'usageCategory');
       ctrl.rawMetadata = rawMetadata();
       ctrl.metadata = displayMetadata();
+      ctrl.peopleInSelectedImages = selectedPeople();
       ctrl.extraInfo = extraInfo();
       if (ctrl.singleImage) {
         updateSingleImage();
@@ -294,6 +295,15 @@ module.controller('grImageMetadataCtrl', [
     function selectedLabels() {
       const labels = imageList.getLabels(ctrl.selectedImages);
       return imageList.getOccurrences(labels);
+    }
+
+    function selectedPeople() {
+    let peopleInSelectedImages = []
+      ctrl.selectedImages.map((image) => {
+        const currentPeopleInImage = ctrl.peopleAccessor(image);
+        peopleInSelectedImages = peopleInSelectedImages.concat(currentPeopleInImage);
+      });
+      return [... new Set(peopleInSelectedImages)];
     }
 
     function selectedUsageRights() {
