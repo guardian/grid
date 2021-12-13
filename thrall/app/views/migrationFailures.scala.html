@@ -64,12 +64,15 @@
                     }</td>
                 }
                 <td>
-                    @failure.esDocAsImageValidationFailures.fold(<span/>)(validationFailures =>
-                        <div>
-                            <strong>Conversion to <code>Image</code> problems</strong>
-                            <p>@validationFailures</p>
-                        </div>
-                    )
+                    @failure.esDocAsImageValidationFailures match {
+                        case Some(validationFailures) => {
+                            <div>
+                                <strong>Conversion to <code>Image</code> problems:</strong>
+                                <p>@validationFailures</p>
+                            </div>
+                        }
+                        case None => {}
+                    }
                     <details>
                         <summary>View JSON</summary>
                         <pre>@failure.sourceJson</pre>
