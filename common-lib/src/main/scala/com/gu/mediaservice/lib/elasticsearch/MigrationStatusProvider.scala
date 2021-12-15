@@ -61,10 +61,10 @@ trait MigrationStatusProvider {
     )
   }
 
-  private val migrationStatusRefresher = scheduler.schedule(
+  private val migrationStatusRefresher = scheduler.scheduleAtFixedRate(
     initialDelay = 0.seconds,
     interval = 5.seconds
-  ) { refreshMigrationStatus() }
+  ) { () => refreshMigrationStatus() }
 
   def migrationStatus: MigrationStatus = migrationStatusRef.get()
   def refreshAndRetrieveMigrationStatus(): MigrationStatus = {
