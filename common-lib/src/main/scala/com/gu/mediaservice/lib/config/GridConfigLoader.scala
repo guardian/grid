@@ -40,7 +40,7 @@ object GridConfigLoader extends StrictLogging {
       }
     }
 
-    baseConfig ++ fileConfiguration
+    fileConfiguration.withFallback(baseConfig)
   }
 
   private def loadConfiguration(file: File): Configuration = {
@@ -58,7 +58,7 @@ object GridConfigLoader extends StrictLogging {
 
   private def loadConfiguration(fileNames: Seq[String]): Configuration = {
     fileNames.foldLeft(Configuration.empty) { case (config, fileName) =>
-      config ++ loadConfiguration(new File(fileName))
+      loadConfiguration(new File(fileName)).withFallback(config)
     }
   }
 
