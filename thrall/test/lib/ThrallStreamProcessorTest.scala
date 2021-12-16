@@ -2,7 +2,7 @@ package lib
 
 import akka.Done
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+import akka.stream.{ActorMaterializer, Materializer}
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
 import com.contxt.kinesis.KinesisRecord
@@ -26,7 +26,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar with Fixtures {
   private implicit val actorSystem: ActorSystem = ActorSystem()
   private implicit val ec: ExecutionContext = actorSystem.dispatcher
-  private implicit val materializer: ActorMaterializer = ActorMaterializer()
+  private implicit val materializer: Materializer = Materializer.matFromSystem(actorSystem)
 
   describe("Stream merging strategy") {
     def createKinesisRecord: KinesisRecord = KinesisRecord(
@@ -66,8 +66,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
       migrationPrioritySource,
       migrationManualPrioritySource,
       mockConsumer,
-      actorSystem,
-      materializer
+      actorSystem
     )
     it("should process high priority events first") {
       val stream = streamProcessor.createStream()
@@ -134,8 +133,7 @@ class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matc
       migrationSourceWithSender.manualSource,
       migrationSourceWithSender.ongoingEsQuerySource,
       mockConsumer,
-      actorSystem,
-      materializer
+      actorSystem
     )
 
     it("can send messages manually") {

@@ -53,11 +53,10 @@ class ThrallStreamProcessor(
   migrationManualSource: Source[MigrationRecord, Future[Done]],
   migrationOngoingSource: Source[MigrationRecord, Future[Done]],
   consumer: ThrallEventConsumer,
-  actorSystem: ActorSystem,
-  materializer: Materializer
+  actorSystem: ActorSystem
  ) extends GridLogging {
 
-  implicit val mat = materializer
+  implicit val mat = Materializer.matFromSystem(actorSystem)
   implicit val dispatcher = actorSystem.getDispatcher
 
   val mergedKinesisSource: Source[TaggedRecord[ThrallMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
