@@ -29,7 +29,6 @@ import scala.util.Try
 class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues with BeforeAndAfterAll {
 
   implicit val actorSystem: ActorSystem = ActorSystem()
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   private val signer = new CookieSigner {
     override def sign(message: String, key: Array[Byte]): String = "signature"
