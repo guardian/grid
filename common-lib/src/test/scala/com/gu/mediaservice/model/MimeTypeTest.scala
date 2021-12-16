@@ -38,9 +38,9 @@ class MimeTypeTest extends FunSpec with Matchers {
   }
 
   it("should serialise to json") {
-    Json.toJson(Jpeg) should be (JsString("image/jpeg"))
-    Json.toJson(Png) should be (JsString("image/png"))
-    Json.toJson(Tiff) should be (JsString("image/tiff"))
+    Json.toJson(Jpeg.asInstanceOf[MimeType]) should be (JsString("image/jpeg"))
+    Json.toJson(Png.asInstanceOf[MimeType]) should be (JsString("image/png"))
+    Json.toJson(Tiff.asInstanceOf[MimeType]) should be (JsString("image/tiff"))
   }
 
   it("should deserialise from json") {
