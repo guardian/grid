@@ -84,6 +84,7 @@ object UsageRights {
     case o: Handout => Handout.formats.writes(o)
     case o: Screengrab => Screengrab.formats.writes(o)
     case o: GuardianWitness => GuardianWitness.formats.writes(o)
+    case o: OriginalSource => OriginalSource.formats.writes(o)
     case o: SocialMedia => SocialMedia.formats.writes(o)
     case o: Bylines => Bylines.formats.writes(o)
     case o: Obituary => Obituary.formats.writes(o)
@@ -117,6 +118,7 @@ object UsageRights {
         case Handout.category => json.asOpt[Handout]
         case Screengrab.category => json.asOpt[Screengrab]
         case GuardianWitness.category => json.asOpt[GuardianWitness]
+        case OriginalSource.category => json.asOpt[OriginalSource]
         case SocialMedia.category => json.asOpt[SocialMedia]
         case Bylines.category => json.asOpt[Bylines]
         case Obituary.category => json.asOpt[Obituary]
@@ -298,6 +300,20 @@ object GuardianWitness extends UsageRightsSpec {
 
   implicit val formats: Format[GuardianWitness] =
     UsageRights.subtypeFormat(GuardianWitness.category)(Json.format[GuardianWitness])
+}
+
+final case class OriginalSource(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = OriginalSource.defaultCost
+}
+object OriginalSource extends UsageRightsSpec {
+  val category = "original-source"
+  val defaultCost = Some(Free)
+  val name = "OriginalSource"
+  def description(commonConfig: CommonConfig) =
+    "Images provided by members of the public to be shared with Journalist who is out collecting material for stories"
+
+  implicit val formats: Format[OriginalSource] =
+    UsageRights.subtypeFormat(OriginalSource.category)(Json.format[OriginalSource])
 }
 
 
