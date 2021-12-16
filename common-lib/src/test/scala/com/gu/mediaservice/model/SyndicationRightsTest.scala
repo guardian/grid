@@ -1,9 +1,10 @@
 package com.gu.mediaservice.model
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
-class SyndicationRightsTest extends FunSpec with Matchers {
+class SyndicationRightsTest extends AnyFunSpec with Matchers {
 
   it("should deserialise with all fields") {
     val serialisedRights =

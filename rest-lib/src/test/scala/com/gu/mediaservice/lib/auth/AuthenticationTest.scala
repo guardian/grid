@@ -6,7 +6,9 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, OnBehalfOf
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
-import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, EitherValues}
 import org.scalatestplus.play.PlaySpec
 import play.api.{Configuration, Environment}
 import play.api.http.Status

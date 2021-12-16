@@ -1,8 +1,9 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
-class BylineCreditReorganiseTest extends FunSpec with Matchers with MetadataHelper {
+class BylineCreditReorganiseTest extends AnyFunSpec with Matchers with MetadataHelper {
 
   it ("should leave non matching, slashed credits") {
     CreditByline("Ilyas Akengin", "AFP/Getty Images")

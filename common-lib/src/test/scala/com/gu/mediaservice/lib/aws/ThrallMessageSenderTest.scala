@@ -1,10 +1,11 @@
 package com.gu.mediaservice.lib.aws
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 import org.joda.time.{DateTime, DateTimeZone}
 
-class ThrallMessageSenderTest extends FunSpec with Matchers {
+class ThrallMessageSenderTest extends AnyFunSpec with Matchers {
 
   import UpdateMessage._
 

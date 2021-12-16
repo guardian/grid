@@ -6,19 +6,20 @@ import com.sksamuel.elastic4s.requests.common.Operator
 import com.sksamuel.elastic4s.requests.searches.queries._
 import com.sksamuel.elastic4s.requests.searches.queries.matches.{MatchPhraseQuery, MatchQuery, MultiMatchQuery, MultiMatchQueryBuilderType}
 import lib.querysyntax.Negation
-import org.scalatest.{FunSpec, Matchers}
 import com.gu.mediaservice.lib.config.GridConfigResources
 import com.sksamuel.elastic4s.handlers.searches.queries.QueryBuilderFn
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.{TermQuery, TermsQuery}
 import lib.MediaApiConfig
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 
 import scala.annotation.nowarn
 import scala.concurrent.Future
 
-class QueryBuilderTest extends FunSpec with Matchers with ConditionFixtures with Fixtures {
+class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures with Fixtures {
 
   val matchFields: Seq[String] = Seq("afield", "anothermatchfield")
 

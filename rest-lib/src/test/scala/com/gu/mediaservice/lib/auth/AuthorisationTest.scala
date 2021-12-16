@@ -3,7 +3,9 @@ package com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Request, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import org.scalamock.scalatest.AsyncMockFactory
-import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, EitherValues}
 import play.api.mvc.{AnyContent, Result, Results, Security}
 
 import scala.concurrent.Future

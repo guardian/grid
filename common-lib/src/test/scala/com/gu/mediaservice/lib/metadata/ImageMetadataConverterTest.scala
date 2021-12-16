@@ -3,10 +3,11 @@ package com.gu.mediaservice.lib.metadata
 import com.gu.mediaservice.model.FileMetadata
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import org.joda.time.{DateTime, DateTimeZone}
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsArray, JsString}
 
-class ImageMetadataConverterTest extends FunSpec with Matchers {
+class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
 
   it("should return an empty ImageMetadata for empty FileMetadata") {
     val fileMetadata = FileMetadata(Map(), Map(), Map(), Map())

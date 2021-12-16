@@ -15,15 +15,17 @@ import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import lib.kinesis.ThrallEventConsumer
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.ws.WSRequest
 
 import java.time.OffsetDateTime
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class ThrallStreamProcessorTest extends FunSpec with BeforeAndAfterAll with Matchers with MockitoSugar with Fixtures {
+class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with Matchers with MockitoSugar with Fixtures {
   private implicit val actorSystem: ActorSystem = ActorSystem()
   private implicit val ec: ExecutionContext = actorSystem.dispatcher
   private implicit val materializer: Materializer = Materializer.matFromSystem(actorSystem)

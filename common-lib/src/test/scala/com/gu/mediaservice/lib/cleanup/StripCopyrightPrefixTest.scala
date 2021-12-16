@@ -1,8 +1,9 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
-class StripCopyrightPrefixTest extends FunSpec with Matchers with MetadataHelper {
+class StripCopyrightPrefixTest extends AnyFunSpec with Matchers with MetadataHelper {
 
   it("should leave empty copyright empty") {
     val metadata = createImageMetadata()

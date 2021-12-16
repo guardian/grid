@@ -1,9 +1,10 @@
 package com.gu.mediaservice.model
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json._
 
-class MimeTypeTest extends FunSpec with Matchers {
+class MimeTypeTest extends AnyFunSpec with Matchers {
   it("should construct a mime type from a known string") {
     MimeType("image/jpeg") should be (Jpeg)
     MimeType("image/png") should be (Png)
