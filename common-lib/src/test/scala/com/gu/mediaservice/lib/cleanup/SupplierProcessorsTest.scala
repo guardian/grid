@@ -18,8 +18,8 @@ class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
     override def stop(): Future[_] = Future.successful(())
   }
   private val config = new CommonConfig(GridConfigResources(
-    Configuration.load(Environment.simple()) ++
-      Configuration.from(Map("usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName)),
+    Configuration.from(Map("usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName)).withFallback(
+      Configuration.load(Environment.simple())),
     actorSystem,
     applicationLifecycle
   )){}
