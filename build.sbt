@@ -18,7 +18,7 @@ val commonSettings = Seq(
 
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-o"), Tests.Argument(TestFrameworks.ScalaTest, "-u", "logs/test-reports")),
   libraryDependencies ++= Seq(
-    "org.scalatestplus.play" %% "scalatestplus-play" % "3.1.2" % Test,
+    "org.scalatestplus.play" %% "scalatestplus-play" % "5.1.0" % Test,
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test
   ),
@@ -81,8 +81,8 @@ val maybeBBCLib: Option[sbt.ProjectReference] = if(bbcBuildProcess) Some(bbcProj
 lazy val commonLib = project("common-lib").settings(
   libraryDependencies ++= Seq(
     // also exists in plugins.sbt, TODO deduplicate this
-    "com.gu" %% "editorial-permissions-client" % "2.0",
-    "com.gu" %% "pan-domain-auth-play_2-6" % "0.8.2",
+    "com.gu" %% "editorial-permissions-client" % "2.14",
+    "com.gu" %% "pan-domain-auth-play_2-8" % "1.0.4",
     "com.amazonaws" % "aws-java-sdk-iam" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-s3" % awsSdkVersion,
     "com.amazonaws" % "aws-java-sdk-ec2" % awsSdkVersion,
@@ -111,10 +111,11 @@ lazy val commonLib = project("common-lib").settings(
     // i.e. to only log to disk in DEV
     // see: https://logback.qos.ch/setup.html#janino
     "org.codehaus.janino" % "janino" % "3.0.6",
-    "com.typesafe.play" %% "play-json-joda" % "2.8.2",
+    "com.typesafe.play" %% "play-json-joda" % "2.9.2",
     "com.gu" %% "scanamo" % "1.0.0-M8",
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.10.7",
-    ws
+    // Necessary to have a mix of play library versions due to scala-java8-compat incompatibility
+    "com.typesafe.play" %% "play-ahc-ws" % "2.8.9"
   ),
   dependencyOverrides += "org.apache.thrift" % "libthrift" % "0.9.1"
 )
@@ -182,9 +183,9 @@ lazy val adminToolsLib = project("admin-tools-lib", Some("admin-tools/lib"))
       ExclusionRule("com.gu", "kinesis-logback-appender")
     ),
     libraryDependencies ++= Seq(
-      "com.typesafe.play" %% "play-json" % "2.8.2",
-      "com.typesafe.play" %% "play-json-joda" % "2.8.2",
-      "com.typesafe.play" %% "play-functional" % "2.8.1",
+      "com.typesafe.play" %% "play-json" % "2.9.2",
+      "com.typesafe.play" %% "play-json-joda" % "2.9.2",
+      "com.typesafe.play" %% "play-functional" % "2.9.2",
       "io.symphonia" % "lambda-logging" % "1.0.3",
     )
   ).dependsOn(commonLib)
