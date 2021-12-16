@@ -138,7 +138,7 @@ object FileMetadataReader extends GridLogging {
       // if there is no space in the previous one as directories have a maximum size.
       acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
     })
-    redactLongFieldValues(imageId, "XMP")(props)
+    redactLongFieldValues(imageId, "XMP")(props).filterKeys(fieldName => !fieldName.startsWith("avm:Distance"))
   }
   private def exportXmpPropertiesInTransformedSchema(metadata: Metadata, imageId:String): Map[String, JsValue] = {
     val props = exportRawXmpProperties(metadata, imageId)
