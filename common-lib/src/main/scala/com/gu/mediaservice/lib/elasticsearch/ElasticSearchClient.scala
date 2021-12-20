@@ -44,11 +44,11 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   }
 
   //TODO: this function should fail and cause healthcheck fails
-  def ensureAliasAssigned() {
+  def ensureIndexExistsAndAliasAssigned() {
     logger.info(s"Checking alias $imagesCurrentAlias is assigned to index…")
     val indexForCurrentAlias = Await.result(getIndexForAlias(imagesCurrentAlias), tenSeconds)
     if (indexForCurrentAlias.isEmpty) {
-      ensureIndexExists(initialImagesIndex)
+      createIndexIfMissing(initialImagesIndex)
       assignAliasTo(initialImagesIndex, imagesCurrentAlias)
       waitUntilHealthy()
     }
@@ -95,7 +95,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
                                stats.result.indices(indexName).total.docs.count)
   }
 
-  def ensureIndexExists(index: String): Unit = {
+  def createIndexIfMissing(index: String): Unit = {
     logger.info("Checking index exists…")
 
     val eventualIndexExistsResponse: Future[Response[IndexExistsResponse]] = client.execute {
