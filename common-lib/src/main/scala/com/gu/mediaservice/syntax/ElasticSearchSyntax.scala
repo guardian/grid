@@ -1,9 +1,8 @@
 package com.gu.mediaservice
 package syntax
 
-import com.gu.mediaservice.lib.logging.GridLogging
-
 import java.util.regex.Pattern
+
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.{ActionRequest, ActionRequestBuilder, ActionResponse, ListenableActionFuture}
 import org.elasticsearch.search.SearchHit
@@ -15,7 +14,8 @@ import net.logstash.logback.marker.Markers.appendEntries
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-trait ElasticSearchSyntax extends GridLogging {
+
+trait ElasticSearchSyntax {
 
   final implicit class ListenableActionFutureSyntax[A](self: ListenableActionFuture[A]) {
     def asScala: Future[A] = FutureConversions(self)
@@ -34,16 +34,20 @@ trait ElasticSearchSyntax extends GridLogging {
 
       result.foreach { _ =>
         val elapsed = System.currentTimeMillis() - start
-        val markers = Map("duration" -> elapsed)
+        val markers = MarkerContext(appendEntries(Map(
+          "duration" -> elapsed
+        ).asJava))
 
-        logger.info(markers, s"$message - query returned successfully in $elapsed ms")
+        Logger.info(s"$message - query returned successfully in $elapsed ms")(markers)
       }
 
       result.failed.foreach { e =>
         val elapsed = System.currentTimeMillis() - start
-        val markers = Map( "duration" -> elapsed)
+        val markers = MarkerContext(appendEntries(Map(
+          "duration" -> elapsed
+        ).asJava))
 
-        logger.error(markers, s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")
+        Logger.error(s"$message - query failed after $elapsed ms: ${e.getMessage} cs: ${e.getCause}")(markers)
       }
 
       result

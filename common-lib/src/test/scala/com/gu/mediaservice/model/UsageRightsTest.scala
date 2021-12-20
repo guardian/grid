@@ -1,7 +1,6 @@
 package com.gu.mediaservice.model
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json._
 
 
@@ -11,7 +10,7 @@ object TestImage {
   implicit val jsonWrites: Writes[TestImage] = Json.writes[TestImage]
 }
 
-class UsageRightsTest extends AnyFunSpec with Matchers {
+class UsageRightsTest extends FunSpec with Matchers {
 
   val invalidCategory = "animated-gif"
   val invalidJson = Json.parse(s"""{ "category": "$invalidCategory", "fps": "∞" }""")

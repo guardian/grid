@@ -3,9 +3,8 @@ package test.lib.imaging
 import com.gu.mediaservice.model._
 import lib.imaging.FileMetadataReader
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Span}
+import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString, JsValue, Json}
 
 /**
@@ -15,7 +14,7 @@ import play.api.libs.json.{JsArray, JsString, JsValue, Json}
  * library (and our thin integration above it). It is meant to help
  * highlight differences and integration issues when upgrading the library.
  */
-class FileMetadataReaderTest extends AnyFunSpec with Matchers with ScalaFutures {
+class FileMetadataReaderTest extends FunSpec with Matchers with ScalaFutures {
 
   import test.lib.ResourceHelpers._
 

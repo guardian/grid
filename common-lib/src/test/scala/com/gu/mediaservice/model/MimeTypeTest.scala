@@ -1,10 +1,9 @@
 package com.gu.mediaservice.model
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 import play.api.libs.json._
 
-class MimeTypeTest extends AnyFunSpec with Matchers {
+class MimeTypeTest extends FunSpec with Matchers {
   it("should construct a mime type from a known string") {
     MimeType("image/jpeg") should be (Jpeg)
     MimeType("image/png") should be (Png)
@@ -39,9 +38,9 @@ class MimeTypeTest extends AnyFunSpec with Matchers {
   }
 
   it("should serialise to json") {
-    Json.toJson(Jpeg.asInstanceOf[MimeType]) should be (JsString("image/jpeg"))
-    Json.toJson(Png.asInstanceOf[MimeType]) should be (JsString("image/png"))
-    Json.toJson(Tiff.asInstanceOf[MimeType]) should be (JsString("image/tiff"))
+    Json.toJson(Jpeg) should be (JsString("image/jpeg"))
+    Json.toJson(Png) should be (JsString("image/png"))
+    Json.toJson(Tiff) should be (JsString("image/tiff"))
   }
 
   it("should deserialise from json") {

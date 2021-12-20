@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Matchers, FunSpec}
 
-class DropRedundantTitleTest extends AnyFunSpec with Matchers with MetadataHelper {
+class DropRedundantTitleTest extends FunSpec with Matchers with MetadataHelper {
 
   it("should be None if no title") {
     val imageMetadata = createImageMetadata("description" -> "Brief description")

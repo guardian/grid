@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class GuardianStyleBylineTest extends AnyFunSpec with Matchers with MetadataHelper {
+class GuardianStyleBylineTest extends FunSpec with Matchers with MetadataHelper {
   it("should replace straight quotes with curly quotes") {
     val metadata = createImageMetadata("byline" -> "Sam O'neill")
     val cleanedMetadata = GuardianStyleByline.clean(metadata)

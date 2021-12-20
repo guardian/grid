@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class UseCanonicalGuardianCreditTest extends AnyFunSpec with Matchers with MetadataHelper {
+class UseCanonicalGuardianCreditTest extends FunSpec with Matchers with MetadataHelper {
 
   it("should not change a non-Guardian credit") {
     val metadata = createImageMetadata("credit" -> "Getty Images")

@@ -3,6 +3,7 @@ package model
 import java.io.File
 import java.net.URI
 import java.util.{Date, UUID}
+
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.gu.mediaservice.GridClient
@@ -16,10 +17,9 @@ import lib.DigestedFile
 import org.joda.time.{DateTime, DateTimeZone}
 import org.mockito.Mockito.{times, verify, when}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Millis, Span}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.{JsArray, JsString}
 import test.lib.ResourceHelpers
 
@@ -27,7 +27,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with MockitoSugar {
+class ProjectorTest extends FreeSpec with Matchers with ScalaFutures with MockitoSugar {
 
   import ResourceHelpers._
 

@@ -1,10 +1,9 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
 
-class CapitaliseBylineTest extends AnyFunSpec with Matchers with MetadataHelper {
+class CapitaliseBylineTest extends FunSpec with Matchers with MetadataHelper {
 
   it("should not apply capitalisation to single words") {
     expectUnchanged("PA")

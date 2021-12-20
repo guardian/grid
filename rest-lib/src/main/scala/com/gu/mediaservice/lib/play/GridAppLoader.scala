@@ -10,7 +10,7 @@ abstract class GridAppLoader[Config <: CommonConfig](appName: String, loadFn: Co
     LogConfig.initPlayLogging(context)
 
     val fileConfig = GridConfigLoader.read(appName, context.environment.mode)
-    val gridApp = loadFn(context.copy(initialConfiguration = fileConfig.withFallback(context.initialConfiguration)))
+    val gridApp = loadFn(context.copy(initialConfiguration = context.initialConfiguration ++ fileConfig))
 
     gridApp.application
   }

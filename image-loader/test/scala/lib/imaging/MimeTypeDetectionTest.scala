@@ -3,10 +3,9 @@ package scala.lib.imaging
 import com.gu.mediaservice.model.{Jpeg, Png, Tiff}
 import lib.imaging.MimeTypeDetection
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class MimeTypeDetectionTest extends AnyFunSpec with Matchers with ScalaFutures {
+class MimeTypeDetectionTest extends FunSpec with Matchers with ScalaFutures {
   import test.lib.ResourceHelpers._
 
   it("should detect jpeg mime types for images") {

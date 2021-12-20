@@ -522,7 +522,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         ES.migrationAwareIndexImage(id, image, now)
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
-        val newSyndicationRights = SyndicationRights(published = Some(now), suppliers = List.empty, rights = List.empty)
+        val newSyndicationRights = SyndicationRights(published = Some(now), suppliers = Seq.empty, rights = Seq.empty)
 
         Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)), fiveSeconds)
 
@@ -542,7 +542,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         ES.migrationAwareIndexImage(id, image, now)
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
-        val newSyndicationRights = SyndicationRights(published = Some(now.minusWeeks(1)), suppliers = List.empty, rights = List.empty)
+        val newSyndicationRights = SyndicationRights(published = Some(now.minusWeeks(1)), suppliers = Seq.empty, rights = Seq.empty)
 
         Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)), fiveSeconds)
 

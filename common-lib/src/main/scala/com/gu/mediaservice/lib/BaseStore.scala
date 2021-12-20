@@ -44,7 +44,7 @@ abstract class BaseStore[TStoreKey, TStoreVal](bucket: String, config: CommonCon
   private var cancellable: Option[Cancellable] = None
 
   def scheduleUpdates(scheduler: Scheduler) {
-    cancellable = Some(scheduler.scheduleAtFixedRate(0.seconds, 10.minutes)(() => update()))
+    cancellable = Some(scheduler.schedule(0.seconds, 10.minutes)(update()))
   }
 
   def stopUpdates(): Unit = {

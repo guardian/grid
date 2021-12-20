@@ -1,13 +1,11 @@
 package lib.querysyntax
 
 import com.gu.mediaservice.lib.ImageFields
-import org.scalatest.BeforeAndAfter
+import org.scalatest.{BeforeAndAfter, FunSpec, Matchers}
 import org.joda.time.DateTime
 import org.joda.time.DateTimeUtils
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
 
-class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with ImageFields {
+class ParserTest extends FunSpec with Matchers with BeforeAndAfter with ImageFields {
   val creditField     = SingleField(getFieldPath("credit"))
   val bylineField     = SingleField(getFieldPath("byline"))
   val labelsField     = SingleField(getFieldPath("labels"))

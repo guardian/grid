@@ -8,7 +8,9 @@ import play.api.libs.ws._
 
 class BatchIndexLambdaHandler {
 
+
   implicit private val system: ActorSystem = ActorSystem()
+  implicit private val materializer: ActorMaterializer = ActorMaterializer()
   implicit private val ws:WSClient  = AhcWSClient()
 
   private val cfg = BatchIndexHandlerConfig(

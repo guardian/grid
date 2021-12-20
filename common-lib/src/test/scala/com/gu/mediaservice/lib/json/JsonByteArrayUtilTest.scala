@@ -1,8 +1,6 @@
 package com.gu.mediaservice.lib.json
 
-
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
 
 case class Shape(name: String, numberOfSides: Int)
@@ -12,7 +10,7 @@ object Shape {
   implicit val writes = Json.writes[Shape]
 }
 
-class JsonByteArrayUtilTest extends AnyFunSuite with Matchers {
+class JsonByteArrayUtilTest extends FunSuite with Matchers {
   val circle = Shape("circle", 1)
   val triangle = Shape("triangle", 3)
   val square = Shape("square", 4)

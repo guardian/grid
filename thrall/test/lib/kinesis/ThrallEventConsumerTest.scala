@@ -1,7 +1,7 @@
 package lib.kinesis
 
 import lib.elasticsearch.ElasticSearchTestBase
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
 
 class ThrallEventConsumerTest extends ElasticSearchTestBase with MockitoSugar {
   "parse message" - {

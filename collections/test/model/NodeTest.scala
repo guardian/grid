@@ -1,10 +1,8 @@
 package model
 
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.OptionValues
-import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.{FunSpec, Matchers, OptionValues}
 
-class NodeTest extends AnyFunSpec with Matchers with OptionValues {
+class NodeTest extends FunSpec with Matchers with OptionValues {
   val getPath = (list: List[String]) => list
   val getPathId = (list: List[String]) => list.mkString("/")
   val collections = List(

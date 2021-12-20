@@ -169,7 +169,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
     responseFuture recoverWith {
       case NonFatal(e) =>
-        logger.warn(s"HTTP request to fetch source failed: $e")
+        Logger.warn(s"HTTP request to fetch source failed: $e")
         Future.failed(ApiRequestFailed)
     }
 
@@ -178,7 +178,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
       if (resp.status == 404) {
         throw ImageNotFound
       } else if (resp.status != 200) {
-        logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
+        Logger.warn(s"HTTP status ${resp.status} ${resp.statusText} from $uri")
         throw ApiRequestFailed
       } else {
         resp.json.as[SourceImage]

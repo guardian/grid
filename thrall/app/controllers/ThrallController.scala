@@ -1,7 +1,7 @@
 package controllers
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, Materializer}
+import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.{Authentication, BaseControllerWithLoginRedirects}
@@ -123,7 +123,7 @@ class ThrallController(
     }
   }
 
-  implicit val pollingMaterializer = Materializer.matFromSystem(actorSystem)
+  implicit val pollingMaterializer: ActorMaterializer = ActorMaterializer()(actorSystem)
 
   def startMigration = withLoginRedirectAsync { implicit request =>
 

@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class RedundantTokenRemoverTest extends AnyFunSpec with Matchers with MetadataHelper {
+class RedundantTokenRemoverTest extends FunSpec with Matchers with MetadataHelper {
   // We've seen "/", " via " and " / " in the wild so test with both
   val separators = List("/", " / ", " via ")
 

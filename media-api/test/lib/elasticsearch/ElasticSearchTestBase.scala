@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import java.util.UUID
+
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.whisk.docker.impl.spotify.DockerKitSpotify
@@ -9,16 +10,14 @@ import com.whisk.docker.{DockerContainer, DockerKit}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.PatienceConfiguration.{Interval, Timeout}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.time.{Milliseconds, Seconds, Span}
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import play.api.libs.json.JsString
 
 import scala.concurrent.duration._
 import scala.util.Properties
 
-trait ElasticSearchTestBase extends AnyFunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
+trait ElasticSearchTestBase extends FunSpec with BeforeAndAfterAll with Matchers with ScalaFutures with Fixtures with DockerKit with DockerTestKit with DockerKitSpotify with ConditionFixtures {
 
 
   val interval = Interval(Span(100, Milliseconds))

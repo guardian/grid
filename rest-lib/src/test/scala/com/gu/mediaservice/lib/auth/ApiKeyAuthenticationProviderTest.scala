@@ -5,9 +5,7 @@ import com.gu.mediaservice.lib.auth.Authentication.MachinePrincipal
 import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, Invalid, NotAuthenticated, NotAuthorised}
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import org.scalatest.Inside.inside
-import org.scalatest.freespec.AsyncFreeSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, EitherValues}
+import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
 import play.api.inject.ApplicationLifecycle
 import play.api.mvc.DefaultControllerComponents
 import play.api.test.{FakeRequest, WsTestClient}

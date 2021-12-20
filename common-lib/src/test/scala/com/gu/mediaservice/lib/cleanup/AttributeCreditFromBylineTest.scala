@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class AttributeCreditFromBylineTest extends AnyFunSpec with Matchers with MetadataHelper {
+class AttributeCreditFromBylineTest extends FunSpec with Matchers with MetadataHelper {
 
   val bylines = List("Sigmund Loch")
   val testCleaner = AttributeCreditFromByline(bylines, "Some Credit")

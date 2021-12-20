@@ -3,12 +3,11 @@ package com.gu.mediaservice.model
 import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.UsageNotice
 import org.joda.time.{DateTime, DateTimeZone}
-import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.prop.{Checkers, PropertyChecks}
+import org.scalatest.{FreeSpec, Matchers}
 import play.api.libs.json.{JsArray, JsSuccess, Json}
 
-class ExternalThrallMessageTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class ExternalThrallMessageTest extends FreeSpec with Matchers with Checkers with PropertyChecks {
   //This doesn't test any message contents as we assume they have their own checks.
   val now = DateTime.now(DateTimeZone.forOffsetHours(9))
   val nowUtc = new DateTime(now.getMillis()).toDateTime(DateTimeZone.UTC)

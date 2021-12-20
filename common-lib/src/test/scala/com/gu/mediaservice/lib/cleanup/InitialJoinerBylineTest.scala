@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class InitialJoinerBylineTest extends AnyFunSpec with Matchers with MetadataHelper {
+class InitialJoinerBylineTest extends FunSpec with Matchers with MetadataHelper {
   it("should squish initials together at the start") {
     val metadata = createImageMetadata("byline" -> "C P Scott")
     val cleanedMetadata = InitialJoinerByline.clean(metadata)

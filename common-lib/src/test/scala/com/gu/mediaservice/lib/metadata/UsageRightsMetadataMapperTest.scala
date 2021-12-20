@@ -1,10 +1,9 @@
 package com.gu.mediaservice.lib.metadata
 
 import com.gu.mediaservice.model._
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class UsageRightsMetadataMapperTest extends AnyFunSpec with Matchers {
+class UsageRightsMetadataMapperTest extends FunSpec with Matchers {
 
   import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper.usageRightsToMetadata
 

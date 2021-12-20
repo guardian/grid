@@ -1,18 +1,17 @@
 package com.gu.mediaservice.lib.imaging
 
 import java.io.File
+
 import com.gu.mediaservice.model.Jpeg
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.Ignore
+import org.scalatest.{FunSpec, Ignore, Matchers}
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 // This test is disabled for now as it doesn't run on our CI environment, because GraphicsMagick is not present...
 @Ignore
-class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
+class ImageOperationsTest extends FunSpec with Matchers with ScalaFutures {
 
   implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
 

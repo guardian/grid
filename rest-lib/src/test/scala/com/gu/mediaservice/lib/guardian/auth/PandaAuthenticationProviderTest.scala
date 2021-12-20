@@ -1,12 +1,11 @@
 package com.gu.mediaservice.lib.guardian.auth
 
 import com.gu.pandomainauth.model.{AuthenticatedUser, User}
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.must.Matchers
+import org.scalatest.{FunSuite, MustMatchers}
 
 import java.time.Instant
 
-class PandaAuthenticationProviderTest extends AnyFunSuite with Matchers {
+class PandaAuthenticationProviderTest extends FunSuite with MustMatchers {
   import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider.validateUser
 
   val user: AuthenticatedUser = AuthenticatedUser(User("Barry", "Chuckle", "barry.chuckle@guardian.co.uk", None),

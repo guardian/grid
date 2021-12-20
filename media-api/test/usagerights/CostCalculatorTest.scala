@@ -3,11 +3,10 @@ package lib.usagerights
 import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.model._
 import lib.UsageQuota
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.mockito.MockitoSugar
 
-class CostCalculatorTest extends AnyFunSpec with Matchers with MockitoSugar {
+class CostCalculatorTest extends FunSpec with Matchers with MockitoSugar {
 
   describe("from usage rights") {
 

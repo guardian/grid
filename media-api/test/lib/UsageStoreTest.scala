@@ -1,10 +1,9 @@
 package lib
 
 import com.gu.mediaservice.model.Agency
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class UsageStoreTest extends AnyFunSpec with Matchers {
+class UsageStoreTest extends FunSpec with Matchers {
   describe("Usage Store") {
     it("should parse RCS usage emails") {
       val stream = getClass.getResourceAsStream("/example.mail")

@@ -69,7 +69,8 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
     migrationSourceWithSender.manualSource,
     migrationSourceWithSender.ongoingEsQuerySource,
     thrallEventConsumer,
-    actorSystem
+    actorSystem,
+    materializer
   )
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()

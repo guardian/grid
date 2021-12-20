@@ -1,9 +1,8 @@
 package lib
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{ FunSpec, Matchers }
 
-class AspectRatioTest extends AnyFunSpec with Matchers {
+class AspectRatioTest extends FunSpec with Matchers {
 
   val fiveThreeExamples = List(
     AspectRatio.Ratio("5:3", 5466, 3280),

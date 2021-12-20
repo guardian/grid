@@ -1,9 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class ExtractGuardianCreditFromBylineTest extends AnyFunSpec with Matchers with MetadataHelper {
+class ExtractGuardianCreditFromBylineTest extends FunSpec with Matchers with MetadataHelper {
 
   it("should not infer any credit from a plain byline") {
     val metadata = createImageMetadata("byline" -> "Helmut Schon", "credit" -> "Getty Images")

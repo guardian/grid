@@ -77,7 +77,7 @@ trait Fixtures {
   def someSyndRights = Some(SyndicationRights(
     published = Some(now),
     suppliers = List(Supplier(supplierName = Some("supplier"), supplierId = Some("supplier-id"), prAgreement = Some(true))),
-    rights = List(Right(rightCode = "code", acquired = Some(true), properties = List.empty)),
+    rights = List(Right(rightCode = "code", acquired = Some(true), properties = Seq.empty)),
     isInferred = false))
 
   def imageWithNoSyndRights: Image = createImage(id = UUID.randomUUID().toString, usageRights = StaffPhotographer("Tom Jenkins", "The Guardian"))

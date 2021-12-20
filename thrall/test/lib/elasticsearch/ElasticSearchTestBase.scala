@@ -11,10 +11,8 @@ import com.whisk.docker.{DockerContainer, DockerKit, DockerReadyChecker}
 import helpers.Fixtures
 import org.joda.time.DateTime
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
-import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
-import org.scalatestplus.mockito.MockitoSugar
+import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FreeSpec, Matchers}
 import play.api.libs.json.{JsDefined, JsLookupResult, Json}
 
 import scala.concurrent.Await
@@ -22,7 +20,7 @@ import scala.concurrent.ExecutionContext.global
 import scala.concurrent.duration._
 import scala.util.Properties
 
-trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar {
+trait ElasticSearchTestBase extends FreeSpec with Matchers with Fixtures with BeforeAndAfterAll with BeforeAndAfterEach with Eventually with ScalaFutures with DockerKit with DockerTestKit with DockerKitSpotify with MockitoSugar {
 
   val useEsDocker = Properties.envOrElse("USE_DOCKER_FOR_TESTS", "true").toBoolean
   val esTestUrl = Properties.envOrElse("ES6_TEST_URL", "http://localhost:9200")

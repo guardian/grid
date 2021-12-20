@@ -9,8 +9,8 @@ import play.api.libs.functional.syntax._
 
 case class SyndicationRights(
   published: Option[DateTime],
-  suppliers: List[Supplier],
-  rights: List[Right],
+  suppliers: Seq[Supplier],
+  rights: Seq[Right],
   isInferred: Boolean = false
 ) {
   def isRightsAcquired: Boolean = rights.flatMap(_.acquired).contains(true)
@@ -23,15 +23,15 @@ object SyndicationRights {
   val reads: Reads[SyndicationRights] =
     (
       (__ \ "published").readNullable[String].map(parseOptDateTime) ~
-      (__ \ "suppliers").read[List[Supplier]] ~
-      (__ \ "rights").read[List[Right]] ~
+      (__ \ "suppliers").read[Seq[Supplier]] ~
+      (__ \ "rights").read[Seq[Right]] ~
       (__ \ "isInferred").readNullable[Boolean].map(_.getOrElse(false))
     )(SyndicationRights.apply _)
 
   val writes: Writes[SyndicationRights] = (
     (__ \ "published").writeNullable[DateTime] ~
-    (__ \ "suppliers").write[List[Supplier]] ~
-    (__ \ "rights").write[List[Right]] ~
+    (__ \ "suppliers").write[Seq[Supplier]] ~
+    (__ \ "rights").write[Seq[Right]] ~
     (__ \ "isInferred").write[Boolean]
   ){ sr: SyndicationRights => (sr.published, sr.suppliers, sr.rights, sr.isInferred) }
 
@@ -56,13 +56,13 @@ object Supplier {
 case class Right(
   rightCode: String,
   acquired: Option[Boolean],
-  properties: List[Property])
+  properties: Seq[Property])
 object Right {
   val reads: Reads[Right] = Json.reads[Right]
   val writes: Writes[Right] = (
     (__ \ "rightCode").write[String] ~
     (__ \ "acquired").writeNullable[Boolean] ~
-    (__ \ "properties").write[List[Property]]
+    (__ \ "properties").write[Seq[Property]]
   ){ r: Right => (r.rightCode, r.acquired, r.properties) }
 
   implicit val formats: Format[Right] = Format(reads, writes)

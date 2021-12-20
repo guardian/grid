@@ -4,14 +4,13 @@ import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.model._
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Environment}
 
 import scala.concurrent.Future
 
-class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelper {
+class SupplierProcessorsTest extends FunSpec with Matchers with MetadataHelper {
 
   private val actorSystem: ActorSystem = ActorSystem()
   private val applicationLifecycle = new ApplicationLifecycle {
@@ -19,8 +18,8 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
     override def stop(): Future[_] = Future.successful(())
   }
   private val config = new CommonConfig(GridConfigResources(
-    Configuration.from(Map("usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName)).withFallback(
-      Configuration.load(Environment.simple())),
+    Configuration.load(Environment.simple()) ++
+      Configuration.from(Map("usageRightsConfigProvider" -> GuardianUsageRightsConfig.getClass.getCanonicalName)),
     actorSystem,
     applicationLifecycle
   )){}

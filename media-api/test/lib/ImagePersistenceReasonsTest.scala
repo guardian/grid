@@ -4,10 +4,9 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.{LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage.Usage
 import org.joda.time.DateTime.now
-import org.scalatest.funspec.AnyFunSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{FunSpec, Matchers}
 
-class ImagePersistenceReasonsTest extends AnyFunSpec with Matchers {
+class ImagePersistenceReasonsTest extends FunSpec with Matchers {
 
   it("should generate image persistence reasons") {
 

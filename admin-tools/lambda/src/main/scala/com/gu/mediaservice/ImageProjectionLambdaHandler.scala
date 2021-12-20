@@ -27,6 +27,7 @@ class ImageProjectionLambdaHandler extends ApiKeyAuthentication with LazyLogging
   val apiCheckTimeout = new FiniteDuration(1, TimeUnit.SECONDS)
 
   implicit private val system = ActorSystem()
+  implicit private val materializer = ActorMaterializer()
   implicit private val ws:WSClient  = AhcWSClient()
 
   def handleRequest(event: APIGatewayProxyRequestEvent, context: Context): APIGatewayProxyResponseEvent = {
