@@ -58,8 +58,8 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
 
   override def beforeAll {
     super.beforeAll()
-    ES.ensureAliasAssigned()
-    ES.ensureIndexExists(migrationIndexName)
+    ES.ensureIndexExistsAndAliasAssigned()
+    ES.createIndexIfMissing(migrationIndexName)
   }
 
   override protected def beforeEach(): Unit = {
