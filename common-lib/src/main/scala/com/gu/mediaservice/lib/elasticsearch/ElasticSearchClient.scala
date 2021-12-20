@@ -46,9 +46,10 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   //TODO: this function should fail and cause healthcheck fails
   def ensureAliasAssigned() {
     logger.info(s"Checking alias $imagesCurrentAlias is assigned to index…")
-    if (getCurrentAlias.isEmpty) {
+    val indexForCurrentAlias = Await.result(getIndexForAlias(imagesCurrentAlias), tenSeconds)
+    if (indexForCurrentAlias.isEmpty) {
       ensureIndexExists(initialImagesIndex)
-      assignAliasTo(initialImagesIndex)
+      assignAliasTo(initialImagesIndex, imagesCurrentAlias)
       waitUntilHealthy()
     }
   }
@@ -153,11 +154,6 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }
   }
 
-  def getCurrentAlias: Option[String] = {
-    ensureIndexExists(initialImagesIndex)
-    None // TODO
-  }
-
   def getCurrentIndices: List[String] = {
     Await.result(client.execute( {
       catIndices()
@@ -176,7 +172,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }, tenSeconds)
   }
 
-  def assignAliasTo(index: String, alias: String = imagesCurrentAlias): Either[ElasticError, Boolean] = {
+  def assignAliasTo(index: String, alias: String): Either[ElasticError, Boolean] = {
     logger.info(s"Assigning alias $alias to $index")
     val aliasActionResponse = Await.result(client.execute {
       aliases(
