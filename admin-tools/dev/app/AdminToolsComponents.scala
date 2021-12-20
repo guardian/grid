@@ -9,12 +9,12 @@ import router.Routes
 
 object AdminToolsComponents {
   def config(resources: GridConfigResources) = new AdminToolsConfig(resources.copy(configuration =
-    resources.configuration ++ Configuration.from(Map(
+    Configuration.from(Map(
       "domain.root" -> "local.dev-gutools.co.uk",
       "auth.keystore.bucket" -> "not-used",
       "thrall.kinesis.stream.name"-> "not-used",
       "thrall.kinesis.lowPriorityStream.name"-> "not-used"
-    ))
+    )).withFallback(resources.configuration)
   ))
 }
 

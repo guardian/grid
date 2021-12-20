@@ -1,9 +1,10 @@
 package com.gu.mediaservice.lib.config
 
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 
-class DomainMetadataSpecConfigTest extends FreeSpec with Matchers {
+class DomainMetadataSpecConfigTest extends AnyFreeSpec with Matchers {
 
   "The config loader" - {
     val configuration = Configuration.from(Map(

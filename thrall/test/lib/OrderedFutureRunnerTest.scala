@@ -1,14 +1,13 @@
 package lib
 
-import org.scalatest._
-import org.scalatest.concurrent.{Eventually, ScalaFutures}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration.{Duration, FiniteDuration, SECONDS}
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-class OrderedFutureRunnerTest extends FlatSpec with Matchers {
+class OrderedFutureRunnerTest extends AnyFlatSpec with Matchers {
   private val order = (0 to 10).toList
   private var current = 0
   implicit val executionContext = ExecutionContext.Implicits.global

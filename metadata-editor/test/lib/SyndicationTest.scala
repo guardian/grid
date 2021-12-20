@@ -2,13 +2,14 @@ package lib
 
 import com.gu.mediaservice.model._
 import org.joda.time.DateTime
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.util.Random
 import scala.collection.Map
 
-class SyndicationTest extends FunSpec with Matchers with Syndication with MockitoSugar {
+class SyndicationTest extends AnyFunSpec with Matchers with Syndication with MockitoSugar {
 
   describe("Syndication Rights date functions") {
 

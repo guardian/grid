@@ -5,12 +5,13 @@ import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.model.{ActionData, Collection}
 import org.joda.time.DateTime
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{Format, JsObject, Json}
 
 import scala.collection.JavaConverters.{mapAsJavaMapConverter, mapAsScalaMapConverter}
 
-class DynamoDBTest extends FunSpec with Matchers {
+class DynamoDBTest extends AnyFunSpec with Matchers {
 
   describe("jsonToValueMap") {
     it ("should convert a simple JsObject to a valueMap") {

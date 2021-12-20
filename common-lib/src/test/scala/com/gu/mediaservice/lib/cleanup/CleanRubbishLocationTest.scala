@@ -1,8 +1,9 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
-class CleanRubbishLocationTest extends FunSpec with Matchers with MetadataHelper {
+class CleanRubbishLocationTest extends AnyFunSpec with Matchers with MetadataHelper {
 
   it("should not change a valid name") {
     CleanRubbishLocation.cleanRubbish("Switzerland") should be (Some("Switzerland"))
