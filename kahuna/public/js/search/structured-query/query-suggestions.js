@@ -8,9 +8,9 @@ export const querySuggestions = angular.module('querySuggestions', [
 ]);
 
 const fieldAliases = window._clientConfig.fieldAliases
-  .filter(entry => entry.displaySearchHint === true)
-  .reduce(function(map, obj) {
-    map[obj.alias] = obj;
+  .filter(fieldAlias => fieldAlias.displaySearchHint === true)
+  .reduce(function(map, fieldAlias) {
+    map[fieldAlias.alias] = fieldAlias;
     return map;
   }, {});
 
