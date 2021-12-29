@@ -512,6 +512,9 @@ results.controller('SearchResultsCtrl', [
 
         $scope.$on("events:batch-operations:start", (e, entry) => {
             ctrl.batchOperations = [entry, ...ctrl.batchOperations];
+            if(entry.key === "peopleInImage" && ctrl.batchOperations.length > 1){
+              ctrl.batchOperations = [Object.assign({}, entry, { total: ctrl.batchOperations.length })]
+            }
 
             window.onbeforeunload = function() {
                 return 'Batch update in progress, are you sure you want to leave?';
