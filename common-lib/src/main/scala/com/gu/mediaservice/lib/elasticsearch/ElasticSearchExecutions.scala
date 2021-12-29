@@ -9,17 +9,6 @@ trait ElasticSearchExecutions extends GridLogging {
 
   def client: ElasticClient
 
-  def executeAndLog[T, U](handler: Handler[T, U])(request: T, message: String)(implicit
-                                                                               functor: Functor[Future],
-                                                                               executor: Executor[Future],
-                                                                               manifest: Manifest[U],
-                                                                               executionContext: ExecutionContext,
-                                                                               logMarkers: LogMarker
-  ): Future[Response[U]] = {
-    implicit val implicitHandler = handler
-    executeAndLog(request, message)
-  }
-
   def executeAndLog[T, U](request: T, message: String, notFoundSuccessful: Boolean = false)(implicit
                                                                                             functor: Functor[Future],
                                                                                             executor: Executor[Future],
