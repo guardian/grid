@@ -204,34 +204,17 @@ class ElasticSearch(
       case _ => sorts.createSort(params.orderBy)
     }
 
+    val runtimeMappings = if (params.syndicationStatus.contains(AwaitingReviewForSyndication) && config.useRuntimeFieldsToFixSyndicationReviewQueueQuery) {
+      Seq(syndicationFilter.syndicationReviewQueueFixMapping)
+    } else {
+      Seq.empty
+    }
+
     // We need to set trackHits to ensure that the total number of hits we return to users is accurate.
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
-    val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) from params.offset size params.length sortBy sort
+    val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) runtimeMappings runtimeMappings from params.offset size params.length sortBy sort
 
-    val searchHandler =
-      if(params.syndicationStatus.contains(AwaitingReviewForSyndication) && config.useRuntimeFieldsToFixSyndicationReviewQueueQuery)
-        SearchHandlerWithRuntimeFields(
-          (msg: String) => logger.info(msg),
-          Map(
-            syndicationFilter.hasActiveDeny.field -> RuntimeFieldDefinition(`type` = "boolean", script = RuntimeFieldScript(
-              s"""
-                |long nowInMillis = new Date().getTime();
-                |if (params['_source'].leases == null || params['_source'].leases.leases == null) {
-                |    emit(false); return;
-                |}
-                |for (lease in params['_source'].leases.leases) {
-                |    if (lease.access == 'deny-syndication' && (lease.endDate == null || ZonedDateTime.parse(lease.endDate).toInstant().toEpochMilli() > nowInMillis)) {
-                |        emit(true); return;
-                |    }
-                |}
-                |emit(false);
-                |""".stripMargin
-            ))
-          ))
-      else
-        SearchHandler
-
-    executeAndLog(searchHandler)(searchRequest, "image search").
+    executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       logSearchQueryIfTimedOut(searchRequest, r.result)
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))

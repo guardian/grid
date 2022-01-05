@@ -46,7 +46,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
     replicas = 0
   )
 
-  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.15.2")
+  val esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.16.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(
