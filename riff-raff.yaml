@@ -129,3 +129,4 @@ deployments:
     parameters:
       bucket: media-service-dist
       cacheControl: private
+      publicReadAcl: false
