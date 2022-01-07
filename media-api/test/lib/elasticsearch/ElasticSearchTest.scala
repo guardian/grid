@@ -16,7 +16,7 @@ import lib.querysyntax._
 import lib.{MediaApiConfig, MediaApiMetrics}
 import org.joda.time.DateTime
 import org.scalatest.concurrent.Eventually
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json.{JsString, Json}
@@ -55,7 +55,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
 
 
-  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.5.2")
+  def esContainer = if (useEsDocker) Some(DockerContainer("docker.elastic.co/elasticsearch/elasticsearch:7.16.2")
     .withPorts(9200 -> Some(9200))
     .withEnv("cluster.name=media-service", "xpack.security.enabled=false", "discovery.type=single-node", "network.host=0.0.0.0")
     .withReadyChecker(
@@ -73,7 +73,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
   override def beforeAll {
     super.beforeAll()
 
-    ES.ensureAliasAssigned()
+    ES.ensureIndexExistsAndAliasAssigned()
     purgeTestImages
 
     Await.ready(saveImages(images), 1.minute)

@@ -47,21 +47,37 @@ object ImageDataMerger extends LazyLogging {
     logger.info(s"starting to aggregate image")
     val mediaId = image.id
     // NB original metadata should already be added, cleaned, and copied to metadata.
+
+    // Start these futures outside of the for-comprehension to allow them to run in parallel
+    val collectionsF = gridClient.getCollections(mediaId, authFunction)
+    val editsF = gridClient.getEdits(mediaId, authFunction)
+    val imageStatusF = gridClient.getSoftDeletedMetadata(mediaId, authFunction)
+    val leasesF = gridClient.getLeases(mediaId, authFunction)
+    val usagesF = gridClient.getUsages(mediaId, authFunction)
+    val cropsF = gridClient.getCrops(mediaId, authFunction)
+    val syndicationRightsF = gridClient.getSyndicationRights(mediaId, authFunction)
     for {
-      collections <- gridClient.getCollections(mediaId, authFunction)
-      edits <- gridClient.getEdits(mediaId, authFunction)
-      leases <- gridClient.getLeases(mediaId, authFunction)
-      usages <- gridClient.getUsages(mediaId, authFunction)
-      crops <- gridClient.getCrops(mediaId, authFunction)
+      collections <- collectionsF
+      edits <- editsF
+      softDeletedMetadata <- imageStatusF
+      leases <- leasesF
+      usages <- usagesF
+      crops <- cropsF
+      syndicationRights <- syndicationRightsF
     } yield {
       val updatedImage = image.copy(
+        softDeletedMetadata = softDeletedMetadata.flatMap(meta => meta.isDeleted match {
+          case true => Some(SoftDeletedMetadata(DateTime.parse(meta.deleteTime), meta.deletedBy))
+          case false => None
+        }),
         collections = collections,
         userMetadata = edits,
         leases = leases,
         usages = usages,
         exports = crops,
         metadata = ImageDataMerger.mergeMetadata(edits, image.metadata),
-        usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights)
+        usageRights = edits.flatMap(e => e.usageRights).getOrElse(image.usageRights),
+        syndicationRights = syndicationRights
       )
       val inferredLastModified = ImageDataMerger.inferLastModifiedDate(updatedImage)
       updatedImage.copy(
@@ -132,7 +148,7 @@ class ImageDataMerger(gridClient: GridClient, services: Services, authFunction: 
   private def getFullMergedImageData(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
     case Some(image) =>
       // TODO I'm suspicious that we don't invoke the cleaners on this pass...
-      val imageWithMetadata = image.copy(originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata))
+      val imageWithMetadata = image.copy(originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata, latestAllowedDateTime = None))
       ImageDataMerger.aggregate(imageWithMetadata, gridClient, authFunction) map (i => Some(i))
     case None => Future.successful(None)
   }

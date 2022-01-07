@@ -23,7 +23,13 @@ archiver.controller('ArchiverCtrl',
     ctrl.archive = archive;
     ctrl.unarchive = unarchive;
     ctrl.archiving = false;
-    ctrl.canArchive = false;
+    ctrl.canUndelete = false;
+
+    ctrl.undelete = undelete;
+
+    mediaApi.getSession().then(session => {
+        if (ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
+    });
 
     mediaApi.canUserArchive().then(canArchive => {
         ctrl.canArchive = canArchive;
@@ -50,6 +56,13 @@ archiver.controller('ArchiverCtrl',
             catch(()  => $window.alert('Failed to save the changes, please try again.')).
             finally(() => ctrl.archiving = false);
     }
+
+    function undelete() {
+        const imageId = ctrl.image.data.id;
+        mediaApi.undelete(imageId).then(
+            ctrl.canUndelete = ctrl.isDeleted = false
+        );
+    }
 }]);
 
 archiver.directive('grArchiverStatus', [function() {
@@ -59,6 +72,7 @@ archiver.directive('grArchiverStatus', [function() {
         controllerAs: 'ctrl',
         scope: {
             image: '=',
+            isDeleted: '=',
             readonly: '='
         },
         bindToController: true,

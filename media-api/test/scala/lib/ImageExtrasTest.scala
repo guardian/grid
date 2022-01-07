@@ -6,10 +6,11 @@ import java.net.URI
 import com.gu.mediaservice.model._
 import lib.usagerights.CostCalculator
 import org.joda.time.DateTime
-import org.scalatest.{FunSpec, Matchers}
-import org.scalatest.mockito.MockitoSugar
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
-class ImageExtrasTest extends FunSpec with Matchers with MockitoSugar {
+class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar {
 
   val Quota = mock[UsageQuota]
 

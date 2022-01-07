@@ -2,13 +2,14 @@ package com.gu.mediaservice.lib.config
 
 import com.gu.mediaservice.lib.config.UsageRightsConfigProvider.Resources
 import com.gu.mediaservice.model.{ContractPhotographer, StaffPhotographer}
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 
 import scala.concurrent.Future
 
-class PhotographersConfigTest extends FreeSpec with Matchers {
+class PhotographersConfigTest extends AnyFreeSpec with Matchers {
 
   "The config loader" - {
     val configuration: Configuration = Configuration.from(Map(

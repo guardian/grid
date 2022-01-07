@@ -38,6 +38,17 @@ module.controller('grArchiverCtrl', [
         ctrl.archiving = false;
         ctrl.canArchive = false;
 
+        ctrl.canUndelete = false;
+        ctrl.isDeleted = false;
+        ctrl.undeleting = false;
+
+        ctrl.undelete = undelete;
+
+        mediaApi.getSession().then(session => {
+            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined && (session.user.permissions.canDelete || session.user.email === ctrl.image.data.uploadedBy)) { ctrl.canUndelete = true; }
+            if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
+        });
+
         mediaApi.canUserArchive().then(canArchive => {
             ctrl.canArchive = canArchive;
         });
@@ -100,6 +111,18 @@ module.controller('grArchiverCtrl', [
                 map(items => new Set(items)).
                 reduce((all, items) => all.union(items)).
                 toArray();
+        }
+        function undelete() {
+            ctrl.undeleting = true;
+            const imageId = ctrl.image.data.id;
+            mediaApi.undelete(imageId)
+                .then(
+                  ctrl.canUndelete = ctrl.isDeleted = false
+                ).catch(() => {
+                     $window.alert('Failed to undelete image!, please try again.');
+                }).finally(() => {
+                     ctrl.undeleting = false;
+                });
         }
     }
 ]);

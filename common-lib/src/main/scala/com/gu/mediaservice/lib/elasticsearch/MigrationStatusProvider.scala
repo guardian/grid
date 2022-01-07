@@ -11,8 +11,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 sealed trait MigrationStatus
 
 case object NotRunning extends MigrationStatus
-case class InProgress(migrationIndexName: String) extends MigrationStatus
-case object Complete extends MigrationStatus
+sealed trait Running extends MigrationStatus {
+  val migrationIndexName: String
+}
+case class InProgress(migrationIndexName: String) extends Running
+case class Paused(migrationIndexName: String) extends Running
 case class StatusRefreshError(cause: Throwable, preErrorStatus: MigrationStatus) extends MigrationStatus
 object StatusRefreshError {
   // custom constructor to unwrap when previousStatus is also Error - prevents nested Errors!
@@ -22,6 +25,10 @@ object StatusRefreshError {
       case status => new StatusRefreshError(cause, status)
     }
   }
+}
+
+object MigrationStatusProvider {
+  val PAUSED_ALIAS = "MIGRATION_PAUSED"
 }
 
 trait MigrationStatusProvider {
@@ -34,16 +41,18 @@ trait MigrationStatusProvider {
   private def fetchMigrationStatus(bubbleErrors: Boolean): MigrationStatus = {
     val statusFuture = getIndexForAlias(imagesMigrationAlias)
       .map {
+        case Some(index) if index.aliases.contains(MigrationStatusProvider.PAUSED_ALIAS) => Paused(index.name)
         case Some(index) => InProgress(index.name)
         case None => NotRunning
       }
-      .recover {
-        case e if !bubbleErrors =>
-          logger.error("Failed to get name of index for ongoing migration", e)
-          StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef.get())
-      }
 
-    Await.result(statusFuture, atMost = 5.seconds)
+    try {
+      Await.result(statusFuture, atMost = 5.seconds)
+    } catch {
+      case e if !bubbleErrors =>
+        logger.error("Failed to get name of index for ongoing migration", e)
+        StatusRefreshError(cause = e, preErrorStatus = migrationStatusRef.get())
+    }
   }
 
   private def refreshMigrationStatus(): Unit = {
@@ -52,10 +61,10 @@ trait MigrationStatusProvider {
     )
   }
 
-  private val migrationStatusRefresher = scheduler.schedule(
+  private val migrationStatusRefresher = scheduler.scheduleAtFixedRate(
     initialDelay = 0.seconds,
     interval = 5.seconds
-  ) { refreshMigrationStatus() }
+  ) { () => refreshMigrationStatus() }
 
   def migrationStatus: MigrationStatus = migrationStatusRef.get()
   def refreshAndRetrieveMigrationStatus(): MigrationStatus = {
@@ -72,3 +81,4 @@ trait MigrationStatusProvider {
 }
 
 case class MigrationAlreadyRunningError() extends Exception
+case class MigrationNotRunningError() extends Exception

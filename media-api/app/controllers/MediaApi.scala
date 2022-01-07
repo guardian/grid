@@ -35,6 +35,7 @@ import scala.util.Try
 class MediaApi(
                 auth: Authentication,
                 messageSender: ThrallMessageSender,
+                imageStatusTable: SoftDeletedMetadataTable,
                 elasticSearch: ElasticSearch,
                 imageResponse: ImageResponse,
                 config: MediaApiConfig,
@@ -88,7 +89,8 @@ class MediaApi(
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
-      Link("admin-tools",     config.adminToolsUri)
+      Link("admin-tools",     config.adminToolsUri),
+      Link("undelete",        s"${config.rootUri}/images/{id}/undelete")
     ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
   }
@@ -201,6 +203,16 @@ class MediaApi(
 
   }
 
+  def getSoftDeletedMetadata(id: String) = auth.async {
+    imageStatusTable.getStatus(id)
+      .map {
+        case Some(scala.Right(record)) => respond(record)
+        case Some(Left(error)) => respondError(BadRequest, "cannot-get", s"Cannot get soft-deleted metadata ${error}")
+        case None => respondNotFound(s"No soft-deleted metadata found for image id: ${id}")
+      }
+      .recover{ case error => respondError(InternalServerError, "cannot-get", s"Cannot get soft-deleted metadata ${error}") }
+  }
+
   def downloadImageExport(imageId: String, exportId: String, width: Int) = auth.async { request =>
     implicit val r = request
 
@@ -224,7 +236,7 @@ class MediaApi(
     }
   }
 
-  def deleteImage(id: String) = auth.async { request =>
+  def hardDeleteImage(id: String) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
@@ -249,7 +261,7 @@ class MediaApi(
     }
   }
 
-  def softDeleteImage(id: String) = auth.async { request =>
+  def deleteImage(id: String) = auth.async { request =>
     implicit val r = request
 
     elasticSearch.getImageById(id) map {
@@ -258,22 +270,49 @@ class MediaApi(
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
           if(canDelete){
-            messageSender.publish(
-              UpdateMessage(
-                subject = SoftDeleteImage,
-                id = Some(id),
-                softDeletedMetadata = Some(SoftDeletedMetadata(
-                  deleteTime = DateTime.now(DateTimeZone.UTC),
-                  deletedBy = request.user.accessor.identity
-                ))
+            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+            imageStatusTable.setStatus(imageStatusRecord)
+            .map { _ =>
+              messageSender.publish(
+                UpdateMessage(
+                  subject = SoftDeleteImage,
+                  id = Some(id),
+                  softDeletedMetadata = Some(SoftDeletedMetadata(
+                    deleteTime = DateTime.now(DateTimeZone.UTC),
+                    deletedBy = request.user.accessor.identity
+                  ))
+                )
               )
-            )
+            }
             Accepted
           } else {
             ImageDeleteForbidden
           }
         } else {
           ImageCannotBeDeleted
+        }
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def unSoftDeleteImage(id: String) = auth.async { request =>
+    implicit val r = request
+    elasticSearch.getImageById(id) map {
+      case Some(image) if hasPermission(request.user, image) =>
+        val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
+        if(canDelete){
+          imageStatusTable.updateStatus(id, false)
+          .map { _ =>
+            messageSender.publish(
+              UpdateMessage(
+                subject = UnSoftDeleteImage,
+                id = Some(id)
+              )
+             )
+          }
+          Accepted
+        } else {
+          ImageDeleteForbidden
         }
       case _ => ImageNotFound(id)
     }
@@ -370,7 +409,10 @@ class MediaApi(
       links = List(prevLink, nextLink).flatten
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
 
-    val searchParams = SearchParams(request)
+    val _searchParams = SearchParams(request)
+    val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
+    val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
+    val searchParams = if(canViewDeletedImages) _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user))) else _searchParams
 
     SearchParams.validate(searchParams).fold(
       // TODO: respondErrorCollection?

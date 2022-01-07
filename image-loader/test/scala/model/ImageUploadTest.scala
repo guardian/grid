@@ -3,7 +3,6 @@ package model
 import java.io.File
 import java.net.URI
 import java.util.UUID
-
 import com.drew.imaging.ImageProcessingException
 import com.gu.mediaservice.lib.{StorableImage, StorableOptimisedImage, StorableOriginalImage, StorableThumbImage}
 import com.gu.mediaservice.lib.aws.{S3Metadata, S3Object, S3ObjectMetadata, S3Ops}
@@ -14,8 +13,10 @@ import com.gu.mediaservice.model.{FileMetadata, Jpeg, MimeType, Png, Tiff, Uploa
 import lib.imaging.MimeTypeDetection
 import model.upload.{OptimiseWithPngQuant, UploadRequest}
 import org.joda.time.DateTime
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{Assertion, AsyncFunSuite, Matchers}
+import org.scalatest.Assertion
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 import test.lib.ResourceHelpers
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,7 +54,7 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
 
     def mockStore = (a: StorableImage) =>
       Future.successful(
-        S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), a.meta, None)
+        S3Object("madeupname", "madeupkey", a.file, Some(a.mimeType), None, a.meta, None)
       )
 
     def storeOrProjectOriginalFile: StorableOriginalImage => Future[S3Object] = mockStore

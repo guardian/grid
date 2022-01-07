@@ -1,8 +1,9 @@
 package lib.kinesis
 
 import com.gu.mediaservice.lib.aws.EsResponse
-import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, InProgress}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticNotFoundException, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, combineMarkers}
+import com.gu.mediaservice.model.{AddImageLeaseMessage, CreateMigrationIndexMessage, DeleteImageExportsMessage, DeleteImageMessage, DeleteUsagesMessage, ImageMessage, MigrateImageMessage, RemoveImageLeaseMessage, ReplaceImageLeasesMessage, SetImageCollectionsMessage, SoftDeleteImageMessage, UnSoftDeleteImageMessage, ThrallMessage, UpdateImageExportsMessage, UpdateImagePhotoshootMetadataMessage, UpdateImageSyndicationMetadataMessage, UpdateImageUsagesMessage, UpdateImageUserMetadataMessage}
 import com.gu.mediaservice.model.usage.{Usage, UsageNotice}
 // import all except `Right`, which otherwise shadows the type used in `Either`s
 import com.gu.mediaservice.model.{Right => _, _}
@@ -32,6 +33,7 @@ class MessageProcessor(
       case message: ImageMessage => indexImage(message, logMarker)
       case message: DeleteImageMessage => deleteImage(message, logMarker)
       case message: SoftDeleteImageMessage => softDeleteImage(message, logMarker)
+      case message: UnSoftDeleteImageMessage => unSoftDeleteImage(message, logMarker)
       case message: DeleteImageExportsMessage => deleteImageExports(message, logMarker)
       case message: UpdateImageExportsMessage => updateImageExports(message, logMarker)
       case message: UpdateImageUserMetadataMessage => updateImageUserMetadata(message, logMarker)
@@ -45,6 +47,7 @@ class MessageProcessor(
       case message: UpdateImagePhotoshootMetadataMessage => updateImagePhotoshoot(message, logMarker)
       case message: CreateMigrationIndexMessage => createMigrationIndex(message, logMarker)
       case message: MigrateImageMessage => migrateImage(message, logMarker)
+      case _: CompleteMigrationMessage => completeMigration(logMarker)
     }
   }
 
@@ -59,11 +62,11 @@ class MessageProcessor(
 
   private def indexImage(message: ImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(
-      es.indexImage(message.id, message.image, message.lastModified)(ec, logMarker)
+      es.migrationAwareIndexImage(message.id, message.image, message.lastModified)(ec, logMarker)
     )
 
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
-    implicit val implicitLogMarker: LogMarker = logMarker
+    implicit val implicitLogMarker: LogMarker = logMarker ++ Map("imageId" -> message.id)
     val maybeStart = message.maybeImageWithVersion match {
       case Left(errorMessage) =>
         Future.failed(ProjectionFailure(errorMessage))
@@ -79,24 +82,27 @@ class MessageProcessor(
       case (image, expectedVersion, currentVersion) => if (expectedVersion == currentVersion) {
         Future.successful(image)
       } else {
-        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id}"))
+        Future.failed(VersionComparisonFailure(s"Version comparison failed for image id: ${image.id} -> current = $currentVersion, expected = $expectedVersion"))
       }
     }.flatMap(
-      image => Future.sequence(es.bulkInsert(Seq(image), es.imagesMigrationAlias)).transform {
+      image => es.directInsert(image, es.imagesMigrationAlias).transform {
         case s@Success(_) => s
         case Failure(exception) => Failure(InsertImageFailure(exception.toString))
       }
     ).flatMap { insertResult =>
-      logger.info(s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
-      es.setMigrationInfo(imageId = message.id, migrationInfo = Right(MigrationTo(migratedTo = insertResult.head.indexNames.head)))
+      logger.info(logMarker, s"Successfully migrated image with id: ${message.id}, setting 'migratedTo' on current index")
+      es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationInfo(migratedTo = Some(insertResult.indexName)))
     }.recoverWith {
+      case versionComparisonFailure: VersionComparisonFailure =>
+        logger.error(logMarker, s"Postponed migration of image with id: ${message.id}: cause: ${versionComparisonFailure.getMessage}, this will get picked up shortly")
+        Future.successful(())
       case failure: MigrationFailure =>
-        logger.error(failure.getMessage)
+        logger.error(logMarker, s"Failed to migrate image with id: ${message.id}: cause: ${failure.getMessage}, attaching failure to document in current index")
         val migrationIndexName = es.migrationStatus match {
-          case InProgress(migrationIndexName) => migrationIndexName
+          case running: Running => running.migrationIndexName
           case _ => "Unknown migration index name"
         }
-        es.setMigrationInfo(imageId = message.id, migrationInfo = Left(MigrationFailure(failures = Map(migrationIndexName -> failure.getMessage))))
+        es.setMigrationInfo(imageId = message.id, migrationInfo = MigrationInfo(failures = Some(Map(migrationIndexName -> failure.getMessage))))
     }
   }
 
@@ -110,6 +116,9 @@ class MessageProcessor(
 
   private def softDeleteImage(message: SoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applySoftDelete(message.id, message.softDeletedMetadata, message.lastModified)(ec, logMarker))
+
+  private def unSoftDeleteImage(message: UnSoftDeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
+    Future.sequence(es.applyUnSoftDelete(message.id, message.lastModified)(ec, logMarker))
 
   private def updateImageUserMetadata(message: UpdateImageUserMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
     Future.sequence(es.applyImageMetadataOverride(message.id, message.edits, message.lastModified)(ec, logMarker))
@@ -178,5 +187,9 @@ class MessageProcessor(
     Future {
       es.startMigration(message.newIndexName)(logMarker)
     }
+  }
+
+  def completeMigration(logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
+    es.completeMigration(logMarker)
   }
 }

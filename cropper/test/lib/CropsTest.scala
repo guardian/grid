@@ -2,10 +2,11 @@ package lib
 
 import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.model._
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.mockito.MockitoSugar
 
-class CropsTest extends FunSpec with Matchers with MockitoSugar {
+class CropsTest extends AnyFunSpec with Matchers with MockitoSugar {
   it("should return JPEG when the input type is a JPEG") {
     Crops.cropType(Jpeg, "True Color", hasAlpha = false) shouldBe Jpeg
     Crops.cropType(Jpeg, "Monkey", hasAlpha = false) shouldBe Jpeg

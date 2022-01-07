@@ -1,9 +1,10 @@
 package com.gu.mediaservice.model
 
-import org.scalatest.{FlatSpec, Matchers}
-import play.api.libs.json.{JsArray, JsString, Json}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import play.api.libs.json.{JsArray, JsString}
 
-class FileMetadataAggregatorTest extends FlatSpec with Matchers {
+class FileMetadataAggregatorTest extends AnyFlatSpec with Matchers {
 
   it should "organise flat metadata into aggregated form and preserve the order of properties if they are stored in arrays" in {
 

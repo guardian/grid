@@ -3,10 +3,11 @@ package com.gu.mediaservice.lib.metadata
 import com.gu.mediaservice.model.FileMetadata
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter}
 import org.joda.time.{DateTime, DateTimeZone}
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsArray, JsString}
 
-class ImageMetadataConverterTest extends FunSpec with Matchers {
+class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
 
   it("should return an empty ImageMetadata for empty FileMetadata") {
     val fileMetadata = FileMetadata(Map(), Map(), Map(), Map())
@@ -372,6 +373,12 @@ class ImageMetadataConverterTest extends FunSpec with Matchers {
 
   it("should clean up machine dates with invalid BST time zone without subsecond precision into iso format") {
     ImageMetadataConverter.cleanDate("Tue Dec 16 01:02:03 BST 2014") shouldBe "2014-12-16T00:02:03.000Z"
+  }
+
+  it("should clean up partial dates") {
+    ImageMetadataConverter.cleanDate("19250000") shouldBe "1925-01-01T00:00:00.000Z"
+    ImageMetadataConverter.cleanDate("19250200") shouldBe "1925-02-01T00:00:00.000Z"
+    ImageMetadataConverter.cleanDate("19250202") shouldBe "1925-02-02T00:00:00.000Z"
   }
 
 

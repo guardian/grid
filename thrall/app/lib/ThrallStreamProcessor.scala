@@ -50,13 +50,13 @@ case class TaggedRecord[+P](payload: P,
 class ThrallStreamProcessor(
   uiSource: Source[KinesisRecord, Future[Done]],
   automationSource: Source[KinesisRecord, Future[Done]],
-  migrationSource: Source[MigrationRecord, Future[Done]],
+  migrationManualSource: Source[MigrationRecord, Future[Done]],
+  migrationOngoingSource: Source[MigrationRecord, Future[Done]],
   consumer: ThrallEventConsumer,
-  actorSystem: ActorSystem,
-  materializer: Materializer
+  actorSystem: ActorSystem
  ) extends GridLogging {
 
-  implicit val mat = materializer
+  implicit val mat = Materializer.matFromSystem(actorSystem)
   implicit val dispatcher = actorSystem.getDispatcher
 
   val mergedKinesisSource: Source[TaggedRecord[ThrallMessage], NotUsed] = Source.fromGraph(GraphDSL.create() { implicit graphBuilder =>
@@ -68,7 +68,11 @@ class ThrallStreamProcessor(
     val automationRecordSource = automationSource.map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
 
-    val migrationMessagesSource: Source[TaggedRecord[InternalThrallMessage], Future[Done]] = migrationSource.map { case MigrationRecord(internalThrallMessage, time) =>
+    val migrationManualMessagesSource = migrationManualSource.map { case MigrationRecord(internalThrallMessage, time) =>
+      TaggedRecord(internalThrallMessage, time, MigrationPriority, () => {})
+    }
+
+    val migrationOngoingMessagesSource = migrationOngoingSource.map { case MigrationRecord(internalThrallMessage, time) =>
       TaggedRecord(internalThrallMessage, time, MigrationPriority, () => {})
     }
 
@@ -91,10 +95,15 @@ class ThrallStreamProcessor(
           case Right(taggedRecord) => taggedRecord
         }
 
+    // merge the migration sources (preferring manually requested migrations)
+    val mergedMigrationMessagesSources = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](1))
+    migrationManualMessagesSource ~> mergedMigrationMessagesSources.preferred
+    migrationOngoingMessagesSource ~> mergedMigrationMessagesSources.in(0)
+
     // merge in the re-ingestion source (preferring ui/automation)
     val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](1))
     uiAndAutomationMessagesSource ~> mergePreferred.preferred
-    migrationMessagesSource ~> mergePreferred.in(0)
+    mergedMigrationMessagesSources ~> mergePreferred.in(0)
 
     SourceShape(mergePreferred.out)
   })

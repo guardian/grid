@@ -1,8 +1,9 @@
 package com.gu.mediaservice.lib.logging
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
-class StopwatchTest extends FunSpec with Matchers {
+class StopwatchTest extends AnyFunSpec with Matchers {
   it("should return the elapsed time") {
     val fiveSeconds: Long = 5 * 1000
 

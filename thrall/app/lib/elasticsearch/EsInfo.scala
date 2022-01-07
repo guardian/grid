@@ -1,38 +1,22 @@
 package lib.elasticsearch
 
-import play.api.libs.json.{Format, JsResult, JsValue, Json}
+import play.api.libs.json.{Json, Writes}
 
-case class MigrationTo(
-  migratedTo: String
-)
-object MigrationTo {
-  implicit val format = Json.format[MigrationTo]
+case class MigrationInfo(failures: Option[Map[String, String]] = None, migratedTo: Option[String] = None)
+object MigrationInfo {
+  implicit val reads = Json.reads[MigrationInfo]
+  implicit val writes: Writes[MigrationInfo] = (migrationInfo: MigrationInfo) => Json.obj(
+    "migratedTo" -> migrationInfo.migratedTo,
+    "failures" -> migrationInfo.failures.map(_.mapValues {
+      case message if message.contains("failed to parse field") => message.substring(0, message.indexOf("in document with id"))
+      case message if message.length > 256 => s"${message.take(253)}..."
+      case message => message
+    })
+  )
 }
 
-case class MigrationFailure(
-  failures: Map[String, String]
-)
-object MigrationFailure {
-  implicit val format = Json.format[MigrationFailure]
-}
 
-case class EsInfo(migration: Option[Either[MigrationFailure, MigrationTo]] = None)
+case class EsInfo(migration: Option[MigrationInfo] = None)
 object EsInfo {
-  implicit val eitherFormat: Format[Either[MigrationFailure, MigrationTo]] = new Format[Either[MigrationFailure, MigrationTo]] {
-    def reads(json: JsValue): JsResult[Either[MigrationFailure, MigrationTo]] = {
-      MigrationTo.format.reads(json) map {
-        Right(_)
-      }
-    } orElse{
-      MigrationFailure.format.reads(json) map {
-        Left(_)
-      }
-    }
-
-    def writes(c: Either[MigrationFailure, MigrationTo]) = c match {
-      case Left(a) => MigrationFailure.format.writes(a)
-      case Right(b) => MigrationTo.format.writes(b)
-    }
-  }
   implicit val format = Json.format[EsInfo]
 }

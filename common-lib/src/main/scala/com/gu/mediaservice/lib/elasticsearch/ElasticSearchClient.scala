@@ -27,6 +27,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
 
   def imagesCurrentAlias: String
   def imagesMigrationAlias: String
+  lazy val imagesHistoricalAlias: String = "Images_Historical"
 
   protected val imagesIndexPrefix = "images"
   protected val imageType = "image"
@@ -43,11 +44,12 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
   }
 
   //TODO: this function should fail and cause healthcheck fails
-  def ensureAliasAssigned() {
+  def ensureIndexExistsAndAliasAssigned() {
     logger.info(s"Checking alias $imagesCurrentAlias is assigned to index…")
-    if (getCurrentAlias.isEmpty) {
-      ensureIndexExists(initialImagesIndex)
-      assignAliasTo(initialImagesIndex)
+    val indexForCurrentAlias = Await.result(getIndexForAlias(imagesCurrentAlias), tenSeconds)
+    if (indexForCurrentAlias.isEmpty) {
+      createIndexIfMissing(initialImagesIndex)
+      assignAliasTo(initialImagesIndex, imagesCurrentAlias)
       waitUntilHealthy()
     }
   }
@@ -67,8 +69,14 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     executeAndLog(request, "Healthcheck").map { _ => true}.recover { case _ => false}
   }
 
-  def getIndexForAlias(alias: String)(implicit logMarker: LogMarker = MarkerMap()): Future[Option[Index]] = {
-    executeAndLog(getAliases(Nil, Seq(alias)), s"Looking up index for alias '$alias'").map(_.result.mappings.keys.headOption)
+  case class IndexWithAliases(name: String, aliases: Seq[String])
+  def getIndexForAlias(alias: String)(implicit logMarker: LogMarker = MarkerMap()): Future[Option[IndexWithAliases]] = {
+    executeAndLog(getAliases(alias, Nil), s"Looking up index for alias '$alias'").map(_.result.mappings.headOption.map{
+      case (index, aliases) => IndexWithAliases(
+        name = index.name,
+        aliases = aliases.map(_.name),
+      )
+    })
   }
 
   def countImages(indexName: String = "images"): Future[ElasticSearchImageCounts] = {
@@ -87,7 +95,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
                                stats.result.indices(indexName).total.docs.count)
   }
 
-  def ensureIndexExists(index: String): Unit = {
+  def createIndexIfMissing(index: String): Unit = {
     logger.info("Checking index exists…")
 
     val eventualIndexExistsResponse: Future[Response[IndexExistsResponse]] = client.execute {
@@ -146,11 +154,6 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }
   }
 
-  def getCurrentAlias: Option[String] = {
-    ensureIndexExists(initialImagesIndex)
-    None // TODO
-  }
-
   def getCurrentIndices: List[String] = {
     Await.result(client.execute( {
       catIndices()
@@ -169,7 +172,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     }, tenSeconds)
   }
 
-  def assignAliasTo(index: String, alias: String = imagesCurrentAlias): Either[ElasticError, Boolean] = {
+  def assignAliasTo(index: String, alias: String): Either[ElasticError, Boolean] = {
     logger.info(s"Assigning alias $alias to $index")
     val aliasActionResponse = Await.result(client.execute {
       aliases(

@@ -1,8 +1,9 @@
 package com.gu.mediaservice.lib.logging
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
-class MarkerUtilsTest extends FunSpec with Matchers {
+class MarkerUtilsTest extends AnyFunSpec with Matchers {
   it("should combine markers") {
     val marker1 = MarkerMap("a" -> "b")
     val marker2 = MarkerMap("c" -> "d")

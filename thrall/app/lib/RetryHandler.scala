@@ -3,14 +3,14 @@ package lib
 
 import akka.actor.ActorSystem
 import akka.pattern.{after, retry}
-import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap, combineMarkers}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap, combineMarkers}
 import play.api.{Logger, MarkerContext}
 
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
-object RetryHandler {
+object RetryHandler extends GridLogging {
   type WithMarkers[T] = (LogMarker) => Future[T]
 
   def handleWithRetryAndTimeout[T](f: WithMarkers[T],
@@ -26,11 +26,11 @@ object RetryHandler {
         f(marker).transform {
           case Success(x) => Success(x)
           case Failure(t: TimeoutException) => {
-            Logger.error("Failed with timeout. Will retry")(marker.toLogMarker)
+            logger.error(marker, "Failed with timeout. Will retry")
             Failure(t)
           }
           case Failure(exception) => {
-            Logger.error("Failed with exception.", exception)(marker.toLogMarker)
+            logger.error(marker, "Failed with exception.", exception)
             Failure(exception)
           }
         }
@@ -51,7 +51,7 @@ object RetryHandler {
       def attempt = () => {
         count = count + 1
         val markerWithRetry = combineMarkers(marker, MarkerMap("retryCount" -> count))
-        Logger.info(s"Attempt $count of $retries")(markerWithRetry)
+        logger.info(markerWithRetry, s"Attempt $count of $retries")
 
         f(markerWithRetry)
       }

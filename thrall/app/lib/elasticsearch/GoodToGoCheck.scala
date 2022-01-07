@@ -1,7 +1,7 @@
 package lib.elasticsearch
 
 import com.amazonaws.util.EC2MetadataUtils
-import com.gu.mediaservice.lib.elasticsearch.MappingTest
+import com.gu.mediaservice.lib.elasticsearch.{MappingTest, Running}
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model.Image
 import com.sksamuel.elastic4s.Response
@@ -39,7 +39,7 @@ object GoodToGoCheck extends StrictLogging {
         _ <- if (checkAbsent.nonEmpty) deleteTestImage(es, image.id) else Future.successful(())
         // now index and retrieve the test image
         _ <- Future.successful(logger.info(s"Indexing test image ${image.id}"))
-        indexResult <- Future.sequence(es.indexImage(image.id, image, lastModified))
+        indexResult <- Future.sequence(es.migrationAwareIndexImage(image.id, image, lastModified))
         _ <- Future.successful(logger.info(s"Retrieving test image ${image.id}"))
         maybeRetrieveResult <- es.getImage(image.id)
         _ <- Future.successful(logger.info(s"Validating test image"))
@@ -70,10 +70,15 @@ object GoodToGoCheck extends StrictLogging {
     indexResult
   }
 
-  def deleteTestImage(es: ElasticSearch, imageId: String)(implicit ex: ExecutionContext, lm: LogMarker): Future[Response[DeleteResponse]] = {
+  def deleteTestImage(es: ElasticSearch, imageId: String)(implicit ex: ExecutionContext, lm: LogMarker) = {
     import com.sksamuel.elastic4s.ElasticDsl._
     // this manipulates the underlying ES API as the built in delete API guards against deleting images that are in use
-    es.executeAndLog(deleteById(es.imagesCurrentAlias, imageId), s"Deleting good to go test image $imageId")
+    Future.sequence((es.migrationStatus match {
+      case running: Running => List(es.imagesCurrentAlias, running.migrationIndexName)
+      case _ => List(es.imagesCurrentAlias)
+    }).map { indexName =>
+      es.executeAndLog(deleteById(indexName, imageId), s"Deleting good to go test image $imageId")
+    })
   }
 
   def deleteOldTestImages(es: ElasticSearch, now: DateTime)(implicit ex: ExecutionContext, lm: LogMarker): Future[Long] = {
@@ -84,12 +89,23 @@ object GoodToGoCheck extends StrictLogging {
       rangeQuery("lastModified").lte(olderThan.getMillis), // older than this
       termQuery("uploadedBy", MappingTest.testUploader) // and belonging to the uploader
     )
+
+    val indicesToDeleteFrom = es.migrationStatus match {
+      case running: Running => List(es.imagesCurrentAlias, running.migrationIndexName)
+      case _ => List(es.imagesCurrentAlias)
+    }
+
+    val deleteRequest = deleteIn(indicesToDeleteFrom).by(query).copy(waitForCompletion = Some(true))
+
+
     // this manipulates the underlying ES API as the built in delete API guards against deleting images that are in use
-    val eventualResult = es.executeAndLog(
-      deleteByQuery(es.imagesCurrentAlias, query),
-      s"Deleting any old test images uploaded by ${MappingTest.testImage.uploadedBy}"
-    )
-    eventualResult.map(_.result.deleted)
+    val eventualResult = es.executeAndLog(deleteRequest, s"Deleting any old test images uploaded by ${MappingTest.testImage.uploadedBy}")
+
+    eventualResult.map(_.result match {
+      case Left(deleteResponse) => deleteResponse.deleted
+      // The Right (createdTask) response doesn't make sense - we have wait for completion enabled, but elastic4s forces us to still consider this case
+      case Right(createdTask) => throw new IllegalArgumentException("Request to delete_by_query returned an asynchronous task, despite wait_for_completion requested")
+    })
   }
 
   /** This function computes an approximate equality for some objects which is fuzzy when it comes to Joda DateTimes

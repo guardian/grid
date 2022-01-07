@@ -46,6 +46,7 @@ trait ImageFields {
   def usagesField(field: String)      = s"usages.$field"
   def sourceField(field: String)      = s"source.$field"
   def photoshootField(field: String) = editsField(s"photoshoot.$field")
+  def leasesField(field: String) = s"leases.$field"
 
   val fieldAliases = Map(
     "crops"     -> "exports",

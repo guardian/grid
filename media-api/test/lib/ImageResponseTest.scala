@@ -5,14 +5,15 @@ import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PrintUsage, Usage}
 import lib.elasticsearch.{Fixtures, SourceWrapper}
 import org.joda.time.DateTime.now
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.json._
 
 import scala.concurrent.Future
 
-class ImageResponseTest extends FunSpec with Matchers with Fixtures {
+class ImageResponseTest extends AnyFunSpec with Matchers with Fixtures {
 
   val mediaApiConfig = new MediaApiConfig(GridConfigResources(
     Configuration.from(USED_CONFIGS_IN_TEST ++ Map(

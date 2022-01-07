@@ -28,6 +28,14 @@ sealed trait MigrationMessage extends InternalThrallMessage {}
 
 case class MigrateImageMessage(id: String, maybeImageWithVersion: Either[String, (Image, Long)]) extends MigrationMessage
 
+object MigrateImageMessage {
+  def apply(imageId: String, maybeProjection: Option[Image], maybeVersion: Option[Long]): MigrateImageMessage = (maybeProjection, maybeVersion) match {
+    case (Some(projection), Some(version)) => MigrateImageMessage(imageId, scala.Right((projection, version)))
+    case (None, _) => MigrateImageMessage(imageId, Left("There was no projection returned"))
+    case _ => MigrateImageMessage(imageId, Left("There was no version returned"))
+  }
+}
+
 /**
   * EXTERNAL THRALL MESSAGES (these go over Kinesis)
   */
@@ -62,6 +70,7 @@ object ExternalThrallMessage{
   implicit val updateImageUserMetadataMessageFormat = Json.format[UpdateImageUserMetadataMessage]
   implicit val deleteImageExportsMessageFormat = Json.format[DeleteImageExportsMessage]
   implicit val softDeleteImageMessageFormat = Json.format[SoftDeleteImageMessage]
+  implicit val unSoftDeleteImageMessageFormat = Json.format[UnSoftDeleteImageMessage]
   implicit val imageMessageFormat = Json.format[ImageMessage]
   implicit val updateImagePhotoshootMetadataMessage = Json.format[UpdateImagePhotoshootMetadataMessage]
   implicit val deleteUsagesMessage = Json.format[DeleteUsagesMessage]
@@ -71,6 +80,7 @@ object ExternalThrallMessage{
   implicit val updateImageExportsMessage = Json.format[UpdateImageExportsMessage]
 
   implicit val createMigrationIndexMessage = Json.format[CreateMigrationIndexMessage]
+  implicit val completeMigrationMessage = Json.format[CompleteMigrationMessage]
 
   implicit val writes = Json.writes[ExternalThrallMessage]
   implicit val reads = Json.reads[ExternalThrallMessage]
@@ -88,6 +98,8 @@ case class ImageMessage(lastModified: DateTime, image: Image) extends ExternalTh
 case class DeleteImageMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 
 case class SoftDeleteImageMessage(id: String, lastModified: DateTime, softDeletedMetadata: SoftDeletedMetadata) extends ExternalThrallMessage
+
+case class UnSoftDeleteImageMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 
 case class DeleteImageExportsMessage(id: String, lastModified: DateTime) extends ExternalThrallMessage
 
@@ -131,4 +143,8 @@ case class CreateMigrationIndexMessage(
 
   val newIndexName =
     s"images_${migrationStart.toString(DateTimeFormat.forPattern("yyyy-MM-dd_HH-mm-ss").withZoneUTC())}_${gitHash.take(7)}"
+}
+
+case class CompleteMigrationMessage(lastModified: DateTime) extends ExternalThrallMessage {
+  val id: String = "N/A"
 }

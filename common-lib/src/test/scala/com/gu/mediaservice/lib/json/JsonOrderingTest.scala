@@ -3,12 +3,13 @@ package com.gu.mediaservice.lib.json
 import com.gu.mediaservice.model.{Asset, FileMetadata, Handout, Image, ImageMetadata, UploadInfo}
 import org.joda.time.{DateTime, DateTimeZone}
 import org.scalatest.Inside.inside
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsObject, JsString, Json}
 
 import java.net.URI
 
-class JsonOrderingTest extends FreeSpec with Matchers {
+class JsonOrderingTest extends AnyFreeSpec with Matchers {
   /**
     * The order of JSON documents is not strictly in accordance with the RFC but the Play library did maintain it
     * until 2.6.11 and does again from 2.8.0. See https://github.com/playframework/play-json/pull/253

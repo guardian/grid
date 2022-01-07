@@ -1,11 +1,11 @@
 package com.gu.mediaservice.lib.collections
 
 import org.joda.time.DateTime
-import org.scalatest.{FunSpec, Matchers}
-
 import com.gu.mediaservice.model.{ActionData, Collection}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
-class CollectionsManagerTest extends FunSpec with Matchers {
+class CollectionsManagerTest extends AnyFunSpec with Matchers {
 
   describe("CollectionManager") {
 

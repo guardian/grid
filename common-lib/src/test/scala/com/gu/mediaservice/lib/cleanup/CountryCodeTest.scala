@@ -1,11 +1,12 @@
 package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.model.FileMetadata
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsArray, JsString}
 
 
-class CountryCodeTest extends FunSpec with Matchers with MetadataHelper {
+class CountryCodeTest extends AnyFunSpec with Matchers with MetadataHelper {
 
   it("should not change a correct country name") {
     // no matter where you put Switzerland, it should come out as Switzerland

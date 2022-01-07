@@ -1,0 +1,86 @@
+@import lib.FailedMigrationSummary
+
+@import views.html.helper.form
+@(
+    failures: FailedMigrationSummary,
+    apiBaseUrl: String,
+    uiBaseUrl: String,
+    filter: String,
+    page: Int,
+    shouldAllowReattempts: Boolean,
+)
+
+@navigation = {
+    @if(page > 1) {
+        <a href="@routes.ThrallController.migrationFailures(filter, Some(page - 1))">Previous page</a>
+    }
+    <a href="@routes.ThrallController.migrationFailures(filter, Some(page + 1))">Next page</a>
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Migration Failures - Page @(page) - @filter</title>
+    <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
+</head>
+<body>
+    <div class="sticky headingSection">
+        <a href="@routes.ThrallController.migrationFailuresOverview()">&lt; back to Migration Failures Overview</a>
+        <h1>
+            Migration Failures - Page @(page) - <code>@filter</code>
+        </h1>
+        <p>@failures.totalFailed images failed with the above message!</p>
+        @navigation
+    </div>
+
+    <table>
+        <tr class="sticky headingRow">
+            <th>Image ID</th>
+            <th>Last Modified</th>
+            <th>Crop Count</th>
+            <th>Usage Count</th>
+            <th>Uploaded By</th>
+            <th>Uploaded Time</th>
+            @if(shouldAllowReattempts) { <th>Click to reattempt migration</th> }
+            <th>ES Doc</th>
+        </tr>
+        @for(failure <- failures.details) {
+            <tr>
+                <td><pre class="imageId">@failure.imageId</pre>
+                    <a href="@uiBaseUrl/images/@failure.imageId" target="_blank">[Grid]</a>
+                    <a href="@apiBaseUrl/images/@failure.imageId" target="_blank">[API]</a>
+                </td>
+                <td>@failure.lastModified</td>
+                <td>@failure.crops</td>
+                <td>@failure.usages</td>
+                <td>@failure.uploadedBy</td>
+                <td>@failure.uploadTime</td>
+                @if(shouldAllowReattempts) {
+                    <td>@form(action = routes.ThrallController.migrateSingleImage){
+                        <label for="id" class="hidden">Image ID:</label>
+                        <input type="text" id="id" value="@failure.imageId" name="id" class="hidden">
+                        <input type="submit" value="Reattempt migration">
+                    }</td>
+                }
+                <td>
+                    @failure.esDocAsImageValidationFailures match {
+                        case Some(validationFailures) => {
+                            <div>
+                                <strong>Conversion to <code>Image</code> problems:</strong>
+                                <p>@validationFailures</p>
+                            </div>
+                        }
+                        case None => {}
+                    }
+                    <details>
+                        <summary>View JSON</summary>
+                        <pre>@failure.sourceJson</pre>
+                    </details>
+                </td>
+            </tr>
+        }
+    </table>
+    @navigation
+</body>
+</html>

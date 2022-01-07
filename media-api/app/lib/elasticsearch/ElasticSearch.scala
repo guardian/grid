@@ -3,15 +3,17 @@ package lib.elasticsearch
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.lib.auth.Authentication.Principal
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, InProgress, MigrationStatusProvider}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
-import com.gu.mediaservice.model.{Agencies, Agency, Image}
+import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
 import com.sksamuel.elastic4s.requests.searches._
 import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
+import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
+import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib.querysyntax.{HierarchyField, Match, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
@@ -80,9 +82,9 @@ class ElasticSearch(
       }
     }
     migrationStatus match {
-      case InProgress(migrationIndexName) => executeAndLog(
-        request = requestFromIndexName(migrationIndexName),
-        message = s"get $logMessagePart by id $id from migration index $migrationIndexName"
+      case running: Running => executeAndLog(
+        request = requestFromIndexName(running.migrationIndexName),
+        message = s"get $logMessagePart by id $id from migration index ${running.migrationIndexName}"
       ).flatMap { r =>
         r.status match {
           case Status.OK => Future.successful(resultTransformer(r.result))
@@ -202,9 +204,15 @@ class ElasticSearch(
       case _ => sorts.createSort(params.orderBy)
     }
 
+    val runtimeMappings = if (params.syndicationStatus.contains(AwaitingReviewForSyndication) && config.useRuntimeFieldsToFixSyndicationReviewQueueQuery) {
+      Seq(syndicationFilter.syndicationReviewQueueFixMapping)
+    } else {
+      Seq.empty
+    }
+
     // We need to set trackHits to ensure that the total number of hits we return to users is accurate.
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
-    val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) from params.offset size params.length sortBy sort
+    val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) runtimeMappings runtimeMappings from params.offset size params.length sortBy sort
 
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
@@ -242,11 +250,10 @@ class ElasticSearch(
 
   def dateHistogramAggregate(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
 
-    def fromDateHistogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.dateHistogram(name).
+    def fromDateHistogramAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.result[DateHistogram](name).
       buckets.map(b => BucketResult(b.date, b.docCount))
 
-    val aggregation = dateHistogramAggregation(params.field).
-      field(params.field).
+    val aggregation = dateHistogramAgg(name = params.field, field = params.field).
       calendarInterval(DateHistogramInterval.Month).
       minDocCount(0)
     aggregateSearch(params.field, params, aggregation, fromDateHistogramAggregation)
@@ -254,16 +261,16 @@ class ElasticSearch(
   }
 
   def metadataSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
-    aggregateSearch("metadata", params, termsAggregation("metadata").field(metadataField(params.field)), fromTermAggregation)
+    aggregateSearch("metadata", params, termsAgg(name = "metadata", field = metadataField(params.field)), fromTermAggregation)
   }
 
   def editsSearch(params: AggregateSearchParams)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[AggregateSearchResults] = {
     logger.info("Edit aggregation requested with params.field: " + params.field)
     val field = "labels" // TODO was - params.field
-    aggregateSearch("edits", params, termsAggregation("edits").field(editsField(field)), fromTermAggregation)
+    aggregateSearch("edits", params, termsAgg(name = "edits", field = editsField(field)), fromTermAggregation)
   }
 
-  private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.terms(name).
+  private def fromTermAggregation(name: String, aggregations: Aggregations): Seq[BucketResult] = aggregations.result[Terms](name).
     buckets.map(b => BucketResult(b.key, b.docCount))
 
   private def aggregateSearch(name: String, params: AggregateSearchParams, aggregation: Aggregation, extract: (String, Aggregations) => Seq[BucketResult])(implicit ex: ExecutionContext): Future[AggregateSearchResults] = {
@@ -308,11 +315,11 @@ class ElasticSearch(
 
   private def prepareSearch(query: Query): SearchRequest = {
     val indexes = migrationStatus match {
-      case InProgress(migrationIndexName) => List(imagesCurrentAlias, migrationIndexName)
+      case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
     }
     val migrationAwareQuery = migrationStatus match {
-      case InProgress(migrationIndexName) => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", migrationIndexName)))
+      case running: Running => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
       case _ => query
     }
     val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery

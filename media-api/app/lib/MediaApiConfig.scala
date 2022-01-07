@@ -20,8 +20,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   // quota updates can only be turned off in DEV
   val quotaUpdateEnabled: Boolean = if (isDev) boolean("quota.update.enabled") else true
 
-  val recordDownloadAsUsage: Boolean = boolean("image.record.download")
-
   //Lazy allows this to be empty and not break things unless used somewhere
   lazy val imgPublishingBucket = string("publishing.image.bucket")
 
@@ -37,10 +35,13 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val cloudFrontDomainThumbBucket: Option[String] = stringOpt("cloudfront.domain.thumbbucket")
   val cloudFrontKeyPairId: Option[String]         = stringOpt("cloudfront.keypair.id")
 
+ lazy val softDeletedMetadataTable: String = string("dynamo.table.softDelete.metadata")
+
   val rootUri: String = services.apiBaseUri
   val kahunaUri: String = services.kahunaBaseUri
   val cropperUri: String = services.cropperBaseUri
   val loaderUri: String = services.loaderBaseUri
+  val projectionUri: String = services.projectionBaseUri
   val metadataUri: String = services.metadataBaseUri
   val imgopsUri: String = services.imgopsBaseUri
   val usageUri: String = services.usageBaseUri
@@ -65,5 +66,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val syndicationStartDate: Option[DateTime] = Try {
     stringOpt("syndication.start").map(d => DateTime.parse(d).withTimeAtStartOfDay())
   }.toOption.flatten
+  val useRuntimeFieldsToFixSyndicationReviewQueueQuery = boolean("syndication.review.useRuntimeFieldsFix")
 
 }

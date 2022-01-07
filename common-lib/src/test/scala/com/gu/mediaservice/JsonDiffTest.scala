@@ -1,9 +1,10 @@
 package com.gu.mediaservice
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
-class JsonDiffTest extends FunSpec with Matchers {
+class JsonDiffTest extends AnyFunSpec with Matchers {
 
   def load(s:String) = Json.parse(s.stripMargin.split("\n").map(_.trim).mkString(""))
 

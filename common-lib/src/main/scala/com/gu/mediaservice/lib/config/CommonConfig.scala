@@ -49,6 +49,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
     stringDefault("hosts.kahunaPrefix", s"$rootAppName."),
     stringDefault("hosts.apiPrefix", s"api.$rootAppName."),
     stringDefault("hosts.loaderPrefix", s"loader.$rootAppName."),
+    stringDefault("hosts.projectionPrefix", s"loader-projection.$rootAppName."),
     stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
     stringDefault("hosts.adminToolsPrefix", s"admin-tools.$rootAppName."),
     stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
@@ -63,7 +64,46 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins)
 
+  /**
+   * Load in a list of domain metadata specifications from configuration. For example:
+   * {{{
+   *   domainMetadata.specifications = [
+   *     {
+   *       name: "specificationa"
+   *       label: "Specification A"
+   *       description: "Description of specification A"
+   *       fields = [
+   *         {
+   *           name = "field-a"
+   *           label = "Field A"
+   *           type = "string" # type can either be string, integer, select or datetime
+   *         }
+   *         {
+   *           name = "field-b"
+   *           label = "Field B"
+   *           type = "integer"
+   *         }
+   *         {
+   *           name = "field-c"
+   *           label = "Field C"
+   *           type = "datetime"
+   *         }
+   *         {
+   *           name = "field-d"
+   *           label = "Field D"
+   *           type = "select"
+   *           options = ["Option 1", "Option 2"]
+   *         }
+   *       ]
+   *     }
+   *   ]
+   * }}}
+   */
+  val domainMetadataSpecs: Seq[DomainMetadataSpec] = configuration.getOptional[Seq[DomainMetadataSpec]]("domainMetadata.specifications").getOrElse(Seq.empty)
+
   val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
+
+  val recordDownloadAsUsage: Boolean = boolean("image.record.download")
 
   /**
    * Load in a list of external staff photographers, internal staff photographers, contracted photographers,
@@ -162,6 +202,9 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   final def boolean(key: String): Boolean =
     configuration.getOptional[Boolean](key).getOrElse(false)
+
+  final def booleanOpt(key: String): Option[Boolean] =
+    configuration.getOptional[Boolean](key)
 
   private def missing(key: String, type_ : String): Nothing =
     sys.error(s"Required $type_ configuration property missing: $key")

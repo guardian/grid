@@ -1,9 +1,10 @@
 package com.gu.mediaservice.lib.cleanup
 
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
 
-class CapitalisationFixerTest extends FunSpec with Matchers with MetadataHelper with CapitalisationFixer {
+class CapitalisationFixerTest extends AnyFunSpec with Matchers with MetadataHelper with CapitalisationFixer {
 
   it("should capitalise single words") {
     fixCapitalisation("NIGERIA") should be ("Nigeria")

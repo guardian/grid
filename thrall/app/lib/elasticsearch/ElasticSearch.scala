@@ -2,7 +2,7 @@ package lib.elasticsearch
 
 import akka.actor.Scheduler
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, InProgress}
+import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, ElasticSearchExecutions, Running}
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
@@ -10,9 +10,9 @@ import com.gu.mediaservice.model.leases.MediaLease
 import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
-import com.sksamuel.elastic4s.requests.indexes.IndexRequest
 import com.sksamuel.elastic4s.requests.script.Script
-import com.sksamuel.elastic4s.requests.searches.queries.{BoolQuery, Query}
+import com.sksamuel.elastic4s.requests.searches.queries.Query
+import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.{UpdateRequest, UpdateResponse}
 import com.sksamuel.elastic4s.{Executor, Functor, Handler, Response}
@@ -20,6 +20,7 @@ import lib.ThrallMetrics
 import org.joda.time.DateTime
 import play.api.libs.json._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
@@ -56,14 +57,14 @@ class ElasticSearch(
     // Update requests to the alias throw if the alias does not exist, but the exception is very generic and not cause is not obvious
     // ("index names must be all upper case")
     val runForMigrationIndex: Future[Option[Response[UpdateResponse]]] = migrationStatus match {
-      case InProgress(_) => executeAndLog(requestFromIndexName(imagesMigrationAlias), logMessageFromIndexName(imagesMigrationAlias), notFoundSuccessful = true).map(Some(_))
+      case _: Running => executeAndLog(requestFromIndexName(imagesMigrationAlias), logMessageFromIndexName(imagesMigrationAlias), notFoundSuccessful = true).map(Some(_))
       case _ => Future.successful(None)
     }
     // remove the optionality of the completed futures. runForCurrentIndex will always be Some, so there will always be a head.
     Future.sequence(List(runForCurrentIndex, runForMigrationIndex)).map(_.flatten.head)
   }
 
-  def setMigrationInfo(imageId: String, migrationInfo: Either[MigrationFailure, MigrationTo])(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[Any]] = {
+  def setMigrationInfo(imageId: String, migrationInfo: MigrationInfo)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Response[Any]] = {
     val esInfo = EsInfo(migration = Some(migrationInfo))
     val container = Json.obj("esInfo" -> Json.toJson(esInfo))
 
@@ -73,69 +74,71 @@ class ElasticSearch(
     executeAndLog(request, s"Setting migration info on image id: ${imageId}")
   }
 
-  def bulkInsert(images: Seq[Image], indexName: String = imagesCurrentAlias)(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchBulkUpdateResponse]] = {
-    val (requests, totalSize) =
-      images.foldLeft[(Seq[IndexRequest], Int)](List(), 0)
-      { (collector: (Seq[IndexRequest], Int), img) =>
-      val (requestsSoFar, sizeSoFar) = collector
-      val document = Json.stringify(Json.toJson(img))
-      (
-        requestsSoFar :+
-        indexInto(indexName)
-          .id(img.id)
-          .source(document),
-        sizeSoFar + document.length()
-      )
-    }
+  def directInsert(image: Image, indexName: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchInsertResponse] =
+    executeAndLog(
+      indexInto(indexName).id(image.id).source(Json.stringify(Json.toJson(image))),
+      s"ES6 indexing image ${image.id} into index '$indexName'"
+    ).map(indexResponse =>
+      ElasticSearchInsertResponse(indexResponse.result.index)
+    )
 
-    val request = bulk { requests }
 
-    val response = executeAndLog(request, s"Bulk inserting ${images.length} images, total size $totalSize")
+  def migrationAwareIndexImage(id: String, image: Image, lastModified: DateTime)
+                              (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
 
-    List(response.map(resp => ElasticSearchBulkUpdateResponse(indexNames = resp.result.items.map(item => item.index))))
-  }
-
-  def indexImage(id: String, image: Image, lastModified: DateTime, indexName: String = imagesCurrentAlias)
-                (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
     // On insert, we know we will not have a lastModified to consider, so we always take the one we get
     val insertImage = image.copy(lastModified = Some(lastModified))
     val insertImageAsJson = Json.toJson(insertImage)
 
-    // On update, we do not want to take the one we have been given unless it is newer - see updateLastModifiedScript script
-    val updateImage = image.copy(lastModified = None)
-    val upsertImageAsJson = Json.toJson(updateImage)
+    val runInsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex: Future[JsObject] = migrationStatus match {
+      case running: Running =>
+        directInsert(image, running.migrationIndexName)
+          .map(_ => EsInfo(Some(MigrationInfo(migratedTo = Some(running.migrationIndexName)))))
+          .recover{ case error => EsInfo(Some(MigrationInfo(failures = Some(Map(
+            running.migrationIndexName -> error.getMessage
+          )))))}
+          .map(esInfo => Json.obj("esInfo" -> Json.toJson(esInfo)))
+      case _ => Future.successful(JsObject.empty)
+    }
 
-    val painlessSource =
+    val runInsertIntoCurrentIndex = runInsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex.flatMap { esInfoToAddToCurrentIndex =>
+
+      // On update, we do not want to take the one we have been given unless it is newer - see updateLastModifiedScript script
+      val updateImage = image.copy(lastModified = None)
+      val upsertImageAsJson = Json.toJson(updateImage)
+
+      val painlessSource =
       // If there are old identifiers, then merge any new identifiers into old and use the merged results as the new identifiers
+        """
+          | if (ctx._source.identifiers != null) {
+          |   ctx._source.identifiers.putAll(params.update_doc.identifiers);
+          |   params.update_doc.identifiers = ctx._source.identifiers
+          | }
+          |
+          | ctx._source.putAll(params.update_doc);
+          |
+          | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
+          |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
+          | }
       """
-        | if (ctx._source.identifiers != null) {
-        |   ctx._source.identifiers.putAll(params.update_doc.identifiers);
-        |   params.update_doc.identifiers = ctx._source.identifiers
-        | }
-        |
-        | ctx._source.putAll(params.update_doc);
-        |
-        | if (ctx._source.metadata != null && ctx._source.metadata.credit != null) {
-        |   ctx._source.suggestMetadataCredit = [ "input": [ ctx._source.metadata.credit ] ]
-        | }
-      """
 
-    val scriptSource = loadUpdatingModificationPainless(s"""
-                                       |$painlessSource
-                                       |$refreshEditsScript
-                                       | """)
+      val scriptSource = loadUpdatingModificationPainless(s"""
+                                                             |$painlessSource
+                                                             |$refreshEditsScript
+                                                             | """)
 
-    val script: Script = prepareScript(scriptSource, lastModified,
-      ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson)))
-    )
+      val script: Script = prepareScript(scriptSource, lastModified,
+        ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)))
+      )
 
-    val indexRequest = updateById(indexName, id).
-      upsert(Json.stringify(insertImageAsJson)).
-      script(script)
+      val indexRequest = updateById(imagesCurrentAlias, id).
+        upsert(Json.stringify(insertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)).
+        script(script)
 
-    val indexResponse = executeAndLog(indexRequest, s"ES6 indexing image $id")
+      executeAndLog(indexRequest, s"ES6 indexing image $id into index aliased by '$imagesCurrentAlias'")
+    }
 
-    List(indexResponse.map { _ =>
+    List(runInsertIntoCurrentIndex.map { _ =>
       ElasticSearchUpdateResponse()
     })
   }
@@ -261,6 +264,21 @@ class ElasticSearch(
     ).map(_ => ElasticSearchUpdateResponse()))
   }
 
+  def applyUnSoftDelete(id: String, lastModified: DateTime)
+                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+    val applyUnSoftDeleteScript = "ctx._source.remove(\"softDeletedMetadata\");"
+
+    List(migrationAwareUpdater(
+      requestFromIndexName = indexName => prepareUpdateRequest(
+        indexName,
+        id,
+        applyUnSoftDeleteScript,
+        lastModified
+      ),
+      logMessageFromIndexName = indexName => s"ES7 un soft delete image $id"
+    ).map(_ => ElasticSearchUpdateResponse()))
+  }
+
   def getInferredSyndicationRightsImages(photoshoot: Photoshoot, excludedImageId: Option[String])
                                         (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[Image]] = { // TODO could be a Seq
     val inferredSyndicationRights = not(termQuery("syndicationRights.isInferred", false)) // Using 'not' to include nulls
@@ -336,11 +354,11 @@ class ElasticSearch(
     val deletableImage = boolQuery.withMust(
       idsQuery(id)).withNot(
       existsQuery("exports"),
-      nestedQuery("usages").query(existsQuery("usages"))
+      nestedQuery(path = "usages", query = existsQuery("usages"))
     )
 
     (migrationStatus match {
-      case InProgress(migrationIndexName) => List(imagesCurrentAlias, migrationIndexName)
+      case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
     }).map { index =>
       deleteFromIndex(id, index, deletableImage).map { _ => ElasticSearchDeleteResponse() }
@@ -560,6 +578,7 @@ class ElasticSearch(
       | }
     """.stripMargin
 
+  @nowarn("cat=deprecation") // TODO ScalaObjectMapper is deprecated because unusable in Scala 3
   private def asNestedMap(sr: SyndicationRights) = { // TODO not great; there must be a better way to flatten a case class into a Map
     import com.fasterxml.jackson.databind.ObjectMapper
     import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -569,6 +588,7 @@ class ElasticSearch(
     mapper.readValue[Map[String, Object]](Json.stringify(Json.toJson(sr)))
   }
 
+  @nowarn("cat=deprecation") // TODO ScalaObjectMapper is deprecated because unusable in Scala 3
   private def asNestedMap(i: JsValue) = { // TODO not great; there must be a better way to flatten a case class into a Map
     import com.fasterxml.jackson.databind.ObjectMapper
     import com.fasterxml.jackson.module.scala.DefaultScalaModule

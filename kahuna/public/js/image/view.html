@@ -7,7 +7,7 @@
 
     <gr-top-bar-actions>
         <gr-delete-image class="top-bar-item clickable"
-                         ng-if="ctrl.canBeDeleted"
+                         ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"
                          images="[ctrl.image]">
         </gr-delete-image>
 
@@ -135,7 +135,10 @@
   <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
 
   <div class="image-details image-details--scroll">
-    <gr-image-metadata gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
+    <gr-image-metadata
+        gr-images="ctrl.singleImageList"
+        gr-user-can-edit="ctrl.canUserEdit"
+        ng-if="ctrl.selectedTab === 'metadata'"></gr-image-metadata>
     <gr-image-usage gr-image="ctrl.image" ng-if="ctrl.selectedTab === 'usages'"></gr-image-usage>
   </div>
 </div>

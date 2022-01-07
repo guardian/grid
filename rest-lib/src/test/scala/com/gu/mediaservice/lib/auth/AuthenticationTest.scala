@@ -6,7 +6,9 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, OnBehalfOf
 import com.gu.mediaservice.lib.auth.provider.AuthenticationProvider.RedirectUri
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
-import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, EitherValues, Matchers}
+import org.scalatest.freespec.AsyncFreeSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{BeforeAndAfterAll, EitherValues}
 import org.scalatestplus.play.PlaySpec
 import play.api.{Configuration, Environment}
 import play.api.http.Status
@@ -29,7 +31,6 @@ import scala.util.Try
 class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues with BeforeAndAfterAll {
 
   implicit val actorSystem: ActorSystem = ActorSystem()
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   private val signer = new CookieSigner {
     override def sign(message: String, key: Array[Byte]): String = "signature"

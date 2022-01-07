@@ -3,7 +3,9 @@ package com.gu.mediaservice.lib.config
 import com.typesafe.config.ConfigException.BadValue
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Inside.inside
-import org.scalatest.{EitherValues, FreeSpec, Matchers}
+import org.scalatest.EitherValues
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 import play.api.inject.ApplicationLifecycle
 import play.api.{ConfigLoader, Configuration}
 
@@ -58,7 +60,7 @@ class TestProviderWithStringConstructor(configString: String) extends TestProvid
 object TestProviderLoader extends ProviderLoader[TestProvider, TestProviderResources]("test provider")
 
 
-class ProviderLoaderTest extends FreeSpec with Matchers with EitherValues {
+class ProviderLoaderTest extends AnyFreeSpec with Matchers with EitherValues {
 
   "The class reflector" - {
     val resources = TestProviderResources("sausages")

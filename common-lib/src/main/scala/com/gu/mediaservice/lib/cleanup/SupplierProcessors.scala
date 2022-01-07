@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
 import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
+import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
 
 /**
@@ -22,8 +23,28 @@ class SupplierProcessors(resources: ImageProcessorResources)
     RonaldGrantParser,
     new PhotographerParser(resources.commonConfiguration.usageRightsConfig),
     AllstarSportsphotoParser,
-    AllStarParser
+    AllStarParser,
+    UsageRightsToMetadataParser(resources) //This should come after processors that assign usage rights
   )
+
+
+case class UsageRightsToMetadataParser(resources: ImageProcessorResources) extends ImageProcessor {
+  val staffPhotographerPublications: Set[String] = resources.commonConfiguration.usageRightsConfig.staffPhotographers.map(_.name).toSet
+
+  override def apply(image: Image): Image = {
+    val maybeNewMetadata = UsageRightsMetadataMapper.usageRightsToMetadata(image.usageRights, image.metadata, staffPhotographerPublications)
+    image.copy(
+      metadata = image.metadata.copy(
+        byline = maybeNewMetadata.flatMap(_.byline) orElse image.metadata.byline,
+        credit = maybeNewMetadata.flatMap(_.credit) orElse image.metadata.credit,
+        copyright = maybeNewMetadata.flatMap(_.copyright) orElse image.metadata.copyright
+      )
+    )
+  }
+
+  override def description: String = "Usage Rights to Metadata Parser"
+}
+
 
 /**
   * Guardian specific logic to correctly identify Guardian and Observer photographers and their contracts
@@ -300,7 +321,7 @@ object GettyXmpParser extends ImageProcessor with GettyProcessor {
       "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
       "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS",
       "Athena Pictures", "Flick.digital", "Matthew Horwood", "Focus Images Ltd", "www.scottishphotographer.com",
-      "ZUMAPRESS.com", "Huw Evans Agency", "Media6", "Alpha Press"
+      "ZUMAPRESS.com", "Huw Evans Agency", "Media6", "Alpha Press", "LNP", "Story Picture Agency"
     )
 
     val excludedSource = List(

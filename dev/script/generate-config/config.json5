@@ -32,7 +32,7 @@
     // These should be the subdomain to trust as the domain is added automatically..
     // Grid will trust requests with a cookie and an `Origin` header set to this value.
     // See https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Origin.
-    corsAllowedOrigins: [ ]
+    corsAllowedOrigins: [ 'integration-tests' ]
   },
 
   // Guardian specific properties for the Usage service

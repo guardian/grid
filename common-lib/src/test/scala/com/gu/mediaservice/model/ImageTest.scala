@@ -7,9 +7,10 @@ import java.util.UUID
 import com.gu.mediaservice.model.leases.{AllowSyndicationLease, DenySyndicationLease, LeasesByMedia, MediaLease}
 import com.gu.mediaservice.model.usage._
 import org.joda.time.DateTime
-import org.scalatest.{FunSpec, Matchers}
+import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.matchers.should.Matchers
 
-class ImageTest extends FunSpec with Matchers {
+class ImageTest extends AnyFunSpec with Matchers {
 
   describe("Image syndication status") {
     it("should be UnsuitableForSyndication by default") {

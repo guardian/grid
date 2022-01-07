@@ -10,12 +10,12 @@ trait ElasticSearchExecutions extends GridLogging {
   def client: ElasticClient
 
   def executeAndLog[T, U](request: T, message: String, notFoundSuccessful: Boolean = false)(implicit
-                                                       functor: Functor[Future],
-                                                       executor: Executor[Future],
-                                                       handler: Handler[T, U],
-                                                       manifest: Manifest[U],
-                                                       executionContext: ExecutionContext,
-                                                       logMarkers: LogMarker
+                                                                                            functor: Functor[Future],
+                                                                                            executor: Executor[Future],
+                                                                                            handler: Handler[T, U],
+                                                                                            manifest: Manifest[U],
+                                                                                            executionContext: ExecutionContext,
+                                                                                            logMarkers: LogMarker
   ): Future[Response[U]] = {
     val stopwatch = Stopwatch.start
 

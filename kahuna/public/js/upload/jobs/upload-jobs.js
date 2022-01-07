@@ -79,6 +79,7 @@ jobs.controller('UploadJobsCtrl', [
 
                         imageService(image).states.canDelete.then(deletable => {
                             jobItem.canBeDeleted = deletable;
+                             if (image.data.softDeletedMetadata !== undefined) { jobItem.isDeleted = true; }
                         });
 
                         // If the image is updated (e.g. label added,

@@ -3,6 +3,7 @@ import angular from 'angular';
 import '../util/rx';
 import '../services/image/usages';
 import '../image/service';
+import '../edits/service';
 
 import '../components/gr-add-label/gr-add-label';
 import '../components/gr-photoshoot/gr-photoshoot';
@@ -12,6 +13,7 @@ import '../components/gr-collection-overlay/gr-collection-overlay';
 import '../components/gr-crop-image/gr-crop-image';
 import '../components/gr-delete-crops/gr-delete-crops';
 import '../components/gr-delete-image/gr-delete-image';
+import '../components/gr-undelete-image/gr-un-delete-image';
 import '../components/gr-downloader/gr-downloader';
 import '../components/gr-export-original-image/gr-export-original-image';
 import '../components/gr-image-cost-message/gr-image-cost-message';
@@ -23,6 +25,7 @@ import '../components/gr-display-crops/gr-display-crops';
 import '../components/gu-date/gu-date';
 import {radioList} from '../components/gr-radio-list/gr-radio-list';
 import {cropUtil} from '../util/crop';
+import { List } from 'immutable';
 
 
 const image = angular.module('kahuna.image.controller', [
@@ -39,6 +42,7 @@ const image = angular.module('kahuna.image.controller', [
   'gr.cropImage',
   'gr.deleteCrops',
   'gr.deleteImage',
+  'gr.undeleteImage',
   'gr.downloader',
   'gr.exportOriginalImage',
   'gr.imageCostMessage',
@@ -69,6 +73,7 @@ image.controller('ImageCtrl', [
   'mediaCropper',
   'imageService',
   'imageUsagesService',
+  'editsService',
   'keyboardShortcut',
   'cropSettings',
 
@@ -88,6 +93,7 @@ image.controller('ImageCtrl', [
             mediaCropper,
             imageService,
             imageUsagesService,
+            editsService,
             keyboardShortcut,
             cropSettings) {
 
@@ -139,8 +145,15 @@ image.controller('ImageCtrl', [
     ctrl.selectedTab = 'metadata';
 
     ctrl.image = image;
+    if (ctrl.image && ctrl.image.data.softDeletedMetadata !== undefined) { ctrl.isDeleted = true; }
     ctrl.optimisedImageUri = optimisedImageUri;
     ctrl.lowResImageUri = lowResImageUri;
+
+    ctrl.singleImageList = ctrl.image ? new List([ctrl.image]) : new List([]);
+
+    editsService.canUserEdit(ctrl.image).then(editable => {
+      ctrl.canUserEdit = editable;
+    });
 
     const usages = imageUsagesService.getUsages(ctrl.image);
     const usagesCount$ = usages.count$;
