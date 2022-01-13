@@ -25,6 +25,7 @@ module.exports = {
       },
       {
         // TODO unmaintained; replace with raw-loader: see https://github.com/webpack-contrib/svg-inline-loader README
+        // TODO and raw-loader is also deprecated; move to asset modules https://webpack.js.org/guides/asset-modules/
         test: /.svg$/,
         loader: 'svg-inline-loader',
       },
