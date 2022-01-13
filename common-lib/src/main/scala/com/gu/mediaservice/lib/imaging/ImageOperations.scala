@@ -23,15 +23,18 @@ class ImageOperations(playPath: String) extends GridLogging {
 
   private def profilePath(fileName: String): String = s"$playPath/$fileName"
 
-  private val supportedColourModels = Set("RGB", "CMYK", "GRAYSCALE")
-
-  private def profileLocation(colourModel: String, optimised: Boolean = false): String = colourModel match {
-    case "RGB" if optimised => profilePath("facebook-TINYsRGB_c2.icc")
-    case "RGB"              => profilePath("srgb.icc")
-    case "CMYK"             => profilePath("cmyk.icc")
-    case "GRAYSCALE"        => profilePath("grayscale.icc")
-    case model              => throw new Exception(s"Profile for invalid colour model requested: $model")
+  private def rgbProfileLocation(optimised: Boolean): String = {
+    if (optimised)
+      profilePath("facebook-TINYsRGB_c2.icc")
+    else
+      profilePath("srgb.icc")
   }
+
+  private val profileLocations = Map(
+    "RGB" -> profilePath("srgb.icc"),
+    "CMYK" -> profilePath("cmyk.icc"),
+    "GRAYSCALE" -> profilePath("grayscale.icc")
+  )
 
   private def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
@@ -41,11 +44,11 @@ class ImageOperations(playPath: String) extends GridLogging {
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
-  private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(profileLocation("RGB", optimised))
+  private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(rgbProfileLocation(optimised))
 
   // Optionally apply transforms to the base operation if the colour space
   // in the ICC profile doesn't match the colour model of the image data
-  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String], isTransformedFromSource: Boolean) = {
+  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String], isTransformedFromSource: Boolean): IMOperation = {
     (iccColourSpace, colourModel, isTransformedFromSource) match {
       // If matching, all is well, just pass through
       case (icc, model, _) if icc == model => base
@@ -54,10 +57,15 @@ class ImageOperations(playPath: String) extends GridLogging {
       // Do not correct colour if file has already been transformed (ie. source file was TIFF) as correctColour has already been run
       case (_, _, true) => base
       // Do not attempt to correct colour if we don't support that colour model
-      case (_, Some(model), _) if !supportedColourModels.contains(model) => base
+      case (_, Some(model), _) if !profileLocations.contains(model) => base
       // If mismatching, strip any (incorrect) ICC profile and inject a profile matching the model
       // Note: Strip both ICC and ICM (Windows variant?) to be safe
-      case (_,   Some(model), _) => profile(stripProfile(base)("icm,icc"))(profileLocation(model))
+      case (_, Some(model), _) =>
+        profileLocations.get(model) match {
+          // If this is a supported model, strip profile from base and add profile for model
+          case Some(location) => profile(stripProfile(base)("icm,icc"))(location)
+          case None => base
+        }
     }
   }
 
