@@ -23,6 +23,8 @@ class ImageOperations(playPath: String) extends GridLogging {
 
   private def profilePath(fileName: String): String = s"$playPath/$fileName"
 
+  private val supportedColourModels = Set("RGB", "CMYK", "GRAYSCALE")
+
   private def profileLocation(colourModel: String, optimised: Boolean = false): String = colourModel match {
     case "RGB" if optimised => profilePath("facebook-TINYsRGB_c2.icc")
     case "RGB"              => profilePath("srgb.icc")
@@ -51,6 +53,8 @@ class ImageOperations(playPath: String) extends GridLogging {
       case (_,   None, _) => base
       // Do not correct colour if file has already been transformed (ie. source file was TIFF) as correctColour has already been run
       case (_, _, true) => base
+      // Do not attempt to correct colour if we don't support that colour model
+      case (_, Some(model), _) if !supportedColourModels.contains(model) => base
       // If mismatching, strip any (incorrect) ICC profile and inject a profile matching the model
       // Note: Strip both ICC and ICM (Windows variant?) to be safe
       case (_,   Some(model), _) => profile(stripProfile(base)("icm,icc"))(profileLocation(model))
