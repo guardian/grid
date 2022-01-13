@@ -43,25 +43,36 @@ class ImageOperations(playPath: String) extends GridLogging {
 
   // Optionally apply transforms to the base operation if the colour space
   // in the ICC profile doesn't match the colour model of the image data
-  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String]) = {
-    (iccColourSpace, colourModel) match {
+  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String], isTransformedFromSource: Boolean) = {
+    (iccColourSpace, colourModel, isTransformedFromSource) match {
       // If matching, all is well, just pass through
-      case (icc, model) if icc == model => base
+      case (icc, model, _) if icc == model => base
       // If no colour model detected, we can't do anything anyway so just hope all is well
-      case (_,   None) => base
+      case (_,   None, _) => base
+      // Do not correct colour if file has already been transformed (ie. source file was TIFF) as correctColour has already been run
+      case (_, _, true) => base
       // If mismatching, strip any (incorrect) ICC profile and inject a profile matching the model
       // Note: Strip both ICC and ICM (Windows variant?) to be safe
-      case (_,   Some(model)) => profile(stripProfile(base)("icm,icc"))(profileLocation(model))
+      case (_,   Some(model), _) => profile(stripProfile(base)("icm,icc"))(profileLocation(model))
     }
   }
 
-  def cropImage(sourceFile: File, sourceMimeType: Option[MimeType], bounds: Bounds, qual: Double = 100d, tempDir: File,
-                iccColourSpace: Option[String], colourModel: Option[String], fileType: MimeType): Future[File] = {
+  def cropImage(
+    sourceFile: File,
+    sourceMimeType: Option[MimeType],
+    bounds: Bounds,
+    qual: Double = 100d,
+    tempDir: File,
+    iccColourSpace: Option[String],
+    colourModel: Option[String],
+    fileType: MimeType,
+    isTransformedFromSource: Boolean
+  ): Future[File] = {
     for {
       outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
       qualified     = quality(cropSource)(qual)
-      corrected     = correctColour(qualified)(iccColourSpace, colourModel)
+      corrected     = correctColour(qualified)(iccColourSpace, colourModel, isTransformedFromSource)
       converted     = applyOutputProfile(corrected)
       stripped      = stripMeta(converted)
       profiled      = applyOutputProfile(stripped)
@@ -138,12 +149,14 @@ class ImageOperations(playPath: String) extends GridLogging {
                       qual: Double = 100d,
                       outputFile: File,
                       iccColourSpace: Option[String],
-                      colourModel: Option[String])(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+                      colourModel: Option[String],
+                      isTransformedFromSource: Boolean
+  )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val stopwatch = Stopwatch.start
 
     val cropSource     = addImage(sourceFile)
     val thumbnailed    = thumbnail(cropSource)(width)
-    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel)
+    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel, isTransformedFromSource)
     val converted      = applyOutputProfile(corrected, optimised = true)
     val stripped       = stripMeta(converted)
     val profiled       = applyOutputProfile(stripped, optimised = true)

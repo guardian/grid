@@ -213,7 +213,7 @@ object Uploader extends GridLogging {
           mimeType = optimisedMimeType
         ).asStorableOptimisedImage
       )
-    } else if (browserViewableImage.mustUpload) {
+    } else if (browserViewableImage.isTransformedFromSource) {
       Future.successful(Some(browserViewableImage.asStorableOptimisedImage))
     } else
       Future.successful(None)
@@ -256,7 +256,9 @@ object Uploader extends GridLogging {
           config.thumbQuality,
           tempFile,
           iccColourSpace,
-          colourModel)
+          colourModel,
+          browserViewableImage.isTransformedFromSource
+        )
       } yield thumbData
     }
 
@@ -288,7 +290,7 @@ object Uploader extends GridLogging {
           uploadRequest.imageId,
           file = file,
           mimeType = mimeType,
-          mustUpload = true
+          isTransformedFromSource = true
         )
       case Some(mimeType) =>
         Future.successful(

@@ -88,7 +88,7 @@ case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, me
 
 
 
-case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, mustUpload: Boolean = false) extends ImageWrapper {
+case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, isTransformedFromSource: Boolean = false) extends ImageWrapper {
   def asStorableOptimisedImage = StorableOptimisedImage(id, file, mimeType, meta)
   def asStorableThumbImage = StorableThumbImage(id, file, mimeType, meta)
 }
