@@ -7,6 +7,7 @@ import scala.collection.JavaConverters._
 
 case class FieldAlias(elasticsearchPath: String,
                       label: String,
+                      displayInAdditionalMetadata: Boolean = true,
                       displaySearchHint: Boolean = false,
                       alias: String,
                       searchHintOptions: List[String] = List.empty)
@@ -19,6 +20,8 @@ object FieldAlias {
     ConfigLoader(_.getConfigList).map(
       _.asScala.map(
         config => {
+          val displayInAdditionalMetadata = if (config.hasPath("displayInAdditionalMetadata"))
+            config.getBoolean("displayInAdditionalMetadata") else false
           val displaySearchHint = if (config.hasPath("displaySearchHint"))
             config.getBoolean("displaySearchHint") else false
           val searchHintOptions = if (config.hasPath("searchHintOptions"))
@@ -27,6 +30,7 @@ object FieldAlias {
           FieldAlias(
             config.getString("elasticsearchPath"),
             config.getString("label"),
+            displayInAdditionalMetadata,
             displaySearchHint,
             config.getString("alias"),
             searchHintOptions

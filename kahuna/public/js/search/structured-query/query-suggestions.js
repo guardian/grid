@@ -198,7 +198,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'photoshoot': return suggestPhotoshoot(value);
         case 'is': return isSearch;
         // No suggestions
-        default: return fieldAliases.hasOwnProperty(field) ? suggestFieldAliasOptions(field) : [];
+        default: return fieldAliases.hasOwnProperty(field) ? prefixFilter(value)(suggestFieldAliasOptions(field)) : [];
         }
     }
 
