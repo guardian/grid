@@ -24,6 +24,7 @@ module.exports = {
         loader: 'html-loader',
       },
       {
+        // TODO unmaintained; replace with raw-loader: see https://github.com/webpack-contrib/svg-inline-loader README
         test: /.svg$/,
         loader: 'svg-inline-loader',
       },
