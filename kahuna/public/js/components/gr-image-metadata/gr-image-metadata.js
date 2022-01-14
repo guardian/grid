@@ -172,8 +172,10 @@ module.controller('grImageMetadataCtrl', [
           .map(([key, val]) => {
             let fieldAlias = ctrl.fieldAliases.find(_ => _.alias === key);
             if (fieldAlias && fieldAlias.displayInAdditionalMetadata === true) {
+              console.log(`adding field alias ${key} / ${fieldAlias.label} to additionalmetadata`);
               return [fieldAlias.label, val];
             }
+            console.log(`dropping field alias ${key} from additionalmetadata`);
           })
           .filter(_ => _ !== undefined));
 
