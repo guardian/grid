@@ -48,23 +48,27 @@ class ImageOperations(playPath: String) extends GridLogging {
 
   // Optionally apply transforms to the base operation if the colour space
   // in the ICC profile doesn't match the colour model of the image data
-  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String], isTransformedFromSource: Boolean): IMOperation = {
+  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String], isTransformedFromSource: Boolean)(implicit logMarker: LogMarker): IMOperation = {
     (iccColourSpace, colourModel, isTransformedFromSource) match {
       // If matching, all is well, just pass through
       case (icc, model, _) if icc == model => base
       // If no colour model detected, we can't do anything anyway so just hope all is well
-      case (_,   None, _) => base
+      case (_,  None, _) => base
       // Do not correct colour if file has already been transformed (ie. source file was TIFF) as correctColour has already been run
       case (_, _, true) => base
-      // Do not attempt to correct colour if we don't support that colour model
-      case (_, Some(model), _) if !profileLocations.contains(model) => base
       // If mismatching, strip any (incorrect) ICC profile and inject a profile matching the model
       // Note: Strip both ICC and ICM (Windows variant?) to be safe
-      case (_, Some(model), _) =>
+      case (icc, Some(model), _) =>
         profileLocations.get(model) match {
           // If this is a supported model, strip profile from base and add profile for model
           case Some(location) => profile(stripProfile(base)("icm,icc"))(location)
-          case None => base
+          // Do not attempt to correct colour if we don't support that colour model
+          case None =>
+            logger.warn(
+              logMarker,
+              s"Wanted to update colour model where iccColourSpace=$icc and colourModel=$model but we don't have a profile file for that model"
+            )
+            base
         }
     }
   }
@@ -79,7 +83,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     colourModel: Option[String],
     fileType: MimeType,
     isTransformedFromSource: Boolean
-  ): Future[File] = {
+  )(implicit logMarker: LogMarker): Future[File] = {
     for {
       outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
