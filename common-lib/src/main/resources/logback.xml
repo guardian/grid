@@ -37,18 +37,13 @@
     <logger name="application" level="INFO" />
     <logger name="request" level="INFO" />
 
-    <if condition='property("STAGE").contains("DEV")'>
-      <then>
-        <root level="INFO">
-          <appender-ref ref="LOGFILE"/>
-        </root>
-      </then>
-      <else>
-        <root level="INFO">
-          <appender-ref ref="LOGFILE"/>
+    <root level="INFO">
+      <appender-ref ref="LOGFILE"/>
+      <if condition='!property("STAGE").contains("DEV")'>
+        <then>
           <appender-ref ref="ASYNCSTDOUT"/>
-        </root>
-      </else>
-    </if>
+        </then>
+      </if>
+    </root>
 
 </configuration>
