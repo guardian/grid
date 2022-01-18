@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.imaging
 import java.io._
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
-import com.gu.mediaservice.lib.StorableThumbImage
+import com.gu.mediaservice.lib.{BrowserViewableImage, StorableThumbImage}
 import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addDestImage, addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
@@ -150,29 +150,26 @@ class ImageOperations(playPath: String) extends GridLogging {
     * Given a source file containing a png (the 'browser viewable' file),
     * construct a thumbnail file in the provided temp directory, and return
     * the file with metadata about it.
-    * @param sourceFile File containing browser viewable (ie not too big or colourful) image
-    * @param sourceMimeType Mime time of browser viewable file
+    * @param browserViewableImage
     * @param width Desired with of thumbnail
     * @param qual Desired quality of thumbnail
-    * @param tempDir Location to create thumbnail file
+    * @param outputFile Location to create thumbnail file
     * @param iccColourSpace (Approximately) number of colours to use
     * @param colourModel Colour model - eg RGB or CMYK
     * @return The file created and the mimetype of the content of that file, in a future.
     */
-  def createThumbnail(sourceFile: File,
-                      sourceMimeType: Option[MimeType],
+  def createThumbnail(browserViewableImage: BrowserViewableImage,
                       width: Int,
                       qual: Double = 100d,
                       outputFile: File,
                       iccColourSpace: Option[String],
-                      colourModel: Option[String],
-                      isTransformedFromSource: Boolean
+                      colourModel: Option[String]
   )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val stopwatch = Stopwatch.start
 
-    val cropSource     = addImage(sourceFile)
+    val cropSource     = addImage(browserViewableImage.file)
     val thumbnailed    = thumbnail(cropSource)(width)
-    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel, isTransformedFromSource)
+    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel, browserViewableImage.isTransformedFromSource)
     val converted      = applyOutputProfile(corrected, optimised = true)
     val stripped       = stripMeta(converted)
     val profiled       = applyOutputProfile(stripped, optimised = true)
@@ -183,7 +180,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val interlaced     = interlace(qualified)(interlacedHow)
     val addOutput      = {file:File => addDestImage(interlaced)(file)}
     for {
-      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
+      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = browserViewableImage.mimeType == Tiff)
       _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
     } yield (outputFile, thumbMimeType)
   }
