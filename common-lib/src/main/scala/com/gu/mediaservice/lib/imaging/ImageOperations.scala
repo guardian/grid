@@ -271,11 +271,16 @@ object ImageOperations {
           case Some("sRGB") => Some("RGB")
           case Some("Gray") => Some("GRAYSCALE")
           case Some("CIELab") => Some("LAB")
-          // IM returns doubles for TIFFs with transparency
+          // IM returns doubles for TIFFs with transparency…
           case Some("sRGBsRGB") => Some("RGB")
           case Some("GrayGray") => Some("GRAYSCALE")
           case Some("CIELabCIELab") => Some("LAB")
           case Some("CMYKCMYK") => Some("CMYK")
+          // …and triples for TIFFs with transparency and alpha channel(s). I think.
+          case Some("sRGBsRGBsRGB") => Some("RGB")
+          case Some("GrayGrayGray") => Some("GRAYSCALE")
+          case Some("CIELabCIELabCIELab") => Some("LAB")
+          case Some("CMYKCMYKCMYK") => Some("CMYK")
           case _ => colourModel
         }
       case Png =>
