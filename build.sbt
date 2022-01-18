@@ -152,7 +152,9 @@ lazy val imageLoader = playProject("image-loader", 9003).settings {
   )
 }
 
-lazy val kahuna = playProject("kahuna", 9005)
+lazy val kahuna = playProject("kahuna", 9005).settings(
+  pipelineStages := Seq(digest, gzip)
+)
 
 lazy val leases = playProject("leases", 9012)
 
