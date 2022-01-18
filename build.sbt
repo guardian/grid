@@ -1,8 +1,16 @@
 import play.sbt.PlayImport.PlayKeys._
+import sbt.Package.FixedTimestamp
 
 import scala.sys.process._
 import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
+
+// We need to keep the timestamps to allow caching headers to work as expected on assets.
+// The below should work, but some problem in one of the plugins (possible the play plugin? or sbt-web?) causes
+// the option not to be passed correctly
+//   ThisBuild / packageTimestamp := Package.keepTimestamps
+// Setting as a packageOption seems to bypass that problem, wherever it lies
+ThisBuild / packageOptions += FixedTimestamp(Package.keepTimestamps)
 
 val commonSettings = Seq(
   scalaVersion := "2.12.15",
@@ -291,7 +299,6 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
     .dependsOn(restLib)
     .settings(commonSettings ++ buildInfo ++ Seq(
       playDefaultPort := port,
-
       debianPackageDependencies := Seq("openjdk-8-jre-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
       Linux / packageSummary := description.value,
