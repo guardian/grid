@@ -170,14 +170,12 @@ module.controller('grImageMetadataCtrl', [
       ctrl.additionalMetadata = Object.fromEntries(
         Object.entries(ctrl.singleImage.data.aliases)
           .map(([key, val]) => {
-            let match = ctrl.fieldAliases.find(_ => _.alias === key);
-            if (match) {
-              return [match.label, val];
-            } else {
-              return [key, val];
+            let fieldAlias = ctrl.fieldAliases.find(_ => _.alias === key);
+            if (fieldAlias && fieldAlias.displayInAdditionalMetadata === true) {
+              return [fieldAlias.label, val];
             }
-        })
-      );
+          })
+          .filter(_ => _ !== undefined));
 
       registerSectionStore('additionalMetadata');
 
