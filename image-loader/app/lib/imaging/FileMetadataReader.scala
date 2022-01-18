@@ -234,17 +234,27 @@ object FileMetadataReader extends GridLogging {
           "paletteSize" -> Option(metaDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
           "iccProfileName" -> Option(metaDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
         ).flattenOptions
-      case _ => val metaDir = Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
-        Map(
-          "hasAlpha" -> hasAlpha,
-          "colorType" -> maybeImageType,
-          "photometricInterpretation" -> metaDir.map(_.getDescription(ExifDirectoryBase.TAG_PHOTOMETRIC_INTERPRETATION)),
-          "bitsPerSample" -> metaDir.map(_.getDescription(ExifDirectoryBase.TAG_BITS_PER_SAMPLE))
-        ).flattenOptions
+      case _ =>
+        val metaDir = Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
+        val photometricInterpretation = metaDir.map(_.getDescription(ExifDirectoryBase.TAG_PHOTOMETRIC_INTERPRETATION))
+        mimeType match {
+          case Jpeg =>
+            Map(
+              "hasAlpha" -> Some("false"),
+              "colorType" -> maybeImageType,
+              "photometricInterpretation" -> photometricInterpretation,
+              "bitsPerSample" -> Some("8")
+            ).flattenOptions
+          case _ =>
+            Map(
+              "hasAlpha" -> hasAlpha,
+              "colorType" -> maybeImageType,
+              "photometricInterpretation" -> photometricInterpretation,
+              "bitsPerSample" -> metaDir.map(_.getDescription(ExifDirectoryBase.TAG_BITS_PER_SAMPLE))
+            ).flattenOptions
+        }
+
     }
-
-
-
   }
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =
