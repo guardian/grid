@@ -7,9 +7,12 @@ export const querySuggestions = angular.module('querySuggestions', [
     mediaApi.name
 ]);
 
-const fieldAliases = window._clientConfig.fieldAliases.
-                                  filter(entry => entry.displaySearchHint === true).
-                                  map(entry => entry.alias);
+const fieldAliases = window._clientConfig.fieldAliases
+  .filter(fieldAlias => fieldAlias.displaySearchHint === true)
+  .reduce(function(map, fieldAlias) {
+    map[fieldAlias.alias] = fieldAlias;
+    return map;
+  }, {});
 
 // FIXME: get fields and subjects from API
 export const filterFields = [
@@ -43,7 +46,7 @@ export const filterFields = [
     'photoshoot',
     'leasedBy',
     'is',
-    ... fieldAliases
+    ... Object.keys(fieldAliases)
 ].sort();
 // TODO: add date fields
 
@@ -174,6 +177,10 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
       return suggestions;
     }
 
+    function suggestFieldAliasOptions(fieldAlias) {
+      return fieldAliases[fieldAlias].searchHintOptions;
+    }
+
     function getFilterSuggestions(field, value) {
         switch (field) {
         case 'usages@status': return ['published', 'pending', 'removed'];
@@ -191,7 +198,7 @@ querySuggestions.factory('querySuggestions', ['mediaApi', 'editsApi', function(m
         case 'photoshoot': return suggestPhotoshoot(value);
         case 'is': return isSearch;
         // No suggestions
-        default:         return [];
+          default: return fieldAliases.hasOwnProperty(field) ? prefixFilter(value)(suggestFieldAliasOptions(field)) : [];
         }
     }
 
