@@ -238,6 +238,7 @@ lazy val adminToolsDev = playProject("admin-tools-dev", 9013, Some("admin-tools/
 lazy val metadataEditor = playProject("metadata-editor", 9007)
 
 lazy val thrall = playProject("thrall", 9002).settings(
+  pipelineStages := Seq(digest, gzip),
   libraryDependencies ++= Seq(
     "org.codehaus.groovy" % "groovy-json" % "2.4.4",
     "com.yakaz.elasticsearch.plugins" % "elasticsearch-action-updatebyquery" % "2.2.0",
