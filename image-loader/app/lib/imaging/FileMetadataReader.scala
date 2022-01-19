@@ -225,7 +225,8 @@ object FileMetadataReader extends GridLogging {
     val hasAlpha = maybeImageType.map(imageType => if (imageType.contains("Matte")) "true" else "false")
 
     mimeType match {
-      case Png => val metaDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
+      case Png =>
+        val metaDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
         Map(
           "hasAlpha" -> hasAlpha,
           "colorType" -> Option(metaDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
@@ -236,7 +237,7 @@ object FileMetadataReader extends GridLogging {
         ).flattenOptions
       case _ =>
         val metaDir = Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
-        val photometricInterpretation = metaDir.map(_.getDescription(ExifDirectoryBase.TAG_PHOTOMETRIC_INTERPRETATION))
+        val photometricInterpretation = metaDir.flatMap(dir => Option(dir.getDescription(ExifDirectoryBase.TAG_PHOTOMETRIC_INTERPRETATION)))
         mimeType match {
           case Jpeg =>
             Map(
