@@ -87,8 +87,16 @@ case class StorableOptimisedImage(id: String, file: File, mimeType: MimeType, me
 }
 
 
-
-case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, mustUpload: Boolean = false) extends ImageWrapper {
+/**
+  * @param id
+  * @param file
+  * @param mimeType
+  * @param meta
+  * @param isTransformedFromSource a hint as to whether the Grid has transcoded this image earlier in the pipeline.
+  *                                Can be used in order to skip e.g. the stripping of incorrect colour profiles,
+  *                                as in this case we have already inferred the profile upstream.
+  */
+case class BrowserViewableImage(id: String, file: File, mimeType: MimeType, meta: Map[String, String] = Map.empty, isTransformedFromSource: Boolean = false) extends ImageWrapper {
   def asStorableOptimisedImage = StorableOptimisedImage(id, file, mimeType, meta)
   def asStorableThumbImage = StorableThumbImage(id, file, mimeType, meta)
 }

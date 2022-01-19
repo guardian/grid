@@ -31,15 +31,23 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     s"${source.id}/${Crop.getCropId(bounds)}/${masterString}$outputWidth${fileType.fileExtension}"
   }
 
-  def createMasterCrop(apiImage: SourceImage, sourceFile: File, crop: Crop, mediaType: MimeType, colourModel: Option[String],
-                      colourType: String)(implicit requestContext: RequestLoggingContext): Future[MasterCrop] = {
+  def createMasterCrop(
+    apiImage: SourceImage,
+    sourceFile: File,
+    crop: Crop,
+    mediaType: MimeType,
+    colourModel: Option[String],
+  )(implicit requestContext: RequestLoggingContext): Future[MasterCrop] = {
 
     val source   = crop.specification
     val metadata = apiImage.metadata
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
     for {
-      strip <- imageOperations.cropImage(sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir, iccColourSpace, colourModel, mediaType)
+      strip <- imageOperations.cropImage(
+        sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
+        iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
+      )
       file: File <- imageOperations.appendMetadata(strip, metadata)
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
@@ -92,7 +100,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
       colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
-      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel, colourType)
+      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
 
       outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 

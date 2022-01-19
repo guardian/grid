@@ -3,9 +3,9 @@ package com.gu.mediaservice.lib.imaging
 import java.io._
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
-import com.gu.mediaservice.lib.StorableThumbImage
+import com.gu.mediaservice.lib.{BrowserViewableImage, StorableThumbImage}
 import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
-import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addImage, format, runIdentifyCmd}
+import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addDestImage, addImage, format, runIdentifyCmd}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch, addLogMarkers}
 import com.gu.mediaservice.model._
@@ -23,13 +23,18 @@ class ImageOperations(playPath: String) extends GridLogging {
 
   private def profilePath(fileName: String): String = s"$playPath/$fileName"
 
-  private def profileLocation(colourModel: String, optimised: Boolean = false): String = colourModel match {
-    case "RGB" if optimised => profilePath("facebook-TINYsRGB_c2.icc")
-    case "RGB"              => profilePath("srgb.icc")
-    case "CMYK"             => profilePath("cmyk.icc")
-    case "GRAYSCALE"        => profilePath("grayscale.icc")
-    case model              => throw new Exception(s"Profile for invalid colour model requested: $model")
+  private def rgbProfileLocation(optimised: Boolean): String = {
+    if (optimised)
+      profilePath("facebook-TINYsRGB_c2.icc")
+    else
+      profilePath("srgb.icc")
   }
+
+  private val profileLocations = Map(
+    "RGB" -> profilePath("srgb.icc"),
+    "CMYK" -> profilePath("cmyk.icc"),
+    "GRAYSCALE" -> profilePath("grayscale.icc")
+  )
 
   private def tagFilter(metadata: ImageMetadata) = {
     Map[String, Option[String]](
@@ -39,29 +44,51 @@ class ImageOperations(playPath: String) extends GridLogging {
     ).collect { case (key, Some(value)) => (key, value) }
   }
 
-  private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(profileLocation("RGB", optimised))
+  private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(rgbProfileLocation(optimised))
 
   // Optionally apply transforms to the base operation if the colour space
   // in the ICC profile doesn't match the colour model of the image data
-  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String]) = {
-    (iccColourSpace, colourModel) match {
+  private def correctColour(base: IMOperation)(iccColourSpace: Option[String], colourModel: Option[String], isTransformedFromSource: Boolean)(implicit logMarker: LogMarker): IMOperation = {
+    (iccColourSpace, colourModel, isTransformedFromSource) match {
       // If matching, all is well, just pass through
-      case (icc, model) if icc == model => base
+      case (icc, model, _) if icc == model => base
       // If no colour model detected, we can't do anything anyway so just hope all is well
-      case (_,   None) => base
+      case (_,  None, _) => base
+      // Do not correct colour if file has already been transformed (ie. source file was TIFF) as correctColour has already been run
+      case (_, _, true) => base
       // If mismatching, strip any (incorrect) ICC profile and inject a profile matching the model
       // Note: Strip both ICC and ICM (Windows variant?) to be safe
-      case (_,   Some(model)) => profile(stripProfile(base)("icm,icc"))(profileLocation(model))
+      case (icc, Some(model), _) =>
+        profileLocations.get(model) match {
+          // If this is a supported model, strip profile from base and add profile for model
+          case Some(location) => profile(stripProfile(base)("icm,icc"))(location)
+          // Do not attempt to correct colour if we don't support that colour model
+          case None =>
+            logger.warn(
+              logMarker,
+              s"Wanted to update colour model where iccColourSpace=$icc and colourModel=$model but we don't have a profile file for that model"
+            )
+            base
+        }
     }
   }
 
-  def cropImage(sourceFile: File, sourceMimeType: Option[MimeType], bounds: Bounds, qual: Double = 100d, tempDir: File,
-                iccColourSpace: Option[String], colourModel: Option[String], fileType: MimeType): Future[File] = {
+  def cropImage(
+    sourceFile: File,
+    sourceMimeType: Option[MimeType],
+    bounds: Bounds,
+    qual: Double = 100d,
+    tempDir: File,
+    iccColourSpace: Option[String],
+    colourModel: Option[String],
+    fileType: MimeType,
+    isTransformedFromSource: Boolean
+  )(implicit logMarker: LogMarker): Future[File] = {
     for {
       outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
       qualified     = quality(cropSource)(qual)
-      corrected     = correctColour(qualified)(iccColourSpace, colourModel)
+      corrected     = correctColour(qualified)(iccColourSpace, colourModel, isTransformedFromSource)
       converted     = applyOutputProfile(corrected)
       stripped      = stripMeta(converted)
       profiled      = applyOutputProfile(stripped)
@@ -117,41 +144,43 @@ class ImageOperations(playPath: String) extends GridLogging {
   val thumbUnsharpSigma = 0.5d
   val thumbUnsharpAmount = 0.8d
   val interlacedHow = "Line"
+  val backgroundColour = "#333333"
 
   /**
     * Given a source file containing a png (the 'browser viewable' file),
     * construct a thumbnail file in the provided temp directory, and return
     * the file with metadata about it.
-    * @param sourceFile File containing browser viewable (ie not too big or colourful) image
-    * @param sourceMimeType Mime time of browser viewable file
+    * @param browserViewableImage
     * @param width Desired with of thumbnail
     * @param qual Desired quality of thumbnail
-    * @param tempDir Location to create thumbnail file
+    * @param outputFile Location to create thumbnail file
     * @param iccColourSpace (Approximately) number of colours to use
     * @param colourModel Colour model - eg RGB or CMYK
     * @return The file created and the mimetype of the content of that file, in a future.
     */
-  def createThumbnail(sourceFile: File,
-                      sourceMimeType: Option[MimeType],
+  def createThumbnail(browserViewableImage: BrowserViewableImage,
                       width: Int,
                       qual: Double = 100d,
                       outputFile: File,
                       iccColourSpace: Option[String],
-                      colourModel: Option[String])(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
+                      colourModel: Option[String]
+  )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val stopwatch = Stopwatch.start
 
-    val cropSource  = addImage(sourceFile)
-    val thumbnailed = thumbnail(cropSource)(width)
-    val corrected   = correctColour(thumbnailed)(iccColourSpace, colourModel)
-    val converted   = applyOutputProfile(corrected, optimised = true)
-    val stripped    = stripMeta(converted)
-    val profiled    = applyOutputProfile(stripped, optimised = true)
-    val unsharpened = unsharp(profiled)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-    val qualified   = quality(unsharpened)(qual)
-    val interlaced  = interlace(qualified)(interlacedHow)
-    val addOutput   = {file:File => addDestImage(interlaced)(file)}
+    val cropSource     = addImage(browserViewableImage.file)
+    val thumbnailed    = thumbnail(cropSource)(width)
+    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel, browserViewableImage.isTransformedFromSource)
+    val converted      = applyOutputProfile(corrected, optimised = true)
+    val stripped       = stripMeta(converted)
+    val profiled       = applyOutputProfile(stripped, optimised = true)
+    val withBackground = setBackgroundColour(profiled)(backgroundColour)
+    val flattened      = flatten(withBackground)
+    val unsharpened    = unsharp(flattened)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
+    val qualified      = quality(unsharpened)(qual)
+    val interlaced     = interlace(qualified)(interlacedHow)
+    val addOutput      = {file:File => addDestImage(interlaced)(file)}
     for {
-      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = sourceMimeType.contains(Tiff))
+      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = browserViewableImage.mimeType == Tiff)
       _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
     } yield (outputFile, thumbMimeType)
   }
@@ -174,7 +203,8 @@ class ImageOperations(playPath: String) extends GridLogging {
       converted       = applyOutputProfile(transformSource, optimised = true)
       stripped        = stripMeta(converted)
       profiled        = applyOutputProfile(stripped, optimised = true)
-      addOutput       = addDestImage(profiled)(outputFile)
+      depthAdjusted   = depth(profiled)(8)
+      addOutput       = addDestImage(depthAdjusted)(outputFile)
       _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
       _               <- checkForOutputFileChange(outputFile)
       _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating browser-viewable image")
@@ -226,10 +256,46 @@ object ImageOperations {
         val formatter = format(source)("%[JPEG-Colorspace-Name]")
 
         for {
-          output <- runIdentifyCmd(formatter)
+          output <- runIdentifyCmd(formatter, false)
           colourModel = output.headOption
         } yield colourModel
+      case Tiff =>
+        val op = new IMOperation()
+        val formatter = format(op)("%[colorspace]")
+        val withSource = addDestImage(formatter)(sourceFile)
 
+        for {
+          output <- runIdentifyCmd(withSource, true)
+          colourModel = output.headOption
+        } yield colourModel match {
+          case Some("sRGB") => Some("RGB")
+          case Some("Gray") => Some("GRAYSCALE")
+          case Some("CIELab") => Some("LAB")
+          // IM returns doubles for TIFFs with transparency…
+          case Some("sRGBsRGB") => Some("RGB")
+          case Some("GrayGray") => Some("GRAYSCALE")
+          case Some("CIELabCIELab") => Some("LAB")
+          case Some("CMYKCMYK") => Some("CMYK")
+          // …and triples for TIFFs with transparency and alpha channel(s). I think.
+          case Some("sRGBsRGBsRGB") => Some("RGB")
+          case Some("GrayGrayGray") => Some("GRAYSCALE")
+          case Some("CIELabCIELabCIELab") => Some("LAB")
+          case Some("CMYKCMYKCMYK") => Some("CMYK")
+          case _ => colourModel
+        }
+      case Png =>
+        val op = new IMOperation()
+        val formatter = format(op)("%[colorspace]")
+        val withSource = addDestImage(formatter)(sourceFile)
+
+        for {
+          output <- runIdentifyCmd(withSource, true)
+          colourModel = output.headOption
+        } yield colourModel match {
+          case Some("sRGB") => Some("RGB")
+          case Some("Gray") => Some("GRAYSCALE")
+          case _ => Some("RGB")
+        }
       case _ =>
         // assume that the colour model is RGB for other image types
         Future.successful(Some("RGB"))
