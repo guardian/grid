@@ -220,6 +220,10 @@ object FileMetadataReader extends GridLogging {
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 
+  // bits per sample might be a useful value, eg. "1", "8"; or it might be annoying like "1 bits/component/pixel", "8 8 8 bits/component/pixel"
+  // either way we want everything up to the first space
+  private def extractBitsPerSample(data: String): Option[String] = data.split(" ").headOption
+
   private def getFromDirectory(maybeDir: Option[Directory])(value: Int): Option[String] =
     maybeDir.flatMap(dir => Option(dir.getDescription(value)))
 
@@ -238,7 +242,7 @@ object FileMetadataReader extends GridLogging {
         Map(
           "hasAlpha" -> hasAlpha,
           "colorType" -> getFromPngDirectory(PngDirectory.TAG_COLOR_TYPE),
-          "bitsPerSample" -> getFromPngDirectory(PngDirectory.TAG_BITS_PER_SAMPLE),
+          "bitsPerSample" -> getFromPngDirectory(PngDirectory.TAG_BITS_PER_SAMPLE).flatMap(extractBitsPerSample),
           "paletteHasTransparency" -> getFromPngDirectory(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY),
           "paletteSize" -> getFromPngDirectory(PngDirectory.TAG_PALETTE_SIZE),
           "iccProfileName" -> getFromPngDirectory(PngDirectory.TAG_ICC_PROFILE_NAME)
@@ -255,7 +259,7 @@ object FileMetadataReader extends GridLogging {
           "hasAlpha" -> hasAlpha,
           "colorType" -> maybeImageType,
           "photometricInterpretation" -> photometricInterpretation,
-          "bitsPerSample" -> getFromExifDirectory(ExifDirectoryBase.TAG_BITS_PER_SAMPLE)
+          "bitsPerSample" -> getFromExifDirectory(ExifDirectoryBase.TAG_BITS_PER_SAMPLE).flatMap(extractBitsPerSample)
         ).flattenOptions
     }
   }
