@@ -8,7 +8,6 @@
     "angular-elastic": "^2.5.1 ",
     "angular-hotkeys": "^1.7.0",
     "angular-messages": "1.6.10",
-    "angular-ui-bootstrap": "^2.5.6",
     "angular-ui-router": "angular-ui/ui-router#0.4.3",
     "angular-xeditable": "^0.8.1",
     "any-http-angular": "^0.1.0",
@@ -55,6 +54,7 @@
     "ts-loader": "^9.2.6",
     "typescript": "^4.5.4",
     "webpack": "^5.66.0",
+    "webpack-bundle-analyzer": "^4.5.0",
     "webpack-cli": "^4.9.1",
     "webpack-merge": "^5.8.0"
   },

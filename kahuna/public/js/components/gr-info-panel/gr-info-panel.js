@@ -1,6 +1,5 @@
 import angular from 'angular';
 import Rx from 'rx';
-import 'angular-ui-bootstrap';
 
 import './gr-info-panel.css';
 import '../../services/archive';
@@ -20,7 +19,6 @@ export const grInfoPanel = angular.module('grInfoPanel', [
   'kahuna.services.panel',
   'kahuna.edits.service',
   'grXeditable',
-  'ui.bootstrap',
   'util.rx',
   radioList.name
 ]);
