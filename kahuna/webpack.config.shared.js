@@ -1,6 +1,7 @@
 const path = require('path');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+const webpack = require('webpack');
 
 module.exports = {
   entry: {
@@ -57,6 +58,10 @@ module.exports = {
     new ForkTsCheckerWebpackPlugin(),
     new BundleAnalyzerPlugin({
       analyzerMode: 'disabled' // set to 'server' or 'static' to see bundle size
+    }),
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^\.\/locale$/,
+      contextRegExp: /moment$/,
     }),
   ],
   resolve: {
