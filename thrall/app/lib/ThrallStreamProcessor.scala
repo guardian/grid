@@ -85,13 +85,19 @@ class ThrallStreamProcessor(
     val uiAndAutomationMessagesSource: PortOps[TaggedRecord[ExternalThrallMessage]] =
       uiAndAutomationRecordsMerge.out
         .map { taggedRecord =>
-          ThrallEventConsumer
+          val parsedRecord = ThrallEventConsumer
             .parseRecord(taggedRecord.payload, taggedRecord.arrivalTimestamp)
             .map(
               message => taggedRecord.copy(payload = message)
             )
+          // If we failed to parse the record (Left), we'll drop it below because we can't process it.
+          // However we still need to mark the record as processed, otherwise the kinesis stream can't progress
+          // and checkpoint will be stuck at this message forevermore.
+          parsedRecord.left.foreach(_ => taggedRecord.markProcessed())
+          parsedRecord
         }
-        .collect{
+        // drop unparseable records
+        .collect {
           case Right(taggedRecord) => taggedRecord
         }
 
