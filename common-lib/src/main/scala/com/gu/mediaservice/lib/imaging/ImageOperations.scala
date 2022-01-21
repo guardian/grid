@@ -33,7 +33,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   private val profileLocations = Map(
     "RGB" -> profilePath("srgb.icc"),
     "CMYK" -> profilePath("cmyk.icc"),
-    "GRAYSCALE" -> profilePath("grayscale.icc")
+    "Greyscale" -> profilePath("grayscale.icc")
   )
 
   private def tagFilter(metadata: ImageMetadata) = {
@@ -269,16 +269,16 @@ object ImageOperations {
           colourModel = output.headOption
         } yield colourModel match {
           case Some("sRGB") => Some("RGB")
-          case Some("Gray") => Some("GRAYSCALE")
+          case Some("Gray") => Some("Greyscale")
           case Some("CIELab") => Some("LAB")
           // IM returns doubles for TIFFs with transparency…
           case Some("sRGBsRGB") => Some("RGB")
-          case Some("GrayGray") => Some("GRAYSCALE")
+          case Some("GrayGray") => Some("Greyscale")
           case Some("CIELabCIELab") => Some("LAB")
           case Some("CMYKCMYK") => Some("CMYK")
           // …and triples for TIFFs with transparency and alpha channel(s). I think.
           case Some("sRGBsRGBsRGB") => Some("RGB")
-          case Some("GrayGrayGray") => Some("GRAYSCALE")
+          case Some("GrayGrayGray") => Some("Greyscale")
           case Some("CIELabCIELabCIELab") => Some("LAB")
           case Some("CMYKCMYKCMYK") => Some("CMYK")
           case _ => colourModel
@@ -293,7 +293,7 @@ object ImageOperations {
           colourModel = output.headOption
         } yield colourModel match {
           case Some("sRGB") => Some("RGB")
-          case Some("Gray") => Some("GRAYSCALE")
+          case Some("Gray") => Some("Greyscale")
           case _ => Some("RGB")
         }
       case _ =>
