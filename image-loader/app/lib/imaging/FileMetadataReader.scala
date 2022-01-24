@@ -220,31 +220,48 @@ object FileMetadataReader extends GridLogging {
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 
+  // bits per sample might be a useful value, eg. "1", "8"; or it might be annoying like "1 bits/component/pixel", "8 8 8 bits/component/pixel"
+  // either way we want everything up to the first space
+  private def extractBitsPerSample(data: String): Option[String] = data.split(" ").headOption
+
+  private def getFromDirectory(maybeDir: Option[Directory])(value: Int): Option[String] =
+    maybeDir.flatMap(dir => Option(dir.getDescription(value)))
+
   private def getColourInformation(metadata: Metadata, maybeImageType: Option[String], mimeType: MimeType): Map[String, String] = {
 
     val hasAlpha = maybeImageType.map(imageType => if (imageType.contains("Matte")) "true" else "false")
 
+    val exifDirectory = Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
+    val getFromExifDirectory = getFromDirectory(exifDirectory) _
+    val photometricInterpretation = getFromExifDirectory(ExifDirectoryBase.TAG_PHOTOMETRIC_INTERPRETATION)
+
     mimeType match {
-      case Png => val metaDir = metadata.getFirstDirectoryOfType(classOf[PngDirectory])
+      case Png =>
+        val pngDirectory = Option(metadata.getFirstDirectoryOfType(classOf[PngDirectory]))
+        val getFromPngDirectory = getFromDirectory(pngDirectory) _
         Map(
           "hasAlpha" -> hasAlpha,
-          "colorType" -> Option(metaDir.getDescription(PngDirectory.TAG_COLOR_TYPE)),
-          "bitsPerSample" -> Option(metaDir.getDescription(PngDirectory.TAG_BITS_PER_SAMPLE)),
-          "paletteHasTransparency" -> Option(metaDir.getDescription(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY)),
-          "paletteSize" -> Option(metaDir.getDescription(PngDirectory.TAG_PALETTE_SIZE)),
-          "iccProfileName" -> Option(metaDir.getDescription(PngDirectory.TAG_ICC_PROFILE_NAME))
+          "colorType" -> getFromPngDirectory(PngDirectory.TAG_COLOR_TYPE),
+          "bitsPerSample" -> getFromPngDirectory(PngDirectory.TAG_BITS_PER_SAMPLE).flatMap(extractBitsPerSample),
+          "paletteHasTransparency" -> getFromPngDirectory(PngDirectory.TAG_PALETTE_HAS_TRANSPARENCY),
+          "paletteSize" -> getFromPngDirectory(PngDirectory.TAG_PALETTE_SIZE),
+          "iccProfileName" -> getFromPngDirectory(PngDirectory.TAG_ICC_PROFILE_NAME)
         ).flattenOptions
-      case _ => val metaDir = Option(metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory]))
+      case Jpeg =>
+        Map(
+          "hasAlpha" -> Some("false"),
+          "colorType" -> maybeImageType,
+          "photometricInterpretation" -> photometricInterpretation,
+          "bitsPerSample" -> Some("8")
+        ).flattenOptions
+      case Tiff =>
         Map(
           "hasAlpha" -> hasAlpha,
           "colorType" -> maybeImageType,
-          "photometricInterpretation" -> metaDir.map(_.getDescription(ExifDirectoryBase.TAG_PHOTOMETRIC_INTERPRETATION)),
-          "bitsPerSample" -> metaDir.map(_.getDescription(ExifDirectoryBase.TAG_BITS_PER_SAMPLE))
+          "photometricInterpretation" -> photometricInterpretation,
+          "bitsPerSample" -> getFromExifDirectory(ExifDirectoryBase.TAG_BITS_PER_SAMPLE).flatMap(extractBitsPerSample)
         ).flattenOptions
     }
-
-
-
   }
 
   private def nonEmptyTrimmed(nullableStr: String): Option[String] =

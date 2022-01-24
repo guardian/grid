@@ -6,7 +6,7 @@ object FileMetadataHelper {
 
   def normalisedIccColourSpace(fileMetadata: FileMetadata): Option[String] = {
     fileMetadata.icc.get("Color space") map {
-      case "GRAY" => "GRAYSCALE"
+      case "GRAY" => "Greyscale"
       case other  => other
     }
   }

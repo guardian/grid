@@ -49,11 +49,11 @@ class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
       }
     }
 
-    it("should return GRAYSCALE for a JPG image with GRAYSCALE image data and no embedded profile") {
+    it("should return Greyscale for a JPG image with greyscale image data and no embedded profile") {
       val image = fileAt("grayscale-wo-profile.jpg")
       val colourModelFuture = ImageOperations.identifyColourModel(image, Jpeg)
       whenReady(colourModelFuture) { colourModel =>
-        colourModel should be (Some("GRAYSCALE"))
+        colourModel should be (Some("Greyscale"))
       }
     }
   }
