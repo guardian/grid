@@ -308,7 +308,7 @@ final case class OriginalSource(restrictions: Option[String] = None) extends Usa
 object OriginalSource extends UsageRightsSpec {
   val category = "original-source"
   val defaultCost = Some(Free)
-  val name = "OriginalSource"
+  val name = "Original Source"
   def description(commonConfig: CommonConfig) =
     "Images provided by members of the public to be shared with Journalist who is out collecting material for stories"
 
