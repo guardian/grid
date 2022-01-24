@@ -79,7 +79,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     })
   }
 
-  def countImages(indexName: String = "images"): Future[ElasticSearchImageCounts] = {
+  def countImages(indexName: String = imagesCurrentAlias): Future[ElasticSearchImageCounts] = {
     implicit val logMarker = MarkerMap()
     val queryCatCount = catCount(indexName) // document count only of index including live documents, not deleted documents which have not yet been removed by the merge process
     val queryImageSearch = search(indexName) limit 0 // hits that match the query defined in the request
