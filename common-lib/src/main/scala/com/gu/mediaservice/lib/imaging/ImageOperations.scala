@@ -258,7 +258,10 @@ object ImageOperations {
         for {
           output <- runIdentifyCmd(formatter, false)
           colourModel = output.headOption
-        } yield colourModel
+        } yield colourModel match {
+          case Some("GRAYSCALE") => Some("Greyscale")
+          case _ => Some("RGB")
+        }
       case Tiff =>
         val op = new IMOperation()
         val formatter = format(op)("%[colorspace]")
