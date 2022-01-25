@@ -37,13 +37,19 @@ advantage of any improvements made since the first upload.
 
 ### High level
 
-While a migration is in progress, Thrall will repeatedly query Elasticsearch for
-images which have [not yet been migrated](#migration-status-flag). Each image ID
-which is found will be [projected](#projection), and that projection will be
-entered into a low-priority queue for processing by Thrall when no other updates
-need to be processed. When ready, Thrall processes the message by checking that
-there have been no updates to the image since the projection was taken, then
-inserting the projection into the migration index.
+While a migration is [in progress](#migration-status-flag), Thrall will
+repeatedly query Elasticsearch for images which have [not yet been
+migrated](#image-migration-record). Each image ID which is found will be
+[projected](#projection), and that projection will be entered into a
+low-priority queue for processing by Thrall when no other updates need to be
+processed. When ready, Thrall processes the message by checking that there have
+been no updates to the image since the projection was taken, then inserting the
+projection into the migration index.
+
+Any uploads or edits performed during the migration will be performed on both
+the source and target indices concurrently. This allows Grid to continue running
+seamlessly throughout the process, and the migration can be abandoned at any
+point if required.
 
 ### Projection
 
@@ -56,8 +62,29 @@ edited using the current code.
 
 ### Migration status flag
 
+The Grid will track the status of migration by observing the aliases present on
+the Elasticsearch cluster.
+
+- "Images_Current": There should always be exactly one index with this alias.
+  This index will be used as the source for the migration.
+- "Images_Migration": If this alias has been assigned to an index, a migration
+  is in progress. The assigned index will be used as the target for migration.
+  NOTE: **do not assign Images_Current and Images_Migration to the same index**
+- "Images_Historical": When a migration has been completed, this alias will be
+  assigned to the index previously assigned "Images_Current".
+  <!-- TODO link to errors section in How to -->
+  NOTE: **do not assign Images_Historical and Images_Current to the same index**
+- "MIGRATION_PAUSED": If this alias has been assigned to the same index as
+  "Images_Migration", then Thrall will not queue images for migration. Images
+  can still be manually queued for migration.
+  <!-- TODO link to manual migration section in How to -->
+
+### Image migration record
+
 We store the success or failure of migrating the image in the 'old'
 Elasticsearch index. This allows us to quickly query for IDs to migrate by
-using the existing index.
+using the existing index. This can be found at `esInfo.migration`. Failures will
+be stored with the exception message, although more detailed information will be
+available in the application logs.
 
 [es-reindex]: https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-reindex.html
