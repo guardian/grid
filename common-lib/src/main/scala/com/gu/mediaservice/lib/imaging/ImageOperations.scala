@@ -249,24 +249,20 @@ object ImageOperations {
   val optimisedMimeType = Png
   def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext): Future[Option[String]] = {
     // TODO: use mimeType to lookup other properties once we support other formats
+    val op = new IMOperation()
+    val formatter = format(op)("%[colorspace]")
+    val withSource = addDestImage(formatter)(sourceFile)
 
     mimeType match {
       case Jpeg =>
-        val source = addImage(sourceFile)
-        val formatter = format(source)("%[colorspace]")
-
         for {
-          output <- runIdentifyCmd(formatter, false)
+          output <- runIdentifyCmd(withSource, true)
           colourModel = output.headOption
         } yield colourModel match {
           case Some("GRAYSCALE") => Some("Greyscale")
           case _ => Some("RGB")
         }
       case Tiff =>
-        val op = new IMOperation()
-        val formatter = format(op)("%[colorspace]")
-        val withSource = addDestImage(formatter)(sourceFile)
-
         for {
           output <- runIdentifyCmd(withSource, true)
           colourModel = output.headOption
@@ -287,9 +283,6 @@ object ImageOperations {
           case _ => colourModel
         }
       case Png =>
-        val op = new IMOperation()
-        val formatter = format(op)("%[colorspace]")
-        val withSource = addDestImage(formatter)(sourceFile)
 
         for {
           output <- runIdentifyCmd(withSource, true)
