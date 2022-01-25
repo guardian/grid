@@ -212,13 +212,11 @@ object FileMetadataReader extends GridLogging {
     }
 
   def getColorModelInformation(image: File, metadata: Metadata, mimeType: MimeType): Future[Map[String, String]] = {
-
-    val source = addImage(image)
-
     val op = new IMOperation()
     val formatter = format(op)("%r")
+    val withSource = addDestImage(formatter)(image)
 
-    runIdentifyCmd(formatter, useImageMagick = true).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
+    runIdentifyCmd(withSource, useImageMagick = true).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 
