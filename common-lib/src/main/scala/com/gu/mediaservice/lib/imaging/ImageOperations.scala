@@ -259,6 +259,7 @@ object ImageOperations {
           output <- runIdentifyCmd(withSource, true)
           colourModel = output.headOption
         } yield colourModel match {
+
           case Some("Gray") => Some("Greyscale")
           case Some("CMYK") => Some("CMYK")
           case _ => Some("RGB")
