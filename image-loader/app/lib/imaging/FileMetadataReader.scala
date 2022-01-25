@@ -17,6 +17,7 @@ import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.metadata.ImageMetadataConverter
 import com.gu.mediaservice.model._
 import model.upload.UploadRequest
+import org.im4java.core.IMOperation
 import org.joda.time.{DateTime, DateTimeZone}
 import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.json.JsValue
@@ -214,9 +215,10 @@ object FileMetadataReader extends GridLogging {
 
     val source = addImage(image)
 
-    val formatter = format(source)("%r")
+    val op = new IMOperation()
+    val formatter = format(op)("%r")
 
-    runIdentifyCmd(formatter, useImageMagick = false).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
+    runIdentifyCmd(formatter, useImageMagick = true).map{ imageType => getColourInformation(metadata, imageType.headOption, mimeType) }
       .recover { case _ => getColourInformation(metadata, None, mimeType) }
   }
 

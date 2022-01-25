@@ -95,7 +95,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       cropped       = crop(profiled)(bounds)
       depthAdjusted = depth(cropped)(8)
       addOutput     = addDestImage(depthAdjusted)(outputFile)
-      _             <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
+      _             <- runConvertCmd(addOutput, useImageMagick = true)
       _             <- checkForOutputFileChange(outputFile)
     }
     yield outputFile
@@ -116,7 +116,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       qualified    = quality(resizeSource)(qual)
       resized      = scale(qualified)(dimensions)
       addOutput    = addDestImage(resized)(outputFile)
-      _           <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
+      _           <- runConvertCmd(addOutput, useImageMagick = true)
     }
     yield outputFile
   }
@@ -180,7 +180,7 @@ class ImageOperations(playPath: String) extends GridLogging {
     val interlaced     = interlace(qualified)(interlacedHow)
     val addOutput      = {file:File => addDestImage(interlaced)(file)}
     for {
-      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = browserViewableImage.mimeType == Tiff)
+      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = true)
       _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
     } yield (outputFile, thumbMimeType)
   }
@@ -205,7 +205,7 @@ class ImageOperations(playPath: String) extends GridLogging {
       profiled        = applyOutputProfile(stripped, optimised = true)
       depthAdjusted   = depth(profiled)(8)
       addOutput       = addDestImage(depthAdjusted)(outputFile)
-      _               <- runConvertCmd(addOutput, useImageMagick = sourceMimeType.contains(Tiff))
+      _               <- runConvertCmd(addOutput, useImageMagick = true)
       _               <- checkForOutputFileChange(outputFile)
       _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating browser-viewable image")
     } yield (outputFile, optimisedMimeType)
@@ -253,7 +253,7 @@ object ImageOperations {
     mimeType match {
       case Jpeg =>
         val source = addImage(sourceFile)
-        val formatter = format(source)("%[JPEG-Colorspace-Name]")
+        val formatter = format(source)("%[colorspace]")
 
         for {
           output <- runIdentifyCmd(formatter, false)
