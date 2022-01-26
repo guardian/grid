@@ -34,13 +34,47 @@ and then
 Thrall will then automatically begin searching for and queueing images for
 migration.
 
-<!-- TODO screenshot of starting a migration here -->
+![starting a migration](./images/02-starting-migration.png)
 
 ## Running
 
 While a migration is running, you can track progress on the Thrall dashboard,
-which will display a count of images that exist in each index.
+which will display a count of images that exist in each index. The form to start
+a migration has been replaced with a form that will allow you to manually queue
+an image for migration, regardless of whether Thrall has attempted to migrate it
+previously.
 
 ## Finishing
 
+While the migration is in progress, a form will be present on the Thrall
+dashboard with the option of completing the migration. You should only do this
+once the number of images in Images_Migration is equal to the number in
+Images_Current. You may optionally choose to leave some images that have failed;
+these will remain available for review in the list of errored images (see
+[below](#troubleshooting)).
+
+When you submit the migration completion form, the Images_Current alias will be
+moved to the new index, the Images_Migration alias will be removed, and the
+Images_Historical alias will be added pointing to the old index. This should all
+happen seamlessly without impacting any concurrent uploads or edits.
+
 ## Troubleshooting
+
+Errors may occur while migrating an image --- this may include failing to
+project the image, failing to insert into the new index, or something else. The
+list of failures is available on the Thrall dashboard, behind the "View images
+that have failed to migrate" link.
+
+![viewing migration errors](./images/02-view-errors.png)
+
+On this page, you can see an overview of the images that have failed to migrate,
+grouped by the failure message. You can click through into the groups to get a
+full list of failed images and a button to easily retry them.
+
+Caveat: Currently the failure messages may not be very descriptive due to how
+error messages are passed through Grid systems. Be aware that one group of
+errors in the dashboard _may_ have multiple different root causes. Try searching
+the logs using the image ID to find the original error, whichever service that
+originates from.
+
+![migration error overview](./images/02-errors-list.png)
