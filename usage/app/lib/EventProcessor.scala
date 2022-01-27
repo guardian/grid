@@ -1,30 +1,24 @@
 package lib
 
-import java.nio.ByteBuffer
-import java.util.{List => JList}
-
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorCheckpointer}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShutdownReason
 import com.amazonaws.services.kinesis.model.Record
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream
 import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.thrift.serializer.ThriftDeserializer
-import org.apache.thrift.protocol.TCompactProtocol
-import org.apache.thrift.transport.TIOStreamTransport
 import org.joda.time.DateTime
+import play.api.libs.json.{JodaReads, Json}
+
+import java.util.{List => JList}
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
 
 abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with GridLogging {
 
   implicit val codec = Event
-
-  val contentStream: ContentStream
 
   override def initialize(shardId: String): Unit = {
     logger.debug(s"Initialized an event processor for shard $shardId")
@@ -39,8 +33,13 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with
     }
   }
 
-  def getContentItem(content: Content, time: DateTime): ContentContainer
+}
 
+abstract class ContentEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+
+  val contentStream: ContentStream
+
+  def getContentItem(content: Content, time: DateTime): ContentContainer
 
   def processEvent(event: Event): Unit = {
 
@@ -56,7 +55,7 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with
           case _ => logger.debug(s"Received crier update for ${event.payloadId} without payload")
         }
       case EventType.Delete =>
-        //TODO: how do we deal with a piece of content that has been deleted?
+      //TODO: how do we deal with a piece of content that has been deleted?
       case EventType.RetrievableUpdate =>
 
         event.payload match {
@@ -83,9 +82,10 @@ abstract class EventProcessor(config: UsageConfig) extends IRecordProcessor with
       case _ => logger.debug(s"Unsupported event type $EventType")
     }
   }
+
 }
 
-private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+private class CrierLiveEventProcessor(config: UsageConfig) extends ContentEventProcessor(config) {
 
   val contentStream = LiveCrierContentStream
 
@@ -104,7 +104,7 @@ private class CrierLiveEventProcessor(config: UsageConfig) extends EventProcesso
   }
 }
 
-private class CrierPreviewEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+private class CrierPreviewEventProcessor(config: UsageConfig) extends ContentEventProcessor(config) {
 
   val contentStream = PreviewCrierContentStream
 
@@ -116,6 +116,28 @@ private class CrierPreviewEventProcessor(config: UsageConfig) extends EventProce
 
       val buffer: Array[Byte] = record.getData.array()
       ThriftDeserializer.deserialize(buffer).map(processEvent)
+
+    }
+
+    checkpointer.checkpoint(records.asScala.last)
+  }
+}
+
+private class FastlyUsageEventProcessor(config: UsageConfig) extends EventProcessor(config) {
+
+  val fastlyUsageStream = FastlyUsageStream
+
+  implicit val jodaReads = JodaReads.DefaultJodaDateTimeReads
+
+  override def processRecords(records: JList[Record], checkpointer: IRecordProcessorCheckpointer): Unit = {
+
+    records.asScala.map { record =>
+
+      val buffer: Array[Byte] = record.getData.array()
+
+      val fastlyUsageItem = Json.parse(buffer).as[FastlyUsageItem](Json.reads[FastlyUsageItem])
+
+      FastlyUsageStream.observable.onNext(fastlyUsageItem)
 
     }
 

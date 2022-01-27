@@ -8,10 +8,16 @@ class UsageStream(usageGroup: UsageGroupOps) {
 
   val previewContentStream: Observable[ContentContainer] = PreviewCrierContentStream.observable
   val liveContentStream: Observable[ContentContainer] = LiveCrierContentStream.observable
+  val fastlyUsageStream: Observable[FastlyUsageItem] = FastlyUsageStream.observable
 
   val previewObservable: Observable[UsageGroup] = getObservable(previewContentStream)
-
   val liveObservable: Observable[UsageGroup] = getObservable(liveContentStream)
+  val fastlyUsageObservable: Observable[UsageGroup] = fastlyUsageStream.flatMap { fastlyUsageItem =>
+    println(fastlyUsageItem)
+    Observable.from(Some(
+      usageGroup.build(fastlyUsageItem)
+    ))
+  }
 
   def createStatus(container: ContentContainer) = container match {
     case PreviewContentItem(_,_,_) => PendingUsageStatus

@@ -1,7 +1,7 @@
 package model
 
 import com.gu.mediaservice.model.usage.UsageId
-import lib.MD5
+import lib.{FastlyUsageItem, MD5}
 
 object UsageIdBuilder {
   def buildId(parts: List[Option[Any]]) =
@@ -37,5 +37,9 @@ object UsageIdBuilder {
     Some(downloadUsageRequest.mediaId),
     Some(downloadUsageRequest.metadata.downloadedBy),
     Some(downloadUsageRequest.status)
+  ))
+
+  def build(fastlyUsageItem: FastlyUsageItem) = buildId(List(
+    Some(fastlyUsageItem.mediaID)
   ))
 }

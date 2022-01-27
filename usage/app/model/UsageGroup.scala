@@ -4,10 +4,9 @@ import play.api.libs.json._
 import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.{Atom, AtomData}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, MediaUsage, PublishedUsageStatus, UsageStatus}
-import lib.{LiveContentApi, MD5, UsageConfig, UsageMetadataBuilder}
+import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, FastlyUsageStatus, MediaUsage, PublishedUsageStatus, UsageStatus}
+import lib.{FastlyUsageItem, LiveContentApi, MD5, MediaUsageBuilder, UsageConfig, UsageMetadataBuilder}
 import org.joda.time.DateTime
-import lib.MediaUsageBuilder
 
 case class UsageGroup(
   usages: Set[MediaUsage],
@@ -46,6 +45,12 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       downloadUsageRequest.mediaId,
       downloadUsageRequest.metadata.downloadedBy,
       downloadUsageRequest.dateAdded.getMillis.toString
+    ).mkString("_"))
+  }"
+
+  def buildId(fastlyUsageItem: FastlyUsageItem): String = s"fastly/${
+    MD5.hash(List(
+      fastlyUsageItem.mediaID
     ).mkString("_"))
   }"
 
@@ -95,6 +100,16 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       usageGroupId,
       downloadUsageRequest.status,
       downloadUsageRequest.dateAdded
+    )
+  }
+
+  def build(fastlyUsageItem: FastlyUsageItem): UsageGroup = {
+    val usageGroupId = buildId(fastlyUsageItem)
+    UsageGroup(
+      Set(MediaUsageBuilder.build(fastlyUsageItem, usageGroupId)),
+      usageGroupId,
+      FastlyUsageStatus,
+      fastlyUsageItem.timestamp
     )
   }
 
