@@ -1,7 +1,7 @@
 # How to run a migration
 
 Migrations are primarily controlled from the Thrall dashboard, an HTTP page
-exposed by Thrall.
+exposed on Thrall's domain.
 
 ## Preparation
 
@@ -21,7 +21,9 @@ requests? Currently hardcoded to 50, we used 6x m5.large in first migration -->
 
 You will also experience an increased usage of your DynamoDB tables and
 Elasticsearch cluster, so make sure to watch their performance and scale both to
-match their usage.
+match their usage. We recommend
+[enabling autoscaling on all DynamoDB tables and indices](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/AutoScaling.html)
+where possible.
 
 ## Starting
 
@@ -72,7 +74,7 @@ grouped by the failure message. You can click through into the groups to get a
 full list of failed images and a button to easily retry them.
 
 Caveat: Currently the failure messages may not be very descriptive due to how
-error messages are passed through Grid systems. Be aware that one group of
+error messages are passed through Grid services. Be aware that one group of
 errors in the dashboard _may_ have multiple different root causes. Try searching
 the logs using the image ID to find the original error, whichever service that
 originates from.

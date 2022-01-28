@@ -27,14 +27,6 @@ advantage of any improvements made since the first upload.
 
 ## How it works
 
-<!--
- - New, self-driven Thrall stream, containing image projections.
- - Image projection endpoint, which performs image ingest but also combining
-   with user edits stored in DynamoDB tables.
- - All image operations (uploads, edits, deletions) are operated upon each
-   index.
--->
-
 ### High level
 
 While a migration is [in progress](#migration-status-flag), Thrall will
@@ -71,13 +63,13 @@ the Elasticsearch cluster.
   is in progress. The assigned index will be used as the target for migration.
   NOTE: **do not assign Images_Current and Images_Migration to the same index**
 - "Images_Historical": When a migration has been completed, this alias will be
-  assigned to the index previously assigned "Images_Current".
-  <!-- TODO link to errors section in How to -->
+  assigned to the index previously assigned "Images_Current". This alias powers
+  the functionality to [view errors from a previous
+  migration](./02-how-to.md#troubleshooting).
   NOTE: **do not assign Images_Historical and Images_Current to the same index**
 - "MIGRATION_PAUSED": If this alias has been assigned to the same index as
   "Images_Migration", then Thrall will not queue images for migration. Images
-  can still be manually queued for migration.
-  <!-- TODO link to manual migration section in How to -->
+  can still be [manually queued for migration](./02-how-to.md#running).
 
 ### Image migration record
 
