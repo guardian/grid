@@ -129,6 +129,8 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   def executeRequest(exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[(String, Crop)] = {
     implicit val context: RequestLoggingContext = RequestLoggingContext(
       initialMarkers = Map(
+        "user" -> user.identifier,
+        "imageId" -> exportRequest.uri.split("/").lastOption.getOrElse(exportRequest.uri),
         "requestType" -> "executeRequest"
       )
     )
