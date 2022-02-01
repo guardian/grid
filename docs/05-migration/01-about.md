@@ -4,10 +4,12 @@ Sometimes also described as reindexing or reingestion.
 
 Image migration is an optional process in the Grid that will create a new index
 in the Elasticsearch cluster containing an up-to-date representation of all
-known images. In simple cases, this is akin to the [Elasticsearch Reindex
-API][es-reindex], i.e. moving all documents to a new index using the latest
-version of the mapping, but migration also contains improvements to ensure a
-seamless transition and improved metadata.
+known images. Unlike the [Elasticsearch Reindex API][es-reindex] (i.e. copying
+all documents to a new index using the latest version of the mapping) the
+migration process rebuilds the document from the original image metadata (in
+S3) AND the user metadata (in DynamoDB) and NOT from the existing ES
+representation. Migration also contains improvements to ensure a seamless
+transition and improved metadata.
 
 ## Why
 
@@ -33,10 +35,12 @@ While a migration is [in progress](#migration-status-flag), Thrall will
 repeatedly query Elasticsearch for images which have [not yet been
 migrated](#image-migration-record). Each image ID which is found will be
 [projected](#projection), and that projection will be entered into a
-low-priority queue for processing by Thrall when no other updates need to be
-processed. When ready, Thrall processes the message by checking that there have
-been no updates to the image since the projection was taken, then inserting the
-projection into the migration index.
+low-priority queue (for contrast, UI interactions are highest priority, then
+'automation' like usages, RCS etc, then lowest priority is migration) for
+processing by Thrall when no other updates need to be processed. When ready,
+Thrall processes the message by checking that there have been no updates to the
+image since the projection was taken, then inserting the projection into the
+migration index.
 
 Any uploads or edits performed during the migration will be performed on both
 the source and target indices concurrently. This allows Grid to continue running
