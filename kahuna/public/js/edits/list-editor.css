@@ -95,7 +95,10 @@ element--partial is part of gr-panel.
 
 .image-info__people  .element--partial .element__value,
 .image-info__people .element--partial .element__remove,
- .image-info__people .element--partial .element__add{
+.image-info__people .element--partial .element__add,
+.image-info__keywords  .element--partial .element__value,
+.image-info__keywords .element--partial .element__remove,
+.image-info__keywords .element--partial .element__add{
     background-color: white;
     color: #222;
     border-bottom: 0px;
@@ -103,22 +106,29 @@ element--partial is part of gr-panel.
 
 .image-info__people .element__value,
 .image-info__people .element__remove,
-.image-info__people .element__add {
+.image-info__people .element__add,
+.image-info__keywords .element__value,
+.image-info__keywords .element__remove,
+.image-info__keywords .element__add {
     background-color: #222;
     color: #999;
     border-bottom: 0px;
 }
 
 .image-info__people .element__link:hover,
-.image-info__people .element__remove:hover {
+.image-info__people .element__remove:hover,
+.image-info__keywords .element__link:hover,
+.image-info__keywords .element__remove:hover {
     color: #00adee;
     background-color: white;
 }
 
-.image-info__people .element--partial .element__add:hover gr-icon {
+.image-info__people .element--partial .element__add:hover gr-icon,
+.image-info__keywords .element--partial .element__add:hover gr-icon {
     color: #717171;
 }
 
-.image-info__people .element--partial .element__remove:hover gr-icon {
+.image-info__people .element--partial .element__remove:hover gr-icon,
+.image-info__keywords .element--partial .element__remove:hover gr-icon {
     color: #717171;
 }
