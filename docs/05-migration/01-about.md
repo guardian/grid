@@ -34,13 +34,18 @@ advantage of any improvements made since the first upload.
 While a migration is [in progress](#migration-status-flag), Thrall will
 repeatedly query Elasticsearch for images which have [not yet been
 migrated](#image-migration-record). Each image ID which is found will be
-[projected](#projection), and that projection will be entered into a
-low-priority queue (for contrast, UI interactions are highest priority, then
-'automation' like usages, RCS etc, then lowest priority is migration) for
-processing by Thrall when no other updates need to be processed. When ready,
-Thrall processes the message by checking that there have been no updates to the
-image since the projection was taken, then inserting the projection into the
-migration index.
+[projected](#projection), and that projection will be entered into a low
+priority queue for processing by Thrall when no other updates need to be
+processed.  All other interactions, such as uploads and edits --- both automated
+and user-driven --- go onto higher priority queues, which means that they should
+not be delayed by migration. When ready, Thrall processes the message by
+checking that there have been no updates to the image since the projection was
+taken, then inserting the projection into the migration index. While this
+processing does technically block new messages arriving on the higher priority
+queues, the projection has already been computed before entering the queue, so
+the only processing remaining is to insert the document into the migration index
+which usually completes in under 30ms, meaning that in practice blocking is
+minimal.
 
 Any uploads or edits performed during the migration will be performed on both
 the source and target indices concurrently. This allows Grid to continue running
