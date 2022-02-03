@@ -115,11 +115,14 @@ element--partial is part of gr-panel.
     border-bottom: 0px;
 }
 
+.image-info .element__value:hover,
+.image-info__people .element__value:hover,
 .image-info__people .element__link:hover,
 .image-info__people .element__remove:hover,
+.image-info__keywords .element__value:hover,
 .image-info__keywords .element__link:hover,
 .image-info__keywords .element__remove:hover {
-    color: #00adee;
+    color: #222;
     background-color: white;
 }
 
