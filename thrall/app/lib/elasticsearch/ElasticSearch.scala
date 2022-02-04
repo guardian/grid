@@ -11,16 +11,18 @@ import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.script.Script
+import com.sksamuel.elastic4s.requests.searches.SearchResponse
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
 import com.sksamuel.elastic4s.requests.update.{UpdateRequest, UpdateResponse}
-import com.sksamuel.elastic4s.{Executor, Functor, Handler, Response}
+import com.sksamuel.elastic4s.{ElasticDsl, Executor, Functor, Handler, Response}
 import lib.ThrallMetrics
 import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.annotation.nowarn
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
@@ -30,6 +32,7 @@ class ElasticSearch(
   metrics: Option[ThrallMetrics],
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with ElasticSearchExecutions with ThrallMigrationClient {
+
 
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration
@@ -534,6 +537,36 @@ class ElasticSearch(
     ).incrementOnFailure(metrics.map(_.failedCollectionsUpdates)) { case _ => true }
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+  }
+
+  private def handleImageIdScrollResponse(
+    prefix: String, response: Response[SearchResponse]
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[String]] = {
+    val ids = response.result.hits.hits.map(_.id)
+    if (response.result.hits.size >= 10000 && response.result.scrollId.isDefined) {
+      continueScrollingImageIdsWithPrefix(prefix, response.result.scrollId.get).map(ids ++ _)
+    } else {
+      Future.successful(ids)
+    }
+  }
+  private def continueScrollingImageIdsWithPrefix(
+    prefix: String, scrollId: String
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[String]] = {
+    val req = searchScroll(scrollId)
+    executeAndLog(req, s"listing ids with prefix $prefix")
+      .flatMap(response => handleImageIdScrollResponse(prefix, response))
+  }
+
+  def listImageIdsWithPrefix(prefix: String)(
+    implicit ec: ExecutionContext, logMarker: LogMarker
+  ): Future[Seq[String]] = {
+    val req = search(imagesCurrentAlias)
+      .size(10000)
+      .fetchSource(false)
+      .scroll(60.seconds)
+      .query(prefixQuery("id", prefix))
+    executeAndLog(req, s"listing ids with prefix $prefix")
+      .flatMap(response => handleImageIdScrollResponse(prefix, response))
   }
 
   private val refreshMetadataScript = """

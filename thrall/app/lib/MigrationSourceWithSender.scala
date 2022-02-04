@@ -85,7 +85,6 @@ object MigrationSourceWithSender extends GridLogging {
         })
         .filter(_ => {
           es.migrationStatus match {
-            case Paused(_) => false
             case InProgress(_) => true
             case _ => false
           }
