@@ -2,7 +2,7 @@ import * as React from "react";
 import * as angular from "angular";
 import { react2angular } from "react2angular";
 
-import "./gr-description-warning.css";
+import styles from "./gr-description-warning.module.css";
 
 const MIN_LENGTH = 30;
 const MIN_WORDS = 5;
@@ -19,8 +19,8 @@ const GrDescriptionWarning: React.FC<GrDescriptionWarningProps> = ({ description
   const showWarning = description ? shouldShowWarning(description) : true;
 
   return showWarning && (
-    <div className="flex-right text-small gr-description-warning as-react">
-      <span className="message">
+    <div className={`flex-right text-small ${styles['gr-description-warning']}`}>
+      <span className={`${styles.message}`}>
         Your description is too short! Ideally, please state who, what where, when and why.
       </span>
     </div>
