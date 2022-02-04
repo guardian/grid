@@ -19,7 +19,7 @@ const GrDescriptionWarning: React.FC<GrDescriptionWarningProps> = ({ description
   const showWarning = description ? shouldShowWarning(description) : true;
 
   return showWarning && (
-    <div className="flex-right text-small gr-description-warning">
+    <div className="flex-right text-small gr-description-warning as-react">
       <span className="message">
         Your description is too short! Ideally, please state who, what where, when and why.
       </span>
