@@ -42,6 +42,12 @@ element--partial is part of gr-panel.
     background-color: white;
 }
 
+.image-info .element__remove:hover,
+.image-info .element__value:hover {
+    color: #00adee;
+    background-color: white;
+}
+
 .element__add,
 .element__value {
     border-top-left-radius: 2px;
@@ -115,7 +121,6 @@ element--partial is part of gr-panel.
     border-bottom: 0px;
 }
 
-.image-info .element__value:hover,
 .image-info__people .element__value:hover,
 .image-info__people .element__link:hover,
 .image-info__people .element__remove:hover,
