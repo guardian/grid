@@ -84,14 +84,10 @@ class SyncChecker(
       s3Ids <- s3IdsFetch
     } yield {
       val extrasInS3 = s3Ids diff esIds
-      if (extrasInS3.nonEmpty) {
-        logger.warn(logMarker, s"SyncChecker found ${extrasInS3.size} extra images in S3 under prefix $s3Prefix: ${extrasInS3.mkString(",")}")
-      }
+      batchedLogs(s"extra images in S3 under prefix $s3Prefix", extrasInS3)
 
       val extrasInEs = esIds diff s3Ids
-      if (extrasInEs.nonEmpty) {
-        logger.warn(logMarker, s"SyncChecker found ${extrasInEs.size} extra images in Elasticsearch under prefix $prefix: ${extrasInEs.mkString(",")}")
-      }
+      batchedLogs(s"extra images in Elasticsearch under prefix $prefix", extrasInEs)
     }
   }
 
@@ -108,18 +104,18 @@ class SyncChecker(
       s3IdsAtSlash <- s3IdsAtSlashFetch
       esIdsBadFormat <- esIdsBadFormatFetch
     } yield {
-      if (s3IdsAtRoot.nonEmpty) {
-        logger.warn(logMarker, s"SyncChecker found ${s3IdsAtRoot.size} images in S3 root: ${s3IdsAtRoot.mkString(",")}")
-      }
+      batchedLogs("in S3 root", s3IdsAtRoot)
 
-      if (s3IdsAtSlash.nonEmpty) {
-        logger.warn(logMarker, s"SyncChecker found ${s3IdsAtSlash.size} images in S3 under '/': ${s3IdsAtSlash.mkString(",")}")
-      }
+      batchedLogs("in S3 under '/'", s3IdsAtSlash)
 
-      if (esIdsBadFormat.nonEmpty) {
-        logger.warn(logMarker, s"SyncChecker found ${esIdsBadFormat.size} images in Elasticsearch with unexpected id formats: ${esIdsBadFormat.mkString(",")}")
-      }
+      batchedLogs("in Elasticsearch with unexpected id formats", esIdsBadFormat)
     }
+  }
+
+  private def batchedLogs(problem: String, ids: Iterable[String])(implicit logMarker: LogMarker): Unit = {
+    ids.grouped(250).foreach(group =>
+      logger.warn(logMarker, s"SyncChecker found ${group.size} images $problem: ${group.mkString(",")}")
+    )
   }
 
   private def createStream() = Source.cycle(() => prefixes.toIterator)
