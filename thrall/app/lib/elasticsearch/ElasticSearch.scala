@@ -548,6 +548,9 @@ class ElasticSearch(
     if (response.result.hits.size >= scrollPageSize && response.result.scrollId.isDefined) {
       continueScrollingImageIds(message, response.result.scrollId.get).map(ids ++ _)
     } else {
+      if (response.result.scrollId.isDefined) {
+        closeScroll(response.result.scrollId.get)
+      }
       Future.successful(ids)
     }
   }
