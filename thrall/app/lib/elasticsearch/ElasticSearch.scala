@@ -576,7 +576,7 @@ class ElasticSearch(
       .size(scrollPageSize)
       .fetchSource(false)
       .scroll(60.seconds)
-      .query(not(regexQuery("id", "^[0-9a-fA-F]{40}$")))
+      .query(not(regexQuery("id", "[0-9a-f]{40}")))
     val message = s"listing ids with unexpected format"
     executeAndLog(req, message).flatMap(response => handleImageIdScrollResponse(message, response))
   }

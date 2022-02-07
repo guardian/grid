@@ -126,8 +126,8 @@ class SyncChecker(
     .throttle(1, per = 5.seconds)
     .filter(_ => {
       es.migrationStatus match {
-        case InProgress(_) => true
-        case _ => false
+        case InProgress(_) => false
+        case _ => true
       }
     })
     .mapAsync(1) {
@@ -137,6 +137,8 @@ class SyncChecker(
 
   def run(): Future[Done] = {
     val stream = createStream().run()(mat)
+
+    logger.info("SyncChecker stream started")
 
     stream.onComplete {
       case Failure(exception) => logger.error("SyncChecker stream completed with failure", exception)
