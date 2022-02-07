@@ -3,6 +3,7 @@
 
 ## [About](00-about/)
 - [Vision](00-about/01-vision.md)
+- [Structure](00-about/02-structure.md)
 
 ## [Setup](01-setup/)
 - [Software dependencies](01-setup/01-software-dependencies.md)
@@ -23,9 +24,22 @@
 - [NGINX](04-troubleshooting/01-nginx.md)
 - [SBT](04-troubleshooting/02-sbt.md)
 - [Authentication](04-troubleshooting/03-authentication.md)
+- [GRID services and SSL](04-troubleshooting/04-ssl-certs.md)
 
-## [Reingestion](05-reingestion/)
-- [Image reingestion](05-reingestion/01-how-to.md)
+## [Migration](05-migration/)
+- [Migration](05-migration/01-about.md)
+- [How to run a migration](05-migration/02-how-to.md)
+
+## [Objects of interest](06-objects-of-interest/)
+- [TIFF files](06-objects-of-interest/06.01-tiffs.md)
+- [Elasticsearch refreshes](06-objects-of-interest/06.02-elasticsearch-refreshes.md)
+
+## [Extending](07-extending/)
+- [Extending the Grid using providers](07-extending/01-provider-interfaces.md)
+- [Image Processor provider pipelines](07-extending/02-image-processors.md)
+- [Authentication and authorisation providers](07-extending/03-authentication.md)
+- [Usage rights provider](07-extending/04-usage-rights.md)
+- [Extending image metadata](07-extending/05-domain-metadata.md)
 
 ## [Archives](99-archives/)
 - [DEV Cloudformation Setup](99-archives/01-cloudformation.md)
@@ -38,6 +52,7 @@
 - [Start Thrall](99-archives/04.04-start-thrall.md)
 - [Media API](99-archives/04.05-media-api.md)
 - [Logging](99-archives/05-logging.md)
+- [Image reingestion](99-archives/05.01-reingestion-how-to.md)
 - [Troubleshooting](99-archives/TROUBLESHOOTING.md)
 - [Migration to Elasticsearch 6](99-archives/elasticsearch6.md)
 - [Migration to Elasticsearch 7](99-archives/elasticsearch7.md)
