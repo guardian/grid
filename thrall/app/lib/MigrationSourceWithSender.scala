@@ -80,7 +80,9 @@ object MigrationSourceWithSender extends GridLogging {
         .mapAsync(1)(identity)
         // flatten out the list of image ids
         .mapConcat(searchHits => {
-          logger.info(s"Flattening ${searchHits.size} image ids to migrate")
+          if (searchHits.nonEmpty) {
+            logger.info(s"Flattening ${searchHits.size} image ids to migrate")
+          }
           searchHits
         })
         .filter(_ => {
