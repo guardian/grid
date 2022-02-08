@@ -8,6 +8,7 @@ trait UsageType {
     case DigitalUsage => "digital"
     case SyndicationUsage => "syndication"
     case DownloadUsage => "download"
+
   }
 }
 

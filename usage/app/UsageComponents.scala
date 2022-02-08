@@ -28,6 +28,9 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
     crierReader.start()
   }
 
+  val fastlyUsageStreamReader = new FastlyUsageStreamReader(config)
+  fastlyUsageStreamReader.start()
+
   usageRecorder.start()
   context.lifecycle.addStopHook(() => {
     usageRecorder.stop()

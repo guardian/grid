@@ -9,6 +9,7 @@ sealed trait UsageStatus {
     case RemovedUsageStatus => "removed"
     case SyndicatedUsageStatus => "syndicated"
     case DownloadedUsageStatus => "downloaded"
+    case FastlyUsageStatus => "fastly"
     case UnknownUsageStatus => "unknown"
   }
 }
@@ -20,6 +21,7 @@ object UsageStatus {
     case "removed" => RemovedUsageStatus
     case "syndicated" => SyndicatedUsageStatus
     case "downloaded" => DownloadedUsageStatus
+    case "fastly" => FastlyUsageStatus
     case "unknown" => UnknownUsageStatus
   }
 
@@ -35,6 +37,7 @@ object PublishedUsageStatus extends UsageStatus
 object RemovedUsageStatus extends UsageStatus
 object SyndicatedUsageStatus extends UsageStatus
 object DownloadedUsageStatus extends UsageStatus
+object FastlyUsageStatus extends UsageStatus
 
 // For Fronts usages as we don't know if a front is in draft or is live
 // TODO remove this once we do!

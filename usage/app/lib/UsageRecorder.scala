@@ -13,11 +13,13 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
   val usageSubject = PublishSubject[UsageGroup]()
   val previewUsageStream: Observable[UsageGroup] = usageStream.previewObservable.merge(usageSubject)
   val liveUsageStream: Observable[UsageGroup] = usageStream.liveObservable.merge(usageSubject)
+  val fastlyUsageStream: Observable[UsageGroup] = usageStream.fastlyUsageObservable.merge(usageSubject)
 
   val subscriber = Subscriber((_:Any) => logger.debug(s"Sent Usage Notification"))
 
   var subscribeToPreview: Option[Subscription] = None
   var subscribeToLive: Option[Subscription] = None
+  var subscribeToFastlyUsages: Option[Subscription] = None
 
   def recordUpdate(update: JsObject): JsObject = {
     logger.info(s"Usage update processed: $update")
@@ -28,6 +30,7 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
 
   val previewDbMatchStream: Observable[MatchedUsageGroup] = previewUsageStream.flatMap(matchDb)
   val liveDbMatchStream: Observable[MatchedUsageGroup] = liveUsageStream.flatMap(matchDb)
+  val fastlyUsageDbMatchStream: Observable[MatchedUsageGroup] = fastlyUsageStream.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsageGroup: UsageGroup)
   case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
@@ -36,11 +39,13 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
     // Eval subscription to start stream
     subscribeToPreview = Some(previewObservable.subscribe(subscriber))
     subscribeToLive = Some(liveObservable.subscribe(subscriber))
+    subscribeToFastlyUsages = Some(fastlyUsagesObservable.subscribe(subscriber))
   }
 
   def stop(): Unit = {
     subscribeToPreview.foreach(_.unsubscribe())
     subscribeToLive.foreach(_.unsubscribe())
+    subscribeToFastlyUsages.foreach(_.unsubscribe())
   }
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
@@ -58,9 +63,11 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
 
   val previewDbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(previewDbMatchStream)
   val liveDbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(liveDbMatchStream)
+  val fastlyDbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(fastlyUsageDbMatchStream)
 
   val previewNotificationStream: Observable[UsageNotice] = getNotificationStream(previewDbUpdateStream)
   val liveNotificationStream: Observable[UsageNotice] = getNotificationStream(liveDbUpdateStream)
+  val fastlyUsageNotificationStream: Observable[UsageNotice] = getNotificationStream(fastlyDbUpdateStream)
 
   val distinctPreviewNotificationStream: Observable[UsageNotice] = previewNotificationStream.groupBy(_.mediaId).flatMap {
     case (_, s) => s.distinctUntilChanged
@@ -70,8 +77,13 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
     case (_, s) => s.distinctUntilChanged
   }
 
+  val distinctFastlyUsageNotifiedStream: Observable[UsageNotice] = fastlyUsageNotificationStream.groupBy(_.mediaId).flatMap {
+    case (_, s) => s.distinctUntilChanged
+  }
+
   val previewNotifiedStream: Observable[Unit] = distinctPreviewNotificationStream.map(usageNotifier.send)
   val liveNotifiedStream: Observable[Unit] = distinctLiveNotificationStream.map(usageNotifier.send)
+  val fastlyUsageNotifiedStream: Observable[Unit] = distinctFastlyUsageNotifiedStream.map(usageNotifier.send)
 
   def reportStreamError(i: Int, error: Throwable): Boolean = {
     logger.error("UsageRecorder encountered an error.", error)
@@ -82,6 +94,7 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
 
   val previewObservable: Observable[Unit] = previewNotifiedStream.retry((i, e) => reportStreamError(i,e))
   val liveObservable: Observable[Unit] = liveNotifiedStream.retry((i, e) => reportStreamError(i,e))
+  val fastlyUsagesObservable: Observable[Unit] = fastlyUsageNotifiedStream.retry((i, e) => reportStreamError(i,e))
 
   private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
     dbMatchStream.flatMap(matchUsageGroup => {

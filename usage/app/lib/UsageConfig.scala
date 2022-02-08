@@ -48,6 +48,9 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
   val crierLiveArn = Try { string("crier.live.arn") }
   val crierPreviewArn = Try { string("crier.preview.arn") }
 
+  val fastlyUsagesKinesisStreamName = Try { string("kinesis.fastly.usages.name") }
+  val fastlyUsagesKinesisStreamArn = Try { string("kinesis.fastly.usages.arn") }
+
   val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
     liveStream <- crierLiveKinesisStream
     liveArn <- crierLiveArn
@@ -57,6 +60,11 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
     previewStream <- crierPreviewKinesisStream
     previewArn <- crierPreviewArn
   } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
+
+  val fastlyUsagesKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+    fastlyStreamName <- fastlyUsagesKinesisStreamName
+    fastlyStreamArn <- fastlyUsagesKinesisStreamArn
+  } yield KinesisReaderConfig(fastlyStreamName, fastlyStreamArn, "fastly-hack-grid-usages")
 
   private val iamClient: AmazonIdentityManagement = withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()
 
@@ -86,4 +94,5 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
       logger.error(s"App name is invalid: $name")
       sys.exit(1)
   }
+
 }

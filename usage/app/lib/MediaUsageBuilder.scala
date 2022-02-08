@@ -3,6 +3,8 @@ package lib
 import com.gu.mediaservice.model.usage._
 import model._
 
+import java.net.URI
+
 
 object MediaUsageBuilder {
 
@@ -93,6 +95,29 @@ object MediaUsageBuilder {
       frontUsageMetadata = None,
       downloadUsageMetadata = Some(downloadUsageRequest.metadata),
       lastModified = downloadUsageRequest.dateAdded
+    )
+  }
+
+  def build(fastlyUsageItem: FastlyUsageItem, groupId: String): MediaUsage = {
+    val usageId = UsageIdBuilder.build(fastlyUsageItem)
+
+    MediaUsage (
+      usageId,
+      groupId,
+      fastlyUsageItem.mediaID,
+      DigitalUsage,
+      mediaType = "image",
+      FastlyUsageStatus,
+      printUsageMetadata = None,
+      digitalUsageMetadata = Some(DigitalUsageMetadata(
+        webUrl = URI.create(fastlyUsageItem.webUrl getOrElse ""),
+        webTitle = "Fastly Usage",
+        sectionId = "Section"
+      )),
+      syndicationUsageMetadata = None,
+      frontUsageMetadata = None,
+      downloadUsageMetadata = None,
+      lastModified = fastlyUsageItem.timestamp
     )
   }
 }
