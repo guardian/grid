@@ -65,12 +65,6 @@ class SyncChecker(
       .withDelimiter("/")
     paginatedListObjects(request)
   }
-  private def listFilesAtSlash() = {
-    val request = new ListObjectsV2Request()
-      .withBucketName(imageBucketName)
-      .withPrefix("/")
-    paginatedListObjects(request)
-  }
 
   private def checkPrefix(prefix: String)(implicit logMarker: LogMarker): Future[Unit] = {
     val esIdsFetch: Future[Set[String]] = es.listImageIdsWithPrefix(prefix).map(_.toSet)
@@ -93,7 +87,7 @@ class SyncChecker(
 
   private def checkUnprefixed()(implicit logMarker: LogMarker): Future[Unit] = {
     val s3IdsAtRootFetch = listFilesAtRoot()
-    val s3IdsAtSlashFetch = listFilesAtSlash()
+    val s3IdsAtSlashFetch = listFilesWithPrefix("/")
     // TODO fetch all objects at unexpected locations ie. not at /^([0-9a-f]/){6}[0-9a-f]{34}$/
     //  but that's a lot of prefixes to trawl. better suited to something making use of the s3 inventory that we have?
 
