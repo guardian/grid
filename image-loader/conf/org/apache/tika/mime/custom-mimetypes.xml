@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info>
+  <mime-type type="image/x-raw-canon">
+    <_comment>Canon raw image</_comment>
+    <magic priority="55">
+      <match value="II\x2a\x00\x10\x00\x00\x00\x43\x52" type="string" offset="0"/>
+    </magic>
+    <glob pattern="*.crw"/>
+    <glob pattern="*.cr2"/>
+  </mime-type>
+</mime-info>

@@ -3,13 +3,16 @@ package lib.imaging
 import java.io.{BufferedInputStream, File, FileInputStream}
 
 import com.drew.imaging.FileTypeDetector
+import com.drew.imaging.tiff.TiffMetadataReader
+import com.drew.metadata.exif.ExifIFD0Directory
 import com.gu.mediaservice.lib.logging._
-import com.gu.mediaservice.model.{MimeType, UnsupportedMimeTypeException}
+import com.gu.mediaservice.model.{MimeType, Tiff, UnsupportedMimeTypeException}
 import org.apache.tika.Tika
 import scala.util.{Failure, Success, Try}
 
 object MimeTypeDetection extends GridLogging {
   def guessMimeType(file: File): Either[UnsupportedMimeTypeException, MimeType] = Try(usingTika(file)) match {
+    case Success(Tiff) if isDng(file) => Left(new UnsupportedMimeTypeException("image/dng"))
     case Success(mimeType) => Right(mimeType)
     case Failure(tikaAttempt: UnsupportedMimeTypeException) => {
       Try(usingMetadataExtractor(file)) match {
@@ -26,6 +29,14 @@ object MimeTypeDetection extends GridLogging {
     }
     case Failure(_: Throwable) => Left(new UnsupportedMimeTypeException(FALLBACK))
   }
+
+  // DNG files look like Tiff files, but include a DNGVersion tag (0xC612)
+  // See https://www.adobe.com/content/dam/acom/en/products/photoshop/pdfs/dng_spec_1.4.0.0.pdf
+  private def isDng(file: File) = Try {
+    val metadata = TiffMetadataReader.readMetadata(file)
+    val directory = metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory])
+    directory.containsTag(0xC612)
+  } getOrElse(false)
 
   private def usingTika(file: File): MimeType = MimeType(new Tika().detect(file))
 
