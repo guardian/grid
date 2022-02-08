@@ -32,11 +32,11 @@ object MimeTypeDetection extends GridLogging {
 
   // DNG files look like Tiff files, but include a DNGVersion tag (0xC612)
   // See https://www.adobe.com/content/dam/acom/en/products/photoshop/pdfs/dng_spec_1.4.0.0.pdf
-  private def isDng(file: File) = {
+  private def isDng(file: File) = Try {
     val metadata = TiffMetadataReader.readMetadata(file)
     val directory = metadata.getFirstDirectoryOfType(classOf[ExifIFD0Directory])
     directory.containsTag(0xC612)
-  }
+  } getOrElse(false)
 
   private def usingTika(file: File): MimeType = MimeType(new Tika().detect(file))
 
