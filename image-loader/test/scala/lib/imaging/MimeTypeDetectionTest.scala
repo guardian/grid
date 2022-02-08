@@ -34,4 +34,9 @@ class MimeTypeDetectionTest extends AnyFunSpec with Matchers with ScalaFutures {
     val image = fileAt("_MG_7973-1kB.CR2")
     MimeTypeDetection.guessMimeType(image) shouldBe a[Left[_, _]]
   }
+
+  it("returns a left for dng images") {
+    val image = fileAt("_MG_7973-1kB.dng")
+    MimeTypeDetection.guessMimeType(image) shouldBe a[Left[_, _]]
+  }
 }
