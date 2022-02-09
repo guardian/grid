@@ -70,9 +70,15 @@ class CrierStreamReader(config: UsageConfig) extends GridLogging {
 
     liveWorkerThread
       .map(_.start)
-      .foreach(_ => logger.info("Starting Crier Live Stream reader"))
+      .fold(
+        e => logger.error("No 'Crier Live Stream reader' thread to start", e),
+        _ => logger.info("Starting Crier Live Stream reader")
+      )
     previewWorkerThread
       .map(_.start)
-      .foreach(_ => logger.info("Starting Crier Preview Stream reader"))
+      .fold(
+        e => logger.error("No 'Crier Preview Stream reader' thread to start", e),
+        _ => logger.info("Starting Crier Preview Stream reader")
+      )
   }
 }
