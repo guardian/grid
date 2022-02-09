@@ -1,6 +1,6 @@
 package model
 
-import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
@@ -28,7 +28,11 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       val keyAttribute: KeyAttribute = new KeyAttribute(hashKeyName, tableFullKey.hashKey)
       val rangeKeyCondition: RangeKeyCondition = new RangeKeyCondition(rangeKeyName).eq(tableFullKey.rangeKey)
 
-      val queryResult = table.query(keyAttribute, rangeKeyCondition)
+      val queryResult = table.query(new QuerySpec()
+        .withConsistentRead(true)
+        .withHashKey(keyAttribute)
+        .withRangeKeyCondition(rangeKeyCondition)
+      )
 
       queryResult.asScala.map(ItemToMediaUsage.transform).headOption
     })
@@ -41,7 +45,10 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
     val imageIndex = table.getIndex(imageIndexName)
     val keyAttribute = new KeyAttribute(imageIndexName, id)
-    val queryResult = imageIndex.query(keyAttribute)
+    val queryResult = imageIndex.query(new QuerySpec()
+      .withConsistentRead(true)
+      .withHashKey(keyAttribute)
+    )
 
     val fullSet = queryResult.asScala.map(ItemToMediaUsage.transform).toSet[MediaUsage]
 
@@ -79,7 +86,10 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       val keyAttribute = new KeyAttribute("grouping", grouping)
 
       logger.info(s"Querying table for $grouping - $status")
-      val queryResult = table.query(keyAttribute)
+      val queryResult = table.query(new QuerySpec()
+        .withConsistentRead(true)
+        .withHashKey(keyAttribute)
+      )
 
       val usages = queryResult.asScala
         .map(ItemToMediaUsage.transform)
