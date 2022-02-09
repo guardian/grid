@@ -12,7 +12,7 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /.js$/,
+        test: /\.js$/,
         exclude: [
           path.resolve(__dirname, 'public', 'dist'),
           /node_modules/,
@@ -20,7 +20,7 @@ module.exports = {
         loader: 'babel-loader',
       },
       {
-        test: /.html$/,
+        test: /\.html$/,
         loader: 'html-loader',
       },
       {
@@ -28,7 +28,7 @@ module.exports = {
         type: 'asset/source',
       },
       {
-        test: /.css$/,
+        test: /\.css$/,
         use: [
           'style-loader',
           'css-loader'
