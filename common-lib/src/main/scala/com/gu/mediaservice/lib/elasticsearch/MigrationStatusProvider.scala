@@ -67,6 +67,7 @@ trait MigrationStatusProvider {
   ) { () => refreshMigrationStatus() }
 
   def migrationStatus: MigrationStatus = migrationStatusRef.get()
+  def migrationIsInProgress: Boolean = migrationStatus.isInstanceOf[InProgress]
   def refreshAndRetrieveMigrationStatus(): MigrationStatus = {
     refreshMigrationStatus()
     migrationStatus

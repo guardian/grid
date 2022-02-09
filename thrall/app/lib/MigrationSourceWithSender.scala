@@ -85,12 +85,7 @@ object MigrationSourceWithSender extends GridLogging {
           }
           searchHits
         })
-        .filter(_ => {
-          es.migrationStatus match {
-            case InProgress(_) => true
-            case _ => false
-          }
-        })
+        .filter(_ => es.migrationIsInProgress)
 
     val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsyncUnordered(parallelism = 50) { searchHit: SearchHit => {
       val imageId = searchHit.id

@@ -114,12 +114,7 @@ class SyncChecker(
 
   private def createStream() = Source.cycle(() => prefixes.toIterator)
     .throttle(1, per = 5.seconds)
-    .filter(_ => {
-      es.migrationStatus match {
-        case InProgress(_) => false
-        case _ => true
-      }
-    })
+    .filterNot(_ => es.migrationIsInProgress)
     .mapAsync(1) {
       case Prefix(prefix) => checkPrefix(prefix)(MarkerMap())
       case Other => checkUnprefixed()(MarkerMap())
