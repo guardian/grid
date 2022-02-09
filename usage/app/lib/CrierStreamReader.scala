@@ -2,7 +2,6 @@ package lib
 
 import java.net.InetAddress
 import java.util.UUID
-
 import com.amazonaws.auth._
 import com.amazonaws.auth.InstanceProfileCredentialsProvider
 import com.amazonaws.auth.profile.ProfileCredentialsProvider
@@ -10,7 +9,9 @@ import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import com.gu.mediaservice.lib.logging.GridLogging
 
-class CrierStreamReader(config: UsageConfig) extends GridLogging {
+import scala.concurrent.ExecutionContext
+
+class CrierStreamReader(config: UsageConfig, executionContext: ExecutionContext) extends GridLogging {
 
   lazy val workerId: String = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
@@ -62,20 +63,17 @@ class CrierStreamReader(config: UsageConfig) extends GridLogging {
   private def makeThread(worker: Runnable) =
     new Thread(worker, s"${getClass.getSimpleName}-$workerId")
 
-  private lazy val liveWorkerThread = liveWorker.map(makeThread)
-  private lazy val previewWorkerThread = previewWorker.map(makeThread)
-
   def start() = {
     logger.info("Trying to start Crier Stream Readers")
 
-    liveWorkerThread
-      .map(_.start)
+    liveWorker
+      .map(executionContext.execute)
       .fold(
         e => logger.error("No 'Crier Live Stream reader' thread to start", e),
         _ => logger.info("Starting Crier Live Stream reader")
       )
-    previewWorkerThread
-      .map(_.start)
+    previewWorker
+      .map(executionContext.execute)
       .fold(
         e => logger.error("No 'Crier Preview Stream reader' thread to start", e),
         _ => logger.info("Starting Crier Preview Stream reader")
