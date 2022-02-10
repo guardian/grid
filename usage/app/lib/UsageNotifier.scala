@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import com.gu.mediaservice.syntax.MessageSubjects
@@ -21,7 +21,16 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
       if(potentialIncompleteUsages.contains(mediaUsage)){
         logger.info(s"Accurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB and sent to thrall/ElasticSearch")
       } else {
-        logger.info(s"Inaccurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB, so supplemented before being sent to thrall/ElasticSearch")
+        logger.info(
+          s"Inaccurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB, so supplemented before being sent to thrall/ElasticSearch"
+        )
+        potentialIncompleteUsages.find(_.usageId == mediaUsage.usageId).foreach{ dbMediaUsage =>
+          logger.warn(
+            s"Our 'Inaccurate usages of' message is probably wrong for ${mediaUsage.mediaId}, because there is a match for the usageId but not the whole object: \n" +
+            s"DB Usage: $dbMediaUsage \n" +
+            s"Actual Usage: $mediaUsage"
+          )
+        }
       }
 
       val definitelyCompleteUsages = potentialIncompleteUsages + mediaUsage
