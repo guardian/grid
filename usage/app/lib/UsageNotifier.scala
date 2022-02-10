@@ -16,17 +16,15 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
   extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging with MessageSubjects {
 
   def build(mediaUsage: MediaUsage) = Observable.from(
-    usageTable.queryByImageId(mediaUsage.mediaId).map((potentialIncompleteUsages: Set[MediaUsage]) => {
+    usageTable.queryByImageId(mediaUsage.mediaId).map((usages: Set[MediaUsage]) => {
 
-      if(potentialIncompleteUsages.contains(mediaUsage)){
+      if(usages.contains(mediaUsage)){
         logger.info(s"Accurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB and sent to thrall/ElasticSearch")
       } else {
-        logger.info(s"Inaccurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB, so supplemented before being sent to thrall/ElasticSearch")
+        logger.info(s"Inaccurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB and sent to thrall/ElasticSearch")
       }
 
-      val definitelyCompleteUsages = potentialIncompleteUsages + mediaUsage
-
-      val usageJson = Json.toJson(definitelyCompleteUsages.map(UsageBuilder.build)).as[JsArray]
+      val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsArray]
       UsageNotice(mediaUsage.mediaId, usageJson)
     }))
 
