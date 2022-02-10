@@ -50,4 +50,6 @@ case class MediaUsage(
     } // TODO: This will work for checking if new items have been added/removed
     case _ => false
   }
+
+  override def hashCode(): Int = List(usageId, grouping, dateRemoved.isEmpty).mkString("_").hashCode()
 }
