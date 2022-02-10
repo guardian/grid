@@ -7,6 +7,8 @@ import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
 import rx.lang.scala.{Observable, Subscriber, Subscription}
 
+import scala.concurrent.duration.DurationInt
+
 case class ResetException() extends Exception
 
 class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStream: UsageStream, usageNotice: UsageNotifier, usageNotifier: UsageNotifier) extends StrictLogging {
@@ -113,17 +115,22 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
   }
 
   private def getNotificationStream(dbUpdateStream: Observable[MatchedUsageUpdate]) = {
-    dbUpdateStream.flatMap(matchedUsageUpdates => {
-      def buildNotifications(usages: Set[MediaUsage]) = Observable.from(
-        usages
-          .filter(_.isGridLikeId)
-          .toList.distinct.map(usageNotice.build))
 
-      val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
-      val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
+    dbUpdateStream
+      .delay(5.seconds) // give DynamoDB write to have greater chance of reaching eventual consistency, before reading
+      .flatMap{ matchedUsageUpdates =>
 
-      buildNotifications(usageGroup.usages ++ dbUsageGroup.usages).flatten[UsageNotice]
-    })
+        val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
+        val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
+
+        val usages: Set[MediaUsage] = usageGroup.usages ++ dbUsageGroup.usages
+
+        Observable.from(
+          usages
+            .filter(_.isGridLikeId)
+            .map(usageNotice.build)
+        ).flatten[UsageNotice]
+      }
   }
 
 }
