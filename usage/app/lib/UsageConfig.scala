@@ -42,22 +42,6 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
   val dynamoRegion: Region = RegionUtils.getRegion(string("aws.region"))
   val awsRegionName = string("aws.region")
 
-  val crierLiveKinesisStream = Try { string("crier.live.name") }
-  val crierPreviewKinesisStream = Try { string("crier.preview.name") }
-
-  val crierLiveArn = Try { string("crier.live.arn") }
-  val crierPreviewArn = Try { string("crier.preview.arn") }
-
-  val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
-    liveStream <- crierLiveKinesisStream
-    liveArn <- crierLiveArn
-  } yield KinesisReaderConfig(liveStream, liveArn, liveAppName)
-
-  val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
-    previewStream <- crierPreviewKinesisStream
-    previewArn <- crierPreviewArn
-  } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
-
   private val iamClient: AmazonIdentityManagement = withAWSCredentials(AmazonIdentityManagementClientBuilder.standard()).build()
 
   val postfix: String = if (isDev) {
@@ -74,6 +58,22 @@ class UsageConfig(resources: GridConfigResources) extends CommonConfig(resources
 
   val liveAppName = s"media-service-livex-$postfix"
   val previewAppName = s"media-service-previewx-$postfix"
+
+  val crierLiveKinesisStream = Try { string("crier.live.name") }
+  val crierPreviewKinesisStream = Try { string("crier.preview.name") }
+
+  val crierLiveArn = Try { string("crier.live.arn") }
+  val crierPreviewArn = Try { string("crier.preview.arn") }
+
+  val liveKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+    liveStream <- crierLiveKinesisStream
+    liveArn <- crierLiveArn
+  } yield KinesisReaderConfig(liveStream, liveArn, liveAppName)
+
+  val previewKinesisReaderConfig: Try[KinesisReaderConfig] = for {
+    previewStream <- crierPreviewKinesisStream
+    previewArn <- crierPreviewArn
+  } yield KinesisReaderConfig(previewStream, previewArn, previewAppName)
 
   val apiOnly: Boolean = stringOpt("app.name") match {
     case Some("usage-stream") =>
