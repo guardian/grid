@@ -117,7 +117,6 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
       def buildNotifications(usages: Set[MediaUsage]) = Observable.from(
         usages
           .filter(_.isGridLikeId)
-          .map(_.mediaId)
           .toList.distinct.map(usageNotice.build))
 
       val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
