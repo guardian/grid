@@ -4,7 +4,7 @@ import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibC
 import com.contxt.kinesis.{KinesisRecord, KinesisSource}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.lib.aws.ThrallMessageSender
+import com.gu.mediaservice.lib.aws.{S3Ops, ThrallMessageSender}
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import com.typesafe.scalalogging.StrictLogging
@@ -73,6 +73,15 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   )
 
   val streamRunning: Future[Done] = thrallStreamProcessor.run()
+
+  val s3 = S3Ops.buildS3Client(config)
+  val syncChecker = new SyncChecker(
+    s3,
+    es,
+    config.imageBucket,
+    actorSystem
+  )
+  val syncCheckerStream: Future[Done] = syncChecker.run()
 
   val thrallController = new ThrallController(es, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
   val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)

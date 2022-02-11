@@ -80,16 +80,12 @@ object MigrationSourceWithSender extends GridLogging {
         .mapAsync(1)(identity)
         // flatten out the list of image ids
         .mapConcat(searchHits => {
-          logger.info(s"Flattening ${searchHits.size} image ids to migrate")
+          if (searchHits.nonEmpty) {
+            logger.info(s"Flattening ${searchHits.size} image ids to migrate")
+          }
           searchHits
         })
-        .filter(_ => {
-          es.migrationStatus match {
-            case Paused(_) => false
-            case InProgress(_) => true
-            case _ => false
-          }
-        })
+        .filter(_ => es.migrationIsInProgress)
 
     val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsyncUnordered(parallelism = 50) { searchHit: SearchHit => {
       val imageId = searchHit.id

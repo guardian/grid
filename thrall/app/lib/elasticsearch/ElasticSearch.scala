@@ -11,6 +11,7 @@ import com.gu.mediaservice.model.usage.Usage
 import com.gu.mediaservice.syntax._
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.script.Script
+import com.sksamuel.elastic4s.requests.searches.SearchResponse
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.sort.SortOrder
@@ -21,6 +22,7 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 
 import scala.annotation.nowarn
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 object ImageNotDeletable extends Throwable("Image cannot be deleted")
@@ -30,6 +32,7 @@ class ElasticSearch(
   metrics: Option[ThrallMetrics],
   val scheduler: Scheduler
 ) extends ElasticSearchClient with ImageFields with ElasticSearchExecutions with ThrallMigrationClient {
+
 
   lazy val imagesCurrentAlias: String = config.aliases.current
   lazy val imagesMigrationAlias: String = config.aliases.migration
@@ -535,6 +538,52 @@ class ElasticSearch(
 
     List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
   }
+
+  private val scrollPageSize = 10000
+
+  private def handleImageIdScrollResponse(
+    message: String, response: Response[SearchResponse]
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[String]] = {
+    val ids = response.result.hits.hits.map(_.id)
+    if (response.result.hits.size >= scrollPageSize && response.result.scrollId.isDefined) {
+      continueScrollingImageIds(message, response.result.scrollId.get).map(ids ++ _)
+    } else {
+      if (response.result.scrollId.isDefined) {
+        closeScroll(response.result.scrollId.get)
+      }
+      Future.successful(ids)
+    }
+  }
+  private def continueScrollingImageIds(
+    message: String, scrollId: String
+  )(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Seq[String]] = {
+    val req = searchScroll(scrollId)
+    executeAndLog(req, message)
+      .flatMap(response => handleImageIdScrollResponse(message, response))
+  }
+
+  def listImageIdsWithPrefix(prefix: String)(
+    implicit ec: ExecutionContext, logMarker: LogMarker
+  ): Future[Seq[String]] = {
+    val req = search(imagesCurrentAlias)
+      .size(scrollPageSize)
+      .fetchSource(false)
+      .scroll(60.seconds)
+      .query(prefixQuery("id", prefix))
+    executeAndLog(req, s"listing ids with prefix $prefix")
+      .flatMap(response => handleImageIdScrollResponse(s"listing ids with prefix $prefix", response))
+  }
+
+  def listImageIdsWithUnexpectedFormat()(implicit ec: ExecutionContext, logMarker: LogMarker) = {
+    val req = search(imagesCurrentAlias)
+      .size(scrollPageSize)
+      .fetchSource(false)
+      .scroll(60.seconds)
+      .query(not(regexQuery("id", "[0-9a-f]{40}")))
+    val message = s"listing ids with unexpected format"
+    executeAndLog(req, message).flatMap(response => handleImageIdScrollResponse(message, response))
+  }
+
 
   private val refreshMetadataScript = """
     | ctx._source.metadata = new HashMap();
