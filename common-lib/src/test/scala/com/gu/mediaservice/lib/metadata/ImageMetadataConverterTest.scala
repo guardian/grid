@@ -22,12 +22,12 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
     imageMetadata.suppliersReference should be ('empty)
     imageMetadata.source should be ('empty)
     imageMetadata.specialInstructions should be ('empty)
-    imageMetadata.keywords should be ('empty)
+    imageMetadata.keywords should be (Some(Nil))
     imageMetadata.subLocation should be ('empty)
     imageMetadata.city should be ('empty)
     imageMetadata.state should be ('empty)
     imageMetadata.country should be ('empty)
-    imageMetadata.peopleInImage should be ('empty)
+    imageMetadata.peopleInImage should be (Some(Set()))
   }
 
   it("should populate string fields of ImageMetadata from default FileMetadata fields") {
@@ -299,13 +299,13 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
   it("should populate keywords field of ImageMetadata from comma-separated list of keywords") {
     val fileMetadata = FileMetadata(Map("Keywords" -> "Foo,Bar, Baz"), Map(), Map(), Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(List("Foo", "Bar", "Baz"))
+    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
   }
 
   it("should populate keywords field of ImageMetadata from semi-colon-separated list of keywords") {
     val fileMetadata = FileMetadata(Map("Keywords" -> "Foo;Bar; Baz"), Map(), Map(), Map())
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(List("Foo", "Bar", "Baz"))
+    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
   }
 
   it("should populate keywords field of ImageMetadata from dc-subjects") {
@@ -315,7 +315,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
       exifSub = Map(),
       xmp = Map("dc:subject"-> JsArray(Seq(JsString("Foo"), JsString("Bar"), JsString("Baz")))))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(List("Foo", "Bar", "Baz"))
+    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
   }
 
   it("should populate keywords field of ImageMetadata from dc-subjectsin preference to keywords") {
@@ -324,7 +324,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
       exif = Map(), exifSub = Map(),
       xmp = Map("dc:subject"-> JsArray(Seq(JsString("Foo"), JsString("Bar"), JsString("Baz")))))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.keywords should be(List("Foo", "Bar", "Baz"))
+    imageMetadata.keywords should be(Some(List("Foo", "Bar", "Baz")))
   }
 
   it("should leave non-dates alone") {
@@ -387,7 +387,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
   it("should populate peopleInImage field of ImageMetadata from corresponding xmp iptc ext fields") {
     val fileMetadata = FileMetadata(Map(), Map(), Map(), Map("Iptc4xmpExt:PersonInImage" -> JsArray(Seq(JsString("person 1")))))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.peopleInImage should be (Set("person 1"))
+    imageMetadata.peopleInImage should be (Some(Set("person 1")))
   }
 
   it("should populate peopleInImage field of ImageMetadata from multiple corresponding people xmp fields") {
@@ -403,7 +403,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
       )
     )
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.peopleInImage should be (Set("person 1","person 2","person 3","person 4"))
+    imageMetadata.peopleInImage should be (Some(Set("person 1","person 2","person 3","person 4")))
   }
 
   it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp iptc ext fields") {
@@ -416,7 +416,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
         ))
       ))
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.peopleInImage should be (Set("person 1","person 2"))
+    imageMetadata.peopleInImage should be (Some(Set("person 1","person 2")))
   }
 
   it("should distinctly populate peopleInImage field of ImageMetadata from multiple corresponding xmp people fields") {
@@ -432,7 +432,7 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
       )
     )
     val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
-    imageMetadata.peopleInImage should be (Set("person 1","person 2"))
+    imageMetadata.peopleInImage should be (Some(Set("person 1","person 2")))
   }
 
   private def day(y:Int, M:Int = 1, d:Int = 1, h:Int = 0, m:Int = 0, s:Int = 0, ss:Int = 0) =

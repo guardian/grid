@@ -74,7 +74,7 @@ trait Fixtures {
       optimisedPng = None,
       fileMetadata = fileMetadata.getOrElse(FileMetadata()),
       userMetadata = None,
-      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = List("test", "es")),
+      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = Some(List("test", "es"))),
       originalMetadata = ImageMetadata(),
       usageRights = usageRights,
       originalUsageRights = usageRights,

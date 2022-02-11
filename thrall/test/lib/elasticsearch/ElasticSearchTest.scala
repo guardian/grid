@@ -28,7 +28,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           val userMetadata = Some(Edits(metadata = ImageMetadata(
             description = Some("My boring image"),
             title = Some("User supplied title"),
-            subjects = List("foo", "bar"),
+            subjects = Some(List("foo", "bar")),
             specialInstructions = Some("Testing")
           )))
 
@@ -636,7 +636,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         ES.migrationAwareIndexImage(id, image, now)
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
 
-        val userMetadata = ImageMetadata(description = Some("An updated image"), subjects = List("sausages"))
+        val userMetadata = ImageMetadata(description = Some("An updated image"), subjects = Some(List("sausages")))
         val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
 
         Await.result(Future.sequence(
@@ -646,10 +646,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
-        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages")
+        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual Some(List("sausages"))
         reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo")
 
-        val furtherUpdatedMetadata = userMetadata.copy(description = Some("A further updated image"), subjects = List("sausages", "chips"))
+        val furtherUpdatedMetadata = userMetadata.copy(description = Some("A further updated image"), subjects = Some(List("sausages", "chips")))
 
         Await.result(Future.sequence(
           ES.applyImageMetadataOverride(id,
@@ -658,7 +658,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldEqual Some("A further updated image")
-        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual List("sausages", "chips")
+        reloadedImage(id).get.userMetadata.get.metadata.subjects shouldEqual Some(List("sausages", "chips"))
         reloadedImage(id).get.userMetadata.get.labels shouldEqual List("foo", "bar")
       }
 
