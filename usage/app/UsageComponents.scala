@@ -15,16 +15,15 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageMetadataBuilder = new UsageMetadataBuilder(config)
   val mediaWrapper = new MediaWrapperOps(usageMetadataBuilder)
   val liveContentApi = new LiveContentApi(config)
-  val usageGroup = new UsageGroupOps(config, liveContentApi, mediaWrapper)
+  val usageGroupOps = new UsageGroupOps(config, liveContentApi, mediaWrapper)
   val usageTable = new UsageTable(config)
   val usageMetrics = new UsageMetrics(config)
   val usageNotifier = new UsageNotifier(config, usageTable)
-  val usageStream = new UsageStream(usageGroup)
-  val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageStream, usageNotifier, usageNotifier)
+  val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier)
   val notifications = new Notifications(config)
 
   if(!config.apiOnly) {
-    val crierReader = new CrierStreamReader(config, executionContext)
+    val crierReader = new CrierStreamReader(config, usageGroupOps, executionContext)
     crierReader.start()
   }
 
@@ -34,7 +33,7 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
     Future.successful(())
   })
 
-  val controller = new UsageApi(auth, authorisation, usageTable, usageGroup, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
+  val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder.usageApiSubject, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 

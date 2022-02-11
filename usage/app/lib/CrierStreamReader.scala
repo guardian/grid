@@ -8,10 +8,11 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.{IRecordProcessor, IRecordProcessorFactory}
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.{InitialPositionInStream, KinesisClientLibConfiguration, Worker}
 import com.gu.mediaservice.lib.logging.GridLogging
+import model.UsageGroupOps
 
 import scala.concurrent.ExecutionContext
 
-class CrierStreamReader(config: UsageConfig, executionContext: ExecutionContext) extends GridLogging {
+class CrierStreamReader(config: UsageConfig, usageGroupOps: UsageGroupOps, executionContext: ExecutionContext) extends GridLogging {
 
   lazy val workerId: String = InetAddress.getLocalHost.getCanonicalHostName + ":" + UUID.randomUUID()
 
@@ -49,12 +50,12 @@ class CrierStreamReader(config: UsageConfig, executionContext: ExecutionContext)
 
   protected val LiveEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
-      new CrierLiveEventProcessor(config)
+      new CrierLiveEventProcessor(config, usageGroupOps)
   }
 
   protected val PreviewEventProcessorFactory = new IRecordProcessorFactory {
     override def createProcessor(): IRecordProcessor =
-      new CrierPreviewEventProcessor(config)
+      new CrierPreviewEventProcessor(config, usageGroupOps)
   }
 
   lazy val liveWorker = liveConfig.map(new Worker.Builder().recordProcessorFactory(LiveEventProcessorFactory).config(_).build())

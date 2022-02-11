@@ -5,45 +5,29 @@ import com.typesafe.scalalogging.StrictLogging
 import model._
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
-import rx.lang.scala.{Observable, Subscriber, Subscription}
+import rx.lang.scala.{Observable, Subject, Subscriber, Subscription}
 
 import scala.concurrent.duration.DurationInt
 
 case class ResetException() extends Exception
 
-class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStream: UsageStream, usageNotice: UsageNotifier, usageNotifier: UsageNotifier) extends StrictLogging {
-  val usageSubject = PublishSubject[UsageGroup]()
-  val previewUsageStream: Observable[UsageGroup] = usageStream.previewObservable.merge(usageSubject)
-  val liveUsageStream: Observable[UsageGroup] = usageStream.liveObservable.merge(usageSubject)
+class UsageRecorder(
+  usageMetrics: UsageMetrics,
+  usageTable: UsageTable,
+  usageNotice: UsageNotifier,
+  usageNotifier: UsageNotifier
+) extends StrictLogging {
 
-  val subscriber = Subscriber((_:Any) => logger.debug(s"Sent Usage Notification"))
+  val usageApiSubject: Subject[UsageGroup] = PublishSubject[UsageGroup]()
+  val combinedObservable: Observable[UsageGroup] = CrierUsageStream.observable.merge(usageApiSubject)
 
-  var subscribeToPreview: Option[Subscription] = None
-  var subscribeToLive: Option[Subscription] = None
+  val subscriber: Subscriber[Unit] = Subscriber((_: Unit) => logger.debug(s"Sent Usage Notification"))
+  var maybeSubscription: Option[Subscription] = None
 
-  def recordUpdate(update: JsObject): JsObject = {
-    logger.info(s"Usage update processed: $update")
-    usageMetrics.incrementUpdated
-
-    update
-  }
-
-  val previewDbMatchStream: Observable[MatchedUsageGroup] = previewUsageStream.flatMap(matchDb)
-  val liveDbMatchStream: Observable[MatchedUsageGroup] = liveUsageStream.flatMap(matchDb)
+  val dbMatchStream: Observable[MatchedUsageGroup] = combinedObservable.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsageGroup: UsageGroup)
   case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
-
-  def start(): Unit = {
-    // Eval subscription to start stream
-    subscribeToPreview = Some(previewObservable.subscribe(subscriber))
-    subscribeToLive = Some(liveObservable.subscribe(subscriber))
-  }
-
-  def stop(): Unit = {
-    subscribeToPreview.foreach(_.unsubscribe())
-    subscribeToLive.foreach(_.unsubscribe())
-  }
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
     .retry((_, error) => {
@@ -58,32 +42,22 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
       matchedUsageGroup
     })
 
-  val previewDbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(previewDbMatchStream)
-  val liveDbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(liveDbMatchStream)
+  val dbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(dbMatchStream)
 
-  val previewNotificationStream: Observable[UsageNotice] = getNotificationStream(previewDbUpdateStream)
-  val liveNotificationStream: Observable[UsageNotice] = getNotificationStream(liveDbUpdateStream)
+  val notificationStream: Observable[UsageNotice] = getNotificationStream(dbUpdateStream)
 
-  val distinctPreviewNotificationStream: Observable[UsageNotice] = previewNotificationStream.groupBy(_.mediaId).flatMap {
+  val distinctNotificationStream: Observable[UsageNotice] = notificationStream.groupBy(_.mediaId).flatMap {
     case (_, s) => s.distinctUntilChanged
   }
 
-  val distinctLiveNotificationStream: Observable[UsageNotice] = liveNotificationStream.groupBy(_.mediaId).flatMap {
-    case (_, s) => s.distinctUntilChanged
-  }
+  val notifiedStream: Observable[Unit] = distinctNotificationStream.map(usageNotifier.send)
 
-  val previewNotifiedStream: Observable[Unit] = distinctPreviewNotificationStream.map(usageNotifier.send)
-  val liveNotifiedStream: Observable[Unit] = distinctLiveNotificationStream.map(usageNotifier.send)
-
-  def reportStreamError(i: Int, error: Throwable): Boolean = {
+  val finalObservable: Observable[Unit] = notifiedStream.retry((_, error) => {
     logger.error("UsageRecorder encountered an error.", error)
     usageMetrics.incrementErrors
 
     true
-  }
-
-  val previewObservable: Observable[Unit] = previewNotifiedStream.retry((i, e) => reportStreamError(i,e))
-  val liveObservable: Observable[Unit] = liveNotifiedStream.retry((i, e) => reportStreamError(i,e))
+  })
 
   private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
     dbMatchStream.flatMap(matchUsageGroup => {
@@ -106,10 +80,15 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
       val updates = (if(usageGroup.isReindex) Set() else usageGroup.usages & dbUsageGroup.usages)
         .map(usageTable.update)
 
-      logger.info(s"DB Operations d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-$uuid)")
+      logger.info(s"DB Operations for ${usageGroup.grouping} d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-$uuid)")
 
       Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
-        .map(recordUpdate)
+        .map{update =>
+          logger.info(s"Usage update processed: $update")
+          usageMetrics.incrementUpdated
+
+          update
+        }
         .toSeq.map(MatchedUsageUpdate(_, matchUsageGroup))
     })
   }
@@ -131,6 +110,15 @@ class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStr
             .map(usageNotice.build)
         ).flatten[UsageNotice]
       }
+  }
+
+  def start(): Unit = {
+    // Eval subscription to start stream
+    maybeSubscription = Some(finalObservable.subscribe(subscriber))
+  }
+
+  def stop(): Unit = {
+    maybeSubscription.foreach(_.unsubscribe())
   }
 
 }

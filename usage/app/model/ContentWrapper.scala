@@ -17,7 +17,6 @@ object ContentWrapper {
     extractId(content).map(ContentWrapper(_, status, lastModified, content))
   }
 
-  def extractId(content: Content): Option[String] = {
-    content.fields.flatMap(_.internalComposerCode).map(composerId => s"composer/${composerId}")
-  }
+  def extractId(content: Content): Option[String] =
+    content.fields.flatMap(_.internalComposerCode).map(composerId => s"composer/$composerId")
 }
