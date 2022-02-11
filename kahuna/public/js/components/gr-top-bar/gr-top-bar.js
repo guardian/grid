@@ -1,5 +1,6 @@
 import angular from 'angular';
 import './gr-top-bar.css';
+import template from './gr-top-bar.html';
 
 export var topBar = angular.module('gr.topBar', []);
 
@@ -22,7 +23,7 @@ topBar.directive('grTopBarNav', [function() {
         transclude: true,
         // Annoying to have to hardcode root route here, but only
         // way I found to clear $stateParams from uiRouter...
-        template: `${window._clientConfig.homeLinkHtml || '<a href="/search" class="home-link" title="Home" role="link" aria-label="Go to Home">Home</a>'}
+        template: `${window._clientConfig.homeLinkHtml || template }
                    <ng:transclude></ng:transclude>`
     };
 }]);

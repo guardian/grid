@@ -6,6 +6,7 @@ import angular from 'angular';
 // import 'angular-animate';
 import moment from 'moment';
 import {eq} from '../util/eq';
+import '../util/storage';
 import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
@@ -17,7 +18,8 @@ export var query = angular.module('kahuna.search.query', [
     eq.name,
     guDateRange.name,
     syntax.name,
-    grStructuredQuery.name
+    grStructuredQuery.name,
+    'util.storage'
 ]);
 
 query.controller('SearchQueryCtrl', [
@@ -26,8 +28,9 @@ query.controller('SearchQueryCtrl', [
   '$state',
   '$stateParams',
   'onValChange',
+  'storage',
   'mediaApi',
-  function($rootScope, $scope, $state, $stateParams, onValChange, mediaApi) {
+  function($rootScope, $scope, $state, $stateParams, onValChange, storage, mediaApi) {
 
     const ctrl = this;
 
@@ -144,8 +147,24 @@ query.controller('SearchQueryCtrl', [
 
 
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
+        storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
+
         filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
+
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
+
+
+        const defaultNonFreeFilter = storage.getJs("defaultNonFreeFilter", true);
+        if (defaultNonFreeFilter && defaultNonFreeFilter.isDefault === true){
+          let newNonFree = defaultNonFreeFilter.isNonFree ? "true" : undefined;
+          if (newNonFree !== filter.nonFree){
+                storage.setJs("isNonFree", newNonFree ? newNonFree : false, true);
+                storage.setJs("isUploadedByMe", false, true);
+                storage.setJs("defaultNonFreeFilter", {isDefault: false, isNonFree: false}, true);
+          }
+          Object.assign(filter, {nonFree: newNonFree, uploadedByMe: false, uploadedBy: undefined});
+        }
 
         $state.go('search.results', filter);
     }));
@@ -170,12 +189,27 @@ query.controller('SearchQueryCtrl', [
     // we can't user dynamic values in the ng:true-value see:
     // https://docs.angularjs.org/error/ngModel/constexpr
     mediaApi.getSession().then(session => {
-        ctrl.user = session.user;
-        ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
+        const isNonFree = storage.getJs("isNonFree", true);
+        const isUploadedByMe = storage.getJs("isUploadedByMe", true);
 
-        if (ctrl.filter.nonFree === undefined) {
+        ctrl.user = session.user;
+        if (isUploadedByMe === null) {
+              ctrl.filter.uploadedByMe = ctrl.uploadedBy === ctrl.user.email;
+              storage.setJs("isUploadedByMe",ctrl.filter.uploadedByMe);
+        }
+        else {
+          ctrl.filter.uploadedByMe =  isUploadedByMe;
+        }
+
+        if (isNonFree === null) {
           ctrl.filter.nonFree = session.user.permissions.showPaid ?
             session.user.permissions.showPaid : undefined;
+            storage.setJs("isNonFree", session.user.permissions.showPaid ? session.user.permissions.showPaid : false);
+        }
+        else if (isNonFree === true || isNonFree === "true") {
+            ctrl.filter.nonFree = true;
+        } else {
+          ctrl.filter.nonFree = undefined;
         }
     });
 
