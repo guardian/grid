@@ -60,6 +60,7 @@ module.controller('grImageMetadataCtrl', [
       inject$($scope, Rx.Observable.fromPromise(selectedUsageCategory(ctrl.usageRights)), ctrl, 'usageCategory');
       ctrl.rawMetadata = rawMetadata();
       ctrl.metadata = displayMetadata();
+      ctrl.newPeopleInImage = "";
       ctrl.extraInfo = extraInfo();
       if (ctrl.singleImage) {
         updateSingleImage();

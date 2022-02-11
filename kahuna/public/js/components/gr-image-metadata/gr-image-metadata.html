@@ -375,7 +375,7 @@
                     </span>
                 </button>
                 <span ng-class="{'image-info--multiple': ctrl.selectedImages.size > 0}"
-                      editable-text="ctrl.metadata.peopleInImage"
+                      editable-text="ctrl.newPeopleInImage"
                       ng-hide="peopleInImageEditForm.$visible"
                       onbeforesave="ctrl.updateMetadataField('peopleInImage', $data)"
                       e:form="peopleInImageEditForm"
