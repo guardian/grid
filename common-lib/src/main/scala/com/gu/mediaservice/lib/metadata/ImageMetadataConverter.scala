@@ -10,7 +10,7 @@ import play.api.libs.json.{JsArray, JsString, JsValue}
 
 object ImageMetadataConverter extends GridLogging {
 
-  private def extractSubjects(fileMetadata: FileMetadata): List[String] = {
+  private def extractSubjects(fileMetadata: FileMetadata): Option[List[String]] = {
     val supplementalCategories = fileMetadata.iptc
       .get("Supplemental Category(s)")
       .toList.flatMap(_.split("\\s+"))
@@ -18,10 +18,10 @@ object ImageMetadataConverter extends GridLogging {
     val category = fileMetadata.iptc
       .get("Category")
 
-    (supplementalCategories ::: category.toList)
+    Some((supplementalCategories ::: category.toList)
       .flatMap(Subject.create)
       .map(_.toString)
-      .distinct
+      .distinct)
   }
 
   private def extractXMPArrayStrings(field: String, fileMetadata: FileMetadata): Seq[String] = fileMetadata.xmp.get(field) match {
@@ -33,20 +33,20 @@ object ImageMetadataConverter extends GridLogging {
     case _ => List()
   }
 
-  private def extractPeople(fileMetadata: FileMetadata): Set[String] = {
+  private def extractPeople(fileMetadata: FileMetadata): Option[Set[String]] = {
     val xmpIptcPeople = extractXMPArrayStrings("Iptc4xmpExt:PersonInImage", fileMetadata)
     val xmpGettyPeople = extractXMPArrayStrings("GettyImagesGIFT:Personality", fileMetadata)
-    (xmpIptcPeople ++ xmpGettyPeople).toSet
+    Some((xmpIptcPeople ++ xmpGettyPeople).toSet)
   }
 
-  private def extractKeywords(fileMetadata: FileMetadata): List[String] = {
+  private def extractKeywords(fileMetadata: FileMetadata): Option[List[String]] = {
     val fromXMP =  extractXMPArrayStrings("dc:subject", fileMetadata).toList
     val fromIPTC= fileMetadata.iptc.get("Keywords") map (_.split(Array(';', ',')).distinct.map(_.trim).toList) getOrElse Nil
-    (fromXMP, fromIPTC) match {
+    Some((fromXMP, fromIPTC) match {
       case (xmp, _)  if xmp.nonEmpty  => xmp
       case (_, iptc) if iptc.nonEmpty => iptc
       case _ => Nil
-    }
+    })
   }
 
   def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None): ImageMetadata = {
