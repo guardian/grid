@@ -1,6 +1,6 @@
 package model
 
-import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
@@ -77,10 +77,13 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
     Observable.from(Future {
       val grouping = usageGroup.grouping
-      val keyAttribute = new KeyAttribute("grouping", grouping)
 
-      logger.info(s"Querying table for $grouping - $status")
-      val queryResult = table.query(keyAttribute)
+      logger.info(s"Querying table for $grouping")
+      val queryResult = table.query(
+        new QuerySpec()
+          .withConsistentRead(true)
+          .withHashKey(new KeyAttribute("grouping", grouping))
+      )
 
       val usages = queryResult.asScala
         .map(ItemToMediaUsage.transform)
