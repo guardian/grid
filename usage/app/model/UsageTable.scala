@@ -99,31 +99,27 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
   }
 
   def create(mediaUsage: MediaUsage): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
+    upsertFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
 
   def update(mediaUsage: MediaUsage): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
+    upsertFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
-  def delete(mediaUsage: MediaUsage): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildDeleteRecord(mediaUsage))
+  def markAsRemoved(mediaUsage: MediaUsage): Observable[JsObject] =
+    upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage))
 
   def deleteRecord(mediaUsage: MediaUsage) = {
-    val record = UsageRecord.buildDeleteRecord(mediaUsage)
-
     logger.info(s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
 
     val deleteSpec = new DeleteItemSpec()
       .withPrimaryKey(
-        hashKeyName,
-        record.hashKey,
-        rangeKeyName,
-        record.rangeKey
+        hashKeyName, mediaUsage.grouping,
+        rangeKeyName, mediaUsage.usageId.toString
       )
 
     table.deleteItem(deleteSpec)
   }
 
-  def updateFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
+  def upsertFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
 
      val updateSpec = new UpdateItemSpec()
       .withPrimaryKey(

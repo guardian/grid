@@ -1,7 +1,7 @@
 package lib
 
+import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
-import com.typesafe.scalalogging.StrictLogging
 import model._
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
@@ -16,7 +16,7 @@ class UsageRecorder(
   usageTable: UsageTable,
   usageNotice: UsageNotifier,
   usageNotifier: UsageNotifier
-) extends StrictLogging {
+) extends GridLogging {
 
   val usageApiSubject: Subject[UsageGroup] = PublishSubject[UsageGroup]()
   val combinedObservable: Observable[UsageGroup] = CrierUsageStream.observable.merge(usageApiSubject)
@@ -60,34 +60,43 @@ class UsageRecorder(
   private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
     dbMatchStream.flatMap(matchedUsageGroup => {
       // Generate unique UUID to track extract job
-      val uuid = java.util.UUID.randomUUID.toString
+      val logMarker = MarkerMap(
+        "job-uuid" -> java.util.UUID.randomUUID.toString
+      )
 
       val dbUsages = matchedUsageGroup.dbUsages
       val usageGroup   = matchedUsageGroup.usageGroup
 
-      dbUsages.foreach(g => {
-        logger.info(s"Seen DB Usage for ${g.mediaId} (job-$uuid)")
+      dbUsages.foreach(mediaUsage => {
+        logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}")
       })
-      usageGroup.usages.foreach(g => {
-        logger.info(s"Seen Stream Usage for ${g.mediaId} (job-$uuid)")
+      usageGroup.usages.foreach(mediaUsage => {
+        logger.info(logMarker, s"Seen Stream Usage for ${mediaUsage.mediaId}")
       })
 
-      val deletes = (dbUsages -- usageGroup.usages).map(usageTable.delete)
-      val creates = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages -- dbUsages)
-        .map(usageTable.create)
-      val updates = (if(usageGroup.isReindex) Set() else usageGroup.usages & dbUsages)
-        .map(usageTable.update)
+      def performAndLogDBOperation(func: MediaUsage => Observable[JsObject], opName: String)(mediaUsage: MediaUsage) = {
+        val result = func(mediaUsage)
+        logger.info(
+          logMarker,
+          s"'$opName' DB Operation for ${mediaUsage.grouping} -  on mediaID: ${mediaUsage.mediaId} with result: ${result}"
+        )
+        result
+      }
 
-      logger.info(s"DB Operations for ${usageGroup.grouping} d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-$uuid)")
+      val markAsRemovedOps = (dbUsages diff usageGroup.usages)
+        .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
 
-      Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
-        .map{update =>
-          logger.info(s"Usage update processed: $update")
+      val createOps = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages diff dbUsages)
+        .map(performAndLogDBOperation(usageTable.create, "create"))
+
+      val updateOps = (if(usageGroup.isReindex) Set() else usageGroup.usages intersect dbUsages)
+        .map(performAndLogDBOperation(usageTable.update, "update"))
+
+      Observable.from(markAsRemovedOps ++ updateOps ++ createOps).flatten[JsObject].toSeq
+        .map{updates =>
           usageMetrics.incrementUpdated
-
-          update
+          MatchedUsageUpdate(updates, matchedUsageGroup)
         }
-        .toSeq.map(MatchedUsageUpdate(_, matchedUsageGroup))
     })
   }
 
