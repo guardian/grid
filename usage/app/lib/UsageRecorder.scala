@@ -96,7 +96,7 @@ class UsageRecorder(
   private def getNotificationStream(dbUpdateStream: Observable[MatchedUsageUpdate]) = {
 
     dbUpdateStream
-      .delay(15.seconds) // give DynamoDB write to have greater chance of reaching eventual consistency, before reading
+      .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
       .flatMap{ matchedUsageUpdates =>
 
         val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
