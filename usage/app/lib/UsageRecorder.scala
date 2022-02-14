@@ -30,17 +30,15 @@ class UsageRecorder(
   case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
-    .retry((_, error) => {
+    .retry((retriesSoFar, error) => {
       logger.error(s"Encountered an error trying to match usage group (${usageGroup.grouping}", error)
 
-      true
+      true // TODO check 'retriesSoFar' so we don't retry forever 🙀
     })
-    .map(MatchedUsageGroup(usageGroup, _))
-    .map(matchedUsageGroup => {
+    .map{dbUsageGroup =>
       logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
-
-      matchedUsageGroup
-    })
+      MatchedUsageGroup(usageGroup, dbUsageGroup)
+    }
 
   val dbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(dbMatchStream)
 

@@ -12,8 +12,7 @@ import lib.MediaUsageBuilder
 case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
-  status: UsageStatus,
-  lastModified: DateTime,
+  lastModified: Option[DateTime], //TODO consider having two case classes one with (for incoming UsageGroup), one without this field (for DB UsageGroup)
   isReindex: Boolean = false
 )
 class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWrapperOps: MediaWrapperOps)
@@ -53,7 +52,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
       logger.info(s"Built UsageGroup: ${contentWrapper.id}")
-      UsageGroup(usages.toSet, contentWrapper.id, status, lastModified, isReindex)
+      UsageGroup(usages.toSet, contentWrapper.id, Some(lastModified), isReindex)
     })
 
   def build(printUsageRecords: List[PrintUsageRecord]) =
@@ -63,8 +62,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       UsageGroup(
         Set(MediaUsageBuilder.build(printUsageRecord, usageId, buildId(printUsageRecord))),
         usageId.toString,
-        printUsageRecord.usageStatus,
-        printUsageRecord.dateAdded
+        Some(printUsageRecord.dateAdded)
       )
     })
 
@@ -73,8 +71,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     UsageGroup(
       Set(MediaUsageBuilder.build(syndicationUsageRequest, usageGroupId)),
       usageGroupId,
-      syndicationUsageRequest.status,
-      syndicationUsageRequest.dateAdded
+      Some(syndicationUsageRequest.dateAdded)
     )
   }
 
@@ -83,8 +80,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     UsageGroup(
       Set(MediaUsageBuilder.build(frontUsageRequest, usageGroupId)),
       usageGroupId,
-      frontUsageRequest.status,
-      frontUsageRequest.dateAdded
+      Some(frontUsageRequest.dateAdded)
     )
   }
 
@@ -93,8 +89,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     UsageGroup(
       Set(MediaUsageBuilder.build(downloadUsageRequest, usageGroupId)),
       usageGroupId,
-      downloadUsageRequest.status,
-      downloadUsageRequest.dateAdded
+      Some(downloadUsageRequest.dateAdded)
     )
   }
 

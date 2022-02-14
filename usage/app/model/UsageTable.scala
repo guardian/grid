@@ -45,6 +45,8 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
     val fullSet = queryResult.asScala.map(ItemToMediaUsage.transform).toSet[MediaUsage]
 
+    // FIXME sort by lastModified to ensure correct usage row is chosen, where there are multiple (because pending vs published vs removed)
+
     hidePendingIfPublished(
       hidePendingIfRemoved(fullSet))
   }
@@ -74,7 +76,6 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
     Observable.from(Future {
-      val status = usageGroup.status
       val grouping = usageGroup.grouping
       val keyAttribute = new KeyAttribute("grouping", grouping)
 
@@ -83,12 +84,11 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
       val usages = queryResult.asScala
         .map(ItemToMediaUsage.transform)
-        .filter(_.status == status)
         .toSet
 
       logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
-      UsageGroup(usages, grouping, usageGroup.status, new DateTime)
+      UsageGroup(usages, grouping, lastModified = None)
     })
   }
 
