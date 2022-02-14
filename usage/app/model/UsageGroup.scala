@@ -102,20 +102,22 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
 
     logger.info(s"Extracting images (job-$uuid) from ${content.id}")
 
-    val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).zipWithIndex.flatMap { case (atom, index) =>
+    val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).flatMap { atom =>
       getImageId(atom) match {
         case Some(id) =>
-          val mediaWrapper = mediaWrapperOps.build(index, id, contentWrapper, buildId(contentWrapper))
+          val mediaWrapper = mediaWrapperOps.build(id, contentWrapper, buildId(contentWrapper))
           val usage = MediaUsageBuilder.build(mediaWrapper)
           Seq(createUsagesLogging(usage))
         case None => Seq.empty
       }
     }
-    val imageElementUsages = extractImageElements(uuid, content, usageStatus, isReindex).zipWithIndex.map { case (element, index) =>
-      val mediaWrapper = mediaWrapperOps.build(index, element.id, contentWrapper, buildId(contentWrapper))
+    val imageElementUsages = extractImageElements(uuid, content, usageStatus, isReindex).map { element =>
+      val mediaWrapper = mediaWrapperOps.build(element.id, contentWrapper, buildId(contentWrapper))
       val usage = MediaUsageBuilder.build(mediaWrapper)
       createUsagesLogging(usage)
     }
+
+    // TODO capture images from interactive embeds
 
     mediaAtomsUsages ++ imageElementUsages
   }
@@ -230,7 +232,6 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
 }
 
 case class MediaWrapper(
-    index: Int,
     mediaId: String,
     usageGroupId: String,
     contentStatus: UsageStatus,
@@ -238,8 +239,8 @@ case class MediaWrapper(
     lastModified: DateTime)
 
 class MediaWrapperOps(usageMetadataBuilder: UsageMetadataBuilder) {
-  def build(index: Int, mediaId: String, contentWrapper: ContentWrapper, usageGroupId: String): MediaWrapper = {
+  def build(mediaId: String, contentWrapper: ContentWrapper, usageGroupId: String): MediaWrapper = {
     val usageMetadata = usageMetadataBuilder.build(contentWrapper.content)
-    MediaWrapper(index, mediaId, usageGroupId, contentWrapper.status, usageMetadata, contentWrapper.lastModified)
+    MediaWrapper(mediaId, usageGroupId, contentWrapper.status, usageMetadata, contentWrapper.lastModified)
   }
 }
