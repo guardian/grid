@@ -26,7 +26,7 @@ class UsageRecorder(
 
   val dbMatchStream: Observable[MatchedUsageGroup] = combinedObservable.flatMap(matchDb)
 
-  case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsageGroup: UsageGroup)
+  case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
   case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
@@ -35,9 +35,9 @@ class UsageRecorder(
 
       true // TODO check 'retriesSoFar' so we don't retry forever 🙀
     })
-    .map{dbUsageGroup =>
+    .map{dbUsages =>
       logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
-      MatchedUsageGroup(usageGroup, dbUsageGroup)
+      MatchedUsageGroup(usageGroup, dbUsages)
     }
 
   val dbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(dbMatchStream)
@@ -58,24 +58,24 @@ class UsageRecorder(
   })
 
   private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
-    dbMatchStream.flatMap(matchUsageGroup => {
+    dbMatchStream.flatMap(matchedUsageGroup => {
       // Generate unique UUID to track extract job
       val uuid = java.util.UUID.randomUUID.toString
 
-      val dbUsageGroup = matchUsageGroup.dbUsageGroup
-      val usageGroup   = matchUsageGroup.usageGroup
+      val dbUsages = matchedUsageGroup.dbUsages
+      val usageGroup   = matchedUsageGroup.usageGroup
 
-      dbUsageGroup.usages.foreach(g => {
+      dbUsages.foreach(g => {
         logger.info(s"Seen DB Usage for ${g.mediaId} (job-$uuid)")
       })
       usageGroup.usages.foreach(g => {
         logger.info(s"Seen Stream Usage for ${g.mediaId} (job-$uuid)")
       })
 
-      val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(usageTable.delete)
-      val creates = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages -- dbUsageGroup.usages)
+      val deletes = (dbUsages -- usageGroup.usages).map(usageTable.delete)
+      val creates = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages -- dbUsages)
         .map(usageTable.create)
-      val updates = (if(usageGroup.isReindex) Set() else usageGroup.usages & dbUsageGroup.usages)
+      val updates = (if(usageGroup.isReindex) Set() else usageGroup.usages & dbUsages)
         .map(usageTable.update)
 
       logger.info(s"DB Operations for ${usageGroup.grouping} d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-$uuid)")
@@ -87,7 +87,7 @@ class UsageRecorder(
 
           update
         }
-        .toSeq.map(MatchedUsageUpdate(_, matchUsageGroup))
+        .toSeq.map(MatchedUsageUpdate(_, matchedUsageGroup))
     })
   }
 
@@ -98,9 +98,9 @@ class UsageRecorder(
       .flatMap{ matchedUsageUpdates =>
 
         val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
-        val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
+        val dbUsages = matchedUsageUpdates.matchUsageGroup.dbUsages
 
-        val usages: Set[MediaUsage] = usageGroup.usages ++ dbUsageGroup.usages
+        val usages: Set[MediaUsage] = usageGroup.usages ++ dbUsages
 
         Observable.from(
           usages

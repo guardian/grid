@@ -75,7 +75,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       }
   }.toList
 
-  def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] = {
+  def matchUsageGroup(usageGroup: UsageGroup): Observable[Set[MediaUsage]] = {
     logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
     Observable.from(Future {
@@ -94,7 +94,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
       logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
-      UsageGroup(usages, grouping, lastModified = None)
+      usages
     })
   }
 

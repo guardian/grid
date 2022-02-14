@@ -12,7 +12,7 @@ import lib.MediaUsageBuilder
 case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
-  lastModified: Option[DateTime], //TODO consider having two case classes one with (for incoming UsageGroup), one without this field (for DB UsageGroup)
+  lastModified: DateTime,
   isReindex: Boolean = false
 )
 class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWrapperOps: MediaWrapperOps)
@@ -52,7 +52,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
       logger.info(s"Built UsageGroup: ${contentWrapper.id}")
-      UsageGroup(usages.toSet, contentWrapper.id, Some(lastModified), isReindex)
+      UsageGroup(usages.toSet, contentWrapper.id, lastModified, isReindex)
     })
 
   def build(printUsageRecords: List[PrintUsageRecord]) =
@@ -62,7 +62,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
       UsageGroup(
         Set(MediaUsageBuilder.build(printUsageRecord, usageId, buildId(printUsageRecord))),
         usageId.toString,
-        Some(printUsageRecord.dateAdded)
+        printUsageRecord.dateAdded
       )
     })
 
@@ -71,7 +71,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     UsageGroup(
       Set(MediaUsageBuilder.build(syndicationUsageRequest, usageGroupId)),
       usageGroupId,
-      Some(syndicationUsageRequest.dateAdded)
+      syndicationUsageRequest.dateAdded
     )
   }
 
@@ -80,7 +80,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     UsageGroup(
       Set(MediaUsageBuilder.build(frontUsageRequest, usageGroupId)),
       usageGroupId,
-      Some(frontUsageRequest.dateAdded)
+      frontUsageRequest.dateAdded
     )
   }
 
@@ -89,7 +89,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     UsageGroup(
       Set(MediaUsageBuilder.build(downloadUsageRequest, usageGroupId)),
       usageGroupId,
-      Some(downloadUsageRequest.dateAdded)
+      downloadUsageRequest.dateAdded
     )
   }
 
