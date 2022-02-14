@@ -27,7 +27,6 @@ class UsageRecorder(
   val dbMatchStream: Observable[MatchedUsageGroup] = combinedObservable.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
-  case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
     .retry((retriesSoFar, error) => {
@@ -40,7 +39,7 @@ class UsageRecorder(
       MatchedUsageGroup(usageGroup, dbUsages)
     }
 
-  val dbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(dbMatchStream)
+  val dbUpdateStream: Observable[Set[String]] = getUpdatesStream(dbMatchStream)
 
   val notificationStream: Observable[UsageNotice] = getNotificationStream(dbUpdateStream)
 
@@ -57,7 +56,7 @@ class UsageRecorder(
     true
   })
 
-  private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
+  private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]): Observable[Set[String]] = {
     dbMatchStream.flatMap(matchedUsageGroup => {
       // Generate unique UUID to track extract job
       val logMarker = MarkerMap(
@@ -80,6 +79,7 @@ class UsageRecorder(
           logMarker,
           s"'$opName' DB Operation for ${mediaUsage.grouping} -  on mediaID: ${mediaUsage.mediaId} with result: ${result}"
         )
+        usageMetrics.incrementUpdated
         result
       }
 
@@ -92,28 +92,23 @@ class UsageRecorder(
       val updateOps = (if(usageGroup.isReindex) Set() else usageGroup.usages intersect dbUsages)
         .map(performAndLogDBOperation(usageTable.update, "update"))
 
-      Observable.from(markAsRemovedOps ++ updateOps ++ createOps).flatten[JsObject].toSeq
-        .map{updates =>
-          usageMetrics.incrementUpdated
-          MatchedUsageUpdate(updates, matchedUsageGroup)
-        }
+      val mediaIdsImplicatedInDBUpdates =
+        (usageGroup.usages ++ dbUsages)
+          .filter(_.isGridLikeId)
+          .map(_.mediaId)
+
+      Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
+        .flatten[JsObject]
+        .map(_ => mediaIdsImplicatedInDBUpdates)
     })
   }
 
-  private def getNotificationStream(dbUpdateStream: Observable[MatchedUsageUpdate]) = {
-
+  private def getNotificationStream(dbUpdateStream: Observable[Set[String]]) = {
     dbUpdateStream
       .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
-      .flatMap{ matchedUsageUpdates =>
-
-        val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
-        val dbUsages = matchedUsageUpdates.matchUsageGroup.dbUsages
-
-        val usages: Set[MediaUsage] = usageGroup.usages ++ dbUsages
-
+      .flatMap{ mediaIdsImplicatedInDBUpdates =>
         Observable.from(
-          usages
-            .filter(_.isGridLikeId)
+          mediaIdsImplicatedInDBUpdates
             .map(usageNotice.build)
         ).flatten[UsageNotice]
       }
