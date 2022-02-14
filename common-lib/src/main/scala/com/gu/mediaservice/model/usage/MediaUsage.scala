@@ -46,7 +46,7 @@ case class MediaUsage(
     case otherMediaUsage: MediaUsage => {
       usageId == otherMediaUsage.usageId &&
         grouping == otherMediaUsage.grouping &&
-        dateRemoved.isEmpty
+        dateRemoved == otherMediaUsage.dateRemoved
     } // TODO: This will work for checking if new items have been added/removed
     case _ => false
   }
