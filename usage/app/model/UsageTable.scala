@@ -34,7 +34,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     })
   }
 
-  def queryByImageId(id: String): Future[Set[MediaUsage]] = Future {
+  def queryByImageId(id: String): Future[List[MediaUsage]] = Future {
 
     if (id.trim.isEmpty)
       throw new BadInputException("Empty string received for image id")
@@ -43,23 +43,26 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    val fullSet = queryResult.asScala.map(ItemToMediaUsage.transform).toSet[MediaUsage]
+    val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).toList
 
-    // FIXME sort by lastModified to ensure correct usage row is chosen, where there are multiple (because pending vs published vs removed)
+    val sortedByLastModifiedNewestFirst = unsortedUsages.sortBy(_.lastModified.getMillis).reverse
 
     hidePendingIfPublished(
-      hidePendingIfRemoved(fullSet))
+      hidePendingIfRemoved(
+        sortedByLastModifiedNewestFirst
+      )
+    )
   }
 
-  def hidePendingIfRemoved(usages: Set[MediaUsage]): Set[MediaUsage] = usages.filterNot((mediaUsage: MediaUsage) => {
+  def hidePendingIfRemoved(usages: List[MediaUsage]): List[MediaUsage] = usages.filterNot((mediaUsage: MediaUsage) => {
     mediaUsage.status match {
       case PendingUsageStatus => mediaUsage.isRemoved
       case _ => false
     }
   })
 
-  def hidePendingIfPublished(usages: Set[MediaUsage]): Set[MediaUsage] = usages.groupBy(_.grouping).flatMap {
-    case (grouping, groupedUsages) =>
+  def hidePendingIfPublished(usages: List[MediaUsage]): List[MediaUsage] = usages.groupBy(_.grouping).flatMap {
+    case (_, groupedUsages) =>
       val publishedUsage = groupedUsages.find(_.status match {
         case PublishedUsageStatus => true
         case _ => false
@@ -70,7 +73,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       } else {
           publishedUsage
       }
-  }.toSet
+  }.toList
 
   def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] = {
     logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")

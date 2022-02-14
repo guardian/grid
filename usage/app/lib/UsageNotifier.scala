@@ -16,7 +16,7 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
   extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging with MessageSubjects {
 
   def build(mediaUsage: MediaUsage) = Observable.from(
-    usageTable.queryByImageId(mediaUsage.mediaId).map((usages: Set[MediaUsage]) => {
+    usageTable.queryByImageId(mediaUsage.mediaId).map((usages: List[MediaUsage]) => {
 
       if(usages.contains(mediaUsage)){
         logger.info(s"Accurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB and sent to thrall/ElasticSearch")

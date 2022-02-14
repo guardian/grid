@@ -119,8 +119,8 @@ class UsageApi(
   def forMedia(mediaId: String) = auth.async {
     val usagesFuture = usageTable.queryByImageId(mediaId)
 
-    usagesFuture.map[play.api.mvc.Result]((mediaUsages: Set[MediaUsage]) => {
-      val usages = mediaUsages.toList.map(UsageBuilder.build)
+    usagesFuture.map[play.api.mvc.Result]((mediaUsages: List[MediaUsage]) => {
+      val usages = mediaUsages.map(UsageBuilder.build)
 
       usages match {
         case Nil => respondNotFound("No usages found.")
