@@ -15,22 +15,23 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
   extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging with MessageSubjects {
 
-  def build(mediaUsage: MediaUsage) = Observable.from(
-    usageTable.queryByImageId(mediaUsage.mediaId).map((usages: Set[MediaUsage]) => {
-
-      if(usages.contains(mediaUsage)){
-        logger.info(s"Accurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB and sent to thrall/ElasticSearch")
-      } else {
-        logger.info(s"Inaccurate usages of ${mediaUsage.mediaId} retrieved from DynamoDB and sent to thrall/ElasticSearch")
-      }
-
-      val usageJson = Json.toJson(usages.map(UsageBuilder.build)).as[JsArray]
-      UsageNotice(mediaUsage.mediaId, usageJson)
-    }))
+  def build(mediaID: String) = Observable.from(
+    usageTable.queryByImageId(mediaID).map((dbUsages: List[MediaUsage]) =>
+      UsageNotice(
+        mediaID,
+        Json.toJson(dbUsages.map(UsageBuilder.build)).as[JsArray]
+      )
+    )
+  )
 
   def send(usageNotice: UsageNotice) = {
     logger.info(s"Sending usage notice for ${usageNotice.mediaId}")
-    val updateMessage = UpdateMessage(subject = UpdateImageUsages, id = Some(usageNotice.mediaId), usageNotice = Some(usageNotice))
-    publish(updateMessage)
+    publish(
+      UpdateMessage(
+        subject = UpdateImageUsages,
+        id = Some(usageNotice.mediaId),
+        usageNotice = Some(usageNotice)
+      )
+    )
   }
 }

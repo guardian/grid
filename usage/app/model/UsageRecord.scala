@@ -8,9 +8,15 @@ import scalaz.syntax.id._
 import scala.collection.JavaConverters._
 import org.joda.time.DateTime
 
+sealed trait DateRemovedOperation
+case object ClearDateRemoved extends DateRemovedOperation
+case object LeaveDateRemovedUntouched extends DateRemovedOperation
+case class SetDateRemoved(dateRemoved: DateTime) extends DateRemovedOperation
+
 case class UsageRecord(
   hashKey: String,
   rangeKey: String,
+  dateRemovedOperation: DateRemovedOperation,
   mediaId: Option[String] = None,
   usageType: Option[UsageType] = None,
   mediaType: Option[String] = None,
@@ -21,10 +27,7 @@ case class UsageRecord(
   syndicationUsageMetadata: Option[SyndicationUsageMetadata] = None,
   frontUsageMetadata: Option[FrontUsageMetadata] = None,
   downloadUsageMetadata: Option[DownloadUsageMetadata] = None,
-  dateAdded: Option[DateTime] = None,
-  // Either is used here to represent 3 possible states:
-  // remove-date, add-date and no-date
-  dateRemoved: Either[String, Option[DateTime]] = Right(None)
+  dateAdded: Option[DateTime] = None
 ) {
   def toXSpec = {
     (new ExpressionSpecBuilder() <| (xspec => {
@@ -40,51 +43,53 @@ case class UsageRecord(
         frontUsageMetadata.map(_.toMap).map(map => M("front_metadata").set(map.asJava)),
         downloadUsageMetadata.map(_.toMap).map(map => M("download_metadata").set(map.asJava)),
         dateAdded.map(dateAdd => N("date_added").set(dateAdd.getMillis)),
-        dateRemoved.fold(
-          _ => Some(N("date_removed").remove),
-          dateRem => dateRem.map(date => N("date_removed").set(date.getMillis))
-        )
+        dateRemovedOperation match {
+          case ClearDateRemoved => Some(N("date_removed").remove)
+          case LeaveDateRemovedUntouched => None
+          case SetDateRemoved(dateRemoved) => Some(N("date_removed").set(dateRemoved.getMillis))
+        }
       ).flatten.foreach(xspec.addUpdate)
     })).buildForUpdate
   }
 }
 
 object UsageRecord {
-  def buildDeleteRecord(mediaUsage: MediaUsage) = UsageRecord(
+  def buildMarkAsRemovedRecord(mediaUsage: MediaUsage) = UsageRecord(
     hashKey = mediaUsage.grouping,
     rangeKey = mediaUsage.usageId.toString,
-    dateRemoved = Right(Some(mediaUsage.lastModified))
+    dateRemovedOperation = SetDateRemoved(mediaUsage.lastModified)
   )
 
   def buildUpdateRecord(mediaUsage: MediaUsage) = UsageRecord(
-    mediaUsage.grouping,
-    mediaUsage.usageId.toString,
-    Some(mediaUsage.mediaId),
-    Some(mediaUsage.usageType),
-    Some(mediaUsage.mediaType),
-    Some(mediaUsage.lastModified),
-    Some(mediaUsage.status.toString),
-    mediaUsage.printUsageMetadata,
-    mediaUsage.digitalUsageMetadata,
-    mediaUsage.syndicationUsageMetadata,
-    mediaUsage.frontUsageMetadata,
-    mediaUsage.downloadUsageMetadata
+    hashKey = mediaUsage.grouping,
+    rangeKey = mediaUsage.usageId.toString,
+    dateRemovedOperation = LeaveDateRemovedUntouched,
+    mediaId = Some(mediaUsage.mediaId),
+    usageType = Some(mediaUsage.usageType),
+    mediaType = Some(mediaUsage.mediaType),
+    lastModified = Some(mediaUsage.lastModified),
+    usageStatus = Some(mediaUsage.status.toString),
+    printUsageMetadata = mediaUsage.printUsageMetadata,
+    digitalUsageMetadata = mediaUsage.digitalUsageMetadata,
+    syndicationUsageMetadata = mediaUsage.syndicationUsageMetadata,
+    frontUsageMetadata = mediaUsage.frontUsageMetadata,
+    downloadUsageMetadata = mediaUsage.downloadUsageMetadata
   )
 
   def buildCreateRecord(mediaUsage: MediaUsage) = UsageRecord(
-    mediaUsage.grouping,
-    mediaUsage.usageId.toString,
-    Some(mediaUsage.mediaId),
-    Some(mediaUsage.usageType),
-    Some(mediaUsage.mediaType),
-    Some(mediaUsage.lastModified),
-    Some(mediaUsage.status.toString),
-    mediaUsage.printUsageMetadata,
-    mediaUsage.digitalUsageMetadata,
-    mediaUsage.syndicationUsageMetadata,
-    mediaUsage.frontUsageMetadata,
-    mediaUsage.downloadUsageMetadata,
-    Some(mediaUsage.lastModified),
-    Left("clear")
+    hashKey = mediaUsage.grouping,
+    rangeKey = mediaUsage.usageId.toString,
+    dateRemovedOperation = ClearDateRemoved,
+    mediaId = Some(mediaUsage.mediaId),
+    usageType = Some(mediaUsage.usageType),
+    mediaType = Some(mediaUsage.mediaType),
+    lastModified = Some(mediaUsage.lastModified),
+    usageStatus = Some(mediaUsage.status.toString),
+    printUsageMetadata = mediaUsage.printUsageMetadata,
+    digitalUsageMetadata = mediaUsage.digitalUsageMetadata,
+    syndicationUsageMetadata = mediaUsage.syndicationUsageMetadata,
+    frontUsageMetadata = mediaUsage.frontUsageMetadata,
+    downloadUsageMetadata = mediaUsage.downloadUsageMetadata,
+    dateAdded = Some(mediaUsage.lastModified),
   )
 }

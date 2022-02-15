@@ -1,6 +1,6 @@
 package model
 
-import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, UpdateItemSpec}
+import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, QuerySpec, UpdateItemSpec}
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
@@ -34,7 +34,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     })
   }
 
-  def queryByImageId(id: String): Future[Set[MediaUsage]] = Future {
+  def queryByImageId(id: String): Future[List[MediaUsage]] = Future {
 
     if (id.trim.isEmpty)
       throw new BadInputException("Empty string received for image id")
@@ -43,21 +43,26 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
-    val fullSet = queryResult.asScala.map(ItemToMediaUsage.transform).toSet[MediaUsage]
+    val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).toList
+
+    val sortedByLastModifiedNewestFirst = unsortedUsages.sortBy(_.lastModified.getMillis).reverse
 
     hidePendingIfPublished(
-      hidePendingIfRemoved(fullSet))
+      hidePendingIfRemoved(
+        sortedByLastModifiedNewestFirst
+      )
+    )
   }
 
-  def hidePendingIfRemoved(usages: Set[MediaUsage]): Set[MediaUsage] = usages.filterNot((mediaUsage: MediaUsage) => {
+  def hidePendingIfRemoved(usages: List[MediaUsage]): List[MediaUsage] = usages.filterNot((mediaUsage: MediaUsage) => {
     mediaUsage.status match {
       case PendingUsageStatus => mediaUsage.isRemoved
       case _ => false
     }
   })
 
-  def hidePendingIfPublished(usages: Set[MediaUsage]): Set[MediaUsage] = usages.groupBy(_.grouping).flatMap {
-    case (grouping, groupedUsages) =>
+  def hidePendingIfPublished(usages: List[MediaUsage]): List[MediaUsage] = usages.groupBy(_.grouping).flatMap {
+    case (_, groupedUsages) =>
       val publishedUsage = groupedUsages.find(_.status match {
         case PublishedUsageStatus => true
         case _ => false
@@ -68,56 +73,53 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       } else {
           publishedUsage
       }
-  }.toSet
+  }.toList
 
-  def matchUsageGroup(usageGroup: UsageGroup): Observable[UsageGroup] = {
+  def matchUsageGroup(usageGroup: UsageGroup): Observable[Set[MediaUsage]] = {
     logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
     Observable.from(Future {
-      val status = usageGroup.status
       val grouping = usageGroup.grouping
-      val keyAttribute = new KeyAttribute("grouping", grouping)
 
-      logger.info(s"Querying table for $grouping - $status")
-      val queryResult = table.query(keyAttribute)
+      logger.info(s"Querying table for $grouping")
+      val queryResult = table.query(
+        new QuerySpec()
+          .withConsistentRead(true)
+          .withHashKey(new KeyAttribute("grouping", grouping))
+      )
 
       val usages = queryResult.asScala
         .map(ItemToMediaUsage.transform)
-        .filter(_.status == status)
         .toSet
 
       logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
-      UsageGroup(usages, grouping, usageGroup.status, new DateTime)
+      usages
     })
   }
 
   def create(mediaUsage: MediaUsage): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
+    upsertFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
 
   def update(mediaUsage: MediaUsage): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
+    upsertFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
-  def delete(mediaUsage: MediaUsage): Observable[JsObject] =
-    updateFromRecord(UsageRecord.buildDeleteRecord(mediaUsage))
+  def markAsRemoved(mediaUsage: MediaUsage): Observable[JsObject] =
+    upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage))
 
   def deleteRecord(mediaUsage: MediaUsage) = {
-    val record = UsageRecord.buildDeleteRecord(mediaUsage)
-
     logger.info(s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
 
     val deleteSpec = new DeleteItemSpec()
       .withPrimaryKey(
-        hashKeyName,
-        record.hashKey,
-        rangeKeyName,
-        record.rangeKey
+        hashKeyName, mediaUsage.grouping,
+        rangeKeyName, mediaUsage.usageId.toString
       )
 
     table.deleteItem(deleteSpec)
   }
 
-  def updateFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
+  def upsertFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
 
      val updateSpec = new UpdateItemSpec()
       .withPrimaryKey(

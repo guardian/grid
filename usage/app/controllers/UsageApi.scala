@@ -11,16 +11,28 @@ import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
 import com.gu.mediaservice.syntax.MessageSubjects
 import lib._
 import model._
-import play.api.libs.json.{JsError, JsValue, Json}
+import play.api.libs.json.{JsError, JsValue}
 import play.api.mvc._
 import play.utils.UriEncoding
+import rx.lang.scala.Subject
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: UsageTable, usageGroup: UsageGroupOps, notifications: Notifications, config: UsageConfig, usageRecorder: UsageRecorder, liveContentApi: LiveContentApi,
-  override val controllerComponents: ControllerComponents, playBodyParsers: PlayBodyParsers)(implicit val ec: ExecutionContext)
-  extends BaseController with MessageSubjects with ArgoHelpers {
+class UsageApi(
+  auth: Authentication,
+  authorisation: Authorisation,
+  usageTable: UsageTable,
+  usageGroupOps: UsageGroupOps,
+  notifications: Notifications,
+  config: UsageConfig,
+  usageApiSubject: Subject[UsageGroup],
+  liveContentApi: LiveContentApi,
+  override val controllerComponents: ControllerComponents,
+  playBodyParsers: PlayBodyParsers
+)(
+  implicit val ec: ExecutionContext
+) extends BaseController with MessageSubjects with ArgoHelpers {
 
   private val AuthenticatedAndAuthorisedToDelete = auth andThen authorisation.CommonActionFilters.authorisedForDeleteCropsOrUsages
 
@@ -83,23 +95,22 @@ class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: U
       .showFields("all")
       .showElements("all")
 
-    val result = liveContentApi.getResponse(query).map(response => {
+    liveContentApi.getResponse(query).map{response =>
       response.content match {
         case Some(content) =>
-          val contentFirstPublished =
-            liveContentApi.getContentFirstPublished(content)
-          val container = contentFirstPublished
+          liveContentApi
+            .getContentFirstPublished(content)
             .map(LiveContentItem(content, _))
             .map(_.copy(isReindex = true))
-
-          container.foreach(LiveCrierContentStream.observable.onNext(_))
-        case _ => Unit
+            .foreach(_.emitAsUsageGroup(
+              usageApiSubject,
+              usageGroupOps
+            ))
+          Accepted
+        case _ =>
+          NotFound
       }
-    })
-
-    result
-      .map(_ => Accepted)
-      .recover { case error: Exception =>
+    }.recover { case error: Exception =>
         logger.error(s"UsageApi reindex for for content ($contentId) failed!", error)
         InternalServerError
       }
@@ -108,8 +119,8 @@ class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: U
   def forMedia(mediaId: String) = auth.async {
     val usagesFuture = usageTable.queryByImageId(mediaId)
 
-    usagesFuture.map[play.api.mvc.Result]((mediaUsages: Set[MediaUsage]) => {
-      val usages = mediaUsages.toList.map(UsageBuilder.build)
+    usagesFuture.map[play.api.mvc.Result]((mediaUsages: List[MediaUsage]) => {
+      val usages = mediaUsages.map(UsageBuilder.build)
 
       usages match {
         case Nil => respondNotFound("No usages found.")
@@ -145,8 +156,8 @@ class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: U
           respondError(BadRequest, "print-usage-request-parse-failed", JsError.toJson(e).toString)
         },
         printUsageRequest => {
-          val usageGroups = usageGroup.build(printUsageRequest.printUsageRecords)
-          usageGroups.foreach(usageRecorder.usageSubject.onNext)
+          val usageGroups = usageGroupOps.build(printUsageRequest.printUsageRecords)
+          usageGroups.foreach(usageApiSubject.onNext)
 
           Accepted
         }
@@ -164,8 +175,8 @@ class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: U
       ),
       sur => {
         logger.info(req.user.accessor, ImageId(sur.mediaId), "recording syndication usage")
-        val group = usageGroup.build(sur)
-        usageRecorder.usageSubject.onNext(group)
+        val group = usageGroupOps.build(sur)
+        usageApiSubject.onNext(group)
         Accepted
       }
     )
@@ -181,8 +192,8 @@ class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: U
       ),
       fur => {
         logger.info(req.user.accessor, ImageId(fur.mediaId), "recording front usage")
-        val group = usageGroup.build(fur)
-        usageRecorder.usageSubject.onNext(group)
+        val group = usageGroupOps.build(fur)
+        usageApiSubject.onNext(group)
         Accepted
       }
     )
@@ -198,8 +209,8 @@ class UsageApi(auth: Authentication, authorisation: Authorisation, usageTable: U
       ),
       usageRequest => {
         logger.info(req.user.accessor, ImageId(usageRequest.mediaId), "recording download usage")
-        val group = usageGroup.build(usageRequest)
-        usageRecorder.usageSubject.onNext(group)
+        val group = usageGroupOps.build(usageRequest)
+        usageApiSubject.onNext(group)
         Accepted
       }
     )

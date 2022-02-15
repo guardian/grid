@@ -17,7 +17,6 @@ object UsageIdBuilder {
 
   def build(mediaWrapper: MediaWrapper) = buildId(List(
     Some(mediaWrapper.mediaId),
-    Some(mediaWrapper.index),
     Some(mediaWrapper.contentStatus)
   ))
 

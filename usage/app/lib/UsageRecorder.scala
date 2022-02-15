@@ -1,136 +1,126 @@
 package lib
 
+import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
-import com.typesafe.scalalogging.StrictLogging
 import model._
 import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
-import rx.lang.scala.{Observable, Subscriber, Subscription}
+import rx.lang.scala.{Observable, Subject, Subscriber, Subscription}
 
 import scala.concurrent.duration.DurationInt
 
 case class ResetException() extends Exception
 
-class UsageRecorder(usageMetrics: UsageMetrics, usageTable: UsageTable, usageStream: UsageStream, usageNotice: UsageNotifier, usageNotifier: UsageNotifier) extends StrictLogging {
-  val usageSubject = PublishSubject[UsageGroup]()
-  val previewUsageStream: Observable[UsageGroup] = usageStream.previewObservable.merge(usageSubject)
-  val liveUsageStream: Observable[UsageGroup] = usageStream.liveObservable.merge(usageSubject)
+class UsageRecorder(
+  usageMetrics: UsageMetrics,
+  usageTable: UsageTable,
+  usageNotice: UsageNotifier,
+  usageNotifier: UsageNotifier
+) extends GridLogging {
 
-  val subscriber = Subscriber((_:Any) => logger.debug(s"Sent Usage Notification"))
+  val usageApiSubject: Subject[UsageGroup] = PublishSubject[UsageGroup]()
+  val combinedObservable: Observable[UsageGroup] = CrierUsageStream.observable.merge(usageApiSubject)
 
-  var subscribeToPreview: Option[Subscription] = None
-  var subscribeToLive: Option[Subscription] = None
+  val subscriber: Subscriber[Unit] = Subscriber((_: Unit) => logger.debug(s"Sent Usage Notification"))
+  var maybeSubscription: Option[Subscription] = None
 
-  def recordUpdate(update: JsObject): JsObject = {
-    logger.info(s"Usage update processed: $update")
-    usageMetrics.incrementUpdated
+  val dbMatchStream: Observable[MatchedUsageGroup] = combinedObservable.flatMap(matchDb)
 
-    update
-  }
-
-  val previewDbMatchStream: Observable[MatchedUsageGroup] = previewUsageStream.flatMap(matchDb)
-  val liveDbMatchStream: Observable[MatchedUsageGroup] = liveUsageStream.flatMap(matchDb)
-
-  case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsageGroup: UsageGroup)
-  case class MatchedUsageUpdate(updates: Seq[JsObject], matchUsageGroup: MatchedUsageGroup)
-
-  def start(): Unit = {
-    // Eval subscription to start stream
-    subscribeToPreview = Some(previewObservable.subscribe(subscriber))
-    subscribeToLive = Some(liveObservable.subscribe(subscriber))
-  }
-
-  def stop(): Unit = {
-    subscribeToPreview.foreach(_.unsubscribe())
-    subscribeToLive.foreach(_.unsubscribe())
-  }
+  case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
 
   def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
-    .retry((_, error) => {
+    .retry((retriesSoFar, error) => {
       logger.error(s"Encountered an error trying to match usage group (${usageGroup.grouping}", error)
 
-      true
+      true // TODO check 'retriesSoFar' so we don't retry forever 🙀
     })
-    .map(MatchedUsageGroup(usageGroup, _))
-    .map(matchedUsageGroup => {
+    .map{dbUsages =>
       logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
+      MatchedUsageGroup(usageGroup, dbUsages)
+    }
 
-      matchedUsageGroup
-    })
+  val dbUpdateStream: Observable[Set[String]] = getUpdatesStream(dbMatchStream)
 
-  val previewDbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(previewDbMatchStream)
-  val liveDbUpdateStream: Observable[MatchedUsageUpdate] = getUpdatesStream(liveDbMatchStream)
+  val notificationStream: Observable[UsageNotice] = getNotificationStream(dbUpdateStream)
 
-  val previewNotificationStream: Observable[UsageNotice] = getNotificationStream(previewDbUpdateStream)
-  val liveNotificationStream: Observable[UsageNotice] = getNotificationStream(liveDbUpdateStream)
-
-  val distinctPreviewNotificationStream: Observable[UsageNotice] = previewNotificationStream.groupBy(_.mediaId).flatMap {
+  val distinctNotificationStream: Observable[UsageNotice] = notificationStream.groupBy(_.mediaId).flatMap {
     case (_, s) => s.distinctUntilChanged
   }
 
-  val distinctLiveNotificationStream: Observable[UsageNotice] = liveNotificationStream.groupBy(_.mediaId).flatMap {
-    case (_, s) => s.distinctUntilChanged
-  }
+  val notifiedStream: Observable[Unit] = distinctNotificationStream.map(usageNotifier.send)
 
-  val previewNotifiedStream: Observable[Unit] = distinctPreviewNotificationStream.map(usageNotifier.send)
-  val liveNotifiedStream: Observable[Unit] = distinctLiveNotificationStream.map(usageNotifier.send)
-
-  def reportStreamError(i: Int, error: Throwable): Boolean = {
+  val finalObservable: Observable[Unit] = notifiedStream.retry((_, error) => {
     logger.error("UsageRecorder encountered an error.", error)
     usageMetrics.incrementErrors
 
     true
-  }
+  })
 
-  val previewObservable: Observable[Unit] = previewNotifiedStream.retry((i, e) => reportStreamError(i,e))
-  val liveObservable: Observable[Unit] = liveNotifiedStream.retry((i, e) => reportStreamError(i,e))
-
-  private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]) = {
-    dbMatchStream.flatMap(matchUsageGroup => {
+  private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]): Observable[Set[String]] = {
+    dbMatchStream.flatMap(matchedUsageGroup => {
       // Generate unique UUID to track extract job
-      val uuid = java.util.UUID.randomUUID.toString
+      val logMarker = MarkerMap(
+        "job-uuid" -> java.util.UUID.randomUUID.toString
+      )
 
-      val dbUsageGroup = matchUsageGroup.dbUsageGroup
-      val usageGroup   = matchUsageGroup.usageGroup
+      val dbUsages = matchedUsageGroup.dbUsages
+      val usageGroup   = matchedUsageGroup.usageGroup
 
-      dbUsageGroup.usages.foreach(g => {
-        logger.info(s"Seen DB Usage for ${g.mediaId} (job-$uuid)")
+      dbUsages.foreach(mediaUsage => {
+        logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}")
       })
-      usageGroup.usages.foreach(g => {
-        logger.info(s"Seen Stream Usage for ${g.mediaId} (job-$uuid)")
+      usageGroup.usages.foreach(mediaUsage => {
+        logger.info(logMarker, s"Seen Stream Usage for ${mediaUsage.mediaId}")
       })
 
-      val deletes = (dbUsageGroup.usages -- usageGroup.usages).map(usageTable.delete)
-      val creates = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages -- dbUsageGroup.usages)
-        .map(usageTable.create)
-      val updates = (if(usageGroup.isReindex) Set() else usageGroup.usages & dbUsageGroup.usages)
-        .map(usageTable.update)
+      def performAndLogDBOperation(func: MediaUsage => Observable[JsObject], opName: String)(mediaUsage: MediaUsage) = {
+        val result = func(mediaUsage)
+        logger.info(
+          logMarker,
+          s"'$opName' DB Operation for ${mediaUsage.grouping} -  on mediaID: ${mediaUsage.mediaId} with result: ${result}"
+        )
+        usageMetrics.incrementUpdated
+        result
+      }
 
-      logger.info(s"DB Operations d(${deletes.size}), u(${updates.size}), c(${creates.size}) (job-$uuid)")
+      val markAsRemovedOps = (dbUsages diff usageGroup.usages)
+        .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
 
-      Observable.from(deletes ++ updates ++ creates).flatten[JsObject]
-        .map(recordUpdate)
-        .toSeq.map(MatchedUsageUpdate(_, matchUsageGroup))
+      val createOps = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages diff dbUsages)
+        .map(performAndLogDBOperation(usageTable.create, "create"))
+
+      val updateOps = (if(usageGroup.isReindex) Set() else usageGroup.usages intersect dbUsages)
+        .map(performAndLogDBOperation(usageTable.update, "update"))
+
+      val mediaIdsImplicatedInDBUpdates =
+        (usageGroup.usages ++ dbUsages)
+          .filter(_.isGridLikeId)
+          .map(_.mediaId)
+
+      Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
+        .flatten[JsObject]
+        .map(_ => mediaIdsImplicatedInDBUpdates)
     })
   }
 
-  private def getNotificationStream(dbUpdateStream: Observable[MatchedUsageUpdate]) = {
-
+  private def getNotificationStream(dbUpdateStream: Observable[Set[String]]) = {
     dbUpdateStream
-      .delay(15.seconds) // give DynamoDB write to have greater chance of reaching eventual consistency, before reading
-      .flatMap{ matchedUsageUpdates =>
-
-        val usageGroup = matchedUsageUpdates.matchUsageGroup.usageGroup
-        val dbUsageGroup = matchedUsageUpdates.matchUsageGroup.dbUsageGroup
-
-        val usages: Set[MediaUsage] = usageGroup.usages ++ dbUsageGroup.usages
-
+      .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
+      .flatMap{ mediaIdsImplicatedInDBUpdates =>
         Observable.from(
-          usages
-            .filter(_.isGridLikeId)
+          mediaIdsImplicatedInDBUpdates
             .map(usageNotice.build)
         ).flatten[UsageNotice]
       }
+  }
+
+  def start(): Unit = {
+    // Eval subscription to start stream
+    maybeSubscription = Some(finalObservable.subscribe(subscriber))
+  }
+
+  def stop(): Unit = {
+    maybeSubscription.foreach(_.unsubscribe())
   }
 
 }
