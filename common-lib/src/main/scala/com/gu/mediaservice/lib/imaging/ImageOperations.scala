@@ -87,7 +87,8 @@ class ImageOperations(playPath: String) extends GridLogging {
     for {
       outputFile <- createTempFile(s"crop-", s"${fileType.fileExtension}", tempDir)
       cropSource    = addImage(sourceFile)
-      qualified     = quality(cropSource)(qual)
+      warningsHidden = hideWarnings(cropSource)
+      qualified     = quality(warningsHidden)(qual)
       corrected     = correctColour(qualified)(iccColourSpace, colourModel, isTransformedFromSource)
       converted     = applyOutputProfile(corrected)
       stripped      = stripMeta(converted)

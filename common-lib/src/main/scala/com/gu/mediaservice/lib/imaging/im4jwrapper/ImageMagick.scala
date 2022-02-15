@@ -17,6 +17,7 @@ object ImageMagick extends GridLogging {
 
   def addImage(source: File) = (new IMOperation()) <| { op => { op.addImage(source.getAbsolutePath) }}
   def quality(op: IMOperation)(qual: Double) = op <| (_.quality(qual))
+  def hideWarnings(op: IMOperation): IMOperation = op <| (_.quiet())
   def unsharp(op: IMOperation)(radius: Double, sigma: Double, amount: Double) = op <| (_.unsharp(radius, sigma, amount))
   def stripMeta(op: IMOperation) = op <| (_.strip())
   def stripProfile(op: IMOperation)(profile: String) = op <| (_.p_profile(profile))
