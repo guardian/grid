@@ -24,7 +24,7 @@ case class MediaUsage(
 ) extends GridLogging {
 
   def isGridLikeId: Boolean = {
-    if (mediaId.startsWith("gu-image-")) {
+    if (mediaId.startsWith("gu-image-") || mediaId.startsWith("gu-fc-")) {
       // remove events from CAPI that represent images previous to Grid existing
       logger.info(s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
       false
