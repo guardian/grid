@@ -307,6 +307,9 @@ def playProject(projectName: String, port: Int, path: Option[String] = None): Pr
       Linux / packageSummary := description.value,
       packageDescription := description.value,
 
+      bashScriptEnvConfigLocation := Some("/etc/environment"),
+      Debian / makeEtcDefault := None,
+
       Universal / mappings ++= Seq(
         file("common-lib/src/main/resources/application.conf") -> "conf/application.conf",
         file("common-lib/src/main/resources/logback.xml") -> "conf/logback.xml"
