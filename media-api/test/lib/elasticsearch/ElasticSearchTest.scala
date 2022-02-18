@@ -1,6 +1,6 @@
 package lib.elasticsearch
 
-import akka.actor.Scheduler
+import akka.actor.{ActorSystem, Scheduler}
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.config.GridConfigResources
@@ -40,8 +40,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       override def stop(): Future[_] = Future.successful(())
     }
   ))
-
-  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig)
+  private val actorSystem: ActorSystem = ActorSystem()
+  private val mediaApiMetrics = new MediaApiMetrics(mediaApiConfig, actorSystem)
   val elasticConfig = ElasticSearchConfig(
     aliases = ElasticSearchAliases(
       current = "Images_Current",

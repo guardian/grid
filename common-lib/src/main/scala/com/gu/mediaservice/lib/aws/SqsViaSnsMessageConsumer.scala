@@ -55,7 +55,7 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
       case Some(subject) => List(new Dimension().withName("subject").withValue(subject))
       case None          => List()
     }
-    metric.runRecordOne(1L, dimensions)
+    metric.recordOne(1L, dimensions)
   }
 
   private def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
