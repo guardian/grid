@@ -87,11 +87,9 @@ class SyndicationFilter(config: MediaApiConfig) extends ImageFields {
     case QueuedForSyndication => filters.and(
       hasRightsAcquired,
       filters.mustNot(hasSyndicationUsage),
-      filters.and(
-        hasAllowLease,
-        leaseHasStarted,
-        syndicationRightsPublished
-      )
+      hasAllowLease,
+      leaseHasStarted,
+      syndicationRightsPublished
     )
     case BlockedForSyndication => filters.and(
       hasRightsAcquired,

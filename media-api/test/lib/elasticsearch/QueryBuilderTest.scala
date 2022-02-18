@@ -165,10 +165,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       query.must.size shouldBe 1
 
-      val isClause = query.must.head.asInstanceOf[BoolQuery]
-      isClause.should.size shouldBe 1
-
-      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
+      val termQuery = query.must.head.asInstanceOf[TermsQuery[String]]
       termQuery.field shouldBe "usageRights.category"
 
       val expected = UsageRights.photographer.map(_.category)
@@ -181,10 +178,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       query.must.size shouldBe 1
 
-      val isClause = query.must.head.asInstanceOf[BoolQuery]
-      isClause.should.size shouldBe 1
-
-      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
+      val termQuery = query.must.head.asInstanceOf[TermsQuery[String]]
       termQuery.field shouldBe "usageRights.category"
 
       val expected = UsageRights.illustrator.map(_.category)
@@ -197,10 +191,7 @@ class QueryBuilderTest extends AnyFunSpec with Matchers with ConditionFixtures w
 
       query.must.size shouldBe 1
 
-      val isClause = query.must.head.asInstanceOf[BoolQuery]
-      isClause.should.size shouldBe 1
-
-      val termQuery = isClause.should.head.asInstanceOf[TermsQuery[String]]
+      val termQuery = query.must.head.asInstanceOf[TermsQuery[String]]
       termQuery.field shouldBe "usageRights.category"
 
       val expected = UsageRights.whollyOwned.map(_.category)

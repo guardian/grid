@@ -2,40 +2,88 @@ package com.gu.mediaservice.lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
 import java.io.File
-
 import com.gu.mediaservice.lib.logging.GridLogging
 import org.im4java.process.ArrayListOutputConsumer
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import org.im4java.core.{ConvertCmd, IMOperation, IdentifyCmd}
-import scalaz.syntax.id._
 import com.gu.mediaservice.model.{Bounds, Dimensions}
-object ImageMagick extends GridLogging {
+
+object ImageMagick extends GridLogging  {
   implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(Config.imagingThreadPoolSize))
 
-  def addImage(source: File) = (new IMOperation()) <| { op => { op.addImage(source.getAbsolutePath) }}
-  def quality(op: IMOperation)(qual: Double) = op <| (_.quality(qual))
-  def unsharp(op: IMOperation)(radius: Double, sigma: Double, amount: Double) = op <| (_.unsharp(radius, sigma, amount))
-  def stripMeta(op: IMOperation) = op <| (_.strip())
-  def stripProfile(op: IMOperation)(profile: String) = op <| (_.p_profile(profile))
-  def addDestImage(op: IMOperation)(dest: File) = op <| (_.addImage(dest.getAbsolutePath))
-  def crop(op: IMOperation)(b: Bounds): IMOperation = op <| (_.crop(b.width, b.height, b.x, b.y))
-  def profile(op: IMOperation)(profileFileLocation: String): IMOperation = op <| (_.profile(profileFileLocation))
-  def thumbnail(op: IMOperation)(width: Int): IMOperation = op <| (_.thumbnail(width))
-  def resize(op: IMOperation)(maxSize: Int): IMOperation = op <| (_.resize(maxSize, maxSize))
-  def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = op <| (_.scale(dimensions.width, dimensions.height))
-  def format(op: IMOperation)(definition: String): IMOperation = op <| (_.format(definition))
-  def depth(op: IMOperation)(depth: Int): IMOperation = op <| (_.depth(depth))
-  def interlace(op: IMOperation)(interlacedHow: String): IMOperation = op <| (_.interlace(interlacedHow))
-  def setBackgroundColour(op: IMOperation)(backgroundColour: String): IMOperation = op <| (_.background(backgroundColour))
-  def flatten(op: IMOperation): IMOperation = op <| (_.flatten())
+  def addImage(source: File): IMOperation = {
+    val op = new IMOperation()
+    op.addImage(source.getAbsolutePath)
+    op
+  }
+  def quality(op: IMOperation)(qual: Double): IMOperation = {
+    op.quality(qual)
+    op
+  }
+  def unsharp(op: IMOperation)(radius: Double, sigma: Double, amount: Double): IMOperation = {
+    op.unsharp(radius, sigma, amount)
+    op
+  }
+  def stripMeta(op: IMOperation): IMOperation = {
+    op.strip()
+    op
+  }
+  def stripProfile(op: IMOperation)(profile: String): IMOperation = {
+    op.p_profile(profile)
+    op
+  }
+  def addDestImage(op: IMOperation)(dest: File): IMOperation = {
+    op.addImage(dest.getAbsolutePath)
+    op
+  }
+  def crop(op: IMOperation)(b: Bounds): IMOperation = {
+    op.crop(b.width, b.height, b.x, b.y)
+    op
+  }
+  def profile(op: IMOperation)(profileFileLocation: String): IMOperation = {
+    op.profile(profileFileLocation)
+    op
+  }
+  def thumbnail(op: IMOperation)(width: Int): IMOperation = {
+    op.thumbnail(width)
+    op
+  }
+  def resize(op: IMOperation)(maxSize: Int): IMOperation = {
+    op.resize(maxSize, maxSize)
+    op
+  }
+  def scale(op: IMOperation)(dimensions: Dimensions): IMOperation = {
+    op.scale(dimensions.width, dimensions.height)
+    op
+  }
+  def format(op: IMOperation)(definition: String): IMOperation = {
+    op.format(definition)
+    op
+  }
+  def depth(op: IMOperation)(depth: Int): IMOperation = {
+    op.depth(depth)
+    op
+  }
+  def interlace(op: IMOperation)(interlacedHow: String): IMOperation = {
+    op.interlace(interlacedHow)
+    op
+  }
+  def setBackgroundColour(op: IMOperation)(backgroundColour: String): IMOperation = {
+    op.background(backgroundColour)
+    op
+  }
+  def flatten(op: IMOperation): IMOperation = {
+    op.flatten()
+    op
+  }
 
   def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = {
     logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging conversion operation $op")
 
-    Future((new ConvertCmd(!useImageMagick)).run(op))
+    Future(new ConvertCmd(!useImageMagick).run(op))
   }
 
   def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean): Future[List[String]] = Future {

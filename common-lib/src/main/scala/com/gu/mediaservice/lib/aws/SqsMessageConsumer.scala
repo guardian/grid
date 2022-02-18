@@ -1,8 +1,6 @@
 package com.gu.mediaservice.lib.aws
 
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicReference
-
 import _root_.play.api.libs.functional.syntax._
 import _root_.play.api.libs.json._
 import akka.actor.ActorSystem
@@ -15,7 +13,6 @@ import com.gu.mediaservice.lib.json.PlayJsonHelpers._
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
-import scalaz.syntax.id._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -49,7 +46,7 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
             _.apply(message.body))
         _ = recordMessageCount(message)
       } yield ()
-      future |> deleteOnSuccess(msg)
+      deleteOnSuccess(msg)(future)
     }
 
     processMessages()
@@ -73,8 +70,11 @@ abstract class SqsMessageConsumer(queueUrl: String, config: CommonConfig, metric
         .withMaxNumberOfMessages(maxMessages)
     ).getMessages.asScala.toList
 
-  private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] =
-    Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody)) <| logParseErrors |> (_.asOpt)
+  private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] = {
+    val result = Json.fromJson[SNSMessage](Json.parse(sqsMessage.getBody))
+    logParseErrors(result)
+    result.asOpt
+  }
 
   private def deleteMessage(message: SQSMessage): Unit =
     client.deleteMessage(new DeleteMessageRequest(queueUrl, message.getReceiptHandle))
