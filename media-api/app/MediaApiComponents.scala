@@ -16,7 +16,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val imageOperations = new ImageOperations(context.environment.rootPath.getAbsolutePath)
 
   val messageSender = new ThrallMessageSender(config.thrallKinesisStreamConfig)
-  val mediaApiMetrics = new MediaApiMetrics(config)
+  val mediaApiMetrics = new MediaApiMetrics(config, actorSystem)
 
   val s3Client = new S3Client(config)
 

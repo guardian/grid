@@ -10,7 +10,7 @@ class CollectionsComponents(context: Context) extends GridComponents(context, ne
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new CollectionsStore(config)
-  val metrics = new CollectionsMetrics(config)
+  val metrics = new CollectionsMetrics(config, actorSystem)
   val notifications = new Notifications(config)
 
   val collections = new CollectionsController(auth, config, store, controllerComponents)
