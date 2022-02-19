@@ -80,7 +80,7 @@ object AapParser extends ImageProcessor {
 object ActionImagesParser extends ImageProcessor {
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Action Images") | Some("Action Images/Reuters") | Some("Action images/Reuters") | Some("Action Images/REUTERS") => image.copy(
-      usageRights = Agency("Action Images")
+      usageRights = Agencies.get("actionImages"),
       metadata    = image.metadata.copy(credit = Some("Action Images/Reuters"))
     )
     case _ => image
