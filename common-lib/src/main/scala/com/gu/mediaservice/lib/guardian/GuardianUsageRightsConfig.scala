@@ -205,7 +205,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "Rex Features",
     "Ronald Grant Archive",
     "Action Images",
-    "Action Images/Reuters"
   )
 
   val suppliersCollectionExcl = Map(
