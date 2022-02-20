@@ -78,10 +78,16 @@ object AapParser extends ImageProcessor {
 }
 
 object ActionImagesParser extends ImageProcessor {
+
+  def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
+  
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Action Images") | Some("Action Images/Reuters") | Some("Action images/Reuters") | Some("Action Images/REUTERS") => image.copy(
       usageRights = Agencies.get("actionImages"),
-      metadata    = image.metadata.copy(credit = Some("Action Images/Reuters"))
+      metadata    = image.metadata.copy(
+        credit = Some("Action Images/Reuters"),
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      )
     )
     case _ => image
   }
