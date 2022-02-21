@@ -4,16 +4,19 @@ import './image-editor.css';
 
 import {service} from './service';
 import {imageService} from '../image/service';
+import '../services/label';
+import {imageAccessor} from '../services/image-accessor';
 import {usageRightsEditor} from '../usage-rights/usage-rights-editor';
 import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
 
-
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     service.name,
     imageService.name,
+    "kahuna.services.label",
+    imageAccessor.name,
     usageRightsEditor.name,
     archiver.name,
     collectionsApi.name,
@@ -28,6 +31,8 @@ imageEditor.controller('ImageEditorCtrl', [
     'editsService',
     'editsApi',
     'imageService',
+    'labelService',
+    'imageAccessor',
     'collections',
     'mediaApi',
 
@@ -37,6 +42,8 @@ imageEditor.controller('ImageEditorCtrl', [
              editsService,
              editsApi,
              imageService,
+             labelService,
+             imageAccessor,
              collections,
              mediaApi) {
 
@@ -66,6 +73,12 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.systemName = window._clientConfig.systemName;
 
     ctrl.undelete = undelete;
+
+    ctrl.imageAsArray = [ctrl.image];
+
+    ctrl.addLabelToImages = labelService.batchAdd;
+    ctrl.removeLabelFromImages = labelService.batchRemove;
+    ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);
 
     //TODO put collections in their own directive
     ctrl.addCollection = false;
@@ -135,6 +148,7 @@ imageEditor.controller('ImageEditorCtrl', [
     function onSave() {
         return ctrl.image.get().then(newImage => {
             ctrl.image = newImage;
+            ctrl.imageAsArray = [newImage];
             ctrl.usageRights = imageService(ctrl.image).usageRights;
             updateUsageRightsCategory();
             ctrl.status = ctrl.image.data.valid ? 'ready' : 'invalid';

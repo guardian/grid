@@ -1697,7 +1697,7 @@ FIXME: what to do with touch devices
     float: left;
 }
 
-.image-info__keyword {
+.image-info__keyword li {
     display: inline-block;
     background-color: #222;
     color: #999;
@@ -1708,7 +1708,7 @@ FIXME: what to do with touch devices
     font-size: 1.3rem;
 }
 
-.image-info__keyword a {
+.image-info__keyword li a {
     color: inherit;
 }
 
@@ -2418,7 +2418,7 @@ FIXME: what to do with touch devices
     .image-info__description,
     .image-info__special-instructions,
     .label__value,
-    .image-info__keyword {
+    .image-info__keyword li {
         color: black !important;
     }
 
@@ -2439,7 +2439,7 @@ FIXME: what to do with touch devices
         width: auto;
     }
 
-    .image-info__description, .image-info__keyword {
+    .image-info__description, .image-info__keyword li {
         max-height: 80px;
         overflow: hidden;
     }

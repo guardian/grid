@@ -1,0 +1,15 @@
+<div>
+    <ul ng-if="ctrl.plainList.length > 0">
+        <li class="element"
+            ng-repeat="element in ctrl.plainList">
+
+            <span ng-if="ctrl.disabled" class="element__value element__value--compact">{{element}}</span>
+
+            <a class="element__value element__value--compact element__link"
+               ng-if="!ctrl.disabled"
+               ui-sref="search.results({query: (element | {{ctrl.queryFilter}})})">
+                {{element}}
+            </a>
+        </li>
+    </ul>
+</div>

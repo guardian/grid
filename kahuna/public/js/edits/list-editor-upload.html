@@ -1,0 +1,32 @@
+<div>
+    <span ng-if="ctrl.withBatch" class="labeller__apply-all">
+        <button
+            title="Apply these {{ctrl.elementNamePlural}} to all your current uploads"
+            ng-if="!ctrl.confirmDelete"
+            ng-click="ctrl.batchApply()"
+        >⇔</button>
+
+        <button title="Remove ALL {{ctrl.elementNamePlural}}"
+                class="button button--confirm-delete"
+                ng-if="ctrl.confirmDelete"
+                ng-click="ctrl.batchRemove()">
+            <gr-icon>warning</gr-icon>Remove ALL {{ctrl.elementNamePlural}} in job?
+        </button>
+    </span>
+
+    <ul ng-if="ctrl.plainList.length > 0">
+        <li class="element"
+            ng-repeat="element in ctrl.plainList"
+            ng-class="{'element--removing': ctrl.elementsBeingRemoved.has(element)}">
+            <a ui-sref="search.results({query: (element | {{ctrl.queryFilter}})})"
+               class="element__value element__link">{{element}}</a>
+
+            <button data-cy="it-remove-element-button"
+                    class="element__remove"
+                    title="Remove {{ctrl.elementName}}"
+                    ng-click="ctrl.removeElement(element)">
+                <gr-icon>close</gr-icon>
+            </button>
+        </li>
+    </ul>
+</div>
