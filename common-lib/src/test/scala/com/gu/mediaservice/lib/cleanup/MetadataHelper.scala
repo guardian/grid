@@ -47,7 +47,7 @@ trait MetadataHelper {
       suppliersReference  = metadata.get("suppliersReference"),
       source              = metadata.get("source"),
       specialInstructions = metadata.get("specialInstructions"),
-      keywords            = List(),
+      keywords            = None,
       subLocation         = metadata.get("subLocation"),
       city                = metadata.get("city"),
       state               = metadata.get("state"),

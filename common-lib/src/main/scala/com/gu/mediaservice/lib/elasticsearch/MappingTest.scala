@@ -35,13 +35,13 @@ object MappingTest {
     suppliersReference = Some("ASDFFF"),
     source = Some("bill-withers"),
     specialInstructions = Some("This is really important."),
-    keywords = List("sunset", "loveliness", "distance"),
+    keywords = Some(List("sunset", "loveliness", "distance")),
     subLocation = Some("Downtown"),
     city = Some("LA"),
     state = Some("California"),
     country = Some("USA"),
-    subjects = List("Bill", "Friends"),
-    peopleInImage = Set("Bill", "Friends", "Other friends"),
+    subjects = Some(List("Bill", "Friends")),
+    peopleInImage = Some(Set("Bill", "Friends", "Other friends")),
     domainMetadata = Map(
       "important-domain" -> Map(
         "foo" -> JsString("bar"),

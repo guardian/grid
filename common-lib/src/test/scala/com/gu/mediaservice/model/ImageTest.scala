@@ -155,7 +155,7 @@ object ImageTest {
       optimisedPng = None,
       fileMetadata = FileMetadata(),
       userMetadata = None,
-      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = List()),
+      metadata = ImageMetadata(dateTaken = None, title = Some(s"Test image $id"), keywords = None),
       originalMetadata = ImageMetadata(),
       usageRights = StaffPhotographer("T. Hanks", "The Guardian"),
       originalUsageRights = StaffPhotographer("T. Hanks", "The Guardian"),
