@@ -186,8 +186,7 @@ object Agencies {
     "getty" -> Agency("Getty Images"),
     "rex" -> Agency("Rex Features"),
     "aap" -> Agency("AAP"),
-    "alamy" -> Agency("Alamy"),
-    "actionImages" -> Agency("Action Images")
+    "alamy" -> Agency("Alamy")
   )
 
   def get(id: String) = all.getOrElse(id, Agency(id))
