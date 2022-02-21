@@ -83,7 +83,7 @@ object ActionImagesParser extends ImageProcessor {
   
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Action Images") | Some("Action Images/Reuters") | Some("Action images/Reuters") | Some("Action Images/REUTERS") => image.copy(
-      usageRights = Agencies.get("actionImages"),
+      usageRights = Agency("Action Images"),
       metadata    = image.metadata.copy(
         credit = Some("Action Images/Reuters"),
         suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
