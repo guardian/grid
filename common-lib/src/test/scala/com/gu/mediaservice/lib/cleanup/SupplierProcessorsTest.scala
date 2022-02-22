@@ -85,13 +85,31 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       val image = createImageFromMetadata("credit" -> "Action Images")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(Agency("Action Images"))
-      processedImage.metadata.credit should be(Some("Action Images"))
+      processedImage.metadata.credit should be(Some("Action Images/Reuters"))
     }
   }
 
   describe("Action Images/Reuters") {
     it("should match 'Action Images/Reuters' credit") {
       val image = createImageFromMetadata("credit" -> "Action Images/Reuters")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Action Images"))
+      processedImage.metadata.credit should be(Some("Action Images/Reuters"))
+    }
+  }
+
+  describe("Action Images/REUTERS") {
+    it("should match 'Action Images/REUTERS' credit") {
+      val image = createImageFromMetadata("credit" -> "Action Images/REUTERS")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Action Images"))
+      processedImage.metadata.credit should be(Some("Action Images/Reuters"))
+    }
+  }
+
+  describe("Action images/Reuters") {
+    it("should match 'Action images/Reuters' credit") {
+      val image = createImageFromMetadata("credit" -> "Action images/Reuters")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(Agency("Action Images"))
       processedImage.metadata.credit should be(Some("Action Images/Reuters"))
