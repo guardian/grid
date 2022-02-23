@@ -15,6 +15,9 @@ imageAccessor.factory('imageAccessor', function() {
 
 
     /* == Readers ==  (return data) */
+    function readId(image) {
+        return image.data.id;
+    }
 
     function readCost(image) {
         return image.data.cost;
@@ -23,6 +26,10 @@ imageAccessor.factory('imageAccessor', function() {
     function readLabels(image) {
         const userMetadata = extractUserMetadata(image);
         return userMetadata.data.labels.data;
+    }
+
+    function readPeopleInImage(image) {
+        return image.data.metadata.peopleInImage;
     }
 
     function readLeases(image) {
@@ -80,6 +87,7 @@ imageAccessor.factory('imageAccessor', function() {
     }
 
     return {
+        readId,
         readCost,
         readLabels,
         readLeases,
@@ -87,6 +95,7 @@ imageAccessor.factory('imageAccessor', function() {
         readExtraInfo,
         readUsageRights,
         readPersistedReasons,
+        readPeopleInImage,
         isPersisted,
         isArchived,
         readCollections,

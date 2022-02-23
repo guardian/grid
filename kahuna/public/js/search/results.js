@@ -512,7 +512,10 @@ results.controller('SearchResultsCtrl', [
 
         $scope.$on("events:batch-operations:start", (e, entry) => {
             ctrl.batchOperations = [entry, ...ctrl.batchOperations];
-
+            if (entry.key === "peopleInImage" && ctrl.batchOperations.length > 1){
+              const total = ctrl.batchOperations.reduce((acc, operations) => acc + parseInt(operations.total), 0);
+              ctrl.batchOperations = [Object.assign({}, entry, { total })];
+            }
             window.onbeforeunload = function() {
                 return 'Batch update in progress, are you sure you want to leave?';
             };
@@ -521,6 +524,9 @@ results.controller('SearchResultsCtrl', [
         $scope.$on("events:batch-operations:progress", (e, { key, completed }) => {
             ctrl.batchOperations = ctrl.batchOperations.map(entry => {
                 if (entry.key === key) {
+                    if (entry.key === "peopleInImage") {
+                      completed = ctrl.batchOperations[0].completed + 1;
+                    }
                     return Object.assign({}, entry, { completed });
                 }
 
@@ -529,10 +535,15 @@ results.controller('SearchResultsCtrl', [
         });
 
         $scope.$on("events:batch-operations:complete", (e, { key }) => {
-            ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== key);
+            if (ctrl.batchOperations[0].key === 'peopleInImage' && ctrl.batchOperations[0].total !== ctrl.batchOperations[0].completed) {
+              return;
+            }
+            else {
+              ctrl.batchOperations = ctrl.batchOperations.filter(entry => entry.key !== key);
 
-            if (ctrl.batchOperations.length === 0) {
-                window.onbeforeunload = null;
+              if (ctrl.batchOperations.length === 0) {
+                  window.onbeforeunload = null;
+              }
             }
         });
 

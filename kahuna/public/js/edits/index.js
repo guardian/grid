@@ -1,7 +1,7 @@
 import angular from 'angular';
 
-import './labeller';
+import './list-editor';
 
 export var edits = angular.module('kahuna.edits', [
-    'kahuna.edits.labeller'
+    'kahuna.edits.listEditor'
 ]);

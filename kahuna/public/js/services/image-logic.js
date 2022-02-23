@@ -11,6 +11,10 @@ export const imageLogic = angular.module('kahuna.services.image-logic', [
  */
 imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
 
+    function isSameImage(image1, image2) {
+        return imageAccessor.readId(image1) === imageAccessor.readId(image2);
+    }
+
     function canBeDeleted(image) {
         return image.getAction('delete').then(action => !! action);
     }
@@ -101,6 +105,7 @@ imageLogic.factory('imageLogic', ['imageAccessor', function(imageAccessor) {
     }
 
     return {
+        isSameImage,
         canBeDeleted,
         canBeArchived,
         getArchivedState,

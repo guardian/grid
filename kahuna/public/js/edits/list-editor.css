@@ -1,0 +1,142 @@
+ui-list-editor,
+ui-list-editor-compact {
+    display: block;
+}
+
+.labeller {
+    font-size: 1.3rem;
+    display: flex;
+}
+
+.element {
+    color: white;
+    display: inline-flex;
+    justify-content: space-between;
+    margin: 0 5px 5px 0;
+}
+
+.element--removing {
+    background-color: #99ddff;
+}
+
+/*
+element--partial is part of gr-panel.
+*/
+.element--partial .element__value,
+.element--partial .element__add,
+.element--partial .element__remove {
+    background-color: white;
+    color: #00adee;
+}
+
+.element__value,
+.element__remove {
+    color: white;
+    background-color: #00adee;
+    font-style: normal;
+}
+
+.element__link:hover,
+.element__remove:hover {
+    color: #00adee;
+    background-color: white;
+}
+
+.image-info .element__remove:hover,
+.image-info .element__value:hover {
+    color: #00adee;
+    background-color: white;
+}
+
+.element__add,
+.element__value {
+    border-top-left-radius: 2px;
+    border-bottom-left-radius: 2px;
+}
+
+.element--partial .element__value {
+    border-radius: 0px;
+}
+
+.element__value {
+    padding: 0 5px;
+}
+
+.element__value--compact {
+    border-radius: 2px;
+}
+
+.element__remove {
+    border-top-right-radius: 2px;
+    border-bottom-right-radius: 2px;
+}
+
+.element button:hover gr-icon {
+    color: #333;
+}
+
+.element button:active gr-icon {
+    background-color: #008fc5;
+    color: #333;
+}
+
+.element--partial button:active gr-icon {
+    background-color: #CFCFCF;
+    color: #333;
+}
+
+.labeller__apply-all {
+    margin-left: 10px;
+    line-height: 20px;
+    font-size: 1.6rem;
+}
+
+.labeller__apply-all:hover {
+    color: #FFF;
+}
+
+.image-info__keyword .element__value {
+    background-color: #222;
+}
+
+.image-info__people  .element--partial .element__value,
+.image-info__people .element--partial .element__remove,
+.image-info__people .element--partial .element__add,
+.image-info__keywords  .element--partial .element__value,
+.image-info__keywords .element--partial .element__remove,
+.image-info__keywords .element--partial .element__add{
+    background-color: white;
+    color: #222;
+    border-bottom: 0px;
+}
+
+.image-info__people .element__value,
+.image-info__people .element__remove,
+.image-info__people .element__add,
+.image-info__keywords .element__value,
+.image-info__keywords .element__remove,
+.image-info__keywords .element__add {
+    background-color: #222;
+    color: #999;
+    border-bottom: 0px;
+}
+
+.image-info__people .element__value:hover,
+.image-info__people .element__link:hover,
+.image-info__people .element__remove:hover,
+.image-info__keywords .element__value:hover,
+.image-info__keywords .element__link:hover,
+.image-info__keywords .element__remove:hover {
+    color: #222;
+    background-color: white;
+}
+
+.image-info__people .element--partial .element__add:hover gr-icon,
+.image-info__keywords .element--partial .element__add:hover gr-icon {
+    color: #717171;
+}
+
+.image-info__people .element--partial .element__remove:hover gr-icon,
+.image-info__keywords .element--partial .element__remove:hover gr-icon {
+    color: #717171;
+}
