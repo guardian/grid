@@ -26,3 +26,4 @@ dev/.localstack
 dev/config/permissions.json
 
 coverage/
+.bsp

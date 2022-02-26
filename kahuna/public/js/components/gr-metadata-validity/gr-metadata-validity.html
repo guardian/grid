@@ -1,7 +1,19 @@
-<div ng-if="ctrl.showInvalidReasons" class="image-notice image-info__group validity validity--invalid validity--invalid--point-up">
-    <strong ng-if="!ctrl.isOverridden && !ctrl.isDeleted">Unusable Image <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon></strong>
-    <strong ng-if="ctrl.isOverridden && !ctrl.isDeleted"><strike>Unusable Image</strike> <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon></strong>
-    <strong ng-if="ctrl.isDeleted">Unusable Image<gr-icon title="This image cannot normally be used in content - image has been deleted">help</gr-icon></strong>
+<div
+    ng-if="ctrl.showInvalidReasons"
+    class="image-notice image-info__group validity validity--invalid validity--point-up"
+    ng-class="{'validity--invalid': ctrl.isDeleted || !ctrl.isOverridden, 'validity--warning': ctrl.isOverridden && !ctrl.isDeleted}"
+>
+    <strong ng-if="!ctrl.isOverridden && !ctrl.isDeleted">Unusable Image
+        <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon>
+    </strong>
+    <strong ng-if="ctrl.isOverridden && !ctrl.isDeleted">
+        This image can be used, but has warnings:
+        <gr-icon title="This image cannot normally be used in content - either this image has been given a valid lease or you are a lease granter.">help</gr-icon>
+    </strong>
+    <strong ng-if="ctrl.isDeleted">
+        Unusable Image
+        <gr-icon title="This image cannot normally be used in content - image has been deleted">help</gr-icon>
+    </strong>
     <ul ng-if="!ctrl.isDeleted">
         <li ng-repeat="(key, reason) in ctrl.invalidReasons">
             {{reason}}

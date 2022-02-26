@@ -969,6 +969,7 @@ textarea.ng-invalid {
 .cost--overquota {
     background-color: red;
 }
+.validity--warning,
 .cost--conditional {
     background-color: orange;
 }
@@ -986,18 +987,25 @@ textarea.ng-invalid {
 }
 
 /* Hacky pointer to some element above */
-.validity--invalid--point-up {
+.validity--point-up {
     position: relative;
 }
-.validity--invalid--point-up::before {
+.validity--point-up::before {
     content: "";
     border-left: 20px solid rgba(0, 0, 0, 0);
     border-right: 20px solid rgba(0, 0, 0, 0);
-    border-bottom: 10px solid red;
     position: absolute;
     top: -9px;
     right: 30px;
     z-index: 200;
+    border-bottom-width: 10px;
+    border-bottom-style: solid;
+}
+.validity--invalid::before {
+    border-bottom-color: red;
+}
+.validity--warning::before {
+    border-bottom-color: orange;
 }
 
 /* ==========================================================================

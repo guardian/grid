@@ -19,7 +19,8 @@ object ImageExtras {
     "paid_image"                  -> "Paid imagery requires a lease",
     "over_quota"                  -> "The quota for this supplier has been exceeded",
     "conditional_paid"            -> "This image is restricted use",
-    "current_deny_lease"          -> "Cropping has been denied using a lease"
+    "current_deny_lease"          -> "Cropping has been denied using a lease",
+    "tass_agency_image"           -> "Warning: TASS is Russian state-owned agency, information may not be accurate, including geographical names."
   )
 
   def validityOverrides(image: Image, withWritePermission: Boolean): Map[String, Boolean] = Map(
@@ -52,12 +53,13 @@ object ImageExtras {
       "missing_credit"       -> createCheck(!hasCredit(image.metadata), overrideable = false),
       "missing_description"  -> createCheck(!hasDescription(image.metadata), overrideable = false),
       "current_deny_lease"   -> createCheck(hasCurrentDenyLease(image.leases)),
-      "over_quota"           -> createCheck(quotas.isOverQuota(image.usageRights))
+      "over_quota"           -> createCheck(quotas.isOverQuota(image.usageRights)),
+      "tass_agency_image"    -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS"), overrideable = true, shouldOverride = true)
     )
   }
 
   def invalidReasons(validityMap: ValidMap) = validityMap
-    .filter { case (_, v) => !v.isValid }
+    .filter { case (_, v) => v.invalid }
     .map { case (id, _) => id -> validityDescription.get(id) }
     .map {
       case (id, Some(reason)) => id -> reason

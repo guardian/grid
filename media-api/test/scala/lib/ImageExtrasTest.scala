@@ -60,7 +60,8 @@ class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar {
     "over_quota" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false),
     "current_deny_lease" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false),
     "no_rights" -> ValidityCheck(invalid = true,overrideable = true,shouldOverride = false),
-    "conditional_paid" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false)
+    "conditional_paid" -> ValidityCheck(invalid = false,overrideable = true,shouldOverride = false),
+    "tass_agency_image" -> ValidityCheck(invalid = false, overrideable = true, shouldOverride = true)
   )
 
   describe("Invalid Images") {
@@ -103,8 +104,10 @@ class ImageExtrasTest extends AnyFunSpec with Matchers with MockitoSugar {
       val validityMap  = ImageExtras.validityMap(baseImage, withWritePermission = true)
       val invalidReasons = ImageExtras.invalidReasons(validityMap)
       val expectedInvalidReasons = Map(
+        "paid_image" -> "Paid imagery requires a lease",
         "missing_description" -> "Missing description *",
-        "missing_credit" -> "Missing credit information *"
+        "missing_credit" -> "Missing credit information *",
+        "no_rights" -> "No rights to use this image"
       )
 
       expectedInvalidReasons should be(invalidReasons)
