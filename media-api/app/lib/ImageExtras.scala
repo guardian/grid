@@ -54,7 +54,7 @@ object ImageExtras {
       "missing_description"  -> createCheck(!hasDescription(image.metadata), overrideable = false),
       "current_deny_lease"   -> createCheck(hasCurrentDenyLease(image.leases)),
       "over_quota"           -> createCheck(quotas.isOverQuota(image.usageRights)),
-      "tass_agency_image"    -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS"), overrideable = true, shouldOverride = true)
+      "tass_agency_image"    -> ValidityCheck(image.metadata.source.exists(_.toUpperCase == "TASS") | image.originalMetadata.byline.exists(_ == "ITAR-TASS News Agency"), overrideable = true, shouldOverride = true)
     )
   }
 
