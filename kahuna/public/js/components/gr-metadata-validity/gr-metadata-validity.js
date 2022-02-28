@@ -14,6 +14,7 @@ module.controller('grMetadataValidityCtrl', [ '$rootScope', function ($rootScope
             ctrl.showInvalidReasons = Object.keys(image.data.invalidReasons).length !== 0 || ctrl.isDeleted;
             ctrl.invalidReasons = image.data.invalidReasons;
             ctrl.isOverridden = ctrl.showInvalidReasons && image.data.valid;
+            ctrl.isStrongWarning = ctrl.isDeleted || !ctrl.isOverridden || image.data.cost === "pay";
         });
     }
 

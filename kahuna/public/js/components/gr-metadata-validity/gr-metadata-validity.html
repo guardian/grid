@@ -1,7 +1,7 @@
 <div
     ng-if="ctrl.showInvalidReasons"
     class="image-notice image-info__group validity validity--invalid validity--point-up"
-    ng-class="{'validity--invalid': ctrl.isDeleted || !ctrl.isOverridden, 'validity--warning': ctrl.isOverridden && !ctrl.isDeleted}"
+    ng-class="{'validity--invalid': ctrl.isStrongWarning, 'validity--warning': !ctrl.isStrongWarning}"
 >
     <strong ng-if="!ctrl.isOverridden && !ctrl.isDeleted">Unusable Image
         <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon>
