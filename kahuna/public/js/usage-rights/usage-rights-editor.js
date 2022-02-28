@@ -152,7 +152,7 @@ usageRightsEditor.controller(
     };
 
     ctrl.reset = () => {
-        ctrl.model = {};
+        ctrl.model = {restrictions: ctrl.model.restrictions};
         ctrl.showRestrictions = undefined;
     };
 
