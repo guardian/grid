@@ -46,6 +46,7 @@ class KahunaController(
     // is on the same domain and can be read by the JS
     val domainMetadataSpecs: String = Json.toJson(config.domainMetadataSpecs).toString()
     val fieldAliases: String = Json.toJson(config.fieldAliasConfigs).toString()
+    val metadataTemplates: String = Json.toJson(config.metadataTemplates).toString()
     val returnUri = config.rootUri + okPath
     Ok(views.html.main(
       config.mediaApiUri,
@@ -65,7 +66,8 @@ class KahunaController(
       config.systemName,
       config.canDownloadCrop,
       domainMetadataSpecs,
-      config.recordDownloadAsUsage
+      config.recordDownloadAsUsage,
+      metadataTemplates
     ))
   }
 

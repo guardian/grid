@@ -17,7 +17,8 @@
   systemName: String,
   canDownloadCrop: Boolean,
   domainMetadataSpecs: String,
-  recordDownloadAsUsage: Boolean
+  recordDownloadAsUsage: Boolean,
+  metadataTemplates: String
 )
 <!DOCTYPE html>
 <html>
@@ -61,7 +62,8 @@
           systemName: "@Html(systemName)",
           canDownloadCrop: @canDownloadCrop,
           domainMetadataSpecs: @Html(domainMetadataSpecs),
-          recordDownloadAsUsage: @recordDownloadAsUsage
+          recordDownloadAsUsage: @recordDownloadAsUsage,
+          metadataTemplates: @Html(metadataTemplates)
         }
     </script>
 

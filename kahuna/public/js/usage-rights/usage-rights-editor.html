@@ -1,7 +1,7 @@
 <form class="usage-rights-editor ure"
       novalidate
       name="usageRights"
-      ng-class="{'ure__category-invalid': ctrl.categoryInvalid}"
+      ng-class="{'ure__category-invalid': ctrl.categoryInvalid, 'ure__category-preview': ctrl.usageRightsUpdatedByTemplate}"
       ng-submit="usageRights.$valid && ctrl.save()">
 
     <div class="ure__description">
@@ -179,7 +179,7 @@
             </div>
         </div>
     </div>
-    <div class="ure__bar">
+    <div class="ure__bar" ng-if="!ctrl.usageRightsUpdatedByTemplate">
         <button class="ure__action button-ico button-cancel" type="button" ng-click="ctrl.cancel()"
                 title="close usage rights overrides">
             <gr-icon-label gr-icon="close">Cancel</gr-icon-label>

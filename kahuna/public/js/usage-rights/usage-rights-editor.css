@@ -45,3 +45,7 @@
 .ure__category-invalid {
     border: 1px solid #ed5935;
 }
+
+.ure__category-preview {
+    border: 1px solid #ffbc01;
+}

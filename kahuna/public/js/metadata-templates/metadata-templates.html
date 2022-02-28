@@ -1,0 +1,29 @@
+<form class="metadata-templates__form full-width"
+      ng-submit="ctrl.applyTemplate()">
+    <label>
+        <select
+            data-cy="it-metadatatemplate-select"
+            class="full-width"
+            ng-model="ctrl.metadataTemplate"
+            ng-required="required"
+            ng-change="ctrl.selectTemplate()"
+            ng-options="metadataTemplate as metadataTemplate.templateName for metadataTemplate in ctrl.metadataTemplates track by metadataTemplate.templateName">
+            <option ng-selected="true" value="">Please select template</option>
+        </select>
+    </label>
+
+    <div class="ure__bar" ng-if="ctrl.metadataTemplate">
+        <button class="ure__action button-ico button-cancel" type="button"
+                ng-click="ctrl.cancel()"
+                title="Close">
+            <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+        </button>
+        <button data-cy="apply-metadata-template"
+            class="ure__action button-ico button-save"
+            type="submit"
+            title="Apply template">
+            <gr-icon-label gr-icon="check">Apply</gr-icon-label>
+            <gr-icon ng-if="ctrl.saving">timelapse</gr-icon>
+        </button>
+    </div>
+</form>

@@ -59,6 +59,22 @@ jobs.controller('RequiredMetadataEditorCtrl',
         });
     };
 
+    $scope.$on('events:metadata-template:template-selected', (e, { metadata } ) => {
+      if (ctrl.userCanEdit) {
+        ctrl.metadataUpdatedByTemplate = Object.keys(metadata).filter(key => ctrl.originalMetadata[key] !== metadata[key]);
+        ctrl.metadata = metadata;
+      }
+    });
+
+    $scope.$on('events:metadata-template:template-applied', () => {
+      ctrl.metadataUpdatedByTemplate = [];
+    });
+
+    $scope.$on('events:metadata-template:template-cancelled', (e, {metadata}) => {
+      ctrl.metadataUpdatedByTemplate = [];
+      ctrl.metadata = metadata;
+    });
+
     // As we make a copy of this, we need to watch it
     // in case the metadata changes from above.
     $scope.$watch(() => ctrl.originalMetadata, metadata =>
