@@ -485,25 +485,18 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.metadata.credit should be(Some("Reuters"))
     }
 
-    it("should match USA Today Sports credit") {
-      val image = createImageFromMetadata("credit" -> "USA Today Sports")
+    it("should match USA Today Sports copyright") {
+      val image = createImageFromMetadata("copyright" -> "USA Today Sports")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(Agency("Reuters"))
       processedImage.metadata.credit should be(Some("USA Today Sports"))
     }
 
-    it("should match USA TODAY Sports credit") {
-      val image = createImageFromMetadata("credit" -> "USA TODAY Sports")
+    it("should match USA TODAY Sports copyright") {
+      val image = createImageFromMetadata("copyright" -> "USA TODAY Sports")
       val processedImage = applyProcessors(image)
       processedImage.usageRights should be(Agency("Reuters"))
       processedImage.metadata.credit should be(Some("USA Today Sports"))
-    }
-
-    it("should match TT NEWS AGENCY credit") {
-      val image = createImageFromMetadata("credit" -> "TT NEWS AGENCY")
-      val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("Reuters"))
-      processedImage.metadata.credit should be(Some("TT NEWS AGENCY"))
     }
   }
 
