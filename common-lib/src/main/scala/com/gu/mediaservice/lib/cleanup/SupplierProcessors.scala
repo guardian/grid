@@ -80,7 +80,7 @@ object AapParser extends ImageProcessor {
 object ActionImagesParser extends ImageProcessor {
 
   def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
-  
+
   def apply(image: Image): Image = image.metadata.credit match {
     case Some("Action Images") | Some("Action Images/Reuters") | Some("Action images/Reuters") | Some("Action Images/REUTERS") => image.copy(
       usageRights = Agency("Action Images"),
@@ -420,28 +420,28 @@ object PaParser extends ImageProcessor {
 object ReutersParser extends ImageProcessor {
   def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
 
-  def apply(image: Image): Image = image.metadata.credit match {
-
-    // Reuters and other misspellings
-    // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
-    case Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters") => image.copy(
-      usageRights = Agency("Reuters"),
-      metadata = image.metadata.copy(
-        credit = Some("Reuters"),
-        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
-      )
-    )
-    // Others via Reuters
-    case Some("USA TODAY Sports") => image.copy(
+  def apply(image: Image): Image = (image.metadata.copyright.map(_.toUpperCase), image.metadata.credit) match {
+    // Credit looks like this [byline]-USA TODAY Sports sometimes, so we match on copyright
+    case (Some("USA TODAY SPORTS"), _) => image.copy(
       metadata = image.metadata.copy(
         credit = Some("USA Today Sports"),
         suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
       ),
       usageRights = Agency("Reuters")
     )
-    case Some("USA Today Sports") | Some("TT NEWS AGENCY") => image.copy(
+    case (_, Some(credit)) if credit.toLowerCase.contains("reuters") && credit.toLowerCase.contains("agencja") && (credit.toLowerCase.contains("wyborcza") || credit.toLowerCase.contains("gazeta")) => image.copy(
+      metadata = image.metadata.copy(
+        credit = Some("Agencja Wyborcza.pl/Reuters"),
+        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+      ),
+      usageRights = Agency("Reuters")
+    )
+    // Reuters and other misspellings
+    // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
+    case (_, Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("via Reuters")) => image.copy(
       usageRights = Agency("Reuters"),
       metadata = image.metadata.copy(
+        credit = Some("Reuters"),
         suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
       )
     )
