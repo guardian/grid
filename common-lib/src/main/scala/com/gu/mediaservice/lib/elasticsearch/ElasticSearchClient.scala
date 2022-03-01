@@ -133,7 +133,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
       // https://www.elastic.co/guide/en/elasticsearch/guide/current/pagination.html
       // Override to 25,000 to preserve the existing behaviour without comprising the Elastic cluster.
       // The grid UI should consider scrolling by datetime offsets if possible.
-      val maximumPaginationOverride = Map("max_result_window" -> 25000)
+      val maximumPaginationOverride = Map("max_result_window" -> 101000)
 
       val nonRecommendenedIndexSettingOverrides = maximumFieldsOverride ++ maximumPaginationOverride
       logger.warn("Applying non recommended index setting overrides; please consider altering the application " +
