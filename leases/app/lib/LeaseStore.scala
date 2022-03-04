@@ -2,9 +2,10 @@ package lib
 
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.model.leases.{MediaLease, MediaLeaseType}
-import com.gu.scanamo._
-import com.gu.scanamo.syntax._
+import org.scanamo._
+import org.scanamo.syntax._
 import org.joda.time.DateTime
+import org.scanamo.auto.genericProduct
 
 import scala.concurrent.ExecutionContext
 
@@ -15,28 +16,30 @@ class LeaseStore(config: LeasesConfig) extends DynamoDB(config, config.leasesTab
     DynamoFormat.coercedXmap[MediaLeaseType, String, IllegalArgumentException](MediaLeaseType(_))(_.toString)
 
   private val leasesTable = Table[MediaLease](config.leasesTable)
+  // FIXME use scanamo async
+  private val scanamo = Scanamo(client)
 
   def get(id: String): Option[MediaLease] = {
-    Scanamo.exec(client)(leasesTable.get('id -> id)).flatMap(_.toOption)
+    scanamo.exec(leasesTable.get("id" -> id)).flatMap(_.toOption)
   }
 
   def getForMedia(id: String): List[MediaLease] = {
-    Scanamo.exec(client)(leasesTable.index("mediaId").query('mediaId -> id)).flatMap(_.toOption)
+    scanamo.exec(leasesTable.index("mediaId").query("mediaId" -> id)).flatMap(_.toOption)
   }
 
   def put(lease: MediaLease)(implicit ec: ExecutionContext) = {
-    ScanamoAsync.exec(client)(leasesTable.put(lease))
+    ScanamoAsync(client).exec(leasesTable.put(lease))
   }
 
   def putAll(leases: List[MediaLease])(implicit ec: ExecutionContext) = {
-    ScanamoAsync.exec(client)(leasesTable.putAll(leases.toSet))
+    ScanamoAsync(client).exec(leasesTable.putAll(leases.toSet))
   }
 
   def delete(id: String)(implicit ec: ExecutionContext) = {
-    ScanamoAsync.exec(client)(leasesTable.delete('id -> id))
+    ScanamoAsync(client).exec(leasesTable.delete("id" -> id))
   }
 
-  def forEach(run: List[MediaLease] => Unit)(implicit ec: ExecutionContext) = ScanamoAsync.exec(client)(
+  def forEach(run: List[MediaLease] => Unit)(implicit ec: ExecutionContext) = ScanamoAsync(client).exec(
     leasesTable.scan
       .map(ops => ops.flatMap(_.toOption))
       .map(run)
