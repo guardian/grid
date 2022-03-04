@@ -145,7 +145,6 @@ lazy val mediaApi = playProject("media-api", 9001)
       "org.apache.commons" % "commons-email" % "1.5",
       "org.parboiled" %% "parboiled" % "2.1.5",
       "org.http4s" %% "http4s-core" % "0.23.17",
-      "com.softwaremill.quicklens" %% "quicklens" % "1.4.11",
     )
   )
 
