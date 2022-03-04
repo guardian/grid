@@ -7,6 +7,7 @@ import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearch
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
 import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
+import com.gu.mediaservice.syntax.WhenNonEmptySyntax
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
@@ -21,8 +22,6 @@ import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
 import play.api.mvc.Security.AuthenticatedRequest
 import play.mvc.Http.Status
-import scalaz.NonEmptyList
-import scalaz.syntax.std.list._
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
@@ -34,7 +33,14 @@ class ElasticSearch(
   elasticConfig: ElasticSearchConfig,
   overQuotaAgencies: () => List[Agency],
   val scheduler: Scheduler
-) extends ElasticSearchClient with ImageFields with MatchFields with FutureSyntax with GridLogging with MigrationStatusProvider {
+) extends ElasticSearchClient
+  with ImageFields
+  with MatchFields
+  with FutureSyntax
+  with WhenNonEmptySyntax
+  with GridLogging
+  with MigrationStatusProvider
+{
 
   lazy val imagesCurrentAlias = elasticConfig.aliases.current
   lazy val imagesMigrationAlias = elasticConfig.aliases.migration
@@ -123,17 +129,17 @@ class ElasticSearch(
     val lastModTimeFilter = filters.date("lastModified", params.modifiedSince, params.modifiedUntil)
     val takenTimeFilter = filters.date("metadata.dateTaken", params.takenSince, params.takenUntil)
     // we only inject filters if there are actual date parameters
-    val dateFilterList = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten.toNel
-    val dateFilter = dateFilterList.map(dateFilters => filters.and(dateFilters.list: _*))
+    val dateFilterList = List(uploadTimeFilter, lastModTimeFilter, takenTimeFilter).flatten
+    val dateFilter = dateFilterList.whenNonEmpty.map(filters.and)
 
     val idsFilter = params.ids.map(filters.ids)
-    val labelFilter = params.labels.toNel.map(filters.terms("labels", _))
-    val metadataFilter = params.hasMetadata.map(metadataField).toNel.map(filters.exists)
+    val labelFilter = params.labels.whenNonEmpty.map(filters.terms("labels", _))
+    val metadataFilter = params.hasMetadata.map(metadataField).whenNonEmpty.map(filters.exists)
     val archivedFilter = params.archived.map(filters.existsOrMissing(editsField("archived"), _))
     val hasExports = params.hasExports.map(filters.existsOrMissing("exports", _))
-    val hasIdentifier = params.hasIdentifier.map(idName => filters.exists(NonEmptyList(identifierField(idName))))
-    val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(NonEmptyList(identifierField(idName))))
-    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", NonEmptyList(uploadedBy)))
+    val hasIdentifier = params.hasIdentifier.map(idName => filters.exists(List(identifierField(idName))))
+    val missingIdentifier = params.missingIdentifier.map(idName => filters.missing(List(identifierField(idName))))
+    val uploadedByFilter = params.uploadedBy.map(uploadedBy => filters.terms("uploadedBy", List(uploadedBy)))
     val simpleCostFilter = params.free.flatMap(free => if (free) searchFilters.freeFilter else searchFilters.nonFreeFilter)
     val costFilter = params.payType match {
       case Some(PayType.Free) => searchFilters.freeFilter
@@ -152,8 +158,8 @@ class ElasticSearch(
     }
 
     val usageFilter =
-      params.usageStatus.toNel.map(status => filters.terms("usagesStatus", status.map(_.toString))) ++
-        params.usagePlatform.toNel.map(filters.terms("usagesPlatform", _))
+      params.usageStatus.whenNonEmpty.map(status => filters.terms("usagesStatus", status.map(_.toString))) ++
+        params.usagePlatform.whenNonEmpty.map(filters.terms("usagesPlatform", _))
 
     val syndicationStatusFilter = params.syndicationStatus.map(status => syndicationFilter.statusFilter(status))
 
@@ -193,10 +199,10 @@ class ElasticSearch(
         ++ searchFilters.tierFilter(params.tier)
         ++ syndicationStatusFilter
         ++ dateAddedToCollectionFilter
-      ).toNel.map(filter => filter.list.reduceLeft(filters.and(_, _)))
+      ).whenNonEmpty.map(filters.and)
 
     val withFilter = filterOpt.map { f =>
-      boolQuery must (query) filter f
+      boolQuery must query filter f
     }.getOrElse(query)
 
     val sort = params.orderBy match {
@@ -319,7 +325,7 @@ class ElasticSearch(
       case _ => List(imagesCurrentAlias)
     }
     val migrationAwareQuery = migrationStatus match {
-      case running: Running => filters.and(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName)))
+      case running: Running => filters.and(Seq(query, filters.mustNot(filters.term("esInfo.migration.migratedTo", running.migrationIndexName))))
       case _ => query
     }
     val searchRequest = ElasticDsl.search(indexes) query migrationAwareQuery

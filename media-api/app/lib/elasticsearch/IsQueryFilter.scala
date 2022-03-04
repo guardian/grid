@@ -2,9 +2,9 @@ package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.syntax.WhenNonEmptySyntax
 import com.sksamuel.elastic4s.ElasticDsl.matchAllQuery
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import scalaz.syntax.std.list._
 
 sealed trait IsQueryFilter extends Query with ImageFields {
   def query: Query
@@ -27,38 +27,32 @@ object IsQueryFilter {
       case s if s == s"$organisation-owned-illustration" => Some(IsOwnedIllustration(organisation))
       case s if s == s"$organisation-owned" => Some(IsOwnedImage(organisation))
       case "under-quota" => Some(IsUnderQuota(overQuotaAgencies()))
-      case "deleted" => Some(IsDeleted(true))
+      case "deleted" => Some(IsDeleted())
       case _ => None
     }
   }
 }
 
 case class IsOwnedPhotograph(staffPhotographerOrg: String) extends IsQueryFilter {
-  override def query: Query = filters.or(
-    filters.terms(usageRightsField("category"), UsageRights.photographer.toNel.get.map(_.category))
-  )
+  override def query: Query =
+    filters.terms(usageRightsField("category"), UsageRights.photographer.map(_.category))
 }
 
 case class IsOwnedIllustration(staffPhotographerOrg: String) extends IsQueryFilter {
-  override def query: Query = filters.or(
-    filters.terms(usageRightsField("category"), UsageRights.illustrator.toNel.get.map(_.category))
-  )
+  override def query: Query =
+    filters.terms(usageRightsField("category"), UsageRights.illustrator.map(_.category))
 }
 
 case class IsOwnedImage(staffPhotographerOrg: String) extends IsQueryFilter {
-  override def query: Query = filters.or(
-    filters.terms(usageRightsField("category"), UsageRights.whollyOwned.toNel.get.map(_.category))
-  )
+  override def query: Query = filters.terms(usageRightsField("category"), UsageRights.whollyOwned.map(_.category))
 }
 
-case class IsUnderQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter {
-  override def query: Query = overQuotaAgencies.toNel
+case class IsUnderQuota(overQuotaAgencies: List[Agency]) extends IsQueryFilter with WhenNonEmptySyntax {
+  override def query: Query = overQuotaAgencies.whenNonEmpty
     .map(agency => filters.mustNot(filters.terms(usageRightsField("supplier"), agency.map(_.supplier))))
     .getOrElse(matchAllQuery)
 }
 
-case class IsDeleted(isDeleted: Boolean) extends IsQueryFilter {
-  override def query: Query = filters.or(
-    (filters.existsOrMissing("softDeletedMetadata", _))(isDeleted)
-  )
+case class IsDeleted() extends IsQueryFilter {
+  override def query: Query = filters.existsOrMissing("softDeletedMetadata", exists = true)
 }

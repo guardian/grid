@@ -105,7 +105,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = {
     runExiftoolCmd(
       setTags(tagSource(sourceFile))(tagFilter(metadata))
-      ).map(_ => sourceFile)
+    ).map(_ => sourceFile)
   }
 
   def resizeImage(sourceFile: File, sourceMimeType: Option[MimeType], dimensions: Dimensions,

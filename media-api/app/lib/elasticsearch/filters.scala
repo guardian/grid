@@ -7,18 +7,14 @@ import com.sksamuel.elastic4s.requests.searches.queries.{NestedQuery, Query}
 import com.sksamuel.elastic4s.requests.searches.queries.compound.BoolQuery
 import com.sksamuel.elastic4s.requests.searches.term.TermQuery
 import org.joda.time.DateTime
-import scalaz.NonEmptyList
-import scalaz.syntax.foldable1._
 
 object filters {
 
-  def and(queries: Query*): Query = must(queries)
+  def and(queries: Iterable[Query]): Query = must(queries)
+  def and(first: Query, rest: Query*): Query = must(first +: rest)
 
-  def or(queries: Query*): Query = should(queries)
-
-  def or(queries: NonEmptyList[Query]): Query = {
-    should(queries.list: _*)
-  }
+  def or(queries: Iterable[Query]): Query = should(queries)
+  def or(first: Query, rest: Query*): Query = should(first +: rest)
 
   def boolTerm(field: String, value: Boolean): TermQuery = termQuery(field, value)
 
@@ -31,22 +27,22 @@ object filters {
       None
     }
 
-  def exists(fields: NonEmptyList[String]): Query =
-    fields.map(f => existsQuery(f): Query).foldRight1(and(_, _))
+  def exists(fields: List[String]): Query =
+    and(fields.map(f => existsQuery(f): Query))
 
-  def missing(fields: NonEmptyList[String]): Query =
-    fields.map(f => not(existsQuery(f)): Query).foldRight1(and(_, _))
+  def missing(fields: List[String]): Query =
+    and(fields.map(f => not(existsQuery(f)): Query))
 
   def ids(idList: List[String]): Query = idsQuery(idList)
 
-  def bool() = BoolQuery()
+  def bool(): BoolQuery = BoolQuery()
 
   def mustNot(queries: Query*): Query = ElasticDsl.not(queries)
 
   def term(field: String, term: String): Query = termQuery(field, term)
 
-  def terms(field: String, terms: NonEmptyList[String]): Query = {
-    termsQuery(field, terms.list)
+  def terms(field: String, terms: List[String]): Query = {
+    termsQuery(field, terms)
   }
 
   def existsOrMissing(field: String, exists: Boolean): Query = if (exists) {
@@ -55,20 +51,18 @@ object filters {
     not(existsQuery(field))
   }
 
-  def anyMissing(fields: NonEmptyList[String]): Query =
-    fields.map(f => not(existsQuery(f)): Query).foldRight1(or(_, _))
+  def anyMissing(fields: List[String]): Query =
+    or(fields.map(f => not(existsQuery(f)): Query))
 
-  def not(filter: Query): Query = {
-    ElasticDsl.not(filter)
-  }
+  def not(filter: Query): Query = ElasticDsl.not(filter)
 
   def mustWithMustNot(mustClause: Query, mustNotClause: Query): Query = {
-    bool.must(
+    bool().must(
       mustClause
     ).withNot(
       mustNotClause
     )
   }
 
-  def nested(path: String, query: Query) = NestedQuery(path, query)
+  def nested(path: String, query: Query): NestedQuery = NestedQuery(path, query)
 }

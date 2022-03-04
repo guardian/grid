@@ -4,14 +4,11 @@ import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, SyndicationStatus}
+import com.gu.mediaservice.syntax.WhenNonEmptySyntax
 import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
 import play.api.mvc.{AnyContent, Request}
-import scalaz.syntax.applicative._
-import scalaz.syntax.std.list._
-import scalaz.syntax.validation._
-import scalaz.{Validation, ValidationNel}
 
 import scala.util.Try
 
@@ -107,9 +104,9 @@ object PayType extends Enumeration {
   }
 }
 
-object SearchParams {
+object SearchParams extends WhenNonEmptySyntax {
   def commasToList(s: String): List[String] = s.trim.split(',').toList
-  def listToCommas(list: List[String]): Option[String] = list.toNel.map(_.list.mkString(","))
+  def listToCommas(list: List[String]): Option[String] = list.whenNonEmpty.map(_.mkString(","))
 
   // TODO: return descriptive 400 error if invalid
   def parseIntFromQuery(s: String): Option[Int] = Try(s.toInt).toOption
@@ -187,24 +184,30 @@ object SearchParams {
       case (acc, (_,   None))        => acc
     }
 
-  type SearchParamValidation = Validation[InvalidUriParams, SearchParams]
-  type SearchParamValidations = ValidationNel[InvalidUriParams, SearchParams]
-
   // Also adjust in gu-lazy-table.js
   val maxSize = 200
 
-  def validate(searchParams: SearchParams): SearchParamValidations = {
+  def validate(searchParams: SearchParams): Either[List[InvalidUriParams], SearchParams] = {
     // we just need to return the first `searchParams` as we don't need to manipulate them
     // TODO: try reduce these
-    (validateLength(searchParams).toValidationNel |@| validateOffset(searchParams).toValidationNel)((s1, s2) => s1)
+    (validateLength(searchParams), validateOffset(searchParams)) match {
+      case (Right(params), Right(_)) => Right(params)
+      case fs => Left(List(fs._1, fs._2).flatMap(_.left.toOption))
+    }
   }
 
-  def validateOffset(searchParams: SearchParams): SearchParamValidation = {
-    if (searchParams.offset < 0) InvalidUriParams("offset cannot be less than 0").failure else searchParams.success
+  def validateOffset(searchParams: SearchParams): Either[InvalidUriParams, SearchParams] = {
+    if (searchParams.offset < 0)
+      Left(InvalidUriParams("offset cannot be less than 0"))
+    else
+      Right(searchParams)
   }
 
-  def validateLength(searchParams: SearchParams): SearchParamValidation = {
-    if (searchParams.length > maxSize) InvalidUriParams(s"length cannot exceed $maxSize").failure else searchParams.success
+  def validateLength(searchParams: SearchParams): Either[InvalidUriParams, SearchParams] = {
+    if (searchParams.length > maxSize)
+      Left(InvalidUriParams(s"length cannot exceed $maxSize"))
+    else
+      Right(searchParams)
   }
 
 }

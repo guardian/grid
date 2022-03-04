@@ -14,7 +14,6 @@ import org.slf4j.{LoggerFactory, Logger => SLFLogger}
 import play.api.ApplicationLoader.Context
 import play.api.LoggerConfigurator
 import play.api.libs.json._
-import scalaz.syntax.id._
 
 import scala.util.Try
 
@@ -39,37 +38,47 @@ object LogConfig {
     )).toString()
   }
 
-  private def makeLayout(customFields: String) = new LogstashLayout() <| (_.setCustomFields(customFields))
-
-  private def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig) =
-    new KinesisAppender[ILoggingEvent]() <| { a =>
-      a.setStreamName(appenderConfig.stream)
-      a.setRegion(appenderConfig.region)
-      a.setRoleToAssumeArn(appenderConfig.roleArn)
-      a.setBufferSize(appenderConfig.bufferSize)
-
-      a.setContext(context)
-      a.setLayout(layout)
-
-      layout.start()
-      a.start()
+  private def makeLayout(customFields: String): LogstashLayout = {
+    val layout = new LogstashLayout()
+    layout.setCustomFields(customFields)
+    layout
   }
+
+  private def makeKinesisAppender(layout: LogstashLayout, context: LoggerContext, appenderConfig: KinesisAppenderConfig): KinesisAppender[ILoggingEvent] = {
+    val appender = new KinesisAppender[ILoggingEvent]()
+
+    appender.setStreamName(appenderConfig.stream)
+    appender.setRegion(appenderConfig.region)
+    appender.setRoleToAssumeArn(appenderConfig.roleArn)
+    appender.setBufferSize(appenderConfig.bufferSize)
+
+    appender.setContext(context)
+    appender.setLayout(layout)
+
+    layout.start()
+    appender.start()
+
+    appender
+  }
+
 
   private def makeLogstashAppender(config: CommonConfig, context: LoggerContext): LogstashTcpSocketAppender = {
     val customFields = makeCustomFields(config)
 
-    new LogstashTcpSocketAppender() <| { appender =>
-      appender.setContext(context)
-      appender.addDestinations(new InetSocketAddress("localhost", 5000))
-      appender.setWriteBufferSize(BUFFER_SIZE)
+    val appender = new LogstashTcpSocketAppender()
+    appender.setContext(context)
+    appender.addDestinations(new InetSocketAddress("localhost", 5000))
+    appender.setWriteBufferSize(BUFFER_SIZE)
 
-      appender.setEncoder(new LogstashEncoder() <| { encoder =>
-        encoder.setCustomFields(customFields)
-        encoder.start()
-      })
+    val encoder = new LogstashEncoder()
+    encoder.setCustomFields(customFields)
+    encoder.start()
 
-      appender.start()
-    }
+    appender.setEncoder(encoder)
+
+    appender.start()
+
+    appender
   }
 
   def initLocalLogShipping(config: CommonConfig): Unit = {
