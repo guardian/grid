@@ -418,6 +418,10 @@ object PaParser extends ImageProcessor {
 }
 
 object ReutersParser extends ImageProcessor {
+
+  private val reutersSpellings =
+    List("reuters", "retuers", "reuetrs").flatMap(spelling => List(spelling, s"$spelling/"))
+
   def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
 
   def apply(image: Image): Image = (image.metadata.copyright.map(_.toUpperCase), image.metadata.credit) match {
@@ -437,8 +441,7 @@ object ReutersParser extends ImageProcessor {
       usageRights = Agency("Reuters")
     )
     // Reuters and other misspellings
-    // TODO: use case-insensitive matching instead once credit is no longer indexed as case-sensitive
-    case (_, Some("REUTERS") | Some("Reuters") | Some("RETUERS") | Some("REUETRS") | Some("REUTERS/") | Some("via REUTERS") | Some("VIA REUTERS") | Some("Via REUTERS") | Some("via Reuters")) => image.copy(
+    case (_, Some(x)) if reutersSpellings.exists(x.toLowerCase.endsWith) => image.copy(
       usageRights = Agency("Reuters"),
       metadata = image.metadata.copy(
         credit = Some("Reuters"),
