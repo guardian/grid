@@ -419,7 +419,7 @@ object PaParser extends ImageProcessor {
 
 object ReutersParser extends ImageProcessor {
 
-  private val reutersSpellings = """(?i) ?(via |/ ?)?(reuters|retuers|reuetrs)/?$""".r
+  private val reutersSpellings = """(?i) ?(/ ?)?(via )?(reuters|retuers|reuetrs)/?$""".r
 
   def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
 
