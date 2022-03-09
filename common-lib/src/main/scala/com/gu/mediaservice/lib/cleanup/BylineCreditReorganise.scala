@@ -37,7 +37,14 @@ object BylineCreditReorganise extends MetadataCleaner {
       } else {
         val outputByline = bylineParts.head
 
-        val outputCredit = (bylineParts.tail.filter(!creditParts.contains(_)) ++ creditParts.filter(_ != outputByline)).distinct.mkString("/")
+        val outputBylineLowercase = outputByline.toLowerCase
+        val creditPartsLowercase = creditParts.map(_.toLowerCase)
+
+        val remainingBylinePartsNotInCredit = bylineParts.tail.filter(bp => !creditPartsLowercase.contains(bp.toLowerCase))
+
+        val creditPartsNotInByline = creditParts.filter(_.toLowerCase != outputBylineLowercase)
+
+        val outputCredit = (remainingBylinePartsNotInCredit ++ creditPartsNotInByline).distinct.mkString("/")
 
         (outputByline, outputCredit)
       }
