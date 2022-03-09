@@ -419,8 +419,7 @@ object PaParser extends ImageProcessor {
 
 object ReutersParser extends ImageProcessor {
 
-  private val reutersSpellings =
-    List("reuters", "retuers", "reuetrs").flatMap(spelling => List(spelling, s"$spelling/"))
+  private val reutersSpellings = """(?i) ?(via |/ ?)?(reuters|retuers|reuetrs)/?$""".r
 
   def extractFixtureID(image:Image) = image.fileMetadata.iptc.get("Fixture Identifier")
 
@@ -441,13 +440,18 @@ object ReutersParser extends ImageProcessor {
       usageRights = Agency("Reuters")
     )
     // Reuters and other misspellings
-    case (_, Some(x)) if reutersSpellings.exists(x.toLowerCase.endsWith) => image.copy(
-      usageRights = Agency("Reuters"),
-      metadata = image.metadata.copy(
-        credit = Some("Reuters"),
-        suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+    case (_, Some(credit)) if reutersSpellings.findFirstMatchIn(credit).isDefined && !credit.toLowerCase.contains("action images") =>
+      val formattedCredit = List(reutersSpellings.replaceFirstIn(credit, ""), "Reuters")
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .mkString("/")
+      image.copy(
+        usageRights = Agency("Reuters"),
+        metadata = image.metadata.copy(
+          credit = Some(formattedCredit),
+          suppliersReference = extractFixtureID(image) orElse image.metadata.suppliersReference
+        )
       )
-    )
     case _ => image
   }
 }
