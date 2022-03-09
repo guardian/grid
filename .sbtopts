@@ -1,3 +1,4 @@
 -J-Xmx8192M
 -J-XX:MaxMetaspaceSize=2048M
+-J-XX:+UseG1GC
 -DSTAGE=DEV
