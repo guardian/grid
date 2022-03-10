@@ -1,5 +1,7 @@
 <form class="search">
+    <h3 class="visibly-hidden">Search</h3>
     <span class="search-query">
+        <h4 class="visibly-hidden">Search bar</h4>
         <gr-icon class="search-query__magnifier search-query__icon">search</gr-icon>
         <gr-structured-query class="search-query__query"
                              ng-model="searchQuery.filter.query">
@@ -21,6 +23,7 @@
     </button>
 
     <div class="search__modifier-container">
+        <h4 class="visibly-hidden">Quick filter</h4>
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="filtersShown = !filtersShown ">
@@ -74,6 +77,7 @@
     </div>
 
     <div class="search__modifier-container">
+        <h4 class="visibly-hidden">Quick sort</h4>
         <button class="search__modifier-toggle"
                 type="button"
                 ng-click="orderShown = !orderShown">

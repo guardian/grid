@@ -1,4 +1,6 @@
+<h1 class="visibly-hidden">Grid</h1>
 <gr-top-bar>
+    <h2 class="visibly-hidden">Header</h2>
     <gr-top-bar-nav>
         <a class="top-bar-item side-padded clickable" ui-sref="search" title="Back to search">
             <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
@@ -6,6 +8,7 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
+        <h3 class="visibly-hidden">Image actions</h3>
         <gr-delete-image class="top-bar-item clickable"
                          ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"
                          images="[ctrl.image]">
@@ -27,8 +30,10 @@
 
 
 <div class="image-details image-details--crop">
+    <h2 class="visibly-hidden">Original and Crops selection</h2>
     <div class="image-info">
         <div class="image-info__group">
+            <h3 class="visibly-hidden">Original image</h3>
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{:: ctrl.image.data.source.size | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
@@ -51,6 +56,7 @@
             </dl>
         </div>
         <div ng-if="ctrl.hasFullCrop" class="image-info__group">
+            <h3 class="visibly-hidden">Full frame</h3>
             <dt class="image-info__heading">Full frame</dt>
             <dd>
                 <div class="image-crop"
@@ -88,6 +94,7 @@
             </dd>
         </div>
         <div class="image-info__group" ng-if="ctrl.hasCrops">
+            <h3 class="visibly-hidden">Cropped images</h3>
             <dl class="image-info__group--dl">
                 <dt class="image-info__heading">Crops</dt>
                 <dd class="image-info__heading--crops">
@@ -130,6 +137,7 @@
 </div>
 
 <div class="image-details image-details--full-image">
+    <h2 class="visibly-hidden">Image information</h2>
   <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
   <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
   <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
@@ -144,6 +152,7 @@
 </div>
 
 <div class="image-holder">
+    <h2 class="visibly-hidden">Image view</h2>
     <div class="easel">
         <div class="easel__canvas"
              ng-if="!ctrl.crop"

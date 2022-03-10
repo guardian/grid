@@ -429,6 +429,9 @@ button[disabled],
     position: absolute;
     left: -9999px;
     font-size: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
 }
 
 /* ==========================================================================

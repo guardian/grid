@@ -1,5 +1,8 @@
+<h3 class="visibly-hidden">Image metadata panel</h3>
 <div class="image-info">
+    <h4 class="visibly-hidden">Image metadata</h4>
     <div class="image-info__group">
+        <h5 class="visibly-hidden">Rights and Restrictions</h5>
         <dl class="image-info__wrap metadata-line image-info__usage-rights">
         <dt class="metadata-line__key">Rights & restrictions</dt>
 
@@ -22,6 +25,7 @@
         </dl>
     </div>
     <div class="image-info__group" ng-if="ctrl.displayLeases()">
+        <h5 class="visibly-hidden">Leases</h5>
         <dl class="image-info__wrap image-info__leases">
             <div class="image-info__heading image-info__heading--lease">
                 <span>Leases</span>
@@ -38,6 +42,7 @@
     <div class="image-info__group">
         <dl>
             <div class="image-info__wrap">
+                <h5 class="visibly-hidden">Title</h5>
                 <button class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
                         ng-click="titleEditForm.$show()"
@@ -78,6 +83,7 @@
                 </div>
             </div>
             <div data-cy="metadata-description" class="image-info__wrap">
+                <h5 class="visibly-hidden">Description</h5>
                 <button data-cy="it-edit-description-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
@@ -149,6 +155,7 @@
     </div>
 
     <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions">
+        <h5 class="visibly-hidden">Special instructions</h5>
         <dl class="image-info__wrap">
             <button class="image-info__edit"
                     ng-if="ctrl.userCanEdit"
@@ -194,6 +201,7 @@
     </div>
 
     <div class="image-info__group">
+        <h5 class="visibly-hidden">Metadata</h5>
         <dl class="image-info__group--dl metadata-line">
             <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel" ng-if="ctrl.metadata.dateTaken">Taken on</dt>
             <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
@@ -397,6 +405,7 @@
     </div>
     <!-- FIXME: iff has useful metadata -->
     <div ng-if="ctrl.singleImage" class="image-info__group image-info__group--full-metadata">
+        <h5 class="visibly-hidden">Additional metadata</h5>
         <button class="metadata-reveal"
                 ng-click="ctrl.showMetadataSection('additionalMetadata')">
             <span ng-show="ctrl.isMetadataSectionHidden('additionalMetadata')">▸ Show</span>
@@ -423,6 +432,7 @@
     </div>
 
     <div ng-if="ctrl.singleImage" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata">
+        <h5 class="visibly-hidden">{{spec.name}} metadata</h5>
         <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)">
             <span ng-show="ctrl.isMetadataSectionHidden(spec.name)">▸ Show</span>
             <span ng-hide="ctrl.isMetadataSectionHidden(spec.name)">▾ Hide</span>
@@ -572,6 +582,7 @@
 </div>
 
 <div ng-if="ctrl.singleImage" class="image-info">
+    <h4 class="visibly-hidden">Image collections</h4>
     <dl class="image-info__group">
         <dt class="flex-container">
             <span class="metadata-line__key  flex-spacer">Collections</span>
@@ -597,6 +608,7 @@
 
 
 <div class="image-info">
+    <h4 class="visibly-hidden">Image labels</h4>
     <dl class="image-info__group">
         <dt class="flex-container">
             <span class="metadata-line__key  flex-spacer">Labels</span>
@@ -619,6 +631,7 @@
 </div>
 
 <div class="image-info__group">
+    <h4 class="visibly-hidden">Image photoshoot</h4>
     <dl class="image-info__wrap">
         <dt class="metadata-line metadata-line__key">Photoshoot</dt>
         <dd>
@@ -628,6 +641,7 @@
 </div>
 
 <div ng-if="ctrl.singleImage" class="image-info">
+    <h4 class="visibly-hidden">Image syndication rights</h4>
     <div class="image-info__group">
         <dl class="image-info__wrap">
             <dt class="metadata-line metadata-line__key">Syndication Rights (from RCS)</dt>
@@ -639,6 +653,7 @@
 </div>
 
 <div ng-if="ctrl.singleImage" class="image-info">
+    <h4 class="visibly-hidden">Image keywords</h4>
     <dl class="image-info__group image-info__wrap" ng-if="ctrl.metadata.keywords.length > 0">
         <dt class="image-info__heading image-info__wrap">Keywords</dt>
         <dd class="image-info__keywords">

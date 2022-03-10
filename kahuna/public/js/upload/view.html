@@ -1,4 +1,6 @@
+<h1 class="visibly-hidden">Grid</h1>
 <gr-top-bar>
+    <h2 class="visibly-hidden">Header</h2>
     <gr-top-bar-nav>
         <a class="top-bar-item side-padded"
            ui-sref="search"><gr-icon>search</gr-icon>
@@ -8,18 +10,19 @@
 </gr-top-bar>
 
 <div ng-if="ctrl.canUpload" class="page-wrapper">
+    <h2 class="visibly-hidden">Uploads</h2>
     <file-prompt class="section"></file-prompt>
 
     <section class="section"
              ng-if="ctrl.latestJob && ctrl.latestJob.length > 0">
-
-
-
+        <h3 class="visibly-hidden">Latest Upload</h3>
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
     <section class="section">
+        <h3 class="visibly-hidden">Past Uploads</h3>
         <div class="flex-container section-heading">
+            <h4 class="visibly-hidden">Past Uploads navigation</h4>
             <h2 class="flex-spacer">Your past 50 uploads</h2>
             <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
         </div>

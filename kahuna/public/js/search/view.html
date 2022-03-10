@@ -1,10 +1,12 @@
 <!-- TODO: rename this file and split it into it's components -->
+<h1 class="visibly-hidden">Grid</h1>
 <gr-top-bar fixed="true">
     <gr-top-bar-nav>
         <search-query></search-query>
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
+        <h3 class="visibly-hidden">Upload</h3>
         <a ng-if="ctrl.canUpload"
            ui-sref="upload"
            gr-track-click="Your recent uploads button"

@@ -1,5 +1,5 @@
 <div class="image-details">
-
+    <h2 class="visibly-hidden">Image information panel</h2>
     <div class="panel__top"
         ng-if="ctrl.selectedImages.size === 0">
         No images selected
@@ -40,7 +40,7 @@
     </div>
 
     <div ng-if="ctrl.selectedImages.size > 0">
-        <gr-image-metadata 
+        <gr-image-metadata
             gr-images="ctrl.selectedImages"
             gr-user-can-edit="ctrl.userCanEdit"
         ></gr-image-metadata>

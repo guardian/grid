@@ -1,4 +1,5 @@
 <!-- TODO: show only after a delay -->
+<h2 class="visibly-hidden">Search results</h2>
 <div ng-if="ctrl.loading"
      class="image-loading-results">
     Fetching images…
@@ -10,6 +11,7 @@
     </div>
     <div ng-if="! ctrl.loadingError">
         <div class="results-toolbar">
+            <h3 class="visibly-hidden">Results toolbar</h3>
             <gr-panel-button-small
                 data-cy="show-collections-panel"
                 class="results-toolbar-item results-toolbar-item--left results-toolbar-item--no-hover"
@@ -91,64 +93,67 @@
             </div>
         </div>
 
-        <ul class="results"
-            ng-if="!ctrl.previewView"
-            gu:lazy-table="ctrl.imagesAll"
-            gu:lazy-table-cell-min-width="280"
-            gu:lazy-table-cell-height="292"
-            gu:lazy-table-preloaded-rows="4"
-            gu:lazy-table-load-range="ctrl.loadRange($start, $end)"
-            gu-lazy-table-shortcuts>
+        <div>
+            <h3 class="visibly-hidden">Results</h3>
+            <ul class="results"
+                ng-if="!ctrl.previewView"
+                gu:lazy-table="ctrl.imagesAll"
+                gu:lazy-table-cell-min-width="280"
+                gu:lazy-table-cell-height="292"
+                gu:lazy-table-preloaded-rows="4"
+                gu:lazy-table-load-range="ctrl.loadRange($start, $end)"
+                gu-lazy-table-shortcuts>
 
-            <li ng-repeat="image in ctrl.images track by image.data.id"
-                gu:lazy-table-cell="image">
+                <li ng-repeat="image in ctrl.images track by image.data.id"
+                    gu:lazy-table-cell="image">
 
-                <div class="result"
-                     ng-class="{ 'result--seen': ctrl.imageHasBeenSeen(image),
+                    <div class="result"
+                         ng-class="{ 'result--seen': ctrl.imageHasBeenSeen(image),
                                  'result--selected': ctrl.imageHasBeenSelected(image)}">
 
-                    <!-- <HACK> -->
-                    <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
-                    <!-- </HACK> -->
-                    <div class="result__select result__select--selected"
-                         ng-if="ctrl.imageHasBeenSelected(image)">
-                        <input type="checkbox"
-                               class="result__select__checkbox"
-                               id="id-{{::image.data.id}}-result__select__checkbox--select"
-                               checked="true"
-                               ng-click="ctrl.deselect(image)"/>
-                        <label for="id-{{::image.data.id}}-result__select__checkbox--select"
-                               class="result__select__checkbox__label">
-                            <gr-icon>check_box</gr-icon>
-                        </label>
-                    </div>
-                    <div class="result__select"
-                         ng-if="!ctrl.imageHasBeenSelected(image)"
-                         ng-class="{ 'result__select--no-pointer-events': ctrl.inSelectionMode}">
-                        <input type="checkbox"
-                               class="result__select__checkbox"
-                               id="id-{{::image.data.id}}-result__select__checkbox--deselect"
-                               ng-click="ctrl.select(image)" />
-                        <label for="id-{{::image.data.id}}-result__select__checkbox--deselect"
-                               class="result__select__checkbox__label">
-                            <gr-icon>check_box</gr-icon>
-                        </label>
-                    </div>
+                        <!-- <HACK> -->
+                        <!-- We don't want to add a property on `image` to determine the state of the checkbox, so render two individual inputs. -->
+                        <!-- </HACK> -->
+                        <div class="result__select result__select--selected"
+                             ng-if="ctrl.imageHasBeenSelected(image)">
+                            <input type="checkbox"
+                                   class="result__select__checkbox"
+                                   id="id-{{::image.data.id}}-result__select__checkbox--select"
+                                   checked="true"
+                                   ng-click="ctrl.deselect(image)"/>
+                            <label for="id-{{::image.data.id}}-result__select__checkbox--select"
+                                   class="result__select__checkbox__label">
+                                <gr-icon>check_box</gr-icon>
+                            </label>
+                        </div>
+                        <div class="result__select"
+                             ng-if="!ctrl.imageHasBeenSelected(image)"
+                             ng-class="{ 'result__select--no-pointer-events': ctrl.inSelectionMode}">
+                            <input type="checkbox"
+                                   class="result__select__checkbox"
+                                   id="id-{{::image.data.id}}-result__select__checkbox--deselect"
+                                   ng-click="ctrl.select(image)" />
+                            <label for="id-{{::image.data.id}}-result__select__checkbox--deselect"
+                                   class="result__select__checkbox__label">
+                                <gr-icon>check_box</gr-icon>
+                            </label>
+                        </div>
 
-                    <ui-preview-image image="image"
-                                      selection-mode="ctrl.inSelectionMode"
-                                      ng-class="{'preview__quick-select': ctrl.inSelectionMode}"
-                                      ng-click="ctrl.onImageClick(image, $event)">
-                        <button class="mark-as-seen image-action"
-                                title="Mark all images until this point as seen"
-                                ui-localstore="search.seenFrom"
-                                ui-localstore-val="ctrl.getLastSeenVal(image)">
-                            <gr-icon>remove_red_eye</gr-icon>
-                        </button>
-                    </ui-preview-image>
-                </div>
-            </li>
-        </ul>
+                        <ui-preview-image image="image"
+                                          selection-mode="ctrl.inSelectionMode"
+                                          ng-class="{'preview__quick-select': ctrl.inSelectionMode}"
+                                          ng-click="ctrl.onImageClick(image, $event)">
+                            <button class="mark-as-seen image-action"
+                                    title="Mark all images until this point as seen"
+                                    ui-localstore="search.seenFrom"
+                                    ui-localstore-val="ctrl.getLastSeenVal(image)">
+                                <gr-icon>remove_red_eye</gr-icon>
+                            </button>
+                        </ui-preview-image>
+                    </div>
+                </li>
+            </ul>
+        </div>
 
         <gu:lazy-preview
             ng-if="ctrl.previewView"

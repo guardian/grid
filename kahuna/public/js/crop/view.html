@@ -1,4 +1,6 @@
+<h1 class="visibly-hidden">Grid</h1>
 <gr-top-bar>
+    <h2 class="visibly-hidden">Header</h2>
     <gr-top-bar-nav>
         <a class="top-bar-item clickable side-padded"
            ui-sref="image({ imageId: ctrl.image.data.id })"
@@ -7,6 +9,7 @@
     </gr-top-bar-nav>
 
     <gr-top-bar-actions>
+        <h3 class="visibly-hidden">Crop actions</h3>
         <div class="top-bar-item side-padded">
             x:
             <form class="top-bar-item__form">
@@ -95,11 +98,13 @@
 </gr-top-bar>
 
 <div class="warning" ng-if="ctrl.cropSizeWarning()">
+    <h2 class="visibly-hidden">Crop view</h2>
     This crop is very small and will result in a low-quality image.
     Please try to use a larger crop or an alternative image.
 </div>
 
 <div class="easel">
+    <h2 class="visibly-hidden">Crop view</h2>
     <div class="easel__canvas">
         <div class="easel__image-container">
             <img class="easel__image easel__image--cropper"
