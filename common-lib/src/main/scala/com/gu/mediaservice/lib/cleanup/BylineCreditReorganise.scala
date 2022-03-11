@@ -25,7 +25,7 @@ object BylineCreditReorganise extends MetadataCleaner {
   def removeBylineFromCredit(bylineField: Field, creditField: Field) =
     bylineField.map { byline =>
       val credit = creditField.getOrElse("")
-      val bylineParts = byline.split("(?i)\\W+via\\W+|/").filter(_.nonEmpty)
+      val bylineParts = byline.split("(?i)\\W+via\\W+|/| - |#").filter(_.nonEmpty)
       val creditParts = credit.split("(?i)\\W+via\\W+|/").filter(_.nonEmpty)
 
       // It's very difficult to decide how to reorganise the byline or credits if they're both single tokens
