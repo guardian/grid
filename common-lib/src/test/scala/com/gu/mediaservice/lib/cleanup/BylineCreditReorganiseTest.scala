@@ -65,6 +65,16 @@ class BylineCreditReorganiseTest extends AnyFunSpec with Matchers with MetadataH
       .whenCleaned("Philip Glass", "Barcroft Media")
   }
 
+  it ("should remove organisation from byline, ` - ` case") {
+    CreditByline("Philip Glass - Barcroft Media", "Barcroft Media")
+      .whenCleaned("Philip Glass", "Barcroft Media")
+  }
+
+  it ("should remove organisation from byline, # case") {
+    CreditByline("Philip Glass#Barcroft Media", "Barcroft Media")
+      .whenCleaned("Philip Glass", "Barcroft Media")
+  }
+
   it ("should remove organisation from byline, case insensitive") {
     CreditByline("Philip Glass via BaRcRoFt MEDIA", "Barcroft Media")
       .whenCleaned("Philip Glass", "Barcroft Media")
