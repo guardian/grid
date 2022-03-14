@@ -25,8 +25,8 @@ object BylineCreditReorganise extends MetadataCleaner {
   def removeBylineFromCredit(bylineField: Field, creditField: Field) =
     bylineField.map { byline =>
       val credit = creditField.getOrElse("")
-      val bylineParts = byline.split(" via |/").filter(!_.isEmpty)
-      val creditParts = credit.split(" via |/").filter(!_.isEmpty)
+      val bylineParts = byline.split("(?i)\\W+via\\W+|/| - |#").filter(_.nonEmpty)
+      val creditParts = credit.split("(?i)\\W+via\\W+|/").filter(_.nonEmpty)
 
       // It's very difficult to decide how to reorganise the byline or credits if they're both single tokens
       // since we'd need to know what's likely to be a name and what's likely to be an organisation.
@@ -37,13 +37,20 @@ object BylineCreditReorganise extends MetadataCleaner {
       } else {
         val outputByline = bylineParts.head
 
-        val outputCredit = (bylineParts.tail.filter(!creditParts.contains(_)) ++ creditParts.filter(_ != outputByline)).distinct.mkString("/")
+        val outputBylineLowercase = outputByline.toLowerCase
+        val creditPartsLowercase = creditParts.map(_.toLowerCase)
+
+        val remainingBylinePartsNotInCredit = bylineParts.tail.filter(bp => !creditPartsLowercase.contains(bp.toLowerCase))
+
+        val creditPartsNotInByline = creditParts.filter(_.toLowerCase != outputBylineLowercase)
+
+        val outputCredit = (remainingBylinePartsNotInCredit ++ creditPartsNotInByline).distinct.mkString("/")
 
         (outputByline, outputCredit)
       }
     }
     // Convert the strings back to `Option`s
-    .map{ case (b, c) => (Some(b), Some(c).filter(!_.isEmpty)) }
+    .map{ case (b, c) => (Some(b), Some(c).filter(_.nonEmpty)) }
     // return the defaults if they both didn't exist
     .getOrElse((bylineField, creditField))
 

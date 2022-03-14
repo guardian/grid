@@ -498,6 +498,27 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
       processedImage.usageRights should be(Agency("Reuters"))
       processedImage.metadata.credit should be(Some("USA Today Sports"))
     }
+
+    it("should normalise reuters credits when using via") {
+      val image = createImageFromMetadata("credit" -> "John Doe/intermediary/via reuters")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Reuters"))
+      processedImage.metadata.credit should be(Some("John Doe/intermediary/Reuters"))
+    }
+
+    it("should normalise reuters credits when using slash") {
+      val image = createImageFromMetadata("credit" -> "John Doe/intermediary/ REUTERS")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Reuters"))
+      processedImage.metadata.credit should be(Some("John Doe/intermediary/Reuters"))
+    }
+
+    it("should normalise reuters credits when using no delimiter") {
+      val image = createImageFromMetadata("credit" -> "John Doe/intermediary retuERS")
+      val processedImage = applyProcessors(image)
+      processedImage.usageRights should be(Agency("Reuters"))
+      processedImage.metadata.credit should be(Some("John Doe/intermediary/Reuters"))
+    }
   }
 
 

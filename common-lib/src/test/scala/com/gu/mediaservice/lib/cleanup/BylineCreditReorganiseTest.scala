@@ -65,6 +65,24 @@ class BylineCreditReorganiseTest extends AnyFunSpec with Matchers with MetadataH
       .whenCleaned("Philip Glass", "Barcroft Media")
   }
 
+  it ("should remove organisation from byline, ` - ` case") {
+    CreditByline("Philip Glass - Barcroft Media", "Barcroft Media")
+      .whenCleaned("Philip Glass", "Barcroft Media")
+  }
+
+  it ("should remove organisation from byline, # case") {
+    CreditByline("Philip Glass#Barcroft Media", "Barcroft Media")
+      .whenCleaned("Philip Glass", "Barcroft Media")
+  }
+
+  it ("should remove organisation from byline, case insensitive") {
+    CreditByline("Philip Glass via BaRcRoFt MEDIA", "Barcroft Media")
+      .whenCleaned("Philip Glass", "Barcroft Media")
+
+    CreditByline("Philip Glass via Barcroft Media", "BaRcRoFt MEDIA")
+      .whenCleaned("Philip Glass", "BaRcRoFt MEDIA")
+  }
+
   it ("should handle empty byline") {
     CreditByline("", "Barcroft Media")
       .whenCleaned("", "Barcroft Media")
@@ -82,6 +100,21 @@ class BylineCreditReorganiseTest extends AnyFunSpec with Matchers with MetadataH
 
   it ("should handle empty credit when byline has organisation names, via case") {
     CreditByline("John Doe via BPI/REX", "")
+      .whenCleaned("John Doe", "BPI/REX")
+  }
+
+  it ("should handle combination slash and via") {
+    CreditByline("John Doe /via BPI/REX", "")
+      .whenCleaned("John Doe", "BPI/REX")
+  }
+
+  it ("should handle any non-word delimiter around via") {
+    CreditByline("John Doe !via! BPI/REX", "")
+      .whenCleaned("John Doe", "BPI/REX")
+  }
+
+  it ("should handle any capitalisation of via") {
+    CreditByline("John Doe vIa BPI/REX", "")
       .whenCleaned("John Doe", "BPI/REX")
   }
 
