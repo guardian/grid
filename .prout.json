@@ -4,7 +4,6 @@
     "collections": { "url": "https://media-collections.gutools.co.uk/management/manifest", "overdue": "30M" },
     "cropper": { "url": "https://cropper.media.gutools.co.uk/management/manifest", "overdue": "30M" },
     "image-loader": { "url": "https://loader.media.gutools.co.uk/management/manifest", "overdue": "30M" },
-    "image-loader-projection": { "url": "https://loader-projection.media.gutools.co.uk/management/manifest", "overdue": "30M" },
     "kahuna": { "url": "https://media.gutools.co.uk/management/manifest", "overdue": "30M" },
     "leases": { "url": "https://media-leases.gutools.co.uk/management/manifest", "overdue": "30M" },
     "media-api": { "url": "https://api.media.gutools.co.uk/management/manifest", "overdue": "30M" },
