@@ -177,7 +177,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "SNS Group",
     "Sports Illustrated",
     "Sports Illustrated Classic",
-    "Sportsfile",
     "Storyful",
     "Sygma Premium",
     "The Asahi Shimbun Premium",
