@@ -319,22 +319,22 @@ checkForJavaHome() {
 }
 
 main() {
-   checkForJavaHome
-   clean
-   startDocker
-   createCoreStack
+  checkForJavaHome
+  clean
+  startDocker
+  createCoreStack
 
-   if [[ $LOCAL_AUTH == true ]]; then
-     if [[ $LOCAL_SIMPLE_AUTH_PROVIDER == true ]]
-     then
-       setupLocalAuthenticationProviderConfiguration
-       setupLocalAuthorisationProviderConfiguration
-     else
-       createGuardianLocalAuthStack
-       setupPanDomainConfiguration
-       setupGuardianPermissionConfiguration
-     fi
-   fi
+  if [[ $LOCAL_AUTH == true ]]; then
+    if [[ $LOCAL_SIMPLE_AUTH_PROVIDER == true ]]
+    then
+      setupLocalAuthenticationProviderConfiguration
+      setupLocalAuthorisationProviderConfiguration
+    else
+      createGuardianLocalAuthStack
+      setupPanDomainConfiguration
+      setupGuardianPermissionConfiguration
+    fi
+  fi
 
   setupPhotographersConfiguration
   setupUsageRightsConfiguration

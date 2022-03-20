@@ -115,14 +115,6 @@ usageRightsEditor.controller(
     inject$($scope, showRestrictions$, ctrl, 'showRestrictions');
     inject$($scope, categoryInvalid$, ctrl, 'categoryInvalid');
 
-//    ctrl.restrictionText = ctrl.usageRights._tail.array[0].data.restrictions
-//    console.log(ctrl.restrictionText)
-//     let restrictionTextArea = document.getElementsByName("restrictions");
-//    console.log(ctrl.categories)
-//    ctrl.model = {}
-//    ctrl.model.restrictions = ctrl.restrictionText
-//    console.log(ctrl.model.restrictions)
-
     // TODO: Some of these could be streams
     ctrl.saving = false;
     ctrl.getOptionsFor = property => {

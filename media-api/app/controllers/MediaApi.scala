@@ -410,7 +410,6 @@ class MediaApi(
     } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links)
 
     val _searchParams = SearchParams(request)
-    println(_searchParams.free)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
     val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
     val searchParams = if(canViewDeletedImages) _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user))) else _searchParams

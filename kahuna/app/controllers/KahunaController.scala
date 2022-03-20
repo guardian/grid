@@ -26,7 +26,7 @@ class KahunaController(
     val scriptsToLoad = config.scriptsToLoad
       .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
       .filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists))
-    println(s"***scriptsToLoad: ${scriptsToLoad}******")
+
     val okPath = routes.KahunaController.ok.url
     // If the auth is successful, we redirect to the kahuna domain so the iframe
     // is on the same domain and can be read by the JS

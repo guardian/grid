@@ -100,12 +100,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    * }}}
    */
   val domainMetadataSpecs: Seq[DomainMetadataSpec] = configuration.getOptional[Seq[DomainMetadataSpec]]("domainMetadata.specifications").getOrElse(Seq.empty)
-  println(s"********domainMetadataSpecs ${domainMetadataSpecs}")
-  val fa = FieldAlias("fileMetadata.xmp.bbc:xpng_wolftechStoryId", "Wolftech Story Id", true, true, "wolftechStoryId", List.empty)
-  val fieldAliasConfigs: Seq[FieldAlias] = Seq(fa)//configuration.getOptional[Seq[FieldAlias]]("field.aliases").getOrElse(Seq.empty)
 
-//  val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
-  println(s"*******x**field.aliases ${fieldAliasConfigs}")
+  val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
 
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
 

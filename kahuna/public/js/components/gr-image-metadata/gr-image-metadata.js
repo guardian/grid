@@ -184,13 +184,13 @@ module.controller('grImageMetadataCtrl', [
 
     ctrl.keywordAccessor = (image) => imageAccessor.readMetadata(image).keywords;
 
-//    const ignoredMetadata = [
-//      'title', 'description', 'copyright', 'keywords', 'byline',
-//      'credit', 'subLocation', 'city', 'state', 'country',
-//      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage',
-//      'domainMetadata'
-//    ];
-const ignoredMetadata = []
+    const ignoredMetadata = [
+      'title', 'description', 'copyright', 'keywords', 'byline',
+      'credit', 'subLocation', 'city', 'state', 'country',
+      'dateTaken', 'specialInstructions', 'subjects', 'peopleInImage',
+      'domainMetadata'
+    ];
+
     function updateSingleImage() {
       // Alias for convenience in view
       ctrl.identifiers = ctrl.singleImage.data.identifiers;
@@ -263,7 +263,6 @@ const ignoredMetadata = []
     }
 
     ctrl.showMetadataSection = (key) => {
-    debugger;
       const storeName = generateStoreName(key);
       const state = storage.getJs(storeName);
       storage.setJs(storeName, {hidden: !state.hidden});

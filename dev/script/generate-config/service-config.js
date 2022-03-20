@@ -75,7 +75,7 @@ function getImageLoaderConfig(config) {
 function getKahunaConfig(config){
 
     // `BUILD_ORG` env variable should be set for non-Guardian orgs, e.g. bbc
-    const pinboardConfig = stripMargin`
+    const pinboardConfig = process.env.BUILD_ORG ? "" : stripMargin`
         |security.connectSources = [
         |  "wss://*.iot.${config.AWS_DEFAULT_REGION}.amazonaws.com",
         |  "https://*.appsync-api.${config.AWS_DEFAULT_REGION}.amazonaws.com"

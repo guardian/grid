@@ -19,7 +19,6 @@ class LocalAuthenticationProvider (resources: AuthenticationProviderResources)
   private val kahunaBaseURI: String = resources.commonConfig.services.kahunaBaseUri
 
   override def authenticateRequest(request: RequestHeader): AuthenticationStatus = {
-//    Authenticated(UserPrincipal("Ebu", "Son", "ebuson@example.com"))
     Authenticated(UserPrincipal("John", "Doe", "johndoe@example.com"))
   }
 

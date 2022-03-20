@@ -27,10 +27,6 @@
 
     <title ui-title ui-title-suffix="@systemName">@systemName</title>
     <!-- htmllint line-ending-style="false" -->
-<!--    <script src="@routes.Assets.versioned("jquery.min.js")"></script>-->
-<!--      <script>-->
-
-<!--      </script>-->
 
 
     <!-- preconnect to core APIs ahead of JS making the requests -->
@@ -89,7 +85,6 @@
     @scriptsToLoad.map { scriptDetail =>
       <script async="@scriptDetail.async" src="@scriptDetail.host/@scriptDetail.path"></script>
     }
-<!--    <script async="true" src="@routes.Assets.versioned("js/plugin.js")"></script>-->
-    <script> console.log('Not loaded'); setTimeout(() => console.log('Loaded'))</script>
+
   </body>
 </html>
