@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.cleanup
 
+import com.gu.mediaservice.lib.config.MetadataConfig
 import com.gu.mediaservice.model.{Image, ImageMetadata}
 
 trait MetadataCleaner extends ImageProcessor {
@@ -8,9 +9,9 @@ trait MetadataCleaner extends ImageProcessor {
   override def apply(image: Image): Image = image.copy(metadata = clean(image.metadata))
 }
 
-class GuardianMetadataCleaners(resources: ImageProcessorResources) extends MetadataCleaners(resources)
+class GuardianMetadataCleaners extends MetadataCleaners(MetadataConfig.allPhotographersMap)
 
-class MetadataCleaners(resources: ImageProcessorResources)
+class MetadataCleaners(creditBylineMap: Map[String, List[String]])
   extends ComposeImageProcessors(
     CleanRubbishLocation,
     StripCopyrightPrefix,
@@ -18,7 +19,7 @@ class MetadataCleaners(resources: ImageProcessorResources)
     BylineCreditReorganise,
     UseCanonicalGuardianCredit,
     ExtractGuardianCreditFromByline,
-    AttributeCreditFromByline.fromPublications(resources.commonConfiguration.usageRightsConfig.allPhotographers),
+    AttributeCreditFromByline.fromCreditBylineMap(creditBylineMap),
     CountryCode,
     GuardianStyleByline,
     CapitaliseByline,

@@ -51,6 +51,7 @@ image.controller('uiPreviewImageCtrl', [
           ctrl.imageAsArray = [newImage];
       });
 
+
       ctrl.addLabelToImages = labelService.batchAdd;
       ctrl.removeLabelFromImages = labelService.batchRemove;
       ctrl.labelAccessor = (image) => imageAccessor.readLabels(image).map(label => label.data);

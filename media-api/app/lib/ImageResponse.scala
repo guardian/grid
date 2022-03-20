@@ -345,6 +345,7 @@ object ImageResponse {
     }
 
     config.fieldAliasConfigs.flatMap { config =>
+      println(s"config: ${config}")
       val parts = config.elasticsearchPath.split('.').toList.filter(_.nonEmpty)
       val lookupResult = nestedLookup(JsDefined(source.source), parts)
       lookupResult.toOption.map {

@@ -26,7 +26,7 @@ object FieldAlias {
             config.getBoolean("displaySearchHint") else false
           val searchHintOptions = if (config.hasPath("searchHintOptions"))
             config.getStringList("searchHintOptions").asScala.toList.filter(_.nonEmpty) else List.empty
-
+          println("555555555555555")
           FieldAlias(
             config.getString("elasticsearchPath"),
             config.getString("label"),

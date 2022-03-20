@@ -19,6 +19,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val mediaApiMetrics = new MediaApiMetrics(config)
 
   val s3Client = new S3Client(config)
+  println(s"config: ${config.fieldAliasConfigs}")
 
   val usageQuota = new UsageQuota(config, actorSystem.scheduler)
   usageQuota.quotaStore.update()
