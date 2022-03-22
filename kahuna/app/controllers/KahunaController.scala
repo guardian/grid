@@ -1,12 +1,16 @@
 package controllers
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
-import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
+import com.gu.mediaservice.lib.auth.Authentication.Principal
+import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
 import lib.KahunaConfig
-import play.api.mvc.{BaseController, ControllerComponents}
+import play.api.mvc.ControllerComponents
 import play.api.libs.json._
+
 import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
+import com.gu.mediaservice.lib.config.Services
+import play.api.mvc.Security.AuthenticatedRequest
 
 class KahunaController(
   authentication: Authentication,
@@ -15,13 +19,23 @@ class KahunaController(
   authorisation: Authorisation
 )(
   implicit val ec: ExecutionContext
-) extends BaseController with ArgoHelpers {
+) extends BaseControllerWithLoginRedirects with ArgoHelpers {
 
-  def index(ignored: String) = Action { req =>
+  override def auth: Authentication = authentication
 
-    val maybeUser: Option[Authentication.Principal] = authentication.authenticationStatus(req).toOption
+  override def services: Services = config.services
 
-    val isIFramed = req.headers.get("Sec-Fetch-Dest").contains("iframe")
+  def index(ignored: String) = withOptionalLoginRedirect { request =>
+
+    val maybeUser: Option[Authentication.Principal] = request match {
+      case authedRequest: AuthenticatedRequest[_, _] => authedRequest.user match {
+        case principal: Principal => Some(principal)
+        case _ => None
+      }
+      case _ => None
+    }
+
+    val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
 
     val scriptsToLoad = config.scriptsToLoad
       .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
