@@ -88,7 +88,8 @@
                     type="button"
                     ng-click="ctrl.callCrop()"
                     ng-disabled="ctrl.cropping"
-                    gr-tooltip="Crop [enter]">
+                    gr-tooltip="Crop [enter]"
+                    aria-label="Crop image">
                 <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}">Crop<span ng-show="ctrl.cropping">ping…</span></gr-icon-label>
             </button>
         </div>

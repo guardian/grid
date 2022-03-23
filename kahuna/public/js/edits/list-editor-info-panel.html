@@ -11,7 +11,7 @@
        aria-label="Search images by {{element.data}} {{ctrl.elementName}}">{{element.data}}</a>
     <button class="element__remove"
             title="Remove {{ctrl.elementName}}{{element.count > 1 ? ' from all' : ''}}"
-            ng-click="ctrl.removeElement(element.data)">
+            ng-click="ctrl.removeElement(element.data)" aria-label="Remove {{ctrl.elementName}}">
         <gr-icon>close</gr-icon>
     </button>
 </li>

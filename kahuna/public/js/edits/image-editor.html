@@ -32,7 +32,9 @@
                        rel="noopener"
                        target="_blank"
                        title="Pop out"
-                       ng-href="/images/{{:: ctrl.image.data.id}}">
+                       ng-href="/images/{{:: ctrl.image.data.id}}"
+                       role="link"
+                       aria-label="View image">
                         <gr-icon>open_in_new</gr-icon>
                     </a>
                 </li>
@@ -40,7 +42,9 @@
                 <li>
                     <a class="image-action"
                        title="crop"
-                       ui-sref="crop({ imageId: ctrl.image.data.id })">
+                       ui-sref="crop({ imageId: ctrl.image.data.id })"
+                       role="link"
+                       aria-label="Go to image crop">
                         <gr-icon>crop</gr-icon>
                     </a>
                 </li>
