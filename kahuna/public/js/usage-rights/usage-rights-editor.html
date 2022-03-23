@@ -2,7 +2,8 @@
       novalidate
       name="usageRights"
       ng-class="{'ure__category-invalid': ctrl.categoryInvalid}"
-      ng-submit="usageRights.$valid && ctrl.save()">
+      ng-submit="usageRights.$valid && ctrl.save()"
+      aria-label="Image usage rights">
 
     <div class="ure__description">
         <a rel="noopener" target="_blank" href="{{ctrl.usageRightsHelpLink}}">

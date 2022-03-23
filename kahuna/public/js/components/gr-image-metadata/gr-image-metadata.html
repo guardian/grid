@@ -1,5 +1,5 @@
 <div class="image-info">
-    <div class="image-info__group">
+    <div class="image-info__group" role="region" aria-label="Rights and restrictions">
         <dl class="image-info__wrap metadata-line image-info__usage-rights">
         <dt class="metadata-line__key">Rights & restrictions</dt>
 
@@ -21,7 +21,7 @@
                 class="image-info__edit">✎</button>
         </dl>
     </div>
-    <div class="image-info__group" ng-if="ctrl.displayLeases()">
+    <div class="image-info__group" ng-if="ctrl.displayLeases()" role="region" aria-label="Leases">
         <dl class="image-info__wrap image-info__leases">
             <div class="image-info__heading image-info__heading--lease">
                 <span>Leases</span>
@@ -35,7 +35,7 @@
         </dl>
     </div>
 
-    <div class="image-info__group">
+    <div class="image-info__group" role="region" aria-label="Title">
         <dl>
             <div class="image-info__wrap">
                 <button class="image-info__edit"
@@ -148,7 +148,7 @@
     </dl>
     </div>
 
-    <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions">
+    <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions" role="region" aria-label="Special instructions">
         <dl class="image-info__wrap">
             <button class="image-info__edit"
                     ng-if="ctrl.userCanEdit"
@@ -193,7 +193,7 @@
        </dl>
     </div>
 
-    <div class="image-info__group">
+    <div class="image-info__group" role="region" aria-label="Image metadata">
         <dl class="image-info__group--dl metadata-line">
             <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel" ng-if="ctrl.metadata.dateTaken">Taken on</dt>
             <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
@@ -226,7 +226,8 @@
 
                     <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.byline)">
                         <span ng-if="ctrl.metadata.byline">
-                            <a ui-sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})">{{ctrl.metadata.byline}}</a>
+                            <a ui-sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})"
+                               aria-label="Search images by {{ctrl.metadata.byline}} byline">{{ctrl.metadata.byline}}</a>
                         </span>
 
                         <span class="editable-empty" ng-if="!ctrl.metadata.byline && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
@@ -263,7 +264,8 @@
 
                     <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.credit)">
                         <span ng-if="ctrl.metadata.credit">
-                            <a ui-sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})">{{ctrl.metadata.credit}}</a>
+                            <a ui-sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})"
+                               aria-label="Search images by {{ctrl.metadata.credit}} credit">{{ctrl.metadata.credit}}</a>
                         </span>
 
                         <span class="editable-empty" ng-if="!ctrl.metadata.credit && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
@@ -276,7 +278,8 @@
             <dd ng-if="ctrl.hasLocationInformation()" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <span ng-repeat="prop in ['subLocation', 'city', 'state', 'country']" ng-if="ctrl.metadata[prop]">
                     <span class="metadata-line__info">
-                        <a ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})">
+                        <a ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
+                           aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}">
                             {{ctrl.metadata[prop]}}
                         </a>
                     </span>
@@ -314,7 +317,8 @@
 
                     <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.copyright)">
                         <span ng-if="ctrl.metadata.copyright">
-                            <a ui-sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})">{{ctrl.metadata.copyright}}</a>
+                            <a ui-sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})"
+                               aria-label="Search images by {{ctrl.metadata.copyright}} copyright">{{ctrl.metadata.copyright}}</a>
                         </span>
 
                         <span class="editable-empty" ng-if="!ctrl.metadata.copyright && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
@@ -332,7 +336,8 @@
             <dt ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.uploadedBy)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Uploader</dt>
             <dd ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.uploadedBy)" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <span class="metadata-line__info">
-                    <a ui-sref="search.results({query: (ctrl.extraInfo.uploadedBy | queryFilter:'uploader')})">{{ctrl.extraInfo.uploadedBy | stripEmailDomain}}</a>
+                    <a ui-sref="search.results({query: (ctrl.extraInfo.uploadedBy | queryFilter:'uploader')})"
+                       aria-label="Search images uploaded by {{ctrl.extraInfo.uploadedBy}}">{{ctrl.extraInfo.uploadedBy | stripEmailDomain}}</a>
                 </span>
             </dd>
 
@@ -351,7 +356,8 @@
                 class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <span class="metadata-line__info">
                     <span ng-repeat="subject in ctrl.metadata.subjects">
-                        <a ui-sref="search.results({query: (subject | queryFilter:'subject')})">
+                        <a ui-sref="search.results({query: (subject | queryFilter:'subject')})"
+                           aria-label="Search images by {{subject}} subject">
                             {{subject}}
                         </a>
                     </span>
@@ -367,7 +373,8 @@
                         ng-hide="peopleInImageEditForm.$visible"
                         ng-if="ctrl.userCanEdit"
                         gr-tooltip="Add People"
-                        gr-tooltip-position="left">
+                        gr-tooltip-position="left"
+                        aria-label="Add people to image">
 
                     <gr-icon ng-class="{'spin': ctrl.adding}">add_box</gr-icon>
                     <span>
@@ -396,9 +403,10 @@
     </dl>
     </div>
     <!-- FIXME: iff has useful metadata -->
-    <div ng-if="ctrl.singleImage" class="image-info__group image-info__group--full-metadata">
+    <div ng-if="ctrl.singleImage" class="image-info__group image-info__group--full-metadata" role="region" aria-label="Additional metadata">
         <button class="metadata-reveal"
-                ng-click="ctrl.showMetadataSection('additionalMetadata')">
+                ng-click="ctrl.showMetadataSection('additionalMetadata')"
+                aria-label="{{ctrl.isMetadataSectionHidden('additionalMetadata') ? 'Show' : 'Hide'}} additional metadata section">
             <span ng-show="ctrl.isMetadataSectionHidden('additionalMetadata')">▸ Show</span>
             <span ng-hide="ctrl.isMetadataSectionHidden('additionalMetadata')">▾ Hide</span>
             additional metadata
@@ -422,8 +430,10 @@
         </div>
     </div>
 
-    <div ng-if="ctrl.singleImage" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata">
-        <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)">
+    <div ng-if="ctrl.singleImage" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
+         role="region" aria-label="Domain metadata">
+        <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)"
+                aria-label="{{ctrl.isMetadataSectionHidden(spec.name) ? 'Show' : 'Hide'}} {{spec.label}} domain metadata section">
             <span ng-show="ctrl.isMetadataSectionHidden(spec.name)">▸ Show</span>
             <span ng-hide="ctrl.isMetadataSectionHidden(spec.name)">▾ Hide</span>
             {{spec.label}} metadata
@@ -571,7 +581,7 @@
     </div>
 </div>
 
-<div ng-if="ctrl.singleImage" class="image-info">
+<div ng-if="ctrl.singleImage" class="image-info" role="region" aria-label="Collections">
     <dl class="image-info__group">
         <dt class="flex-container">
             <span class="metadata-line__key  flex-spacer">Collections</span>
@@ -579,7 +589,8 @@
         </dt>
         <dd class="metadata-line__info flex-container"
             ng-repeat="collection in ctrl.singleImage.data.collections">
-            <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})">
+            <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
+               aria-label="Search images by {{collection.data.description}} collection">
                 {{collection.data.path.join(' ▸ ')}}
             </a>
             <span class="flex-spacer"></span>
@@ -588,7 +599,8 @@
                     ng-click="ctrl.removeImageFromCollection(collection)"
                     ng-hide="ctrl.removingCollection === collection"
                     gr-tooltip="Remove image from this collection"
-                    gr-tooltip-position="top-left">
+                    gr-tooltip-position="top-left"
+                    aria-label="Remove image from this collection">
                 <gr-icon-label gr-icon="clear"></gr-icon-label>
             </button>
         </dd>
@@ -596,7 +608,7 @@
 </div>
 
 
-<div class="image-info">
+<div class="image-info" role="region" aria-label="Labels">
     <dl class="image-info__group">
         <dt class="flex-container">
             <span class="metadata-line__key  flex-spacer">Labels</span>
@@ -618,7 +630,7 @@
     </dl>
 </div>
 
-<div class="image-info__group">
+<div class="image-info__group" role="region" aria-label="Photoshoot">
     <dl class="image-info__wrap">
         <dt class="metadata-line metadata-line__key">Photoshoot</dt>
         <dd>
@@ -627,7 +639,7 @@
     </dl>
 </div>
 
-<div ng-if="ctrl.singleImage" class="image-info">
+<div ng-if="ctrl.singleImage" class="image-info" role="region" aria-label="Syndication rights">
     <div class="image-info__group">
         <dl class="image-info__wrap">
             <dt class="metadata-line metadata-line__key">Syndication Rights (from RCS)</dt>
@@ -638,7 +650,7 @@
     </div>
 </div>
 
-<div ng-if="ctrl.singleImage" class="image-info">
+<div ng-if="ctrl.singleImage" class="image-info" role="region" aria-label="Keywords">
     <dl class="image-info__group image-info__wrap" ng-if="ctrl.metadata.keywords.length > 0">
         <dt class="image-info__heading image-info__wrap">Keywords</dt>
         <dd class="image-info__keywords">
@@ -646,7 +658,8 @@
                 <ui-list-editor-compact
                     images="ctrl.selectedImages"
                     accessor="ctrl.keywordAccessor"
-                    query-filter="queryFilter:'keyword'">
+                    query-filter="queryFilter:'keyword'"
+                    element-name="keyword">
                 </ui-list-editor-compact>
             </ul>
         </dd>

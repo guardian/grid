@@ -5,7 +5,8 @@
         ng-click="ctrl.editing = true"
         ng-if="ctrl.userCanEdit && !ctrl.receivingBatch"
         gr-tooltip="Add lease"
-        gr-tooltip-position="bottom">
+        gr-tooltip-position="bottom"
+        aria-label="Add lease to image">
 
     <gr-icon data-cy="it-add-lease-icon" ng-show="!ctrl.editing" ng-class="{'spin': ctrl.adding}">add_box</gr-icon>
     <span>
@@ -17,12 +18,14 @@
         title="Apply these leases to all your current uploads"
         ng-if="!ctrl.confirmDelete"
         ng-click="ctrl.batchApplyLeases()"
+        aria-label="Apply these leases to all current uploads">
     >⇔</button>
 
     <button title="Remove ALL leases"
             class="button button--confirm-delete"
             ng-if="ctrl.confirmDelete"
-            ng-click="ctrl.batchRemoveLeases()">
+            ng-click="ctrl.batchRemoveLeases()"
+            aria-label="Remove all leases">
         <gr-icon>warning</gr-icon>Remove ALL leases in job?
     </button>
 </span>
