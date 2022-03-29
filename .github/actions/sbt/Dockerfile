@@ -1,4 +1,4 @@
-FROM mozilla/sbt
+FROM mozilla/sbt:8u292_1.5.7
 
 RUN apt-get -y update
 
