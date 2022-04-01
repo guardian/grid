@@ -2,7 +2,6 @@ package com.gu.mediaservice.lib
 
 import java.io.InputStream
 import akka.actor.{Cancellable, Scheduler}
-import com.gu.Box
 import com.gu.mediaservice.lib.aws.S3
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.GridLogging
