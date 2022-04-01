@@ -8,7 +8,8 @@
             <a class="result-editor__img-link"
                ng-switch-when="true"
                ui-sref="image({imageId: ctrl.image.data.id})"
-               ui-drag-data="ctrl.image | asImageDragData">
+               ui-drag-data="ctrl.image | asImageDragData"
+               aria-label="View image">
 
                 <img class="result-editor__img"
                      alt="original image thumbnail"
@@ -31,7 +32,9 @@
                        rel="noopener"
                        target="_blank"
                        title="Pop out"
-                       ng-href="/images/{{:: ctrl.image.data.id}}">
+                       ng-href="/images/{{:: ctrl.image.data.id}}"
+                       role="link"
+                       aria-label="View image">
                         <gr-icon>open_in_new</gr-icon>
                     </a>
                 </li>
@@ -39,7 +42,9 @@
                 <li>
                     <a class="image-action"
                        title="crop"
-                       ui-sref="crop({ imageId: ctrl.image.data.id })">
+                       ui-sref="crop({ imageId: ctrl.image.data.id })"
+                       role="link"
+                       aria-label="Go to image crop">
                         <gr-icon>crop</gr-icon>
                     </a>
                 </li>
@@ -65,15 +70,15 @@
             <div class="result-editor__info-item"
                  ng-switch="ctrl.status">
                 <a ng-if="ctrl.isDeleted" class="result-editor__status status status--valid"
-                   ui-sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
+                   ui-sref="image({imageId: ctrl.image.data.id})" aria-label="View image">View image ▸</a>
 
                 <a ng-if="!ctrl.isDeleted" class="result-editor__status status status--valid"
                    ng-switch-when="ready"
-                   ui-sref="image({imageId: ctrl.image.data.id})">View image ▸</a>
+                   ui-sref="image({imageId: ctrl.image.data.id})" aria-label="View image">View image ▸</a>
 
                 <a ng-if="!ctrl.isDeleted" class="result-editor__status status status--invalid"
                    ng-switch-when="invalid"
-                   ui-sref="image({imageId: ctrl.image.data.id})">
+                   ui-sref="image({imageId: ctrl.image.data.id})" aria-label="View image">
                         Unusable
                    <gr-icon title="This image cannot be used in content, a lease is required.">help</gr-icon>
                 </a>
@@ -115,7 +120,7 @@
 
     <div class="result-editor__editor">
 
-        <section>
+        <section aria-label="Image usage rights">
             <h1>Image Rights</h1>
             <div class="result-editor__field-container image-info__wrap">
                 <span class="result-editor__field-label flex-no-shrink text-small">
@@ -164,7 +169,7 @@
             </div>
         </section>
 
-        <section>
+        <section aria-label="Image metadata">
             <span class="edit_metadata__warning" ng-if="!ctrl.userCanEdit">WARNING: This image is already in {{ctrl.systemName}}. Since you're not the original uploader, you are not allowed to edit its metadata.</span>
             <h1 ng-class="{'section__disabled': !ctrl.userCanEdit}">Image Metadata</h1>
             <ui-required-metadata-editor
@@ -177,7 +182,7 @@
             ></ui-required-metadata-editor>
         </section>
 
-        <section>
+        <section aria-label="Organisation and grouping">
             <h1>Organisation and Grouping</h1>
             <div class="result-editor__field-container flex-container flex-center">
                 <span class="result-editor__field-label  flex-no-shrink text-small">
@@ -254,7 +259,7 @@
             </div>
         </section>
 
-        <section>
+        <section aria-label="File information">
             <h1>File information</h1>
             <div class="result-editor__field-container" ng-if=":: ctrl.image.data.uploadInfo.filename">
                 <div class="result-editor__field-label text-small">File name</div>

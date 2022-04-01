@@ -6,9 +6,11 @@
 </p>
 <ul ng-if="ctrl.myUploads.data.length > 0">
     <li ng-repeat="result in ctrl.myUploads.data track by result.data.id" class="upload-result">
-        <ui-image-editor image="result"></ui-image-editor>
-        <gr-delete-image class="flex-right"
-                         ng-if="ctrl.canBeDeleted(result)"
-                         images="[result]"></gr-delete-image>
+        <div role="region" aria-label="{{result.data.uploadInfo.filename}}">
+            <ui-image-editor image="result"></ui-image-editor>
+            <gr-delete-image class="flex-right"
+                             ng-if="ctrl.canBeDeleted(result)"
+                             images="[result]"></gr-delete-image>
+        </div>
     </li>
 </ul>

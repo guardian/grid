@@ -1,4 +1,4 @@
-<form class="file-uploader">
+<form class="file-uploader" role="form" aria-label="Upload image">
     <!-- you cannot bind ng-model="files" nor use ng-change:
     https://github.com/angular/angular.js/issues/1375 -->
     <input class="file-uploader__file"
@@ -9,7 +9,8 @@
     <button data-cy="upload-button"
             class="file-uploader__select-files button"
             gr-track-click="Upload action"
-            gr-track-click-data="{ 'Action': 'Button click' }">
+            gr-track-click-data="{ 'Action': 'Button click' }"
+            aria-label="Select images to upload">
         <gr-icon-label gr-icon="file_upload">Upload</gr-icon-label>
     </button>
 </form>
