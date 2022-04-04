@@ -389,17 +389,18 @@ module.controller('grImageMetadataCtrl', [
       ctrl.usageRightsUpdatedByTemplate = false;
 
       if (usageRights.category !== undefined) {
-        if ((ctrl.singleImage.data.userMetadata.data.usageRights.data === undefined) ||
-          (ctrl.singleImage.data.userMetadata.data.usageRights.data.category !== usageRights.category)) {
+        if ((ctrl.singleImage.data.usageRights === undefined) ||
+          (ctrl.singleImage.data.usageRights.category !== usageRights.category)) {
           ctrl.usageRights.first().data = usageRights;
           ctrl.showUsageRights = true;
         }
       }
 
-      const originalUsageRights = ctrl.singleImage.data.userMetadata.data.usageRights.data ? ctrl.singleImage.data.userMetadata.data.usageRights.data : {};
+      const originalUsageRights = ctrl.singleImage.data.usageRights ? ctrl.singleImage.data.usageRights : {};
       if (angular.equals(usageRights, originalUsageRights) === false) {
         ctrl.usageRightsUpdatedByTemplate = true;
       }
+      debugger;
     };
 
     ctrl.onMetadataTemplateApplied = () => {

@@ -151,12 +151,12 @@ imageEditor.controller('ImageEditorCtrl', [
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
 
-      if (ctrl.image.data.userMetadata.data.usageRights.data === undefined ||
-        ctrl.image.data.userMetadata.data.usageRights.data.category !== usageRights.category) {
+      if (ctrl.image.data.usageRights === undefined ||
+        ctrl.image.data.usageRights.category !== usageRights.category) {
         ctrl.showUsageRights = true;
       }
 
-      const originalUsageRights = ctrl.image.data.userMetadata.data.usageRights.data ? ctrl.image.data.userMetadata.data.usageRights.data : {};
+      const originalUsageRights = ctrl.image.data.usageRights ? ctrl.image.data.usageRights : {};
       if (angular.equals(usageRights, originalUsageRights) === false) {
         ctrl.usageRightsUpdatedByTemplate = true;
       }
