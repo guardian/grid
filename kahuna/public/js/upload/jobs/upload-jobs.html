@@ -1,12 +1,13 @@
 <div class="flex-container section-heading current-uploads">
     <h2 class="flex-spacer">Your current uploads <em ng-if="ctrl.remaining">({{ctrl.remaining}} remaining)</em></h2>
-    <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
+    <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})"
+       aria-label="View all your uploads">View all your uploads</a>
 </div>
 <ul>
     <li ng-repeat="job in ctrl.jobs | orderBy: 'name'"  class="upload-result">
 
         <div ng-if="!job.image"
-             class="job-uploading">
+             class="job-uploading" role="region" aria-label="{{job.name}} upload">
 
             <div class="result-editor__result">
                 <div>

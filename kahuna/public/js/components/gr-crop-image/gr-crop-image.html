@@ -4,7 +4,7 @@
         ui-sref="crop({imageId: ctrl.image.data.id})"
         gr-track-click="Crop image button"
         gr-track-click-data="{'Location': ctrl.trackingLocation}"
-        gr-tooltip="Crop image [C]">
+        gr-tooltip="Crop image [C]" aria-label="Crop image">
         <gr-icon-label gr-icon="crop">Crop image</gr-icon-label>
     </a>
     <a ng-if="!ctrl.hasFullCrop" class="drop-menu clickable inner-clickable side-padded button-right-side" ng-click="showUserActions = !showUserActions">

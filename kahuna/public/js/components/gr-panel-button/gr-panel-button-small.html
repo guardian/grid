@@ -8,7 +8,8 @@
             gr-tooltip="Hide {{:: ctrl.name}} panel"
             gr-tooltip-position="{{:: ctrl.toolTipPosition()}}"
             gr-track-click="{{:: ctrl.trackingName}}"
-            gr-track-click-data="ctrl.trackingData('Hide panel')">
+            gr-track-click-data="ctrl.trackingData('Hide panel')"
+            aria-label="Hide {{ctrl.name}} panel">
         <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 
@@ -19,7 +20,8 @@
             gr-tooltip="Show {{:: ctrl.name}} panel"
             gr-tooltip-position="{{:: ctrl.toolTipPosition()}}"
             gr-track-click="{{:: ctrl.trackingName}}"
-            gr-track-click-data="ctrl.trackingData('Show panel')">
+            gr-track-click-data="ctrl.trackingData('Show panel')"
+            aria-label="Show {{ctrl.name}} panel">
         <gr-icon>{{ctrl.icon}}</gr-icon>
     </button>
 
@@ -29,7 +31,8 @@
                 ng-if="!ctrl.state.locked"
                 ng-click="ctrl.lockPanel()"
                 gr-track-click="{{:: ctrl.trackingName}}"
-                gr-track-click-data="ctrl.trackingData('Lock panel')">
+                gr-track-click-data="ctrl.trackingData('Lock panel')"
+                aria-label="Lock {{ctrl.name}} panel">
             <gr-icon>lock_open</gr-icon>
         </button>
         <button class="button-ico-square clickable"
@@ -38,7 +41,8 @@
                 ng-click="ctrl.unlockPanel()"
                 ng-class="{'bg-light': ctrl.state.locked}"
                 gr-track-click="{{:: ctrl.trackingName}}"
-                gr-track-click-data="ctrl.trackingData('Unlock panel')">
+                gr-track-click-data="ctrl.trackingData('Unlock panel')"
+                aria-label="Unlock {{ctrl.name}} panel">
             <gr-icon>lock</gr-icon>
         </button>
     </div>

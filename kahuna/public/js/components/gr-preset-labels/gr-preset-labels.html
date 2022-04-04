@@ -4,11 +4,12 @@
         <li class="preset-label"
             ng-repeat="label in ctrl.presetLabels">
             <a ui-sref="search.results({query: (label | queryLabelFilter)})"
-               class="preset-label__value preset-label__link">{{label}}</a>
+               class="preset-label__value preset-label__link"
+               aria-label="Search images by {{label}} label">{{label}}</a>
 
             <button class="preset-label__remove"
                     title="Remove label"
-                    ng-click="ctrl.removePresetLabel(label)">
+                    ng-click="ctrl.removePresetLabel(label)" aria-label="Remove preset label {{label}}">
                 <gr-icon>close</gr-icon>
             </button>
         </li>
@@ -19,7 +20,8 @@
     <button ng-click="ctrl.active = true"
             ng-disabled="ctrl.adding"
             ng-if="!ctrl.active"
-            title="Add a new label">
+            title="Add a new label"
+            aria-label="Add label to all uploads">
 
         <gr-icon ng-class="{'spin': ctrl.adding}">add_box</gr-icon>
         <span ng-show="ctrl.adding">Adding...</span>
@@ -39,18 +41,21 @@
                ng-model-options="{ updateOn: 'gr-datalist:update' }"
                ng-change="ctrl.save()"
                ng-model="ctrl.newLabel"
-               ng-disabled="ctrl.adding" />
+               ng-disabled="ctrl.adding"
+               aria-label="New preset label" />
         </gr-datalist>
 
         <span class="flex-container">
-            <button class="add-preset-label__button button-cancel" type="button" ng-click="ctrl.cancel()" title="Close">
+            <button class="add-preset-label__button button-cancel" type="button" ng-click="ctrl.cancel()" title="Close"
+                    aria-label="Cancel add preset label form">
                 <gr-icon-label gr-icon="close"><span ng-hide="ctrl.grSmall">Cancel</span></gr-icon-label>
             </button>
             <button
                 class="add-preset-label__button button-save"
                 type="submit"
                 title="Save new label"
-                ng-disabled="ctrl.adding">
+                ng-disabled="ctrl.adding"
+                aria-label="Save new preset label">
                 <gr-icon-label gr-icon="check">
                     <span ng-hide="ctrl.grSmall">Save</span>
                 </gr-icon-label>

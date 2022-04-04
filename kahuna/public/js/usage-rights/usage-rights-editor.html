@@ -2,10 +2,12 @@
       novalidate
       name="usageRights"
       ng-class="{'ure__category-invalid': ctrl.categoryInvalid, 'ure__category-preview': ctrl.usageRightsUpdatedByTemplate}"
-      ng-submit="usageRights.$valid && ctrl.save()">
+      ng-submit="usageRights.$valid && ctrl.save()"
+      aria-label="Image usage rights">
 
     <div class="ure__description">
-        <a rel="noopener" target="_blank" href="{{ctrl.usageRightsHelpLink}}">
+        <a rel="noopener" target="_blank" href="{{ctrl.usageRightsHelpLink}}"
+           aria-label="Usage rights guide">
             <gr-icon title="Rights Guide">
                 info_outline
             </gr-icon>
@@ -181,7 +183,8 @@
     </div>
     <div class="ure__bar" ng-if="!ctrl.usageRightsUpdatedByTemplate">
         <button class="ure__action button-ico button-cancel" type="button" ng-click="ctrl.cancel()"
-                title="close usage rights overrides">
+                title="close usage rights overrides"
+                aria-label="Close usage rights form">
             <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
         </button>
 
@@ -189,7 +192,8 @@
             class="ure__action button-ico button-save"
             type="submit"
             title="save usage rights overrides"
-            ng-disabled="ctrl.savingDisabled || !usageRights.$valid">
+            ng-disabled="ctrl.savingDisabled || !usageRights.$valid"
+            aria-label="Save usage rights">
             <gr-icon-label ng-if="!ctrl.saving" gr-icon="check">Save</gr-icon-label>
             <gr-icon ng-if="ctrl.saving">timelapse</gr-icon>
         </button>

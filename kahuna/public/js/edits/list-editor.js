@@ -150,7 +150,8 @@ listEditor.directive('uiListEditorCompact', [function() {
             disabled: '=',
             removeFromImages: '=',
             accessor: '=',
-            queryFilter: '@'
+            queryFilter: '@',
+          elementName: '@'
         },
         controller: 'ListEditorCtrl',
         controllerAs: 'ctrl',

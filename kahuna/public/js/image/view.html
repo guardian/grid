@@ -1,11 +1,12 @@
-<gr-top-bar>
-    <gr-top-bar-nav>
-        <a class="top-bar-item side-padded clickable" ui-sref="search" title="Back to search">
+<gr-top-bar role="banner" aria-label="Top bar">
+    <gr-top-bar-nav role="navigation" aria-label="Primary">
+        <a class="top-bar-item side-padded clickable" ui-sref="search" title="Back to search"
+           aria-label="Go to image search">
             <gr-icon-label gr-icon="youtube_searched_for">Back to search</gr-icon-label>
         </a>
     </gr-top-bar-nav>
 
-    <gr-top-bar-actions>
+    <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
         <gr-delete-image class="top-bar-item clickable"
                          ng-if="ctrl.canBeDeleted && !ctrl.isDeleted"
                          images="[ctrl.image]">
@@ -26,9 +27,9 @@
 </gr-top-bar>
 
 
-<div class="image-details image-details--crop">
+<div class="image-details image-details--crop" role="complementary" aria-label="Image original and crops select">
     <div class="image-info">
-        <div class="image-info__group">
+        <div class="image-info__group" role="region" aria-label="Original image">
             <dl>
                 <dt class="image-info__heading">Original <span class="image-info__file-size"> {{:: ctrl.image.data.source.size | asFileSize}}</span></dt>
                     <dd class="image-info__heading--crops">
@@ -36,7 +37,8 @@
                              ng-class="{'image-crop--selected': !ctrl.crop}">
                             <a draggable="true"
                                 ui-sref="{ crop: null }"
-                                ui-drag-data="ctrl.image | asImageDragData">
+                                ui-drag-data="ctrl.image | asImageDragData"
+                                aria-label="View original image">
                                 <img class="image-crop__image"
                                      alt="original image thumbnail"
                                      ng-src="{{:: ctrl.image.data.thumbnail | assetFile }}" />
@@ -50,7 +52,7 @@
                 </dt>
             </dl>
         </div>
-        <div ng-if="ctrl.hasFullCrop" class="image-info__group">
+        <div ng-if="ctrl.hasFullCrop" class="image-info__group" role="region" aria-label="Full frame">
             <dt class="image-info__heading">Full frame</dt>
             <dd>
                 <div class="image-crop"
@@ -93,7 +95,7 @@
                 </div>
             </dd>
         </div>
-        <div class="image-info__group" ng-if="ctrl.hasCrops">
+        <div class="image-info__group" ng-if="ctrl.hasCrops" role="region" aria-label="Image crops">
             <dl class="image-info__group--dl">
                 <dt class="image-info__heading">Crops</dt>
                 <dd class="image-info__heading--crops">
@@ -102,25 +104,29 @@
                             ng-repeat="crop in ctrl.crops"
                             ng-switch="ctrl.allowCropSelection(crop)"
                             ng-class="{'image-crop--selected': crop == ctrl.crop}">
-                            <a draggable="true"
-                               ng-init="extremeAssets = (crop | getExtremeAssets)"
-                               ng-switch-when="true"
-                               ng-click="ctrl.cropSelected(crop)"
-                               ui-sref="{crop: crop.id}"
-                               ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
-                               ui-drag-image="extremeAssets.smallest | assetFile">
+                            <div role="region"
+                                 aria-label="{{crop.master.dimensions.width}} pixels by {{crop.master.dimensions.height}} pixels crop">
+                                <a draggable="true"
+                                   ng-init="extremeAssets = (crop | getExtremeAssets)"
+                                   ng-switch-when="true"
+                                   ng-click="ctrl.cropSelected(crop)"
+                                   ui-sref="{crop: crop.id}"
+                                   ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
+                                   ui-drag-image="extremeAssets.smallest | assetFile"
+                                   aria-label="Go to {{crop.master.dimensions.width}} pixels by {{crop.master.dimensions.height}} pixels crop">
 
-                              <ng-include src="'/assets/js/image/crop.html'"></ng-include>
-                            </a>
-                            <div
-                                class="image-crop--disabled"
-                                draggable="false"
-                                ng-init="extremeAssets = (crop | getExtremeAssets)"
-                                ng-switch-when="false"
-                                gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
-                                gr-tooltip-position="top"
-                            >
-                              <ng-include src="'/assets/js/image/crop.html'"></ng-include>
+                                    <ng-include src="'/assets/js/image/crop.html'"></ng-include>
+                                </a>
+                                <div
+                                    class="image-crop--disabled"
+                                    draggable="false"
+                                    ng-init="extremeAssets = (crop | getExtremeAssets)"
+                                    ng-switch-when="false"
+                                    gr-tooltip="{{:: ctrl.capitalisedCropType}} crops only"
+                                    gr-tooltip-position="top"
+                                >
+                                    <ng-include src="'/assets/js/image/crop.html'"></ng-include>
+                                </div>
                             </div>
                         </li>
                     </ul>
@@ -135,7 +141,7 @@
             gr-on-delete="ctrl.onCropsDeleted()"></gr-delete-crops>
 </div>
 
-<div class="image-details image-details--full-image">
+<div class="image-details image-details--full-image" role="complementary" aria-label="Image information">
   <gr-metadata-validity gr-image="ctrl.image"></gr-metadata-validity>
   <gr-image-cost-message gr-image="ctrl.image"></gr-image-cost-message>
   <gr-radio-list gr-for="tabs" gr-options="ctrl.tabs" gr-selected-option="ctrl.selectedTab"></gr-radio-list>
@@ -149,7 +155,7 @@
   </div>
 </div>
 
-<div class="image-holder">
+<div class="image-holder" role="main" aria-label="Image view">
     <div class="easel">
         <div class="easel__canvas"
              ng-if="!ctrl.crop"

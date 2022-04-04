@@ -1,12 +1,13 @@
-<gr-top-bar>
-    <gr-top-bar-nav>
+<gr-top-bar role="banner" aria-label="Top bar">
+    <gr-top-bar-nav role="navigation" aria-label="Primary">
         <a class="top-bar-item clickable side-padded"
            ui-sref="image({ imageId: ctrl.image.data.id })"
-           gr-tooltip="cancel [esc]">
+           gr-tooltip="cancel [esc]"
+           aria-label="Go back to image">
             <gr-icon-label gr-icon="cancel">Cancel</gr-icon-label></a>
     </gr-top-bar-nav>
 
-    <gr-top-bar-actions>
+    <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
         <div class="top-bar-item side-padded">
             x:
             <form class="top-bar-item__form">
@@ -87,7 +88,8 @@
                     type="button"
                     ng-click="ctrl.callCrop()"
                     ng-disabled="ctrl.cropping"
-                    gr-tooltip="Crop [enter]">
+                    gr-tooltip="Crop [enter]"
+                    aria-label="Crop image">
                 <gr-icon-label gr-icon="crop" gr-loading="{{ctrl.cropping}}">Crop<span ng-show="ctrl.cropping">ping…</span></gr-icon-label>
             </button>
         </div>
@@ -99,7 +101,7 @@
     Please try to use a larger crop or an alternative image.
 </div>
 
-<div class="easel">
+<div class="easel" role="main" aria-label="Image cropper">
     <div class="easel__canvas">
         <div class="easel__image-container">
             <img class="easel__image easel__image--cropper"

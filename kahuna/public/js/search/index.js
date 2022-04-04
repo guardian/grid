@@ -14,6 +14,7 @@ import '../components/gr-top-bar/gr-top-bar';
 import '../components/gr-info-panel/gr-info-panel';
 import '../components/gr-collections-panel/gr-collections-panel';
 import '../components/gr-keyboard-shortcut/gr-keyboard-shortcut';
+import '../util/storage';
 
 import '../components/gr-panels/gr-panels';
 
@@ -77,9 +78,9 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
         controllerAs: 'ctrl',
         controller: [
             '$scope', '$window', '$stateParams', 'panels', 'shortcutKeys', 'keyboardShortcut',
-            'panelService', 'cropSettings', 'mediaApi',
+            'panelService', 'cropSettings', 'mediaApi', 'storage', '$state',
             function($scope, $window, $stateParams, panels, shortcutKeys, keyboardShortcut,
-                     panelService, cropSettings, mediaApi) {
+                     panelService, cropSettings, mediaApi, storage, $state) {
 
             const ctrl = this;
 
@@ -90,6 +91,18 @@ search.config(['$stateProvider', '$urlMatcherFactoryProvider',
             });
 
             cropSettings.set($stateParams);
+
+            ctrl.onLogoClick = () => {
+                mediaApi.getSession().then(session => {
+                const showPaid = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+                const defaultNonFreeFilter = {
+                  isDefault: true,
+                  isNonFree: showPaid ? showPaid : false
+                };
+                storage.setJs("defaultNonFreeFilter", defaultNonFreeFilter, true);
+                $state.go('search.results', {nonFree: defaultNonFreeFilter.isNonFree});
+              });
+            };
 
             ctrl.collectionsPanel = panels.collectionsPanel;
             ctrl.metadataPanel = panels.metadataPanel;

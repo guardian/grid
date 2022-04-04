@@ -3,7 +3,8 @@
             class="gu-date-range__display"
             ng-click="ctrl.showOverlay = !ctrl.showOverlay"
             gr-track-click="{{ctrl.trackingName}}"
-            gr-track-click-data="{ 'Action': 'Show Hide' }">
+            gr-track-click-data="{ 'Action': 'Show Hide' }"
+            aria-label="{{ctrl.showOverlay ? 'Hide' : 'Show'}} date range filter">
         <gr-icon>event</gr-icon>
         <div class="gu-date-range__display--value">
             {{ctrl.guSelectedField}}

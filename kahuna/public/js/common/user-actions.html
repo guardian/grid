@@ -1,7 +1,8 @@
-<nav class="user-actions drop-menu">
+<nav class="user-actions drop-menu" aria-label="Secondary">
     <button class="drop-menu__button"
             type="button"
-            ng-click="showUserActions = !showUserActions">
+            ng-click="showUserActions = !showUserActions"
+            aria-label="Secondary navigation menu">
         <gr-icon>more_vert</gr-icon>
     </button>
     <ul class="drop-menu__items drop-menu__items--right" ng-if="showUserActions">

@@ -1,33 +1,37 @@
 <!-- TODO: rename this file and split it into it's components -->
-<gr-top-bar fixed="true">
-    <gr-top-bar-nav>
-        <search-query></search-query>
+<gr-top-bar fixed="true" role="banner" aria-label="Top bar">
+    <gr-top-bar-nav role="region" aria-label="Primary navigation and image search">
+        <div role="region" aria-label="Image search and filters">
+            <search-query></search-query>
+        </div>
     </gr-top-bar-nav>
 
-    <gr-top-bar-actions>
+    <gr-top-bar-actions role="region" aria-label="User actions and secondary navigation">
         <a ng-if="ctrl.canUpload"
            ui-sref="upload"
            gr-track-click="Your recent uploads button"
            gr-track-click-data="{'Location': 'Search navigation'}"
            class="top-bar-item clickable side-padded"
-           title="my recent uploads">
+           title="my recent uploads"
+           aria-label="My recent uploads">
             <gr-icon-label gr-icon="photo_library">My recent uploads</gr-icon-label>
         </a>
         <file-uploader ng-if="ctrl.canUpload" class="top-bar-item side-padded"></file-uploader>
     </gr-top-bar-actions>
 </gr-top-bar>
 
-<gr-panels class="search-panels">
+<gr-panels class="search-panels" role="main" aria-label="Image search results">
     <gr-panel gr-left="true" gr-panel="ctrl.collectionsPanel" gr-icon="collections"
-              gr-remember-scroll="true">
+              gr-remember-scroll="true" role="region" aria-label="Collections">
         <ui-view name="collectionPanel"></ui-view>
     </gr-panel>
 
-    <gr-panel-content>
+    <gr-panel-content role="region" aria-label="Matched image search results">
         <ui-view name="results"></ui-view>
     </gr-panel-content>
 
-    <gr-panel gr-right="true" gr-panel="ctrl.metadataPanel" gr-icon="collections">
+    <gr-panel gr-right="true" gr-panel="ctrl.metadataPanel" gr-icon="collections"
+              role="region" aria-label="Image information">
         <ui-view name="infoPanel"></ui-view>
     </gr-panel>
 </gr-panels>

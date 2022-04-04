@@ -12,7 +12,8 @@
 
         <button data-cy="edit-collections-button"
                 ng-class="{'button-edit': ! $parent.editing, 'button-save': $parent.editing}"
-                ng-click="$parent.editing = !$parent.editing">
+                ng-click="$parent.editing = !$parent.editing"
+                aria-label="Edit collections">
             <gr-icon-label ng-if="! $parent.editing"
                            gr-icon="edit">Edit</gr-icon-label>
             <gr-icon-label ng-if="$parent.editing"

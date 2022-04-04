@@ -1,32 +1,31 @@
-<gr-top-bar>
-    <gr-top-bar-nav>
+<gr-top-bar role="banner" aria-label="Top bar">
+    <gr-top-bar-nav role="navigation" aria-label="Primary">
         <a class="top-bar-item side-padded"
-           ui-sref="search"><gr-icon>search</gr-icon>
+           ui-sref="search" role="link"
+           aria-label="Go to image search"><gr-icon>search</gr-icon>
            <span class="top-bar-item__label">Search</span></a>
     </gr-top-bar-nav>
     <gr-top-bar-actions></gr-top-bar-actions>
 </gr-top-bar>
 
-<div ng-if="ctrl.canUpload" class="page-wrapper">
-    <file-prompt class="section"></file-prompt>
+<div ng-if="ctrl.canUpload" class="page-wrapper" role="main" aria-label="Image uploads">
+    <file-prompt class="section" role="region" aria-label="File upload"></file-prompt>
 
-    <section class="section"
+    <section class="section" role="region" aria-label="Your current uploads"
              ng-if="ctrl.latestJob && ctrl.latestJob.length > 0">
-
-
-
         <ui-upload-jobs jobs="ctrl.latestJob"></ui-upload-jobs>
     </section>
 
-    <section class="section">
+    <section class="section" role="region" aria-label="Your past 50 uploads">
         <div class="flex-container section-heading">
             <h2 class="flex-spacer">Your past 50 uploads</h2>
-            <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})">View all your uploads</a>
+            <a ng-controller="SessionCtrl" class="coloured-link" ui-sref="search.results({uploadedBy: user.email, nonFree: true})"
+               aria-label="View all your uploads">View all your uploads</a>
         </div>
 
         <recent-uploads></recent-uploads>
     </section>
 </div>
-<div ng-if="ctrl.canUpload === false" class="unauthorised-message">You are not authorised to upload images. <a href="{{ctrl.supportEmailLink}}" class="coloured-link">Send an email to {{ctrl.systemName}} team</a> if you think this is incorrect.</div>
+<div ng-if="ctrl.canUpload === false" class="unauthorised-message" role="main">You are not authorised to upload images. <a href="{{ctrl.supportEmailLink}}" class="coloured-link">Send an email to {{ctrl.systemName}} team</a> if you think this is incorrect.</div>
 
 <dnd-uploader ng-if="ctrl.canUpload"></dnd-uploader>
