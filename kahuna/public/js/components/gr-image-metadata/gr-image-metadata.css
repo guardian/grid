@@ -5,3 +5,22 @@
 .image-info--editor__input-preview {
   border: 1px solid #ffbc01;
 }
+
+.edit-Location-form{
+    display: table;
+}
+
+.edit-Location-form-row{
+    display: table-row;
+}
+
+.edit-Location-form-cell{
+    display: table-cell; }
+
+.edit-Location-form-cell:first-child {
+    width: 77px;
+}
+
+.edit-Location-form .editable-buttons {
+    padding-top: 7px;
+}

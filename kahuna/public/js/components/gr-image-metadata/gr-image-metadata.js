@@ -98,6 +98,10 @@ module.controller('grImageMetadataCtrl', [
       ctrl.updateMetadataField('description', ctrl.metadata.description);
     };
 
+    ctrl.updateLocationField = function(data, value) {
+      ctrl.updateMetadataField('location', value);
+    };
+
     ctrl.updateMetadataField = function (field, value) {
       var imageArray = Array.from(ctrl.selectedImages);
       if (field === 'peopleInImage') {
