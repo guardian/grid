@@ -55,6 +55,7 @@ var config = {
         ['gridImagesData', 'application/vnd.mediaservice.images+json'],
         ['gridCropsData',  'application/vnd.mediaservice.crops+json'],
         ['kahunaUri',      'application/vnd.mediaservice.kahuna.uri'],
+        ['assetHandle',    'application/vnd.asset-handle+json'],
         // These two are internal hacks to help us identify when we're dragging internal assets
         // They should definitely not be relied on externally.
         ['isGridLink',     'application/vnd.mediaservice.kahuna.link'],
@@ -332,10 +333,21 @@ kahuna.filter('getExtremeAssets', function() {
     };
 });
 
+const getAssetHandleDragData = ($filter, image, maybeCrop) => ({
+  source: "grid",
+  sourceType: maybeCrop ? "crop" : "original",
+  thumbnail: $filter('assetFile')(
+    maybeCrop
+      ? $filter('getExtremeAssets')(maybeCrop).smallest
+      : image.data.thumbnail
+  ),
+  embeddableUrl: $filter('embeddableUrl')(image.data.id, maybeCrop && maybeCrop.id)
+});
+
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
+kahuna.filter('asImageDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
     // Annoyingly cannot use Resource#getLink because it returns a
     // Promise and Angular filters are synchronous :-(
     function syncGetLinkUri(resource, rel) {
@@ -353,6 +365,7 @@ kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
             return {
                 [vndMimeTypes.get('gridImageData')]: JSON.stringify(imageObj),
                 [vndMimeTypes.get('kahunaUri')]: kahunaUri,
+                [vndMimeTypes.get('assetHandle')]: JSON.stringify(getAssetHandleDragData($filter, image)),
                 'text/plain':    uri,
                 'text/uri-list': uri
             };
@@ -363,17 +376,19 @@ kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asCropsDragData', ['vndMimeTypes', function(vndMimeTypes) {
-    return function(crops) {
-        return {
-            [vndMimeTypes.get('gridCropsData')]: JSON.stringify(crops)
-        };
+kahuna.filter('asCropsDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
+    return function(image, crops) {
+      return {
+        [vndMimeTypes.get('gridCropsData')]: JSON.stringify(crops),
+        [vndMimeTypes.get('assetHandle')]: JSON.stringify(getAssetHandleDragData($filter, image, crops)),
+      };
     };
 }]);
 
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
+// TODO remove pluralisation from crops
 kahuna.filter('asImageAndCropsDragData', ['$filter',
                                           function($filter) {
     var extend = angular.extend;
@@ -381,7 +396,7 @@ kahuna.filter('asImageAndCropsDragData', ['$filter',
 
         return extend(
             $filter('asImageDragData')(image),
-            $filter('asCropsDragData')(crops));
+            $filter('asCropsDragData')(image, crops));
     };
 }]);
 
