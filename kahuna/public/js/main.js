@@ -53,7 +53,7 @@ var config = {
     vndMimeTypes: new Map([
         ['gridImageData',  'application/vnd.mediaservice.image+json'],
         ['gridImagesData', 'application/vnd.mediaservice.images+json'],
-        ['gridCropsData',  'application/vnd.mediaservice.crops+json'],
+        ['gridCropData',  'application/vnd.mediaservice.crops+json'], // this doesn't appear to hold multiple things, so shouldn't be plural, however too many usages outside this project e.g. https://github.com/search?q=org%3Aguardian+application%2Fvnd.mediaservice.crops%2Bjson&type=code
         ['kahunaUri',      'application/vnd.mediaservice.kahuna.uri'],
         ['assetHandle',    'application/vnd.asset-handle+json'],
         // These two are internal hacks to help us identify when we're dragging internal assets
@@ -376,11 +376,11 @@ kahuna.filter('asImageDragData', ['vndMimeTypes', '$filter', function(vndMimeTyp
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asCropsDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
-    return function(image, crops) {
+kahuna.filter('asCropDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
+    return function(image, crop) {
       return {
-        [vndMimeTypes.get('gridCropsData')]: JSON.stringify(crops),
-        [vndMimeTypes.get('assetHandle')]: JSON.stringify(getAssetHandleDragData($filter, image, crops)),
+        [vndMimeTypes.get('gridCropData')]: JSON.stringify(crop),
+        [vndMimeTypes.get('assetHandle')]: JSON.stringify(getAssetHandleDragData($filter, image, crop)),
       };
     };
 }]);
@@ -388,15 +388,14 @@ kahuna.filter('asCropsDragData', ['vndMimeTypes', '$filter', function(vndMimeTyp
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-// TODO remove pluralisation from crops
-kahuna.filter('asImageAndCropsDragData', ['$filter',
+kahuna.filter('asImageAndCropDragData', ['$filter',
                                           function($filter) {
     var extend = angular.extend;
-    return function(image, crops) {
+    return function(image, crop) {
 
         return extend(
             $filter('asImageDragData')(image),
-            $filter('asCropsDragData')(image, crops));
+            $filter('asCropDragData')(image, crop));
     };
 }]);
 
