@@ -50,7 +50,7 @@
                                     data-source="grid"
                                     data-source-type="original"
                                     data-thumbnail="{{:: ctrl.image.data.thumbnail | assetFile}}"
-                                    data-embeddable-url="{{ctrl.getEmbeddableUrl()}}"
+                                    data-embeddable-url="{{:: ctrl.image.data.id | embeddableUrl}}"
                                 ></asset-handle>
                             </a>
                         </div>
@@ -87,7 +87,7 @@
                             data-source="grid"
                             data-source-type="crop"
                             data-thumbnail="{{:: extremeAssets.smallest | assetFile}}"
-                            data-embeddable-url="{{ctrl.getEmbeddableUrl(crop.id)}}"
+                            data-embeddable-url="{{:: ctrl.image.data.id | embeddableUrl:crop.id}}"
                         ></asset-handle>
                     </a>
                     <div ng-switch-when="false"

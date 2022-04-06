@@ -19,6 +19,6 @@
     data-source="grid"
     data-source-type="crop"
     data-thumbnail="{{:: extremeAssets.smallest | assetFile}}"
-    data-embeddable-url="{{ctrl.getEmbeddableUrl(crop.id)}}"
+    data-embeddable-url="{{:: ctrl.image.data.id | embeddableUrl:crop.id}}"
   ></asset-handle>
 </div>

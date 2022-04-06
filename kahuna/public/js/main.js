@@ -312,6 +312,11 @@ kahuna.controller('SessionCtrl',
     });
 }]);
 
+kahuna.filter("embeddableUrl", ['$state', function($state) {
+  return function(imageId, maybeCropId) {
+    return $state.href('image', {imageId: imageId, crop: maybeCropId}, { absolute: true });
+  }
+}]);
 
 kahuna.filter('getExtremeAssets', function() {
     return function(image) {
