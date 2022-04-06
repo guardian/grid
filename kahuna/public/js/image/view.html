@@ -70,7 +70,7 @@
                        ng-init="extremeAssets = (crop | getExtremeAssets)"
                        ng-click="ctrl.cropSelected(crop)"
                        ui-sref="{ crop: crop.id }"
-                       ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
+                       ui-drag-data="ctrl.image | asImageAndCropDragData:crop"
                        ui-drag-image="extremeAssets.smallest | assetFile">
                         <img class="image-crop__image"
                              alt="full frame image thumbnail"
@@ -117,7 +117,7 @@
                                    ng-switch-when="true"
                                    ng-click="ctrl.cropSelected(crop)"
                                    ui-sref="{crop: crop.id}"
-                                   ui-drag-data="ctrl.image | asImageAndCropsDragData:crop"
+                                   ui-drag-data="ctrl.image | asImageAndCropDragData:crop"
                                    ui-drag-image="extremeAssets.smallest | assetFile"
                                    aria-label="Go to {{crop.master.dimensions.width}} pixels by {{crop.master.dimensions.height}} pixels crop">
 
@@ -178,7 +178,7 @@
         <!-- TODO: As this loads async, add a loader -->
         <div class="easel__canvas" ng-if="ctrl.crop"
              draggable="true"
-             ui-drag-data="ctrl.image | asImageAndCropsDragData:ctrl.crop"
+             ui-drag-data="ctrl.image | asImageAndCropDragData:ctrl.crop"
              ui-drag-image="extremeAssets.smallest | assetFile">
             <a class="easel__image-container"
                ng-init="extremeAssets = (ctrl.crop | getExtremeAssets)"
