@@ -54,7 +54,7 @@
         <dl>
             <div class="image-info__wrap">
                 <button class="image-info__edit"
-                        ng-if="ctrl.userCanEdit"
+                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                         ng-click="titleEditForm.$show()"
                         ng-hide="titleEditForm.$visible">✎</button>
                 <dt class="metadata-line metadata-line__key">Title</dt>
@@ -95,7 +95,7 @@
             <div data-cy="metadata-description" class="image-info__wrap">
                 <button data-cy="it-edit-description-button"
                         class="image-info__edit"
-                        ng-if="ctrl.userCanEdit"
+                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                         ng-click="descriptionEditForm.$show()"
                         ng-hide="descriptionEditForm.$visible">✎</button>
                 <dt class="metadata-line metadata-line__key">Description</dt>
@@ -166,7 +166,7 @@
     <div class="image-info__group" ng-if="ctrl.rawMetadata.specialInstructions" role="region" aria-label="Special instructions">
         <dl class="image-info__wrap">
             <button class="image-info__edit"
-                    ng-if="ctrl.userCanEdit"
+                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                     ng-click="specialInstructionsEditForm.$show()"
                     ng-hide="specialInstructionsEditForm.$visible">✎</button>
             <dt class="metadata-line metadata-line__key">Special instructions</dt>
@@ -226,7 +226,7 @@
                 <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('byline')">
                     <button data-cy="it-edit-byline-button"
                             class="image-info__edit"
-                            ng-if="ctrl.userCanEdit"
+                            ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                             ng-click="bylineEditForm.$show()"
                             ng-hide="bylineEditForm.$visible"
                     >✎</button>
@@ -272,7 +272,7 @@
                 <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('credit')">
                     <button data-cy="it-edit-credit-button"
                             class="image-info__edit"
-                            ng-if="ctrl.userCanEdit"
+                            ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                             ng-click="creditEditForm.$show()"
                             ng-hide="creditEditForm.$visible"
                     >✎</button>
@@ -337,7 +337,7 @@
                 <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('copyright')">
                     <button data-cy="it-edit-copyright-button"
                             class="image-info__edit"
-                            ng-if="ctrl.userCanEdit"
+                            ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                             ng-click="copyrightEditForm.$show()"
                             ng-hide="copyrightEditForm.$visible"
                     >✎</button>
@@ -416,7 +416,7 @@
                         ng-class="{'small': ctrl.grSmall}"
                         ng-click="peopleInImageEditForm.$show()"
                         ng-hide="peopleInImageEditForm.$visible"
-                        ng-if="ctrl.userCanEdit"
+                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                         gr-tooltip="Add People"
                         gr-tooltip-position="left"
                         aria-label="Add people to image">
@@ -495,7 +495,7 @@
                         <span ng-switch-when="string">
                             <button data-cy="it-edit-{{specField.name}}-button"
                                     class="image-info__edit"
-                                    ng-if="ctrl.userCanEdit"
+                                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                                     ng-click="domainMetadataEditForm.$show()"
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
@@ -520,7 +520,7 @@
                         <span ng-switch-when="datetime">
                             <button data-cy="it-edit-{{specField.name}}-button"
                                     class="image-info__edit"
-                                    ng-if="ctrl.userCanEdit"
+                                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                                     ng-click="domainMetadataEditForm.$show()"
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
@@ -545,7 +545,7 @@
                         <span ng-switch-when="integer">
                             <button data-cy="it-edit-{{specField.name}}-button"
                                     class="image-info__edit"
-                                    ng-if="ctrl.userCanEdit"
+                                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                                     ng-click="domainMetadataEditForm.$show()"
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
@@ -571,7 +571,7 @@
                         <span ng-switch-when="select">
                             <button data-cy="it-edit-{{specField.name}}-button"
                                     class="image-info__edit"
-                                    ng-if="ctrl.userCanEdit"
+                                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                                     ng-click="domainMetadataEditForm.$show()"
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>
@@ -597,7 +597,7 @@
                         <span ng-switch-default>
                             <button data-cy="it-edit-{{specField.name}}-button"
                                     class="image-info__edit"
-                                    ng-if="ctrl.userCanEdit"
+                                    ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                                     ng-click="domainMetadataEditForm.$show()"
                                     ng-hide="domainMetadataEditForm.$visible"
                             >✎</button>

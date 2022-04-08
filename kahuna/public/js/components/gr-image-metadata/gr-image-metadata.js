@@ -55,6 +55,7 @@ module.controller('grImageMetadataCtrl', [
     // Deep copying window._clientConfig.domainMetadataModels
     ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
+    ctrl.metadataUpdatedByTemplate = [];
     $scope.$watchCollection('ctrl.selectedImages', function() {
       ctrl.singleImage = singleImage();
       ctrl.selectedLabels = selectedLabels();
@@ -387,11 +388,11 @@ module.controller('grImageMetadataCtrl', [
 
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
+      ctrl.usageRights.first().data = usageRights;
 
       if (usageRights.category !== undefined) {
         if ((ctrl.singleImage.data.usageRights === undefined) ||
           (ctrl.singleImage.data.usageRights.category !== usageRights.category)) {
-          ctrl.usageRights.first().data = usageRights;
           ctrl.showUsageRights = true;
         }
       }
@@ -400,7 +401,6 @@ module.controller('grImageMetadataCtrl', [
       if (angular.equals(usageRights, originalUsageRights) === false) {
         ctrl.usageRightsUpdatedByTemplate = true;
       }
-      debugger;
     };
 
     ctrl.onMetadataTemplateApplied = () => {

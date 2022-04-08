@@ -21,7 +21,7 @@
             data-cy="it-rights-select"
             class="full-width"
             ng-model="ctrl.category"
-            ng-disabled="ctrl.saving"
+            ng-disabled="ctrl.saving || ctrl.usageRightsUpdatedByTemplate"
             ng-options="category as category.name for category in ctrl.categories track by category.value"
             ng-change="ctrl.reset()">
         </select>
@@ -70,7 +70,8 @@
                         placeholder="What restrictions apply to this image? e.g. 'Use in relation to the Windsor Triathlon only'"
                         ng-switch-when="true"
                         ng-model="ctrl.model[property.name]"
-                        ng-required="ctrl.showRestrictions"></textarea>
+                        ng-required="ctrl.showRestrictions"
+                        ng-readonly="ctrl.usageRightsUpdatedByTemplate"></textarea>
 
                     <textarea
                         class="text-input form-input-text"

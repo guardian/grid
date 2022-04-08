@@ -92,6 +92,12 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
         ctrl.onMetadataTemplateApplied();
       });
   };
+
+  $scope.$watch('ctrl.originalMetadata', (originalMetadata) => {
+    if (originalMetadata && ctrl.metadataTemplate) {
+      ctrl.selectTemplate();
+    }
+  });
 }]);
 
 metadataTemplates.directive('grMetadataTemplates', [function() {
