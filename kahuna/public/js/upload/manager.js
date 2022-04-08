@@ -8,8 +8,11 @@ upload.factory('uploadManager',
 
     var jobs = new Set();
 
-    function createJobItem(file) {
-        var request = fileUploader.upload(file);
+    function createJobItem(file, priorJobItem) {
+        const request = priorJobItem
+          ? priorJobItem.resourcePromise.then(() => fileUploader.upload(file))
+          : fileUploader.upload(file);
+
         var dataUrl = $window.URL.createObjectURL(file);
 
         return {
@@ -30,7 +33,7 @@ upload.factory('uploadManager',
     }
 
     function upload(files) {
-        var job = files.map(createJobItem);
+        const job = files.reduce((items, file) => [...items, createJobItem(file, items[items.length - 1])], []);
         var promises = job.map(jobItem => jobItem.resourcePromise);
 
         jobs.add(job);
