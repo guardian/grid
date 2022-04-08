@@ -46,5 +46,7 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
     shouldLoadWhenIFramed = if (entry.hasPath("shouldLoadWhenIFramed")) Some(entry.getBoolean("shouldLoadWhenIFramed")) else None,
   ))
 
+  val metadataTemplates: Seq[MetadataTemplate] = configuration.get[Seq[MetadataTemplate]]("metadata.templates")
+
 }
 

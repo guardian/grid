@@ -1,6 +1,7 @@
 import angular from 'angular';
 import Rx from 'rx';
 
+import './gr-image-metadata.css';
 import template from './gr-image-metadata.html';
 import './gr-image-metadata.css';
 import '../../image/service';
@@ -50,9 +51,11 @@ module.controller('grImageMetadataCtrl', [
 
     let ctrl = this;
 
+    ctrl.displayMetadataTemplates = window._clientConfig.metadataTemplates !== undefined && window._clientConfig.metadataTemplates.length > 0;
     // Deep copying window._clientConfig.domainMetadataModels
     ctrl.domainMetadataSpecs = JSON.parse(JSON.stringify(window._clientConfig.domainMetadataSpecs));
     ctrl.showUsageRights = false;
+    ctrl.metadataUpdatedByTemplate = [];
     $scope.$watchCollection('ctrl.selectedImages', function() {
       ctrl.singleImage = singleImage();
       ctrl.selectedLabels = selectedLabels();
@@ -378,6 +381,41 @@ module.controller('grImageMetadataCtrl', [
     $scope.$on('$destroy', function() {
         freeUpdateListener();
     });
+
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights) => {
+      ctrl.metadataUpdatedByTemplate = Object.keys(metadata).filter(key => ctrl.rawMetadata[key] !== metadata[key]);
+      ctrl.metadata = metadata;
+
+      ctrl.showUsageRights = false;
+      ctrl.usageRightsUpdatedByTemplate = false;
+      ctrl.usageRights.first().data = usageRights;
+
+      if (usageRights.category !== undefined) {
+        if ((ctrl.singleImage.data.usageRights === undefined) ||
+          (ctrl.singleImage.data.usageRights.category !== usageRights.category)) {
+          ctrl.showUsageRights = true;
+        }
+      }
+
+      const originalUsageRights = ctrl.singleImage.data.usageRights ? ctrl.singleImage.data.usageRights : {};
+      if (angular.equals(usageRights, originalUsageRights) === false) {
+        ctrl.usageRightsUpdatedByTemplate = true;
+      }
+    };
+
+    ctrl.onMetadataTemplateApplied = () => {
+      ctrl.showUsageRights = false;
+      ctrl.usageRightsUpdatedByTemplate = false;
+      ctrl.metadataUpdatedByTemplate = [];
+    };
+
+    ctrl.onMetadataTemplateCancelled = (metadata, usageRights) => {
+      ctrl.metadataUpdatedByTemplate = [];
+      ctrl.showUsageRights = false;
+      ctrl.usageRightsUpdatedByTemplate = false;
+      ctrl.metadata = metadata;
+      ctrl.usageRights.first().data = usageRights;
+    };
 }
 ]);
 

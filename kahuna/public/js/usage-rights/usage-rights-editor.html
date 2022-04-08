@@ -1,7 +1,7 @@
 <form class="usage-rights-editor ure"
       novalidate
       name="usageRights"
-      ng-class="{'ure__category-invalid': ctrl.categoryInvalid}"
+      ng-class="{'ure__category-invalid': ctrl.categoryInvalid, 'ure__category-preview': ctrl.usageRightsUpdatedByTemplate}"
       ng-submit="usageRights.$valid && ctrl.save()"
       aria-label="Image usage rights">
 
@@ -21,7 +21,7 @@
             data-cy="it-rights-select"
             class="full-width"
             ng-model="ctrl.category"
-            ng-disabled="ctrl.saving"
+            ng-disabled="ctrl.saving || ctrl.usageRightsUpdatedByTemplate"
             ng-options="category as category.name for category in ctrl.categories track by category.value"
             ng-change="ctrl.reset()">
         </select>
@@ -70,7 +70,8 @@
                         placeholder="What restrictions apply to this image? e.g. 'Use in relation to the Windsor Triathlon only'"
                         ng-switch-when="true"
                         ng-model="ctrl.model[property.name]"
-                        ng-required="ctrl.showRestrictions"></textarea>
+                        ng-required="ctrl.showRestrictions"
+                        ng-readonly="ctrl.usageRightsUpdatedByTemplate"></textarea>
 
                     <textarea
                         class="text-input form-input-text"
@@ -181,7 +182,7 @@
             </div>
         </div>
     </div>
-    <div class="ure__bar">
+    <div class="ure__bar" ng-if="!ctrl.usageRightsUpdatedByTemplate">
         <button class="ure__action button-ico button-cancel" type="button" ng-click="ctrl.cancel()"
                 title="close usage rights overrides"
                 aria-label="Close usage rights form">
