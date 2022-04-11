@@ -111,7 +111,7 @@ module.controller('grImageMetadataCtrl', [
     ctrl.updateMetadataField = function (field, value) {
       var imageArray = Array.from(ctrl.selectedImages);
       if (field === 'dateTaken') {
-          value = value.toISOString()
+          value = value.toISOString();
       }
       if (field === 'peopleInImage') {
         ctrl.addPersonToImages(imageArray, value);
