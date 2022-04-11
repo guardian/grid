@@ -210,8 +210,29 @@
 
     <div class="image-info__group" role="region" aria-label="Image metadata">
         <dl class="image-info__group--dl metadata-line">
-            <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel" ng-if="ctrl.metadata.dateTaken">Taken on</dt>
-            <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
+            <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel">Taken on</dt>
+            <dd class="image-info__wrap metadata-line
+             image-info__credit metadata-line__info image-info__group--dl__value--panel"
+            >
+                <button data-cy="it-edit-dateTaken-button"
+                        class="image-info__edit"
+                        ng-if="ctrl.userCanEdit"
+                        ng-click="takenEditForm.$show()"
+                        ng-hide="takenEditForm.$visible"
+                >✎</button>
+
+                <span editable-date="ctrl.metadata.dateTaken"
+                      ng-hide="takenEditForm.$visible"
+                      onbeforesave="ctrl.updateMetadataField('dateTaken', $data)"
+                      e:form="takenEditForm"
+                      e:ng-class="{'image-info__editor--error': $error,
+                                   'image-info__editor--saving': takenEditForm.$waiting,
+                                   'text-input': true}">
+
+                {{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
+                </span>
+                <span class="editable-empty" ng-if="!ctrl.metadata.dateTaken && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
+            </dd>
 
             <dt ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
             <dd data-cy="metadata-byline" ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">

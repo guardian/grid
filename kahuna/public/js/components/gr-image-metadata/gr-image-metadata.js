@@ -63,6 +63,7 @@ module.controller('grImageMetadataCtrl', [
       inject$($scope, Rx.Observable.fromPromise(selectedUsageCategory(ctrl.usageRights)), ctrl, 'usageCategory');
       ctrl.rawMetadata = rawMetadata();
       ctrl.metadata = displayMetadata();
+      ctrl.metadata.dateTaken =  ctrl.metadata.dateTaken ? new Date(ctrl.metadata.dateTaken) : undefined;
       ctrl.newPeopleInImage = "";
       ctrl.extraInfo = extraInfo();
       if (ctrl.singleImage) {
@@ -109,6 +110,9 @@ module.controller('grImageMetadataCtrl', [
 
     ctrl.updateMetadataField = function (field, value) {
       var imageArray = Array.from(ctrl.selectedImages);
+      if (field === 'dateTaken') {
+          value = value.toISOString()
+      }
       if (field === 'peopleInImage') {
         ctrl.addPersonToImages(imageArray, value);
         return;
