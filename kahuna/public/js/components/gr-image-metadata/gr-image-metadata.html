@@ -316,7 +316,12 @@
                         ng-click="locationEditForm.$show()"
                         ng-hide="locationEditForm.$visible">✎</button>
 
-                <span ng-hide="locationEditForm.$visible" ng-repeat="prop in ['subLocation', 'city', 'state', 'country']" ng-if="ctrl.metadata[prop]">
+                <span ng-hide="locationEditForm.$visible" ng-repeat="prop in ['subLocation', 'city', 'state', 'country']"
+                      ng-if="ctrl.metadata[prop] &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.city) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.state) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.country)">
                         <span class="metadata-line__info">
                             <a ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
                                aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}">
@@ -329,6 +334,12 @@
 
                 </span>
                 <span ng-hide="locationEditForm.$visible" class="metadata-line__info" ng-if="!ctrl.hasLocationInformation() && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
+                <span ng-hide="locationEditForm.$visible" class="metadata-line__info"
+                      ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.city) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.state) ||
+                            ctrl.hasMultipleValues(ctrl.rawMetadata.country)"
+                      >Multiple Location (click ✎ to edit <strong>all</strong>)</span>
             </dd>
 
             <div ng-hide="!locationEditForm.$visible" data-cy="metadata-location" class="image-info__wrap">
@@ -343,6 +354,7 @@
                                 editable-text="ctrl.metadata.subLocation"
                                 ng-hide="locationEditForm.$visible"
                                 e-name="subLocation"
+                                e-placeholder="Multiple subLocations"
                                 e:msd-elastic
                                 e:ng-class="{'image-info__editor--error': $error,
                                       'image-info__editor--saving': locationEditForm.$waiting,
@@ -360,6 +372,7 @@
                                 editable-text="ctrl.metadata.city"
                                 ng-hide="locationEditForm.$visible"
                                 e-name="city"
+                                e-placeholder="Multiple cities"
                                 e:msd-elastic
                                 e:ng-class="{'image-info__editor--error': $error,
                                       'image-info__editor--saving': locationEditForm.$waiting,
@@ -377,6 +390,7 @@
                                 editable-text="ctrl.metadata.state"
                                 ng-hide="locationEditForm.$visible"
                                 e-name="state"
+                                e-placeholder="Multiple states"
                                 e:msd-elastic
                                 e:ng-class="{'image-info__editor--error': $error,
                                       'image-info__editor--saving': locationEditForm.$waiting,
@@ -390,10 +404,10 @@
                         <dd class="edit-Location-form-cell">
                             <div
                                 class="metadata-line__info"
-                                ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                                 editable-text="ctrl.metadata.country"
                                 ng-hide="locationEditForm.$visible"
                                 e-name="country"
+                                e-placeholder="Multiple countries"
                                 e:msd-elastic
                                 e:ng-class="{'image-info__editor--error': $error,
                                           'image-info__editor--saving': locationEditForm.$waiting,
