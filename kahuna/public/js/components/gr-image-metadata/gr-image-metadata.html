@@ -317,7 +317,7 @@
 
                 <span ng-hide="locationEditForm.$visible" ng-repeat="prop in ['subLocation', 'city', 'state', 'country']"
                       >
-                        <span class="metadata-line__info">
+                        <span>
                             <a
                                ui-sref="{{ ctrl.hasMultipleValues(ctrl.rawMetadata[prop]) ? '' : 'search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})'}}"
                                ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata[prop]),
@@ -331,7 +331,7 @@
                         </span>
 
                 </span>
-                <span ng-hide="locationEditForm.$visible" class="metadata-line__info"
+                <span ng-hide="locationEditForm.$visible" class="editable-empty"
                       ng-if="!ctrl.hasLocationInformation() &&
                             ctrl.userCanEdit &&
                             (!ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) &&
