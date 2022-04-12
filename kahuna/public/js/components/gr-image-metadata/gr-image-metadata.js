@@ -99,6 +99,11 @@ module.controller('grImageMetadataCtrl', [
     };
 
     ctrl.updateLocationField = function(data, value) {
+      Object.keys(value).forEach(key => {
+        if (value[key] === undefined) {
+          delete value[key];
+        }
+      });
       ctrl.updateMetadataField('location', value);
     };
 
@@ -372,6 +377,13 @@ module.controller('grImageMetadataCtrl', [
       'city': 'city',
       'state': 'state',
       'country': 'country'
+    };
+
+    ctrl.locationFieldPluralMap = {
+      'subLocation': 'subLocations',
+      'city': 'cities',
+      'state': 'states',
+      'country': 'countries'
     };
 
     ctrl.fieldAliases = $window._clientConfig.fieldAliases;
