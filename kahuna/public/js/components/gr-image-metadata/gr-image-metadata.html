@@ -213,7 +213,6 @@
             <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel" ng-if="ctrl.metadata.dateTaken">Taken on</dt>
             <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
 
-
             <dt ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
             <dd data-cy="metadata-byline" ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
                 <span ng-if="ctrl.metadataUpdatedByTemplate.includes('byline')">
@@ -319,8 +318,10 @@
                 <span ng-hide="locationEditForm.$visible" ng-repeat="prop in ['subLocation', 'city', 'state', 'country']"
                       >
                         <span class="metadata-line__info">
-                            <a ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
-                               ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata[prop])}"
+                            <a
+                               ui-sref="{{ ctrl.hasMultipleValues(ctrl.rawMetadata[prop]) ? '' : 'search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})'}}"
+                               ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata[prop]),
+                                          'inactiveLink': ctrl.hasMultipleValues(ctrl.rawMetadata[prop])}"
                                aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}">
                                  {{ctrl.hasMultipleValues(ctrl.rawMetadata[prop]) ? '(Multiple ' + ctrl.locationFieldPluralMap[prop] + ')' : ctrl.metadata[prop] }}
                             </a>
@@ -333,9 +334,9 @@
                 <span ng-hide="locationEditForm.$visible" class="metadata-line__info"
                       ng-if="!ctrl.hasLocationInformation() &&
                             ctrl.userCanEdit &&
-                            (!ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) ||
-                            !ctrl.hasMultipleValues(ctrl.rawMetadata.city) ||
-                            !ctrl.hasMultipleValues(ctrl.rawMetadata.state) ||
+                            (!ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.city) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.state) &&
                             !ctrl.hasMultipleValues(ctrl.rawMetadata.country))">Unknown (click ✎ to add)</span>
             </dd>
 
