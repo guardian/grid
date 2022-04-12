@@ -24,6 +24,13 @@ class CollectionsStore(config: CollectionsConfig) {
     case e => throw CollectionsStoreError(e)
   }
 
+  def get(collectionPath: List[String]): Future[Option[Collection]] = {
+    val path = CollectionsManager.pathToPathId(collectionPath)
+    dynamo.get(path).map(json => (json \ "collection").asOpt[Collection])
+  } recover {
+    case e => throw CollectionsStoreError(e)
+  }
+
   def remove(collectionPath: List[String]): Future[Unit] = {
     val path = CollectionsManager.pathToPathId(collectionPath)
     dynamo.deleteItem(path)

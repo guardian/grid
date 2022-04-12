@@ -101,6 +101,16 @@ def uri(u: String) = URI.create(u)
       (collection) => collection.description)
   }
 
+  def getCollection(collectionPathId: String) = authenticated.async {
+    store.get(uriToPath(collectionPathId)).map {
+      case Some(collection) =>
+        val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
+        respond(node, actions = getActions(node))
+      case None =>
+        respondNotFound("Collection not found")
+    }
+  }
+
   def getCollections = authenticated.async { req =>
     allCollections.map { tree =>
       respond(
