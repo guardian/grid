@@ -221,7 +221,7 @@
                         ng-hide="takenEditForm.$visible"
                 >✎</button>
 
-                <span editable-date="ctrl.metadata.dateTaken"
+                <span editable-datetime-local="ctrl.metadata.dateTaken"
                       ng-hide="takenEditForm.$visible"
                       onbeforesave="ctrl.updateMetadataField('dateTaken', $data)"
                       e:form="takenEditForm"
@@ -229,9 +229,25 @@
                                    'image-info__editor--saving': takenEditForm.$waiting,
                                    'text-input': true}">
 
-                {{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
+                    <span class="metadata-line__info" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.dateTaken) && ctrl.userCanEdit">
+                        Multiple date (click ✎ to edit <strong>all</strong>)
+                    </span>
+
+                    <span class="metadata-line__info" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.dateTaken) && !ctrl.userCanEdit">
+                        Multiple date
+                    </span>
+
+                    <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.dateTaken)">
+                        <span ng-if="ctrl.metadata.dateTaken">
+                            {{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}
+                        </span>
+
+                        <span class="editable-empty" ng-if="!ctrl.metadata.dateTaken && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
+                    </span>
                 </span>
-                <span class="editable-empty" ng-if="!ctrl.metadata.dateTaken && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
+
+
+
             </dd>
 
             <dt ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
