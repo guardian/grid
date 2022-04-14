@@ -90,9 +90,11 @@ class S3(config: CommonConfig) extends GridLogging {
         // See http://docs.oracle.com/javase/6/docs/api/java/net/URLEncoder.html
         URLEncoder.encode(baseFilename, "UTF-8").replace("+", "%20")
       case characterSet => baseFilename.getBytes(characterSet).toString
+
     }
 
   private def getBaseFilename(image: Image, filenameSuffix: String): String = image.uploadInfo.filename match {
+    case Some(_) if config.shortenDownloadFilename => s"$filenameSuffix"
     case Some(f) => s"${removeExtension(f)} $filenameSuffix"
     case _ => filenameSuffix
   }
@@ -123,7 +125,7 @@ class S3(config: CommonConfig) extends GridLogging {
       case OptimisedPng => image.optimisedPng.getOrElse(image.source)
     }
     val extension: String = getExtension(image, asset)
-    val filenameSuffix: String = s"(${image.id})$extension"
+    val filenameSuffix: String = s"${image.id}$extension"
     val baseFilename = getBaseFilename(image, filenameSuffix)
 
     getContentDisposition(baseFilename)
