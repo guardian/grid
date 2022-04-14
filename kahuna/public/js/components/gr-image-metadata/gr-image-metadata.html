@@ -211,9 +211,7 @@
     <div class="image-info__group" role="region" aria-label="Image metadata">
         <dl class="image-info__group--dl metadata-line">
             <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel">Taken on</dt>
-            <dd class="image-info__wrap metadata-line
-             image-info__credit metadata-line__info image-info__group--dl__value--panel"
-            >
+            <dd class="image-info__wrap metadata-line image-info__dateTaken metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-dateTaken-button"
                         class="image-info__edit"
                         ng-if="ctrl.userCanEdit"
@@ -245,9 +243,6 @@
                         <span class="editable-empty" ng-if="!ctrl.metadata.dateTaken && ctrl.userCanEdit">Unknown (click ✎ to add)</span>
                     </span>
                 </span>
-
-
-
             </dd>
 
             <dt ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>

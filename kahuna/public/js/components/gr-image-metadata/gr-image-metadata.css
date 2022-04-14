@@ -31,4 +31,9 @@
    cursor: default;
    text-decoration: none;
    border-bottom: none !important;
+
+.image-info__dateTaken form input {
+     padding-right: 5px;
+     letter-spacing: -1px;
+     margin-bottom: 3px;
 }
