@@ -1,3 +1,7 @@
 .job-editor__disabled {
     opacity: 0.4;
 }
+
+.job-info--editor__input-preview {
+  border: 1px solid #ffbc01;
+}
