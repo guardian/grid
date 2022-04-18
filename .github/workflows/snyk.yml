@@ -18,7 +18,7 @@ jobs:
       SNYK_COMMAND: monitor
     steps:
       - name: Checkout branch
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3.0.1
 
       - uses: snyk/actions/setup@0.3.0
 
