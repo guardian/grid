@@ -83,7 +83,7 @@ module.controller('grImageMetadataCtrl', [
 
     ctrl.displayDateTakenMetadata = function() {
       let dateTaken = ctrl.metadata.dateTaken ? new Date(ctrl.metadata.dateTaken) : undefined;
-      if (dateTaken) dateTaken.setSeconds(0, 0);
+      if (dateTaken) { dateTaken.setSeconds(0, 0); }
       return dateTaken;
     };
 
