@@ -311,7 +311,7 @@
             <dd class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-loc-button"
                         class="image-info__edit"
-                        ng-if="ctrl.userCanEdit"
+                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                         ng-click="locationEditForm.$show()"
                         ng-hide="locationEditForm.$visible">✎</button>
 
