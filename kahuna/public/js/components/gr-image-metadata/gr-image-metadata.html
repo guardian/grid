@@ -214,7 +214,7 @@
             <dd class="image-info__wrap metadata-line image-info__dateTaken metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-dateTaken-button"
                         class="image-info__edit"
-                        ng-if="ctrl.userCanEdit"
+                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
                         ng-click="takenEditForm.$show()"
                         ng-hide="takenEditForm.$visible"
                 >✎</button>
