@@ -282,6 +282,10 @@ service.factory('editsService',
 
         var changed = getMetadataDiff(image, proposedMetadata);
 
+         if (field === 'location') {
+            Object.assign(changed, value);
+          }
+
         return update(image.data.userMetadata.data.metadata, changed, image, inBatch)
           .then(() => image.get());
     }

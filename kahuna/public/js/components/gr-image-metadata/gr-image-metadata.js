@@ -98,6 +98,15 @@ module.controller('grImageMetadataCtrl', [
       ctrl.updateMetadataField('description', ctrl.metadata.description);
     };
 
+    ctrl.updateLocationField = function(data, value) {
+      Object.keys(value).forEach(key => {
+        if (value[key] === undefined) {
+          delete value[key];
+        }
+      });
+      ctrl.updateMetadataField('location', value);
+    };
+
     ctrl.updateMetadataField = function (field, value) {
       var imageArray = Array.from(ctrl.selectedImages);
       if (field === 'peopleInImage') {
@@ -368,6 +377,13 @@ module.controller('grImageMetadataCtrl', [
       'city': 'city',
       'state': 'state',
       'country': 'country'
+    };
+
+    ctrl.locationFieldPluralMap = {
+      'subLocation': 'subLocations',
+      'city': 'cities',
+      'state': 'states',
+      'country': 'countries'
     };
 
     ctrl.fieldAliases = $window._clientConfig.fieldAliases;
