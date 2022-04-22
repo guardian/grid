@@ -213,7 +213,6 @@
             <dt class="metadata-line image-info__wrap metadata-line__key image-info__group--dl__key--panel" ng-if="ctrl.metadata.dateTaken">Taken on</dt>
             <dd class="image-info__wrap metadata-line image-info__credit metadata-line__info image-info__group--dl__value--panel" ng-if="ctrl.metadata.dateTaken">{{ctrl.metadata.dateTaken | date:'d MMM yyyy, HH:mm'}}</dd>
 
-
             <dt ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__key image-info__group--dl__key--panel">By</dt>
             <dd data-cy="metadata-byline" ng-if="ctrl.rawMetadata.byline || ctrl.userCanEdit" class="image-info__wrap metadata-line image-info__byline metadata-line__info image-info__group--dl__value--panel">
                 <span ng-if="ctrl.metadataUpdatedByTemplate.includes('byline')">
@@ -308,22 +307,127 @@
 
             </dd>
 
+            <dt ng-hide="locationEditForm.$visible" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Location</dt>
+            <dd class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                <button data-cy="it-edit-loc-button"
+                        class="image-info__edit"
+                        ng-if="ctrl.userCanEdit && ctrl.metadataUpdatedByTemplate.length == 0"
+                        ng-click="locationEditForm.$show()"
+                        ng-hide="locationEditForm.$visible">✎</button>
 
-            <dt ng-if="ctrl.hasLocationInformation()" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Location</dt>
-            <dd ng-if="ctrl.hasLocationInformation()" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
-                <span ng-repeat="prop in ['subLocation', 'city', 'state', 'country']" ng-if="ctrl.metadata[prop]">
-                    <span class="metadata-line__info">
-                        <a ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
-                           aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}">
-                            {{ctrl.metadata[prop]}}
-                        </a>
-                    </span>
-                    <span ng-if="! $last">
-                        ,
-                    </span>
+                <span ng-hide="locationEditForm.$visible" ng-repeat="prop in ['subLocation', 'city', 'state', 'country']"
+                      >
+                        <span>
+                            <a
+                                ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
+                                ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
+                                aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}">
+                                 {{ctrl.metadata[prop]}}
+                            </a>
+                            <span
+                                ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
+                                ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata[prop])}">
+                                {{'(Multiple ' + ctrl.locationFieldPluralMap[prop] + ')'}}
+                            </span>
+                        </span>
+                        <span ng-if="! $last && ( ctrl.metadata[prop] || ctrl.hasMultipleValues(ctrl.rawMetadata[prop]) )">
+                            ,
+                        </span>
+
                 </span>
+                <span ng-hide="locationEditForm.$visible" class="editable-empty"
+                      ng-if="!ctrl.hasLocationInformation() &&
+                            ctrl.userCanEdit &&
+                            (!ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.city) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.state) &&
+                            !ctrl.hasMultipleValues(ctrl.rawMetadata.country))">Unknown (click ✎ to add)</span>
             </dd>
 
+            <div ng-hide="!locationEditForm.$visible" data-cy="metadata-location" class="image-info__wrap">
+                <form  class="edit-Location-form" editable-form name="locationEditForm" onbeforesave="ctrl.updateLocationField('Location', $data)">
+
+                    <div class="edit-Location-form-row">
+                        <dt  ng-hide="!locationEditForm.$visible" class="edit-Location-form-cell image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Sublocation</dt>
+                        <dd class="edit-Location-form-cell image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                            <div
+                                class="metadata-line__info"
+
+                                editable-text="ctrl.metadata.subLocation"
+                                ng-hide="locationEditForm.$visible"
+                                e-name="subLocation"
+                                e-placeholder="{{ctrl.hasMultipleValues(ctrl.rawMetadata.subLocation) ? 'Multiple sublocations' : 'sublocation' }}"
+                                e:msd-elastic
+                                e:ng-class="{'image-info__editor--error': $error,
+                                      'image-info__editor--saving': locationEditForm.$waiting,
+                                      'text-input': true}">
+                            </div>
+                        </dd>
+                    </div>
+
+                    <div class="edit-Location-form-row">
+                        <dt  ng-hide="!locationEditForm.$visible" class="edit-Location-form-cell image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">City</dt>
+                        <dd class="edit-Location-form-cell image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                            <div
+                                class="metadata-line__info"
+
+                                editable-text="ctrl.metadata.city"
+                                ng-hide="locationEditForm.$visible"
+                                e-name="city"
+                                e-placeholder="{{ctrl.hasMultipleValues(ctrl.rawMetadata.city) ? 'Multiple cities' : 'city' }}"
+                                e:msd-elastic
+                                e:ng-class="{'image-info__editor--error': $error,
+                                      'image-info__editor--saving': locationEditForm.$waiting,
+                                      'text-input': true}">
+                            </div>
+                        </dd>
+                    </div>
+
+                    <div class="edit-Location-form-row">
+                        <dt  ng-hide="!locationEditForm.$visible" class="edit-Location-form-cell image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">State</dt>
+                        <dd class="edit-Location-form-cell image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+                            <div
+                                class="metadata-line__info"
+
+                                editable-text="ctrl.metadata.state"
+                                ng-hide="locationEditForm.$visible"
+                                e-name="state"
+                                e-placeholder="{{ctrl.hasMultipleValues(ctrl.rawMetadata.state) ? 'Multiple states' : 'state' }}"
+                                e:msd-elastic
+                                e:ng-class="{'image-info__editor--error': $error,
+                                      'image-info__editor--saving': locationEditForm.$waiting,
+                                      'text-input': true}">
+                            </div>
+                        </dd>
+                    </div>
+
+                    <div class="edit-Location-form-row">
+                        <dt ng-hide="!locationEditForm.$visible" class="edit-Location-form-cell image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Country</dt>
+                        <dd class="edit-Location-form-cell">
+                            <div
+                                class="metadata-line__info"
+                                editable-text="ctrl.metadata.country"
+                                ng-hide="locationEditForm.$visible"
+                                e-name="country"
+                                e-placeholder="{{ctrl.hasMultipleValues(ctrl.rawMetadata.country) ? 'Multiple countries' : 'country' }}"
+                                e:msd-elastic
+                                e:ng-class="{'image-info__editor--error': $error,
+                                          'image-info__editor--saving': locationEditForm.$waiting,
+                                          'text-input': true}">
+                            </div>
+                            <div ng-if="ctrl.userCanEdit && locationEditForm.$visible" class="editable-buttons">
+                                <button class="button-cancel" type="button" ng-click="locationEditForm.$cancel()">
+                                    <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+                                </button>
+
+                                <button class="button-save" type="submit">
+                                    <gr-icon-label gr-icon="check">Save</gr-icon-label>
+                                </button>
+                            </div>
+                        <dd/>
+                    </div>
+                </form>
+            </div>
 
             <dt ng-if="ctrl.rawMetadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Copyright</dt>
             <dd data-cy="metadata-copyright" ng-if="ctrl.rawMetadata.copyright || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
