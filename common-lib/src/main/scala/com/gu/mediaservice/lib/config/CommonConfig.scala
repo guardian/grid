@@ -104,6 +104,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
   val fieldAliasConfigs: Seq[FieldAlias] = configuration.get[Seq[FieldAlias]]("field.aliases")
 
   val recordDownloadAsUsage: Boolean = boolean("image.record.download")
+  val shortenDownloadFilename: Boolean = boolean("image.download.shorten")
 
   /**
    * Load in a list of external staff photographers, internal staff photographers, contracted photographers,

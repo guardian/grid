@@ -93,6 +93,7 @@ class S3(config: CommonConfig) extends GridLogging {
     }
 
   private def getBaseFilename(image: Image, filenameSuffix: String): String = image.uploadInfo.filename match {
+    case Some(_) if config.shortenDownloadFilename => s"$filenameSuffix".filter(!"()".contains(_))
     case Some(f) => s"${removeExtension(f)} $filenameSuffix"
     case _ => filenameSuffix
   }
