@@ -98,11 +98,11 @@ object Uploader extends GridLogging {
 
     import deps._
 
-    logger.info("Starting image ops")
+    logger.info(logMarker, "Starting image ops")
 
     val fileMetadataFuture = toFileMetadata(uploadRequest.tempFile, uploadRequest.imageId, uploadRequest.mimeType)
 
-    logger.info("Have read file headers")
+    logger.info(logMarker, "Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
       uploadAndStoreImage(
@@ -353,10 +353,10 @@ class Uploader(val store: ImageLoaderStore,
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>
-        logger.error(s"Unsupported mimetype", unsupported)
+        logger.error(logMarker, s"Unsupported mimetype", unsupported)
         throw unsupported
       case util.Right(mimeType) =>
-        logger.info(s"Detected mimetype as $mimeType")
+        logger.info(logMarker, s"Detected mimetype as $mimeType")
         UploadRequest(
           imageId = id,
           tempFile = tempFile,

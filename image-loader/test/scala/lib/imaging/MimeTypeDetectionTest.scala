@@ -1,5 +1,6 @@
 package scala.lib.imaging
 
+import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model.{Jpeg, Png, Tiff}
 import lib.imaging.MimeTypeDetection
 import org.scalatest.concurrent.ScalaFutures
@@ -8,6 +9,8 @@ import org.scalatest.matchers.should.Matchers
 
 class MimeTypeDetectionTest extends AnyFunSpec with Matchers with ScalaFutures {
   import test.lib.ResourceHelpers._
+
+  implicit val markers = MarkerMap()
 
   it("should detect jpeg mime types for images") {
     for (fileName <- List("getty.jpg", "corbis.jpg", "guardian-turner.jpg", "pa.jpg")) {
