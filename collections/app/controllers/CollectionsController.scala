@@ -36,7 +36,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
   // Stupid name clash between Argo and Play
   import com.gu.mediaservice.lib.argo.model.{Action => ArgoAction}
 
-def uri(u: String) = URI.create(u)
+  def uri(u: String) = URI.create(u)
   val collectionUri = uri(s"${config.rootUri}/collections")
   def collectionUri(p: List[String] = Nil) = {
     val path = if(p.nonEmpty) s"/${pathToUri(p)}" else ""
@@ -46,6 +46,7 @@ def uri(u: String) = URI.create(u)
   val appIndex = AppIndex("media-collections", "The one stop shop for collections")
   val indexLinks = List(Link("collections", collectionUri.toString))
 
+  def getNodeAction(n: Node[Collection]): Option[Link] = Some(Link("collection", collectionUri(n.fullPath).toString))
   def addChildAction(pathId: List[String] = Nil): Option[ArgoAction] = Some(ArgoAction("add-child", collectionUri(pathId), "POST"))
   def addChildAction(n: Node[Collection]): Option[ArgoAction] = addChildAction(n.fullPath)
   def removeNodeAction(n: Node[Collection]): Option[ArgoAction] = if (n.children.nonEmpty) None else Some(
@@ -70,6 +71,10 @@ def uri(u: String) = URI.create(u)
 
   def getActions(n: Node[Collection]): List[ArgoAction] = {
     List(addChildAction(n), removeNodeAction(n)).flatten
+  }
+
+  def getLinks(n: Node[Collection]): List[Link] = {
+    List(getNodeAction(n)).flatten
   }
 
   def correctedCollections = authenticated.async { req =>
@@ -136,7 +141,7 @@ def uri(u: String) = URI.create(u)
         store.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
           logger.info(req.user.accessor, s"Adding collection ${path.mkString("/")}")
-          respond(node, actions = getActions(node))
+          respond(node, links = getLinks(node), actions = getActions(node))
         } recover {
           case e: CollectionsStoreError => storeError(e.message)
         }
@@ -201,7 +206,7 @@ def uri(u: String) = URI.create(u)
 
 
   def collectionsEntity(nodes: List[Node[Collection]]): CollectionsEntity = {
-    nodes.map(n => EmbeddedEntity(collectionUri(n.fullPath), Some(n), actions = getActions(n)))
+    nodes.map(n => EmbeddedEntity(collectionUri(n.fullPath), Some(n), links = getLinks(n), actions = getActions(n)))
   }
 
 }
