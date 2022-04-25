@@ -108,6 +108,8 @@ def uri(u: String) = URI.create(u)
         respond(node, actions = getActions(node))
       case None =>
         respondNotFound("Collection not found")
+    } recover {
+      case e: CollectionsStoreError => storeError(e.message)
     }
   }
 
