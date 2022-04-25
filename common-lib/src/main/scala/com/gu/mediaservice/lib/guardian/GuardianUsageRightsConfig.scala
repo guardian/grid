@@ -402,7 +402,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "Hoberman Collection UK RR",
     "Hola Images RM",
     "Hoxton",
-    "Hulton Archive",
     "I Love Images RF",
     "Iconic Images",
     "Iconica",
