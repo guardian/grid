@@ -84,7 +84,7 @@ class ImageLoaderController(auth: Authentication,
       implicit val context: LogMarker =
         initialContext ++ Map(
           "uploadedBy" -> uploadedByToRecord,
-          "uploadTime" -> uploadTimeToRecord,
+          "uploadTime" -> uploadTimeToRecord.toString,
           "requestId" -> RequestLoggingFilter.getRequestId(req)
         )
 
