@@ -340,8 +340,7 @@ class Uploader(val store: ImageLoaderStore,
                uploadedBy: String,
                identifiers: Option[String],
                uploadTime: DateTime,
-               filename: Option[String],
-               requestId: UUID)
+               filename: Option[String])
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
@@ -359,7 +358,6 @@ class Uploader(val store: ImageLoaderStore,
       case util.Right(mimeType) =>
         logger.info(s"Detected mimetype as $mimeType")
         UploadRequest(
-          requestId = requestId,
           imageId = id,
           tempFile = tempFile,
           mimeType = Some(mimeType),
@@ -375,7 +373,7 @@ class Uploader(val store: ImageLoaderStore,
                (implicit ec:ExecutionContext,
                 logMarker: LogMarker): Future[JsObject] = {
 
-    logger.info("Storing file")
+    logger.info(logMarker, "Storing file")
 
     for {
       imageUpload <- fromUploadRequest(uploadRequest)

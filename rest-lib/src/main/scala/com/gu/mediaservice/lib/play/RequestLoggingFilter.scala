@@ -4,29 +4,37 @@ import akka.stream.Materializer
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.provider.InnerServiceAuthentication
 import net.logstash.logback.marker.Markers.appendEntries
-import play.api.mvc.{Filter, RequestHeader, Result}
+import play.api.mvc.{Filter, RequestHeader, Result, WrappedRequest}
 import play.api.{Logger, MarkerContext}
 
+import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+object RequestLoggingFilter {
+  val requestIdHeader = "x-grid-request-id"
+  def getRequestId[T](req: WrappedRequest[T]): String =
+    req.headers.get(requestIdHeader).getOrElse(UUID.randomUUID().toString)
+}
 class RequestLoggingFilter(override val mat: Materializer)(implicit ec: ExecutionContext) extends Filter {
 
   private val logger = Logger("request")
 
   override def apply(next: (RequestHeader) => Future[Result])(request: RequestHeader): Future[Result] = {
     val start = System.currentTimeMillis()
-    val resultFuture = next(request)
+    val withID = request.withHeaders(request.headers.replace(RequestLoggingFilter.requestIdHeader -> UUID.randomUUID().toString))
+
+    val resultFuture = next(withID)
 
     resultFuture onComplete {
       case Success(response) =>
         val duration = System.currentTimeMillis() - start
-        log(request, Right(response), duration)
+        log(withID, Right(response), duration)
 
       case Failure(err) =>
         val duration = System.currentTimeMillis() - start
-        log(request, Left(err), duration)
+        log(withID, Left(err), duration)
     }
 
     resultFuture
@@ -54,6 +62,7 @@ class RequestLoggingFilter(override val mat: Materializer)(implicit ec: Executio
 
     val optionalMarkers = (markersFromRequestHeaders ++ Map(
       "status" -> outcome.map(_.header.status).toOption,
+      "requestId" -> request.headers.get(RequestLoggingFilter.requestIdHeader)
     )).collect{
       case (key, Some(value)) => key -> value
     }

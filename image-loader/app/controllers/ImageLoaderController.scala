@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.formatting.printDateTime
-import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, RequestLoggingContext}
+import com.gu.mediaservice.lib.logging.{FALLBACK, LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.{DateTimeUtils, ImageIngestOperations}
 import com.gu.mediaservice.model.UnsupportedMimeTypeException
 import com.gu.scanamo.error.ConditionNotMet
@@ -23,6 +23,7 @@ import model.upload.UploadRequest
 import java.time.Instant
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication.OnBehalfOfPrincipal
+import com.gu.mediaservice.lib.play.RequestLoggingFilter
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -62,25 +63,30 @@ class ImageLoaderController(auth: Authentication,
 
   def loadImage(uploadedBy: Option[String], identifiers: Option[String], uploadTime: Option[String], filename: Option[String]): Action[DigestedFile] =  {
 
-    implicit val context: RequestLoggingContext = RequestLoggingContext(
-      initialMarkers = Map(
+    val initialContext = MarkerMap(
         "requestType" -> "load-image",
         "uploadedBy" -> uploadedBy.getOrElse(FALLBACK),
         "identifiers" -> identifiers.getOrElse(FALLBACK),
         "uploadTime" -> uploadTime.getOrElse(FALLBACK),
         "filename" -> filename.getOrElse(FALLBACK)
-      )
     )
-    logger.info(context, "loadImage request start")
+    logger.info(initialContext, "loadImage request start")
 
     // synchronous write to file
-    val tempFile = createTempFile("requestBody")
-    logger.info(context, "body parsed")
+    val tempFile = createTempFile("requestBody")(initialContext)
+    logger.info(initialContext, "body parsed")
     val parsedBody = DigestBodyParser.create(tempFile)
 
     AuthenticatedAndAuthorised.async(parsedBody) { req =>
       val uploadTimeToRecord = DateTimeUtils.fromValueOrNow(uploadTime)
       val uploadedByToRecord = uploadedBy.getOrElse(Authentication.getIdentity(req.user))
+
+      implicit val context: LogMarker =
+        initialContext ++ Map(
+          "uploadedBy" -> uploadedByToRecord,
+          "uploadTime" -> uploadTimeToRecord,
+          "requestId" -> RequestLoggingFilter.getRequestId(req)
+        )
 
       val uploadStatus = if(config.uploadToQuarantineEnabled) StatusType.Pending else StatusType.Completed
       val uploadExpiry = Instant.now.getEpochSecond + config.uploadStatusExpiry.toSeconds
@@ -91,8 +97,8 @@ class ImageLoaderController(auth: Authentication,
           uploadedByToRecord,
           identifiers,
           uploadTimeToRecord,
-          filename.flatMap(_.trim.nonEmptyOpt),
-          context.requestId)
+          filename.flatMap(_.trim.nonEmptyOpt)
+        )
         _ <- uploadStatusTable.setStatus(record)
         result <- quarantineOrStoreImage(uploadRequest)
       } yield result
@@ -118,16 +124,17 @@ class ImageLoaderController(auth: Authentication,
 
   // Fetch
   def projectImageBy(imageId: String): Action[AnyContent] = {
-    implicit val context: RequestLoggingContext = RequestLoggingContext(
-      initialMarkers = Map(
-        "imageId" -> imageId,
-        "requestType" -> "image-projection"
-      )
+    val initialContext = MarkerMap(
+      "imageId" -> imageId,
+      "requestType" -> "image-projection"
     )
-    val tempFile = createTempFile(s"projection-$imageId")
+    val tempFile = createTempFile(s"projection-$imageId")(initialContext)
     auth.async { req =>
+      implicit val context: LogMarker = initialContext ++ Map(
+        "requestId" -> RequestLoggingFilter.getRequestId(req)
+      )
       val onBehalfOfFn: OnBehalfOfPrincipal = auth.getOnBehalfOfPrincipal(req.user)
-      val result= projector.projectS3ImageById(imageId, tempFile, context.requestId, gridClient, onBehalfOfFn)
+      val result = projector.projectS3ImageById(imageId, tempFile, gridClient, onBehalfOfFn)
 
       result.onComplete( _ => Try { deleteTempFile(tempFile) } )
 
@@ -156,12 +163,11 @@ class ImageLoaderController(auth: Authentication,
                    filename: Option[String]
                  ): Action[AnyContent] = {
     AuthenticatedAndAuthorised.async { request =>
-      implicit val context: RequestLoggingContext = RequestLoggingContext(
-        initialMarkers = Map(
-          "requestType" -> "import-image",
-          "key-tier" -> request.user.accessor.tier.toString,
-          "key-name" -> request.user.accessor.identity
-        )
+      implicit val context = MarkerMap(
+        "requestType" -> "import-image",
+        "key-tier" -> request.user.accessor.tier.toString,
+        "key-name" -> request.user.accessor.identity,
+        "requestId" -> RequestLoggingFilter.getRequestId(request)
       )
 
       logger.info(context, "importImage request start")
@@ -184,7 +190,7 @@ class ImageLoaderController(auth: Authentication,
           maybeStatus.flatMap(_.identifiers).orElse(identifiers),
           DateTimeUtils.fromValueOrNow(maybeStatus.map(_.uploadTime).orElse(uploadTime)),
           maybeStatus.flatMap(_.fileName).orElse(filename).flatMap(_.trim.nonEmptyOpt),
-          context.requestId)
+        )
         result <- uploader.storeFile(uploadRequest)
       } yield {
         logger.info(context, "importImage request end")
