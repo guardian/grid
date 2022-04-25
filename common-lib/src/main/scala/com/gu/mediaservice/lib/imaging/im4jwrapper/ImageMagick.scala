@@ -2,8 +2,7 @@ package com.gu.mediaservice.lib.imaging.im4jwrapper
 
 import java.util.concurrent.Executors
 import java.io.File
-
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import org.im4java.process.ArrayListOutputConsumer
 
 import scala.collection.JavaConverters._
@@ -32,14 +31,14 @@ object ImageMagick extends GridLogging {
   def setBackgroundColour(op: IMOperation)(backgroundColour: String): IMOperation = op <| (_.background(backgroundColour))
   def flatten(op: IMOperation): IMOperation = op <| (_.flatten())
 
-  def runConvertCmd(op: IMOperation, useImageMagick: Boolean): Future[Unit] = {
-    logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging conversion operation $op")
+  def runConvertCmd(op: IMOperation, useImageMagick: Boolean)(implicit logMarker: LogMarker): Future[Unit] = {
+    logger.info(logMarker, s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging conversion operation $op")
 
-    Future((new ConvertCmd(!useImageMagick)).run(op))
+    Future(new ConvertCmd(!useImageMagick).run(op))
   }
 
-  def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean): Future[List[String]] = Future {
-    logger.info(s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging identification operation $op")
+  def runIdentifyCmd(op: IMOperation, useImageMagick: Boolean)(implicit logMarker: LogMarker): Future[List[String]] = Future {
+    logger.info(logMarker, s"Using ${if(useImageMagick) { "imagemagick" } else { "graphicsmagick" }} for imaging identification operation $op")
 
     val cmd = new IdentifyCmd(!useImageMagick)
     val output = new ArrayListOutputConsumer()

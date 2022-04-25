@@ -108,8 +108,14 @@ class ImageOperations(playPath: String) extends GridLogging {
       ).map(_ => sourceFile)
   }
 
-  def resizeImage(sourceFile: File, sourceMimeType: Option[MimeType], dimensions: Dimensions,
-                  qual: Double = 100d, tempDir: File, fileType: MimeType): Future[File] = {
+  def resizeImage(
+    sourceFile: File,
+    sourceMimeType: Option[MimeType],
+    dimensions: Dimensions,
+    qual: Double = 100d,
+    tempDir: File,
+    fileType: MimeType
+  )(implicit logMarker: LogMarker): Future[File] = {
     for {
       outputFile  <- createTempFile(s"resize-", s".${fileType.fileExtension}", tempDir)
       resizeSource = addImage(sourceFile)
@@ -247,7 +253,7 @@ class ImageOperations(playPath: String) extends GridLogging {
 object ImageOperations {
   val thumbMimeType = Jpeg
   val optimisedMimeType = Png
-  def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext): Future[Option[String]] = {
+  def identifyColourModel(sourceFile: File, mimeType: MimeType)(implicit ec: ExecutionContext, logMarker: LogMarker): Future[Option[String]] = {
     // TODO: use mimeType to lookup other properties once we support other formats
 
     mimeType match {

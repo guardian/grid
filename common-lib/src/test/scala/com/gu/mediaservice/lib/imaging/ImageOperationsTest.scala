@@ -1,5 +1,7 @@
 package com.gu.mediaservice.lib.imaging
 
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+
 import java.io.File
 import com.gu.mediaservice.model.Jpeg
 import org.scalatest.time.{Millis, Span}
@@ -15,6 +17,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class ImageOperationsTest extends AnyFunSpec with Matchers with ScalaFutures {
 
   implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit val logMarker: LogMarker = MarkerMap()
 
   describe("identifyColourModel") {
     it("should return RGB for a JPG image with RGB image data and no embedded profile") {

@@ -1,5 +1,6 @@
 package test.lib.imaging
 
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import lib.imaging.FileMetadataReader
 import org.scalatest.concurrent.ScalaFutures
@@ -20,6 +21,7 @@ class FileMetadataReaderTest extends AnyFunSpec with Matchers with ScalaFutures 
   import test.lib.ResourceHelpers._
 
   implicit override val patienceConfig = PatienceConfig(timeout = Span(1000, Millis), interval = Span(25, Millis))
+  implicit val logMarker: LogMarker = MarkerMap()
 
   it("should read the correct dimensions for a JPG image") {
     val image = fileAt("getty.jpg")
