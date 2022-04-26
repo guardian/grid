@@ -1,6 +1,6 @@
 package store
 
-import com.gu.mediaservice.lib.aws.DynamoDB
+import com.gu.mediaservice.lib.aws.{DynamoDB, NoItemFound}
 import com.gu.mediaservice.lib.collections.CollectionsManager
 import com.gu.mediaservice.model.Collection
 import lib.CollectionsConfig
@@ -21,6 +21,14 @@ class CollectionsStore(config: CollectionsConfig) {
   def add(collection: Collection): Future[Collection] = {
     dynamo.objPut(collection.pathId, "collection", collection)
   } recover {
+    case e => throw CollectionsStoreError(e)
+  }
+
+  def get(collectionPath: List[String]): Future[Option[Collection]] = {
+    val path = CollectionsManager.pathToPathId(collectionPath)
+    dynamo.get(path).map(json => (json \ "collection").asOpt[Collection])
+  } recover {
+    case NoItemFound => None
     case e => throw CollectionsStoreError(e)
   }
 

@@ -7,6 +7,7 @@ DELETE  /images/:imageId/*collection                    controllers.ImageCollect
 
 # Collections
 GET     /collections                                    controllers.CollectionsController.getCollections
+GET     /collections/*collection                        controllers.CollectionsController.getCollection(collection: String)
 POST    /collections                                    controllers.CollectionsController.addChildToRoot
 POST    /collections/*collection                        controllers.CollectionsController.addChildToCollection(collection: String)
 DELETE  /collections/*collection                        controllers.CollectionsController.removeCollection(collection: String)
