@@ -149,7 +149,17 @@ query.controller('SearchQueryCtrl', [
     $scope.$watchCollection(() => ctrl.filter, onValChange(filter => {
         storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
 
-        filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        const myUploadsCheckbox = filter.uploadedByMe;
+        // Users should be able to follow URLs with uploadedBy set to another user's name, so only
+        // overwrite if:
+        //   - uploadedBy is unset, or
+        //   - uploadedBy is set to their email (to allow unchecking the 'My uploads' checkbox), or
+        //   - 'My uploads' checkbox is checked (overwrite other user's email with theirs).
+        const shouldOverwriteUploadedBy =
+            !filter.uploadedBy || filter.uploadedBy === ctrl.user.email || myUploadsCheckbox;
+        if (shouldOverwriteUploadedBy) {
+            filter.uploadedBy = filter.uploadedByMe ? ctrl.user.email : undefined;
+        }
         storage.setJs("isUploadedByMe", ctrl.filter.uploadedByMe, true);
 
         ctrl.collectionSearch = ctrl.filter.query ? ctrl.filter.query.indexOf('~') === 0 : false;
