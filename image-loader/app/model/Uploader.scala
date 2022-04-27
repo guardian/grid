@@ -98,11 +98,11 @@ object Uploader extends GridLogging {
 
     import deps._
 
-    logger.info("Starting image ops")
+    logger.info(logMarker, "Starting image ops")
 
     val fileMetadataFuture = toFileMetadata(uploadRequest.tempFile, uploadRequest.imageId, uploadRequest.mimeType)
 
-    logger.info("Have read file headers")
+    logger.info(logMarker, "Have read file headers")
 
     fileMetadataFuture.flatMap(fileMetadata => {
       uploadAndStoreImage(
@@ -230,7 +230,7 @@ object Uploader extends GridLogging {
     baseMeta.mapValues(URI.encode)
   }
 
-  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType]): Future[FileMetadata] = {
+  private def toFileMetadata(f: File, imageId: String, mimeType: Option[MimeType])(implicit logMarker: LogMarker): Future[FileMetadata] = {
     mimeType match {
       case Some(Png | Tiff | Jpeg) => FileMetadataReader.fromIPTCHeadersWithColorInfo(f, imageId, mimeType.get)
       case _ => FileMetadataReader.fromIPTCHeaders(f, imageId)
@@ -340,8 +340,7 @@ class Uploader(val store: ImageLoaderStore,
                uploadedBy: String,
                identifiers: Option[String],
                uploadTime: DateTime,
-               filename: Option[String],
-               requestId: UUID)
+               filename: Option[String])
               (implicit ec:ExecutionContext,
                logMarker: LogMarker): Future[UploadRequest] = Future {
     val DigestedFile(tempFile, id) = digestedFile
@@ -354,12 +353,11 @@ class Uploader(val store: ImageLoaderStore,
 
     MimeTypeDetection.guessMimeType(tempFile) match {
       case util.Left(unsupported) =>
-        logger.error(s"Unsupported mimetype", unsupported)
+        logger.error(logMarker, s"Unsupported mimetype", unsupported)
         throw unsupported
       case util.Right(mimeType) =>
-        logger.info(s"Detected mimetype as $mimeType")
+        logger.info(logMarker, s"Detected mimetype as $mimeType")
         UploadRequest(
-          requestId = requestId,
           imageId = id,
           tempFile = tempFile,
           mimeType = Some(mimeType),
@@ -375,7 +373,7 @@ class Uploader(val store: ImageLoaderStore,
                (implicit ec:ExecutionContext,
                 logMarker: LogMarker): Future[JsObject] = {
 
-    logger.info("Storing file")
+    logger.info(logMarker, "Storing file")
 
     for {
       imageUpload <- fromUploadRequest(uploadRequest)

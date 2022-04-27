@@ -11,17 +11,17 @@ import org.apache.tika.Tika
 import scala.util.{Failure, Success, Try}
 
 object MimeTypeDetection extends GridLogging {
-  def guessMimeType(file: File): Either[UnsupportedMimeTypeException, MimeType] = Try(usingTika(file)) match {
+  def guessMimeType(file: File)(implicit logMarker: LogMarker): Either[UnsupportedMimeTypeException, MimeType] = Try(usingTika(file)) match {
     case Success(Tiff) if isDng(file) => Left(new UnsupportedMimeTypeException("image/dng"))
     case Success(mimeType) => Right(mimeType)
     case Failure(tikaAttempt: UnsupportedMimeTypeException) => {
       Try(usingMetadataExtractor(file)) match {
         case Success(mimeType) => {
-          logger.info(s"Using mime type from metadata extractor as tika mime type is unsupported (${tikaAttempt.mimeType})")
+          logger.info(logMarker, s"Using mime type from metadata extractor as tika mime type is unsupported (${tikaAttempt.mimeType})")
           Right(mimeType)
         }
         case Failure(metadataExtractorAttempt: UnsupportedMimeTypeException) => {
-          logger.warn(s"Unsupported mime type: tika was ${tikaAttempt.mimeType}, metadata extractor was ${metadataExtractorAttempt.mimeType}", metadataExtractorAttempt)
+          logger.warn(logMarker, s"Unsupported mime type: tika was ${tikaAttempt.mimeType}, metadata extractor was ${metadataExtractorAttempt.mimeType}", metadataExtractorAttempt)
           Left(metadataExtractorAttempt)
         }
         case Failure(_: Throwable) => Left(new UnsupportedMimeTypeException(FALLBACK))

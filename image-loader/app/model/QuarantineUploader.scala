@@ -41,7 +41,7 @@ class QuarantineUploader(val store: QuarantineStore,
     implicit ec: ExecutionContext,
     logMarker: LogMarker): Future[JsObject] = {
 
-    logger.info("Quarantining file")
+    logger.info(logMarker, "Quarantining file")
 
     for {
       _ <- storeQuarantineFile(uploadRequest)

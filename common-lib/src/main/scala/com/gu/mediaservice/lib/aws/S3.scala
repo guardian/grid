@@ -70,7 +70,6 @@ class S3(config: CommonConfig) extends GridLogging {
   lazy val client: AmazonS3 = S3Ops.buildS3Client(config)
   // also create a legacy client that uses v2 signatures for URL signing
   private lazy val legacySigningClient: AmazonS3 = S3Ops.buildS3Client(config, forceV2Sigs = true)
-  private val log = LoggerFactory.getLogger(getClass)
 
   private def removeExtension(filename: String): String = {
     val regex = """\.[a-zA-Z]{3,4}$""".r
@@ -161,7 +160,7 @@ class S3(config: CommonConfig) extends GridLogging {
       Some(IOUtils.toString(stream).trim)
     } catch {
       case e: AmazonServiceException if e.getErrorCode == "NoSuchKey" =>
-        log.warn(s"Cannot find key: $key in bucket: $bucket")
+        logger.warn(s"Cannot find key: $key in bucket: $bucket")
         None
     }
     finally {
@@ -202,7 +201,7 @@ class S3(config: CommonConfig) extends GridLogging {
       case as3e:AmazonS3Exception if as3e.getStatusCode == 404 => None
     }.flatMap {
       case Some(objectMetadata) =>
-        log.info(s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
+        logger.info(logMarker, s"Skipping storing of S3 file $id as key is already present in bucket $bucket")
         Future.successful(S3Object(bucket, id, objectMetadata.getContentLength, S3Metadata(objectMetadata)))
       case None =>
         store(bucket, id, file, mimeType, meta, cacheControl)

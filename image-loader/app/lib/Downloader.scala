@@ -3,11 +3,10 @@ package lib
 import java.io.{ByteArrayInputStream, File, FileOutputStream}
 import java.net.URI
 import java.nio.file.Files
-
 import com.google.common.hash.HashingOutputStream
 import com.google.common.io.ByteStreams
 import com.gu.mediaservice.DeprecatedHashWrapper
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import play.api.http.HeaderNames
 import play.api.libs.ws.WSClient
 
@@ -21,7 +20,7 @@ case object InvalidDownload extends Exception
 class Downloader(implicit ec: ExecutionContext, wsClient: WSClient) extends GridLogging {
   private val digester = DeprecatedHashWrapper.sha1()
 
-  def download(uri: URI, file: File): Future[DigestedFile] = for {
+  def download(uri: URI, file: File)(implicit logMarker: LogMarker): Future[DigestedFile] = for {
     response <- wsClient.url(uri.toString).get()
 
     maybeExpectedSize = Try {
@@ -29,10 +28,10 @@ class Downloader(implicit ec: ExecutionContext, wsClient: WSClient) extends Grid
     }
   } yield maybeExpectedSize match {
     case Success(None) =>
-      logger.error(s"Missing content-length header from $uri")
+      logger.error(logMarker, s"Missing content-length header from $uri")
       throw InvalidDownload
     case Failure(exception) =>
-      logger.error(s"Bad content-length header from $uri", exception)
+      logger.error(logMarker, s"Bad content-length header from $uri", exception)
       throw InvalidDownload
     case Success(Some(expectedSize)) =>
       val input: java.io.InputStream = new java.io.ByteArrayInputStream(response.bodyAsBytes.toArray)

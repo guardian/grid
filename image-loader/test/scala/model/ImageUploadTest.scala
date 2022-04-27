@@ -46,7 +46,6 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
                    expectedOriginalMimeType: MimeType,
                    expectOptimisedFile: Boolean = false): Future[Assertion] = {
 
-    val uuid = UUID.randomUUID()
     val randomId = UUID.randomUUID().toString + fileName
 
     val mockS3Meta = S3Metadata(Map.empty, S3ObjectMetadata(None, None, None))
@@ -73,7 +72,6 @@ class ImageUploadTest extends AsyncFunSuite with Matchers with MockitoSugar {
     val ul = UploadInfo(None)
 
     val uploadRequest = UploadRequest(
-      uuid,
       randomId,
       tempFile,
       MimeTypeDetection.guessMimeType(tempFile).right.toOption,

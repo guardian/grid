@@ -203,7 +203,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
     when(gridClient.getCrops(id, identity)).thenReturn(Future.successful(Nil))
     when(gridClient.getLeases(id, identity)).thenReturn(Future.successful(LeasesByMedia.empty))
 
-    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, UUID.randomUUID(), gridClient, identity)
+    val actualFuture = projector.projectImage(fileDigest, extractedS3Meta, gridClient, identity)
     actualFuture.recoverWith( {case t: Throwable => t.printStackTrace(); throw t})
 
     whenReady(actualFuture) { actual =>
