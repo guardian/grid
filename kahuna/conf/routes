@@ -7,6 +7,7 @@ GET     /images/$id<[0-9a-z]+>                        controllers.KahunaControll
 GET     /images/$id<[0-9a-z]+>/crop                   controllers.KahunaController.index(id: String)
 GET     /search                                       controllers.KahunaController.index(ignored="")
 GET     /upload                                       controllers.KahunaController.index(ignored="")
+GET     /quotas                                       controllers.KahunaController.quotas
 
 # Empty page to return to the same domain as the app
 GET     /ok                                           controllers.KahunaController.ok
