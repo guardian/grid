@@ -10,7 +10,6 @@ import com.gu.mediaservice.model._
 class SupplierProcessors(resources: ImageProcessorResources)
   extends ComposeImageProcessors(
     GettyXmpParser,
-    GettyCreditParser,
     AapParser,
     ActionImagesParser,
     AlamyParser,
@@ -308,89 +307,37 @@ object EpaParser extends ImageProcessor {
   }
 }
 
-trait GettyProcessor {
-  def gettyAgencyWithCollection(suppliersCollection: Option[String]) =
-    Agencies
-      .getWithCollection("getty", suppliersCollection)
-}
-
-object GettyXmpParser extends ImageProcessor with GettyProcessor {
-  def getSuppliersReference(image: Image)={
+object GettyXmpParser extends ImageProcessor {
+  def getSuppliersReference(image: Image): Option[String] = {
     // String defined in ImageMetadataConvertor
     image.fileMetadata.getty.get("Asset ID").orElse(image.metadata.suppliersReference)
   }
 
+  val knownGettyCredits = List("AFP", "FilmMagic", "WireImage", "Hulton")
+  def getKnownGettyCredit(credit: String): Option[String] =
+    knownGettyCredits.find(_.toLowerCase == credit.toLowerCase)
+
+  def hasGettyMetadata(image: Image): Boolean = image.fileMetadata.getty.contains("Asset ID")
+  def gettyAgencyWithCollection(suppliersCollection: Option[String]): Agency =
+    Agencies
+      .getWithCollection("getty", suppliersCollection)
+
   def apply(image: Image): Image = {
-    val excludedCredit = List(
-      "Replay Images", "newspix international", "i-images", "photoshot", "Ian Jones", "Photo News/Panoramic",
-      "Panoramic/Avalon", "Panoramic", "Avalon", "INS News Agency Ltd", "Discovery.", "EPA", "EMPICS", "Empics News",
-      "S&G and Barratts/EMPICS Sport", "EMPICS Sport", "EMPICS SPORT", "EMPICS Sports Photo Agency",
-      "Empics Sports Photography Ltd.", "EMPICS Entertainment", "Empics Entertainment", "MatchDay Images Limited",
-      "S&G and Barratts/EMPICS Archive", "PPAUK", "SWNS.COM", "Euan Cherry", "Plumb Images", "Mercury Press", "SWNS",
-      "Athena Pictures", "Flick.digital", "Matthew Horwood", "Focus Images Ltd", "www.scottishphotographer.com",
-      "ZUMAPRESS.com", "Huw Evans Agency", "Media6", "Alpha Press", "LNP", "Story Picture Agency"
-    )
-
-    val excludedSource = List(
-      "www.capitalpictures.com", "Replay Images", "UKTV", "PinPep", "Pinnacle Photo Agency Ltd", "News Images",
-      "London News Pictures Ltd", "Showtime", "Propaganda", "Equinox Features", "Athena Picture Agency Ltd",
-      "www.edinburghelitemedia.co.uk", "WALES NEWS SERVICE", "Sports Inc", "UK Sports Pics Ltd", "Blitz Pictures",
-      "Consolidated News Photos", "MI News & Sport Ltd", "Parsons Media", "Tom Nicholson", "SONY BMG MUSIC ENTERTAINMENT"
-    )
-
-    val isExcludedByCredit = image.metadata.credit.exists(isExcluded(_, excludedCredit))
-    val isExcludedBySource = image.metadata.source.exists(isExcluded(_, excludedSource))
-    val hasGettyMetadata = image.fileMetadata.getty.nonEmpty
-
-
-    if(!hasGettyMetadata){
-      image
-    } else if(isExcludedByCredit || isExcludedBySource) {
+    if (hasGettyMetadata(image)) {
+      val collectionField = image.metadata.credit.flatMap(getKnownGettyCredit)
+        .orElse(image.metadata.source)
       image.copy(
-        metadata = image.metadata.copy(
-          suppliersReference = getSuppliersReference(image)
-        )
-      )
-    } else {
-      image.copy(
-        usageRights = gettyAgencyWithCollection(image.metadata.source),
+        usageRights = gettyAgencyWithCollection(collectionField),
         // Set a default "credit" for when Getty is too lazy to provide one
         metadata = image.metadata.copy(
           credit = Some(image.metadata.credit.getOrElse("Getty Images")),
           suppliersReference = getSuppliersReference(image)
         )
       )
+    } else {
+      image
     }
   }
-
-  private def isExcluded(value: String, matchers: List[String]): Boolean = {
-    matchers.map(_.toLowerCase).exists(value.toLowerCase.contains)
-  }
-}
-
-object GettyCreditParser extends ImageProcessor with GettyProcessor {
-  val gettyCredits = List("AFP", "FilmMagic", "WireImage", "Hulton")
-
-  val IncludesGetty = ".*Getty Images.*".r
-  // Take a leap of faith as the credit may be truncated if too long...
-  val ViaGetty = ".+ via Getty(?: .*)?".r
-  val SlashGetty = ".+/Getty(?: .*)?".r
-
-  def apply(image: Image): Image = image.metadata.credit match {
-    case Some(IncludesGetty()) | Some(ViaGetty()) | Some(SlashGetty()) => image.copy(
-       usageRights = gettyAgencyWithCollection(image.metadata.source)
-    )
-    case Some(credit) => knownGettyCredits(image, credit)
-    case _ => image
-  }
-
-  def knownGettyCredits(image: Image, credit: String): Image =
-    gettyCredits.find(_.toLowerCase == credit.toLowerCase) match {
-      case collection @ Some(_) => image.copy(
-        usageRights = gettyAgencyWithCollection(collection)
-      )
-      case _ => image
-    }
 }
 
 object PaParser extends ImageProcessor {
