@@ -9,10 +9,9 @@
         <ul class="drop-menu__items__separator">
             <li><a class="drop-menu__items__quotas" href="/quotas" rel="noopener" target="_blank">Quotas</a></li>
             <li ng-repeat="additionalLink in ctrl.additionalLinks">
-                <a class="drop-menu__items__quotas"
-                   href="{{additionalLink.url}}"
+                <a ng-href="{{additionalLink.url}}"
                    rel="noopener"
-                   target={{additionalLink.target}}>
+                   target="{{additionalLink.target}}">
                     {{additionalLink.name}}
                 </a>
             </li>
