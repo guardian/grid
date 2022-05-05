@@ -18,7 +18,8 @@
   canDownloadCrop: Boolean,
   domainMetadataSpecs: String,
   recordDownloadAsUsage: Boolean,
-  metadataTemplates: String
+  metadataTemplates: String,
+  additionalNavigationLinks: String
 )
 <!DOCTYPE html>
 <html>
@@ -63,7 +64,8 @@
           canDownloadCrop: @canDownloadCrop,
           domainMetadataSpecs: @Html(domainMetadataSpecs),
           recordDownloadAsUsage: @recordDownloadAsUsage,
-          metadataTemplates: @Html(metadataTemplates)
+          metadataTemplates: @Html(metadataTemplates),
+          additionalNavigationLinks: @Html(additionalNavigationLinks)
         }
     </script>
 
