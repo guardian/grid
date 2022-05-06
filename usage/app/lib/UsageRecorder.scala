@@ -102,9 +102,9 @@ class UsageRecorder(
         .flatMap(streamUsageMap.get)
       val createOps = toCreate.map(performAndLogDBOperation(usageTable.create, "create"))
 
-      // TODO add a filter to only bother with these updates when there are meaningful changes to the DB record (possibly via the .equals method)
       val toUpdate = (if (usageGroup.isReindex) Set() else streamUsageKeys intersect dbUsageKeys)
         .flatMap(streamUsageMap.get)
+        .diff(dbUsages) // to avoid updating to exactly the same data that's already in the DB
       val updateOps = toUpdate.map(performAndLogDBOperation(usageTable.update, "update"))
 
       val mediaIdsImplicatedInDBUpdates =
