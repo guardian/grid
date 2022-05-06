@@ -13,7 +13,8 @@ case class UsageGroup(
   usages: Set[MediaUsage],
   grouping: String,
   lastModified: DateTime,
-  isReindex: Boolean = false
+  isReindex: Boolean = false,
+  maybeStatus: Option[UsageStatus] = None
 )
 class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWrapperOps: MediaWrapperOps)
   extends GridLogging {
@@ -52,7 +53,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
       logger.info(s"Built UsageGroup: ${contentWrapper.id}")
-      UsageGroup(usages.toSet, contentWrapper.id, lastModified, isReindex)
+      UsageGroup(usages.toSet, contentWrapper.id, lastModified, isReindex, maybeStatus = Some(status))
     })
 
   def build(printUsageRecords: List[PrintUsageRecord]) =

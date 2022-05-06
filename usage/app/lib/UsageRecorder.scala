@@ -63,8 +63,12 @@ class UsageRecorder(
         "job-uuid" -> java.util.UUID.randomUUID.toString
       )
 
-      val dbUsages = matchedUsageGroup.dbUsages
-      val usageGroup   = matchedUsageGroup.usageGroup
+      val usageGroup = matchedUsageGroup.usageGroup
+      val dbUsages = usageGroup.maybeStatus.fold(
+        matchedUsageGroup.dbUsages
+      )(
+        status => matchedUsageGroup.dbUsages.filter(dbUsage => dbUsage.status == status && !dbUsage.isRemoved)
+      )
 
       dbUsages.foreach(mediaUsage => {
         logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}")
@@ -83,6 +87,8 @@ class UsageRecorder(
         result
       }
 
+      // FIXME exponential number of DB operations likely related to the content status (derived from preview vs live stream)
+
       val markAsRemovedOps = (dbUsages diff usageGroup.usages)
         .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
 
@@ -90,6 +96,7 @@ class UsageRecorder(
         .map(performAndLogDBOperation(usageTable.create, "create"))
 
       val updateOps = (if(usageGroup.isReindex) Set() else usageGroup.usages intersect dbUsages)
+        // TODO add a filter to only bother with these updates when there are meaningful changes to the DB record (possibly via the .equals method)
         .map(performAndLogDBOperation(usageTable.update, "update"))
 
       val mediaIdsImplicatedInDBUpdates =
