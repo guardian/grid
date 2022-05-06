@@ -65,7 +65,7 @@ case class MediaUsage(
     case _ => false
   }
 
-  override def hashCode(): Int = List(
+  override def hashCode(): Int = (
     usageId,
     grouping,
     mediaId,
@@ -77,5 +77,5 @@ case class MediaUsage(
     syndicationUsageMetadata,
     frontUsageMetadata,
     downloadUsageMetadata
-  ).mkString("_").hashCode
+  ).##
 }
