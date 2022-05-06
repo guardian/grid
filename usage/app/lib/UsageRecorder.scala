@@ -69,6 +69,11 @@ class UsageRecorder(
       )(
         status => matchedUsageGroup.dbUsages.filter(dbUsage => dbUsage.status == status && !dbUsage.isRemoved)
       )
+      val dbUsageMap = dbUsages.map(_.entry).toMap
+      val dbUsageKeys = dbUsageMap.keySet
+
+      val streamUsageMap = usageGroup.usages.map(_.entry).toMap
+      val streamUsageKeys = streamUsageMap.keySet
 
       dbUsages.foreach(mediaUsage => {
         logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}")
@@ -81,7 +86,7 @@ class UsageRecorder(
         val result = func(mediaUsage)
         logger.info(
           logMarker,
-          s"'$opName' DB Operation for ${mediaUsage.grouping} -  on mediaID: ${mediaUsage.mediaId} with result: ${result}"
+          s"'$opName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
         )
         usageMetrics.incrementUpdated
         result
@@ -89,15 +94,18 @@ class UsageRecorder(
 
       // FIXME exponential number of DB operations likely related to the content status (derived from preview vs live stream)
 
-      val markAsRemovedOps = (dbUsages diff usageGroup.usages)
+      val toMarkAsRemoved = (dbUsageKeys diff streamUsageKeys).flatMap(dbUsageMap.get)
+      val markAsRemovedOps = toMarkAsRemoved
         .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
 
-      val createOps = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages diff dbUsages)
-        .map(performAndLogDBOperation(usageTable.create, "create"))
+      val toCreate = (if(usageGroup.isReindex) streamUsageKeys else streamUsageKeys diff dbUsageKeys)
+        .flatMap(streamUsageMap.get)
+      val createOps = toCreate.map(performAndLogDBOperation(usageTable.create, "create"))
 
-      val updateOps = (if(usageGroup.isReindex) Set() else usageGroup.usages intersect dbUsages)
-        // TODO add a filter to only bother with these updates when there are meaningful changes to the DB record (possibly via the .equals method)
-        .map(performAndLogDBOperation(usageTable.update, "update"))
+      // TODO add a filter to only bother with these updates when there are meaningful changes to the DB record (possibly via the .equals method)
+      val toUpdate = (if (usageGroup.isReindex) Set() else streamUsageKeys intersect dbUsageKeys)
+        .flatMap(streamUsageMap.get)
+      val updateOps = toUpdate.map(performAndLogDBOperation(usageTable.update, "update"))
 
       val mediaIdsImplicatedInDBUpdates =
         (usageGroup.usages ++ dbUsages)
