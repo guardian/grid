@@ -407,12 +407,22 @@ object PaParser extends ImageProcessor {
     "Press Association Images"
   ).map(_.toLowerCase)
 
+  val restrictionMessage: String =
+    """
+      |This handout photo may only be used in for editorial reporting purposes for the contemporaneous
+      |illustration of events, things or the people in the image or facts mentioned in the caption. Reuse of the picture
+      |may require further permission from the copyright holder.
+      |""".stripMargin.replace('\n', ' ').trim
+
   def apply(image: Image): Image = {
     val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
       paCredits.contains(creditOrSource.toLowerCase)
     }
     if (isPa) {
-      image.copy(usageRights = Agency("PA"))
+      val restrictions = if (image.metadata.description.exists(_.contains(restrictionMessage))) {
+        Some(restrictionMessage)
+      } else None
+      image.copy(usageRights = Agency("PA", restrictions = restrictions))
     } else image
   }
 }
