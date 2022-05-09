@@ -63,6 +63,7 @@ module.controller('grImageMetadataCtrl', [
       inject$($scope, Rx.Observable.fromPromise(selectedUsageCategory(ctrl.usageRights)), ctrl, 'usageCategory');
       ctrl.rawMetadata = rawMetadata();
       ctrl.metadata = displayMetadata();
+      ctrl.metadata.dateTaken =  ctrl.displayDateTakenMetadata();
       ctrl.newPeopleInImage = "";
       ctrl.extraInfo = extraInfo();
       if (ctrl.singleImage) {
@@ -79,6 +80,12 @@ module.controller('grImageMetadataCtrl', [
     };
 
     ctrl.hasMultipleValues = (val) => Array.isArray(val) && val.length > 1;
+
+    ctrl.displayDateTakenMetadata = function() {
+      let dateTaken = ctrl.metadata.dateTaken ? new Date(ctrl.metadata.dateTaken) : undefined;
+      if (dateTaken) { dateTaken.setSeconds(0, 0); }
+      return dateTaken;
+    };
 
     ctrl.credits = function(searchText) {
       return ctrl.metadataSearch('credit', searchText);
@@ -109,6 +116,9 @@ module.controller('grImageMetadataCtrl', [
 
     ctrl.updateMetadataField = function (field, value) {
       var imageArray = Array.from(ctrl.selectedImages);
+      if (field === 'dateTaken') {
+          value = value.toISOString();
+      }
       if (field === 'peopleInImage') {
         ctrl.addPersonToImages(imageArray, value);
         return;
