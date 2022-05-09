@@ -33,8 +33,16 @@ trait ContentContainer extends GridLogging {
     lastModified,
     isReindex
   ) match {
-    case Some(usageGroup) => publishSubject.onNext(usageGroup)
     case None => logger.debug(s"No fields in content of crier update for payload with content ID ${content.id}")
+    case Some(usageGroup) =>
+      publishSubject.onNext(usageGroup)
+      if(usageGroup.maybeStatus.contains(PendingUsageStatus) && content.fields.exists(fields => fields.firstPublicationDate.isDefined && fields.isLive.contains(false))) {
+        logger.info(s"${usageGroup.grouping} is taken down so producing empty UsageGroup to ensure any 'published' DB records are marked as removed")
+        publishSubject.onNext(usageGroup.copy(
+          usages = Set.empty,
+          maybeStatus = Some(PublishedUsageStatus)
+        ))
+      }
   }
 }
 
