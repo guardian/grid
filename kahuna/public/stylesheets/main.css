@@ -2219,6 +2219,11 @@ FIXME: what to do with touch devices
     background-color: grey;
 }
 
+.drop-menu__items__separator {
+    border-bottom: 1px solid #565656;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+}
 
 /* ==========================================================================
    Dropdown menu e.g. autocomplete
