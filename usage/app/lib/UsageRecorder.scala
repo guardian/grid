@@ -92,8 +92,6 @@ class UsageRecorder(
         result
       }
 
-      // FIXME exponential number of DB operations likely related to the content status (derived from preview vs live stream)
-
       val toMarkAsRemoved = (dbUsageKeys diff streamUsageKeys).flatMap(dbUsageMap.get)
       val markAsRemovedOps = toMarkAsRemoved
         .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))

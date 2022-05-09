@@ -48,24 +48,7 @@ case class MediaUsage(
   def key: MediaUsageKey = MediaUsageKey(usageId = usageId, grouping = grouping)
   def entry: (MediaUsageKey, MediaUsage) = key -> this
 
-  override def equals(other: Any): Boolean = other match {
-    case otherUsage: MediaUsage =>
-      usageId == otherUsage.usageId &&
-      grouping == otherUsage.grouping &&
-      mediaId == otherUsage.mediaId &&
-      usageType == otherUsage.usageType &&
-      mediaType == otherUsage.mediaType &&
-      status == otherUsage.status &&
-      printUsageMetadata == otherUsage.printUsageMetadata &&
-      digitalUsageMetadata == otherUsage.digitalUsageMetadata &&
-      syndicationUsageMetadata == otherUsage.syndicationUsageMetadata &&
-      frontUsageMetadata == otherUsage.frontUsageMetadata &&
-      downloadUsageMetadata == otherUsage.downloadUsageMetadata
-      // NOTE that we don't compare any date fields
-    case _ => false
-  }
-
-  override def hashCode(): Int = (
+  private def asEqualityTuple = (
     usageId,
     grouping,
     mediaId,
@@ -77,5 +60,14 @@ case class MediaUsage(
     syndicationUsageMetadata,
     frontUsageMetadata,
     downloadUsageMetadata
-  ).##
+    // NOTE that we don't compare any date fields
+  )
+
+  override def equals(other: Any): Boolean = other match {
+    case otherUsage: MediaUsage => asEqualityTuple == otherUsage.asEqualityTuple
+    case _ => false
+  }
+
+  override def hashCode(): Int = asEqualityTuple.##
+
 }
