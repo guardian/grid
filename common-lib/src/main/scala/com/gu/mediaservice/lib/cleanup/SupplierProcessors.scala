@@ -3,6 +3,10 @@ package com.gu.mediaservice.lib.cleanup
 import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.{AllowUseLease, LeasesByMedia, MediaLease}
+import org.joda.time.DateTime
+
+import java.util.UUID
 
 /**
   * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
@@ -418,11 +422,24 @@ object PaParser extends ImageProcessor {
     val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
       paCredits.contains(creditOrSource.toLowerCase)
     }
-    if (isPa) {
-      val restrictions = if (image.metadata.description.exists(_.contains(restrictionMessage))) {
-        Some(restrictionMessage)
-      } else None
-      image.copy(usageRights = Agency("PA", restrictions = restrictions))
+    if (isPa && image.metadata.description.exists(_.contains(restrictionMessage))) {
+        val firstLease = LeasesByMedia.build(List(MediaLease(
+          id = Some(UUID.randomUUID().toString),
+          startDate = Some(image.uploadTime),
+          endDate = Some(image.uploadTime.plusMonths(1)),
+          access = AllowUseLease,
+          mediaId = image.id,
+          createdAt = DateTime.now(),
+          leasedBy = Some("Added automatically"),
+          notes = Some("This lease was added automatically."),
+        )))
+
+      image.copy(
+        usageRights = Agency("PA", restrictions = Some(restrictionMessage)),
+        leases = firstLease,
+      )
+    } else if (isPa) {
+      image.copy(usageRights = Agency("PA"))
     } else image
   }
 }

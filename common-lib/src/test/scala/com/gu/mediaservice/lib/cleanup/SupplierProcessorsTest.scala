@@ -4,6 +4,8 @@ import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.model._
+import com.gu.mediaservice.model.leases.AllowUseLease
+import org.joda.time.DateTime
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.inject.ApplicationLifecycle
@@ -473,7 +475,11 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
         "This handout photo may only be used in for editorial reporting purposes for the contemporaneous illustration of events, things or the people in the image or facts mentioned in the caption. Reuse of the picture may require further permission from the copyright holder."
       val image = createImageFromMetadata("credit" -> "PA", "description" -> s"text text text\nNOTE TO EDITORS: $restrictionText")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be(Agency("PA", restrictions = Some(restrictionText)))
+      processedImage.usageRights should be (Agency("PA", restrictions = Some(restrictionText)))
+      processedImage.leases.leases.head.access shouldBe AllowUseLease
+
+      processedImage.leases.leases.head.startDate should be (Some(processedImage.uploadTime))
+      processedImage.leases.leases.head.endDate should be (Some(processedImage.uploadTime.plusMonths(1)))
     }
   }
 
