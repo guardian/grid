@@ -1,17 +1,16 @@
 ## What does this change?
 
+<!-- Remember that the reviewer may be unfamiliar with the functionality – please be descriptive! -->
+<!-- If it affects the UI, screenshots or gifs of the change may be useful. --> 
+
+## How should a reviewer test this change?
+
+<!-- Detailed steps will make this change easier to review. -->
 
 ## How can success be measured?
 
-
-## Screenshots
-<!--  If applicable, otherwise delete the header.
-      i.e. this is a visible frontend change -->
-
-
 ## Who should look at this?
 <!-- Reach the team with @guardian/digital-cms -->
-
 
 ## Tested? Documented?
 - [ ] locally by committer
