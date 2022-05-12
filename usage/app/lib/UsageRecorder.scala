@@ -92,18 +92,18 @@ class UsageRecorder(
         result
       }
 
-      val toMarkAsRemoved = (dbUsageKeys diff streamUsageKeys).flatMap(dbUsageMap.get)
-      val markAsRemovedOps = toMarkAsRemoved
+      val markAsRemovedOps = dbUsageKeys.diff(streamUsageKeys)
+        .flatMap(dbUsageMap.get)
         .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
 
-      val toCreate = (if(usageGroup.isReindex) streamUsageKeys else streamUsageKeys diff dbUsageKeys)
-        .flatMap(streamUsageMap.get)
-      val createOps = toCreate.map(performAndLogDBOperation(usageTable.create, "create"))
+      val createOps = (if(usageGroup.isReindex) streamUsageKeys else streamUsageKeys.diff(dbUsageKeys))
+          .flatMap(streamUsageMap.get)
+          .map(performAndLogDBOperation(usageTable.create, "create"))
 
-      val toUpdate = (if (usageGroup.isReindex) Set() else streamUsageKeys intersect dbUsageKeys)
+      val updateOps = (if (usageGroup.isReindex) Set() else streamUsageKeys.intersect(dbUsageKeys))
         .flatMap(streamUsageMap.get)
-        .diff(dbUsages) // to avoid updating to exactly the same data that's already in the DB
-      val updateOps = toUpdate.map(performAndLogDBOperation(usageTable.update, "update"))
+        .diff(dbUsages) // to avoid updating to the same data that's already in the DB
+        .map(performAndLogDBOperation(usageTable.update, "update"))
 
       val mediaIdsImplicatedInDBUpdates =
         (usageGroup.usages ++ dbUsages)

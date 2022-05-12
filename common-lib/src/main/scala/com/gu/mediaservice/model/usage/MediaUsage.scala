@@ -48,7 +48,7 @@ case class MediaUsage(
   def key: MediaUsageKey = MediaUsageKey(usageId = usageId, grouping = grouping)
   def entry: (MediaUsageKey, MediaUsage) = key -> this
 
-  private def asEqualityTuple = (
+  private lazy val asEqualityTuple = (
     usageId,
     grouping,
     mediaId,

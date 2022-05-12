@@ -24,6 +24,9 @@ trait ContentContainer extends GridLogging {
   val lastModified: DateTime
   val isReindex: Boolean
 
+  private lazy val isEntirePieceTakenDown =
+    content.fields.exists(fields => fields.firstPublicationDate.isDefined && fields.isLive.contains(false))
+
   def emitAsUsageGroup(publishSubject: Subject[UsageGroup], usageGroupOps: UsageGroupOps) = usageGroupOps.build(
     content,
     status = this match {
@@ -36,7 +39,7 @@ trait ContentContainer extends GridLogging {
     case None => logger.debug(s"No fields in content of crier update for payload with content ID ${content.id}")
     case Some(usageGroup) =>
       publishSubject.onNext(usageGroup)
-      if(usageGroup.maybeStatus.contains(PendingUsageStatus) && content.fields.exists(fields => fields.firstPublicationDate.isDefined && fields.isLive.contains(false))) {
+      if(this.isInstanceOf[PreviewContentItem] && isEntirePieceTakenDown) {
         logger.info(s"${usageGroup.grouping} is taken down so producing empty UsageGroup to ensure any 'published' DB records are marked as removed")
         publishSubject.onNext(usageGroup.copy(
           usages = Set.empty,
