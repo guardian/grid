@@ -6,6 +6,10 @@ case class UsageId(id: String) {
   override def toString = id
 }
 
+case class MediaUsageKey(
+  usageId: UsageId,
+  grouping: String,
+)
 case class MediaUsage(
   usageId: UsageId,
   grouping: String,
@@ -41,15 +45,29 @@ case class MediaUsage(
     removed <- dateRemoved
   } yield !removed.isBefore(added)).getOrElse(false)
 
-  // Used in set comparison of UsageGroups
+  def key: MediaUsageKey = MediaUsageKey(usageId = usageId, grouping = grouping)
+  def entry: (MediaUsageKey, MediaUsage) = key -> this
+
+  private lazy val asEqualityTuple = (
+    usageId,
+    grouping,
+    mediaId,
+    usageType,
+    mediaType,
+    status,
+    printUsageMetadata,
+    digitalUsageMetadata,
+    syndicationUsageMetadata,
+    frontUsageMetadata,
+    downloadUsageMetadata
+    // NOTE that we don't compare any date fields
+  )
+
   override def equals(other: Any): Boolean = other match {
-    case otherMediaUsage: MediaUsage => {
-      usageId == otherMediaUsage.usageId &&
-        grouping == otherMediaUsage.grouping &&
-        dateRemoved == otherMediaUsage.dateRemoved
-    } // TODO: This will work for checking if new items have been added/removed
+    case otherUsage: MediaUsage => asEqualityTuple == otherUsage.asEqualityTuple
     case _ => false
   }
 
-  override def hashCode(): Int = List(usageId, grouping, dateRemoved.isEmpty).mkString("_").hashCode()
+  override def hashCode(): Int = asEqualityTuple.##
+
 }

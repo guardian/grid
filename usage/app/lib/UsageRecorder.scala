@@ -63,8 +63,17 @@ class UsageRecorder(
         "job-uuid" -> java.util.UUID.randomUUID.toString
       )
 
-      val dbUsages = matchedUsageGroup.dbUsages
-      val usageGroup   = matchedUsageGroup.usageGroup
+      val usageGroup = matchedUsageGroup.usageGroup
+      val dbUsages = usageGroup.maybeStatus.fold(
+        matchedUsageGroup.dbUsages
+      )(
+        status => matchedUsageGroup.dbUsages.filter(dbUsage => dbUsage.status == status && !dbUsage.isRemoved)
+      )
+      val dbUsageMap = dbUsages.map(_.entry).toMap
+      val dbUsageKeys = dbUsageMap.keySet
+
+      val streamUsageMap = usageGroup.usages.map(_.entry).toMap
+      val streamUsageKeys = streamUsageMap.keySet
 
       dbUsages.foreach(mediaUsage => {
         logger.info(logMarker, s"Seen DB Usage for ${mediaUsage.mediaId}")
@@ -74,22 +83,28 @@ class UsageRecorder(
       })
 
       def performAndLogDBOperation(func: MediaUsage => Observable[JsObject], opName: String)(mediaUsage: MediaUsage) = {
-        val result = func(mediaUsage)
-        logger.info(
-          logMarker,
-          s"'$opName' DB Operation for ${mediaUsage.grouping} -  on mediaID: ${mediaUsage.mediaId} with result: ${result}"
-        )
-        usageMetrics.incrementUpdated
-        result
+        val resultObservable = func(mediaUsage)
+        resultObservable.foreach(result => {
+          logger.info(
+            logMarker,
+            s"'$opName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
+          )
+          usageMetrics.incrementUpdated
+        })
+        resultObservable
       }
 
-      val markAsRemovedOps = (dbUsages diff usageGroup.usages)
+      val markAsRemovedOps = dbUsageKeys.diff(streamUsageKeys)
+        .flatMap(dbUsageMap.get)
         .map(performAndLogDBOperation(usageTable.markAsRemoved, "markAsRemoved"))
 
-      val createOps = (if(usageGroup.isReindex) usageGroup.usages else usageGroup.usages diff dbUsages)
-        .map(performAndLogDBOperation(usageTable.create, "create"))
+      val createOps = (if(usageGroup.isReindex) streamUsageKeys else streamUsageKeys.diff(dbUsageKeys))
+          .flatMap(streamUsageMap.get)
+          .map(performAndLogDBOperation(usageTable.create, "create"))
 
-      val updateOps = (if(usageGroup.isReindex) Set() else usageGroup.usages intersect dbUsages)
+      val updateOps = (if (usageGroup.isReindex) Set() else streamUsageKeys.intersect(dbUsageKeys))
+        .flatMap(streamUsageMap.get)
+        .diff(dbUsages) // to avoid updating to the same data that's already in the DB
         .map(performAndLogDBOperation(usageTable.update, "update"))
 
       val mediaIdsImplicatedInDBUpdates =
