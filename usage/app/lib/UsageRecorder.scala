@@ -83,13 +83,15 @@ class UsageRecorder(
       })
 
       def performAndLogDBOperation(func: MediaUsage => Observable[JsObject], opName: String)(mediaUsage: MediaUsage) = {
-        val result = func(mediaUsage)
-        logger.info(
-          logMarker,
-          s"'$opName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
-        )
-        usageMetrics.incrementUpdated
-        result
+        val resultObservable = func(mediaUsage)
+        resultObservable.foreach(result => {
+          logger.info(
+            logMarker,
+            s"'$opName' DB Operation for ${mediaUsage.grouping} - on mediaID: ${mediaUsage.mediaId} with result: $result"
+          )
+          usageMetrics.incrementUpdated
+        })
+        resultObservable
       }
 
       val markAsRemovedOps = dbUsageKeys.diff(streamUsageKeys)
