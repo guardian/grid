@@ -398,7 +398,7 @@ object GettyCreditParser extends ImageProcessor with GettyProcessor {
 }
 
 object PaParser extends ImageProcessor {
-  val paCredits = List(
+  private val paCredits = List(
     "PA",
     "PA WIRE",
     "PA Wire/PA Images",
@@ -411,31 +411,42 @@ object PaParser extends ImageProcessor {
     "Press Association Images"
   ).map(_.toLowerCase)
 
-  val restrictionMessage: String =
+  val restrictionText: String =
     """
       |This handout photo may only be used in for editorial reporting purposes for the contemporaneous
       |illustration of events, things or the people in the image or facts mentioned in the caption. Reuse of the picture
       |may require further permission from the copyright holder.
       |""".stripMargin.replace('\n', ' ').trim
 
+  val restrictionNotice = s"NOTE TO EDITORS: $restrictionText"
+
   def apply(image: Image): Image = {
     val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
       paCredits.contains(creditOrSource.toLowerCase)
     }
-    if (isPa && image.metadata.description.exists(_.contains(restrictionMessage))) {
-        val firstLease = LeasesByMedia.build(List(MediaLease(
-          id = Some(UUID.randomUUID().toString),
-          startDate = Some(image.uploadTime),
-          endDate = Some(image.uploadTime.plusMonths(1)),
-          access = AllowUseLease,
-          mediaId = image.id,
-          createdAt = DateTime.now(),
-          leasedBy = Some("Added automatically"),
-          notes = Some("This lease was added automatically."),
-        )))
+    if (isPa && image.metadata.description.exists(_.contains(restrictionNotice))) {
+      /* 🚨🚨
+       * A lease that _is *intentionally* not persisted in persistent storage_!!
+       * This is because it has been created by ingest rules; if these rules change in the
+       * future, the leases should change with it in a migration.
+       */
+      val firstLease = LeasesByMedia.build(List(MediaLease(
+        id = Some(UUID.randomUUID().toString),
+        startDate = Some(image.uploadTime),
+        endDate = Some(image.uploadTime.plusMonths(1)),
+        access = AllowUseLease,
+        mediaId = image.id,
+        createdAt = DateTime.now(),
+        leasedBy = Some("The Grid"),
+        notes = Some("This lease was added automatically."),
+      )))
 
+      val metadata = image.metadata.copy(
+        description = image.metadata.description.map(_.replace(restrictionNotice, "").trim)
+      )
       image.copy(
-        usageRights = Agency("PA", restrictions = Some(restrictionMessage)),
+        metadata = metadata,
+        usageRights = Agency("PA", restrictions = Some(restrictionText)),
         leases = firstLease,
       )
     } else if (isPa) {

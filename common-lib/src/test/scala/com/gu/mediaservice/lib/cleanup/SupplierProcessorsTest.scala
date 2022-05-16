@@ -471,13 +471,14 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
     }
 
     it("should restrict images with PA restriction text") {
-      val restrictionText =
-        "This handout photo may only be used in for editorial reporting purposes for the contemporaneous illustration of events, things or the people in the image or facts mentioned in the caption. Reuse of the picture may require further permission from the copyright holder."
+      val restrictionText = PaParser.restrictionText
       val image = createImageFromMetadata("credit" -> "PA", "description" -> s"text text text\nNOTE TO EDITORS: $restrictionText")
       val processedImage = applyProcessors(image)
-      processedImage.usageRights should be (Agency("PA", restrictions = Some(restrictionText)))
-      processedImage.leases.leases.head.access shouldBe AllowUseLease
 
+      processedImage.usageRights should be (Agency("PA", restrictions = Some(restrictionText)))
+      processedImage.metadata.description shouldBe Some("text text text")
+
+      processedImage.leases.leases.head.access shouldBe AllowUseLease
       processedImage.leases.leases.head.startDate should be (Some(processedImage.uploadTime))
       processedImage.leases.leases.head.endDate should be (Some(processedImage.uploadTime.plusMonths(1)))
     }
