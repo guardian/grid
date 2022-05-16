@@ -32,6 +32,15 @@
                 </button>
             </div>
 
+            <div class="results-toolbar-item--inline" ng-if="ctrl.hasQuery">
+                <asset-handle
+                    data-source="grid"
+                    data-source-type="search"
+                    data-api-url="{{ ctrl.initialSearchUri }}"
+                    data-embeddable-url="{{ ctrl.embeddableUrl }}"
+                ></asset-handle>
+            </div>
+
             <div class="results-toolbar__right flex-container">
                 <div class="results-toolbar-item results-toolbar-item--right results-toolbar-item--static"
                      ng-if="ctrl.selectionCount > 0">

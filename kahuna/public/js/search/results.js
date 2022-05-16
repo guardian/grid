@@ -133,6 +133,10 @@ results.controller('SearchResultsCtrl', [
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
             ctrl.totalResults = images.total;
 
+            ctrl.hasQuery = !!$stateParams.query;
+            ctrl.initialSearchUri = images.uri;
+            ctrl.embeddableUrl = window.location.href;
+
             // images will be the array of loaded images, used for display
             ctrl.images = [];
 

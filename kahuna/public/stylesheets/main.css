@@ -1050,6 +1050,12 @@ textarea.ng-invalid {
     padding: 0 10px;
 }
 
+.results-toolbar-item--inline {
+  display: flex;
+  align-items: center;
+  padding-left: 3.5px;
+}
+
 .results-toolbar-item--left {
     border-left: 0;
 }

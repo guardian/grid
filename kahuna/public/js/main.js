@@ -53,8 +53,9 @@ var config = {
     vndMimeTypes: new Map([
         ['gridImageData',  'application/vnd.mediaservice.image+json'],
         ['gridImagesData', 'application/vnd.mediaservice.images+json'],
-        ['gridCropsData',  'application/vnd.mediaservice.crops+json'],
+        ['gridCropData',  'application/vnd.mediaservice.crops+json'], // this doesn't appear to hold multiple things, so shouldn't be plural, however too many usages outside this project e.g. https://github.com/search?q=org%3Aguardian+application%2Fvnd.mediaservice.crops%2Bjson&type=code
         ['kahunaUri',      'application/vnd.mediaservice.kahuna.uri'],
+        ['assetHandle',    'application/vnd.asset-handle+json'],
         // These two are internal hacks to help us identify when we're dragging internal assets
         // They should definitely not be relied on externally.
         ['isGridLink',     'application/vnd.mediaservice.kahuna.link'],
@@ -312,6 +313,11 @@ kahuna.controller('SessionCtrl',
     });
 }]);
 
+kahuna.filter("embeddableUrl", ['$state', function($state) {
+  return function(imageId, maybeCropId) {
+    return $state.href('image', {imageId: imageId, crop: maybeCropId}, { absolute: true });
+  }
+}]);
 
 kahuna.filter('getExtremeAssets', function() {
     return function(image) {
@@ -327,10 +333,21 @@ kahuna.filter('getExtremeAssets', function() {
     };
 });
 
+const getAssetHandleDragData = ($filter, image, maybeCrop) => ({
+  source: "grid",
+  sourceType: maybeCrop ? "crop" : "original",
+  thumbnail: $filter('assetFile')(
+    maybeCrop
+      ? $filter('getExtremeAssets')(maybeCrop).smallest
+      : image.data.thumbnail
+  ),
+  embeddableUrl: $filter('embeddableUrl')(image.data.id, maybeCrop && maybeCrop.id)
+});
+
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
+kahuna.filter('asImageDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
     // Annoyingly cannot use Resource#getLink because it returns a
     // Promise and Angular filters are synchronous :-(
     function syncGetLinkUri(resource, rel) {
@@ -348,6 +365,7 @@ kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
             return {
                 [vndMimeTypes.get('gridImageData')]: JSON.stringify(imageObj),
                 [vndMimeTypes.get('kahunaUri')]: kahunaUri,
+                [vndMimeTypes.get('assetHandle')]: JSON.stringify(getAssetHandleDragData($filter, image)),
                 'text/plain':    uri,
                 'text/uri-list': uri
             };
@@ -358,25 +376,26 @@ kahuna.filter('asImageDragData', ['vndMimeTypes', function(vndMimeTypes) {
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asCropsDragData', ['vndMimeTypes', function(vndMimeTypes) {
-    return function(crops) {
-        return {
-            [vndMimeTypes.get('gridCropsData')]: JSON.stringify(crops)
-        };
+kahuna.filter('asCropDragData', ['vndMimeTypes', '$filter', function(vndMimeTypes, $filter) {
+    return function(image, crop) {
+      return {
+        [vndMimeTypes.get('gridCropData')]: JSON.stringify(crop),
+        [vndMimeTypes.get('assetHandle')]: JSON.stringify(getAssetHandleDragData($filter, image, crop)),
+      };
     };
 }]);
 
 // Take an image and return a drag data map of mime-type -> value.
 // Note: the serialisation is expensive so make sure you only evaluate
 // this filter when necessary.
-kahuna.filter('asImageAndCropsDragData', ['$filter',
+kahuna.filter('asImageAndCropDragData', ['$filter',
                                           function($filter) {
     var extend = angular.extend;
-    return function(image, crops) {
+    return function(image, crop) {
 
         return extend(
             $filter('asImageDragData')(image),
-            $filter('asCropsDragData')(crops));
+            $filter('asCropDragData')(image, crop));
     };
 }]);
 
