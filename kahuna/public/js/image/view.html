@@ -46,6 +46,12 @@
                                     ng-class="{'image-crop__aspect-ratio--selected': !ctrl.crop}">
                                     {{::ctrl.image.data.source.dimensions.width}} &times; {{::ctrl.image.data.source.dimensions.height}}
                                 </div>
+                                <asset-handle
+                                    data-source="grid"
+                                    data-source-type="original"
+                                    data-thumbnail="{{:: ctrl.image.data.thumbnail | assetFile}}"
+                                    data-embeddable-url="{{ctrl.getEmbeddableUrl()}}"
+                                ></asset-handle>
                             </a>
                         </div>
                     </dd>
