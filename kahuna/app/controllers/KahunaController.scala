@@ -44,6 +44,7 @@ class KahunaController(
     val okPath = routes.KahunaController.ok.url
     // If the auth is successful, we redirect to the kahuna domain so the iframe
     // is on the same domain and can be read by the JS
+    val additionalNavigationLinks: String = Json.toJson(config.additionalLinks).toString()
     val domainMetadataSpecs: String = Json.toJson(config.domainMetadataSpecs).toString()
     val fieldAliases: String = Json.toJson(config.fieldAliasConfigs).toString()
     val metadataTemplates: String = Json.toJson(config.metadataTemplates).toString()
@@ -67,7 +68,8 @@ class KahunaController(
       config.canDownloadCrop,
       domainMetadataSpecs,
       config.recordDownloadAsUsage,
-      metadataTemplates
+      metadataTemplates,
+      additionalNavigationLinks
     ))
   }
 

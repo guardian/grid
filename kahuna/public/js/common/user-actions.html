@@ -5,9 +5,21 @@
             aria-label="Secondary navigation menu">
         <gr-icon>more_vert</gr-icon>
     </button>
-    <ul class="drop-menu__items drop-menu__items--right" ng-if="showUserActions">
-        <li><a class="drop-menu__items__quotas" href="/quotas" rel="noopener" target="_blank">Quotas</a></li>
-        <li><a class="drop-menu__items__feedback" href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
-        <li><a class="drop-menu__items__logout" href="{{ctrl.logoutUri}}" target="_self">Logout</a></li>
-    </ul>
+    <div class="drop-menu__items drop-menu__items--right" ng-if="showUserActions">
+        <ul class="drop-menu__items__separator">
+            <li><a class="drop-menu__items__quotas" href="/quotas" rel="noopener" target="_blank">Quotas</a></li>
+            <li ng-repeat="additionalLink in ctrl.additionalLinks">
+                <a ng-href="{{additionalLink.url}}"
+                   rel="noopener"
+                   target="{{additionalLink.target}}">
+                    {{additionalLink.name}}
+                </a>
+            </li>
+            <li><a class="drop-menu__items__feedback" ng-href="{{ctrl.feedbackFormLink}}" rel="noopener" target="_blank">Feedback</a></li>
+        </ul>
+        <ul>
+            <li><a class="drop-menu__items__logout" ng-href="{{ctrl.logoutUri}}" target="_self">Logout</a></li>
+        </ul>
+    </div>
+
 </nav>
