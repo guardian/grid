@@ -411,14 +411,16 @@ object PaParser extends ImageProcessor {
     "Press Association Images"
   ).map(_.toLowerCase)
 
-  val restrictionText: String =
+  private val restrictionText =
     """
       |This handout photo may only be used in for editorial reporting purposes for the contemporaneous
       |illustration of events, things or the people in the image or facts mentioned in the caption. Reuse of the picture
       |may require further permission from the copyright holder.
       |""".stripMargin.replace('\n', ' ').trim
 
-  val restrictionNotice = s"NOTE TO EDITORS: $restrictionText"
+  private val fixedRestrictionText = restrictionText.replace("used in for", "used in")
+
+  private val restrictionNotice = s"NOTE TO EDITORS: $restrictionText"
 
   def apply(image: Image): Image = {
     val isPa = List(image.metadata.credit, image.metadata.source).flatten.exists { creditOrSource =>
@@ -446,7 +448,7 @@ object PaParser extends ImageProcessor {
       )
       image.copy(
         metadata = metadata,
-        usageRights = Agency("PA", restrictions = Some(restrictionText)),
+        usageRights = Agency("PA", restrictions = Some(fixedRestrictionText)),
         leases = firstLease,
       )
     } else if (isPa) {
