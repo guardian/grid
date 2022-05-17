@@ -1,12 +1,8 @@
 package com.gu.mediaservice.lib.cleanup
 
-import com.gu.mediaservice.lib.config.{RuntimeUsageRightsConfig, UsageRightsConfigProvider}
+import com.gu.mediaservice.lib.config.UsageRightsConfigProvider
 import com.gu.mediaservice.lib.metadata.UsageRightsMetadataMapper
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.{AllowUseLease, LeasesByMedia, MediaLease}
-import org.joda.time.DateTime
-
-import java.util.UUID
 
 /**
   * This is largely generic or close to generic processing aside from the Guardian Photographer parser.
@@ -427,29 +423,12 @@ object PaParser extends ImageProcessor {
       paCredits.contains(creditOrSource.toLowerCase)
     }
     if (isPa && image.metadata.description.exists(_.contains(restrictionNotice))) {
-      /* 🚨🚨
-       * A lease that _is *intentionally* not persisted in persistent storage_!!
-       * This is because it has been created by ingest rules; if these rules change in the
-       * future, the leases should change with it in a migration.
-       */
-      val firstLease = LeasesByMedia.build(List(MediaLease(
-        id = Some(UUID.randomUUID().toString),
-        startDate = Some(image.uploadTime),
-        endDate = Some(image.uploadTime.plusMonths(1)),
-        access = AllowUseLease,
-        mediaId = image.id,
-        createdAt = DateTime.now(),
-        leasedBy = Some("The Grid"),
-        notes = Some("This lease was added automatically."),
-      )))
-
       val metadata = image.metadata.copy(
         description = image.metadata.description.map(_.replace(restrictionNotice, "").trim)
       )
       image.copy(
         metadata = metadata,
         usageRights = Agency("PA", restrictions = Some(fixedRestrictionText)),
-        leases = firstLease,
       )
     } else if (isPa) {
       image.copy(usageRights = Agency("PA"))

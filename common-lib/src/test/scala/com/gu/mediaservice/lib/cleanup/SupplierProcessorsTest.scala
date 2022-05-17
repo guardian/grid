@@ -4,8 +4,6 @@ import akka.actor.ActorSystem
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import com.gu.mediaservice.lib.guardian.GuardianUsageRightsConfig
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.AllowUseLease
-import org.joda.time.DateTime
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import play.api.inject.ApplicationLifecycle
@@ -478,10 +476,6 @@ class SupplierProcessorsTest extends AnyFunSpec with Matchers with MetadataHelpe
 
       processedImage.usageRights should be (Agency("PA", restrictions = Some(outputRestrictionText)))
       processedImage.metadata.description shouldBe Some("text text text")
-
-      processedImage.leases.leases.head.access shouldBe AllowUseLease
-      processedImage.leases.leases.head.startDate should be (Some(processedImage.uploadTime))
-      processedImage.leases.leases.head.endDate should be (Some(processedImage.uploadTime.plusMonths(1)))
     }
   }
 
