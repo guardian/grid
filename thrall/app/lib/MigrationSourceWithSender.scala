@@ -28,7 +28,8 @@ object MigrationSourceWithSender extends GridLogging {
     materializer: Materializer,
     innerServiceCall: WSRequest => WSRequest,
     es: ElasticSearch,
-    gridClient: GridClient
+    gridClient: GridClient,
+    projectionParallelism: Int,
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
 
     val esQuerySource =
@@ -87,7 +88,7 @@ object MigrationSourceWithSender extends GridLogging {
         })
         .filter(_ => es.migrationIsInProgress)
 
-    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsyncUnordered(parallelism = 50) { searchHit: SearchHit => {
+    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsyncUnordered(projectionParallelism) { searchHit: SearchHit => {
       val imageId = searchHit.id
       val migrateImageMessageFuture = (
         for {
@@ -117,7 +118,7 @@ object MigrationSourceWithSender extends GridLogging {
           false
       },
       manualSource = manualSource.mapMaterializedValue(_ => Future.successful(Done)),
-      ongoingEsQuerySource = projectedImageSource.mapMaterializedValue(_ => Future.successful(Done))
+      ongoingEsQuerySource = projectedImageSource.mapMaterializedValue(_ => Future.successful(Done)),
     )
 
   }

@@ -41,6 +41,8 @@ class ThrallConfig(resources: GridConfigResources) extends CommonConfigWithElast
 
   val isVersionedS3: Boolean = boolean("s3.image.versioned")
 
+  val projectionParallelism: Int = intDefault("thrall.projection.parallelism", 1)
+
   def kinesisConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisStream, rewindFrom, this)
   def kinesisLowPriorityConfig: KinesisReceiverConfig = KinesisReceiverConfig(thrallKinesisLowPriorityStream, lowPriorityRewindFrom, this)
 }
