@@ -29,7 +29,7 @@ where possible.
 
 The size of the image projection ASGs are dictated by Cloudformation parameters, `ProjectionServiceAutoscalingMinSize` and `ProjectionServiceAutoscalingMaxSize` – alter these to scale the service.
 
-As a baseline for running a migration, 4 Elasticsearch nodes and 5 `loader-projection` instances was a good place to start for our configuration on 18/05/22, with an index of ~40,000,000 images.
+As a baseline for running a migration, 4 Elasticsearch nodes and 7 `loader-projection` instances was a good place to start for our configuration on 18/05/22, with an index of ~40,000,000 images.
 
 ## Starting
 
