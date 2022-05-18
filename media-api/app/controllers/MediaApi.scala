@@ -112,7 +112,6 @@ class MediaApi(
       Link("collections",     config.collectionsUri),
       Link("permissions",     s"${config.rootUri}/permissions"),
       Link("leases",          config.leasesUri),
-      Link("admin-tools",     config.adminToolsUri),
       Link("undelete",        s"${config.rootUri}/images/{id}/undelete")
     ) ++ maybeLoaderLink.toList ++ maybeArchiveLink.toList
     respond(indexData, indexLinks)
