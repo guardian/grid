@@ -409,7 +409,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "Kallista Images",
     "Keith Levit Photography RF",
     "Keystone RF",
-    "Klaud9",
     "Kobal Collection",
     "Las Vegas Stock RR",
     "LAT",
