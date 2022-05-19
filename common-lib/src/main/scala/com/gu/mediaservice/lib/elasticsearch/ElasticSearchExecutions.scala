@@ -37,7 +37,7 @@ trait ElasticSearchExecutions extends GridLogging {
 
     result.foreach { r =>
       val elapsed = stopwatch.elapsed
-      logger.info(combineMarkers(logMarkers, elapsed), s"$message - query returned successfully in ${elapsed.toMillis} ms")
+      logger.info(logMarkers ++ elapsed.markerContents, s"$message - query returned successfully in ${elapsed.toMillis} ms")
     }
 
     result.failed.foreach { e =>
