@@ -122,7 +122,8 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
       materializer,
       (req: WSRequest) => req,
       mockEs,
-      mockGrid
+      mockGrid,
+      projectionParallelism = 1
     )
 
     lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
