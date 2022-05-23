@@ -2,45 +2,48 @@
 
     <conversionRule conversionWord="coloredLevel" converterClass="play.api.libs.logback.ColoredLevel" />
 
+    <if condition='property("STAGE").contains("DEV")'>
+        <then>
+            <property name="LOGS_LOCATION" value="${application.home}/logs" />
+        </then>
+        <else>
+            <property name="LOGS_LOCATION" value="logs" />
+        </else>
+    </if>
+
+    <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOGS_LOCATION}/application.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOGS_LOCATION}/application.log.%d{yyyy-MM-dd}.gz</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%date - [%level] - from %logger in %thread markers=%marker %n%message%n%xException%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+      <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
+    </appender>
+
+    <appender name="ASYNCSTDOUT" class="ch.qos.logback.classic.AsyncAppender">
+      <appender-ref ref="STDOUT" />
+      <appender-ref ref="ASYNCSTDOUT"/>
+    </appender>
+
     <logger name="play" level="INFO" />
     <logger name="application" level="INFO" />
     <logger name="request" level="INFO" />
 
-    <if condition='property("STAGE").contains("DEV")'>
-      <then>
-        <property name="LOGS_LOCATION" value="${application.home}/logs" />
-
-        <appender name="LOGFILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-          <file>${LOGS_LOCATION}/application.log</file>
-
-          <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOGS_LOCATION}/application.log.%d{yyyy-MM-dd}.gz</fileNamePattern>
-            <maxHistory>7</maxHistory>
-          </rollingPolicy>
-
-          <encoder>
-            <pattern>%date - [%level] - from %logger in %thread markers=%marker %n%message%n%xException%n</pattern>
-          </encoder>
-        </appender>
-
-        <root level="INFO">
-          <appender-ref ref="LOGFILE"/>
-        </root>
-      </then>
-      <else>
-        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-          <encoder class="net.logstash.logback.encoder.LogstashEncoder" />
-        </appender>
-
-        <appender name="ASYNCSTDOUT" class="ch.qos.logback.classic.AsyncAppender">
-          <appender-ref ref="STDOUT" />
+    <root level="INFO">
+      <appender-ref ref="LOGFILE"/>
+      <if condition='!property("STAGE").contains("DEV")'>
+        <then>
           <appender-ref ref="ASYNCSTDOUT"/>
-        </appender>
-
-        <root level="INFO">
-          <appender-ref ref="ASYNCSTDOUT"/>
-        </root>
-      </else>
-    </if>
+        </then>
+      </if>
+    </root>
 
 </configuration>
