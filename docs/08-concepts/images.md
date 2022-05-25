@@ -8,4 +8,5 @@ While users can "edit" metadata in the Grid UI, this will only be reflected in t
 
 Every image is assigned an ID on upload - this is the [SHA1 checksum](https://en.wikipedia.org/wiki/SHA-1) of the uploaded image. This usually prevents repeat uploads, but remember that any offline manipulation of the image _or its metadata_ will be treated by Grid as an entirely new image[^1].
 
-[^1]: A future improvement may be to mark images as related, or to allow revisions of an image to be uploaded.
+> **Note**
+> A future improvement may be to mark images as related, or to allow revisions of an image to be uploaded.
