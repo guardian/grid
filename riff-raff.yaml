@@ -4,6 +4,10 @@ stacks:
 regions:
   - eu-west-1
 
+allowedStages:
+  - TEST
+  - PROD
+
 templates:
   autoscaling:
     type: autoscaling
