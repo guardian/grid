@@ -4,7 +4,7 @@
         <gr-icon>close</gr-icon>
     </button>
     <div class="advanced-search-help__section">
-      <p>• Every result includes all search terms</br>
+      <p>• Every result includes all search terms unless <span class="advanced-search-example__input">or:</span> filter is used (see below)</br>
             • Wrap your search terms in quote marks to search for an exact phrase</br>
             • Type <span class="advanced-search-example__input">-</span> before your search term to exclude it from results</br>
             • Type <span class="advanced-search-example__input">+</span> to choose from a list of filters, see examples below</br>
@@ -135,6 +135,14 @@
             </dd>
         </dl>
        <h3 class="advanced-search-help__section__sub-heading">Other filters</h3>
+        <dl class="advanced-search-example">
+            <dt class="advanced-search-example__field">
+                <gr-chip-example gr-filter-field="or" gr-example-search="cat dog"></gr-chip-example>
+            </dt>
+            <dd class="advanced-search-example__explanation">
+                Allows searching for images including <em>any</em> of the given search terms. Only single words allowed.
+            </dd>
+        </dl>
         <dl class="advanced-search-example">
             <dt class="advanced-search-example__field">
                 <gr-chip-example gr-filter-field="label" gr-example-search="DMskybrown"></gr-chip-example>

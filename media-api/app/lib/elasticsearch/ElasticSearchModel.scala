@@ -83,7 +83,7 @@ case class SearchParams(
                          usageStatus: List[UsageStatus] = List.empty,
                          usagePlatform: List[String] = List.empty,
                          tier: Tier,
-                         syndicationStatus: Option[SyndicationStatus] = None
+                         syndicationStatus: Option[SyndicationStatus] = None,
                        )
 
 case class InvalidUriParams(message: String) extends Throwable
@@ -152,7 +152,7 @@ object SearchParams {
       commaSep("usageStatus").map(UsageStatus(_)),
       commaSep("usagePlatform"),
       request.user.accessor.tier,
-      request.getQueryString("syndicationStatus") flatMap parseSyndicationStatus
+      request.getQueryString("syndicationStatus") flatMap parseSyndicationStatus,
     )
   }
 

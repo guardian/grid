@@ -1,7 +1,6 @@
 package lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
-import com.gu.mediaservice.lib.elasticsearch.IndexSettings
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.Agency
@@ -26,9 +25,9 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   private def multiMatchPhraseQuery(value: String, fields: Seq[String]): MultiMatchQuery =
     ElasticDsl.multiMatchQuery(value).fields(fields).matchType(MultiMatchQueryBuilderType.PHRASE)
 
-  private def makeMultiQuery(value: Value, fields: Seq[String]): MultiMatchQuery = value match {
+  private def makeMultiQuery(value: Value, fields: Seq[String], orQuery: Boolean = false): MultiMatchQuery = value match {
     case Words(value) => ElasticDsl.multiMatchQuery(value).fields(fields).
-      operator(Operator.AND).
+      operator(if (orQuery) Operator.OR else Operator.AND).
       matchType(MultiMatchQueryBuilderType.CROSS_FIELDS)
     case Phrase(string) => multiMatchPhraseQuery(string, fields)
     // That's OK, we only do date queries on a single field at a time
@@ -38,6 +37,10 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
   private def makeQueryBit(condition: Match): Query = condition.field match {
     case AnyField => makeMultiQuery(condition.value, matchFields)
     case MultipleField(fields) => makeMultiQuery(condition.value, fields)
+    case OrField => condition.value match {
+      case OrValue(string) => makeMultiQuery(Words(string), matchFields, orQuery = true)
+      case e => throw InvalidQuery(s"Cannot do or query on $e")
+    }
     case SingleField(field) => condition.value match {
       // Force AND operator else it will only require *any* of the words, not *all*
       case Words(value) => matchQuery(resolveFieldPath(field), value).operator(Operator.AND)
@@ -67,6 +70,7 @@ class QueryBuilder(matchFields: Seq[String], overQuotaAgencies: () => List[Agenc
       }
     }
   }
+
 
   def makeQuery(conditions: List[Condition]) = conditions match {
     case Nil => matchAllQuery
