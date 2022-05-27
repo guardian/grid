@@ -212,9 +212,9 @@ query.controller('SearchQueryCtrl', [
         }
 
         if (isNonFree === null) {
-          ctrl.filter.nonFree = session.user.permissions.showPaid ?
-            session.user.permissions.showPaid : undefined;
-            storage.setJs("isNonFree", session.user.permissions.showPaid ? session.user.permissions.showPaid : false);
+          ctrl.filter.nonFree = session.user.permissions.showPaid ? session.user.permissions.showPaid : undefined;
+
+          storage.setJs("isNonFree", session.user.permissions.showPaid ? session.user.permissions.showPaid : false);
         }
         else if (isNonFree === true || isNonFree === "true") {
             ctrl.filter.nonFree = true;

@@ -46,6 +46,7 @@ export const filterFields = [
     'photoshoot',
     'leasedBy',
     'is',
+    'or',
     ... Object.keys(fieldAliases)
 ].sort();
 // TODO: add date fields
