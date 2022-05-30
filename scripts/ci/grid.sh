@@ -29,7 +29,7 @@ buildKahuna() {
   # clear old packages first
   rm -rf node_modules
 
-  npm install
+  npm ci
   npm run undist
   npm test
   npm run dist
@@ -42,7 +42,7 @@ buildWatcher() {
   pushd ${SCRIPT_DIR}/../../s3watcher/lambda
 
   nvm use ${NODE_VERSION}
-  npm install
+  npm ci
   npm test
   npm run build
 
