@@ -87,7 +87,7 @@ class ElasticSearch(
 
 
   def migrationAwareIndexImage(id: String, image: Image, lastModified: DateTime)
-                              (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                              (implicit ex: ExecutionContext, logMarker: LogMarker): Future[ElasticSearchUpdateResponse] = {
 
     // On insert, we know we will not have a lastModified to consider, so we always take the one we get
     val insertImage = image.copy(lastModified = Some(lastModified))
@@ -142,13 +142,10 @@ class ElasticSearch(
       case _ => Future.successful(JsObject.empty)
     }
 
-    val runUpsertIntoCurrentIndex = runUpsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex.flatMap { esInfoToAddToCurrentIndex =>
-      runUpsertIntoIndex(imagesCurrentAlias, maybeEsInfo = Some(esInfoToAddToCurrentIndex))
-    }
-
-    List(runUpsertIntoCurrentIndex.map { _ =>
-      ElasticSearchUpdateResponse()
-    })
+    for {
+      esInfo <- runUpsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex
+      _ <- runUpsertIntoIndex(imagesCurrentAlias, maybeEsInfo = Some(esInfo))
+    } yield ElasticSearchUpdateResponse()
   }
 
   def getImage(id: String)(implicit ex: ExecutionContext, logMarker: LogMarker): Future[Option[Image]] = {

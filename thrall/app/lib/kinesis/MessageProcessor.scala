@@ -61,9 +61,7 @@ class MessageProcessor(
   }
 
   private def indexImage(message: ImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) =
-    Future.sequence(
-      es.migrationAwareIndexImage(message.id, message.image, message.lastModified)(ec, logMarker)
-    )
+    es.migrationAwareIndexImage(message.id, message.image, message.lastModified)(ec, logMarker)
 
   private def migrateImage(message: MigrateImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     implicit val implicitLogMarker: LogMarker = logMarker ++ Map("imageId" -> message.id)
