@@ -93,18 +93,8 @@ class ElasticSearch(
     val insertImage = image.copy(lastModified = Some(lastModified))
     val insertImageAsJson = Json.toJson(insertImage)
 
-    val runInsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex: Future[JsObject] = migrationStatus match {
-      case running: Running =>
-        directInsert(image, running.migrationIndexName)
-          .map(_ => EsInfo(Some(MigrationInfo(migratedTo = Some(running.migrationIndexName)))))
-          .recover{ case error => EsInfo(Some(MigrationInfo(failures = Some(Map(
-            running.migrationIndexName -> error.getMessage
-          )))))}
-          .map(esInfo => Json.obj("esInfo" -> Json.toJson(esInfo)))
-      case _ => Future.successful(JsObject.empty)
-    }
-
-    val runInsertIntoCurrentIndex = runInsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex.flatMap { esInfoToAddToCurrentIndex =>
+    def runUpsertIntoIndex(indexAlias: String, maybeEsInfo: Option[JsObject]) = {
+      val esInfo = maybeEsInfo.getOrElse(JsObject.empty)
 
       // On update, we do not want to take the one we have been given unless it is newer - see updateLastModifiedScript script
       val updateImage = image.copy(lastModified = None)
@@ -131,17 +121,32 @@ class ElasticSearch(
                                                              | """)
 
       val script: Script = prepareScript(scriptSource, lastModified,
-        ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)))
+        ("update_doc", asNestedMap(asImageUpdate(upsertImageAsJson.as[JsObject] ++ esInfo)))
       )
 
-      val indexRequest = updateById(imagesCurrentAlias, id).
-        upsert(Json.stringify(insertImageAsJson.as[JsObject] ++ esInfoToAddToCurrentIndex)).
+      val indexRequest = updateById(indexAlias, id).
+        upsert(Json.stringify(insertImageAsJson.as[JsObject] ++ esInfo)).
         script(script)
 
-      executeAndLog(indexRequest, s"ES6 indexing image $id into index aliased by '$imagesCurrentAlias'")
+      executeAndLog(indexRequest, s"ES6 indexing image $id into index aliased by '$indexAlias'")
     }
 
-    List(runInsertIntoCurrentIndex.map { _ =>
+    val runUpsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex: Future[JsObject] = migrationStatus match {
+      case running: Running =>
+        runUpsertIntoIndex(imagesMigrationAlias, maybeEsInfo = None)
+          .map(_ => EsInfo(Some(MigrationInfo(migratedTo = Some(running.migrationIndexName)))))
+          .recover { case error => EsInfo(Some(MigrationInfo(failures = Some(Map(
+            running.migrationIndexName -> error.getMessage
+          ))))) }
+          .map(esInfo => Json.obj("esInfo" -> Json.toJson(esInfo)))
+      case _ => Future.successful(JsObject.empty)
+    }
+
+    val runUpsertIntoCurrentIndex = runUpsertIntoMigrationIndexAndReturnEsInfoForCurrentIndex.flatMap { esInfoToAddToCurrentIndex =>
+      runUpsertIntoIndex(imagesCurrentAlias, maybeEsInfo = Some(esInfoToAddToCurrentIndex))
+    }
+
+    List(runUpsertIntoCurrentIndex.map { _ =>
       ElasticSearchUpdateResponse()
     })
   }
