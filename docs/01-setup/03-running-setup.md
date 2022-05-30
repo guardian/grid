@@ -19,6 +19,8 @@ From the project root, run:
 
 This process will take a little while to complete.
 
+If you see an error message similar to `nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size`, follow [these instructions](https://github.com/guardian/dev-nginx/blob/main/TROUBLESHOOTING.md#hash-bucket-size-emerg) and then run the setup script again. 
+
 ### Available flags
 There are a few options available for `setup.sh`.
 
