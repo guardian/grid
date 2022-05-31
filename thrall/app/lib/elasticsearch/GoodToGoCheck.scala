@@ -39,23 +39,21 @@ object GoodToGoCheck extends StrictLogging {
         _ <- if (checkAbsent.nonEmpty) deleteTestImage(es, image.id) else Future.successful(())
         // now index and retrieve the test image
         _ <- Future.successful(logger.info(s"Indexing test image ${image.id}"))
-        indexResult <- Future.sequence(es.migrationAwareIndexImage(image.id, image, lastModified))
+        indexResult <- es.migrationAwareIndexImage(image.id, image, lastModified)
         _ <- Future.successful(logger.info(s"Retrieving test image ${image.id}"))
         maybeRetrieveResult <- es.getImage(image.id)
         _ <- Future.successful(logger.info(s"Validating test image"))
         validation <- {
-          // check that we indexed one object
-          val indexedOneItem = indexResult.size == 1
-          // and retrieving it is the same object - note: we use a string check here as the DateTimes don't compare
+          // check retrieving it is the same object - note: we use a string check here as the DateTimes don't compare
           // usefully and we override the lastModified to avoid TZ issues in BST
           val retrievedImageSameAsIndexed =
             approximatelyEqual(maybeRetrieveResult, Some(image))
           if (!retrievedImageSameAsIndexed) logger.warn(s"Image mismatch: \n$maybeRetrieveResult\n${Some(image)}")
 
-          if (indexedOneItem && retrievedImageSameAsIndexed) {
+          if (retrievedImageSameAsIndexed) {
             Future.successful(())
           } else {
-            Future.failed(new IllegalStateException(s"Failed to validate insertion [Indexed ${indexResult.size} (one item check: $indexedOneItem); retrieved image matches indexed image: $retrievedImageSameAsIndexed]"))
+            Future.failed(new IllegalStateException(s"Failed to validate insertion [Indexed 1 image; retrieved image matches indexed image: $retrievedImageSameAsIndexed]"))
           }
         }
         // once that's all done, let's delete the image again so it's not lying around

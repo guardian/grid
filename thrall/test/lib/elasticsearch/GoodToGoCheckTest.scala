@@ -24,7 +24,7 @@ class GoodToGoCheckTest extends ElasticSearchTestBase {
       val testIds = List("first", "second", "third")
       "should delete old test images" in {
         // insert a few 'old' test images
-        Future.sequence(testIds.flatMap { id =>
+        Future.sequence(testIds.map { id =>
           ES.migrationAwareIndexImage(id, MappingTest.testImage.copy(id = id), old)
         }).futureValue
 
@@ -51,8 +51,8 @@ class GoodToGoCheckTest extends ElasticSearchTestBase {
         val notVeryOld = now.minus(Period.minutes(5))
         // insert one normal and a few others with an alternative uploader
         val eventualInserts: List[Future[ElasticSearchUpdateResponse]] =
-          ES.migrationAwareIndexImage("test", MappingTest.testImage.copy(id = "test"), old) :::
-          testIds.flatMap { id =>
+          ES.migrationAwareIndexImage("test", MappingTest.testImage.copy(id = "test"), old) ::
+          testIds.map { id =>
             ES.migrationAwareIndexImage(id, MappingTest.testImage.copy(id = id), notVeryOld)
           }
         Future.sequence(eventualInserts).futureValue
@@ -78,8 +78,8 @@ class GoodToGoCheckTest extends ElasticSearchTestBase {
 
       "should not delete images without the defined test uploader" in {
         val eventualInserts: List[Future[ElasticSearchUpdateResponse]] =
-          ES.migrationAwareIndexImage("old", MappingTest.testImage.copy(id = "old"), old) :::
-            testIds.flatMap { id =>
+          ES.migrationAwareIndexImage("old", MappingTest.testImage.copy(id = "old"), old) ::
+            testIds.map { id =>
               ES.migrationAwareIndexImage(id, MappingTest.testImage.copy(id = id, uploadedBy = "joe-bloggs"), old)
             }
         val eventualResponses = Future.sequence(eventualInserts).futureValue
