@@ -37,9 +37,9 @@
                             when the option is off -->
                 <input type="checkbox"
                     ng-model="searchQuery.filter.nonFree"
-                    ng-true-value="undefined"
-                    ng-false-value="'true'" />
-                Free to use only
+                    ng-true-value="{{searchQuery.costFilterTrueValue}}"
+                    ng-false-value="{{searchQuery.costFilterFalseValue}}" />
+                {{ searchQuery.costFilterLabel }}
 
                 <!-- TODO: Decide on correct cost filter model -->
                 <!--

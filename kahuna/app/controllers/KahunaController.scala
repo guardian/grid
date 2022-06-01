@@ -40,7 +40,6 @@ class KahunaController(
     val scriptsToLoad = config.scriptsToLoad
       .filter(_.shouldLoadWhenIFramed.contains(true) || !isIFramed)
       .filter(_.permission.map(authorisation.hasPermissionTo).fold(true)(maybeUser.exists))
-
     val okPath = routes.KahunaController.ok.url
     // If the auth is successful, we redirect to the kahuna domain so the iframe
     // is on the same domain and can be read by the JS
@@ -49,6 +48,8 @@ class KahunaController(
     val fieldAliases: String = Json.toJson(config.fieldAliasConfigs).toString()
     val metadataTemplates: String = Json.toJson(config.metadataTemplates).toString()
     val returnUri = config.rootUri + okPath
+    val costFilterLabel = config.costFilterLabel.getOrElse("Free to use only")
+    val costFilterChargeable = config.costFilterChargeable.getOrElse(false)
     Ok(views.html.main(
       config.mediaApiUri,
       config.authUri,
@@ -69,7 +70,9 @@ class KahunaController(
       domainMetadataSpecs,
       config.recordDownloadAsUsage,
       metadataTemplates,
-      additionalNavigationLinks
+      additionalNavigationLinks,
+      costFilterLabel,
+      costFilterChargeable
     ))
   }
 

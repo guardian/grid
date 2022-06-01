@@ -19,7 +19,9 @@
   domainMetadataSpecs: String,
   recordDownloadAsUsage: Boolean,
   metadataTemplates: String,
-  additionalNavigationLinks: String
+  additionalNavigationLinks: String,
+  costFilterLabel: String,
+  costFilterChargeable: Boolean
 )
 <!DOCTYPE html>
 <html>
@@ -65,7 +67,9 @@
           domainMetadataSpecs: @Html(domainMetadataSpecs),
           recordDownloadAsUsage: @recordDownloadAsUsage,
           metadataTemplates: @Html(metadataTemplates),
-          additionalNavigationLinks: @Html(additionalNavigationLinks)
+          additionalNavigationLinks: @Html(additionalNavigationLinks),
+          costFilterLabel: "@Html(costFilterLabel)",
+          costFilterChargeable: @costFilterChargeable
         }
     </script>
 
