@@ -15,3 +15,7 @@
 .deleted_image_warning{
   margin-top: 10px
 }
+
+.result-editor__field-container__collections-preview {
+  border: 1px solid #ffbc01;
+}

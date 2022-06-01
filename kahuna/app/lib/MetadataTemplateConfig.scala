@@ -1,5 +1,6 @@
 package lib
 
+import lib.MetadataTemplate.MetadataTemplateCollection
 import play.api.ConfigLoader
 import play.api.libs.json.{Json, Writes}
 
@@ -27,9 +28,12 @@ object MetadataTemplateUsageRights {
 case class MetadataTemplate(
    templateName: String,
    metadataFields: Seq[MetadataTemplateField] = Nil,
+   collection: MetadataTemplateCollection = Nil,
    usageRights: Option[MetadataTemplateUsageRights] = None)
 
 object MetadataTemplate {
+  type MetadataTemplateCollection = Seq[String]
+
   implicit val writes: Writes[MetadataTemplate] = Json.writes[MetadataTemplate]
 
   implicit val configLoader: ConfigLoader[Seq[MetadataTemplate]] =
@@ -48,6 +52,10 @@ object MetadataTemplate {
           })
         } else Nil
 
+        val collection = if (config.hasPath("collection")) {
+          config.getStringList("collection").asScala.seq
+        } else Nil
+
         val usageRights = if (config.hasPath("usageRights")) {
           val usageRightConfig = config.getConfig("usageRights")
 
@@ -58,6 +66,6 @@ object MetadataTemplate {
           ))
         } else None
 
-        MetadataTemplate(config.getString("templateName"), metadataFields, usageRights)
+        MetadataTemplate(config.getString("templateName"), metadataFields, collection, usageRights)
       }))
 }

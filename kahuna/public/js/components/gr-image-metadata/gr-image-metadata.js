@@ -408,7 +408,8 @@ module.controller('grImageMetadataCtrl', [
         freeUpdateListener();
     });
 
-    ctrl.onMetadataTemplateSelected = (metadata, usageRights) => {
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection) => {
+      console.log(collection)
       ctrl.metadataUpdatedByTemplate = Object.keys(metadata).filter(key => ctrl.rawMetadata[key] !== metadata[key]);
       ctrl.metadata = metadata;
 

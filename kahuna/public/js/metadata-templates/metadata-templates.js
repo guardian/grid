@@ -6,9 +6,11 @@ import '../util/rx';
 import './metadata-templates.css';
 
 import '../edits/service';
+import {collectionsApi} from '../services/api/collections-api';
 
 export const metadataTemplates = angular.module('kahuna.edits.metadataTemplates', [
   'kahuna.edits.service',
+  collectionsApi.name,
   'util.rx'
 ]);
 
@@ -16,7 +18,8 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
   '$scope',
   '$window',
   'editsService',
-  function ($scope, $window, editsService) {
+  'collections',
+  function ($scope, $window, editsService, collections) {
 
   let ctrl = this;
 
@@ -41,8 +44,9 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     if (ctrl.metadataTemplate) {
       const metadata = applyTemplateToMetadata();
       const usageRights = applyTemplateToUsageRights();
+      const collection = ctrl.metadataTemplate.collection;
 
-      ctrl.onMetadataTemplateSelected({metadata, usageRights});
+      ctrl.onMetadataTemplateSelected({metadata, usageRights, collection});
     } else {
       ctrl.cancel();
     }
@@ -79,6 +83,11 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     editsService
       .update(ctrl.image.data.userMetadata.data.metadata, ctrl.metadata, ctrl.image)
       .then(resource => ctrl.resource = resource)
+      .then(() => {
+        if (ctrl.metadataTemplate.collection) {
+          collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collection);
+        }
+      })
       .then(() => {
         if (ctrl.metadataTemplate.usageRights) {
           editsService

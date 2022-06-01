@@ -112,7 +112,7 @@
                    image="ctrl.image"
                    metadata="ctrl.image.data.metadata"
                    usage-rights="ctrl.image.data.usageRights"
-                   gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights)"
+                   gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights, collection)"
                    gr-on-metadata-template-applied="ctrl.onMetadataTemplateApplied()"
                    gr-on-metadata-template-cancelled="ctrl.onMetadataTemplateCancelled(metadata, usageRights)"
                    class="metadata-templates-flex">
@@ -203,7 +203,10 @@
                 <span class="result-editor__field-label  flex-no-shrink text-small">
                     Collections
                 </span>
-               <gr-collection-overlay image="ctrl.image"></gr-collection-overlay>
+               <gr-collection-overlay
+                   image="ctrl.image"
+                   gr-collection-updated-by-template="ctrl.collectionUpdatedByTemplate"
+               ></gr-collection-overlay>
                <span class="preview__collections__collection__apply-all" ng-if="ctrl.withBatch">
                     <button ng-if="! ctrl.confirmDelete"
                             title="Apply these collections to all your current uploads"
@@ -216,7 +219,8 @@
                         <gr-icon>warning</gr-icon>Remove ALL collections in job?
                     </button>
                 </span>
-                <div class="result-editor__field-container__collections">
+                <div class="result-editor__field-container__collections"
+                     ng-class="{'result-editor__field-container__collections-preview' : ctrl.collectionUpdatedByTemplate}">
                     <ul class="preview__collections">
                         <li class="preview__collections__collection"
                             ng-repeat="collection in ctrl.image.data.collections track by collection.data.pathId">
@@ -231,7 +235,8 @@
                                     gr-tooltip-position="top"
                                     class="preview__collections__collection__remove"
                                     ng-attr-style="{{::ctrl.getCollectionStyle(collection)}}"
-                                    ng-click="ctrl.removeImageFromCollection(collection)">
+                                    ng-click="ctrl.removeImageFromCollection(collection)"
+                                    ng-hide="ctrl.collectionUpdatedByTemplate">
                                 <gr-icon>close</gr-icon>
                             </button>
                         </li>

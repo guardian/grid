@@ -132,6 +132,7 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.onMetadataTemplateApplied = () => {
       $scope.$broadcast('events:metadata-template:template-applied', {});
 
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
     };
@@ -139,17 +140,26 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.onMetadataTemplateCancelled = (metadata, usageRights) => {
       $scope.$broadcast('events:metadata-template:template-cancelled', { metadata });
 
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
     };
 
-    ctrl.onMetadataTemplateSelected = (metadata, usageRights) => {
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection) => {
       $scope.$broadcast('events:metadata-template:template-selected', { metadata });
 
+      console.log(ctrl.image.data.collections);
+
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
+
+      if (angular.isDefined(collection)) {
+        //ctrl.image.data.collections = [...ctrl.image.data.collections, collection];
+        ctrl.collectionUpdatedByTemplate = true;
+      }
 
       if (ctrl.image.data.usageRights === undefined ||
         ctrl.image.data.usageRights.category !== usageRights.category) {
