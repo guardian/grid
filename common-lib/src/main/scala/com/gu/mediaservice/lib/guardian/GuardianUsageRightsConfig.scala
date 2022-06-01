@@ -130,8 +130,6 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
 
   /* These are currently hardcoded */
   val payGettySourceList = List(
-    /* Chelsea possibly temporary, until Putin’s gone */
-    "Chelsea FC",
     "ABC News",
     "AFPTV",
     "Alinari",
