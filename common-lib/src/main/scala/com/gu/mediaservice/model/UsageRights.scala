@@ -99,6 +99,7 @@ object UsageRights {
     case o: CreativeCommons => CreativeCommons.formats.writes(o)
     case o: Composite => Composite.formats.writes(o)
     case o: PublicDomain => PublicDomain.formats.writes(o)
+    case o: ProgramPromotional => ProgramPromotional.formats.writes(o)
     case o: NoRights.type => NoRights.jsonWrites.writes(o)
   }
 
@@ -133,6 +134,7 @@ object UsageRights {
         case CreativeCommons.category => json.asOpt[CreativeCommons]
         case Composite.category => json.asOpt[Composite]
         case PublicDomain.category => json.asOpt[PublicDomain]
+        case ProgramPromotional.category => json.asOpt[ProgramPromotional]
         case _ => None
       })
         .orElse(supplier.flatMap(_ => json.asOpt[Agency]))
@@ -538,4 +540,19 @@ object PublicDomain extends UsageRightsSpec {
 
   implicit val formats: Format[PublicDomain] =
     UsageRights.subtypeFormat(PublicDomain.category)(Json.format[PublicDomain])
+}
+
+final case class ProgramPromotional(restrictions: Option[String] = None) extends UsageRights {
+  val defaultCost = ProgramPromotional.defaultCost
+}
+object ProgramPromotional extends UsageRightsSpec {
+  val category = "program-promotional"
+  val defaultCost = Some(Pay)
+  val name = "Program Promotional"
+  // TODO: Generic description for usage right
+  def description(commonConfig: CommonConfig) =
+    "Generic description placeholder."
+
+  implicit val formats: Format[ProgramPromotional] =
+    UsageRights.subtypeFormat(ProgramPromotional.category)(Json.format[ProgramPromotional])
 }
