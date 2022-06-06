@@ -549,9 +549,8 @@ object ProgramPromotional extends UsageRightsSpec {
   val category = "program-promotional"
   val defaultCost = Some(Pay)
   val name = "Program Promotional"
-  // TODO: Generic description for usage right
   def description(commonConfig: CommonConfig) =
-    "Generic description placeholder."
+    "Images supplied for the Promotion of Public broadcast programs"
 
   implicit val formats: Format[ProgramPromotional] =
     UsageRights.subtypeFormat(ProgramPromotional.category)(Json.format[ProgramPromotional])
