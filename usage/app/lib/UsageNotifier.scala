@@ -1,7 +1,7 @@
 package lib
 
 import com.gu.mediaservice.lib.aws.{ThrallMessageSender, UpdateMessage}
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import com.gu.mediaservice.syntax.MessageSubjects
@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
   extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging with MessageSubjects {
 
-  def build(mediaID: String) = Observable.from(
+  def build(mediaID: String)(implicit logMarker: LogMarker): Observable[UsageNotice] = Observable.from(
     usageTable.queryByImageId(mediaID).map((dbUsages: List[MediaUsage]) =>
       UsageNotice(
         mediaID,
@@ -24,8 +24,9 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
     )
   )
 
-  def send(usageNotice: UsageNotice) = {
-    logger.info(s"Sending usage notice for ${usageNotice.mediaId}")
+  def send(usageNoticeWithContext: WithContext[UsageNotice]): LogMarker = {
+    val usageNotice = usageNoticeWithContext.value
+    logger.info(usageNoticeWithContext.context, s"Sending usage notice for ${usageNotice.mediaId}")
     publish(
       UpdateMessage(
         subject = UpdateImageUsages,
@@ -33,5 +34,6 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
         usageNotice = Some(usageNotice)
       )
     )
+    usageNoticeWithContext.context
   }
 }

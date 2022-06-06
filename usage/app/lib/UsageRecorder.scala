@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model._
 import play.api.libs.json._
@@ -18,50 +18,58 @@ class UsageRecorder(
   usageNotifier: UsageNotifier
 ) extends GridLogging {
 
-  val usageApiSubject: Subject[UsageGroup] = PublishSubject[UsageGroup]()
-  val combinedObservable: Observable[UsageGroup] = CrierUsageStream.observable.merge(usageApiSubject)
+  val usageApiSubject: Subject[WithContext[UsageGroup]] = PublishSubject[WithContext[UsageGroup]]()
+  val combinedObservable: Observable[WithContext[UsageGroup]] = CrierUsageStream.observable.merge(usageApiSubject)
 
-  val subscriber: Subscriber[Unit] = Subscriber((_: Unit) => logger.debug(s"Sent Usage Notification"))
+  val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
   var maybeSubscription: Option[Subscription] = None
 
-  val dbMatchStream: Observable[MatchedUsageGroup] = combinedObservable.flatMap(matchDb)
+  val dbMatchStream: Observable[WithContext[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
 
-  def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
-    .retry((retriesSoFar, error) => {
-      logger.error(s"Encountered an error trying to match usage group (${usageGroup.grouping}", error)
+  def matchDb(usageGroupWithContext: WithContext[UsageGroup]): Observable[WithContext[MatchedUsageGroup]] = {
+    val WithContext(context, usageGroup) = usageGroupWithContext
+    usageTable.matchUsageGroup(usageGroupWithContext)
+      .retry((retriesSoFar, error) => {
+        val maxRetries = 5
+        logger.error(
+          context ++ Map("retry" -> retriesSoFar),
+          s"Encountered an error trying to match usage group (${usageGroup.grouping}) retry $retriesSoFar of $maxRetries",
+          error
+        )
 
-      true // TODO check 'retriesSoFar' so we don't retry forever 🙀
-    })
-    .map{dbUsages =>
-      logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
-      MatchedUsageGroup(usageGroup, dbUsages)
-    }
+        retriesSoFar < maxRetries
+      })
+      .map{dbUsagesWithContext =>
+        implicit val logMarker: LogMarker = dbUsagesWithContext.context
+        logger.info(dbUsagesWithContext.context, s"Built MatchedUsageGroup for ${usageGroup.grouping}")
+        WithContext(MatchedUsageGroup(usageGroup, dbUsagesWithContext.value))
+      }
+  }
 
-  val dbUpdateStream: Observable[Set[String]] = getUpdatesStream(dbMatchStream)
+  val dbUpdateStream: Observable[WithContext[Set[String]]] = getUpdatesStream(dbMatchStream)
 
-  val notificationStream: Observable[UsageNotice] = getNotificationStream(dbUpdateStream)
+  val notificationStream: Observable[WithContext[UsageNotice]] = getNotificationStream(dbUpdateStream)
 
-  val distinctNotificationStream: Observable[UsageNotice] = notificationStream.groupBy(_.mediaId).flatMap {
+  val distinctNotificationStream: Observable[WithContext[UsageNotice]] = notificationStream.groupBy(_.value.mediaId).flatMap {
     case (_, s) => s.distinctUntilChanged
   }
 
-  val notifiedStream: Observable[Unit] = distinctNotificationStream.map(usageNotifier.send)
+  val notifiedStream: Observable[LogMarker] = distinctNotificationStream.map(usageNotifier.send)
 
-  val finalObservable: Observable[Unit] = notifiedStream.retry((_, error) => {
-    logger.error("UsageRecorder encountered an error.", error)
+  val finalObservable: Observable[LogMarker] = notifiedStream.retry((retriesSoFar, error) => {
+    val maxRetries = 5
+    logger.error(MarkerMap("retry" -> retriesSoFar), "UsageRecorder encountered an error.", error)
     usageMetrics.incrementErrors
 
-    true
+    retriesSoFar < maxRetries
   })
 
-  private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]): Observable[Set[String]] = {
-    dbMatchStream.flatMap(matchedUsageGroup => {
-      // Generate unique UUID to track extract job
-      val logMarker = MarkerMap(
-        "job-uuid" -> java.util.UUID.randomUUID.toString
-      )
+  private def getUpdatesStream(dbMatchStream:  Observable[WithContext[MatchedUsageGroup]]): Observable[WithContext[Set[String]]] = {
+    dbMatchStream.flatMap(matchedUsageGroupWithContext => {
+      implicit val logMarker: LogMarker = matchedUsageGroupWithContext.context
+      val matchedUsageGroup = matchedUsageGroupWithContext.value
 
       val usageGroup = matchedUsageGroup.usageGroup
       val dbUsages = usageGroup.maybeStatus.fold(
@@ -114,18 +122,16 @@ class UsageRecorder(
 
       Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
         .flatten[JsObject]
-        .map(_ => mediaIdsImplicatedInDBUpdates)
+        .map(_ => WithContext(mediaIdsImplicatedInDBUpdates))
     })
   }
 
-  private def getNotificationStream(dbUpdateStream: Observable[Set[String]]) = {
+  private def getNotificationStream(dbUpdateStream: Observable[WithContext[Set[String]]]): Observable[WithContext[UsageNotice]] = {
     dbUpdateStream
       .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
-      .flatMap{ mediaIdsImplicatedInDBUpdates =>
-        Observable.from(
-          mediaIdsImplicatedInDBUpdates
-            .map(usageNotice.build)
-        ).flatten[UsageNotice]
+      .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
+        implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.context
+        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(usageNotice.build)).flatten[UsageNotice].map(WithContext(_))
       }
   }
 

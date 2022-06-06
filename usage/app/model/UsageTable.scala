@@ -4,18 +4,16 @@ import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, QuerySpe
 import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
-import lib.{BadInputException, UsageConfig}
-import org.joda.time.DateTime
+import lib.{BadInputException, UsageConfig, WithContext}
 import play.api.libs.json._
 import rx.lang.scala.Observable
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.util.Try
 
 class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecordTable) with GridLogging {
 
@@ -34,16 +32,21 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     })
   }
 
-  def queryByImageId(id: String): Future[List[MediaUsage]] = Future {
+  def queryByImageId(id: String)(implicit logMarker: LogMarker): Future[List[MediaUsage]] = Future {
+
+    val markers = logMarker ++ imageIdMarker(id)
 
     if (id.trim.isEmpty)
       throw new BadInputException("Empty string received for image id")
 
+    logger.info(markers, s"Querying usages table for $id")
     val imageIndex = table.getIndex(imageIndexName)
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
     val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).toList
+
+    logger.info(markers, s"Query of usages table for $id found ${unsortedUsages.size} results")
 
     val sortedByLastModifiedNewestFirst = unsortedUsages.sortBy(_.lastModified.getMillis).reverse
 
@@ -75,13 +78,16 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       }
   }.toList
 
-  def matchUsageGroup(usageGroup: UsageGroup): Observable[Set[MediaUsage]] = {
-    logger.info(s"Trying to match UsageGroup: ${usageGroup.grouping}")
+  def matchUsageGroup(usageGroupWithContext: WithContext[UsageGroup]): Observable[WithContext[Set[MediaUsage]]] = {
+    implicit val logMarker: LogMarker = usageGroupWithContext.context
+    val usageGroup = usageGroupWithContext.value
+
+    logger.info(logMarker, s"Trying to match UsageGroup: ${usageGroup.grouping}")
 
     Observable.from(Future {
       val grouping = usageGroup.grouping
 
-      logger.info(s"Querying table for $grouping")
+      logger.info(logMarker, s"Querying table for $grouping")
       val queryResult = table.query(
         new QuerySpec()
           .withConsistentRead(true)
@@ -92,9 +98,9 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
         .map(ItemToMediaUsage.transform)
         .toSet
 
-      logger.info(s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
+      logger.info(logMarker, s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
-      usages
+      WithContext(usages)
     })
   }
 

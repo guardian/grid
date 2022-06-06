@@ -6,6 +6,8 @@ import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.argo.model.{EntityResponse, Link, Action => ArgoAction}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
 import com.gu.mediaservice.lib.aws.UpdateMessage
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
+import com.gu.mediaservice.lib.play.RequestLoggingFilter
 import com.gu.mediaservice.lib.usage.UsageBuilder
 import com.gu.mediaservice.model.usage.{MediaUsage, Usage}
 import com.gu.mediaservice.syntax.MessageSubjects
@@ -26,7 +28,7 @@ class UsageApi(
   usageGroupOps: UsageGroupOps,
   notifications: Notifications,
   config: UsageConfig,
-  usageApiSubject: Subject[UsageGroup],
+  usageApiSubject: Subject[WithContext[UsageGroup]],
   liveContentApi: LiveContentApi,
   override val controllerComponents: ControllerComponents,
   playBodyParsers: PlayBodyParsers
@@ -64,8 +66,13 @@ class UsageApi(
   }
   def index = auth { indexResponse }
 
-  def forUsage(usageId: String) = auth.async {
-    logger.info(s"Request for single usage $usageId")
+  def forUsage(usageId: String) = auth.async { req =>
+    implicit val context: LogMarker = MarkerMap(
+      "requestType" -> "get-usage",
+      "requestId" -> RequestLoggingFilter.getRequestId(req),
+      "usageId" -> usageId,
+    )
+    logger.info(context, s"Request for single usage $usageId")
     val usageFuture = usageTable.queryByUsageId(usageId)
 
     usageFuture.map[play.api.mvc.Result]((mediaUsageOption: Option[MediaUsage]) => {
@@ -84,13 +91,19 @@ class UsageApi(
         respond[Usage](data = usage, uri = uri, links = links)
       })
     }).recover { case error: Exception =>
-      logger.error("UsageApi returned an error.", error)
+      logger.error(context, "UsageApi returned an error.", error)
       respondError(InternalServerError, "usage-retrieve-failed", error.getMessage)
     }
 
   }
 
-  def reindexForContent(contentId: String) = auth.async {
+  def reindexForContent(contentId: String) = auth.async { req =>
+    implicit val context: LogMarker = MarkerMap(
+      "requestType" -> "reindex-for-content",
+      "requestId" -> RequestLoggingFilter.getRequestId(req),
+      "contentId" -> contentId,
+    )
+
     val query = ItemQuery(contentId)
       .showFields("all")
       .showElements("all")
@@ -111,12 +124,18 @@ class UsageApi(
           NotFound
       }
     }.recover { case error: Exception =>
-        logger.error(s"UsageApi reindex for for content ($contentId) failed!", error)
+        logger.error(context, s"UsageApi reindex for for content ($contentId) failed!", error)
         InternalServerError
       }
   }
 
-  def forMedia(mediaId: String) = auth.async {
+  def forMedia(mediaId: String) = auth.async { req =>
+    implicit val context: LogMarker = MarkerMap(
+      "requestType" -> "usages-for-media-id",
+      "requestId" -> RequestLoggingFilter.getRequestId(req),
+      "image-id" -> mediaId,
+    )
+
     val usagesFuture = usageTable.queryByImageId(mediaId)
 
     usagesFuture.map[play.api.mvc.Result]((mediaUsages: List[MediaUsage]) => {
@@ -124,7 +143,7 @@ class UsageApi(
 
       usages match {
         case Nil => respondNotFound("No usages found.")
-        case usage :: _ =>
+        case _ =>
           val uri = Try { URI.create(s"${config.services.usageBaseUri}/usages/media/$mediaId") }.toOption
           val links = List(
             Link("media", s"${config.services.apiBaseUri}/images/$mediaId")
@@ -138,10 +157,10 @@ class UsageApi(
       }
     }).recover {
       case error: BadInputException =>
-        logger.error("UsageApi returned an error.", error)
+        logger.error(context, "UsageApi returned an error.", error)
         respondError(BadRequest, "image-usage-retrieve-failed", error.getMessage)
       case error: Exception =>
-        logger.error("UsageApi returned an error.", error)
+        logger.error(context, "UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
     }
   }
@@ -149,23 +168,28 @@ class UsageApi(
   val maxPrintRequestLength: Int = 1024 * config.maxPrintRequestLengthInKb
   val setPrintRequestBodyParser: BodyParser[JsValue] = playBodyParsers.json(maxLength = maxPrintRequestLength)
 
-  def setPrintUsages = auth(setPrintRequestBodyParser) { request => {
-      val printUsageRequestResult = request.body.validate[PrintUsageRequest]
-      printUsageRequestResult.fold(
-        e => {
-          respondError(BadRequest, "print-usage-request-parse-failed", JsError.toJson(e).toString)
-        },
-        printUsageRequest => {
-          val usageGroups = usageGroupOps.build(printUsageRequest.printUsageRecords)
-          usageGroups.foreach(usageApiSubject.onNext)
+  def setPrintUsages = auth(setPrintRequestBodyParser) { req => {
 
-          Accepted
-        }
-      )
-    }
-  }
+    val printUsageRequestResult = req.body.validate[PrintUsageRequest]
+    printUsageRequestResult.fold(
+      e => {
+        respondError(BadRequest, "print-usage-request-parse-failed", JsError.toJson(e).toString)
+      },
+      printUsageRequest => {
+        implicit val context: LogMarker = MarkerMap(
+          "requestType" -> "set-print-usages",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+        )
+        val usageGroups = usageGroupOps.build(printUsageRequest.printUsageRecords)
+        usageGroups.map(WithContext.includeUsageGroup).foreach(usageApiSubject.onNext)
+
+        Accepted
+      }
+    )
+  }}
 
   def setSyndicationUsages() = auth(parse.json) { req => {
+
     val syndicationUsageRequest = (req.body \ "data").validate[SyndicationUsageRequest]
     syndicationUsageRequest.fold(
       e => respondError(
@@ -174,15 +198,22 @@ class UsageApi(
         errorMessage = JsError.toJson(e).toString
       ),
       sur => {
-        logger.info(req.user.accessor, ImageId(sur.mediaId), "recording syndication usage")
+        implicit val context: LogMarker = MarkerMap(
+          "requestType" -> "set-syndication-usages",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+          "image-id" -> sur.mediaId,
+        ) ++ apiKeyMarkers(req.user.accessor)
+
+        logger.info(context, "recording syndication usage")
         val group = usageGroupOps.build(sur)
-        usageApiSubject.onNext(group)
+        usageApiSubject.onNext(WithContext.includeUsageGroup(group))
         Accepted
       }
     )
   }}
 
   def setFrontUsages() = auth(parse.json) { req => {
+
     val request = (req.body \ "data").validate[FrontUsageRequest]
     request.fold(
       e => respondError(
@@ -191,15 +222,21 @@ class UsageApi(
         errorMessage = JsError.toJson(e).toString
       ),
       fur => {
-        logger.info(req.user.accessor, ImageId(fur.mediaId), "recording front usage")
+        implicit val context: LogMarker = MarkerMap(
+          "requestType" -> "set-front-usages",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+          "image-id" -> fur.mediaId,
+        ) ++ apiKeyMarkers(req.user.accessor)
+        logger.info(context, "recording front usage")
         val group = usageGroupOps.build(fur)
-        usageApiSubject.onNext(group)
+        usageApiSubject.onNext(WithContext.includeUsageGroup(group))
         Accepted
       }
     )
   }}
 
   def setDownloadUsages() = auth(parse.json) { req => {
+
     val request = (req.body \ "data").validate[DownloadUsageRequest]
     request.fold(
       e => respondError(
@@ -208,23 +245,33 @@ class UsageApi(
         errorMessage = JsError.toJson(e).toString
       ),
       usageRequest => {
-        logger.info(req.user.accessor, ImageId(usageRequest.mediaId), "recording download usage")
+        implicit val context: LogMarker = MarkerMap(
+          "requestType" -> "set-download-usages",
+          "requestId" -> RequestLoggingFilter.getRequestId(req),
+          "image-id" -> usageRequest.mediaId,
+        ) ++ apiKeyMarkers(req.user.accessor)
+        logger.info(context, "recording download usage")
         val group = usageGroupOps.build(usageRequest)
-        usageApiSubject.onNext(group)
+        usageApiSubject.onNext(WithContext.includeUsageGroup(group))
         Accepted
       }
     )
   }}
 
-  def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async {
+  def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
+    implicit val context: LogMarker = MarkerMap(
+      "requestType" -> "delete-usages",
+      "requestId" -> RequestLoggingFilter.getRequestId(req),
+      "image-id" -> mediaId,
+    )
     usageTable.queryByImageId(mediaId).map(usages => {
       usages.foreach(usageTable.deleteRecord)
-    }).recover{
+    }).recover {
       case error: BadInputException =>
-        logger.warn("UsageApi returned an error.", error)
+        logger.warn(context, "UsageApi returned an error.", error)
         respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
       case error: Exception =>
-        logger.error("UsageApi returned an error.", error)
+        logger.error(context, "UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
     }
 
