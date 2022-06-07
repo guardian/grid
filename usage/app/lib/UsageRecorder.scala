@@ -114,6 +114,7 @@ class UsageRecorder(
 
       Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
         .flatten[JsObject]
+        .toSeq // observable emits exactly once, when all ops complete and have been emitted, or immediately if there are 0 ops
         .map(_ => mediaIdsImplicatedInDBUpdates)
     })
   }
