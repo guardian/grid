@@ -43,11 +43,7 @@ class UsageRecorder(
 
   val notificationStream: Observable[UsageNotice] = getNotificationStream(dbUpdateStream)
 
-  val distinctNotificationStream: Observable[UsageNotice] = notificationStream.groupBy(_.mediaId).flatMap {
-    case (_, s) => s.distinctUntilChanged
-  }
-
-  val notifiedStream: Observable[Unit] = distinctNotificationStream.map(usageNotifier.send)
+  val notifiedStream: Observable[Unit] = notificationStream.map(usageNotifier.send)
 
   val finalObservable: Observable[Unit] = notifiedStream.retry((_, error) => {
     logger.error("UsageRecorder encountered an error.", error)
@@ -114,6 +110,7 @@ class UsageRecorder(
 
       Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
         .flatten[JsObject]
+        .toSeq // observable emits exactly once, when all ops complete and have been emitted, or immediately if there are 0 ops
         .map(_ => mediaIdsImplicatedInDBUpdates)
     })
   }
