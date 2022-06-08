@@ -347,26 +347,27 @@
                         ng-click="locationEditForm.$show()"
                         ng-hide="locationEditForm.$visible">✎</button>
 
-                <span ng-hide="locationEditForm.$visible" ng-repeat="prop in ['subLocation', 'city', 'state', 'country']"
-                      >
-                        <span>
-                            <a
-                                ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
-                                ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
-                                aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}">
-                                 {{ctrl.metadata[prop]}}
-                            </a>
-                            <span
-                                ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
-                                ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata[prop])}">
-                                {{'(Multiple ' + ctrl.locationFieldPluralMap[prop] + ')'}}
-                            </span>
+                <span ng-hide="locationEditForm.$visible" ng-repeat="prop in ['subLocation', 'city', 'state', 'country']">
+                    <span ng-if="ctrl.metadata[prop] || ctrl.hasMultipleValues(ctrl.rawMetadata[prop])">
+                        <a
+                            ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
+                            ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
+                            aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}"
+                        >
+                            {{ctrl.metadata[prop]}}
+                        </a>
+                        <span
+                            ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
+                            ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata[prop])}"
+                        >
+                            {{'(Multiple ' + ctrl.locationFieldPluralMap[prop] + ')'}}
                         </span>
-                        <span ng-if="! $last && ( ctrl.metadata[prop] || ctrl.hasMultipleValues(ctrl.rawMetadata[prop]) )">
+                        <span ng-if="! $last">
                             ,
                         </span>
-
+                    </span>
                 </span>
+
                 <span ng-hide="locationEditForm.$visible" class="editable-empty"
                       ng-if="!ctrl.hasLocationInformation() &&
                             ctrl.userCanEdit &&
