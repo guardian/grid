@@ -49,7 +49,7 @@ guDate.directive('guDate', [function () {
                 field: input,
                 showTime: true,
                 showMinutes: true,
-                use24hour: false,
+                use24hour: true,
                 incrementHourBy: 1,
                 incrementMinuteBy: 1,
                 incrementSecondBy: 1,
