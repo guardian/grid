@@ -1,7 +1,7 @@
 package model
 
 import com.amazonaws.services.dynamodbv2.document.spec.{DeleteItemSpec, QuerySpec, UpdateItemSpec}
-import com.amazonaws.services.dynamodbv2.document.{KeyAttribute, RangeKeyCondition}
+import com.amazonaws.services.dynamodbv2.document.{DeleteItemOutcome, KeyAttribute, RangeKeyCondition}
 import com.amazonaws.services.dynamodbv2.model.ReturnValue
 import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
@@ -102,17 +102,17 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     })
   }
 
-  def create(mediaUsage: MediaUsage): Observable[JsObject] =
+  def create(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
     upsertFromRecord(UsageRecord.buildCreateRecord(mediaUsage))
 
-  def update(mediaUsage: MediaUsage): Observable[JsObject] =
+  def update(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
     upsertFromRecord(UsageRecord.buildUpdateRecord(mediaUsage))
 
-  def markAsRemoved(mediaUsage: MediaUsage): Observable[JsObject] =
+  def markAsRemoved(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): Observable[JsObject] =
     upsertFromRecord(UsageRecord.buildMarkAsRemovedRecord(mediaUsage))
 
-  def deleteRecord(mediaUsage: MediaUsage) = {
-    logger.info(s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
+  def deleteRecord(mediaUsage: MediaUsage)(implicit logMarker: LogMarker): DeleteItemOutcome = {
+    logger.info(logMarker, s"deleting usage ${mediaUsage.usageId} for media id ${mediaUsage.mediaId}")
 
     val deleteSpec = new DeleteItemSpec()
       .withPrimaryKey(
@@ -123,7 +123,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     table.deleteItem(deleteSpec)
   }
 
-  def upsertFromRecord(record: UsageRecord): Observable[JsObject] = Observable.from(Future {
+  def upsertFromRecord(record: UsageRecord)(implicit logMarker: LogMarker): Observable[JsObject] = Observable.from(Future {
 
      val updateSpec = new UpdateItemSpec()
       .withPrimaryKey(
@@ -139,7 +139,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
   })
   .onErrorResumeNext(e => {
-    logger.error(s"Dynamo update fail for $record!", e)
+    logger.error(logMarker, s"Dynamo update fail for $record!", e)
     Observable.error(e)
   })
   .map(asJsObject)

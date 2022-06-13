@@ -221,7 +221,7 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
 
       groupedElements.getOrElse(Seq.empty)
     } else {
-      logger.info(s"Failed shouldRecordUsages: isNew-$isNew isReindex-$isReindex")
+      logger.info(logMarker, s"Failed shouldRecordUsages: isNew-$isNew isReindex-$isReindex")
       Seq.empty
     }
   }
