@@ -52,11 +52,7 @@ class UsageRecorder(
 
   val notificationStream: Observable[WithLogMarker[UsageNotice]] = getNotificationStream(dbUpdateStream)
 
-  val distinctNotificationStream: Observable[WithLogMarker[UsageNotice]] = notificationStream.groupBy(_.value.mediaId).flatMap {
-    case (_, s) => s.distinctUntilChanged
-  }
-
-  val notifiedStream: Observable[LogMarker] = distinctNotificationStream.map(usageNotifier.send)
+  val notifiedStream: Observable[LogMarker] = notificationStream.map(usageNotifier.send)
 
   val finalObservable: Observable[LogMarker] = notifiedStream.retry((retriesSoFar, error) => {
     val maxRetries = 5
@@ -122,6 +118,7 @@ class UsageRecorder(
 
       Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
         .flatten[JsObject]
+        .toSeq // observable emits exactly once, when all ops complete and have been emitted, or immediately if there are 0 ops
         .map(_ => {
           logger.info(logMarker, s"Emitting ${mediaIdsImplicatedInDBUpdates.size} media IDs for notification")
           WithLogMarker(mediaIdsImplicatedInDBUpdates)
