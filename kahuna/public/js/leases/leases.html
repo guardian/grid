@@ -88,6 +88,10 @@
         </div>
     </div>
     <div ng-switch-default>
+<!--        <span ng-if="ctrl.access">-->
+<!--            <input type="datetime-local" id="startDate" ng-model="ctrl.newLease.startDate">-->
+<!--            <input type="datetime-local" id="endDate" ng-model="ctrl.newLease.endDate">-->
+<!--        </span>-->
         <gu-date-range-x ng-if="ctrl.access"
                         start="ctrl.newLease.startDate"
                         end="ctrl.newLease.endDate">
@@ -107,7 +111,7 @@
     <button
         class="lease__form__buttons__button-save button-save"
         type="submit"
-        title="Save new label"
+        title="Save new lease"
         ng-disabled="ctrl.adding">
         <gr-icon-label data-cy="it-save-lease" gr-icon="check">
             <span ng-hide="ctrl.grSmall">Save</span>
