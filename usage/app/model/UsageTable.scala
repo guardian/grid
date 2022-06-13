@@ -32,21 +32,19 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
     })
   }
 
-  def queryByImageId(id: String)(implicit logMarker: LogMarker): Future[List[MediaUsage]] = Future {
-
-    val markers = logMarker ++ imageIdMarker(id)
+  def queryByImageId(id: String)(implicit logMarkerWithId: LogMarker): Future[List[MediaUsage]] = Future {
 
     if (id.trim.isEmpty)
       throw new BadInputException("Empty string received for image id")
 
-    logger.info(markers, s"Querying usages table for $id")
+    logger.info(logMarkerWithId, s"Querying usages table for $id")
     val imageIndex = table.getIndex(imageIndexName)
     val keyAttribute = new KeyAttribute(imageIndexName, id)
     val queryResult = imageIndex.query(keyAttribute)
 
     val unsortedUsages = queryResult.asScala.map(ItemToMediaUsage.transform).toList
 
-    logger.info(markers, s"Query of usages table for $id found ${unsortedUsages.size} results")
+    logger.info(logMarkerWithId, s"Query of usages table for $id found ${unsortedUsages.size} results")
 
     val sortedByLastModifiedNewestFirst = unsortedUsages.sortBy(_.lastModified.getMillis).reverse
 

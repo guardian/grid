@@ -15,14 +15,19 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
   extends ThrallMessageSender(config.thrallKinesisLowPriorityStreamConfig) with GridLogging with MessageSubjects {
 
-  def build(mediaID: String)(implicit logMarker: LogMarker): Observable[UsageNotice] = Observable.from(
-    usageTable.queryByImageId(mediaID).map((dbUsages: List[MediaUsage]) =>
-      UsageNotice(
-        mediaID,
-        Json.toJson(dbUsages.map(UsageBuilder.build)).as[JsArray]
+  def build(mediaID: String)(implicit logMarker: LogMarker): Observable[UsageNotice] = {
+    implicit val logMarkerWithId: LogMarker = logMarker + ("image-id" -> mediaID)
+    logger.info(logMarkerWithId, s"Building usage notice for $mediaID")
+
+    Observable.from(
+      usageTable.queryByImageId(mediaID)(logMarkerWithId).map((dbUsages: List[MediaUsage]) =>
+        UsageNotice(
+          mediaID,
+          Json.toJson(dbUsages.map(UsageBuilder.build)).as[JsArray]
+        )
       )
     )
-  )
+  }
 
   def send(usageNoticeWithContext: WithContext[UsageNotice]): LogMarker = {
     val usageNotice = usageNoticeWithContext.value

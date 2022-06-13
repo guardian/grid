@@ -122,7 +122,10 @@ class UsageRecorder(
 
       Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
         .flatten[JsObject]
-        .map(_ => WithContext(mediaIdsImplicatedInDBUpdates))
+        .map(_ => {
+          logger.info(logMarker, s"Emitting ${mediaIdsImplicatedInDBUpdates.size} media IDs for notification")
+          WithContext(mediaIdsImplicatedInDBUpdates)
+        })
     })
   }
 
@@ -131,6 +134,7 @@ class UsageRecorder(
       .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.context
+        logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
         Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(usageNotice.build)).flatten[UsageNotice].map(WithContext(_))
       }
   }
