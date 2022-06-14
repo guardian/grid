@@ -43,16 +43,19 @@ guDate.directive('guDate', [function () {
 
             const root = el[0];
             const input = root.querySelector('input.gu-date__value--hidden');
+            const container = root.querySelector('.gu-date__container');
 
             const pika = new Pikaday({
                 field: input,
-                use24hour: true,
+                container: container,
+                bound: false,
                 minDate: $scope.minDate && new Date($scope.minDate),
                 maxDate: tenYearsFromNow,
                 yearRange: 100,
                 firstDay: START_OF_WEEK,
                 format: DISPLAY_FORMAT,
                 keyboardInput: false,
+                use24hour: true,
                 autoClose: false
             });
 
@@ -84,7 +87,7 @@ guDate.directive('guDate', [function () {
 
                 $scope.date = getDateISOString(date);
                 $scope.displayValue = getDisplayValue(date);
-                $scope.closeOverlay();
+                pika.setDate($scope.date);
             });
 
             $scope.$on('$destroy', () => pika.destroy);
