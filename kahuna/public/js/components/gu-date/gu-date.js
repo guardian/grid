@@ -43,26 +43,17 @@ guDate.directive('guDate', [function () {
 
             const root = el[0];
             const input = root.querySelector('input.gu-date__value--hidden');
-            const container = root.querySelector('.gu-date__container');
 
             const pika = new Pikaday({
                 field: input,
-                showTime: true,
-                showMinutes: true,
                 use24hour: true,
-                incrementHourBy: 1,
-                incrementMinuteBy: 1,
-                incrementSecondBy: 1,
-                autoClose: true,
-                timeLabel: null, // optional string added to left of time select
-                container: container,
-                bound: false,
                 minDate: $scope.minDate && new Date($scope.minDate),
                 maxDate: tenYearsFromNow,
                 yearRange: 100,
                 firstDay: START_OF_WEEK,
                 format: DISPLAY_FORMAT,
-                keyboardInput: false
+                keyboardInput: false,
+                autoClose: false
             });
 
             $scope.clear = () => {
@@ -73,7 +64,6 @@ guDate.directive('guDate', [function () {
             $scope.closeOverlay = () => $scope.showingOverlay = false;
 
             if (angular.isDefined($scope.minDate)) {
-                $scope.dateRounder = (date) => moment(date).toDate();
 
                 $scope.$watch('minDate', value => {
                     const dateValue = value ? new Date(value) : new Date();
@@ -82,7 +72,6 @@ guDate.directive('guDate', [function () {
             }
 
             if (angular.isDefined($scope.maxDate)) {
-                $scope.dateRounder = (date) => moment(date).toDate();
 
                 $scope.$watch('maxDate', value => {
                     const dateValue = value ? new Date(value) : new Date();
@@ -91,11 +80,7 @@ guDate.directive('guDate', [function () {
             }
 
             $scope.$watch('pikaValue', value => {
-                const date = value === ""
-                    ? undefined
-                    : angular.isDefined($scope.dateRounder)
-                        ? $scope.dateRounder(value)
-                        : value;
+                const date = value === "" ? undefined : value;
 
                 $scope.date = getDateISOString(date);
                 $scope.displayValue = getDisplayValue(date);

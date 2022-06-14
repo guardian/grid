@@ -88,10 +88,6 @@
         </div>
     </div>
     <div ng-switch-default>
-<!--        <span ng-if="ctrl.access">-->
-<!--            <input type="datetime-local" id="startDate" ng-model="ctrl.newLease.startDate">-->
-<!--            <input type="datetime-local" id="endDate" ng-model="ctrl.newLease.endDate">-->
-<!--        </span>-->
         <gu-date-range-x ng-if="ctrl.access"
                         start="ctrl.newLease.startDate"
                         end="ctrl.newLease.endDate">
