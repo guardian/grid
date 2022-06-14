@@ -87,7 +87,6 @@ guDate.directive('guDate', [function () {
 
                 $scope.date = getDateISOString(date);
                 $scope.displayValue = getDisplayValue(date);
-                pika.setDate($scope.date);
             });
 
             $scope.$on('$destroy', () => pika.destroy);
