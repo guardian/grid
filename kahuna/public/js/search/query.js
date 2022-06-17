@@ -221,9 +221,9 @@ query.controller('SearchQueryCtrl', [
             storage.setJs("isNonFree", session.user.permissions.showPaid ? session.user.permissions.showPaid : false, true);
         }
         else if (isNonFree === true || isNonFree === "true") {
-            ctrl.filter.nonFree = "true";
+            ctrl.filter.nonFree =  $stateParams.nonFree;
         } else {
-          ctrl.filter.nonFree = undefined;
+          ctrl.filter.nonFree = $stateParams.nonFree;
         }
     });
 

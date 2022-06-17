@@ -280,7 +280,7 @@
 
                         <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.byline)">
                             <span ng-if="ctrl.metadata.byline">
-                                <a ui-sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by')})"
+                                <a ui-sref="search.results({query: (ctrl.metadata.byline | queryFilter:'by'), nonFree: ctrl.srefNonfree()})"
                                    aria-label="Search images by {{ctrl.metadata.byline}} byline">{{ctrl.metadata.byline}}</a>
                             </span>
 
@@ -328,7 +328,7 @@
 
                         <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.credit)">
                             <span ng-if="ctrl.metadata.credit">
-                                <a ui-sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit')})"
+                                <a ui-sref="search.results({query: (ctrl.metadata.credit | queryFilter:'credit'), nonFree: ctrl.srefNonfree()})"
                                    aria-label="Search images by {{ctrl.metadata.credit}} credit">{{ctrl.metadata.credit}}</a>
                             </span>
 
@@ -351,7 +351,7 @@
                     <span ng-if="ctrl.metadata[prop] || ctrl.hasMultipleValues(ctrl.rawMetadata[prop])">
                         <a
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata[prop])"
-                            ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop])})"
+                            ui-sref="search.results({query: (ctrl.metadata[prop] | queryFilter:ctrl.locationFieldMap[prop]), nonFree: ctrl.srefNonfree()})"
                             aria-label="Search images by {{ctrl.metadata[prop]}} {{prop}}"
                         >
                             {{ctrl.metadata[prop]}}
@@ -497,7 +497,7 @@
 
                         <span class="metadata-line__info" ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.copyright)">
                             <span ng-if="ctrl.metadata.copyright">
-                                <a ui-sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright')})"
+                                <a ui-sref="search.results({query: (ctrl.metadata.copyright | queryFilter:'copyright'), nonFree: ctrl.srefNonfree()})"
                                    aria-label="Search images by {{ctrl.metadata.copyright}} copyright">{{ctrl.metadata.copyright}}</a>
                             </span>
 
@@ -518,7 +518,7 @@
             <dt ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.uploadedBy)" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">Uploader</dt>
             <dd ng-if="!ctrl.hasMultipleValues(ctrl.extraInfo.uploadedBy)" class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <span class="metadata-line__info">
-                    <a ui-sref="search.results({query: (ctrl.extraInfo.uploadedBy | queryFilter:'uploader')})"
+                    <a ui-sref="search.results({query: (ctrl.extraInfo.uploadedBy | queryFilter:'uploader'), nonFree: ctrl.srefNonfree()})"
                        aria-label="Search images uploaded by {{ctrl.extraInfo.uploadedBy}}">{{ctrl.extraInfo.uploadedBy | stripEmailDomain}}</a>
                 </span>
             </dd>
@@ -538,7 +538,7 @@
                 class="image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <span class="metadata-line__info">
                     <span ng-repeat="subject in ctrl.metadata.subjects">
-                        <a ui-sref="search.results({query: (subject | queryFilter:'subject')})"
+                        <a ui-sref="search.results({query: (subject | queryFilter:'subject'), nonFree: ctrl.srefNonfree()})"
                            aria-label="Search images by {{subject}} subject">
                             {{subject}}
                         </a>
@@ -771,7 +771,7 @@
         </dt>
         <dd class="metadata-line__info flex-container"
             ng-repeat="collection in ctrl.singleImage.data.collections">
-            <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
+            <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter), nonFree: ctrl.srefNonfree()})"
                aria-label="Search images by {{collection.data.description}} collection">
                 {{collection.data.path.join(' ▸ ')}}
             </a>
