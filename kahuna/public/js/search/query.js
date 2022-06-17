@@ -220,9 +220,9 @@ query.controller('SearchQueryCtrl', [
           storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
         }
         else if (isNonFree === true || isNonFree === "true") {
-            ctrl.filter.nonFree =  $stateParams.nonFree;
+            ctrl.filter.nonFree = "true";
         } else {
-          ctrl.filter.nonFree = $stateParams.nonFree;
+          ctrl.filter.nonFree = undefined;
         }
     });
 
