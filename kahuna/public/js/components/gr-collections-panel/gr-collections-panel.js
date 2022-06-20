@@ -7,7 +7,7 @@ import {collectionsApi} from '../../services/api/collections-api';
 import {mediaApi}       from '../../services/api/media-api';
 import '../../directives/gr-auto-focus';
 import '../../util/eq';
-
+import '../../util/storage';
 import './gr-collections-panel.css';
 import {getCollection} from '../../search-query/query-syntax';
 import nodeTemplate from './gr-collections-panel-node.html';
@@ -19,7 +19,8 @@ export var grCollectionsPanel = angular.module('grCollectionsPanel', [
     mediaApi.name,
     'util.rx',
     'util.eq',
-    'gr.autoFocus'
+    'gr.autoFocus',
+    'util.storage'
 ]);
 
 grCollectionsPanel.factory('collectionsTreeState', ['$window', function($window) {
@@ -88,8 +89,8 @@ grCollectionsPanel.controller('GrCollectionsPanelCtrl', [
 }]);
 
 grCollectionsPanel.controller('GrNodeCtrl',
-    ['$scope', 'collections', 'subscribe$', 'inject$', 'onValChange', 'collectionsTreeState',
-    function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState) {
+    ['$scope', 'collections', 'subscribe$', 'inject$', 'onValChange', 'collectionsTreeState', 'storage',
+    function($scope, collections, subscribe$, inject$, onValChange, collectionsTreeState, storage) {
 
     const ctrl = this;
 
@@ -175,6 +176,9 @@ grCollectionsPanel.controller('GrNodeCtrl',
         ctrl.select = () => {
             grCollectionTreeCtrl.onSelect({$collection: ctrl.node.data.data.path});
         };
+
+        ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+
 
     };
 }]);

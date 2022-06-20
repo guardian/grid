@@ -3,7 +3,7 @@
         ng-if="ctrl.presetLabels.length > 0">
         <li class="preset-label"
             ng-repeat="label in ctrl.presetLabels">
-            <a ui-sref="search.results({query: (label | queryLabelFilter)})"
+            <a ui-sref="search.results({query: (label | queryLabelFilter), nonFree: ctrl.srefNonfree()})"
                class="preset-label__value preset-label__link"
                aria-label="Search images by {{label}} label">{{label}}</a>
 

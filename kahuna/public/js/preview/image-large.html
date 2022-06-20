@@ -62,7 +62,7 @@
                         ng-repeat="collection in ctrl.image.data.collections"
                         gr-tooltip="Click to open collection: {{collection.data.path.join(' ▸ ')}}"
                         gr-tooltip-position="top">
-                        <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
+                        <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter), nonFree: ctrl.srefNonfree()})"
                            ng-attr-style="{{ctrl.getCollectionStyle(collection)}}"
                            class="preview__collections__collection__value">
                             {{collection.data.description}}

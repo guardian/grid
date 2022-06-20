@@ -9,15 +9,18 @@ import {mediaApi} from '../../services/api/media-api';
 
 import strings from '../../strings.json';
 
+import '../../util/storage';
+
 export var presetLabels = angular.module('gr.presetLabels', [
     'gr.autoFocus',
     'kahuna.services.presetLabel',
-    mediaApi.name
+    mediaApi.name,
+    'util.storage'
 ]);
 
 presetLabels.controller('GrPresetLabelsCtrl', [
-    '$window', 'presetLabelService', 'mediaApi',
-    function ($window, presetLabelService, mediaApi) {
+    '$window', 'presetLabelService', 'mediaApi', 'storage',
+    function ($window, presetLabelService, mediaApi, storage) {
 
         let ctrl = this;
 
@@ -58,6 +61,8 @@ presetLabels.controller('GrPresetLabelsCtrl', [
             ctrl.active = false;
             ctrl.newLabel = '';
         }
+
+        ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
 
     }
 ]);

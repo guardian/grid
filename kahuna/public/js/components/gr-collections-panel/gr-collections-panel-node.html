@@ -29,7 +29,7 @@
         <a data-cy="collection-child-link"
            ng-if="! ctrl.hasCustomSelect"
            class="node__name flex-spacer"
-           ui-sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId)})">
+           ui-sref="search.results({query: ctrl.getCollectionQuery(node.data.data.pathId), nonFree: ctrl.srefNonfree()})">
             {{:: node.data.data.description}}
         </a>
 
