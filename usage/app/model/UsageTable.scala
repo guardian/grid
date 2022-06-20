@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.aws.DynamoDB
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.lib.usage.ItemToMediaUsage
 import com.gu.mediaservice.model.usage.{MediaUsage, PendingUsageStatus, PublishedUsageStatus, UsageTableFullKey}
-import lib.{BadInputException, UsageConfig, WithContext}
+import lib.{BadInputException, UsageConfig, WithLogMarker}
 import play.api.libs.json._
 import rx.lang.scala.Observable
 
@@ -76,8 +76,8 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
       }
   }.toList
 
-  def matchUsageGroup(usageGroupWithContext: WithContext[UsageGroup]): Observable[WithContext[Set[MediaUsage]]] = {
-    implicit val logMarker: LogMarker = usageGroupWithContext.context
+  def matchUsageGroup(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[Set[MediaUsage]]] = {
+    implicit val logMarker: LogMarker = usageGroupWithContext.logMarker
     val usageGroup = usageGroupWithContext.value
 
     logger.info(logMarker, s"Trying to match UsageGroup: ${usageGroup.grouping}")
@@ -98,7 +98,7 @@ class UsageTable(config: UsageConfig) extends DynamoDB(config, config.usageRecor
 
       logger.info(logMarker, s"Built matched UsageGroup ${usageGroup.grouping} (${usages.size})")
 
-      WithContext(usages)
+      WithLogMarker(usages)
     })
   }
 

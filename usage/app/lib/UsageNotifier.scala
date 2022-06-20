@@ -29,9 +29,9 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
     )
   }
 
-  def send(usageNoticeWithContext: WithContext[UsageNotice]): LogMarker = {
+  def send(usageNoticeWithContext: WithLogMarker[UsageNotice]): LogMarker = {
     val usageNotice = usageNoticeWithContext.value
-    logger.info(usageNoticeWithContext.context, s"Sending usage notice for ${usageNotice.mediaId}")
+    logger.info(usageNoticeWithContext.logMarker, s"Sending usage notice for ${usageNotice.mediaId}")
     publish(
       UpdateMessage(
         subject = UpdateImageUsages,
@@ -39,6 +39,6 @@ class UsageNotifier(config: UsageConfig, usageTable: UsageTable)
         usageNotice = Some(usageNotice)
       )
     )
-    usageNoticeWithContext.context
+    usageNoticeWithContext.logMarker
   }
 }

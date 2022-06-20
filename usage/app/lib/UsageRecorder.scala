@@ -18,23 +18,23 @@ class UsageRecorder(
   usageNotifier: UsageNotifier
 ) extends GridLogging {
 
-  val usageApiSubject: Subject[WithContext[UsageGroup]] = PublishSubject[WithContext[UsageGroup]]()
-  val combinedObservable: Observable[WithContext[UsageGroup]] = CrierUsageStream.observable.merge(usageApiSubject)
+  val usageApiSubject: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
+  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = CrierUsageStream.observable.merge(usageApiSubject)
 
   val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
   var maybeSubscription: Option[Subscription] = None
 
-  val dbMatchStream: Observable[WithContext[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
+  val dbMatchStream: Observable[WithLogMarker[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
 
-  def matchDb(usageGroupWithContext: WithContext[UsageGroup]): Observable[WithContext[MatchedUsageGroup]] = {
-    val WithContext(context, usageGroup) = usageGroupWithContext
+  def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[MatchedUsageGroup]] = {
+    val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
     usageTable.matchUsageGroup(usageGroupWithContext)
       .retry((retriesSoFar, error) => {
         val maxRetries = 5
         logger.error(
-          context ++ Map("retry" -> retriesSoFar),
+          logMarker ++ Map("retry" -> retriesSoFar),
           s"Encountered an error trying to match usage group (${usageGroup.grouping}) retry $retriesSoFar of $maxRetries",
           error
         )
@@ -42,17 +42,17 @@ class UsageRecorder(
         retriesSoFar < maxRetries
       })
       .map{dbUsagesWithContext =>
-        implicit val logMarker: LogMarker = dbUsagesWithContext.context
-        logger.info(dbUsagesWithContext.context, s"Built MatchedUsageGroup for ${usageGroup.grouping}")
-        WithContext(MatchedUsageGroup(usageGroup, dbUsagesWithContext.value))
+        implicit val logMarker: LogMarker = dbUsagesWithContext.logMarker
+        logger.info(dbUsagesWithContext.logMarker, s"Built MatchedUsageGroup for ${usageGroup.grouping}")
+        WithLogMarker(MatchedUsageGroup(usageGroup, dbUsagesWithContext.value))
       }
   }
 
-  val dbUpdateStream: Observable[WithContext[Set[String]]] = getUpdatesStream(dbMatchStream)
+  val dbUpdateStream: Observable[WithLogMarker[Set[String]]] = getUpdatesStream(dbMatchStream)
 
-  val notificationStream: Observable[WithContext[UsageNotice]] = getNotificationStream(dbUpdateStream)
+  val notificationStream: Observable[WithLogMarker[UsageNotice]] = getNotificationStream(dbUpdateStream)
 
-  val distinctNotificationStream: Observable[WithContext[UsageNotice]] = notificationStream.groupBy(_.value.mediaId).flatMap {
+  val distinctNotificationStream: Observable[WithLogMarker[UsageNotice]] = notificationStream.groupBy(_.value.mediaId).flatMap {
     case (_, s) => s.distinctUntilChanged
   }
 
@@ -66,9 +66,9 @@ class UsageRecorder(
     retriesSoFar < maxRetries
   })
 
-  private def getUpdatesStream(dbMatchStream:  Observable[WithContext[MatchedUsageGroup]]): Observable[WithContext[Set[String]]] = {
+  private def getUpdatesStream(dbMatchStream:  Observable[WithLogMarker[MatchedUsageGroup]]): Observable[WithLogMarker[Set[String]]] = {
     dbMatchStream.flatMap(matchedUsageGroupWithContext => {
-      implicit val logMarker: LogMarker = matchedUsageGroupWithContext.context
+      implicit val logMarker: LogMarker = matchedUsageGroupWithContext.logMarker
       val matchedUsageGroup = matchedUsageGroupWithContext.value
 
       val usageGroup = matchedUsageGroup.usageGroup
@@ -124,18 +124,18 @@ class UsageRecorder(
         .flatten[JsObject]
         .map(_ => {
           logger.info(logMarker, s"Emitting ${mediaIdsImplicatedInDBUpdates.size} media IDs for notification")
-          WithContext(mediaIdsImplicatedInDBUpdates)
+          WithLogMarker(mediaIdsImplicatedInDBUpdates)
         })
     })
   }
 
-  private def getNotificationStream(dbUpdateStream: Observable[WithContext[Set[String]]]): Observable[WithContext[UsageNotice]] = {
+  private def getNotificationStream(dbUpdateStream: Observable[WithLogMarker[Set[String]]]): Observable[WithLogMarker[UsageNotice]] = {
     dbUpdateStream
       .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
-        implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.context
+        implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
-        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(usageNotice.build)).flatten[UsageNotice].map(WithContext(_))
+        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(usageNotice.build)).flatten[UsageNotice].map(WithLogMarker(_))
       }
   }
 

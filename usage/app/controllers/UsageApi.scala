@@ -28,7 +28,7 @@ class UsageApi(
   usageGroupOps: UsageGroupOps,
   notifications: Notifications,
   config: UsageConfig,
-  usageApiSubject: Subject[WithContext[UsageGroup]],
+  usageApiSubject: Subject[WithLogMarker[UsageGroup]],
   liveContentApi: LiveContentApi,
   override val controllerComponents: ControllerComponents,
   playBodyParsers: PlayBodyParsers
@@ -67,12 +67,12 @@ class UsageApi(
   def index = auth { indexResponse }
 
   def forUsage(usageId: String) = auth.async { req =>
-    implicit val context: LogMarker = MarkerMap(
+    implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "get-usage",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
       "usageId" -> usageId,
     )
-    logger.info(context, s"Request for single usage $usageId")
+    logger.info(logMarker, s"Request for single usage $usageId")
     val usageFuture = usageTable.queryByUsageId(usageId)
 
     usageFuture.map[play.api.mvc.Result]((mediaUsageOption: Option[MediaUsage]) => {
@@ -91,14 +91,14 @@ class UsageApi(
         respond[Usage](data = usage, uri = uri, links = links)
       })
     }).recover { case error: Exception =>
-      logger.error(context, "UsageApi returned an error.", error)
+      logger.error(logMarker, "UsageApi returned an error.", error)
       respondError(InternalServerError, "usage-retrieve-failed", error.getMessage)
     }
 
   }
 
   def reindexForContent(contentId: String) = auth.async { req =>
-    implicit val context: LogMarker = MarkerMap(
+    implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "reindex-for-content",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
       "contentId" -> contentId,
@@ -124,13 +124,13 @@ class UsageApi(
           NotFound
       }
     }.recover { case error: Exception =>
-        logger.error(context, s"UsageApi reindex for for content ($contentId) failed!", error)
+        logger.error(logMarker, s"UsageApi reindex for for content ($contentId) failed!", error)
         InternalServerError
       }
   }
 
   def forMedia(mediaId: String) = auth.async { req =>
-    implicit val context: LogMarker = MarkerMap(
+    implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "usages-for-media-id",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
       "image-id" -> mediaId,
@@ -157,10 +157,10 @@ class UsageApi(
       }
     }).recover {
       case error: BadInputException =>
-        logger.error(context, "UsageApi returned an error.", error)
+        logger.error(logMarker, "UsageApi returned an error.", error)
         respondError(BadRequest, "image-usage-retrieve-failed", error.getMessage)
       case error: Exception =>
-        logger.error(context, "UsageApi returned an error.", error)
+        logger.error(logMarker, "UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-retrieve-failed", error.getMessage)
     }
   }
@@ -176,12 +176,12 @@ class UsageApi(
         respondError(BadRequest, "print-usage-request-parse-failed", JsError.toJson(e).toString)
       },
       printUsageRequest => {
-        implicit val context: LogMarker = MarkerMap(
+        implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-print-usages",
           "requestId" -> RequestLoggingFilter.getRequestId(req),
         )
         val usageGroups = usageGroupOps.build(printUsageRequest.printUsageRecords)
-        usageGroups.map(WithContext.includeUsageGroup).foreach(usageApiSubject.onNext)
+        usageGroups.map(WithLogMarker.includeUsageGroup).foreach(usageApiSubject.onNext)
 
         Accepted
       }
@@ -198,15 +198,15 @@ class UsageApi(
         errorMessage = JsError.toJson(e).toString
       ),
       sur => {
-        implicit val context: LogMarker = MarkerMap(
+        implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-syndication-usages",
           "requestId" -> RequestLoggingFilter.getRequestId(req),
           "image-id" -> sur.mediaId,
         ) ++ apiKeyMarkers(req.user.accessor)
 
-        logger.info(context, "recording syndication usage")
+        logger.info(logMarker, "recording syndication usage")
         val group = usageGroupOps.build(sur)
-        usageApiSubject.onNext(WithContext.includeUsageGroup(group))
+        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
         Accepted
       }
     )
@@ -222,14 +222,14 @@ class UsageApi(
         errorMessage = JsError.toJson(e).toString
       ),
       fur => {
-        implicit val context: LogMarker = MarkerMap(
+        implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-front-usages",
           "requestId" -> RequestLoggingFilter.getRequestId(req),
           "image-id" -> fur.mediaId,
         ) ++ apiKeyMarkers(req.user.accessor)
-        logger.info(context, "recording front usage")
+        logger.info(logMarker, "recording front usage")
         val group = usageGroupOps.build(fur)
-        usageApiSubject.onNext(WithContext.includeUsageGroup(group))
+        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
         Accepted
       }
     )
@@ -245,21 +245,21 @@ class UsageApi(
         errorMessage = JsError.toJson(e).toString
       ),
       usageRequest => {
-        implicit val context: LogMarker = MarkerMap(
+        implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-download-usages",
           "requestId" -> RequestLoggingFilter.getRequestId(req),
           "image-id" -> usageRequest.mediaId,
         ) ++ apiKeyMarkers(req.user.accessor)
-        logger.info(context, "recording download usage")
+        logger.info(logMarker, "recording download usage")
         val group = usageGroupOps.build(usageRequest)
-        usageApiSubject.onNext(WithContext.includeUsageGroup(group))
+        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
         Accepted
       }
     )
   }}
 
   def deleteUsages(mediaId: String) = AuthenticatedAndAuthorisedToDelete.async { req =>
-    implicit val context: LogMarker = MarkerMap(
+    implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "delete-usages",
       "requestId" -> RequestLoggingFilter.getRequestId(req),
       "image-id" -> mediaId,
@@ -268,10 +268,10 @@ class UsageApi(
       usages.foreach(usageTable.deleteRecord)
     }).recover {
       case error: BadInputException =>
-        logger.warn(context, "UsageApi returned an error.", error)
+        logger.warn(logMarker, "UsageApi returned an error.", error)
         respondError(BadRequest, "image-usage-delete-failed", error.getMessage)
       case error: Exception =>
-        logger.error(context, "UsageApi returned an error.", error)
+        logger.error(logMarker, "UsageApi returned an error.", error)
         respondError(InternalServerError, "image-usage-delete-failed", error.getMessage)
     }
 

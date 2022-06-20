@@ -27,7 +27,7 @@ trait ContentContainer extends GridLogging {
   private lazy val isEntirePieceTakenDown =
     content.fields.exists(fields => fields.firstPublicationDate.isDefined && fields.isLive.contains(false))
 
-  def emitAsUsageGroup(publishSubject: Subject[WithContext[UsageGroup]], usageGroupOps: UsageGroupOps)(implicit logMarker: LogMarker) = {
+  def emitAsUsageGroup(publishSubject: Subject[WithLogMarker[UsageGroup]], usageGroupOps: UsageGroupOps)(implicit logMarker: LogMarker) = {
     usageGroupOps.build(
       content,
       status = this match {
@@ -39,13 +39,13 @@ trait ContentContainer extends GridLogging {
     ) match {
       case None => logger.debug(logMarker, s"No fields in content of crier update for payload with content ID ${content.id}")
       case Some(usageGroup) =>
-        val context = logMarker ++ Map("usageGroup" -> usageGroup.grouping)
+        val groupingLogMarker = logMarker ++ Map("usageGroup" -> usageGroup.grouping)
 
-        publishSubject.onNext(WithContext(context, usageGroup))
+        publishSubject.onNext(WithLogMarker(groupingLogMarker, usageGroup))
 
         if (this.isInstanceOf[PreviewContentItem] && isEntirePieceTakenDown) {
-          logger.info(context, s"${usageGroup.grouping} is taken down so producing empty UsageGroup to ensure any 'published' DB records are marked as removed")
-          publishSubject.onNext(WithContext(context, usageGroup.copy(
+          logger.info(groupingLogMarker, s"${usageGroup.grouping} is taken down so producing empty UsageGroup to ensure any 'published' DB records are marked as removed")
+          publishSubject.onNext(WithLogMarker(groupingLogMarker, usageGroup.copy(
             usages = Set.empty,
             maybeStatus = Some(PublishedUsageStatus)
           )))
@@ -55,7 +55,7 @@ trait ContentContainer extends GridLogging {
 }
 
 object CrierUsageStream {
-  val observable: Subject[WithContext[UsageGroup]] = PublishSubject[WithContext[UsageGroup]]()
+  val observable: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
 }
 
 case class LiveContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer
