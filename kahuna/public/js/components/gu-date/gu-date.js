@@ -1,13 +1,13 @@
 import angular from 'angular';
 import moment from 'moment';
-import Pikaday from 'pikaday';
+import Pikaday from 'pikaday-time';
 import 'pikaday/css/pikaday.css';
 
 import template from './gu-date.html';
 import rangeTemplate from './gu-date-range-x.html';
 import './gu-date.css';
 
-const DISPLAY_FORMAT = 'DD MMM YYYY';
+const DISPLAY_FORMAT = 'DD MMM YYYY HH:mm';
 const TEN_YEARS_MILLIS = (10 * 365 * 24 * 60 * 60 * 1000);
 const START_OF_WEEK = 1; // Monday
 
@@ -54,7 +54,9 @@ guDate.directive('guDate', [function () {
                 yearRange: 100,
                 firstDay: START_OF_WEEK,
                 format: DISPLAY_FORMAT,
-                keyboardInput: false
+                keyboardInput: false,
+                use24hour: true,
+                autoClose: false
             });
 
             $scope.clear = () => {
@@ -65,7 +67,6 @@ guDate.directive('guDate', [function () {
             $scope.closeOverlay = () => $scope.showingOverlay = false;
 
             if (angular.isDefined($scope.minDate)) {
-                $scope.dateRounder = (date) => moment(date).endOf('day').toDate();
 
                 $scope.$watch('minDate', value => {
                     const dateValue = value ? new Date(value) : new Date();
@@ -74,7 +75,6 @@ guDate.directive('guDate', [function () {
             }
 
             if (angular.isDefined($scope.maxDate)) {
-                $scope.dateRounder = (date) => moment(date).startOf('day').toDate();
 
                 $scope.$watch('maxDate', value => {
                     const dateValue = value ? new Date(value) : new Date();
@@ -83,15 +83,10 @@ guDate.directive('guDate', [function () {
             }
 
             $scope.$watch('pikaValue', value => {
-                const date = value === ""
-                    ? undefined
-                    : angular.isDefined($scope.dateRounder)
-                        ? $scope.dateRounder(value)
-                        : value;
+                const date = value === "" ? undefined : value;
 
                 $scope.date = getDateISOString(date);
                 $scope.displayValue = getDisplayValue(date);
-                $scope.closeOverlay();
             });
 
             $scope.$on('$destroy', () => pika.destroy);
