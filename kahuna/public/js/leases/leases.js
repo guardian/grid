@@ -273,7 +273,7 @@ leases.controller('LeasesCtrl', [
         });
 
         function getDefaultExpiryDate(leaseType) {
-            const inTwoDays = moment().add(2, 'days').startOf('day').toDate();
+            const inTwoDays = moment().add(2, 'days').endOf('day').toDate();
 
             return ['allow-use', 'deny-use'].includes(leaseType) ? inTwoDays : null;
         }
