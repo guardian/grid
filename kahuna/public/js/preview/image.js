@@ -2,6 +2,8 @@ import angular from 'angular';
 import Rx from 'rx';
 
 import '../util/rx';
+import '../util/storage';
+
 
 import template from './image.html';
 import templateLarge from './image-large.html';
@@ -24,7 +26,8 @@ export var image = angular.module('kahuna.preview.image', [
     'gr.archiverStatus',
     'gr.syndicationIcon',
     'util.rx',
-    'kahuna.imgops'
+    'kahuna.imgops',
+    'util.storage'
 ]);
 
 image.controller('uiPreviewImageCtrl', [
@@ -36,6 +39,7 @@ image.controller('uiPreviewImageCtrl', [
     'imageUsagesService',
     'labelService',
     'imageAccessor',
+    'storage',
     function (
         $scope,
         inject$,
@@ -44,7 +48,8 @@ image.controller('uiPreviewImageCtrl', [
         imageService,
         imageUsagesService,
         labelService,
-        imageAccessor) {
+        imageAccessor,
+        storage) {
       var ctrl = this;
 
       $scope.$watch(() => ctrl.image, (newImage) => {
@@ -97,6 +102,9 @@ image.controller('uiPreviewImageCtrl', [
     ctrl.getCollectionStyle = collection => {
         return collection.data.cssColour && `background-color: ${collection.data.cssColour}`;
     };
+
+    ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+
 }]);
 
 image.directive('uiPreviewImage', function() {
