@@ -6,11 +6,13 @@ import template from './gr-photoshoot.html';
 import '../../image/service';
 import '../../services/photoshoot';
 import '../../services/image-accessor';
+import '../../util/storage';
 
 export const photoshoot = angular.module('gr.photoshoot', [
     'gr.image.service',
     'kahuna.services.image-accessor',
-    'kahuna.services.photoshoot'
+    'kahuna.services.photoshoot',
+    'util.storage'
 ]);
 
 photoshoot.controller('GrPhotoshootCtrl', [
@@ -20,8 +22,9 @@ photoshoot.controller('GrPhotoshootCtrl', [
     'mediaApi',
     'imageAccessor',
     'photoshootService',
+    'storage',
 
-    function($rootScope, $scope, imageService, mediaApi, imageAccessor, photoshootService) {
+    function($rootScope, $scope, imageService, mediaApi, imageAccessor, photoshootService, storage) {
         const ctrl = this;
 
         function refreshForOne() {
@@ -72,6 +75,8 @@ photoshoot.controller('GrPhotoshootCtrl', [
         ctrl.remove = () => {
             return photoshootService.batchRemove({ images: ctrl.images });
         };
+
+        ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
 
         if (Boolean(ctrl.withBatch)) {
             const batchApplyEvent = 'events:batch-apply:photoshoot';

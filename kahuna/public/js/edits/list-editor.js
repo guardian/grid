@@ -4,12 +4,14 @@ import templateCompact from './list-editor-compact.html';
 import templateInfoPanel from './list-editor-info-panel.html';
 import './list-editor.css';
 import '../services/image-list';
+import '../util/storage';
 
 import '../search/query-filter';
 
 export var listEditor = angular.module('kahuna.edits.listEditor', [
     'kahuna.search.filters.query',
-    'kahuna.services.image-logic'
+    'kahuna.services.image-logic',
+    'util.storage'
 ]);
 
 listEditor.controller('ListEditorCtrl', [
@@ -19,12 +21,14 @@ listEditor.controller('ListEditorCtrl', [
     '$timeout',
     'imageLogic',
     'imageList',
+    'storage',
     function($rootScope,
             $scope,
             $window,
             $timeout,
             imageLogic,
-            imageList) {
+            imageList,
+            storage) {
     var ctrl = this;
 
     const retrieveElementsWithOccurrences = (images) => imageList.getOccurrences(images.flatMap(img => ctrl.accessor(img)));
@@ -85,6 +89,8 @@ listEditor.controller('ListEditorCtrl', [
     ctrl.removeAll = () => {
         ctrl.plainList.forEach(element => ctrl.removeFromImages(ctrl.images, element));
     };
+
+    ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
 
     const batchAddEvent = 'events:batch-apply:add-all';
     const batchRemoveEvent = 'events:batch-apply:remove-all';

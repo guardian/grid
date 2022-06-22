@@ -18,7 +18,7 @@
         <li class="element"
             ng-repeat="element in ctrl.plainList"
             ng-class="{'element--removing': ctrl.elementsBeingRemoved.has(element)}">
-            <a ui-sref="search.results({query: (element | {{ctrl.queryFilter}})})"
+            <a ui-sref="search.results({query: (element | {{ctrl.queryFilter}}), nonFree: ctrl.srefNonfree()})"
                class="element__value element__link">{{element}}</a>
 
             <button data-cy="it-remove-element-button"
