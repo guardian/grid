@@ -33,7 +33,15 @@ upload.factory('uploadManager',
     }
 
     function upload(files) {
-        const job = files.reduce((items, file) => [...items, createJobItem(file, items[items.length - 1])], []);
+        const totalUploadSize = files.reduce((acc, file) => acc + file.size, 0);
+        const maxUploadSize = Math.max(...files.map(file => file.size));
+        const containsTiff = files.some(file => file.name.match(/\.tiff?$/i));
+        const sequentialUploading = totalUploadSize > 75_000_000 || maxUploadSize > 40_000_000 || containsTiff;
+
+        const job = sequentialUploading
+          ? files.reduce((items, file) => [...items, createJobItem(file, items[items.length - 1])], [])
+          : files.map(createJobItem);
+
         var promises = job.map(jobItem => jobItem.resourcePromise);
 
         jobs.add(job);
