@@ -140,7 +140,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
 
         store.add(collection).map { collection =>
           val node = Node(collection.path.last, Nil, collection.path, collection.path, Some(collection))
-          logger.info(req.user.accessor, s"Adding collection ${path.mkString("/")}")
+          logger.info(apiKeyMarkers(req.user.accessor), s"Adding collection ${path.mkString("/")}")
           respond(node, links = getLinks(node), actions = getActions(node))
         } recover {
           case e: CollectionsStoreError => storeError(e.message)
@@ -175,7 +175,7 @@ class CollectionsController(authenticated: Authentication, config: CollectionsCo
           s"$collectionPath has children, can't delete!"
         )
       } else {
-        logger.info(req.user.accessor, s"Deleting collection ${path.mkString("/")}")
+        logger.info(apiKeyMarkers(req.user.accessor), s"Deleting collection ${path.mkString("/")}")
         store.remove(path).map(_ => Accepted)
       }
     } recover {

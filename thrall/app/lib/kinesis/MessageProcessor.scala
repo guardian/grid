@@ -135,7 +135,7 @@ class MessageProcessor(
 
   private def deleteImage(message: DeleteImageMessage, logMarker: LogMarker)(implicit ec: ExecutionContext) = {
     Future.sequence({
-      implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(message.id))
+      implicit val marker: LogMarker = logMarker ++ imageIdMarker(ImageId(message.id))
       // if we cannot delete the image as it's "protected", succeed and delete
       // the message anyway.
       logger.info(marker, "ES6 Deleting image: " + message.id)
@@ -162,7 +162,7 @@ class MessageProcessor(
     Future.sequence(es.deleteAllImageUsages(message.id, message.lastModified)(ec, logMarker))
 
   def upsertSyndicationRightsOnly(message: UpdateImageSyndicationMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Any] = {
-    implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(message.id))
+    implicit val marker: LogMarker = logMarker ++ imageIdMarker(ImageId(message.id))
     es.getImage(message.id) map {
       case Some(image) =>
         val photoshoot = image.userMetadata.flatMap(_.photoshoot)
@@ -173,7 +173,7 @@ class MessageProcessor(
   }
 
   def updateImagePhotoshoot(message: UpdateImagePhotoshootMetadataMessage, logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
-    implicit val marker: LogMarker = logMarker ++ logger.imageIdMarker(ImageId(message.id))
+    implicit val marker: LogMarker = logMarker ++ imageIdMarker(ImageId(message.id))
     for {
       imageOpt <- es.getImage(message.id)
       prevPhotoshootOpt = imageOpt.flatMap(_.userMetadata.flatMap(_.photoshoot))

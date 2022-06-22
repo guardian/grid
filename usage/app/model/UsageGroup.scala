@@ -3,7 +3,7 @@ package model
 import play.api.libs.json._
 import com.gu.contentapi.client.model.v1.{Content, Element, ElementType}
 import com.gu.contentatom.thrift.{Atom, AtomData}
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.usage.{DigitalUsageMetadata, MediaUsage, PublishedUsageStatus, UsageStatus}
 import lib.{LiveContentApi, MD5, UsageConfig, UsageMetadataBuilder}
 import org.joda.time.DateTime
@@ -49,10 +49,10 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     ).mkString("_"))
   }"
 
-  def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean) =
+  def build(content: Content, status: UsageStatus, lastModified: DateTime, isReindex: Boolean)(implicit logMarker: LogMarker) =
     ContentWrapper.build(content, status, lastModified).map(contentWrapper => {
       val usages = createUsages(contentWrapper, isReindex)
-      logger.info(s"Built UsageGroup: ${contentWrapper.id}")
+      logger.info(logMarker, s"Built UsageGroup: ${contentWrapper.id}")
       UsageGroup(usages.toSet, contentWrapper.id, lastModified, isReindex, maybeStatus = Some(status))
     })
 
@@ -94,28 +94,29 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     )
   }
 
-  def createUsages(contentWrapper: ContentWrapper, isReindex: Boolean) = {
+  def createUsages(contentWrapper: ContentWrapper, isReindex: Boolean)(implicit logMarker: LogMarker) = {
     // Generate unique UUID to track extract job
     val uuid = java.util.UUID.randomUUID.toString
+    implicit val extractJobLogMarkers: LogMarker = logMarker ++ Map("extract-job-id" -> uuid)
 
     val content = contentWrapper.content
     val usageStatus = contentWrapper.status
 
-    logger.info(s"Extracting images (job-$uuid) from ${content.id}")
+    logger.info(extractJobLogMarkers, s"Extracting images from ${content.id}")
 
-    val mediaAtomsUsages = extractMediaAtoms(uuid, content, usageStatus, isReindex).flatMap { atom =>
+    val mediaAtomsUsages = extractMediaAtoms(content, usageStatus, isReindex)(extractJobLogMarkers).flatMap { atom =>
       getImageId(atom) match {
         case Some(id) =>
           val mediaWrapper = mediaWrapperOps.build(id, contentWrapper, buildId(contentWrapper))
           val usage = MediaUsageBuilder.build(mediaWrapper)
-          Seq(createUsagesLogging(usage))
+          Seq(createUsagesLogging(usage)(logMarker))
         case None => Seq.empty
       }
     }
-    val imageElementUsages = extractImageElements(uuid, content, usageStatus, isReindex).map { element =>
+    val imageElementUsages = extractImageElements(content, usageStatus, isReindex)(extractJobLogMarkers).map { element =>
       val mediaWrapper = mediaWrapperOps.build(element.id, contentWrapper, buildId(contentWrapper))
       val usage = MediaUsageBuilder.build(mediaWrapper)
-      createUsagesLogging(usage)
+      createUsagesLogging(usage)(logMarker)
     }
 
     // TODO capture images from interactive embeds
@@ -123,15 +124,15 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     mediaAtomsUsages ++ imageElementUsages
   }
 
-  private def createUsagesLogging(usage: MediaUsage) = {
-    logger.info(s"Built MediaUsage for ${usage.mediaId}")
+  private def createUsagesLogging(usage: MediaUsage)(implicit logMarker: LogMarker) = {
+    logger.info(logMarker, s"Built MediaUsage for ${usage.mediaId}")
 
     usage.digitalUsageMetadata.foreach(meta => {
-      logger.info(s"MediaUsage for ${usage.mediaId}: ${Json.toJson(meta)}")
+      logger.info(logMarker, s"Digital MediaUsage for ${usage.mediaId}: ${Json.toJson(meta)}")
     })
 
     usage.printUsageMetadata.foreach(meta => {
-      logger.info(s"MediaUsage for ${usage.mediaId}: ${Json.toJson(meta)}")
+      logger.info(logMarker, s"Print MediaUsage for ${usage.mediaId}: ${Json.toJson(meta)}")
     })
     usage
   }
@@ -145,24 +146,24 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     }
   }
 
-  private def extractMediaAtoms(uuid: String, content: Content, usageStatus: UsageStatus, isReindex: Boolean) = {
+  private def extractMediaAtoms(content: Content, usageStatus: UsageStatus, isReindex: Boolean)(implicit logMarker: LogMarker) = {
     val isNew = isNewContent(content, usageStatus)
     val shouldRecordUsages = isNew || isReindex
 
     if (shouldRecordUsages) {
-      logger.info(s"Passed shouldRecordUsages for media atom (job-$uuid)")
+      logger.info(logMarker, s"Passed shouldRecordUsages for media atom")
       val groupedMediaAtoms = groupMediaAtoms(content)
 
       if (groupedMediaAtoms.isEmpty) {
-        logger.info(s"No Matching media atoms found (job-$uuid)")
+        logger.info(logMarker, s"No Matching media atoms found")
       } else {
-        logger.info(s"${groupedMediaAtoms.length} media atoms found (job-$uuid)")
-        groupedMediaAtoms.foreach(atom => logger.info(s"Matching media atom ${atom.id} found (job-$uuid)"))
+        logger.info(logMarker, s"${groupedMediaAtoms.length} media atoms found")
+        groupedMediaAtoms.foreach(atom => logger.info(logMarker, s"Matching media atom ${atom.id} found"))
       }
 
       groupedMediaAtoms
     } else {
-      logger.info(s"Failed shouldRecordUsages for media atoms: isNew-$isNew isReindex-$isReindex (job-$uuid)")
+      logger.info(logMarker, s"Failed shouldRecordUsages for media atoms: isNew-$isNew isReindex-$isReindex")
       Seq.empty
     }
   }
@@ -199,26 +200,28 @@ class UsageGroupOps(config: UsageConfig, liveContentApi: LiveContentApi, mediaWr
     }
   }
 
-  private def extractImageElements(uuid: String, content: Content, usageStatus: UsageStatus, isReindex: Boolean): Seq[Element] = {
+  private def extractImageElements(
+    content: Content, usageStatus: UsageStatus, isReindex: Boolean
+  )(implicit logMarker: LogMarker): Seq[Element] = {
     val isNew = isNewContent(content, usageStatus)
     val shouldRecordUsages = isNew || isReindex
 
     if (shouldRecordUsages) {
-      logger.info(s"Passed shouldRecordUsages (job-$uuid)")
+      logger.info(logMarker, s"Passed shouldRecordUsages")
       val groupedElements = groupImageElements(content)
 
       if (groupedElements.isEmpty) {
-        logger.info(s"No Matching elements found (job-$uuid)")
+        logger.info(logMarker, s"No Matching elements found")
       } else {
         groupedElements.foreach(elements => {
-          logger.info(s"${elements.length} elements found (job-$uuid)")
-          elements.foreach(element => logger.info(s"Matching element ${element.id} found (job-$uuid)"))
+          logger.info(logMarker, s"${elements.length} elements found")
+          elements.foreach(element => logger.info(logMarker, s"Matching element ${element.id} found"))
         })
       }
 
       groupedElements.getOrElse(Seq.empty)
     } else {
-      logger.info(s"Failed shouldRecordUsages: isNew-$isNew isReindex-$isReindex (job-$uuid)")
+      logger.info(logMarker, s"Failed shouldRecordUsages: isNew-$isNew isReindex-$isReindex")
       Seq.empty
     }
   }

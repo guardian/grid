@@ -1,6 +1,6 @@
 package lib
 
-import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{MediaUsage, UsageNotice}
 import model._
 import play.api.libs.json._
@@ -18,50 +18,58 @@ class UsageRecorder(
   usageNotifier: UsageNotifier
 ) extends GridLogging {
 
-  val usageApiSubject: Subject[UsageGroup] = PublishSubject[UsageGroup]()
-  val combinedObservable: Observable[UsageGroup] = CrierUsageStream.observable.merge(usageApiSubject)
+  val usageApiSubject: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
+  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = CrierUsageStream.observable.merge(usageApiSubject)
 
-  val subscriber: Subscriber[Unit] = Subscriber((_: Unit) => logger.debug(s"Sent Usage Notification"))
+  val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
   var maybeSubscription: Option[Subscription] = None
 
-  val dbMatchStream: Observable[MatchedUsageGroup] = combinedObservable.flatMap(matchDb)
+  val dbMatchStream: Observable[WithLogMarker[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
 
-  def matchDb(usageGroup: UsageGroup): Observable[MatchedUsageGroup] = usageTable.matchUsageGroup(usageGroup)
-    .retry((retriesSoFar, error) => {
-      logger.error(s"Encountered an error trying to match usage group (${usageGroup.grouping}", error)
+  def matchDb(usageGroupWithContext: WithLogMarker[UsageGroup]): Observable[WithLogMarker[MatchedUsageGroup]] = {
+    val WithLogMarker(logMarker, usageGroup) = usageGroupWithContext
+    usageTable.matchUsageGroup(usageGroupWithContext)
+      .retry((retriesSoFar, error) => {
+        val maxRetries = 5
+        logger.error(
+          logMarker ++ Map("retry" -> retriesSoFar),
+          s"Encountered an error trying to match usage group (${usageGroup.grouping}) retry $retriesSoFar of $maxRetries",
+          error
+        )
 
-      true // TODO check 'retriesSoFar' so we don't retry forever 🙀
-    })
-    .map{dbUsages =>
-      logger.info(s"Built MatchedUsageGroup for ${usageGroup.grouping}")
-      MatchedUsageGroup(usageGroup, dbUsages)
-    }
+        retriesSoFar < maxRetries
+      })
+      .map{dbUsagesWithContext =>
+        implicit val logMarker: LogMarker = dbUsagesWithContext.logMarker
+        logger.info(dbUsagesWithContext.logMarker, s"Built MatchedUsageGroup for ${usageGroup.grouping}")
+        WithLogMarker(MatchedUsageGroup(usageGroup, dbUsagesWithContext.value))
+      }
+  }
 
-  val dbUpdateStream: Observable[Set[String]] = getUpdatesStream(dbMatchStream)
+  val dbUpdateStream: Observable[WithLogMarker[Set[String]]] = getUpdatesStream(dbMatchStream)
 
-  val notificationStream: Observable[UsageNotice] = getNotificationStream(dbUpdateStream)
+  val notificationStream: Observable[WithLogMarker[UsageNotice]] = getNotificationStream(dbUpdateStream)
 
-  val distinctNotificationStream: Observable[UsageNotice] = notificationStream.groupBy(_.mediaId).flatMap {
+  val distinctNotificationStream: Observable[WithLogMarker[UsageNotice]] = notificationStream.groupBy(_.value.mediaId).flatMap {
     case (_, s) => s.distinctUntilChanged
   }
 
-  val notifiedStream: Observable[Unit] = distinctNotificationStream.map(usageNotifier.send)
+  val notifiedStream: Observable[LogMarker] = distinctNotificationStream.map(usageNotifier.send)
 
-  val finalObservable: Observable[Unit] = notifiedStream.retry((_, error) => {
-    logger.error("UsageRecorder encountered an error.", error)
+  val finalObservable: Observable[LogMarker] = notifiedStream.retry((retriesSoFar, error) => {
+    val maxRetries = 5
+    logger.error(MarkerMap("retry" -> retriesSoFar), "UsageRecorder encountered an error.", error)
     usageMetrics.incrementErrors
 
-    true
+    retriesSoFar < maxRetries
   })
 
-  private def getUpdatesStream(dbMatchStream:  Observable[MatchedUsageGroup]): Observable[Set[String]] = {
-    dbMatchStream.flatMap(matchedUsageGroup => {
-      // Generate unique UUID to track extract job
-      val logMarker = MarkerMap(
-        "job-uuid" -> java.util.UUID.randomUUID.toString
-      )
+  private def getUpdatesStream(dbMatchStream:  Observable[WithLogMarker[MatchedUsageGroup]]): Observable[WithLogMarker[Set[String]]] = {
+    dbMatchStream.flatMap(matchedUsageGroupWithContext => {
+      implicit val logMarker: LogMarker = matchedUsageGroupWithContext.logMarker
+      val matchedUsageGroup = matchedUsageGroupWithContext.value
 
       val usageGroup = matchedUsageGroup.usageGroup
       val dbUsages = usageGroup.maybeStatus.fold(
@@ -114,18 +122,20 @@ class UsageRecorder(
 
       Observable.from(markAsRemovedOps ++ updateOps ++ createOps)
         .flatten[JsObject]
-        .map(_ => mediaIdsImplicatedInDBUpdates)
+        .map(_ => {
+          logger.info(logMarker, s"Emitting ${mediaIdsImplicatedInDBUpdates.size} media IDs for notification")
+          WithLogMarker(mediaIdsImplicatedInDBUpdates)
+        })
     })
   }
 
-  private def getNotificationStream(dbUpdateStream: Observable[Set[String]]) = {
+  private def getNotificationStream(dbUpdateStream: Observable[WithLogMarker[Set[String]]]): Observable[WithLogMarker[UsageNotice]] = {
     dbUpdateStream
       .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
-      .flatMap{ mediaIdsImplicatedInDBUpdates =>
-        Observable.from(
-          mediaIdsImplicatedInDBUpdates
-            .map(usageNotice.build)
-        ).flatten[UsageNotice]
+      .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
+        implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
+        logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
+        Observable.from(mediaIdsImplicatedInDBUpdatesWithContext.value.map(usageNotice.build)).flatten[UsageNotice].map(WithLogMarker(_))
       }
   }
 
