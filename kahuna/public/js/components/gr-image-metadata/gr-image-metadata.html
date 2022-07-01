@@ -612,7 +612,7 @@
         </div>
     </div>
 
-    <div ng-if="ctrl.singleImage" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
+    <div ng-if="(ctrl.singleImage && ctrl.userCanEdit) || (ctrl.singleImage && !ctrl.userCanEdit && ctrl.domainMetadata.every(spec=> spec.fields.every(specField=> specField.value != null)))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
          role="region" aria-label="Domain metadata">
         <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)"
                 aria-label="{{ctrl.isMetadataSectionHidden(spec.name) ? 'Show' : 'Hide'}} {{spec.label}} domain metadata section">
