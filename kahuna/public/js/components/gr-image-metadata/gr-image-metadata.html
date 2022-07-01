@@ -584,8 +584,8 @@
             </dd>
     </dl>
     </div>
-    <!-- FIXME: iff has useful metadata -->
-    <div ng-if="ctrl.singleImage" class="image-info__group image-info__group--full-metadata" role="region" aria-label="Additional metadata">
+
+    <div ng-if="ctrl.singleImage && (ctrl.metadata.length > 0 || ctrl.additionalMetadata.length > 0 || ctrl.identifiers.length > 0)" class="image-info__group image-info__group--full-metadata" role="region" aria-label="Additional metadata">
         <button class="metadata-reveal"
                 ng-click="ctrl.showMetadataSection('additionalMetadata')"
                 aria-label="{{ctrl.isMetadataSectionHidden('additionalMetadata') ? 'Show' : 'Hide'}} additional metadata section">
@@ -612,7 +612,7 @@
         </div>
     </div>
 
-    <div ng-if="ctrl.singleImage" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
+    <div ng-if="(ctrl.singleImage && ctrl.userCanEdit) || (ctrl.singleImage && !ctrl.userCanEdit && !ctrl.isDomainMetadataEmpty(spec.name))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
          role="region" aria-label="Domain metadata">
         <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)"
                 aria-label="{{ctrl.isMetadataSectionHidden(spec.name) ? 'Show' : 'Hide'}} {{spec.label}} domain metadata section">
@@ -625,8 +625,8 @@
             <span class="metadata__description" ng-if="spec.description">{{spec.description}}</span>
 
             <dl ng-repeat="specField in spec.fields" class="metadata__body image-info__group--dl">
-                <dt class="image-info__{{specField.name}} image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="ctrl.userCanEdit">{{specField.label}}</dt>
-                <dd data-cy="metadata-{{specField.name}}" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="ctrl.userCanEdit">
+                <dt class="image-info__{{specField.name}} image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="specField.value || ctrl.userCanEdit">{{specField.label}}</dt>
+                <dd data-cy="metadata-{{specField.name}}" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="specField.value || ctrl.userCanEdit">
 
                     <div ng-switch="specField.fieldType">
                         <span ng-switch-when="string">
@@ -648,7 +648,7 @@
                                 <span ng-if="specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value">
+                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -673,7 +673,7 @@
                                 <span ng-if="specField.value">
                                     {{specField.value | date:'d MMM yyyy, HH:mm'}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value">
+                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -699,7 +699,7 @@
                                 <span ng-if="specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value">
+                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -725,7 +725,7 @@
                                 <span ng-if="specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value">
+                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
@@ -750,7 +750,7 @@
                                 <span ng-if="specField.value">
                                     {{specField.value}}
                                 </span>
-                                <span class="editable-empty" ng-if="! specField.value">
+                                <span class="editable-empty" ng-if="! specField.value && ctrl.userCanEdit">
                                     Unknown (click ✎ to add)
                                 </span>
                             </span>
