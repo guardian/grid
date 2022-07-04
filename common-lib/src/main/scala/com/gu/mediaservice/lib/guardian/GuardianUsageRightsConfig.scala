@@ -236,6 +236,7 @@ object GuardianUsageRightsConfig extends UsageRightsConfigProvider {
     "Botanica",
     "Broadway.com RM",
     "Built.Images RF",
+    "BuzzFoto",
     "Caiaimage",
     "Canopy RM",
     "Car Culture",
