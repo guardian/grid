@@ -9,7 +9,7 @@ import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
+import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage}
 import lib.elasticsearch.ElasticSearch
 import lib.{MigrationRequest, OptionalFutureRunner, Paging}
 import org.joda.time.{DateTime, DateTimeZone}
@@ -214,6 +214,29 @@ class ThrallController(
         }
       case None =>
         Future.successful(InternalServerError(s"Failed to send migrate image message $imageId"))
+    }
+  }
+
+  def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+    Paging.withPaging(Some(page)) { paging =>
+      es.migrationStatus match {
+        case running: Running =>
+          val migrationRequestsF = es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, paging.from, paging.pageSize, filter).map(failures =>
+            failures.details.map(detail => MigrationRequest(detail.imageId, detail.version))
+          )
+          for {
+            migrationRequests <- migrationRequestsF
+            successfulSubmissions <- Future.sequence(migrationRequests.map(sendMigrationRequest))
+          } yield {
+            val failures = successfulSubmissions.count(_ == false)
+            if (failures == 0) {
+              Ok("Submitted all failures for reattempted migration")
+            } else {
+              InternalServerError(s"Failed to submit $failures images for reattempted migration")
+            }
+          }
+        case _ => Future.successful(InternalServerError("Cannot resubmit images; migration is not running"))
+      }
     }
   }
 
