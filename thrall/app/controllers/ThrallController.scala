@@ -11,7 +11,7 @@ import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
 import lib.elasticsearch.ElasticSearch
-import lib.{MigrationRequest, OptionalFutureRunner}
+import lib.{MigrationRequest, OptionalFutureRunner, Paging}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
@@ -86,35 +86,29 @@ class ThrallController(
   }
 
   def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
-    val pageSize = 250
-    // pages are indexed from 1
-    val page = maybePage.getOrElse(1)
-    val from = (page - 1) * pageSize
-    if (page < 1) {
-      Future.successful(BadRequest(s"Value for page parameter should be >= 1"))
-    } else {
+    Paging.withPaging(maybePage) { paging =>
       es.migrationStatus match {
         case running: Running =>
-          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, from, pageSize, filter).map(failures =>
+          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, paging.from, paging.pageSize, filter).map(failures =>
             Ok(views.html.migrationFailures(
               failures,
               apiBaseUrl = services.apiBaseUri,
               uiBaseUrl = services.kahunaBaseUri,
               filter,
-              page,
+              paging.page,
               shouldAllowReattempts = true
             ))
           )
         case _ => for {
           currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
           currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '${es.imagesCurrentAlias}' alias")))
-          failures <- es.getMigrationFailures(es.imagesHistoricalAlias, currentIndexName, from, pageSize, filter)
+          failures <- es.getMigrationFailures(es.imagesHistoricalAlias, currentIndexName, paging.from, paging.pageSize, filter)
           response = Ok(views.html.migrationFailures(
             failures,
             apiBaseUrl = services.apiBaseUri,
             uiBaseUrl = services.kahunaBaseUri,
             filter,
-            page,
+            paging.page,
             shouldAllowReattempts = false
           ))
         } yield response
