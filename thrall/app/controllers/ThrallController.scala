@@ -10,8 +10,8 @@ import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
-import lib.OptionalFutureRunner
 import lib.elasticsearch.ElasticSearch
+import lib.{MigrationRequest, OptionalFutureRunner}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
@@ -19,14 +19,13 @@ import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-
 import scala.language.postfixOps
 
 case class MigrateSingleImageForm(id: String)
 
 class ThrallController(
   es: ElasticSearch,
-  sendMigrationMessage: MigrationMessage => Future[Boolean],
+  sendMigrationRequest: MigrationRequest => Future[Boolean],
   messageSender: ThrallMessageSender,
   actorSystem: ActorSystem,
   override val auth: Authentication,
@@ -212,20 +211,16 @@ class ThrallController(
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
 
-    val migrateImageMessage = (
-      for {
-        maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, auth.innerServiceCall)
-        maybeVersion <- es.getImageVersion(imageId)
-      } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
-    ).recover {
-      case error => MigrateImageMessage(imageId, Left(error.toString))
-    }
+    es.getImageVersion(imageId) flatMap {
 
-    val msgFailedToMigrateImage = s"Failed to send migrate image message ${imageId}"
-    migrateImageMessage.flatMap(message => sendMigrationMessage(message).map{
-      case true => Ok(s"Image migration message sent successfully with id:${imageId}")
-      case _ => InternalServerError(msgFailedToMigrateImage)
-    })
+      case Some(version) =>
+        sendMigrationRequest(MigrationRequest(imageId, version)).map {
+          case true => Ok(s"Image migration queued successfully with id:$imageId")
+          case false => InternalServerError(s"Failed to send migrate image message $imageId")
+        }
+      case None =>
+        Future.successful(InternalServerError(s"Failed to send migrate image message $imageId"))
+    }
   }
 
   val migrateSingleImageFormReader: Form[MigrateSingleImageForm] = Form(
