@@ -106,8 +106,8 @@ object MigrationSourceWithSender extends GridLogging {
       }
 
     // merge both sources of MigrationRequest
-    // priority = false prefers manualIdsSource
-    val idsSource = manualIdsSource.mergePreferred(scrollingIdsSource, priority = false)
+    // priority = true prefers manualIdsSource
+    val idsSource = manualIdsSource.mergePreferred(scrollingIdsSource, priority = true)
 
     // project image from MigrationRequest, produce the MigrateImageMessage
     val projectedImageSource: Source[MigrationRecord, NotUsed] = idsSource.mapAsyncUnordered(projectionParallelism) {
