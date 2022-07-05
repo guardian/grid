@@ -8,7 +8,8 @@ final case class FailedMigrationDetails(
   uploadedBy: String,
   uploadTime:String,
   sourceJson: String,
-  esDocAsImageValidationFailures: Option[String]
+  esDocAsImageValidationFailures: Option[String],
+  version: Long
 )
 
 final case class FailedMigrationSummary(totalFailed: Long, details: Seq[FailedMigrationDetails])

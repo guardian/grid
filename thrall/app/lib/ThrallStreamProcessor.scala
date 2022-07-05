@@ -50,8 +50,7 @@ case class TaggedRecord[+P](payload: P,
 class ThrallStreamProcessor(
   uiSource: Source[KinesisRecord, Future[Done]],
   automationSource: Source[KinesisRecord, Future[Done]],
-  migrationManualSource: Source[MigrationRecord, Future[Done]],
-  migrationOngoingSource: Source[MigrationRecord, Future[Done]],
+  migrationSource: Source[MigrationRecord, Future[Done]],
   consumer: ThrallEventConsumer,
   actorSystem: ActorSystem
  ) extends GridLogging {
@@ -68,11 +67,7 @@ class ThrallStreamProcessor(
     val automationRecordSource = automationSource.map(kinesisRecord =>
       TaggedRecord(kinesisRecord.data.toArray, kinesisRecord.approximateArrivalTimestamp, AutomationPriority, kinesisRecord.markProcessed))
 
-    val migrationManualMessagesSource = migrationManualSource.map { case MigrationRecord(internalThrallMessage, time) =>
-      TaggedRecord(internalThrallMessage, time, MigrationPriority, () => {})
-    }
-
-    val migrationOngoingMessagesSource = migrationOngoingSource.map { case MigrationRecord(internalThrallMessage, time) =>
+    val migrationMessagesSource = migrationSource.map { case MigrationRecord(internalThrallMessage, time) =>
       TaggedRecord(internalThrallMessage, time, MigrationPriority, () => {})
     }
 
@@ -101,15 +96,10 @@ class ThrallStreamProcessor(
           case Right(taggedRecord) => taggedRecord
         }
 
-    // merge the migration sources (preferring manually requested migrations)
-    val mergedMigrationMessagesSources = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](1))
-    migrationManualMessagesSource ~> mergedMigrationMessagesSources.preferred
-    migrationOngoingMessagesSource ~> mergedMigrationMessagesSources.in(0)
-
     // merge in the re-ingestion source (preferring ui/automation)
     val mergePreferred = graphBuilder.add(MergePreferred[TaggedRecord[ThrallMessage]](1))
     uiAndAutomationMessagesSource ~> mergePreferred.preferred
-    mergedMigrationMessagesSources ~> mergePreferred.in(0)
+    migrationMessagesSource ~> mergePreferred.in(0)
 
     SourceShape(mergePreferred.out)
   })

@@ -5,13 +5,15 @@
 GET     /                                             controllers.ThrallController.index
 GET     /migrationFailuresOverview                    controllers.ThrallController.migrationFailuresOverview()
 GET     /migrationFailures                            controllers.ThrallController.migrationFailures(filter: String, page: Option[Int])
++nocsrf
+POST    /migrationFailures/reattempt                  controllers.ThrallController.reattemptMigrationFailures(filter: String, page: Int)
 
 +nocsrf
 POST    /startMigration                               controllers.ThrallController.startMigration
 +nocsrf
 POST    /pauseMigration                               controllers.ThrallController.pauseMigration
 +nocsrf
-POST    /resumeMigration                               controllers.ThrallController.resumeMigration
+POST    /resumeMigration                              controllers.ThrallController.resumeMigration
 +nocsrf
 POST    /migrate                                      controllers.ThrallController.migrateSingleImage
 +nocsrf
