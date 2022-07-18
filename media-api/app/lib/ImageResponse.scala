@@ -105,7 +105,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
       .flatMap(_.transform(addSyndicationStatus(image)))
       .flatMap(_.transform(addAliases(aliases)))
-      .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex))).get
+      .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex)))
+      .flatMap(_.transform(addCropDownloadUrls(downloadsEnabled = valid && true)))
+      .get
 
 
     val links: List[Link] = tier match {
@@ -225,7 +227,35 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
 
   def addFromIndex(fromIndex: String): Reads[JsObject] =
-  __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
+
+  def addCropDownloadUrl(uri: String, id: String): Reads[JsObject] = {
+    (__ \ "assets").json.update(__.read[JsArray].map { assets =>
+      val assetsWithUrls = assets.value.map { asset =>
+        (asset \ "dimensions" \ "width").asOpt[Int].flatMap(width =>
+          asset.transform(__.json.update(__.read[JsObject].map(_ ++ Json.obj("downloadUrl" -> JsString(s"$uri/export/$id/asset/$width/download"))))).asOpt
+        ) getOrElse asset
+      }
+      JsArray(assetsWithUrls)
+    })
+  }
+
+  def addCropDownloadUrls(downloadsEnabled: Boolean): Reads[JsObject] = {
+    if (downloadsEnabled) {
+      (__ \ "exports").json.update(__.read[JsArray].map { exports =>
+        val exportsWithUrls = exports.value.map(export => {
+          (for {
+            uri <- (export \ "specification" \ "uri").asOpt[String]
+            id <- (export \ "id").asOpt[String]
+            withUrl <- export.transform(addCropDownloadUrl(uri, id)).asOpt
+          } yield withUrl) getOrElse exports
+        })
+        JsArray(exportsWithUrls)
+      })
+    } else {
+      __.json.pick[JsObject] // no op
+    }
+  }
 
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))

@@ -218,16 +218,13 @@ image.controller('ImageCtrl', [
       return ctrl.image.data.source.dimensions;
     }
 
-    mediaCropper.getCropsFor(image).then(cropsResource => {
-      let crops = cropsResource.data;
+    if (ctrl.image) {
+      const crops = ctrl.image.data.exports || [];
       if ($window._clientConfig.canDownloadCrop) {
         crops.forEach((crop) => {
-          crop.assets.forEach((asset) =>
-            asset.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-download-${crop.id}-${asset.dimensions.width}`))?.href
-          );
           //set the download link of the crop to be the largest asset
-          let largestAsset = crop.assets.find(asset => asset.dimensions.width == crop.master.dimensions.width);
-          crop.downloadLink = largestAsset.downloadLink;
+          const largestAsset = crop.assets.find(asset => asset.dimensions.width === crop.master.dimensions.width);
+          crop.downloadLink = largestAsset.downloadUrl;
         });
       }
       ctrl.crop = crops.find(crop => crop.id === cropKey);
@@ -236,15 +233,14 @@ image.controller('ImageCtrl', [
       ctrl.image.allCrops = ctrl.fullCrop ? [ctrl.fullCrop].concat(ctrl.crops) : ctrl.crops;
       //boolean version for use in template
       ctrl.hasFullCrop = angular.isDefined(ctrl.fullCrop);
-      ctrl.hasCrops = ctrl.crops.length > 0;
-    }).finally(() => {
-      ctrl.dimensions = angular.isDefined(ctrl.crop) ?
-        getCropDimensions() : getImageDimensions();
+      ctrl.hasCrops = Array.isArray(ctrl.crops) && ctrl.crops.length > 0;
+
+      ctrl.dimensions = angular.isDefined(ctrl.crop) ? getCropDimensions() : getImageDimensions();
 
       if (angular.isDefined(ctrl.crop)) {
         ctrl.originalDimensions = getImageDimensions();
       }
-    });
+    }
 
     function cropSelected(crop) {
       $rootScope.$emit('events:crop-selected', {
