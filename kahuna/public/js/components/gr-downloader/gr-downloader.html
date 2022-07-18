@@ -10,10 +10,23 @@
         </gr-icon-label>
     </button>
 
+    <button type="button"
+            title="Cannot download images"
+            ng-if="ctrl.imageCount() > 1 && !ctrl.canDownload">
+        <gr-icon-label gr-icon="file_download">
+            Cannot download
+        </gr-icon-label>
+    </button>
+
     <a ng-if="ctrl.imageCount() == 1 && ctrl.canDownload"
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank"
        aria-label="Download image">
         <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
+    </a>
+
+    <a ng-if="ctrl.imageCount() == 1 && !ctrl.canDownload"
+       aria-label="Cannot download">
+        <gr-icon-label gr-icon="file_download">Cannot download</gr-icon-label>
     </a>
 
     <button ng-if="ctrl.imageCount() == 1 && !ctrl.canDownloadCrop"
