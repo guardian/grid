@@ -1,27 +1,17 @@
 @import lib.ScriptToLoad
 
-@(mediaApiUri: String,
-  authApiUri: String,
+@import lib.KahunaConfig
+@(
   reauthUri: String,
-  sentryDsn: Option[String],
-  sessionId: String,
-  googleTrackingId: Option[String],
-  feedbackFormLink: Option[String],
-  usageRightsHelpLink: Option[String],
-  invalidSessionHelpLink: Option[String],
-  supportEmail: Option[String],
   fieldAliases: String,
   scriptsToLoad: List[ScriptToLoad],
-  staffPhotographerOrganisation: String,
-  homeLinkHtml: Option[String],
-  systemName: String,
-  canDownloadCrop: Boolean,
   domainMetadataSpecs: String,
-  recordDownloadAsUsage: Boolean,
   metadataTemplates: String,
   additionalNavigationLinks: String,
   costFilterLabel: String,
-  costFilterChargeable: Boolean
+  costFilterChargeable: Boolean,
+  restrictDownload: Boolean,
+  kahunaConfig: KahunaConfig
 )
 <!DOCTYPE html>
 <html>
@@ -29,22 +19,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title ui-title ui-title-suffix="@systemName">@systemName</title>
+    <title ui-title ui-title-suffix="@kahunaConfig.systemName">@kahunaConfig.systemName</title>
     <!-- htmllint line-ending-style="false" -->
 
 
     <!-- preconnect to core APIs ahead of JS making the requests -->
-    <link rel="preconnect" href="@mediaApiUri"/>
-    <link rel="preconnect" href="@authApiUri"/>
+    <link rel="preconnect" href="@kahunaConfig.mediaApiUri"/>
+    <link rel="preconnect" href="@kahunaConfig.authUri"/>
 
     <link rel="shortcut icon" type="image/svg+xml" href="@routes.Assets.versioned("images/grid-favicon.svg")"/>
     <link rel="alternate shortcut icon" type="image/png" href="@routes.Assets.versioned("images/grid-favicon-32.png")"/>
     <link rel="assets" href="@routes.Assets.versioned("")"/>
-    <link rel="media-api-uri" href="@mediaApiUri" />
+    <link rel="media-api-uri" href="@kahunaConfig.mediaApiUri" />
     <link rel="reauth-uri" href="@reauthUri" />
-    <link rel="auth-uri" href="@authApiUri" />
+    <link rel="auth-uri" href="@kahunaConfig.authUri" />
 
-    @sentryDsn.map { dsn => <link rel="sentry-dsn" href="@dsn" /> }
+    @kahunaConfig.sentryDsn.map { dsn => <link rel="sentry-dsn" href="@dsn" /> }
     <link rel="stylesheet" href="@routes.Assets.versioned("stylesheets/main.css")" />
 
     <style>
@@ -53,35 +43,36 @@
 
     <script>
         this._clientConfig = {
-          sessionId: "@Html(sessionId)",
-          googleTrackingId: "@Html(googleTrackingId.getOrElse(""))",
-          feedbackFormLink: "@Html(feedbackFormLink.getOrElse(""))",
-          usageRightsHelpLink: "@Html(usageRightsHelpLink.getOrElse(""))",
-          invalidSessionHelpLink: "@Html(invalidSessionHelpLink.getOrElse(""))",
-          supportEmail: "@Html(supportEmail.getOrElse(""))",
-          staffPhotographerOrganisation: "@Html(staffPhotographerOrganisation)",
+          sessionId: "@Html(kahunaConfig.sessionId)",
+          googleTrackingId: "@Html(kahunaConfig.googleTrackingId.getOrElse(""))",
+          feedbackFormLink: "@Html(kahunaConfig.feedbackFormLink.getOrElse(""))",
+          usageRightsHelpLink: "@Html(kahunaConfig.usageRightsHelpLink.getOrElse(""))",
+          invalidSessionHelpLink: "@Html(kahunaConfig.invalidSessionHelpLink.getOrElse(""))",
+          supportEmail: "@Html(kahunaConfig.supportEmail.getOrElse(""))",
+          staffPhotographerOrganisation: "@Html(kahunaConfig.staffPhotographerOrganisation)",
           fieldAliases: @Html(fieldAliases),
-          homeLinkHtml: '@Html(homeLinkHtml.getOrElse(""))',
-          systemName: "@Html(systemName)",
-          canDownloadCrop: @canDownloadCrop,
+          homeLinkHtml: '@Html(kahunaConfig.homeLinkHtml.getOrElse(""))',
+          systemName: "@Html(kahunaConfig.systemName)",
+          canDownloadCrop: @kahunaConfig.canDownloadCrop,
           domainMetadataSpecs: @Html(domainMetadataSpecs),
-          recordDownloadAsUsage: @recordDownloadAsUsage,
+          recordDownloadAsUsage: @kahunaConfig.recordDownloadAsUsage,
           metadataTemplates: @Html(metadataTemplates),
           additionalNavigationLinks: @Html(additionalNavigationLinks),
           costFilterLabel: "@Html(costFilterLabel)",
-          costFilterChargeable: @costFilterChargeable
+          costFilterChargeable: @costFilterChargeable,
+          restrictDownload: @restrictDownload,
         }
     </script>
 
   </head>
   <body>
-    <p class="loader" ng-hide="true">Loading @systemName…</p>
+    <p class="loader" ng-hide="true">Loading @kahunaConfig.systemName…</p>
 
     <div ui-view></div>
 
     <ui-global-errors></ui-global-errors>
 
-    @googleTrackingId.map { id =>
+    @kahunaConfig.googleTrackingId.map { id =>
       <script>
         window.ga=window.ga||function(){(ga.q=ga.q||[]).push(arguments)};ga.l=+new Date;
       </script>

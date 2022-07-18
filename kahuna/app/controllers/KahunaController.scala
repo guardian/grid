@@ -50,29 +50,18 @@ class KahunaController(
     val returnUri = config.rootUri + okPath
     val costFilterLabel = config.costFilterLabel.getOrElse("Free to use only")
     val costFilterChargeable = config.costFilterChargeable.getOrElse(false)
+    val restrictDownload = config.restrictDownload.getOrElse(false)
     Ok(views.html.main(
-      config.mediaApiUri,
-      config.authUri,
       s"${config.authUri}/login?redirectUri=$returnUri",
-      config.sentryDsn,
-      config.sessionId,
-      config.googleTrackingId,
-      config.feedbackFormLink,
-      config.usageRightsHelpLink,
-      config.invalidSessionHelpLink,
-      config.supportEmail,
       fieldAliases,
       scriptsToLoad,
-      config.staffPhotographerOrganisation,
-      config.homeLinkHtml,
-      config.systemName,
-      config.canDownloadCrop,
       domainMetadataSpecs,
-      config.recordDownloadAsUsage,
       metadataTemplates,
       additionalNavigationLinks,
       costFilterLabel,
-      costFilterChargeable
+      costFilterChargeable,
+      restrictDownload,
+      config
     ))
   }
 
