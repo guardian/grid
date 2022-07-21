@@ -9,22 +9,25 @@ tooltip.directive('grTooltip', [
         return {
             restrict: 'A',
             link: function ($scope, element, attrs) {
-              if (!attrs.grTooltip) {
-                return;
-              }
+                if (!attrs.grTooltip) {
+                    return;
+                }
 
                 const position = attrs.grTooltipPosition || 'bottom';
-                element.attr('data-title', attrs.grTooltip)
-                    .addClass(`titip-default`)
+                element.addClass(`titip-default`)
                     .addClass(`titip-${position}`);
+
+                const content = angular.element(`<span class="titip-content">${attrs.grTooltip}</span>`);
+                element.append(content);
 
                 const autoUpdates = angular.isDefined(attrs.grTooltipUpdates);
 
                 if (autoUpdates) {
                     $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
-                        element.attr('data-title', newTooltip);
+                        const content = angular.element(`<span class="titip-content">${newTooltip}</span>`);
+                        element.append(content);
                     }));
                 }
             }
-    };
-}]);
+        };
+    }]);
