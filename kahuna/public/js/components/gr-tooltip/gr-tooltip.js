@@ -17,15 +17,14 @@ tooltip.directive('grTooltip', [
                 element.addClass(`titip-default`)
                     .addClass(`titip-${position}`);
 
-                const content = angular.element(`<span class="titip-content">${attrs.grTooltip}</span>`);
-                element.append(content);
+                const tooltipContent = angular.element(`<span class="titip-content">${attrs.grTooltip}</span>`);
+                element.append(tooltipContent);
 
                 const autoUpdates = angular.isDefined(attrs.grTooltipUpdates);
 
                 if (autoUpdates) {
                     $scope.$watch(() => attrs.grTooltip, onValChange(newTooltip => {
-                        const content = angular.element(`<span class="titip-content">${newTooltip}</span>`);
-                        element.append(content);
+                        element.children('.titip-content').text(newTooltip);
                     }));
                 }
             }
