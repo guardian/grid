@@ -219,9 +219,17 @@
                         <gr-icon>warning</gr-icon>Remove ALL collections in job?
                     </button>
                 </span>
-                <div class="result-editor__field-container__collections"
-                     ng-class="{'result-editor__field-container__collections-preview' : ctrl.collectionUpdatedByTemplate}">
-                    <ul class="preview__collections">
+                <div class="result-editor__field-container__collections" ng-switch="ctrl.collectionUpdatedByTemplate">
+                    <ul class="preview__collections" ng-switch-when="true">
+                        <li class="preview__collections__collection"
+                            ng-repeat="collection in ctrl.updatedCollections">
+                            <a class="preview__collections__collection__value"
+                               ng-class="{'result-editor__field-container__collections-preview' : collection.fromTemplate}">
+                                {{collection.description}}
+                            </a>
+                        </li>
+                    </ul>
+                    <ul class="preview__collections" ng-switch-default>
                         <li class="preview__collections__collection"
                             ng-repeat="collection in ctrl.image.data.collections track by collection.data.pathId">
                             <a gr-tooltip="Click to open collection: {{::collection.data.path.join(' ▸ ')}}"
@@ -235,8 +243,7 @@
                                     gr-tooltip-position="top"
                                     class="preview__collections__collection__remove"
                                     ng-attr-style="{{::ctrl.getCollectionStyle(collection)}}"
-                                    ng-click="ctrl.removeImageFromCollection(collection)"
-                                    ng-hide="ctrl.collectionUpdatedByTemplate">
+                                    ng-click="ctrl.removeImageFromCollection(collection)">
                                 <gr-icon>close</gr-icon>
                             </button>
                         </li>

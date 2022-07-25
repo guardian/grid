@@ -149,16 +149,21 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection) => {
       $scope.$broadcast('events:metadata-template:template-selected', { metadata });
 
-      console.log(ctrl.image.data.collections);
-
       ctrl.collectionUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
 
-      if (angular.isDefined(collection)) {
-        //ctrl.image.data.collections = [...ctrl.image.data.collections, collection];
-        ctrl.collectionUpdatedByTemplate = true;
+      if (angular.isDefined(collection) && collection.length > 0) {
+        if (ctrl.image.data.collections.filter(r => r.data.path.toString() === collection.toString()).length === 0) {
+          const description = collection[collection.length - 1];
+          ctrl.updatedCollections = [
+            {description, fromTemplate: true},
+            ...ctrl.image.data.collections.map(resource => resource.data)
+          ];
+
+          ctrl.collectionUpdatedByTemplate = true;
+        }
       }
 
       if (ctrl.image.data.usageRights === undefined ||

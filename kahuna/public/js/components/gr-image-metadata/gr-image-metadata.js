@@ -409,13 +409,25 @@ module.controller('grImageMetadataCtrl', [
     });
 
     ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection) => {
-      console.log(collection)
       ctrl.metadataUpdatedByTemplate = Object.keys(metadata).filter(key => ctrl.rawMetadata[key] !== metadata[key]);
       ctrl.metadata = metadata;
 
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.first().data = usageRights;
+
+      if (angular.isDefined(collection) && collection.length > 0) {
+        if (ctrl.singleImage.data.collections.filter(r => r.data.path.toString() === collection.toString()).length === 0) {
+          const description = collection[collection.length - 1];
+          ctrl.updatedCollections = [
+            {description, fromTemplate: true},
+            ...ctrl.singleImage.data.collections.map(resource => resource.data)
+          ];
+
+          ctrl.collectionUpdatedByTemplate = true;
+        }
+      }
 
       if (usageRights.category !== undefined) {
         if ((ctrl.singleImage.data.usageRights === undefined) ||
@@ -431,12 +443,14 @@ module.controller('grImageMetadataCtrl', [
     };
 
     ctrl.onMetadataTemplateApplied = () => {
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.metadataUpdatedByTemplate = [];
     };
 
     ctrl.onMetadataTemplateCancelled = (metadata, usageRights) => {
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.metadataUpdatedByTemplate = [];
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;

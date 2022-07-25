@@ -766,24 +766,39 @@
     <dl class="image-info__group">
         <dt class="flex-container">
             <span class="metadata-line__key  flex-spacer">Collections</span>
-            <gr-collection-overlay image="ctrl.singleImage"></gr-collection-overlay>
+            <gr-collection-overlay
+                image="ctrl.singleImage"
+                gr-collection-updated-by-template="ctrl.collectionUpdatedByTemplate">
+            </gr-collection-overlay>
         </dt>
-        <dd class="metadata-line__info flex-container"
-            ng-repeat="collection in ctrl.singleImage.data.collections">
-            <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
-               aria-label="Search images by {{collection.data.description}} collection">
-                {{collection.data.path.join(' ▸ ')}}
-            </a>
-            <span class="flex-spacer"></span>
-            <span ng-if="ctrl.removingCollection === collection">Removing…</span>
-            <button class="clickable" type="button"
-                    ng-click="ctrl.removeImageFromCollection(collection)"
-                    ng-hide="ctrl.removingCollection === collection"
-                    gr-tooltip="Remove image from this collection"
-                    gr-tooltip-position="top-left"
-                    aria-label="Remove image from this collection">
-                <gr-icon-label gr-icon="clear"></gr-icon-label>
-            </button>
+        <dd ng-switch="ctrl.collectionUpdatedByTemplate">
+            <span class="metadata-line__info flex-container"
+                  ng-repeat="collection in ctrl.updatedCollections"
+                  ng-switch-when="true">
+                <a class="preview__collections__collection__value"
+                   ng-class="{'result-editor__field-container__collections-preview' : collection.fromTemplate}">
+                    {{collection.description}}
+                </a>
+            </span>
+
+            <span class="metadata-line__info flex-container"
+                  ng-repeat="collection in ctrl.singleImage.data.collections"
+                  ng-switch-default>
+                <a ui-sref="search.results({query: (collection.data.pathId | queryCollectionFilter)})"
+                   aria-label="Search images by {{collection.data.description}} collection">
+                    {{collection.data.path.join(' ▸ ')}}
+                </a>
+                <span class="flex-spacer"></span>
+                <span ng-if="ctrl.removingCollection === collection">Removing…</span>
+                <button class="clickable" type="button"
+                        ng-click="ctrl.removeImageFromCollection(collection)"
+                        ng-hide="ctrl.removingCollection === collection"
+                        gr-tooltip="Remove image from this collection"
+                        gr-tooltip-position="top-left"
+                        aria-label="Remove image from this collection">
+                    <gr-icon-label gr-icon="clear"></gr-icon-label>
+                </button>
+            </span>
         </dd>
     </dl>
 </div>
