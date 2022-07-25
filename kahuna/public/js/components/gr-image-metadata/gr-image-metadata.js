@@ -448,6 +448,14 @@ module.controller('grImageMetadataCtrl', [
     ctrl.isDomainMetadataEmpty = (key) => {
       return ctrl.domainMetadata.find(obj => obj.name === key ).fields.every(field => field.value === undefined );
     };
+
+    ctrl.isAdditionalMetadataEmpty = () => {
+      var totalAdditionalMetadataCount = Object.keys(ctrl.metadata).filter(key=> { ctrl.isUsefulMetadata(key); }).length +
+      Object.keys(ctrl.additionalMetadata).length +
+      Object.keys(ctrl.identifiers).length;
+
+      return totalAdditionalMetadataCount == 0;
+    };
 }
 ]);
 
