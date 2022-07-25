@@ -33,6 +33,10 @@ query.controller('SearchQueryCtrl', [
   function($rootScope, $scope, $state, $stateParams, onValChange, storage, mediaApi) {
 
     const ctrl = this;
+    ctrl.costFilterLabel = window._clientConfig.costFilterLabel;
+    ctrl.costFilterChargeable = window._clientConfig.costFilterChargeable;
+    ctrl.costFilterFalseValue =  ctrl.costFilterChargeable ? undefined : "'true'";
+    ctrl.costFilterTrueValue =  ctrl.costFilterChargeable ? "'true'" : undefined;
 
     ctrl.canUpload = false;
 
@@ -212,12 +216,11 @@ query.controller('SearchQueryCtrl', [
         }
 
         if (isNonFree === null) {
-          ctrl.filter.nonFree = session.user.permissions.showPaid ?
-            session.user.permissions.showPaid : undefined;
-            storage.setJs("isNonFree", session.user.permissions.showPaid ? session.user.permissions.showPaid : false);
+          ctrl.filter.nonFree = $stateParams.nonFree;
+          storage.setJs("isNonFree", ctrl.filter.nonFree ? ctrl.filter.nonFree : false, true);
         }
         else if (isNonFree === true || isNonFree === "true") {
-            ctrl.filter.nonFree = true;
+            ctrl.filter.nonFree = "true";
         } else {
           ctrl.filter.nonFree = undefined;
         }

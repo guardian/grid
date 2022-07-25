@@ -47,15 +47,13 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
     )
 
     val COUNT_EACH = 2000 // Arbitrary number
-    val COUNT_TOTAL = 4 * COUNT_EACH
+    val COUNT_TOTAL = 3 * COUNT_EACH
 
     val uiPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
     val automationPrioritySource: Source[KinesisRecord, Future[Done.type]] =
       Source.repeat(createKinesisRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
-    val migrationPrioritySource: Source[MigrationRecord, Future[Done.type]] =
-      Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
-    val migrationManualPrioritySource: Source[MigrationRecord, Future[Done.type]] =
+    val migrationSource: Source[MigrationRecord, Future[Done.type]] =
       Source.repeat(createMigrationRecord).mapMaterializedValue(_ => Future.successful(Done)).take(COUNT_EACH)
 
     lazy val mockConsumer: ThrallEventConsumer = mock[ThrallEventConsumer]
@@ -65,8 +63,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
     lazy val streamProcessor = new ThrallStreamProcessor(
       uiPrioritySource,
       automationPrioritySource,
-      migrationPrioritySource,
-      migrationManualPrioritySource,
+      migrationSource,
       mockConsumer,
       actorSystem
     )
@@ -99,14 +96,15 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
 
       output.count(p => p == UiPriority) should be (COUNT_EACH)
       output.count(p => p == AutomationPriority) should be (COUNT_EACH)
-      output.count(p => p == MigrationPriority) should be (COUNT_EACH * 2) // two migration sources so *2
+      output.count(p => p == MigrationPriority) should be (COUNT_EACH)
     }
   }
 
   describe("Migration source with sender") {
+    val projectedImage = createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises"))
     lazy val mockGrid = mock[GridClient]
     when(mockGrid.getImageLoaderProjection(any(), any())(any()))
-      .thenReturn(Future.successful(Some(createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")))))
+      .thenReturn(Future.successful(Some(projectedImage)))
 
     lazy val mockEs = mock[ElasticSearch]
     when(mockEs.continueScrollingImageIdsToMigrate(any())(any(), any()))
@@ -133,8 +131,7 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
     lazy val streamProcessor = new ThrallStreamProcessor(
       uiPrioritySource,
       automationPrioritySource,
-      migrationSourceWithSender.manualSource,
-      migrationSourceWithSender.ongoingEsQuerySource,
+      migrationSourceWithSender.source,
       mockConsumer,
       actorSystem
     )
@@ -142,9 +139,11 @@ class ThrallStreamProcessorTest extends AnyFunSpec with BeforeAndAfterAll with M
     it("can send messages manually") {
       val stream = streamProcessor.createStream()
 
-      val expectedMigrationMessage = MigrateImageMessage("id", Right((createImage("batman", StaffPhotographer("Bruce Wayne", "Wayne Enterprises")), 1L)))
+      val request = MigrationRequest("id", 1L)
 
-      migrationSourceWithSender.send(expectedMigrationMessage)
+      val expectedMigrationMessage = MigrateImageMessage("id", Right(projectedImage, 1L))
+
+      migrationSourceWithSender.send(request)
 
       val (_, _, firstMessageReceived) = Await.result(stream.take(1).runWith(Sink.seq), 5.seconds).head
 

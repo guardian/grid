@@ -66,8 +66,7 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val thrallStreamProcessor = new ThrallStreamProcessor(
     uiSource,
     automationSource,
-    migrationSourceWithSender.manualSource,
-    migrationSourceWithSender.ongoingEsQuerySource,
+    migrationSourceWithSender.source,
     thrallEventConsumer,
     actorSystem
   )

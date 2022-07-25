@@ -7,7 +7,7 @@ import com.gu.contentapi.client.GuardianContentClient
 import com.gu.contentapi.client.model.ItemQuery
 import com.gu.contentapi.client.model.v1.Content
 import com.gu.crier.model.event.v1.{Event, EventPayload, EventType}
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
 import com.gu.mediaservice.model.usage.{PendingUsageStatus, PublishedUsageStatus}
 import com.gu.thrift.serializer.ThriftDeserializer
 import model.{UsageGroup, UsageGroupOps}
@@ -15,7 +15,7 @@ import org.joda.time.DateTime
 import rx.lang.scala.Subject
 import rx.lang.scala.subjects.PublishSubject
 
-import java.util.{List => JList}
+import java.util.{UUID, List => JList}
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -27,30 +27,35 @@ trait ContentContainer extends GridLogging {
   private lazy val isEntirePieceTakenDown =
     content.fields.exists(fields => fields.firstPublicationDate.isDefined && fields.isLive.contains(false))
 
-  def emitAsUsageGroup(publishSubject: Subject[UsageGroup], usageGroupOps: UsageGroupOps) = usageGroupOps.build(
-    content,
-    status = this match {
-      case PreviewContentItem(_,_,_) => PendingUsageStatus
-      case LiveContentItem(_,_,_) => PublishedUsageStatus
-    },
-    lastModified,
-    isReindex
-  ) match {
-    case None => logger.debug(s"No fields in content of crier update for payload with content ID ${content.id}")
-    case Some(usageGroup) =>
-      publishSubject.onNext(usageGroup)
-      if(this.isInstanceOf[PreviewContentItem] && isEntirePieceTakenDown) {
-        logger.info(s"${usageGroup.grouping} is taken down so producing empty UsageGroup to ensure any 'published' DB records are marked as removed")
-        publishSubject.onNext(usageGroup.copy(
-          usages = Set.empty,
-          maybeStatus = Some(PublishedUsageStatus)
-        ))
-      }
+  def emitAsUsageGroup(publishSubject: Subject[WithLogMarker[UsageGroup]], usageGroupOps: UsageGroupOps)(implicit logMarker: LogMarker) = {
+    usageGroupOps.build(
+      content,
+      status = this match {
+        case PreviewContentItem(_,_,_) => PendingUsageStatus
+        case LiveContentItem(_,_,_) => PublishedUsageStatus
+      },
+      lastModified,
+      isReindex
+    ) match {
+      case None => logger.debug(logMarker, s"No fields in content of crier update for payload with content ID ${content.id}")
+      case Some(usageGroup) =>
+        val groupingLogMarker = logMarker ++ Map("usageGroup" -> usageGroup.grouping)
+
+        publishSubject.onNext(WithLogMarker(groupingLogMarker, usageGroup))
+
+        if (this.isInstanceOf[PreviewContentItem] && isEntirePieceTakenDown) {
+          logger.info(groupingLogMarker, s"${usageGroup.grouping} is taken down so producing empty UsageGroup to ensure any 'published' DB records are marked as removed")
+          publishSubject.onNext(WithLogMarker(groupingLogMarker, usageGroup.copy(
+            usages = Set.empty,
+            maybeStatus = Some(PublishedUsageStatus)
+          )))
+        }
+    }
   }
 }
 
 object CrierUsageStream {
-  val observable = PublishSubject[UsageGroup]()
+  val observable: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
 }
 
 case class LiveContentItem(content: Content, lastModified: DateTime, isReindex: Boolean = false) extends ContentContainer
@@ -87,6 +92,10 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
 
   def processEvent(event: Event): Unit = {
+    implicit val logMarker: LogMarker = MarkerMap(
+      "payloadId" -> event.payloadId,
+      "requestId" -> UUID.randomUUID().toString
+    )
 
     val dateTime: DateTime = new DateTime(event.dateTime)
 
@@ -98,7 +107,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
             getContentItem(content.content, dateTime)
               .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
           case _ =>
-            logger.debug(s"Received crier update for ${event.payloadId} without payload")
+            logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
         }
       case EventType.Delete =>
         //TODO: how do we deal with a piece of content that has been deleted?
@@ -119,13 +128,13 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
                   LiveContentItem(content, dateTime)
                     .emitAsUsageGroup(CrierUsageStream.observable, usageGroupOps)
                 case _ =>
-                  logger.debug(s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
+                  logger.debug(logMarker, s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content")
               }
             })
-          case _ => logger.debug(s"Received crier update for ${event.payloadId} without payload")
+          case _ => logger.debug(logMarker, s"Received crier update for ${event.payloadId} without payload")
         }
 
-      case _ => logger.debug(s"Unsupported event type $EventType")
+      case _ => logger.debug(logMarker, s"Unsupported event type $EventType")
     }
   }
 }

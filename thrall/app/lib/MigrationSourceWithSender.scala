@@ -1,26 +1,25 @@
 package lib
 
 import akka.stream.scaladsl.Source
-import akka.stream.{Attributes, Materializer, OverflowStrategy, QueueOfferResult}
+import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import akka.{Done, NotUsed}
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.elasticsearch.{InProgress, Paused}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.model.{MigrateImageMessage, MigrationMessage}
-import com.sksamuel.elastic4s.requests.searches.SearchHit
 import lib.elasticsearch.{ElasticSearch, ScrolledSearchResults}
 import play.api.libs.ws.WSRequest
 
-import java.time.{Instant, OffsetDateTime}
+import java.time.Instant
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
+case class MigrationRequest(imageId: String, version: Long)
 case class MigrationRecord(payload: MigrationMessage, approximateArrivalTimestamp: Instant)
 
 case class MigrationSourceWithSender(
-  send: MigrationMessage => Future[Boolean],
-  manualSource: Source[MigrationRecord, Future[Done]],
-  ongoingEsQuerySource: Source[MigrationRecord, Future[Done]]
+  send: MigrationRequest => Future[Boolean],
+  source: Source[MigrationRecord, Future[Done]],
 )
 
 object MigrationSourceWithSender extends GridLogging {
@@ -32,7 +31,9 @@ object MigrationSourceWithSender extends GridLogging {
     projectionParallelism: Int,
   )(implicit ec: ExecutionContext): MigrationSourceWithSender = {
 
-    val esQuerySource =
+    // scroll through elasticsearch, finding image ids and versions to migrate
+    // emits MigrationRequest
+    val scrollingIdsSource =
       Source.repeat(())
         .throttle(1, per = 1.second)
         .statefulMapConcat(() => {
@@ -84,42 +85,50 @@ object MigrationSourceWithSender extends GridLogging {
           if (searchHits.nonEmpty) {
             logger.info(s"Flattening ${searchHits.size} image ids to migrate")
           }
-          searchHits
+          searchHits.map(hit => MigrationRequest(hit.id, hit.version))
         })
         .filter(_ => es.migrationIsInProgress)
 
-    val projectedImageSource: Source[MigrationRecord, NotUsed] = esQuerySource.mapAsyncUnordered(projectionParallelism) { searchHit: SearchHit => {
-      val imageId = searchHit.id
-      val migrateImageMessageFuture = (
-        for {
-          maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
-          maybeVersion = Some(searchHit.version)
-        } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
-      ).recover {
-        case error => MigrateImageMessage(imageId, Left(error.toString))
-      }
-      migrateImageMessageFuture.map(message => MigrationRecord(message, java.time.Instant.now()))
-    }}
+    // receive MigrationRequests to migrate from a manual source (failures retry page, single image migration form, etc.)
+    val manualIdsSourceDeclaration = Source.queue[MigrationRequest](bufferSize = 2000, OverflowStrategy.dropNew)
+    val (manualIdsSourceMat, manualIdsSource) = manualIdsSourceDeclaration.preMaterialize()(materializer)
 
-    val manualSourceDeclaration = Source.queue[MigrationRecord](bufferSize = 2, OverflowStrategy.backpressure)
-    val (manualSourceMat, manualSource) = manualSourceDeclaration.preMaterialize()(materializer)
-    MigrationSourceWithSender(
-      send = (migrationMessage: MigrationMessage) => manualSourceMat.offer(MigrationRecord(
-        migrationMessage,
-        approximateArrivalTimestamp = OffsetDateTime.now().toInstant
-      )).map {
+    def submitIdForMigration(request: MigrationRequest) =
+      manualIdsSourceMat.offer(request).map {
         case QueueOfferResult.Enqueued => true
         case _ =>
-          logger.warn(s"Failed to add migration message to migration queue: ${migrationMessage}")
+          logger.warn(s"Failed to add migration message to migration queue: $request")
           false
-      }.recover{
+      }.recover {
         case error: Throwable =>
-          logger.error(s"Failed to add migration message to migration queue: ${migrationMessage}", error)
+          logger.error(s"Failed to add migration message to migration queue: $request", error)
           false
-      },
-      manualSource = manualSource.mapMaterializedValue(_ => Future.successful(Done)),
-      ongoingEsQuerySource = projectedImageSource.mapMaterializedValue(_ => Future.successful(Done)),
-    )
+      }
 
+    // merge both sources of MigrationRequest
+    // priority = true prefers manualIdsSource
+    val idsSource = manualIdsSource.mergePreferred(scrollingIdsSource, priority = true)
+
+    // project image from MigrationRequest, produce the MigrateImageMessage
+    val projectedImageSource: Source[MigrationRecord, NotUsed] = idsSource.mapAsyncUnordered(projectionParallelism) {
+      case MigrationRequest(imageId, version) =>
+        val migrateImageMessageFuture = (
+          for {
+            maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, innerServiceCall)
+            maybeVersion = Some(version)
+          } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
+        ).recover {
+          case error => MigrateImageMessage(imageId, Left(error.toString))
+        }
+        migrateImageMessageFuture.map(message => MigrationRecord(
+          payload = message,
+          approximateArrivalTimestamp = java.time.Instant.now()
+        ))
+    }
+
+    MigrationSourceWithSender(
+      send = submitIdForMigration,
+      source = projectedImageSource.mapMaterializedValue(_ => Future.successful(Done)),
+    )
   }
 }

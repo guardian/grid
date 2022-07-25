@@ -1,6 +1,6 @@
 package com.gu.mediaservice.model.usage
 
-import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import org.joda.time.DateTime
 case class UsageId(id: String) {
   override def toString = id
@@ -27,13 +27,14 @@ case class MediaUsage(
   dateRemoved: Option[DateTime] = None
 ) extends GridLogging {
 
-  def isGridLikeId: Boolean = {
-    if (mediaId.startsWith("gu-image-") || mediaId.startsWith("gu-fc-")) {
-      // remove events from CAPI that represent images previous to Grid existing
-      logger.info(s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
+  def isGridLikeId(implicit logMarker: LogMarker): Boolean = {
+    // _no_ids - CAPI may sometimes(?) insert this in an element missing an id
+    if (mediaId == null || mediaId.trim.isEmpty || mediaId.trim == "_no_ids") {
+      logger.warn(logMarker, s"Unprocessable MediaUsage, mediaId is empty ${this.toString}")
       false
-    } else if (mediaId.trim.isEmpty) {
-      logger.warn("Unprocessable MediaUsage, mediaId is empty", this)
+    } else if (mediaId.startsWith("gu-image-") || mediaId.startsWith("gu-fc-")) {
+      // remove events from CAPI that represent images previous to Grid existing
+      logger.info(logMarker, s"MediaId $mediaId doesn't look like a Grid image. Ignoring usage $usageId.")
       false
     } else {
       true

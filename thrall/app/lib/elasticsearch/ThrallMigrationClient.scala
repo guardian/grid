@@ -147,7 +147,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
   def getMigrationFailures(
     currentIndexName: String, migrationIndexName: String, from: Int, pageSize: Int, filter: String
   )(implicit ec: ExecutionContext, logMarker: LogMarker = MarkerMap()): Future[FailedMigrationSummary] = {
-    val search = ElasticDsl.search(currentIndexName).trackTotalHits(true).from(from).size(pageSize) query must(
+    val search = ElasticDsl.search(currentIndexName).trackTotalHits(true).version(true).from(from).size(pageSize) query must(
       existsQuery(s"esInfo.migration.failures.$migrationIndexName"),
       termQuery(s"esInfo.migration.failures.$migrationIndexName.keyword", filter),
       not(matchQuery("esInfo.migration.migratedTo", migrationIndexName))
@@ -166,7 +166,8 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
             uploadedBy = (sourceJson \ "uploadedBy").asOpt[String].getOrElse("-"),
             uploadTime = (sourceJson \ "uploadTime").asOpt[String].getOrElse("-"),
             sourceJson = Json.prettyPrint(sourceJson),
-            esDocAsImageValidationFailures = sourceJson.validate[Image].fold(failure => Some(failure.toString()), _ => None)
+            esDocAsImageValidationFailures = sourceJson.validate[Image].fold(failure => Some(failure.toString()), _ => None),
+            version = hit.version
           )
         }
 

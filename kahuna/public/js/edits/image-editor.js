@@ -12,6 +12,7 @@ import {leases} from '../leases/leases';
 import {archiver} from '../components/gr-archiver-status/gr-archiver-status';
 import {collectionsApi} from '../services/api/collections-api';
 import {rememberScrollTop} from '../directives/gr-remember-scroll-top';
+import '../util/storage';
 
 export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     service.name,
@@ -23,7 +24,8 @@ export var imageEditor = angular.module('kahuna.edits.imageEditor', [
     collectionsApi.name,
     rememberScrollTop.name,
     leases.name,
-    metadataTemplates.name
+    metadataTemplates.name,
+    'util.storage'
 ]);
 
 imageEditor.controller('ImageEditorCtrl', [
@@ -37,6 +39,7 @@ imageEditor.controller('ImageEditorCtrl', [
     'imageAccessor',
     'collections',
     'mediaApi',
+    'storage',
 
     function($rootScope,
              $scope,
@@ -47,7 +50,8 @@ imageEditor.controller('ImageEditorCtrl', [
              labelService,
              imageAccessor,
              collections,
-             mediaApi) {
+             mediaApi,
+             storage) {
 
     var ctrl = this;
     ctrl.canUndelete = false;
@@ -290,6 +294,9 @@ imageEditor.controller('ImageEditorCtrl', [
             ctrl.canUndelete = ctrl.isDeleted = false
         );
     }
+
+    ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
+
 }]);
 
 

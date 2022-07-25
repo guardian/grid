@@ -141,9 +141,19 @@ class FileMetadataReaderTest extends AnyFunSpec with Matchers with ScalaFutures 
   it("should 'redact' any long 'xmp' fields") {
     val metadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("longXMP.jpg"), "dummy")
     whenReady(metadataFuture) { metadata =>
-      println(metadata.xmp)
-      metadata.xmp("photoshop:Instructions") should be(JsString(FileMetadataReader.redactionReplacementValue))
+      metadata.xmp("photoshop:Credit") should be(JsString(FileMetadataReader.redactionReplacementValue))
       metadata.xmp("dc:publisher") should be(Json.toJson(List("Gu Grid Tests")))
+    }
+  }
+
+  it("should not redact xmp description") {
+    val metadataFuture = FileMetadataReader.fromIPTCHeaders(fileAt("longdescription.png"), "dummy")
+    whenReady(metadataFuture) { metadata =>
+      metadata.xmp("dc:description") shouldBe a[JsArray]
+      val descriptionArray = metadata.xmp("dc:description").asInstanceOf[JsArray].value
+      descriptionArray.head shouldBe a[JsString]
+      descriptionArray.head.asInstanceOf[JsString].value should startWith("Lorem ipsum") // 16438 bytes of lorem ipsum
+      descriptionArray.head.asInstanceOf[JsString].value.length should be(16438) // 16438 bytes of lorem ipsum
     }
   }
 

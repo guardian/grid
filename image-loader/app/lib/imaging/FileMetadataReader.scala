@@ -122,12 +122,20 @@ object FileMetadataReader extends GridLogging {
 
   private val redactionThreshold = 5000
   val redactionReplacementValue = s"REDACTED (value longer than $redactionThreshold characters, please refer to the metadata stored in the file itself)"
-  private def redactLongFieldValues(imageId:String, metadataType: String)(props: Map[String, String]) = props.map {
-    case (fieldName, value) if value.length > redactionThreshold =>
+  private def redactLongFieldValues(imageId: String, metadataType: String, exceptions: List[String] = Nil)(props: Map[String, String]) = props.map {
+    case (fieldName, value) if value.length > redactionThreshold && !exceptions.exists(fieldName.contains) =>
       logger.warn(s"Redacting '$fieldName' $metadataType field for image $imageId, as it's problematically long (longer than $redactionThreshold characters")
       fieldName -> redactionReplacementValue
     case keyValuePair => keyValuePair
   }
+
+  // We redact most xmp fields because they are usually short in length, or are not required for usual grid operation.
+  // These fields are the exceptions - they may be long, and they are displayed to users, so are allowed as an exception.
+  private val allowedLongXmpFields = List(
+    "dc:description",
+    "photoshop:Headline",
+    "photoshop:Instructions",
+  )
 
   private def exportRawXmpProperties(metadata: Metadata, imageId:String): Map[String, String] = {
     val directories = metadata.getDirectoriesOfType(classOf[XmpDirectory]).asScala.toList
@@ -138,7 +146,7 @@ object FileMetadataReader extends GridLogging {
       // if there is no space in the previous one as directories have a maximum size.
       acc ++ xmpDirectoryToMap(dir, imageId).filterKeys(k => !acc.contains(k))
     })
-    redactLongFieldValues(imageId, "XMP")(props)
+    redactLongFieldValues(imageId, "XMP", allowedLongXmpFields)(props)
   }
   private def exportXmpPropertiesInTransformedSchema(metadata: Metadata, imageId:String): Map[String, JsValue] = {
     val props = exportRawXmpProperties(metadata, imageId)

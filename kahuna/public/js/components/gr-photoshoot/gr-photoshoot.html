@@ -21,7 +21,7 @@
 
         <span ng-if="ctrl.hasPhotoshootData">
             <span ng-if="ctrl.hasSinglePhotoshoot">
-                <a ui-sref="search.results({query: (ctrl.photoshootData.title | queryFilter:'photoshoot')})">
+                <a ui-sref="search.results({query: (ctrl.photoshootData.title | queryFilter:'photoshoot'), nonFree: ctrl.srefNonfree()})">
                     {{ctrl.photoshootData.title}}
                 </a>
             </span>

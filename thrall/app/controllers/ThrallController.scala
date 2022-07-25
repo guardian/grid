@@ -9,9 +9,9 @@ import com.gu.mediaservice.lib.aws.ThrallMessageSender
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.elasticsearch.{NotRunning, Running}
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage, MigrateImageMessage, MigrationMessage}
-import lib.OptionalFutureRunner
+import com.gu.mediaservice.model.{CompleteMigrationMessage, CreateMigrationIndexMessage}
 import lib.elasticsearch.ElasticSearch
+import lib.{MigrationRequest, OptionalFutureRunner, Paging}
 import org.joda.time.{DateTime, DateTimeZone}
 import play.api.data.Form
 import play.api.data.Forms._
@@ -19,14 +19,13 @@ import play.api.mvc.{Action, AnyContent, ControllerComponents}
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
-
 import scala.language.postfixOps
 
 case class MigrateSingleImageForm(id: String)
 
 class ThrallController(
   es: ElasticSearch,
-  sendMigrationMessage: MigrationMessage => Future[Boolean],
+  sendMigrationRequest: MigrationRequest => Future[Boolean],
   messageSender: ThrallMessageSender,
   actorSystem: ActorSystem,
   override val auth: Authentication,
@@ -87,35 +86,29 @@ class ThrallController(
   }
 
   def migrationFailures(filter: String, maybePage: Option[Int]): Action[AnyContent] = withLoginRedirectAsync {
-    val pageSize = 250
-    // pages are indexed from 1
-    val page = maybePage.getOrElse(1)
-    val from = (page - 1) * pageSize
-    if (page < 1) {
-      Future.successful(BadRequest(s"Value for page parameter should be >= 1"))
-    } else {
+    Paging.withPaging(maybePage) { paging =>
       es.migrationStatus match {
         case running: Running =>
-          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, from, pageSize, filter).map(failures =>
+          es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, paging.from, paging.pageSize, filter).map(failures =>
             Ok(views.html.migrationFailures(
               failures,
               apiBaseUrl = services.apiBaseUri,
               uiBaseUrl = services.kahunaBaseUri,
               filter,
-              page,
+              paging.page,
               shouldAllowReattempts = true
             ))
           )
         case _ => for {
           currentIndex <- es.getIndexForAlias(es.imagesCurrentAlias)
           currentIndexName <- currentIndex.map(_.name).map(Future.successful).getOrElse(Future.failed(new Exception(s"No index found for '${es.imagesCurrentAlias}' alias")))
-          failures <- es.getMigrationFailures(es.imagesHistoricalAlias, currentIndexName, from, pageSize, filter)
+          failures <- es.getMigrationFailures(es.imagesHistoricalAlias, currentIndexName, paging.from, paging.pageSize, filter)
           response = Ok(views.html.migrationFailures(
             failures,
             apiBaseUrl = services.apiBaseUri,
             uiBaseUrl = services.kahunaBaseUri,
             filter,
-            page,
+            paging.page,
             shouldAllowReattempts = false
           ))
         } yield response
@@ -212,20 +205,39 @@ class ThrallController(
   def migrateSingleImage: Action[AnyContent] = withLoginRedirectAsync { implicit request =>
     val imageId = migrateSingleImageFormReader.bindFromRequest.get.id
 
-    val migrateImageMessage = (
-      for {
-        maybeProjection <- gridClient.getImageLoaderProjection(mediaId = imageId, auth.innerServiceCall)
-        maybeVersion <- es.getImageVersion(imageId)
-      } yield MigrateImageMessage(imageId, maybeProjection, maybeVersion)
-    ).recover {
-      case error => MigrateImageMessage(imageId, Left(error.toString))
-    }
+    es.getImageVersion(imageId) flatMap {
 
-    val msgFailedToMigrateImage = s"Failed to send migrate image message ${imageId}"
-    migrateImageMessage.flatMap(message => sendMigrationMessage(message).map{
-      case true => Ok(s"Image migration message sent successfully with id:${imageId}")
-      case _ => InternalServerError(msgFailedToMigrateImage)
-    })
+      case Some(version) =>
+        sendMigrationRequest(MigrationRequest(imageId, version)).map {
+          case true => Ok(s"Image migration queued successfully with id:$imageId")
+          case false => InternalServerError(s"Failed to send migrate image message $imageId")
+        }
+      case None =>
+        Future.successful(InternalServerError(s"Failed to send migrate image message $imageId"))
+    }
+  }
+
+  def reattemptMigrationFailures(filter: String, page: Int): Action[AnyContent] = withLoginRedirectAsync { implicit request =>
+    Paging.withPaging(Some(page)) { paging =>
+      es.migrationStatus match {
+        case running: Running =>
+          val migrationRequestsF = es.getMigrationFailures(es.imagesCurrentAlias, running.migrationIndexName, paging.from, paging.pageSize, filter).map(failures =>
+            failures.details.map(detail => MigrationRequest(detail.imageId, detail.version))
+          )
+          for {
+            migrationRequests <- migrationRequestsF
+            successfulSubmissions <- Future.sequence(migrationRequests.map(sendMigrationRequest))
+          } yield {
+            val failures = successfulSubmissions.count(_ == false)
+            if (failures == 0) {
+              Ok("Submitted all failures for reattempted migration")
+            } else {
+              InternalServerError(s"Failed to submit $failures images for reattempted migration")
+            }
+          }
+        case _ => Future.successful(InternalServerError("Cannot resubmit images; migration is not running"))
+      }
+    }
   }
 
   val migrateSingleImageFormReader: Form[MigrateSingleImageForm] = Form(
