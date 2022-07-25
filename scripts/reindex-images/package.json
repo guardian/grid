@@ -9,6 +9,6 @@
   "author": "Jonathon Herbert",
   "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.969.0"
+    "aws-sdk": "^2.1181.0"
   }
 }
