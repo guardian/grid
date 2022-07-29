@@ -450,7 +450,7 @@ module.controller('grImageMetadataCtrl', [
     };
 
     ctrl.isAdditionalMetadataEmpty = () => {
-      var totalAdditionalMetadataCount = Object.keys(ctrl.metadata).filter(key=> { ctrl.isUsefulMetadata(key); }).length +
+      const totalAdditionalMetadataCount = Object.keys(ctrl.metadata).filter(key => ctrl.isUsefulMetadata(key)).length +
       Object.keys(ctrl.additionalMetadata).length +
       Object.keys(ctrl.identifiers).length;
 
