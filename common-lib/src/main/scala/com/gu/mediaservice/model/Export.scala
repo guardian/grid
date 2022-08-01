@@ -26,7 +26,6 @@ object Export {
       crop.master,
       crop.assets
   )
-
   implicit val exportWrites: Writes[Export] = (
     (__ \ "id").writeNullable[String] ~
     (__ \ "author").writeNullable[String] ~

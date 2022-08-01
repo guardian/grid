@@ -218,16 +218,50 @@ image.controller('ImageCtrl', [
       return ctrl.image.data.source.dimensions;
     }
 
+    function getImageIdFromCropResource(cropsResource) {
+      const imageHref = cropsResource.links.find(link => link.rel == 'image')?.href;
+      const hrefTokens = imageHref.split('/');
+      const count = hrefTokens.length;
+      const imageId = hrefTokens[count - 1];
+      return imageId;
+    }
+
     mediaCropper.getCropsFor(image).then(cropsResource => {
-      let crops = cropsResource.data;
+      const s3Crops = cropsResource.data;
+      const esCrops = ctrl.image.data.exports;
+
+      const crops = s3Crops.filter( (s3Crop)=> {
+        return esCrops.find( (esCrop)=> {
+          return s3Crop.id == esCrop.id && s3Crop.assets.every( (s3CropAsset)=> {
+            return esCrop.assets.find( (esCropAsset)=> {
+              return s3CropAsset.dimensions !== undefined &&
+              esCropAsset.dimensions !== undefined &&
+              s3CropAsset.dimensions.width == esCropAsset.dimensions.width;
+            }) !== undefined;
+          });
+        }) !== undefined;
+      });
+
       if ($window._clientConfig.canDownloadCrop) {
         crops.forEach((crop) => {
           crop.assets.forEach((asset) =>
             asset.downloadLink = cropsResource.links.find(link => link.rel.includes(`crop-download-${crop.id}-${asset.dimensions.width}`))?.href
           );
           //set the download link of the crop to be the largest asset
-          let largestAsset = crop.assets.find(asset => asset.dimensions.width == crop.master.dimensions.width);
-          crop.downloadLink = largestAsset.downloadLink;
+          //by ordering the assets in increasing dimension width and picking the last one
+          //this way largestAsset can never be undefined
+          //this will ensure that asset inconsistency in S3 will still result to a fallback download
+          if (crop.assets.length > 0) {
+            const largestAsset = crop.assets.sort((a, b) => (a.dimensions.width > b.dimensions.width) ? 1 : -1)[ crop.assets.length - 1];
+            const largestWidth = largestAsset.dimensions.width;
+            if (largestWidth != crop.master.dimensions.width) {
+              const imageId = getImageIdFromCropResource(cropsResource);
+              console.log('The largest cropped asset of ' + crop.id + ' available for image ' + imageId +
+              ' does not have the same dimensions as the master. Using the next largest cropped asset with width ' + largestWidth +
+              'Please correct this inconsistency.');
+            }
+            crop.downloadLink = largestAsset.downloadLink;
+          }
         });
       }
       ctrl.crop = crops.find(crop => crop.id === cropKey);
