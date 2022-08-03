@@ -132,18 +132,17 @@ class UsageStore(
     }
   }
 
-  def getUsageStatus(): Future[StoreAccess] = Future.successful((for {
-      s <- store
-      l <- lastUpdated
-    } yield StoreAccess(s,l)).get())
+  def getUsageStatus(): Future[StoreAccess] = {
+    Future.successful(StoreAccess(store.get(), lastUpdated.get()))
+  }
 
   def overQuotaAgencies: List[Agency] = store.get.collect {
     case (_, status) if status.exceeded => status.usage.agency
   }.toList
 
   def update() {
-    lastUpdated.send(_ => DateTime.now())
-    fetchUsage.foreach { usage => store.send(usage) }
+    lastUpdated.set(DateTime.now())
+    fetchUsage.foreach { usage => store.set(usage) }
   }
 
   private def fetchUsage: Future[Map[String, UsageStatus]] = {
@@ -200,9 +199,9 @@ class QuotaStore(
 
   def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
 
-  def update() {
+  def update(): Unit = {
     if (config.quotaUpdateEnabled) {
-      store.send(_ => fetchQuota)
+      store.set(fetchQuota)
     } else {
       logger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
     }
