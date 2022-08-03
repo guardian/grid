@@ -4,14 +4,40 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
-
+        <link rel="stylesheet" href="assets/stylesheets/main.css">
         <title>the grid - quotas</title>
         <link rel="media-api-uri" href="@mediaApiUri" />
     </head>
     <body>
-        <h1>Grid Quotas</h1>
-        <hr />
-        <div id="root"></div>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            section, header {
+                padding: 12px;
+            }
+            header {
+                height: 50px;
+            }
+            h1 {
+                font-size: 2rem;
+                line-height: 2.6rem;
+            }
+            hr {
+                border: none;
+                border-bottom: 0.5px solid #565656;
+                margin: 0px;
+            }
+        </style>
+        <main>
+            <header>
+                <h1>Grid Quotas</h1>
+            </header>
+            <hr />
+            <section>
+                <div id="root"></div>
+            <section>
+        </main>
     </body>
     <script src="@routes.Assets.versioned("dist/quotas.js")"></script>
 </html>
