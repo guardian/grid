@@ -41,10 +41,12 @@ downloader.controller('DownloaderCtrl', [
         ctrl.images : Array.from(ctrl.images.values());
     ctrl.imageCount = () => ctrl.imagesArray().length;
 
-    ctrl.canDownload = ctrl.imagesArray().every(image => image.data.valid && image.data.softDeletedMetadata === undefined);
+    ctrl.canDownloadSingleImage = ctrl.images.length == 1 && ctrl.images[0].data.valid && ctrl.images[0].data.softDeletedMetadata === undefined;
+
+    ctrl.downloadableImagesArray = () => ctrl.imagesArray().filter(image => image.data.valid && image.data.softDeletedMetadata === undefined);
 
     ctrl.isDeleted = ctrl.images && ctrl.images.length == 1 && ctrl.images[0].data.softDeletedMetadata !== undefined;
-    const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
+    const uris$ = imageDownloadsService.getDownloads(ctrl.downloadableImagesArray()[0]);
     inject$($scope, uris$, ctrl, 'firstImageUris');
 
     ctrl.download    = (downloadKey) => {
@@ -52,7 +54,7 @@ downloader.controller('DownloaderCtrl', [
         ctrl.downloading = true;
 
         const downloads$ = imageDownloadsService.download$(
-                ctrl.imagesArray(),
+                ctrl.downloadableImagesArray(),
                 downloadKey || 'downloadUri'
         );
 
