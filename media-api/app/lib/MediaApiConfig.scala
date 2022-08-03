@@ -17,9 +17,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val quotaStoreKey: String = string("quota.store.key")
   val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
 
-  // quota updates can only be turned off in DEV
-  val quotaUpdateEnabled: Boolean = if (isDev) boolean("quota.update.enabled") else true
-
   //Lazy allows this to be empty and not break things unless used somewhere
   lazy val imgPublishingBucket = string("publishing.image.bucket")
 

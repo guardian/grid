@@ -207,6 +207,34 @@ setupPhotographersConfiguration() {
   echo "  uploaded file to $configBucket"
 }
 
+setupQuotasConfiguration () {
+  echo "setting up quotas configuration"
+
+  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
+
+  target="$ROOT_DIR/dev/config/rcs-quota.json"
+
+  aws s3 cp "$target" \
+    "s3://$configBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $configBucket"
+}
+
+setupUsagesData () {
+  echo "setting up usages data"
+
+  usageBucket=$(getStackResource "$CORE_STACK_NAME" UsageMailBucket)
+
+  target="$ROOT_DIR/dev/config/usages.eml"
+
+  aws s3 cp "$target" \
+    "s3://$usageBucket/" \
+    --endpoint-url $LOCALSTACK_ENDPOINT
+
+  echo "  uploaded file to $usageBucket"
+}
+
 setupUsageRightsConfiguration() {
   echo "setting up usage rights configuration"
 
@@ -337,6 +365,8 @@ main() {
   fi
 
   setupPhotographersConfiguration
+  setupQuotasConfiguration
+  setupUsagesData
   setupUsageRightsConfiguration
   setupDevNginx
   generateConfig
