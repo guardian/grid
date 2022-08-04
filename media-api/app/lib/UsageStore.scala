@@ -201,11 +201,7 @@ class QuotaStore(
   def getQuota: Future[Map[String, SupplierUsageQuota]] = Future.successful(store.get())
 
   def update() {
-    if (config.quotaUpdateEnabled) {
-      store.send(_ => fetchQuota)
-    } else {
-      logger.info("Quota store updates disabled. Set quota.update.enabled in media-api.properties to enable.")
-    }
+    store.send(_ => fetchQuota)
   }
 
   private def fetchQuota: Map[String, SupplierUsageQuota] = {

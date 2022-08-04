@@ -1,0 +1,30 @@
+Return-Path: <mlemos@acm.org>
+To: Manuel Lemos <mlemos@linux.local>
+Subject: Testing Manuel Lemos' MIME E-mail composing and sending PHP class: HTML message
+From: mlemos <mlemos@acm.org>
+Reply-To: mlemos <mlemos@acm.org>
+Sender: mlemos@acm.org
+X-Mailer: http://www.phpclasses.org/mimemessage $Revision: 1.63 $ (mail)
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="----_=_next_enterprise_message"
+Message-ID: <20050430192829.0489.mlemos@acm.org>
+Date: Sat, 30 Apr 2005 19:28:29 -0300
+
+------_=_next_enterprise_message
+
+This is a multi-part message in MIME format.
+------_=_next_enterprise_message
+Content-Type: text/plain;
+              charset="UTF-8"
+
+attached Usage by Supplier daily for 2022-08-01-01-00-04
+
+------_=_next_enterprise_message
+Content-Type: application/octet-stream; name="Usage by Supplier daily.csv"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="Usage by Supplier daily.csv"
+
+IkNwcm8gTmFtZSIsIklkIg0KIkFsYW15IEltYWdlcyBMdGQiLCIxMDY3Ig0KIkF1c3RyYWxpYW4gQXNzb2NpYXRlZCBQcmVz
+cyBMaW1pdGVkIiwiNjk1Ig0KIkdldHR5IEltYWdlcyBJbnRlcm5hdGlvbmFsIiwiNjA1MCINCiJSZXggRmVhdHVyZXMgTHRk
+IiwiMTM4MyINCg==
+------_=_next_enterprise_message--
