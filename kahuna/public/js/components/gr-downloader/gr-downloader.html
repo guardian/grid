@@ -3,26 +3,26 @@
     <button type="button"
             title="Download images"
             ng-disabled="ctrl.downloading"
-            ng-if="ctrl.imageCount() > 1 && ctrl.canDownload"
+            ng-if="ctrl.multipleDownloadableImagesSelected"
             ng-click="ctrl.download('downloadUri')">
         <gr-icon-label gr-icon="file_download">
             Download<span ng-show="ctrl.downloading">ing</span>
         </gr-icon-label>
     </button>
 
-    <span ng-if="ctrl.imageCount() > 1 && !ctrl.canDownload" aria-label="Cannot download" gr-tooltip="Cannot download the selected images.">
+    <span ng-if="ctrl.images.length > 1 && !ctrl.multipleDownloadableImagesSelected" aria-label="Cannot download" gr-tooltip="Downloading requires a lease.">
         <gr-icon-label gr-icon="file_download">
             Cannot download
         </gr-icon-label>
     </span>
 
-    <a ng-if="ctrl.imageCount() == 1 && ctrl.canDownload"
+    <a ng-if="ctrl.singleDownloadableImageSelected"
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank"
        aria-label="Download image">
         <gr-icon-label gr-icon="file_download">Download</gr-icon-label>
     </a>
 
-    <span ng-if="ctrl.imageCount() == 1 && !ctrl.canDownload" aria-label="Cannot download" gr-tooltip="Cannot download this image.">
+    <span ng-if="ctrl.images.length == 1 && !ctrl.singleDownloadableImageSelected" aria-label="Cannot download" gr-tooltip="Downloading requires a lease.">
         <gr-icon-label gr-icon="file_download">Cannot download</gr-icon-label>
     </span>
 
