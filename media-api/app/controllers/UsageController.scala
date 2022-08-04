@@ -67,7 +67,9 @@ class UsageController(auth: Authentication, config: MediaApiConfig, elasticSearc
     usageQuota.usageStore.getUsageStatus()
       .map((s: StoreAccess) => respond(s))
       .recover {
-        case e => respondError(InternalServerError, "unknown-error", e.toString)
+        case e =>
+          logger.error("quota access failed", e)
+          respondError(InternalServerError, "unknown-error", e.toString)
       }
   }
 }
