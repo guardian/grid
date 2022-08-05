@@ -47,8 +47,8 @@ downloader.controller('DownloaderCtrl', [
 
     ctrl.downloadableImagesArray = () => ctrl.imagesArray().filter(image => image.data.valid && image.data.softDeletedMetadata === undefined);
 
-    console.log('imagesArray', ctrl.imagesArray);
-    console.log('downloadable images', ctrl.downloadableImagesArray);
+    console.log('imagesArray', ctrl.imagesArray());
+    console.log('downloadable images', ctrl.downloadableImagesArray());
 
     ctrl.isDeleted = ctrl.images && ctrl.images.length == 1 && ctrl.images[0].data.softDeletedMetadata !== undefined;
     const uris$ = imageDownloadsService.getDownloads(ctrl.downloadableImagesArray()[0]);
