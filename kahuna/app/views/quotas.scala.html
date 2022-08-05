@@ -4,14 +4,75 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
-
-        <title>the grid - quotas</title>
+        <link rel="stylesheet" href="assets/stylesheets/main.css">
+        <link rel="shortcut icon" type="image/svg+xml" href="/assets/images/grid-favicon.svg">
+        <title>quotas | the Grid</title>
         <link rel="media-api-uri" href="@mediaApiUri" />
     </head>
     <body>
-        <h1>Grid Quotas</h1>
-        <hr />
-        <div id="root"></div>
+        <style>
+            * {
+                box-sizing: border-box;
+                text-align: left;
+                border-collapse: collapse;
+            }
+            section, h1 {
+                padding: 12px;
+            }
+            .usages {
+                padding: 24px;
+                margin: auto;
+                width: fit-content;
+                background-color: #333;
+                box-shadow: 0 1px 5px rgb(0 0 0 / 50%);
+            }
+            header {
+                height: 50px;
+            }
+            h1 {
+                font-size: 2rem;
+                line-height: 2.6rem;
+                display: inline-block;
+            }
+            hr {
+                border: none;
+                border-bottom: 0.5px solid #565656;
+                margin: 0px;
+            }
+            tr {
+                border-bottom: 1px solid #565656;
+            }
+            td {
+                color: #999;
+                font-size: 14px;
+                padding: 4px 12px 4px 4px;
+            }
+            th {
+                padding-top: 20px;
+            }
+            tr:first-child th {
+                padding-top: 0px;
+            }
+            meter {
+                width: 100px;
+                height: 16px;
+            }
+            .home-link {
+                border-right: 1px solid #565656;
+            }
+        </style>
+        <main>
+            <header>
+                <a href="/search" class="home-link"></a>
+                <h1>Grid Quotas</h1>
+            </header>
+            <hr />
+            <section>
+                <div class="usages">
+                    <table id="root"></table>
+                </div>
+            </section>
+        </main>
     </body>
     <script src="@routes.Assets.versioned("dist/quotas.js")"></script>
 </html>
