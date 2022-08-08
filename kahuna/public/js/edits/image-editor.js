@@ -158,11 +158,10 @@ imageEditor.controller('ImageEditorCtrl', [
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
 
-      if (angular.isDefined(collection) && collection.length > 0) {
-        if (ctrl.image.data.collections.filter(r => r.data.path.toString() === collection.toString()).length === 0) {
-          const description = collection[collection.length - 1];
+      if (angular.isDefined(collection)) {
+        if (ctrl.image.data.collections.filter(r => r.data.path.toString() === collection.data.fullPath.toString()).length === 0) {
           ctrl.updatedCollections = [
-            {description, fromTemplate: true},
+            {description: collection.data.data.description, fromTemplate: true},
             ...ctrl.image.data.collections.map(resource => resource.data)
           ];
 

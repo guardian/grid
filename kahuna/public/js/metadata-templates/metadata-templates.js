@@ -42,20 +42,36 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
 
   ctrl.selectTemplate = () => {
     if (ctrl.metadataTemplate) {
-      const metadata = applyTemplateToMetadata();
-      const usageRights = applyTemplateToUsageRights();
-      const collection = ctrl.metadataTemplate.collection;
+      collections.getCollections().then(existingCollections => {
+        const collection = ctrl.metadataTemplate.collectionFullPath.length > 0 ? verifyTemplateCollection(existingCollections, ctrl.metadataTemplate.collectionFullPath) : undefined;
+        const metadata = applyTemplateToMetadata(ctrl.metadataTemplate.metadataFields);
+        const usageRights = applyTemplateToUsageRights(ctrl.metadataTemplate.usageRights);
 
-      ctrl.onMetadataTemplateSelected({metadata, usageRights, collection});
+        ctrl.onMetadataTemplateSelected({metadata, usageRights, collection});
+      });
     } else {
       ctrl.cancel();
     }
   };
 
-  function applyTemplateToMetadata() {
-    if (ctrl.metadataTemplate.metadataFields && ctrl.metadataTemplate.metadataFields.length > 0) {
+  function verifyTemplateCollection(collectionNode, templateCollection) {
+    if (templateCollection.every(node => collectionNode.data.fullPath.includes(node))) {
+      return collectionNode;
+    } else if (collectionNode.data.children.length > 0) {
+      let i;
+      let result = null;
+
+      for (i = 0; result == null && i < collectionNode.data.children.length; i++) {
+        result = verifyTemplateCollection(collectionNode.data.children[i], templateCollection);
+      }
+      return result;
+    }
+  }
+
+  function applyTemplateToMetadata(templateMetadataFields) {
+    if (templateMetadataFields && templateMetadataFields.length > 0) {
       ctrl.metadata = angular.copy(ctrl.originalMetadata);
-      ctrl.metadataTemplate.metadataFields.forEach(field => {
+      templateMetadataFields.forEach(field => {
         ctrl.metadata[field.name] = resolve(field.resolveStrategy, ctrl.metadata[field.name], field.value);
       });
 
@@ -63,9 +79,9 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
     }
   }
 
-  function applyTemplateToUsageRights() {
-    if (ctrl.metadataTemplate.usageRights && ctrl.metadataTemplate.usageRights.hasOwnProperty('category')) {
-      return ctrl.metadataTemplate.usageRights;
+  function applyTemplateToUsageRights(templateUsageRights) {
+    if (templateUsageRights && templateUsageRights.hasOwnProperty('category')) {
+      return templateUsageRights;
     } else {
       return ctrl.originalUsageRights;
     }
@@ -84,8 +100,8 @@ metadataTemplates.controller('MetadataTemplatesCtrl', [
       .update(ctrl.image.data.userMetadata.data.metadata, ctrl.metadata, ctrl.image)
       .then(resource => ctrl.resource = resource)
       .then(() => {
-        if (ctrl.metadataTemplate.collection) {
-          collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collection);
+        if (ctrl.metadataTemplate.collectionFullPath) {
+          collections.addCollectionToImage(ctrl.image, ctrl.metadataTemplate.collectionFullPath);
         }
       })
       .then(() => {
