@@ -294,6 +294,13 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
     imageMetadata.dateTaken should be(None)
   }
 
+  it("should leave the dateTaken field of ImageMetadata empty if XMP photoshop:DateCreated is in BC (negative years) unless different minDate is provided") {
+    // elasticsearch is not a fan of dates outside of the range 1000-9999
+    val fileMetadata = FileMetadata(iptc = Map(), exif = Map(), exifSub = Map(), xmp = Map("photoshop:DateCreated" -> JsString("-2012-01-01")))
+    val imageMetadata = ImageMetadataConverter.fromFileMetadata(fileMetadata)
+    imageMetadata.dateTaken should be(None)
+  }
+
   // Keywords
 
   it("should populate keywords field of ImageMetadata from comma-separated list of keywords") {
@@ -511,5 +518,10 @@ class ImageMetadataConverterTest extends AnyFunSpec with Matchers {
     val tomorrow = ImageMetadataConverter.parseRandomDate("2021-01-01").get
     val parsedDate = ImageMetadataConverter.parseRandomDate("2020-12-31", Some(tomorrow))
     parsedDate.isDefined should be (true)
+  }
+
+  it("should refuse dates before a provided 'minimum' date") {
+    val parsedDate = ImageMetadataConverter.parseRandomDate("-0003-01-01", minDate = Some(ImageMetadataConverter.earliestSensibleDate))
+    parsedDate.isDefined should be (false)
   }
 }
