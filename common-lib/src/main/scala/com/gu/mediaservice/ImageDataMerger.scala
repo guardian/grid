@@ -147,8 +147,10 @@ class ImageDataMerger(gridClient: GridClient, services: Services, authFunction: 
 
   private def getFullMergedImageData(maybeImage: Option[Image])(implicit ec: ExecutionContext): Future[Option[Image]] = maybeImage match {
     case Some(image) =>
+      // time travel has not yet been invented, so we expect images to have been taken before they were uploaded
+      val latestAllowedDateTime = Some(image.uploadTime)
       // TODO I'm suspicious that we don't invoke the cleaners on this pass...
-      val imageWithMetadata = image.copy(originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata, latestAllowedDateTime = None))
+      val imageWithMetadata = image.copy(originalMetadata = ImageMetadataConverter.fromFileMetadata(image.fileMetadata, latestAllowedDateTime = latestAllowedDateTime))
       ImageDataMerger.aggregate(imageWithMetadata, gridClient, authFunction) map (i => Some(i))
     case None => Future.successful(None)
   }
