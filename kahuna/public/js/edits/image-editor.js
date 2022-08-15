@@ -136,6 +136,7 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.onMetadataTemplateApplied = () => {
       $scope.$broadcast('events:metadata-template:template-applied', {});
 
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
     };
@@ -143,17 +144,30 @@ imageEditor.controller('ImageEditorCtrl', [
     ctrl.onMetadataTemplateCancelled = (metadata, usageRights) => {
       $scope.$broadcast('events:metadata-template:template-cancelled', { metadata });
 
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
     };
 
-    ctrl.onMetadataTemplateSelected = (metadata, usageRights) => {
+    ctrl.onMetadataTemplateSelected = (metadata, usageRights, collection) => {
       $scope.$broadcast('events:metadata-template:template-selected', { metadata });
 
+      ctrl.collectionUpdatedByTemplate = false;
       ctrl.showUsageRights = false;
       ctrl.usageRightsUpdatedByTemplate = false;
       ctrl.usageRights.data = usageRights;
+
+      if (angular.isDefined(collection)) {
+        if (ctrl.image.data.collections.filter(r => r.data.path.toString() === collection.data.fullPath.toString()).length === 0) {
+          ctrl.updatedCollections = [
+            {description: collection.data.data.description, fromTemplate: true},
+            ...ctrl.image.data.collections.map(resource => resource.data)
+          ];
+
+          ctrl.collectionUpdatedByTemplate = true;
+        }
+      }
 
       if (ctrl.image.data.usageRights === undefined ||
         ctrl.image.data.usageRights.category !== usageRights.category) {

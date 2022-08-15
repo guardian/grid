@@ -55,7 +55,8 @@ collectionOverlay.directive('grCollectionOverlay', [function(){
         bindToController: true,
         template: template,
         scope: {
-            image: '='
+            image: '=',
+            collectionUpdatedByTemplate: '=?grCollectionUpdatedByTemplate'
         }
     };
 
