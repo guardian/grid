@@ -176,7 +176,7 @@ results.controller('SearchResultsCtrl', [
 
         ctrl.loadRange = function(start, end) {
             const length = end - start + 1;
-            search({offset: start, length: length}).then(images => {
+            search({offset: start, length: length, countAll: false}).then(images => {
                 // Update imagesAll with newly loaded images
                 images.data.forEach((image, index) => {
                     const position = index + start;
@@ -291,7 +291,7 @@ results.controller('SearchResultsCtrl', [
             return $stateParams.query || '*';
         }
 
-        function search({until, since, offset, length, orderBy} = {}) {
+        function search({until, since, offset, length, orderBy, countAll} = {}) {
             // FIXME: Think of a way to not have to add a param in a million places to add it
 
             /*
@@ -318,6 +318,9 @@ results.controller('SearchResultsCtrl', [
             if (angular.isUndefined(orderBy)) {
                 orderBy = $stateParams.orderBy;
             }
+            if (angular.isUndefined(countAll)) {
+              countAll = true;
+            }
 
             return mediaApi.search($stateParams.query, angular.extend({
                 ids:        $stateParams.ids,
@@ -337,7 +340,8 @@ results.controller('SearchResultsCtrl', [
                 orderBy:    orderBy,
                 hasRightsAcquired: $stateParams.hasRightsAcquired,
                 hasCrops: $stateParams.hasCrops,
-                syndicationStatus: $stateParams.syndicationStatus
+                syndicationStatus: $stateParams.syndicationStatus,
+                countAll
             }));
         }
 

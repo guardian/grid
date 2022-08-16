@@ -49,11 +49,34 @@ class MediaApi(
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
   val gridClient: GridClient = GridClient(services)(ws)
 
-  private val searchParamList = List("q", "ids", "offset", "length", "orderBy",
-    "since", "until", "modifiedSince", "modifiedUntil", "takenSince", "takenUntil",
-    "uploadedBy", "archived", "valid", "free", "payType",
-    "hasExports", "hasIdentifier", "missingIdentifier", "hasMetadata",
-    "persisted", "usageStatus", "usagePlatform", "hasRightsAcquired", "syndicationStatus").mkString(",")
+  private val searchParamList = List(
+    "q",
+    "ids",
+    "offset",
+    "length",
+    "orderBy",
+    "since",
+    "until",
+    "modifiedSince",
+    "modifiedUntil",
+    "takenSince",
+    "takenUntil",
+    "uploadedBy",
+    "archived",
+    "valid",
+    "free",
+    "payType",
+    "hasExports",
+    "hasIdentifier",
+    "missingIdentifier",
+    "hasMetadata",
+    "persisted",
+    "usageStatus",
+    "usagePlatform",
+    "hasRightsAcquired",
+    "syndicationStatus",
+    "countAll"
+  ).mkString(",")
 
   private val searchLinkHref = s"${config.rootUri}/images{?$searchParamList}"
 
