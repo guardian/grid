@@ -41,17 +41,12 @@ downloader.controller('DownloaderCtrl', [
         ctrl.images : Array.from(ctrl.images.values());
     ctrl.imageCount = () => ctrl.imagesArray().length;
 
-    ctrl.singleDownloadableImageSelected = ctrl.images.length == 1 && ctrl.images[0].data.valid && ctrl.images[0].data.softDeletedMetadata === undefined;
-
-    ctrl.multipleDownloadableImagesSelected = ctrl.images.length > 1 && ctrl.imagesArray().some(image => image.data.valid && image.data.softDeletedMetadata === undefined);
-
+    ctrl.isSingleDownloadableImage = ctrl.imagesArray()[0].data.valid && ctrl.imagesArray()[0].data.softDeletedMetadata === undefined;
+    ctrl.areMultipleDownloadableImages = ctrl.imagesArray().some(image => image.data.valid &&  image.data.softDeletedMetadata === undefined);
     ctrl.downloadableImagesArray = () => ctrl.imagesArray().filter(image => image.data.valid && image.data.softDeletedMetadata === undefined);
 
-    console.log('imagesArray', ctrl.imagesArray());
-    console.log('downloadable images', ctrl.downloadableImagesArray());
-
     ctrl.isDeleted = ctrl.images && ctrl.images.length == 1 && ctrl.images[0].data.softDeletedMetadata !== undefined;
-    const uris$ = imageDownloadsService.getDownloads(ctrl.downloadableImagesArray()[0]);
+    const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
     inject$($scope, uris$, ctrl, 'firstImageUris');
 
     ctrl.download    = (downloadKey) => {
