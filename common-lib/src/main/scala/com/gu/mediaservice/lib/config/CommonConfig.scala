@@ -171,6 +171,24 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
    */
   val applicableUsageRights: Seq[UsageRightsSpec] = configuration.get[Seq[UsageRightsSpec]]("usageRights.applicable")
 
+  /**
+    * allows configuring which metadata is written back to the image on loss of metadata after cropping
+    * metadata.writeBack {
+    *   default = [
+    *     "dateTaken",
+    *     "description",
+    *     "credit",
+    *     "creditUri",
+    *     "byline",
+    *     "bylineTitle",
+    *     "title",
+    *     "copyright"
+    *   ],
+    *   domain = []
+    * }
+    */
+  val metadataWriteBack: Set[String] = getStringSet("metadata.writeBack.default")
+
   private def getKinesisConfigForStream(streamName: String) = KinesisSenderConfig(awsRegion, awsCredentials, awsLocalEndpoint, isDev, streamName)
 
   final def getStringSet(key: String): Set[String] = Try {
