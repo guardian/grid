@@ -25,22 +25,22 @@ import collectionsPanelTemplate from
     '../components/gr-collections-panel/gr-collections-panel.html';
 import {cropUtil} from '../util/crop';
 
-
-export var search = angular.module('kahuna.search', [
-    'ct.ui.router.extras.dsr',
-    'kahuna.search.query',
-    'kahuna.search.results',
-    'kahuna.preview.image',
-    'data-structure.list-factory',
-    'data-structure.ordered-set-factory',
-    'gr.topBar',
-    'gr.panels',
-    'gr.keyboardShortcut',
-    'grInfoPanel',
-    'grCollectionsPanel',
-    'ui.router',
-  cropUtil.name
-]);
+export var search = angular
+  .module('kahuna.search', [
+      'ct.ui.router.extras.dsr',
+      'kahuna.search.query',
+      'kahuna.search.results',
+      'kahuna.preview.image',
+      'data-structure.list-factory',
+      'data-structure.ordered-set-factory',
+      'gr.topBar',
+      'gr.panels',
+      'gr.keyboardShortcut',
+      'grInfoPanel',
+      'grCollectionsPanel',
+      'ui.router',
+    cropUtil.name
+  ]);
 
 // TODO: add a resolver here so that if we error (e.g. 401) we don't keep trying
 // to render - similar to the image controller see:

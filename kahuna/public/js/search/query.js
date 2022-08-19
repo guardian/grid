@@ -11,16 +11,22 @@ import {guDateRange} from '../components/gu-date-range/gu-date-range';
 import template from './query.html';
 import {syntax} from './syntax/syntax';
 import {grStructuredQuery} from './structured-query/structured-query';
+import {react2angular} from "react2angular";
+import {AlternateFiltersPanel} from "./react/alternateFiltersPanel";
 
-export var query = angular.module('kahuna.search.query', [
-    // Note: temporarily disabled for performance reasons, see above
-    // 'ngAnimate',
-    eq.name,
-    guDateRange.name,
-    syntax.name,
-    grStructuredQuery.name,
-    'util.storage'
-]);
+export var query = angular
+  .module('kahuna.search.query', [
+      // Note: temporarily disabled for performance reasons, see above
+      // 'ngAnimate',
+      eq.name,
+      guDateRange.name,
+      syntax.name,
+      grStructuredQuery.name,
+      'util.storage'
+  ])
+  .component('alternateFiltersPanel',
+    react2angular(AlternateFiltersPanel, ["filter", "updateFilter"])
+  );
 
 query.controller('SearchQueryCtrl', [
   '$rootScope',
@@ -229,6 +235,15 @@ query.controller('SearchQueryCtrl', [
     function resetQuery() {
         ctrl.filter.query = undefined;
     }
+
+    $rootScope.$watchCollection(() => ctrl.filter, (newFilter) => {
+      $rootScope.reactFilter = newFilter && {...newFilter};
+    });
+    $rootScope.reactFilter = ctrl.filter;
+    $rootScope.reactUpdateFilter = function(newFilter) {
+      ctrl.filter = newFilter;
+      $rootScope.$apply();
+    };
 }]);
 
 query.directive('searchQuery', [function() {
