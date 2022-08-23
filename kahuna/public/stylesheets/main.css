@@ -1168,6 +1168,7 @@ textarea.ng-invalid {
     max-width: 100%;
     max-height: 100%;
     margin: 0 auto;
+    pointer-events: none;
 }
 
 .preview__image.preview__image--staff {
@@ -1407,6 +1408,7 @@ FIXME: what to do with touch devices
 .result-editor__img-link {
     display: block;
     margin: 0 auto;
+    pointer-events: none;
 }
 
 .result-editor__editor {
@@ -1930,6 +1932,7 @@ FIXME: what to do with touch devices
     max-width: 100%;
     max-height: 64px;
     margin: 0 auto;
+    pointer-events: none;
 }
 
 .image-crop__info {
