@@ -228,7 +228,7 @@ image.controller('ImageCtrl', [
 
     mediaCropper.getCropsFor(image).then(cropsResource => {
       const s3Crops = cropsResource.data;
-      const esCrops = ctrl.image.data.exports;
+      const esCrops = image.data.exports;
 
       const crops = s3Crops.filter( (s3Crop)=> {
         return esCrops.find( (esCrop)=> {

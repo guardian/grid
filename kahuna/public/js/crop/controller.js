@@ -24,6 +24,7 @@ crop.controller('ImageCropCtrl', [
   'cropSettings',
   'square',
   'freeform',
+  '$timeout',
   function(
     $scope,
     $rootScope,
@@ -37,7 +38,8 @@ crop.controller('ImageCropCtrl', [
     defaultCrop,
     cropSettings,
     square,
-    freeform) {
+    freeform,
+    $timeout) {
 
       const ctrl = this;
       const imageId = $stateParams.imageId;
@@ -153,10 +155,12 @@ crop.controller('ImageCropCtrl', [
             crop: crop
           });
 
-          $state.go('image', {
-            imageId: imageId,
-            crop: crop.data.id
-          });
+          $timeout(function() {
+             $state.go('image', {
+               imageId: imageId,
+               crop: crop.data.id
+             });
+           }, 500);
         }).finally(() => {
           ctrl.cropping = false;
         });
