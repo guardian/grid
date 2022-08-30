@@ -173,22 +173,13 @@ class ImageOperations(playPath: String) extends GridLogging {
   )(implicit logMarker: LogMarker): Future[(File, MimeType)] = {
     val stopwatch = Stopwatch.start
 
-    val cropSource     = addImage(browserViewableImage.file)
-    val thumbnailed    = thumbnail(cropSource)(width)
-    val corrected      = correctColour(thumbnailed)(iccColourSpace, colourModel, browserViewableImage.isTransformedFromSource)
-    val converted      = applyOutputProfile(corrected, optimised = true)
-    val stripped       = stripMeta(converted)
-    val profiled       = applyOutputProfile(stripped, optimised = true)
-    val withBackground = setBackgroundColour(profiled)(backgroundColour)
-    val flattened      = flatten(withBackground)
-    val unsharpened    = unsharp(flattened)(thumbUnsharpRadius, thumbUnsharpSigma, thumbUnsharpAmount)
-    val qualified      = quality(unsharpened)(qual)
-    val interlaced     = interlace(qualified)(interlacedHow)
-    val addOutput      = {file:File => addDestImage(interlaced)(file)}
     for {
-      _          <- runConvertCmd(addOutput(outputFile), useImageMagick = browserViewableImage.mimeType == Tiff)
-      _ = logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
-    } yield (outputFile, thumbMimeType)
+      _ <- Future { s"gridvips thumbnail -i ${browserViewableImage.file.getAbsolutePath} -o ${outputFile.getAbsolutePath}".split(" ").toSeq.! }
+    } yield {
+      logger.info(addLogMarkers(stopwatch.elapsed), "Finished creating thumbnail")
+      (outputFile, thumbMimeType)
+    }
+
   }
 
   /**
