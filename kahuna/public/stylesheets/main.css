@@ -1285,6 +1285,10 @@ FIXME: what to do with touch devices
     cursor: pointer;
 }
 
+.preview__select {
+  cursor: default;
+}
+
 .preview__fade {
     width: 100%;
     background: linear-gradient(to top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.75));
