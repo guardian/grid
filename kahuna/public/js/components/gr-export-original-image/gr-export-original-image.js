@@ -17,6 +17,16 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
             }
         };
 
+        function pollUntilImageUpdated(image, newCropId, stateChange) {
+          image.get().then(maybeUpdatedImage => {
+            if (maybeUpdatedImage.data.exports.find( crop => crop.id == newCropId ) !== undefined) {
+              stateChange();
+            } else {
+              pollUntilImageUpdated(image, newCropId, stateChange);
+            }
+          });
+        }
+
         function crop() {
             ctrl.cropping = true;
 
@@ -27,9 +37,11 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
                     crop: crop
                 });
 
-                $state.go('image', {
-                    imageId: imageId,
-                    crop: crop.data.id
+                pollUntilImageUpdated(ctrl.image, crop.data.id, function () {
+                  $state.go('image', {
+                      imageId: imageId,
+                      crop: crop.data.id
+                  });
                 });
             }).finally(() => {
                 ctrl.cropping = false;
