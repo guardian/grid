@@ -18,6 +18,7 @@ import org.joda.time.DateTime
 import play.api.libs.ws.WSClient
 
 import java.net.URI
+
 import com.gu.mediaservice.syntax.MessageSubjects
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -89,6 +90,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
     store.listCrops(id) map (_.toList) map { crops =>
       val deleteCropsAction =
         ArgoAction("delete-crops", URI.create(s"${config.rootUri}/crops/$id"), "DELETE")
+
       lazy val cropDownloadLinks = for {
         crop <- crops
         asset <- crop.assets

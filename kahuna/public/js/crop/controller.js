@@ -24,7 +24,6 @@ crop.controller('ImageCropCtrl', [
   'cropSettings',
   'square',
   'freeform',
-  '$timeout',
   function(
     $scope,
     $rootScope,
@@ -38,8 +37,7 @@ crop.controller('ImageCropCtrl', [
     defaultCrop,
     cropSettings,
     square,
-    freeform,
-    $timeout) {
+    freeform) {
 
       const ctrl = this;
       const imageId = $stateParams.imageId;
@@ -135,6 +133,16 @@ crop.controller('ImageCropCtrl', [
 
       ctrl.cropSizeWarning = () => ctrl.cropWidth() < 1000;
 
+      function pollUntilImageUpdated(newCropId, stateChange) {
+        image.get().then(maybeUpdatedImage => {
+          if (maybeUpdatedImage.data.exports.find( crop => crop.id == newCropId ) !== undefined) {
+            stateChange();
+          } else {
+            pollUntilImageUpdated(newCropId, stateChange);
+          }
+        });
+      }
+
       function crop() {
         // TODO: show crop
         const coords = {
@@ -148,19 +156,22 @@ crop.controller('ImageCropCtrl', [
 
         ctrl.cropping = true;
 
-        mediaCropper.createCrop(ctrl.image, coords, ratioString).then(crop => {
-          // Global notification of action
-          $rootScope.$emit('events:crop-created', {
-            image: ctrl.image,
-            crop: crop
+        mediaCropper.createCrop(ctrl.image, coords, ratioString)
+        .then(crop => {
+           // Global notification of action
+           $rootScope.$emit('events:crop-created', {
+             image: ctrl.image,
+             crop: crop
+           });
+           return crop.data.id;
+        })
+        .then(cropId => {
+          pollUntilImageUpdated(cropId, function() {
+            $state.go('image', {
+              imageId: imageId,
+              crop: cropId
+            });
           });
-
-          $timeout(function() {
-             $state.go('image', {
-               imageId: imageId,
-               crop: crop.data.id
-             });
-           }, 500);
         }).finally(() => {
           ctrl.cropping = false;
         });
