@@ -24,6 +24,7 @@ crop.controller('ImageCropCtrl', [
   'cropSettings',
   'square',
   'freeform',
+  'apiPoll',
   function(
     $scope,
     $rootScope,
@@ -37,7 +38,8 @@ crop.controller('ImageCropCtrl', [
     defaultCrop,
     cropSettings,
     square,
-    freeform) {
+    freeform,
+    apiPoll) {
 
       const ctrl = this;
       const imageId = $stateParams.imageId;
@@ -138,7 +140,7 @@ crop.controller('ImageCropCtrl', [
           if (maybeUpdatedImage.data.exports.find( crop => crop.id == newCropId ) !== undefined) {
             stateChange();
           } else {
-            pollUntilImageUpdated(newCropId, stateChange);
+            apiPoll(pollUntilImageUpdated(newCropId, stateChange));
           }
         });
       }

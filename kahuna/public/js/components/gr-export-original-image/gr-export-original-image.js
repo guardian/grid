@@ -5,8 +5,8 @@ import template from './gr-export-original-image.html';
 export const exportOriginalImage = angular.module('gr.exportOriginalImage', []);
 
 exportOriginalImage.controller('grExportOriginalImageCtrl', [
-    '$scope', '$rootScope', '$state', '$stateParams', 'mediaCropper',
-    function($scope, $rootScope, $state, $stateParams, mediaCropper) {
+    '$scope', '$rootScope', '$state', '$stateParams', 'mediaCropper', 'apiPoll',
+    function($scope, $rootScope, $state, $stateParams, mediaCropper, apiPoll) {
         let ctrl = this;
         const imageId = $stateParams.imageId;
 
@@ -22,7 +22,7 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
             if (maybeUpdatedImage.data.exports.find( crop => crop.id == newCropId ) !== undefined) {
               stateChange();
             } else {
-              pollUntilImageUpdated(image, newCropId, stateChange);
+              apiPoll(pollUntilImageUpdated(image, newCropId, stateChange));
             }
           });
         }
