@@ -430,7 +430,7 @@ class MediaApi(
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       links = List(prevLink, nextLink).flatten
-    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links, filterPanelItems = Some(filterPanelItems))
+    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links, actions = Some(filterPanelItems))
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)

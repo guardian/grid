@@ -13,7 +13,7 @@ case class FilterPanelItem(
     if (`type` != "filter") {
       throw new UnsupportedOperationException("Only filter type is supported")
     }
-    s"""${if (filterType == "exclusion") "-" else ""}$key:"$value""""
+    s"""${if (filterType == "exclusion") "-" else ""}$key:$value""" // TODO consider quoting value, despite bug with 'has'
   }
 }
 

@@ -25,7 +25,7 @@ export var query = angular
       'util.storage'
   ])
   .component('alternateFiltersPanel',
-    react2angular(AlternateFiltersPanel, ["filter", "updateFilter"])
+    react2angular(AlternateFiltersPanel, ["filter", "updateFilter", "filterPanelItems"])
   );
 
 query.controller('SearchQueryCtrl', [

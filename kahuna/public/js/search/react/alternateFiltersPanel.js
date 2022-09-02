@@ -4,42 +4,23 @@ import {renderQuery, structureQuery} from "../structured-query/syntax";
 
 // FIXME change to typescript
 
-const checkboxClauses = {
-  "Has Crops": {
-    type: "filter",
-    filterType: "inclusion",
-    key: "has",
-    value: "crops"
-  },
-  "GNM Owned": {
-    type: "filter",
-    filterType: "inclusion",
-    key: "is",
-    value: "GNM-owned"
-  },
-  "Deleted": {
-    type: "filter",
-    filterType: "inclusion",
-    key: "is",
-    value: "deleted"
-  }
-};
-
-const checkboxClausesWithPredicates = Object.entries(checkboxClauses).map(([label, instance]) => ({
-  label,
-  instance,
-  predicate: (_) =>
-    _.type === instance.type &&
-    _.filterType === instance.filterType &&
-    _.key === instance.key &&
-    _.value === instance.value
-}));
-
 const not = (predicate) => (_) => !predicate(_);
 
-export const AlternateFiltersPanel = ({filter, updateFilter}) => {
+export const AlternateFiltersPanel = ({filter, updateFilter, filterPanelItems}) => {
+
   const structuredQuery = filter?.query && structureQuery(filter.query) || [];
-  return (
+
+  const checkboxClausesWithPredicates = Object.entries(filterPanelItems || {}).map(([label, instance]) => ({
+    label,
+    instance,
+    predicate: (_) =>
+      _.type === instance.type &&
+      _.filterType === instance.filterType &&
+      _.key === instance.key &&
+      _.value === instance.value
+  }));
+
+  return checkboxClausesWithPredicates.length === 0 ? null : (
     <div style={{
       userSelect: "none",
       padding: "5px",
@@ -58,7 +39,7 @@ export const AlternateFiltersPanel = ({filter, updateFilter}) => {
                    updateFilter({...filter, query: renderQuery(newStructuredQuery)});
                  }}
           />
-          {clause.label}
+          {clause.label} ({clause.instance.count})
         </label>
       ))}
     </div>

@@ -32,7 +32,7 @@ trait ArgoHelpers extends Results with GridLogging {
     total: Option[Long] = None,
     links: List[Link] = Nil,
     uri: Option[URI] = None,
-    filterPanelItems: Option[Map[String, FilterPanelItem]] = None
+    actions: Option[Map[String, FilterPanelItem]] = None
   )(
     implicit writes: Writes[T]
   ): Result = {
@@ -43,7 +43,7 @@ trait ArgoHelpers extends Results with GridLogging {
       total,
       data,
       links,
-      filterPanelItems
+      actions
     )
 
     serializeAndWrap(response, Ok)

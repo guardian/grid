@@ -131,6 +131,7 @@ results.controller('SearchResultsCtrl', [
 
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
+            $rootScope.filterPanelItems = {...images.$response.$$state.value.actions};
             ctrl.totalResults = images.total;
 
             ctrl.hasQuery = !!$stateParams.query;

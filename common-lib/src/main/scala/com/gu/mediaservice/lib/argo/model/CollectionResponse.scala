@@ -14,7 +14,7 @@ case class CollectionResponse[T](
   total: Option[Long] = None,
   data: Seq[T],
   links: List[Link] = List(),
-  filterPanelItems: Option[Map[String, FilterPanelItem]] = None,
+  actions: Option[Map[String, FilterPanelItem]] = None,
 )
 
 object CollectionResponse extends WriteHelpers {
@@ -26,7 +26,7 @@ object CollectionResponse extends WriteHelpers {
       (__ \ "total").writeNullable[Long] ~
       (__ \ "data").write[Seq[T]] ~
       (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link]) ~
-      (__ \ "filterPanelItems").writeNullable[Map[String, FilterPanelItem]]
+      (__ \ "actions").writeNullable[Map[String, FilterPanelItem]]
     )(unlift(CollectionResponse.unapply[T]))
 
 }
