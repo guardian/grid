@@ -1,11 +1,11 @@
 package com.gu.mediaservice.lib.argo
 
 import java.net.URI
-
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Result, Results}
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.logging.GridLogging
+import com.gu.mediaservice.model.FilterPanelItem
 import com.typesafe.scalalogging.Logger
 
 
@@ -26,16 +26,24 @@ trait ArgoHelpers extends Results with GridLogging {
     serializeAndWrap(response, Ok)
   }
 
-  def respondCollection[T](data: Seq[T], offset: Option[Long] = None, total: Option[Long] = None,
-                           links: List[Link] = Nil, uri: Option[URI] = None)
-                          (implicit writes: Writes[T]): Result = {
+  def respondCollection[T](
+    data: Seq[T],
+    offset: Option[Long] = None,
+    total: Option[Long] = None,
+    links: List[Link] = Nil,
+    uri: Option[URI] = None,
+    filterPanelItems: Option[Map[String, FilterPanelItem]] = None
+  )(
+    implicit writes: Writes[T]
+  ): Result = {
     val response = CollectionResponse(
-      uri    = uri,
-      offset = offset,
+      uri,
+      offset,
       length = Some(data.size),
-      total  = total,
-      data   = data,
-      links  = links
+      total,
+      data,
+      links,
+      filterPanelItems
     )
 
     serializeAndWrap(response, Ok)

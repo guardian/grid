@@ -3,7 +3,7 @@ package lib.elasticsearch
 import com.gu.mediaservice.lib.auth.{Authentication, Tier}
 import com.gu.mediaservice.lib.formatting.{parseDateFromQuery, printDateTime}
 import com.gu.mediaservice.model.usage.UsageStatus
-import com.gu.mediaservice.model.{Image, SyndicationStatus}
+import com.gu.mediaservice.model.{FilterPanelItem, Image, SyndicationStatus}
 import lib.querysyntax.{Condition, Parser}
 import org.joda.time.DateTime
 import play.api.libs.json.Json
@@ -15,7 +15,7 @@ import scalaz.{Validation, ValidationNel}
 
 import scala.util.Try
 
-case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long)
+case class SearchResults(hits: Seq[(String, SourceWrapper[Image])], total: Long, filterPanelItems: Map[String, FilterPanelItem])
 
 case class AggregateSearchResults(results: Seq[BucketResult], total: Long)
 

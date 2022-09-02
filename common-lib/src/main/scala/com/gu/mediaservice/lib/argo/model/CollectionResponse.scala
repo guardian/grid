@@ -1,11 +1,10 @@
 package com.gu.mediaservice.lib.argo.model
 
 import java.net.URI
-
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-
 import com.gu.mediaservice.lib.argo.WriteHelpers
+import com.gu.mediaservice.model.FilterPanelItem
 
 
 case class CollectionResponse[T](
@@ -14,7 +13,8 @@ case class CollectionResponse[T](
   length: Option[Long],
   total: Option[Long] = None,
   data: Seq[T],
-  links: List[Link] = List()
+  links: List[Link] = List(),
+  filterPanelItems: Option[Map[String, FilterPanelItem]] = None,
 )
 
 object CollectionResponse extends WriteHelpers {
@@ -25,7 +25,8 @@ object CollectionResponse extends WriteHelpers {
       (__ \ "length").writeNullable[Long] ~
       (__ \ "total").writeNullable[Long] ~
       (__ \ "data").write[Seq[T]] ~
-      (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link])
+      (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link]) ~
+      (__ \ "filterPanelItems").writeNullable[Map[String, FilterPanelItem]]
     )(unlift(CollectionResponse.unapply[T]))
 
 }

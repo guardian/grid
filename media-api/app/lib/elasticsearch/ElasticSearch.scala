@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
-import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, Image}
+import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, FilterPanelItem, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
@@ -15,7 +15,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.querysyntax.{HierarchyField, Match, Phrase}
+import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -58,6 +58,27 @@ class ElasticSearch(
   val syndicationFilter = new SyndicationFilter(config)
 
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies, config)
+
+  val filterPanelItems: Map[String, FilterPanelItem] = Map( //TODO load from config
+    "Has Crops" -> FilterPanelItem(
+      `type` = "filter",
+      filterType = "inclusion",
+      key = "has",
+      value = "crops"
+    ),
+    "GNM Owned" -> FilterPanelItem(
+      `type` = "filter",
+      filterType = "inclusion",
+      key = "is",
+      value = "GNM-owned"
+    ),
+    "Deleted" -> FilterPanelItem( //FIXME counting of this doesn't work because '-is:deleted' is being added implicitly in Parser.scala
+      `type` = "filter",
+      filterType = "inclusion",
+      key = "is",
+      value = "deleted"
+    )
+  )
 
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
     getImageWithSourceById(id).map(_.map(_.instance))
@@ -217,6 +238,9 @@ class ElasticSearch(
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
+      .aggregations(filterPanelItems.map { //TODO consider filtering out clauses which are already in withFilter
+        case (name, item) => filterAgg(name, queryBuilder.makeQuery(Parser.run(item.asQueryClauseString)))
+      }.toList)
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -224,10 +248,21 @@ class ElasticSearch(
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       logSearchQueryIfTimedOut(searchRequest, r.result)
+
+      val aggResultsWithDefinitions = filterPanelItems.map { //TODO consider filtering out clauses which are already in withFilter
+        case (name, item) => (name, item.copy(
+          count = r.result.aggregationsAsMap.get(name).map(_.asInstanceOf[Map[String, Any]]("doc_count").asInstanceOf[Int])
+        ))
+      }
+
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       // setting trackTotalHits to false means we don't get any hit count at all.
       // Requester has explicitly opted into not caring about the total hits, so give them what they want (nothing).
-      SearchResults(hits = imageHits, total = if (trackTotalHits) r.result.totalHits else 0)
+      SearchResults(
+        hits = imageHits,
+        total = if (trackTotalHits) r.result.totalHits else 0,
+        filterPanelItems = aggResultsWithDefinitions
+      )
     }
   }
 
