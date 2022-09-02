@@ -238,7 +238,8 @@ results.controller('SearchResultsCtrl', [
                     ctrl.newImagesCount = resp.total;
 
                     if (ctrl.newImagesCount > 0) {
-                        $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
+                      $rootScope.filterPanelItemsNewCounts = {...resp.$response.$$state.value.actions};
+                      $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
                     }
 
                     ctrl.lastestTimeMoment = moment(latestTime).from(moment());

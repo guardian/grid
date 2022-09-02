@@ -6,13 +6,16 @@ import {renderQuery, structureQuery} from "../structured-query/syntax";
 
 const not = (predicate) => (_) => !predicate(_);
 
-export const AlternateFiltersPanel = ({filter, updateFilter, filterPanelItems}) => {
+export const AlternateFiltersPanel = ({filter, updateFilter, filterPanelItems, filterPanelItemsNewCounts}) => {
 
   const structuredQuery = filter?.query && structureQuery(filter.query) || [];
 
   const checkboxClausesWithPredicates = Object.entries(filterPanelItems || {}).map(([label, instance]) => ({
     label,
-    instance,
+    instance: {
+      ...instance,
+      newCount: filterPanelItemsNewCounts?.[label]?.count
+    },
     predicate: (_) =>
       _.type === instance.type &&
       _.filterType === instance.filterType &&
@@ -24,24 +27,27 @@ export const AlternateFiltersPanel = ({filter, updateFilter, filterPanelItems}) 
     <div style={{
       userSelect: "none",
       padding: "5px",
-      borderBottom: "1px solid #565656"
+      borderBottom: "1px solid #565656",
+      display: "flex"
     }}>
       ⚛️
-      {checkboxClausesWithPredicates.map(clause => (
-        <label key={clause.label}>
-          <input type="checkbox"
-                 checked={!!structuredQuery?.find(clause.predicate)}
-                 onChange={e => {
-                   const isChecked = e.target.checked;
-                   const newStructuredQuery = isChecked
-                     ? [...structuredQuery, clause.instance]
-                     : structuredQuery.filter(not(clause.predicate));
-                   updateFilter({...filter, query: renderQuery(newStructuredQuery)});
-                 }}
-          />
-          {clause.label} ({clause.instance.count})
-        </label>
-      ))}
+      <div>
+        {checkboxClausesWithPredicates.map(clause => (
+          <label key={clause.label} style={{display: "block"}}>
+            <input type="checkbox"
+                   checked={!!structuredQuery?.find(clause.predicate)}
+                   onChange={e => {
+                     const isChecked = e.target.checked;
+                     const newStructuredQuery = isChecked
+                       ? [...structuredQuery, clause.instance]
+                       : structuredQuery.filter(not(clause.predicate));
+                     updateFilter({...filter, query: renderQuery(newStructuredQuery)});
+                   }}
+            />
+            {clause.label} ({clause.instance.count.toLocaleString()}{clause.instance.newCount ? ` +${clause.instance.newCount.toLocaleString()} NEW` : ""})
+          </label>
+        ))}
+      </div>
     </div>
   );
 };
