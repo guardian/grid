@@ -72,12 +72,18 @@ class ElasticSearch(
       key = "is",
       value = "GNM-owned"
     ),
-    "Deleted" -> FilterPanelItem( //FIXME counting of this doesn't work because '-is:deleted' is being added implicitly in Parser.scala
+    "Published Usage" -> FilterPanelItem(
       `type` = "filter",
       filterType = "inclusion",
-      key = "is",
-      value = "deleted"
-    )
+      key = "usages@status",
+      value = "published"
+    ),
+//    "Deleted" -> FilterPanelItem( //FIXME counting of this doesn't work because '-is:deleted' is being added implicitly in Parser.scala
+//      `type` = "filter",
+//      filterType = "inclusion",
+//      key = "is",
+//      value = "deleted"
+//    )
   )
 
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
