@@ -74,6 +74,8 @@ object CropSpec {
 
 case class Bounds(x: Int, y: Int, width: Int, height: Int) {
   def isPortrait: Boolean = width < height
+
+  def dimensions: Dimensions = Dimensions(width, height)
 }
 
 object Bounds {

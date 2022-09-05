@@ -1,6 +1,6 @@
 package model
 
-import lib.AspectRatio
+import com.gu.mediaservice.lib.imaging.AspectRatio
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import play.api.libs.json.Reads._

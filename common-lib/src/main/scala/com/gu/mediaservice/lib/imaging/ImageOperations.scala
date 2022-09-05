@@ -9,13 +9,26 @@ import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addDestImage, ad
 import com.gu.mediaservice.lib.imaging.im4jwrapper.{ExifTool, ImageMagick}
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch, addLogMarkers}
 import com.gu.mediaservice.model._
+import play.api.libs.json.{Json, Reads}
 
+import java.nio.file.{Files, Path, Paths}
+import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.sys.process._
 
 
 case class ExportResult(id: String, masterCrop: Asset, othersizings: List[Asset])
 class UnsupportedCropOutputTypeException extends Exception
+
+final case class CropInfo(location: String, width: Int, height: Int)
+object CropInfo {
+  implicit val reads: Reads[CropInfo] = Json.reads[CropInfo]
+}
+final case class CropDetails(master: CropInfo, crops: Seq[CropInfo])
+object CropDetails {
+  implicit val reads: Reads[CropDetails] = Json.reads[CropDetails]
+}
 
 class ImageOperations(playPath: String) extends GridLogging {
   import ExifTool._
@@ -72,6 +85,33 @@ class ImageOperations(playPath: String) extends GridLogging {
         }
     }
   }
+
+  def makeCropsForImage(
+    sourceFile: File,
+    sourceMimeType: Option[MimeType],
+    bounds: Bounds,
+    tempDir: File,
+    iccColourSpace: Option[String],
+    colourModel: Option[String],
+    fileType: MimeType,
+    cropWidthsConfig: List[Int],
+    aspectRatio: Option[String],
+  )(implicit logMarker: LogMarker): Future[CropDetails] = {
+
+    val dirtyAspect = bounds.width.toFloat / bounds.height
+    val aspect      = aspectRatio.flatMap(AspectRatio.clean).getOrElse(dirtyAspect)
+
+    val cropDimensions = cropWidthsConfig.filter(_ <= bounds.width).map(w => Dimensions(w, math.round(w / aspect)))
+    val cropWidths = (cropDimensions.map(_.width) :+ bounds.width).distinct.mkString(",")
+
+    for {
+      outputDirectory <- Future { Files.createTempDirectory(tempDir.toPath, "crop-") }
+      cropOutput <- Future { s"gridvips crop -input ${sourceFile.getAbsolutePath} -output ${outputDirectory.toFile.getAbsolutePath} -width ${bounds.width} -height ${bounds.height} -x ${bounds.x} -y ${bounds.y} -secondarywidths $cropWidths".split(" ").toSeq.!! }
+    } yield {
+      Json.parse(cropOutput).as[CropDetails]
+    }
+  }
+
 
   def cropImage(
     sourceFile: File,

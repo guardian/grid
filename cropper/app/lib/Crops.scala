@@ -1,12 +1,12 @@
 package lib
 
 import java.io.File
-
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
-import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
+import com.gu.mediaservice.lib.imaging.{AspectRatio, ExportResult, ImageOperations}
 import com.gu.mediaservice.lib.logging.RequestLoggingContext
 import com.gu.mediaservice.model._
+import lib.Crops.cropType
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -29,6 +29,41 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   def outputFilename(source: SourceImage, bounds: Bounds, outputWidth: Int, fileType: MimeType, isMaster: Boolean = false): String = {
     val masterString: String = if (isMaster) "master/" else ""
     s"${source.id}/${Crop.getCropId(bounds)}/${masterString}$outputWidth${fileType.fileExtension}"
+  }
+
+  def newCreateCrops(
+    apiImage: SourceImage,
+    sourceFile: File,
+    crop: Crop,
+    mediaType: MimeType,
+    colourModel: Option[String]
+  )(implicit requestContext: RequestLoggingContext): Future[(Asset, List[Asset])] = {
+    val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
+    val bounds = crop.specification.bounds
+    val filenamePrefix = s"${apiImage.id}/${Crop.getCropId(bounds)}"
+
+    for {
+      cropDetails <- imageOperations.makeCropsForImage(
+        sourceFile,
+        apiImage.source.mimeType,
+        bounds,
+        config.tempDir,
+        iccColourSpace,
+        colourModel,
+        mediaType,
+        config.landscapeCropSizingWidths,
+        crop.specification.aspectRatio
+      )
+      masterCrop = cropDetails.master
+      masterCropFile = new File(masterCrop.location)
+      masterAsset <- store.storeCropSizing(masterCropFile, s"$filenamePrefix/master/${masterCropFile.getName}", mediaType, crop, Dimensions(masterCrop.width, masterCrop.height))
+      cropAssets <- Future.sequence(cropDetails.crops.map(cropDetail => {
+        val cropFile = new File(cropDetail.location)
+        store.storeCropSizing(cropFile, s"$filenamePrefix/${cropFile.getName}", mediaType, crop, Dimensions(cropDetail.width, cropDetail.height))
+      }))
+    } yield {
+      masterAsset -> cropAssets.toList
+    }
   }
 
   def createMasterCrop(
@@ -100,16 +135,9 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     for {
       sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
       colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
-      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
-
-      outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
-
-      sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, cropType)
-      masterSize <- masterCrop.sizing
-
-      _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete))
+      (masterAsset, assets) <- newCreateCrops(apiImage, sourceFile, crop, cropType, colourModel)
     }
-    yield ExportResult(apiImage.id, masterSize, sizes)
+    yield ExportResult(apiImage.id, masterAsset, assets)
   }
 }
 

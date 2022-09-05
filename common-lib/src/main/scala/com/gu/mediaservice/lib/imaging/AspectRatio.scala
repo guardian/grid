@@ -1,4 +1,4 @@
-package lib
+package com.gu.mediaservice.lib.imaging
 
 import scala.annotation.tailrec
 
@@ -14,19 +14,19 @@ object AspectRatio {
 
   def clean(aspect: String): Option[Float] = knownRatios
     .find(_.friendly == aspect)
-    .map(ratio => (ratio.width.toFloat/ratio.height.toFloat))
+    .map(ratio => (ratio.width.toFloat / ratio.height.toFloat))
 
   @tailrec
   def gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 
-  def calculate(width: Int, height: Int, tolerance: Int = 3) : Option[Ratio] = {
+  def calculate(width: Int, height: Int, tolerance: Int = 3): Option[Ratio] = {
     val matchingRatio = for {
       w <- width - tolerance until width + tolerance
       h <- height - tolerance until height + tolerance
       g = gcd(w, h)
       simplifiedWidth = w / g
       simplifiedHeight = h / g
-      ratio <- knownRatios.find(ratio => ratio.width == simplifiedWidth &&  ratio.height == simplifiedHeight)
+      ratio <- knownRatios.find(ratio => ratio.width == simplifiedWidth && ratio.height == simplifiedHeight)
     } yield ratio
     matchingRatio.headOption
   }

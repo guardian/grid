@@ -1,5 +1,6 @@
 package lib
 
+import com.gu.mediaservice.lib.imaging.AspectRatio
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
