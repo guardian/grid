@@ -5,8 +5,8 @@ import template from './gr-export-original-image.html';
 export const exportOriginalImage = angular.module('gr.exportOriginalImage', []);
 
 exportOriginalImage.controller('grExportOriginalImageCtrl', [
-    '$scope', '$rootScope', '$state', '$stateParams', 'mediaCropper', 'apiPoll',
-    function($scope, $rootScope, $state, $stateParams, mediaCropper, apiPoll) {
+    '$scope', '$rootScope', '$state', '$stateParams', 'mediaCropper', 'pollUntilCropCreated',
+    function($scope, $rootScope, $state, $stateParams, mediaCropper, pollUntilCropCreated) {
         let ctrl = this;
         const imageId = $stateParams.imageId;
 
@@ -16,16 +16,6 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
                 crop();
             }
         };
-
-        function pollUntilImageUpdated(image, newCropId, stateChange) {
-          image.get().then(maybeUpdatedImage => {
-            if (maybeUpdatedImage.data.exports.find( crop => crop.id == newCropId ) !== undefined) {
-              stateChange();
-            } else {
-              apiPoll(pollUntilImageUpdated(image, newCropId, stateChange));
-            }
-          });
-        }
 
         function crop() {
             ctrl.cropping = true;
@@ -37,12 +27,13 @@ exportOriginalImage.controller('grExportOriginalImageCtrl', [
                     crop: crop
                 });
 
-                pollUntilImageUpdated(ctrl.image, crop.data.id, function () {
-                  $state.go('image', {
-                      imageId: imageId,
-                      crop: crop.data.id
+                return pollUntilCropCreated(ctrl.image, crop.data.id)
+                  .then(() => {
+                      $state.go('image', {
+                          imageId,
+                          crop: crop.data.id
+                      });
                   });
-                });
             }).finally(() => {
                 ctrl.cropping = false;
             });

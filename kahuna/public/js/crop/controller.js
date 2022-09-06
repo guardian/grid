@@ -24,7 +24,7 @@ crop.controller('ImageCropCtrl', [
   'cropSettings',
   'square',
   'freeform',
-  'apiPoll',
+  'pollUntilCropCreated',
   function(
     $scope,
     $rootScope,
@@ -39,7 +39,7 @@ crop.controller('ImageCropCtrl', [
     cropSettings,
     square,
     freeform,
-    apiPoll) {
+    pollUntilCropCreated) {
 
       const ctrl = this;
       const imageId = $stateParams.imageId;
@@ -135,16 +135,6 @@ crop.controller('ImageCropCtrl', [
 
       ctrl.cropSizeWarning = () => ctrl.cropWidth() < 1000;
 
-      function pollUntilImageUpdated(newCropId, stateChange) {
-        image.get().then(maybeUpdatedImage => {
-          if (maybeUpdatedImage.data.exports.find( crop => crop.id == newCropId ) !== undefined) {
-            stateChange();
-          } else {
-            apiPoll(pollUntilImageUpdated(newCropId, stateChange));
-          }
-        });
-      }
-
       function crop() {
         // TODO: show crop
         const coords = {
@@ -167,14 +157,13 @@ crop.controller('ImageCropCtrl', [
            });
            return crop.data.id;
         })
-        .then(cropId => {
-          pollUntilImageUpdated(cropId, function() {
+        .then(cropId => pollUntilCropCreated(ctrl.image, cropId).then(() => {
             $state.go('image', {
-              imageId: imageId,
-              crop: cropId
+                imageId: imageId,
+                crop: cropId
             });
-          });
-        }).finally(() => {
+        }))
+        .finally(() => {
           ctrl.cropping = false;
         });
       }
