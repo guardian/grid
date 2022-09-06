@@ -230,6 +230,11 @@ leases.controller('LeasesCtrl', [
 
         ctrl.isCurrent = (lease) => lease.active && lease.access.match(/-use/i);
 
+        ctrl.leaseClass = (lease) => {
+          const names = [...lease.access.split('-'), lease.active ? 'active' : 'inactive'];
+          return names.map(name => `lease__${name}`).join(' ');
+        };
+
         ctrl.leaseStatus = (lease) => {
             const active = lease.active ? 'active ' : ' ';
 
