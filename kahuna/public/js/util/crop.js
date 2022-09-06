@@ -90,3 +90,13 @@ cropUtil.filter('asCropType', function() {
     return cropSpec.key;
   };
 });
+
+cropUtil.factory('pollUntilCropCreated', ['$q', 'apiPoll', function($q, apiPoll) {
+  return function pollUntilCropCreated(image, newCropId) {
+    return apiPoll(() => image.get().then(maybeUpdatedImage => {
+      if (maybeUpdatedImage.data.exports.find(crop => crop.id === newCropId) === undefined) {
+        return $q.reject();
+      }
+    }));
+  };
+}]);
