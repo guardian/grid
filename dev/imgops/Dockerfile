@@ -1,6 +1,7 @@
-FROM debian:jessie
+FROM ubuntu:focal
 MAINTAINER The Guardian
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get --yes update && apt-get --yes install \
     nginx \
     nginx-extras
