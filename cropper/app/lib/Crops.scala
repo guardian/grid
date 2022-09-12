@@ -48,7 +48,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
         sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
         iccColourSpace, colourModel, mediaType, isTransformedFromSource = false
       )
-      file: File <- imageOperations.appendMetadata(strip, metadata)
+      file: File <- imageOperations.appendMetadata(strip, metadata)(config)
       dimensions  = Dimensions(source.bounds.width, source.bounds.height)
       filename    = outputFilename(apiImage, source.bounds, dimensions.width, mediaType, isMaster = true)
       sizing      = store.storeCropSizing(file, filename, mediaType, crop, dimensions)
@@ -64,10 +64,11 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
       for {
         file          <- imageOperations.resizeImage(sourceFile, apiImage.source.mimeType, dimensions, cropQuality, config.tempDir, cropType)
         optimisedFile = imageOperations.optimiseImage(file, cropType)
+        enrichedFile  <- imageOperations.appendMetadata(optimisedFile, apiImage.metadata)(config)
         filename      = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
-        sizing        <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)
+        sizing        <- store.storeCropSizing(enrichedFile, filename, cropType, crop, dimensions)
         _             <- delete(file)
-        _             <- delete(optimisedFile)
+        _             <- delete(enrichedFile)
       }
       yield sizing
     })

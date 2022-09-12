@@ -3,6 +3,7 @@ package com.gu.mediaservice.lib.imaging
 import java.io._
 import org.im4java.core.IMOperation
 import com.gu.mediaservice.lib.Files._
+import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.{BrowserViewableImage, StorableThumbImage}
 import com.gu.mediaservice.lib.imaging.ImageOperations.{optimisedMimeType, thumbMimeType}
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.{addDestImage, addImage, format, runIdentifyCmd}
@@ -36,12 +37,55 @@ class ImageOperations(playPath: String) extends GridLogging {
     "Greyscale" -> profilePath("grayscale.icc")
   )
 
-  private def tagFilter(metadata: ImageMetadata) = {
-    Map[String, Option[String]](
-      "Copyright" -> metadata.copyright,
-      "Credit" -> metadata.credit,
-      "OriginalTransmissionReference" -> metadata.suppliersReference
-    ).collect { case (key, Some(value)) => (key, value) }
+  private def tagFilter(metadata: ImageMetadata)(implicit config: CommonConfig) = {
+    (config.metadataWriteBack.toList match {
+      case Nil=>
+        Map[String, Option[String]](
+          "Copyright" -> metadata.copyright,
+          "Credit" -> metadata.credit,
+          "OriginalTransmissionReference" -> metadata.suppliersReference
+        )
+      case defaultMetadata=>
+        Map[String, Option[String]](
+          "DateTaken" -> defaultMetadata.find(_.equalsIgnoreCase("DateTaken"))
+            .flatMap(_=> metadata.dateTaken.map(_.toString("yyyy-MM-DD HH:mm:ss"))),
+          "Description" -> defaultMetadata.find(_.equalsIgnoreCase("Description"))
+            .flatMap(_=> metadata.description),
+          "Credit" -> defaultMetadata.find(_.equalsIgnoreCase("Credit"))
+            .flatMap(_=> metadata.credit),
+          "CreditUri" -> defaultMetadata.find(_.equalsIgnoreCase("CreditUri"))
+            .flatMap(_=> metadata.creditUri),
+          "Byline" -> defaultMetadata.find(_.equalsIgnoreCase("Byline"))
+            .flatMap(_=> metadata.byline),
+          "BylineTitle" -> defaultMetadata.find(_.equalsIgnoreCase("BylineTitle"))
+            .flatMap(_=> metadata.bylineTitle),
+          "Title" -> defaultMetadata.find(_.equalsIgnoreCase("Title"))
+            .flatMap(_=> metadata.title),
+          "Copyright" -> defaultMetadata.find(_.equalsIgnoreCase("Copyright"))
+            .flatMap(_=> metadata.copyright),
+          "OriginalTransmissionReference" -> defaultMetadata.find(_.equalsIgnoreCase("SuppliersReference"))
+            .flatMap(_=> metadata.suppliersReference),
+          "Source" -> defaultMetadata.find(_.equalsIgnoreCase("Source"))
+            .flatMap(_=> metadata.source),
+          "SpecialInstructions" -> defaultMetadata.find(_.equalsIgnoreCase("SpecialInstructions"))
+            .flatMap(_=> metadata.specialInstructions),
+          "Keywords" -> defaultMetadata.find(_.equalsIgnoreCase("Keywords"))
+            .flatMap(_=> metadata.keywords.map(_.mkString(","))),
+          "SubLocation" -> defaultMetadata.find(_.equalsIgnoreCase("SubLocation"))
+            .flatMap(_=> metadata.subLocation),
+          "City" -> defaultMetadata.find(_.equalsIgnoreCase("City"))
+            .flatMap(_=> metadata.city),
+          "State" -> defaultMetadata.find(_.equalsIgnoreCase("State"))
+            .flatMap(_=> metadata.state),
+          "Country" -> defaultMetadata.find(_.equalsIgnoreCase("Country"))
+            .flatMap(_=> metadata.country),
+          "Subjects" -> defaultMetadata.find(_.equalsIgnoreCase("Subjects"))
+            .flatMap(_=> metadata.subjects.map(_.mkString(","))),
+          "PeopleInImage" -> defaultMetadata.find(_.equalsIgnoreCase("PeopleInImage"))
+            .flatMap(_=> metadata.peopleInImage.map(_.mkString(",")))
+        )
+
+    }).collect { case (key, Some(value)) => (key, value) }
   }
 
   private def applyOutputProfile(base: IMOperation, optimised: Boolean = false) = profile(base)(rgbProfileLocation(optimised))
@@ -102,7 +146,7 @@ class ImageOperations(playPath: String) extends GridLogging {
   }
 
   // Updates metadata on existing file
-  def appendMetadata(sourceFile: File, metadata: ImageMetadata): Future[File] = {
+  def appendMetadata(sourceFile: File, metadata: ImageMetadata)(implicit config: CommonConfig): Future[File] = {
     runExiftoolCmd(
       setTags(tagSource(sourceFile))(tagFilter(metadata))
       ).map(_ => sourceFile)
