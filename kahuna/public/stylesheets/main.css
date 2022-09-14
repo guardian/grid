@@ -1674,17 +1674,17 @@ FIXME: what to do with touch devices
 }
 
 .image-info__title {
-    color: #ccc;
+    color: #eee;
 }
 
 .image-info__file-size {
-    color: #ccc;
+    color: #eee;
     font-size: 1.2rem;
     font-weight: normal;
 }
 
 .image-info__heading {
-    color: #999;
+    color: #aaa;
     font-weight: bold;
     padding-bottom: 3px;
     display: flex;
@@ -1704,7 +1704,7 @@ FIXME: what to do with touch devices
 .image-info__special-instructions {
     /* respect newlines in text */
     white-space: pre-line;
-    color: #CCC;
+    color: #eee;
 }
 
 .image-info__description--options {
@@ -1720,7 +1720,7 @@ FIXME: what to do with touch devices
 .image-info__keyword li {
     display: inline-block;
     background-color: #222;
-    color: #999;
+    color: #aaa;
     border-radius: 8px;
     padding: 0 8px;
     margin-right: 5px;
@@ -1783,7 +1783,7 @@ FIXME: what to do with touch devices
 
 .image-info__wrap .editable-empty,
 .image-info__wrap .editable-empty:hover {
-    color: #999;
+    color: #aaa;
 }
 
 .image-info__wrap .editable-wrap .image-info__editor--error {
@@ -1827,7 +1827,7 @@ FIXME: what to do with touch devices
 }
 
 .metadata-line__info {
-    color: #ccc;
+    color: #eee;
     padding-bottom: 10px;
 }
 
@@ -1848,13 +1848,13 @@ FIXME: what to do with touch devices
 }
 .metadata-line__key {
     font-weight: bold;
-    color: #999;
+    color: #aaa;
     vertical-align: top;
     text-align: left;
 }
 
 .metadata-reveal {
-    color: #999;
+    color: #aaa;
     font-size: 1.4rem;
     font-family: inherit;
 }
