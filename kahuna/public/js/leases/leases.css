@@ -62,11 +62,15 @@ gr-leases .metadata-line__key {
   margin-bottom: 10px
 }
 
-.allowed {
+.lease__access.lease__allow {
   background-color: #90ee90;
 }
 
-.denied {
+.lease__access.lease__allow.lease__use {
+  background-color: teal;
+}
+
+.lease__access.lease__deny {
   background-color: red;
 }
 
@@ -110,8 +114,7 @@ gr-leases .gu-date-range__display {
   background-color: inherit;
 }
 
-.lease__access,
-.lease__current {
+.lease__access {
   box-sizing: border-box;
   width: 100%;
   float: left;
@@ -122,16 +125,21 @@ gr-leases .gu-date-range__display {
   margin-bottom: 2px;
 }
 
-.lease__current {
-  padding: 2px;
-}
-
-.lease__current.current {
-  background-color: #00ADEE;
-}
-
-.current {
+.lease__wrapper {
   color: white;
+  border-top: 5px solid white;
+}
+
+.lease__wrapper.lease__inactive {
+  opacity: 0.5;
+}
+
+.lease__wrapper.lease__allow {
+  border-color: teal;
+}
+
+.lease__wrapper.lease__deny {
+  border-color: red;
 }
 
 gr-leases.leases-flex {
