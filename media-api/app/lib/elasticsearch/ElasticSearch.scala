@@ -15,7 +15,7 @@ import com.sksamuel.elastic4s.requests.searches.aggs.Aggregation
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.Aggregations
 import com.sksamuel.elastic4s.requests.searches.aggs.responses.bucket.{DateHistogram, Terms}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
-import lib.querysyntax.{HierarchyField, Match, Parser, Phrase}
+import lib.querysyntax.{HierarchyField, IsField, IsValue, Match, Negation, Parser, Phrase}
 import lib.{MediaApiConfig, MediaApiMetrics, SupplierUsageSummary}
 import play.api.libs.json.{JsError, JsSuccess, Json}
 import play.api.mvc.AnyContent
@@ -59,6 +59,10 @@ class ElasticSearch(
 
   val queryBuilder = new QueryBuilder(matchFields, overQuotaAgencies, config)
 
+  def isIsDeletedInclusionFilterItem(entry: (String, FilterPanelItem)) : Boolean = entry match { case (_, filterPanelItem) =>
+    filterPanelItem.key == "is" && filterPanelItem.value == "deleted" && filterPanelItem.filterType == "inclusion"
+  }
+
   val filterPanelItems: Map[String, FilterPanelItem] = Map( //TODO load from config
     "Has Crops" -> FilterPanelItem(
       `type` = "filter",
@@ -78,12 +82,12 @@ class ElasticSearch(
       key = "usages@status",
       value = "published"
     ),
-//    "Deleted" -> FilterPanelItem( //FIXME counting of this doesn't work because '-is:deleted' is being added implicitly in Parser.scala
-//      `type` = "filter",
-//      filterType = "inclusion",
-//      key = "is",
-//      value = "deleted"
-//    )
+    "Deleted" -> FilterPanelItem(
+      `type` = "filter",
+      filterType = "inclusion",
+      key = "is",
+      value = "deleted"
+    )
   )
 
   def getImageById(id: String)(implicit ex: ExecutionContext, request: AuthenticatedRequest[AnyContent, Principal]): Future[Option[Image]] =
@@ -241,25 +245,55 @@ class ElasticSearch(
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
     val trackTotalHits = params.countAll.getOrElse(true)
 
+    val filterPanelItemsWithoutIsDeleted = filterPanelItems.filterNot(isIsDeletedInclusionFilterItem)
+
+    val isDeletedFilterItemMapFuture: Future[Map[String, FilterPanelItem]] = filterPanelItems.find(isIsDeletedInclusionFilterItem).map{
+      case (name, item) =>
+        // this is needed because Parser.scala adds a `-is:deleted` to the query,
+        // so in order to count deleted images, we must remove the exclusion filter and an inclusion to the query
+        val queryWithIsDeletedFilter = queryBuilder.makeQuery(
+          Match(IsField, IsValue("deleted")) :: params.structuredQuery.filter {
+            case Negation(Match(IsField, IsValue("deleted"))) => false
+            case _ => true
+          }
+        )
+        executeAndLog(
+          prepareSearch(
+            filterOpt.map { f =>
+              boolQuery must (queryWithIsDeletedFilter) filter f
+            }.getOrElse(queryWithIsDeletedFilter)
+          )
+            .runtimeMappings(runtimeMappings)
+            .trackTotalHits(true)
+            .size(0),
+          "counting is:deleted images (for filter panel purposes)"
+        ).map(r => Map(name -> item.copy(count = Some(r.result.totalHits.toInt))))
+    }.getOrElse(Future.successful(Map.empty))
+
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
-      .aggregations(filterPanelItems.map { //TODO consider filtering out clauses which are already in withFilter
+      .aggregations(filterPanelItemsWithoutIsDeleted.map { //TODO consider filtering out clauses which are already in withFilter
         case (name, item) => filterAgg(name, queryBuilder.makeQuery(Parser.run(item.asQueryClauseString)))
       }.toList)
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
 
-    executeAndLog(searchRequest, "image search").
-      toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
+    val mainResultsFuture = executeAndLog(searchRequest, "image search")
+      .toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took)
+
+    for {
+      r <- mainResultsFuture
+      isDeletedFilterItemMap <- isDeletedFilterItemMapFuture
+    } yield {
       logSearchQueryIfTimedOut(searchRequest, r.result)
 
-      val aggResultsWithDefinitions = filterPanelItems.map { //TODO consider filtering out clauses which are already in withFilter
+      val aggResultsWithDefinitions: Map[String, FilterPanelItem] = filterPanelItemsWithoutIsDeleted.map { //TODO consider filtering out clauses which are already in withFilter
         case (name, item) => (name, item.copy(
           count = r.result.aggregationsAsMap.get(name).map(_.asInstanceOf[Map[String, Any]]("doc_count").asInstanceOf[Int])
         ))
-      }
+      } ++ isDeletedFilterItemMap
 
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
       // setting trackTotalHits to false means we don't get any hit count at all.
