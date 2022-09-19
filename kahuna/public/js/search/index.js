@@ -18,6 +18,7 @@ import '../util/storage';
 
 import '../components/gr-panels/gr-panels';
 
+import './react/alternate-filters-panel.css';
 import searchTemplate        from './view.html';
 import searchResultsTemplate from './results.html';
 import panelTemplate        from '../components/gr-info-panel/gr-info-panel.html';
