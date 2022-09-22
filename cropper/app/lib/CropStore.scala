@@ -102,7 +102,7 @@ class CropStore(config: CropperConfig) extends S3ImageStorage(config) {
     }
   }
 
-  def deleteCrops(id: String) = {
+  def deleteCrops(id: String)(implicit logMarker: LogMarker) = {
     deleteFolder(config.imgPublishingBucket, id)
   }
 

@@ -4,7 +4,7 @@ import java.io.File
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
-import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, Stopwatch}
 import com.gu.mediaservice.model._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,7 +17,7 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
-class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations)(implicit ec: ExecutionContext) {
+class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations)(implicit ec: ExecutionContext) extends GridLogging {
   import Files._
 
   private val cropQuality = 75d
@@ -40,6 +40,8 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val metadata = apiImage.metadata
     val iccColourSpace = FileMetadataHelper.normalisedIccColourSpace(apiImage.fileMetadata)
 
+    logger.info(logMarker, s"creating master crop for ${apiImage.id}")
+
     for {
       strip <- imageOperations.cropImage(
         sourceFile, apiImage.source.mimeType, source.bounds, masterCropQuality, config.tempDir,
@@ -56,6 +58,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
   }
 
   def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
+    logger.info(logMarker, s"creating crops for ${apiImage.id}")
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
@@ -70,7 +73,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     })
   }
 
-  def deleteCrops(id: String): Future[Unit] = store.deleteCrops(id)
+  def deleteCrops(id: String)(implicit logMarker: LogMarker): Future[Unit] = store.deleteCrops(id)
 
   def dimensionsFromConfig(bounds: Bounds, aspectRatio: Float): List[Dimensions] = if (bounds.isPortrait)
       config.portraitCropSizingHeights.filter(_ <= bounds.height).map(h => Dimensions(math.round(h * aspectRatio), h))
@@ -94,19 +97,21 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     val hasAlpha = apiImage.fileMetadata.colourModelInformation.get("hasAlpha").flatMap(a => Try(a.toBoolean).toOption).getOrElse(true)
     val cropType = Crops.cropType(mimeType, colourType, hasAlpha)
 
-    for {
-      sourceFile  <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
-      colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
-      masterCrop  <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
+    Stopwatch(s"making crop assets for ${apiImage.id} ${Crop.getCropId(source.bounds)}") {
+      for {
+        sourceFile <- tempFileFromURL(secureUrl, "cropSource", "", config.tempDir)
+        colourModel <- ImageOperations.identifyColourModel(sourceFile, mimeType)
+        masterCrop <- createMasterCrop(apiImage, sourceFile, crop, cropType, colourModel)
 
-      outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
+        outputDims = dimensionsFromConfig(source.bounds, masterCrop.aspectRatio) :+ masterCrop.dimensions
 
-      sizes      <- createCrops(masterCrop.file, outputDims, apiImage, crop, cropType)
-      masterSize <- masterCrop.sizing
+        sizes <- createCrops(masterCrop.file, outputDims, apiImage, crop, cropType)
+        masterSize <- masterCrop.sizing
 
-      _ <- Future.sequence(List(masterCrop.file,sourceFile).map(delete))
+        _ <- Future.sequence(List(masterCrop.file, sourceFile).map(delete))
+      }
+      yield ExportResult(apiImage.id, masterSize, sizes)
     }
-    yield ExportResult(apiImage.id, masterSize, sizes)
   }
 }
 
