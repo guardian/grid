@@ -36,30 +36,34 @@ downloader.controller('DownloaderCtrl', [
     let ctrl = this;
 
     ctrl.canDownloadCrop = $window._clientConfig.canDownloadCrop;
+    const restrictDownload = false;
 
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
         ctrl.images : Array.from(ctrl.images.values());
     ctrl.imageCount = () => ctrl.imagesArray().length;
 
-    ctrl.downloadableImagesArray = () => ctrl.imagesArray().filter(image => image.data.valid && image.data.softDeletedMetadata === undefined);
+    ctrl.downloadableImagesArray = () => restrictDownload ? ctrl.imagesArray().filter(image => image.data.valid && image.data.softDeletedMetadata === undefined) : ctrl.imagesArray();
 
-    $scope.$watch('ctrl.images', function() {
-        const totalSelectedImages = ctrl.imageCount();
-        const selectedNonDownloadableImages = ctrl.imagesArray().filter(image => !image.data.valid || !image.data.softDeletedMetadata === undefined) || [];
-        const singleImageSelected = totalSelectedImages === 1;
-        const multipleImagesSelected = totalSelectedImages > 1;
-        // multiple selected, all valid
-        ctrl.multipleSelectedAllValid = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
-        // multiple selected, some valid
-        ctrl.multipleSelectedSomeInvalid = multipleImagesSelected && selectedNonDownloadableImages.length && (totalSelectedImages !== selectedNonDownloadableImages.length);
-        // multiple selected, none valid
-        ctrl.multipleSelectedAllInvalid = multipleImagesSelected && totalSelectedImages === selectedNonDownloadableImages.length;
-        // single selected, valid
-        ctrl.singleSelectedValid = singleImageSelected && ctrl.imagesArray()[0].data.valid && ctrl.imagesArray()[0].data.softDeletedMetadata === undefined;
-        // single selected, not valid
-        ctrl.singleSelectedInvalid = singleImageSelected && selectedNonDownloadableImages.length === 1;
-    });
+      $scope.$watch('ctrl.images', function() {
+        ctrl.singleDownloadableImageSelected = ctrl.imageCount() === 1;
+        ctrl.multipleDownloadableImagesSelected = ctrl.imageCount() > 1;
 
+        if (restrictDownload) {
+          const totalSelectedImages = ctrl.imageCount();
+          const selectedNonDownloadableImages = ctrl.imagesArray().filter(image => !image.data.valid || !image.data.softDeletedMetadata === undefined) || [];
+          const singleImageSelected = totalSelectedImages === 1;
+          const multipleImagesSelected = totalSelectedImages > 1;
+          // multiple selected, all valid
+          ctrl.multipleDownloadableImagesSelected = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
+          // multiple selected, some valid
+          ctrl.multipleSelectedSomeInvalid = multipleImagesSelected && selectedNonDownloadableImages.length && (totalSelectedImages !== selectedNonDownloadableImages.length);
+          // multiple selected, none valid
+          ctrl.multipleSelectedAllInvalid = multipleImagesSelected && totalSelectedImages === selectedNonDownloadableImages.length;
+          // single selected, valid
+          ctrl.singleDownloadableImageSelected = singleImageSelected && ctrl.imagesArray()[0].data.valid && ctrl.imagesArray()[0].data.softDeletedMetadata === undefined;
+          // single selected, not valid
+          ctrl.singleSelectedInvalid = singleImageSelected && selectedNonDownloadableImages.length === 1;
+      }});
     ctrl.isDeleted = ctrl.images && ctrl.images.length === 1 && ctrl.images[0].data.softDeletedMetadata !== undefined;
     const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
     inject$($scope, uris$, ctrl, 'firstImageUris');

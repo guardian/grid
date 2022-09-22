@@ -3,7 +3,7 @@
     <button type="button"
             title="Download images"
             ng-disabled="ctrl.downloading"
-            ng-if="ctrl.multipleSelectedAllValid"
+            ng-if="ctrl.multipleDownloadableImagesSelected"
             ng-click="ctrl.download('downloadUri')">
         <gr-icon-label gr-icon="file_download">
             Download (multiple)<span ng-show="ctrl.downloading">ing</span>
@@ -16,24 +16,21 @@
      <gr-icon-label gr-icon="file_download">Download (multiple, some missing)</gr-icon-label>
  </a>
 
-    <span ng-if="ctrl.multipleSelectedAllInvalid" aria-label="Cannot download"
+    <span ng-if="ctrl.multipleSelectedAllInvalid || ctrl.singleSelectedInvalid"
+          aria-label="Cannot download"
           gr-tooltip="Downloading requires a lease.">
         <gr-icon-label gr-icon="file_download">
-            Cannot download (multiple)
+            Cannot download
         </gr-icon-label>
     </span>
 
-    <a ng-if="ctrl.singleSelectedValid"
+    <a ng-if="ctrl.singleDownloadableImageSelected"
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank"
        aria-label="Download image">
         <gr-icon-label gr-icon="file_download">Download (single)</gr-icon-label>
     </a>
 
-    <span ng-if="ctrl.singleSelectedInvalid" aria-label="Cannot download" gr-tooltip="Downloading requires a lease.">
-        <gr-icon-label gr-icon="file_download">Cannot download (single)</gr-icon-label>
-    </span>
-
-    <button ng-if="ctrl.imageCount() == 1 && !ctrl.canDownloadCrop"
+    <button ng-if="ctrl.singleSelectedValid && !ctrl.canDownloadCrop"
             class="drop-menu clickable inner-clickable side-padded button-right-side"
             aria-label="Download low resolution image"
             ng-click="showExpandedDownload = !showExpandedDownload">
