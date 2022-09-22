@@ -9,7 +9,7 @@ import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.cleanup.ImageProcessor
 import com.gu.mediaservice.lib.imaging.ImageOperations
-import com.gu.mediaservice.lib.logging.RequestLoggingContext
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import lib.DigestedFile
@@ -196,7 +196,7 @@ class ProjectorTest extends AnyFreeSpec with Matchers with ScalaFutures with Moc
       identifiers = Map.empty,
     )
 
-    implicit val requestLoggingContext: RequestLoggingContext = RequestLoggingContext()
+    implicit val logMarker: LogMarker = MarkerMap()
 
     val gridClient = mock[GridClient]
     when(gridClient.getUsages(id, identity)).thenReturn(Future.successful(Nil))

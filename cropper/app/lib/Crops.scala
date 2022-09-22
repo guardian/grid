@@ -1,11 +1,10 @@
 package lib
 
 import java.io.File
-
 import com.gu.mediaservice.lib.metadata.FileMetadataHelper
 import com.gu.mediaservice.lib.Files
 import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
-import com.gu.mediaservice.lib.logging.RequestLoggingContext
+import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 
 import scala.concurrent.Future
@@ -37,7 +36,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     crop: Crop,
     mediaType: MimeType,
     colourModel: Option[String],
-  )(implicit requestContext: RequestLoggingContext): Future[MasterCrop] = {
+  )(implicit logMarker: LogMarker): Future[MasterCrop] = {
 
     val source   = crop.specification
     val metadata = apiImage.metadata
@@ -58,7 +57,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     yield MasterCrop(sizing, file, dimensions, aspect)
   }
 
-  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit requestContext: RequestLoggingContext): Future[List[Asset]] = {
+  def createCrops(sourceFile: File, dimensionList: List[Dimensions], apiImage: SourceImage, crop: Crop, cropType: MimeType)(implicit logMarker: LogMarker): Future[List[Asset]] = {
 
     Future.sequence[Asset, List](dimensionList.map { dimensions =>
       for {
@@ -89,7 +88,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
     positiveCoords && strictlyPositiveSize && withinBounds
   }
 
-  def export(apiImage: SourceImage, crop: Crop)(implicit requestContext: RequestLoggingContext): Future[ExportResult] = {
+  def export(apiImage: SourceImage, crop: Crop)(implicit logMarker: LogMarker): Future[ExportResult] = {
     val source    = crop.specification
     val mimeType = apiImage.source.mimeType.getOrElse(throw MissingMimeType)
     val secureUrl = apiImage.source.secureUrl.getOrElse(throw MissingSecureSourceUrl)

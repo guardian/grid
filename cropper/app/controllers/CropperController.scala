@@ -10,7 +10,7 @@ import com.gu.mediaservice.lib.auth.Permissions.{DeleteCropsOrUsages, PrincipalF
 import com.gu.mediaservice.lib.auth._
 import com.gu.mediaservice.lib.aws.UpdateMessage
 import com.gu.mediaservice.lib.imaging.ExportResult
-import com.gu.mediaservice.lib.logging.RequestLoggingContext
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
 import lib._
 import model._
@@ -18,7 +18,6 @@ import org.joda.time.DateTime
 import play.api.libs.ws.WSClient
 
 import java.net.URI
-
 import com.gu.mediaservice.syntax.MessageSubjects
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -127,11 +126,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
   }
 
   def executeRequest(exportRequest: ExportRequest, user: Principal, onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal): Future[(String, Crop)] = {
-    implicit val context: RequestLoggingContext = RequestLoggingContext(
-      initialMarkers = Map(
-        "requestType" -> "executeRequest"
-      )
-    )
+    implicit val context: LogMarker = MarkerMap()
 
     for {
       _ <- verify(isMediaApiUri(exportRequest.uri), InvalidSource)
