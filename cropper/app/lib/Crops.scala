@@ -7,7 +7,7 @@ import com.gu.mediaservice.lib.imaging.{ExportResult, ImageOperations}
 import com.gu.mediaservice.lib.logging.LogMarker
 import com.gu.mediaservice.model._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 case object InvalidImage extends Exception("Invalid image cannot be cropped")
@@ -17,10 +17,8 @@ case object InvalidCropRequest extends Exception("Crop request invalid for image
 
 case class MasterCrop(sizing: Future[Asset], file: File, dimensions: Dimensions, aspectRatio: Float)
 
-class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations) {
+class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOperations)(implicit ec: ExecutionContext) {
   import Files._
-
-  import scala.concurrent.ExecutionContext.Implicits.global
 
   private val cropQuality = 75d
   private val masterCropQuality = 95d
