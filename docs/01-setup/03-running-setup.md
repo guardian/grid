@@ -19,7 +19,7 @@ From the project root, run:
 
 This process will take a little while to complete.
 
-If you see an error message similar to `nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size`, follow [these instructions](https://github.com/guardian/dev-nginx/blob/main/TROUBLESHOOTING.md#hash-bucket-size-emerg) and then run the setup script again. 
+If you see an error message similar to `nginx: [emerg] could not build server_names_hash, you should increase server_names_hash_bucket_size`, follow [these instructions](https://github.com/guardian/dev-nginx/blob/main/TROUBLESHOOTING.md#hash-bucket-size-emerg) and then run the setup script again.
 
 ### Available flags
 There are a few options available for `setup.sh`.
@@ -35,3 +35,6 @@ Adding the `--with-local-auth` flag will result in:
 - the generation of pan-domain-authentication settings and a number of [users](../../dev/config/users.json)
 
 Using this flag is encouraged if you're outside the Guardian and want to run Grid locally without setting up pan-domain-authentication for real.
+
+#### `--no-auth`
+Adding this flag will result in effectively no auth, you'll be signed in automatically as John Doe (with no oauth flow) and will have ALL permissions.
