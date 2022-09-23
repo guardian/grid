@@ -16,7 +16,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
   extends AuthorisationProvider with StrictLogging {
 
   def config: CommonConfig = resources.commonConfig
-  def permissionsBucket: String = configuration.getOptional[String]("permissions.bucket").getOrElse("permissions-cache")
+  def permissionsBucket: String = config.configuration.getOptional[String]("permissions.bucket").getOrElse("permissions-cache")
 
   private val permissions: PermissionsProvider = config.awsLocalEndpoint match {
     case Some(_) if config.isDev && config.useLocalAuth =>
