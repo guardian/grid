@@ -94,42 +94,36 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
         <div class="bottom-bar__meta">
             <span class="preview__upload-time" title="Uploaded: {{::ctrl.image.data.uploadTime | date:'d MMM yyyy, HH:mm'}}
       Taken: {{::(ctrl.image.data.metadata.dateTaken | date:'d MMM yyyy, HH:mm') || '[none]'}}">
-                {{::ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
+                Uploaded: {{::ctrl.image.data.uploadTime | date:'dd/MM/yy'}}
                 {{::ctrl.image.data.uploadTime | date:'HH:mm'}}
             </span>
+        </div>
+    </div>
 
+    <div class="preview__info-flex">
+        <div class="preview__info-inline">
             <span class="bottom-bar__meta-item preview__has-crops"
-                  title="this image has crops"
-                  ng-if="ctrl.states.hasCrops">
-
-                <gr-icon gr-small>crop</gr-icon>
+                  title="this image has crops" ng-if="ctrl.states.hasCrops">
+                    <gr-icon style = "font-size: 22px;">crop</gr-icon>
             </span>
 
             <span class="bottom-bar__meta-item preview__has-print-usages"
                   title="This image has been used {{ctrl.recentUsages.count() > 0 ? 'RECENTLY': '' }} in Print Content"
                   ng-if="ctrl.hasPrintUsages">
-                <gr-icon gr-small ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">local_library</gr-icon>
+                    <gr-icon style = "font-size: 22px;" ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">local_library</gr-icon>
             </span>
 
             <span class="bottom-bar__meta-item preview__has-web-usages"
                   title="This image has been used {{ctrl.recentUsages.count() > 0 ? 'RECENTLY': '' }} in Digital Content"
                   ng-if="ctrl.hasDigitalUsages">
 
-                <gr-icon gr-small ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">phonelink</gr-icon>
+                    <gr-icon style = "font-size: 22px;" ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">phonelink</gr-icon>
             </span>
         </div>
-        <div>
-            <gr-archiver-status class="bottom-bar__action"
-                                image="ctrl.image"
-                                readonly="ctrl.selectionMode">
-            </gr-archiver-status>
 
-            <div class="bottom-bar__action" ng-if="ctrl.states.syndicationStatus !== 'unsuitable'">
-                <gr-syndication-icon image="ctrl.image"></gr-syndication-icon>
-            </div>
+        <div class="preview__info-inline">
+            <div class="bottom-bar__action bottom-bar__action--cost preview__cost align-right"
 
-            <div class="bottom-bar__action bottom-bar__action--cost preview__cost"
-                 ng-if="ctrl.flagState !== 'free'"
                  ng-switch="ctrl.flagState">
                 <div ng-switch-when="no_rights"
                      class="cost cost--no_rights"
@@ -140,33 +134,40 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
                 </div>
 
                 <div ng-switch-when="overquota"
-                     class="cost"
-                     ng-class="{'cost--overquota': !ctrl.hasActiveAllowLease, 'cost--leased': ctrl.hasActiveAllowLease}"
-                     title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Quota for images from this supplier has been exceeded!">
+                     class="cost cost--overquota"
+                     title="Quota for images from this supplier has been exceeded!">
 
                     <!-- material icons doesn't have a £ icon -->
                     <gr-icon>trending_up</gr-icon>
                 </div>
 
                 <div ng-switch-when="pay"
-                     class="cost"
-                     ng-class="{'cost--pay': !ctrl.hasActiveAllowLease, 'cost--leased': ctrl.hasActiveAllowLease}"
-                     title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Pay to use">
+                     class="cost cost--pay"
+                     title="Pay to use">
 
                     <!-- material icons doesn't have a £ icon -->
                     <span>£</span>
                 </div>
 
-
-                <div ng-switch-when="conditional"
-                     class="cost"
-                     ng-class="{'cost--conditional': !ctrl.hasActiveAllowLease, 'cost--leased': ctrl.hasActiveAllowLease}"
-                     title="{{ctrl.hasActiveAllowLease ? 'Leased, but: ' : ''}}Restrictions: {{ctrl.image.data.usageRights.restrictions}}">
-                     <!-- As `conditional` can only be set with usageRights, let's
-                     just assume it's here. We might need to revisit this. -->
+                <div
+                    class="cost cost--conditional"
+                    title="{{ctrl.image.data.usageRights.restrictions}}">
+                    <!-- As `conditional` can only be set with usageRights, let's
+                    just assume it's here. We might need to revisit this. -->
                     <gr-icon>flag</gr-icon>
                 </div>
             </div>
+
+            <div class="bottom-bar__action align-right" ng-if="ctrl.states.syndicationStatus !== 'unsuitable'">
+                <gr-syndication-icon image="ctrl.image"></gr-syndication-icon>
+            </div>
+
+            <gr-archiver-status class="bottom-bar__action align-right"
+                                image="ctrl.image"
+                                readonly="ctrl.selectionMode">
+            </gr-archiver-status>
+
         </div>
+
     </div>
 </div>

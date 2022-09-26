@@ -1196,6 +1196,20 @@ textarea.ng-invalid {
     padding-left: 10px;
     margin: 5px 0;
 }
+.preview__info-flex {
+    font-size: 1.3rem;
+    padding-left: 7px;
+    margin: 5px 0;
+    display: flex;
+}
+.preview__info-inline {
+    box-sizing: border-box;
+    width: 50%;
+    display: inline-block;
+}
+.align-right {
+    float: right;
+}
 
 .preview__info--large {
     font-size: 1.4rem;
