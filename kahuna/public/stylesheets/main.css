@@ -973,8 +973,23 @@ textarea.ng-invalid {
 .cost--conditional {
     background-color: orange;
 }
+.cost--leased {
+  background-color: teal;
+}
 .cost--free {
     background-color: green;
+}
+
+.image-notice {
+  --pct-leased: 0;
+}
+
+.image-notice.cost--pay {
+  background-image: linear-gradient(90deg, teal 0 calc(var(--pct-leased) * 1%), red calc(var(--pct-leased) * 1%) 100%);
+}
+
+.image-notice.cost--conditional {
+  background-image: linear-gradient(90deg, teal 0 calc(var(--pct-leased) * 1%), orange calc(var(--pct-leased) * 1%) 100%);
 }
 
 .costs li {
@@ -1168,6 +1183,7 @@ textarea.ng-invalid {
     max-width: 100%;
     max-height: 100%;
     margin: 0 auto;
+    pointer-events: none;
 }
 
 .preview__image.preview__image--staff {
@@ -1282,6 +1298,10 @@ FIXME: what to do with touch devices
 
 .preview__quick-select {
     cursor: pointer;
+}
+
+.preview__select {
+  cursor: default;
 }
 
 .preview__fade {
@@ -1407,6 +1427,7 @@ FIXME: what to do with touch devices
 .result-editor__img-link {
     display: block;
     margin: 0 auto;
+    pointer-events: none;
 }
 
 .result-editor__editor {
@@ -1668,17 +1689,17 @@ FIXME: what to do with touch devices
 }
 
 .image-info__title {
-    color: #ccc;
+    color: #eee;
 }
 
 .image-info__file-size {
-    color: #ccc;
+    color: #eee;
     font-size: 1.2rem;
     font-weight: normal;
 }
 
 .image-info__heading {
-    color: #999;
+    color: #aaa;
     font-weight: bold;
     padding-bottom: 3px;
     display: flex;
@@ -1698,7 +1719,7 @@ FIXME: what to do with touch devices
 .image-info__special-instructions {
     /* respect newlines in text */
     white-space: pre-line;
-    color: #CCC;
+    color: #eee;
 }
 
 .image-info__description--options {
@@ -1714,7 +1735,7 @@ FIXME: what to do with touch devices
 .image-info__keyword li {
     display: inline-block;
     background-color: #222;
-    color: #999;
+    color: #aaa;
     border-radius: 8px;
     padding: 0 8px;
     margin-right: 5px;
@@ -1777,7 +1798,7 @@ FIXME: what to do with touch devices
 
 .image-info__wrap .editable-empty,
 .image-info__wrap .editable-empty:hover {
-    color: #999;
+    color: #aaa;
 }
 
 .image-info__wrap .editable-wrap .image-info__editor--error {
@@ -1821,7 +1842,7 @@ FIXME: what to do with touch devices
 }
 
 .metadata-line__info {
-    color: #ccc;
+    color: #eee;
     padding-bottom: 10px;
 }
 
@@ -1842,13 +1863,13 @@ FIXME: what to do with touch devices
 }
 .metadata-line__key {
     font-weight: bold;
-    color: #999;
+    color: #aaa;
     vertical-align: top;
     text-align: left;
 }
 
 .metadata-reveal {
-    color: #999;
+    color: #aaa;
     font-size: 1.4rem;
     font-family: inherit;
 }
@@ -1930,6 +1951,7 @@ FIXME: what to do with touch devices
     max-width: 100%;
     max-height: 64px;
     margin: 0 auto;
+    pointer-events: none;
 }
 
 .image-crop__info {

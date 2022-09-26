@@ -105,6 +105,7 @@ image.controller('uiPreviewImageCtrl', [
 
     ctrl.srefNonfree = () => storage.getJs("isNonFree", true) ? true : undefined;
 
+    ctrl.hasActiveAllowLease = ctrl.image.data.leases.data.leases.find(lease => lease.active && lease.access === 'allow-use');
 }]);
 
 image.directive('uiPreviewImage', function() {

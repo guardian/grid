@@ -145,8 +145,9 @@
                     </div>
 
                     <ui-preview-image image="image"
+                                      draggable="true"
                                       selection-mode="ctrl.inSelectionMode"
-                                      ng-class="{'preview__quick-select': ctrl.inSelectionMode}"
+                                      ng-class="{'preview__quick-select': ctrl.inSelectionMode, 'preview__select': !ctrl.inSelectionMode}"
                                       ng-click="ctrl.onImageClick(image, $event)">
                         <button class="mark-as-seen image-action"
                                 title="Mark all images until this point as seen"

@@ -212,13 +212,22 @@ class ElasticSearch(
 
     // We need to set trackHits to ensure that the total number of hits we return to users is accurate.
     // See https://www.elastic.co/guide/en/elasticsearch/reference/current/breaking-changes-7.0.html#hits-total-now-object-search-response
-    val searchRequest = prepareSearch(withFilter).copy(trackHits = Some(true)) runtimeMappings runtimeMappings from params.offset size params.length sortBy sort
+    val trackTotalHits = params.countAll.getOrElse(true)
+
+    val searchRequest = prepareSearch(withFilter)
+      .trackTotalHits(trackTotalHits)
+      .runtimeMappings(runtimeMappings)
+      .from(params.offset)
+      .size(params.length)
+      .sortBy(sort)
 
     executeAndLog(searchRequest, "image search").
       toMetric(Some(mediaApiMetrics.searchQueries), List(mediaApiMetrics.searchTypeDimension("results")))(_.result.took).map { r =>
       logSearchQueryIfTimedOut(searchRequest, r.result)
       val imageHits = r.result.hits.hits.map(resolveHit).toSeq.flatten.map(i => (i.instance.id, i))
-      SearchResults(hits = imageHits, total = r.result.totalHits)
+      // setting trackTotalHits to false means we don't get any hit count at all.
+      // Requester has explicitly opted into not caring about the total hits, so give them what they want (nothing).
+      SearchResults(hits = imageHits, total = if (trackTotalHits) r.result.totalHits else 0)
     }
   }
 

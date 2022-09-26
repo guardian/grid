@@ -7,6 +7,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 
 class CropsTest extends AnyFunSpec with Matchers with MockitoSugar {
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   it("should return JPEG when the input type is a JPEG") {
     Crops.cropType(Jpeg, "True Color", hasAlpha = false) shouldBe Jpeg
     Crops.cropType(Jpeg, "Monkey", hasAlpha = false) shouldBe Jpeg

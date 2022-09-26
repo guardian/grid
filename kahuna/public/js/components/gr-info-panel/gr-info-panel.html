@@ -11,27 +11,35 @@
             <li ng-repeat="cost in ctrl.selectedCosts | orderBy:'data'">
                 <div ng-switch="cost.data">
                     <div ng-switch-when="free"
-                         class="image-notice image-info__group status cost cost--free">
+                         class="image-notice image-info__group status cost cost--free"
+                    >
                         {{cost.count}} free
                     </div>
 
                     <div ng-switch-when="no_rights"
-                         class="image-notice image-info__group status cost cost--pay">
+                         class="image-notice image-info__group status cost cost--pay"
+                    >
                         {{cost.count}} no rights
                     </div>
 
                     <div ng-switch-when="pay"
-                         class="image-notice image-info__group status cost cost--pay">
+                         class="image-notice image-info__group status cost cost--pay"
+                         style="{{ctrl.stylePercentageLeased(cost)}}"
+                    >
                         {{cost.count}} paid
                     </div>
 
                     <div ng-switch-when="overquota"
-                         class="image-notice image-info__group status cost cost--pay">
+                         class="image-notice image-info__group status cost cost--pay"
+                         style="{{ctrl.stylePercentageLeased(cost)}}"
+                    >
                         {{cost.count}} over quota
                     </div>
 
                     <div ng-switch-when="conditional"
-                         class="image-notice image-info__group cost cost--conditional">
+                         class="image-notice image-info__group cost cost--conditional"
+                         style="{{ctrl.stylePercentageLeased(cost)}}"
+                    >
                         {{cost.count}} restricted
                     </div>
                 </div>
@@ -40,7 +48,7 @@
     </div>
 
     <div ng-if="ctrl.selectedImages.size > 0">
-        <gr-image-metadata 
+        <gr-image-metadata
             gr-images="ctrl.selectedImages"
             gr-user-can-edit="ctrl.userCanEdit"
         ></gr-image-metadata>

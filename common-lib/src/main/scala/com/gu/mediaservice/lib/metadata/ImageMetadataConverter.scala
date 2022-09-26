@@ -10,6 +10,9 @@ import play.api.libs.json.{JsArray, JsString, JsValue}
 
 object ImageMetadataConverter extends GridLogging {
 
+  // keep positive years (ie AD) with a couple of days spare room to avoid accidentally flipping over into BC
+  val earliestSensibleDate: DateTime = DateTime.parse("0001-01-03T00:00:00.000Z")
+
   private def extractSubjects(fileMetadata: FileMetadata): Option[List[String]] = {
     val supplementalCategories = fileMetadata.iptc
       .get("Supplemental Category(s)")
@@ -49,11 +52,12 @@ object ImageMetadataConverter extends GridLogging {
     })
   }
 
-  def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None): ImageMetadata = {
+  def fromFileMetadata(fileMetadata: FileMetadata, latestAllowedDateTime: Option[DateTime] = None, earliestAllowedDateTime: Option[DateTime] = Some(earliestSensibleDate)): ImageMetadata = {
+    def parseDate(dateString: String): Option[DateTime] = parseRandomDate(dateString, maxDate = latestAllowedDateTime, minDate = earliestAllowedDateTime)
     ImageMetadata(
-      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
-                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap (parseRandomDate(_, latestAllowedDateTime))) orElse
-                            (fileMetadata.readXmpHeadStringProp("photoshop:DateCreated") flatMap (parseRandomDate(_, latestAllowedDateTime))),
+      dateTaken           = (fileMetadata.exifSub.get("Date/Time Original Composite") flatMap parseDate) orElse
+                            (fileMetadata.iptc.get("Date Time Created Composite") flatMap parseDate) orElse
+                            (fileMetadata.readXmpHeadStringProp("photoshop:DateCreated") flatMap parseDate),
       description         = fileMetadata.readXmpHeadStringProp("dc:description") orElse
                             fileMetadata.iptc.get("Caption/Abstract") orElse
                             fileMetadata.exif.get("Image Description"),
@@ -139,7 +143,7 @@ object ImageMetadataConverter extends GridLogging {
     ISODateTimeFormat.date.withZoneUTC
   )
 
-  private[metadata] def parseRandomDate(str: String, maxDate: Option[DateTime] = None): Option[DateTime] = {
+  private[metadata] def parseRandomDate(str: String, maxDate: Option[DateTime] = None, minDate: Option[DateTime] = None): Option[DateTime] = {
     dateTimeFormatters.foldLeft[Option[DateTime]](None){
       case (successfulDate@Some(_), _) => successfulDate
       // NB We refuse parse results which result in future dates, if a max date is provided.
@@ -147,7 +151,7 @@ object ImageMetadataConverter extends GridLogging {
       // that it should be parsed as (eg) US (12th Jan 2021), not EU (1st Dec 2021).
       // So we refuse the (apparently successful) EU parse result.
       case (None, formatter) => safeParsing(formatter.parseDateTime(str))
-        .filter(d => maxDate.forall(md => d.isBefore(md)))
+        .filter(d => maxDate.forall(d.isBefore) && minDate.forall(d.isAfter))
     }.map(_.withZone(DateTimeZone.UTC))
   }
 
