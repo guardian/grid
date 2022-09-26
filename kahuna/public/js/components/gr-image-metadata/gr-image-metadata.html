@@ -7,7 +7,8 @@
             image="ctrl.singleImage"
             metadata="ctrl.singleImage.data.metadata"
             usage-rights="ctrl.singleImage.data.usageRights"
-            gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights, collection)"
+            gr-on-metadata-template-selected="ctrl.onMetadataTemplateSelected(metadata, usageRights, collection, lease)"
+            gr-on-metadata-template-applying="ctrl.onMetadataTemplateApplying(lease)"
             gr-on-metadata-template-applied="ctrl.onMetadataTemplateApplied()"
             gr-on-metadata-template-cancelled="ctrl.onMetadataTemplateCancelled(metadata, usageRights)"
             class="metadata-templates-flex">
@@ -38,11 +39,15 @@
     </div>
     <div class="image-info__group" ng-if="ctrl.displayLeases()" role="region" aria-label="Leases">
         <dl class="image-info__wrap image-info__leases">
-            <div class="image-info__heading image-info__heading--lease">
+            <div class="image-info__heading image-info__heading--lease"
+                 ng-class="{'image-info__heading--lease-preview': ctrl.leasesUpdatedByTemplate}">
                 <span>Leases</span>
             </div>
             <gr-leases
                 gr-images="ctrl.selectedImages"
+                gr-leases-updated-by-template="ctrl.leasesUpdatedByTemplate"
+                gr-leases-updating-by-template="ctrl.leasesUpdatingByTemplate"
+                gr-updated-leases="ctrl.updatedLeases"
                 gr-on-save="ctrl.showLeases = false"
                 gr-user-can-edit="ctrl.userCanEdit"
                 gr-on-cancel="ctrl.showLeases = false">
@@ -58,39 +63,46 @@
                         ng-click="titleEditForm.$show()"
                         ng-hide="titleEditForm.$visible">✎</button>
                 <dt class="metadata-line metadata-line__key">Title</dt>
-                <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
-                     editable-text="ctrl.metadata.title"
-                     ng-hide="titleEditForm.$visible"
-                     onbeforesave="ctrl.updateMetadataField('title', $data)"
-                     e:form="titleEditForm"
-                     e:ng-class="{'image-info__editor--error': $error,
+                <span ng-if="ctrl.metadataUpdatedByTemplate.includes('title')">
+                    <div class="metadata-line__info">
+                        <dd class="image-info__title-preview">{{ctrl.metadata.title}}</dd>
+                    </div>
+                </span>
+                <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('title')">
+                    <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.title)}"
+                         editable-text="ctrl.metadata.title"
+                         ng-hide="titleEditForm.$visible"
+                         onbeforesave="ctrl.updateMetadataField('title', $data)"
+                         e:form="titleEditForm"
+                         e:ng-class="{'image-info__editor--error': $error,
                                   'image-info__editor--saving': titleEditForm.$waiting,
                                   'text-input': true}">
 
-                    <div ng-if="ctrl.userCanEdit">
-                        <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            Multiple titles (click ✎ to edit <strong>all</strong>)
-                        </dd>
+                        <div ng-if="ctrl.userCanEdit">
+                            <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                                Multiple titles (click ✎ to edit <strong>all</strong>)
+                            </dd>
 
-                        <dd class="image-info__title"
-                            ng-class="{'editable-empty': !ctrl.metadata.title}"
-                            ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "Unknown (click ✎ to add)"}}
-                        </dd>
+                            <dd class="image-info__title"
+                                ng-class="{'editable-empty': !ctrl.metadata.title}"
+                                ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                                {{ctrl.metadata.title || "Unknown (click ✎ to add)"}}
+                            </dd>
+                        </div>
+
+                        <div ng-if="!ctrl.userCanEdit">
+                            <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                                Multiple titles
+                            </dd>
+
+                            <dd class="image-info__title"
+                                ng-class="{'editable-empty': !ctrl.metadata.title}"
+                                ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                                {{ctrl.metadata.title || "Unknown"}}
+                            </dd>
+                        </div>
                     </div>
-
-                    <div ng-if="!ctrl.userCanEdit">
-                        <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            Multiple titles
-                        </dd>
-
-                        <dd class="image-info__title"
-                            ng-class="{'editable-empty': !ctrl.metadata.title}"
-                            ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "Unknown"}}
-                        </dd>
-                    </div>
-                </div>
+                </span>
             </div>
             <div data-cy="metadata-description" class="image-info__wrap">
                 <button data-cy="it-edit-description-button"
@@ -99,66 +111,76 @@
                         ng-click="descriptionEditForm.$show()"
                         ng-hide="descriptionEditForm.$visible">✎</button>
                 <dt class="metadata-line metadata-line__key">Description</dt>
-                <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
-                  <div ng-hide="descriptionEditForm.$visible">
-                    <div ng-if="ctrl.userCanEdit">
-                        <dd class="image-info__description"
-                            ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
-                            >Multiple descriptions (click ✎ to edit <strong>all</strong>)
-                        </dd>
 
-                        <dd class="image-info__description"
-                            ng-class="{'editable-empty': !ctrl.metadata.description}"
-                            ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
-                            >{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}
-                        </dd>
+                <span ng-if="ctrl.metadataUpdatedByTemplate.includes('description')">
+                    <div class="metadata-line__info">
+                        <dd class="image-info__description-preview">{{ctrl.metadata.description}}</dd>
                     </div>
+                </span>
+                <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('description')">
+                    <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
+                        <div ng-hide="descriptionEditForm.$visible">
+                            <div ng-if="ctrl.userCanEdit">
+                                <dd class="image-info__description"
+                                    ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                >Multiple descriptions (click ✎ to edit <strong>all</strong>)
+                                </dd>
 
-                    <div ng-if="!ctrl.userCanEdit">
-                        <dd class="image-info__description"
-                            ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
-                            >Multiple descriptions
-                        </dd>
+                                <dd class="image-info__description"
+                                    ng-class="{'editable-empty': !ctrl.metadata.description}"
+                                    ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                >{{ctrl.metadata.description || "Unknown (click ✎ to add)"}}
+                                </dd>
+                            </div>
 
-                        <dd class="image-info__description"
-                            ng-class="{'editable-empty': !ctrl.metadata.description}"
-                            ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
-                            >{{ctrl.metadata.description || "Unknown"}}
-                        </dd>
-                    </div>
-                </div>
-                <div
-                    class="metadata-line__info"
-                    ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
-                     editable-textarea="ctrl.metadata.description"
-                     ng-hide="descriptionEditForm.$visible"
-                     e:msd-elastic
-                     e:ng-class="{'image-info__editor--error': $error,
-                                  'image-info__editor--saving': descriptionEditForm.$waiting,
-                                  'text-input': true}"
-                  >
-                  </div>
-                  <div
-                    ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible"
-                    class="image-info__description--options"
-                  >
-                    <gr-radio-list gr-for="description" gr-options="ctrl.descriptionOptions" gr-selected-option="ctrl.descriptionOption"></gr-radio-list>
-                </div>
-                <!--
-                  These buttons are a copy of the buttons we use in the inline
-                  input elements but with a different form name which is why they
-                  are duplicated here
-                -->
-                <div ng-if="ctrl.userCanEdit && descriptionEditForm.$visible" class="editable-buttons">
-                    <button class="button-cancel" type="button" ng-click="descriptionEditForm.$cancel()">
-                        <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
-                    </button>
+                            <div ng-if="!ctrl.userCanEdit">
+                                <dd class="image-info__description"
+                                    ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                >Multiple descriptions
+                                </dd>
 
-                    <button class="button-save" type="submit">
-                        <gr-icon-label gr-icon="check">Save</gr-icon-label>
-                    </button>
-                </div>
-            </form>
+                                <dd class="image-info__description"
+                                    ng-class="{'editable-empty': !ctrl.metadata.description}"
+                                    ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
+                                >{{ctrl.metadata.description || "Unknown"}}
+                                </dd>
+                            </div>
+                        </div>
+                        <div
+                            class="metadata-line__info"
+                            ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
+                            editable-textarea="ctrl.metadata.description"
+                            ng-hide="descriptionEditForm.$visible"
+                            e:msd-elastic
+                            e:ng-class="{'image-info__editor--error': $error,
+                                          'image-info__editor--saving': descriptionEditForm.$waiting,
+                                          'text-input': true}"
+                        >
+                          </div>
+                        <div
+                              ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description) && ctrl.userCanEdit && descriptionEditForm.$visible"
+                              class="image-info__description--options"
+                        >
+                            <gr-radio-list gr-for="description" gr-options="ctrl.descriptionOptions" gr-selected-option="ctrl.descriptionOption"></gr-radio-list>
+                        </div>
+                        <!--
+                          These buttons are a copy of the buttons we use in the inline
+                          input elements but with a different form name which is why they
+                          are duplicated here
+                        -->
+                        <div ng-if="ctrl.userCanEdit && descriptionEditForm.$visible" class="editable-buttons">
+                            <button class="button-cancel" type="button" ng-click="descriptionEditForm.$cancel()">
+                                <gr-icon-label gr-icon="close">Cancel</gr-icon-label>
+                            </button>
+
+                            <button class="button-save" type="submit">
+                                <gr-icon-label gr-icon="check">Save</gr-icon-label>
+                            </button>
+                        </div>
+                    </form>
+                </span>
+
+
         </div>
     </dl>
     </div>
@@ -170,41 +192,47 @@
                     ng-click="specialInstructionsEditForm.$show()"
                     ng-hide="specialInstructionsEditForm.$visible">✎</button>
             <dt class="metadata-line metadata-line__key">Special instructions</dt>
-
-            <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
-            editable-textarea="ctrl.metadata.specialInstructions"
-            ng-hide="specialInstructionsEditForm.$visible"
-            onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
-            e:msd-elastic
-            e:form="specialInstructionsEditForm"
-            e:ng-class="{'image-info__editor--error': $error,
+            <span ng-if="ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
+                <div class="metadata-line__info">
+                    <dd class="image-info__special-instructions-preview">{{ctrl.metadata.specialInstructions}}</dd>
+                </div>
+            </span>
+            <span ng-if="!ctrl.metadataUpdatedByTemplate.includes('specialInstructions')">
+                <div class="metadata-line__info" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)}"
+                     editable-textarea="ctrl.metadata.specialInstructions"
+                     ng-hide="specialInstructionsEditForm.$visible"
+                     onbeforesave="ctrl.updateMetadataField('specialInstructions', $data)"
+                     e:msd-elastic
+                     e:form="specialInstructionsEditForm"
+                     e:ng-class="{'image-info__editor--error': $error,
                          'image-info__editor--saving': specialInstructionsEditForm.$waiting,
                          'text-input': true}">
 
-                <div ng-if="ctrl.userCanEdit">
-                    <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                        class="image-info__special-instructions"
+                    <div ng-if="ctrl.userCanEdit">
+                        <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                            class="image-info__special-instructions"
                         >Multiple special instructions (click ✎ to edit <strong>all</strong>)
-                    </dd>
+                        </dd>
 
-                    <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                        class="image-info__special-instructions"
+                        <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                            class="image-info__special-instructions"
                         >{{ctrl.metadata.specialInstructions}}
-                    </dd>
-                </div>
+                        </dd>
+                    </div>
 
-                <div ng-if="!ctrl.userCanEdit">
-                    <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                        class="image-info__special-instructions"
+                    <div ng-if="!ctrl.userCanEdit">
+                        <dd ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                            class="image-info__special-instructions"
                         >Multiple special instructions
-                    </dd>
+                        </dd>
 
-                    <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
-                        class="image-info__special-instructions"
+                        <dd ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.specialInstructions)"
+                            class="image-info__special-instructions"
                         >{{ctrl.metadata.specialInstructions}}
-                    </dd>
-                </div>
-           </div>
+                        </dd>
+                    </div>
+               </div>
+            </span>
        </dl>
     </div>
 

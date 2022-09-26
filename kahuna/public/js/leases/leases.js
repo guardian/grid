@@ -294,6 +294,9 @@ leases.directive('grLeases', [function() {
         template: template,
         scope: {
             images: '=grImages',
+            leasesUpdatedByTemplate: '=?grLeasesUpdatedByTemplate',
+            adding: '=?grLeasesUpdatingByTemplate',
+            updatedLeases: '=?grUpdatedLeases',
             userCanEdit: '=?grUserCanEdit',
             onCancel: '&?grOnCancel',
             onSave: '&?grOnSave',

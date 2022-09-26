@@ -158,3 +158,7 @@ gr-leases.leases-flex .lease__item {
 gr-leases.leases-flex gr-confirm-delete {
   display: block;
 }
+
+.lease__item-preview {
+  border: 1px solid #ffbc01;
+}
