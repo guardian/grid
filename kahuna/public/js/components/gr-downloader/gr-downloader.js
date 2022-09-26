@@ -57,7 +57,7 @@ downloader.controller('DownloaderCtrl', [
         ctrl.multipleImagesSelected = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
         ctrl.singleImageSelected = singleImageSelected && ctrl.imagesArray()[0].data.valid && ctrl.imagesArray()[0].data.softDeletedMetadata === undefined;
 
-        ctrl.multipleSelectedAllValid = multipleImagesSelected && selectedNonDownloadableImages.length < 1
+        ctrl.multipleSelectedAllValid = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
         ctrl.multipleSelectedSomeValid = multipleImagesSelected && selectedNonDownloadableImages.length && (totalSelectedImages !== selectedNonDownloadableImages.length);
         ctrl.multipleSelectedNoneValid = multipleImagesSelected && totalSelectedImages === selectedNonDownloadableImages.length;
         ctrl.singleSelectedInvalid = singleImageSelected && selectedNonDownloadableImages.length === 1;
