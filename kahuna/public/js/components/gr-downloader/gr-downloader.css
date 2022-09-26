@@ -7,3 +7,7 @@ gr-downloader .download {
 button .download:hover {
   color: white;
 }
+
+.download-warning {
+  color: yellow;
+}
