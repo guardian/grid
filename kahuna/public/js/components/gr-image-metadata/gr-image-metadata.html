@@ -104,6 +104,7 @@
                   <div ng-hide="descriptionEditForm.$visible">
                     <div ng-if="ctrl.userCanEdit">
                         <dd class="image-info__description"
+                            ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                             ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                             >Multiple descriptions (click ✎ to edit <strong>all</strong>)
                         </dd>
@@ -130,7 +131,6 @@
                 </div>
                 <div
                     class="metadata-line__info"
-                    ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                      editable-textarea="ctrl.metadata.description"
                      ng-hide="descriptionEditForm.$visible"
                      e:msd-elastic
