@@ -221,6 +221,7 @@
                 >✎</button>
 
                 <span editable-datetime-local="ctrl.metadata.dateTaken"
+                      ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.dateTaken)}"
                       ng-hide="takenEditForm.$visible"
                       onbeforesave="ctrl.updateMetadataField('dateTaken', $data)"
                       e:form="takenEditForm"
