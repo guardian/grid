@@ -101,10 +101,9 @@
                         ng-hide="descriptionEditForm.$visible">✎</button>
                 <dt class="metadata-line metadata-line__key">Description</dt>
                 <form editable-form name="descriptionEditForm" onaftersave="ctrl.updateDescriptionField('description', $data)">
-                  <div ng-hide="descriptionEditForm.$visible">
+                  <div ng-hide="descriptionEditForm.$visible" ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}">
                     <div ng-if="ctrl.userCanEdit">
                         <dd class="image-info__description"
-                            ng-class="{'image-info--multiple': ctrl.hasMultipleValues(ctrl.rawMetadata.description)}"
                             ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.description)"
                             >Multiple descriptions (click ✎ to edit <strong>all</strong>)
                         </dd>
