@@ -10,7 +10,6 @@
   additionalNavigationLinks: String,
   costFilterLabel: String,
   costFilterChargeable: Boolean,
-  restrictDownload: Boolean,
   kahunaConfig: KahunaConfig
 )
 <!DOCTYPE html>
@@ -60,7 +59,7 @@
           additionalNavigationLinks: @Html(additionalNavigationLinks),
           costFilterLabel: "@Html(costFilterLabel)",
           costFilterChargeable: @costFilterChargeable,
-          restrictDownload: @restrictDownload,
+          restrictDownload: @kahunaConfig.restrictDownload.getOrElse(false)
         }
     </script>
 
