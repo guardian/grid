@@ -75,7 +75,8 @@
                         <dd class="image-info__title"
                             ng-class="{'editable-empty': !ctrl.metadata.title}"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "Unknown (click ✎ to add)"}}
+                            <a ui-sref="search.results({query: (ctrl.metadata.title | queryFilter:'title'), nonFree: ctrl.srefNonfree()})"
+                            aria-label="Search images by {{ctrl.metadata.title}} title">{{ctrl.metadata.title || "Unknown (click ✎ to add)"}}</a>
                         </dd>
                     </div>
 
