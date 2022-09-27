@@ -7,6 +7,7 @@
     </button>
 
     <span editable-text="ctrl.photoshootData.title"
+          class="metadata-line__info"
           ng-hide="photoshootEditForm.$visible"
           e:form="photoshootEditForm"
           e:uib-:typeahead="photoshoot for photoshoot in ctrl.search($viewValue) | limitTo:8"
@@ -26,7 +27,7 @@
                 </a>
             </span>
 
-            <span ng-if="!ctrl.hasSinglePhotoshoot">
+            <span ng-if="!ctrl.hasSinglePhotoshoot" class="image-info--multiple metadata-line__info">
                 Multiple photoshoots (click ✎ to edit <strong>all</strong>)
             </span>
         </span>
