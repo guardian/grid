@@ -222,7 +222,7 @@ module.controller('grImageMetadataCtrl', [
           .map(([key, value]) => {
             let fieldAlias = ctrl.fieldAliases.find(_ => _.alias === key);
             if (fieldAlias && fieldAlias.displayInAdditionalMetadata === true) {
-              return [fieldAlias.label, {value,elasticsearchPath: fieldAlias.elasticsearchPath}];
+              return [fieldAlias.label, { value, elasticsearchPath: '"' + fieldAlias.elasticsearchPath + '"' }];
             }
           })
           .filter(_ => _ !== undefined));
