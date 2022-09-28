@@ -100,6 +100,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
           .getOrElse(__.json.pick)
       ))
       .flatMap(_.transform(addValidity(valid)))
+      .flatMap(_.transform(addUserCanEdit(withWritePermission)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
@@ -223,6 +224,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
+
+  def addUserCanEdit(userCanEdit: Boolean): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("userCanEdit" -> userCanEdit))
 
   def addFromIndex(fromIndex: String): Reads[JsObject] =
   __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
