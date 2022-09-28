@@ -27,7 +27,7 @@ or your favourite IDE.
 Adding the `--ship-logs` flag will ship logs to a [local elk](https://github.com/guardian/local-elk) stack over tcp on port `5000`.
 You'll need to be sure `local-elk` is running beforehand to sure port `5000` is open.
 
-#### `--with-local-auth`
+#### `--with-local-auth` or `--no-auth`
 If you previously ran `setup.sh` using this flag, you'll also need to use it in `start.sh`.
 
 ## `the_pingler.sh`
@@ -53,6 +53,8 @@ This is the [oidc-provider](../../dev/oidc-provider) and we can login to Grid us
 [`users.json`](../../dev/config/users.json), for example `grid-demo-account@guardian.co.uk`. There isn't a password, so enter any value.
 
 If you haven't used the `--with-local-auth` flag, you'll begin a Google authentication flow.
+
+If you have used the `--no-auth` flag you'll be signed in automatically as John Doe (with no oauth flow) and will have ALL permissions.
 
 ## Cerebro
 

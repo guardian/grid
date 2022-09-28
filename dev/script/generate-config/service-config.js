@@ -10,6 +10,7 @@ function getCorsAllowedOriginString(config) {
 }
 
 function getCommonConfig(config) {
+  const isNoAuth = process.env.NO_AUTH === "true";
   return `domain.root="${config.DOMAIN}"
         |authentication.providers.machine.config.authKeyStoreBucket="${config.coreStackProps.KeyBucket}"
         |aws.local.endpoint="https://localstack.media.${config.DOMAIN}"
@@ -18,6 +19,8 @@ function getCommonConfig(config) {
         |es.index.aliases.current="Images_Current"
         |es.index.aliases.migration="Images_Migration"
         |image.record.download=false
+        ${isNoAuth ? '|authentication.providers.user="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"' : ''}
+        ${isNoAuth ? '|authorisation.provider="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"' : ''}
         |`;
 }
 

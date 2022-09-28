@@ -26,6 +26,7 @@ AUTH_STACK_FILENAME=$(basename "$AUTH_STACK_FILE")
 # ---- END
 
 LOCAL_AUTH=false
+NO_AUTH=false
 for arg in "$@"; do
   if [ "$arg" == "--clean" ]; then
     CLEAN=true
@@ -33,6 +34,11 @@ for arg in "$@"; do
   fi
   if [ "$arg" == "--with-local-auth" ]; then
     LOCAL_AUTH=true
+    shift
+  fi
+  if [ "$arg" == "--no-auth" ]; then
+    LOCAL_AUTH=true
+    NO_AUTH=true
     shift
   fi
 done
@@ -136,40 +142,6 @@ END
   rm -f "$PRIVATE_KEY_FILE"
   rm -f "$PANDA_PRIVATE_SETTINGS_FILE"
   rm -f "$PANDA_PUBLIC_SETTINGS_FILE"
-}
-
-setupLocalAuthorisationProviderConfiguration() {
-  if [[ $LOCAL_AUTH != true ]]; then
-    return
-  fi
-
-  echo "setting up permissions configuration for local authorisation provider"
-
-  target="$ROOT_DIR/common-lib/src/main/resources/application.conf"
-
-  guardianProviderClassName="com.gu.mediaservice.lib.guardian.auth.PermissionsAuthorisationProvider"
-
-  localProviderClassName="com.gu.mediaservice.lib.auth.provider.LocalAuthorisationProvider"
-
-  sed -i -- "s/$guardianProviderClassName/$localProviderClassName/g" "$target"
-
-}
-
-setupLocalAuthenticationProviderConfiguration() {
-  if [[ $LOCAL_AUTH != true ]]; then
-    return
-  fi
-
-  echo "setting up permissions configuration for local authentication provider"
-
-  target="$ROOT_DIR/common-lib/src/main/resources/application.conf"
-
-  guardianProviderClassName="com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider"
-
-  localProviderClassName="com.gu.mediaservice.lib.auth.provider.LocalAuthenticationProvider"
-
-  sed -i -- "s/$guardianProviderClassName/$localProviderClassName/g" "$target"
-
 }
 
 setupGuardianPermissionConfiguration() {
@@ -314,7 +286,7 @@ generateConfig() {
   echo "generating configuration files"
   pushd "$ROOT_DIR/dev/script/generate-config"
   npm install
-  npm run generate-config
+  NO_AUTH=$NO_AUTH npm run generate-config
   popd
   echo "  configuration files created in ${CONF_HOME}"
 }
@@ -353,11 +325,7 @@ main() {
   createCoreStack
 
   if [[ $LOCAL_AUTH == true ]]; then
-    if [[ $LOCAL_SIMPLE_AUTH_PROVIDER == true ]]
-    then
-      setupLocalAuthenticationProviderConfiguration
-      setupLocalAuthorisationProviderConfiguration
-    else
+    if [[ $NO_AUTH != true ]]; then
       createGuardianLocalAuthStack
       setupPanDomainConfiguration
       setupGuardianPermissionConfiguration

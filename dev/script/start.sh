@@ -27,6 +27,10 @@ for arg in "$@"; do
     LOCAL_AUTH=true
     shift
   fi
+  if [ "$arg" == "--no-auth" ]; then
+    LOCAL_AUTH=true
+    shift
+  fi
 done
 
 isInstalled() {
