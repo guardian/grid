@@ -10,5 +10,5 @@ The file lists configs that every user and service should have.
 #### `common.conf` in S3
 Anything that's specific to the Guardian and to a stage, but is common across all the services.
 
-#### `kahuna.conf` in S3
-Kahuna-specific configs (one for each stage)
+#### `<configRoot>/<stage>/<service>.conf`
+Service-specific configs. These will override all other config files.
