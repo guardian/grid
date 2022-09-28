@@ -598,12 +598,18 @@
         <div ng-if="!ctrl.isMetadataSectionHidden('additionalMetadata')" class="metadata metadata-line image-info__group--dl">
             <dl ng-repeat="(key, value) in ctrl.metadata" ng-if="ctrl.isUsefulMetadata(key)" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key | spaceWords}}</dt>
-                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
+                <a ui-sref="search.results({query: (value | queryFilter:'{{key}}'), nonFree: ctrl.srefNonfree()})"
+                aria-label="Search images with {{key}} '{{value}}'">{{value}}</a>
+                </dd>
             </dl>
 
             <dl ng-repeat="(key, value) in ctrl.additionalMetadata" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key}}</dt>
-                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">{{value}}</dd>
+                <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
+                <a ui-sref="search.results({query: (value | queryFilter:'{{key}}'), nonFree: ctrl.srefNonfree()})"
+                aria-label="Search images with {{key}} '{{value}}'">{{value}}</a>
+                </dd>
             </dl>
 
             <dl ng-repeat="(key, value) in ctrl.identifiers" class="metadata__body image-info__group--dl">
