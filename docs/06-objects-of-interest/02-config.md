@@ -22,3 +22,5 @@ Anything that's specific to an organisation and to a stage, but is common across
 
 #### `<configRoot>/<stage>/<service>.conf`
 Service-specific configs. These will override all other config files.
+
+[Documentation](https://docs.google.com/document/d/1CSERbLwbu6nT_ggzzYxdUt9IHpfGUJLIYPnU_9MZbpc/edit) on the existing Grid config options 
