@@ -67,28 +67,40 @@
                                   'image-info__editor--saving': titleEditForm.$waiting,
                                   'text-input': true}">
 
-                    <div ng-if="ctrl.userCanEdit">
-                        <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
+                    <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title) && ctrl.userCanEdit">
+                        <dd class="image-info__title">
                             Multiple titles (click ✎ to edit <strong>all</strong>)
                         </dd>
+                    </div>
 
+                    <div ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title) && !ctrl.userCanEdit">
+                        <dd class="image-info__title">
+                            Multiple titles
+                        </dd>
+                    </div>
+
+                    <div ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title) && !ctrl.metadata.title" class="editable-empty"">
+                        <dd ng-if="ctrl.userCanEdit">
+                            Unknown (click ✎ to add)
+                        </dd>
+                        <dd ng-if="!ctrl.userCanEdit">
+                        Unknown
+                        </dd>
+                    </div>
+
+                    <div ng-if="ctrl.userCanEdit">
                         <dd class="image-info__title"
-                            ng-class="{'editable-empty': !ctrl.metadata.title}"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
                             <a ui-sref="search.results({query: (ctrl.metadata.title | queryFilter:'title'), nonFree: ctrl.srefNonfree()})"
-                            aria-label="Search images by {{ctrl.metadata.title}} title">{{ctrl.metadata.title || "Unknown (click ✎ to add)"}}</a>
+                            aria-label="Search images by {{ctrl.metadata.title}} title">{{ctrl.metadata.title}}</a>
                         </dd>
                     </div>
 
                     <div ng-if="!ctrl.userCanEdit">
-                        <dd class="image-info__title" ng-if="ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            Multiple titles
-                        </dd>
-
                         <dd class="image-info__title"
-                            ng-class="{'editable-empty': !ctrl.metadata.title}"
                             ng-if="!ctrl.hasMultipleValues(ctrl.rawMetadata.title)">
-                            {{ctrl.metadata.title || "Unknown"}}
+                            <a ui-sref="search.results({query: (ctrl.metadata.title | queryFilter:'title'), nonFree: ctrl.srefNonfree()})"
+                               aria-label="Search images by {{ctrl.metadata.title}} title">{{ctrl.metadata.title}}</a>
                         </dd>
                     </div>
                 </div>
