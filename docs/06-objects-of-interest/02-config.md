@@ -13,7 +13,7 @@ This file will be packaged by sbt-native-packager, available once installed on t
 > Currently this is the only file that is loaded at Play's first initialisation. Some play settings will only take effect if set in this file.
 
 #### `common.conf` in S3
-Anything that's specific to the Guardian and to a stage, but is common across all the services.
+Anything that's specific to an organisation and to a stage, but is common across all the services. Keys set here will override those set in `application.conf` but be overridden by the service-specific configs.
 
 #### `<configRoot>/<stage>/<service>.conf`
 Service-specific configs. These will override all other config files.
