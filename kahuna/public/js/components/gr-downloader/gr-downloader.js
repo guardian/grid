@@ -46,7 +46,7 @@ downloader.controller('DownloaderCtrl', [
 
     $scope.$watch('ctrl.images', function () {
       ctrl.singleImageSelected = ctrl.imageCount() === 1;
-      ctrl.multipleImagesSelected = ctrl.imageCount() > 1;
+      ctrl.multipleSelectedAllValid = ctrl.imageCount() > 1;
 
       if (restrictDownload) {
         const totalSelectedImages = ctrl.imageCount();
@@ -54,9 +54,7 @@ downloader.controller('DownloaderCtrl', [
         const singleImageSelected = totalSelectedImages === 1;
         const multipleImagesSelected = totalSelectedImages > 1;
 
-        ctrl.multipleImagesSelected = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
         ctrl.singleImageSelected = singleImageSelected && ctrl.imagesArray()[0].data.userCanEdit && ctrl.imagesArray()[0].data.softDeletedMetadata === undefined;
-
         ctrl.multipleSelectedAllValid = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
         ctrl.multipleSelectedSomeValid = multipleImagesSelected && selectedNonDownloadableImages.length && (totalSelectedImages !== selectedNonDownloadableImages.length);
         ctrl.multipleSelectedNoneValid = multipleImagesSelected && totalSelectedImages === selectedNonDownloadableImages.length;
@@ -64,7 +62,7 @@ downloader.controller('DownloaderCtrl', [
       }
     });
 
-    ctrl.isDeleted = ctrl?.images?.length === 1 && ctrl.images[0].data.softDeletedMetadata !== undefined;
+    ctrl.isDeleted = ctrl.singleImageSelected && ctrl.images[0].data.softDeletedMetadata !== undefined;
     const uris$ = imageDownloadsService.getDownloads(ctrl.imagesArray()[0]);
 
     inject$($scope, uris$, ctrl, 'firstImageUris');

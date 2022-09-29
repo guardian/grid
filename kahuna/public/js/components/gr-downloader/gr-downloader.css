@@ -15,3 +15,10 @@ button .download:hover {
 .results-toolbar-item .download-icon-label {
   padding-right: 0;
 }
+.download-icon-label {
+  padding-right: 0;
+}
+
+.download-button {
+  height: 36px;
+}
