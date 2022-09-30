@@ -274,7 +274,9 @@ class ElasticSearch(
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
       .aggregations(filterPanelItemsWithoutIsDeleted.map { //TODO consider filtering out clauses which are already in withFilter
-        case (name, item) => filterAgg(name, queryBuilder.makeQuery(Parser.run(item.asQueryClauseString)))
+        case (name, item) => filterAgg(name, queryBuilder.makeQuery(
+          Parser.run(item.asQueryClauseString, shouldIncludeDeleted = true))
+        )
       }.toList)
       .from(params.offset)
       .size(params.length)
@@ -289,7 +291,7 @@ class ElasticSearch(
     } yield {
       logSearchQueryIfTimedOut(searchRequest, r.result)
 
-      val aggResultsWithDefinitions: Map[String, FilterPanelItem] = filterPanelItemsWithoutIsDeleted.map { //TODO consider filtering out clauses which are already in withFilter
+      val aggResultsWithDefinitions: Map[String, FilterPanelItem] = filterPanelItemsWithoutIsDeleted.map {
         case (name, item) => (name, item.copy(
           count = r.result.aggregationsAsMap.get(name).map(_.asInstanceOf[Map[String, Any]]("doc_count").asInstanceOf[Int])
         ))
