@@ -131,7 +131,7 @@ results.controller('SearchResultsCtrl', [
 
         // TODO: avoid this initial search (two API calls to init!)
         ctrl.searched = search({length: 1, orderBy: 'newest'}).then(function(images) {
-            $rootScope.filterPanelItems = {...images.$response.$$state.value.actions};
+            $rootScope.filterPanelStuff = {...images.$response.$$state.value.actions};
             ctrl.totalResults = images.total;
 
             ctrl.hasQuery = !!$stateParams.query;
@@ -238,7 +238,7 @@ results.controller('SearchResultsCtrl', [
                     ctrl.newImagesCount = resp.total;
 
                     if (ctrl.newImagesCount > 0) {
-                      $rootScope.filterPanelItemsNewCounts = {...resp.$response.$$state.value.actions};
+                      $rootScope.filterPanelStuffNew = {...resp.$response.$$state.value.actions};
                       $rootScope.$emit('events:new-images', { count: ctrl.newImagesCount});
                     }
 

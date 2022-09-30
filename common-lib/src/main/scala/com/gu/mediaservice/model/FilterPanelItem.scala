@@ -20,3 +20,11 @@ case class FilterPanelItem(
 case object FilterPanelItem {
   implicit val format: OFormat[FilterPanelItem] = Json.format[FilterPanelItem]
 }
+
+case class FilterPanelStuff(
+  items: Map[String, FilterPanelItem],
+  dateHistogram: Map[String, Int]
+)
+case object FilterPanelStuff {
+  implicit val format: OFormat[FilterPanelStuff] = Json.format[FilterPanelStuff]
+}

@@ -27,7 +27,7 @@ export var query = angular
   .component('alternateFiltersPanel',
     react2angular(
       AlternateFiltersPanel,
-      ["filter", "updateFilter", "filterPanelItems", "filterPanelItemsNewCounts"]
+      ["filter", "updateFilter", "filterPanelStuff", "filterPanelStuffNew"]
     )
   );
 

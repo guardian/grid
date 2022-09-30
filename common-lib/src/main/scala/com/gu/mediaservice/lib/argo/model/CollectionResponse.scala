@@ -4,7 +4,7 @@ import java.net.URI
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import com.gu.mediaservice.lib.argo.WriteHelpers
-import com.gu.mediaservice.model.FilterPanelItem
+import com.gu.mediaservice.model.FilterPanelStuff
 
 
 case class CollectionResponse[T](
@@ -14,7 +14,7 @@ case class CollectionResponse[T](
   total: Option[Long] = None,
   data: Seq[T],
   links: List[Link] = List(),
-  actions: Option[Map[String, FilterPanelItem]] = None,
+  actions: Option[FilterPanelStuff] = None,
 )
 
 object CollectionResponse extends WriteHelpers {
@@ -26,7 +26,7 @@ object CollectionResponse extends WriteHelpers {
       (__ \ "total").writeNullable[Long] ~
       (__ \ "data").write[Seq[T]] ~
       (__ \ "links").writeNullable[List[Link]].contramap(someListOrNone[Link]) ~
-      (__ \ "actions").writeNullable[Map[String, FilterPanelItem]]
+      (__ \ "actions").writeNullable[FilterPanelStuff]
     )(unlift(CollectionResponse.unapply[T]))
 
 }

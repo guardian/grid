@@ -5,8 +5,7 @@ import play.api.libs.json.{Json, Writes}
 import play.api.mvc.{Result, Results}
 import com.gu.mediaservice.lib.argo.model._
 import com.gu.mediaservice.lib.logging.GridLogging
-import com.gu.mediaservice.model.FilterPanelItem
-import com.typesafe.scalalogging.Logger
+import com.gu.mediaservice.model.FilterPanelStuff
 
 
 trait ArgoHelpers extends Results with GridLogging {
@@ -32,7 +31,7 @@ trait ArgoHelpers extends Results with GridLogging {
     total: Option[Long] = None,
     links: List[Link] = Nil,
     uri: Option[URI] = None,
-    actions: Option[Map[String, FilterPanelItem]] = None
+    actions: Option[FilterPanelStuff] = None
   )(
     implicit writes: Writes[T]
   ): Result = {

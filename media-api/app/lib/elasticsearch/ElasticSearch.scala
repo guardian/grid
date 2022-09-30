@@ -6,7 +6,7 @@ import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchConfig, MigrationStatusProvider, Running}
 import com.gu.mediaservice.lib.logging.{GridLogging, MarkerMap}
 import com.gu.mediaservice.lib.metrics.FutureSyntax
-import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, FilterPanelItem, Image}
+import com.gu.mediaservice.model.{Agencies, Agency, AwaitingReviewForSyndication, FilterPanelItem, FilterPanelStuff, Image}
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
 import com.sksamuel.elastic4s.requests.get.{GetRequest, GetResponse}
@@ -270,14 +270,17 @@ class ElasticSearch(
         ).map(r => Map(name -> item.copy(count = Some(r.result.totalHits.toInt))))
     }.getOrElse(Future.successful(Map.empty))
 
+    val dateHistogramKey = "dateHistogram"
     val searchRequest = prepareSearch(withFilter)
       .trackTotalHits(trackTotalHits)
       .runtimeMappings(runtimeMappings)
-      .aggregations(filterPanelItemsWithoutIsDeleted.map { //TODO consider filtering out clauses which are already in withFilter
-        case (name, item) => filterAgg(name, queryBuilder.makeQuery(
-          Parser.run(item.asQueryClauseString, shouldIncludeDeleted = true))
-        )
-      }.toList)
+      .aggregations(
+        autoDateHistogramAgg(dateHistogramKey, "uploadTime" /* TODO get from 'dateField'*/).buckets(30)
+          :: filterPanelItemsWithoutIsDeleted.map {
+          case (name, item) => filterAgg(name, queryBuilder.makeQuery(
+            Parser.run(item.asQueryClauseString, shouldIncludeDeleted = true))
+          )
+        }.toList)
       .from(params.offset)
       .size(params.length)
       .sortBy(sort)
@@ -303,7 +306,12 @@ class ElasticSearch(
       SearchResults(
         hits = imageHits,
         total = if (trackTotalHits) r.result.totalHits else 0,
-        filterPanelItems = aggResultsWithDefinitions
+        filterPanelStuff = FilterPanelStuff(
+          items = aggResultsWithDefinitions,
+          dateHistogram = r.result.aggregationsAsMap(dateHistogramKey).asInstanceOf[Map[String, Any]]("buckets").asInstanceOf[List[Map[String, Any]]].map { bucket =>
+            bucket("key_as_string").asInstanceOf[String] -> bucket("doc_count").asInstanceOf[Int]
+          }.toMap
+        ) ,
       )
     }
   }

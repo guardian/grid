@@ -425,12 +425,12 @@ class MediaApi(
     }
 
     def respondSuccess(searchParams: SearchParams) = for {
-      SearchResults(hits, totalCount, filterPanelItems) <- elasticSearch.search(searchParams)
+      SearchResults(hits, totalCount, filterPanelStuff) <- elasticSearch.search(searchParams)
       imageEntities = hits map (hitToImageEntity _).tupled
       prevLink = getPrevLink(searchParams)
       nextLink = getNextLink(searchParams, totalCount)
       links = List(prevLink, nextLink).flatten
-    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links, actions = Some(filterPanelItems))
+    } yield respondCollection(imageEntities, Some(searchParams.offset), Some(totalCount), links, actions = Some(filterPanelStuff))
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
