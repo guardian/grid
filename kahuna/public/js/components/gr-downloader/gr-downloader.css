@@ -11,12 +11,8 @@ button .download:hover {
   padding-left: 5px;
 }
 
-.results-toolbar-item--static,
-.results-toolbar-item .download-icon-label {
-  padding-right: 0;
-}
-.download-icon-label {
-  padding-right: 0;
+gr-icon-label.download-icon-label {
+  padding: 0;
 }
 
 .download-button {
