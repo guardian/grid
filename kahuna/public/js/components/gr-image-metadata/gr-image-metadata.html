@@ -620,7 +620,7 @@
             <dl ng-repeat="(key, metadata) in ctrl.additionalMetadata" class="metadata__body image-info__group--dl">
                 <dt class="metadata-line__key image-info__group--dl__key--full-metadata">{{key}}</dt>
                 <dd class="metadata-line__info image-info__group--dl__value--full-metadata">
-                <a ui-sref="search.results({query: (metadata.value | queryFilter:'{{metadata.elasticsearchPath}}'), nonFree: ctrl.srefNonfree()})"
+                <a ui-sref="search.results({query: (metadata.value | queryFilter:'{{metadata.alias}}'), nonFree: ctrl.srefNonfree()})"
                 aria-label="Search images with {{key}} '{{metadata.value}}'">{{metadata.value}}</a>
                 </dd>
             </dl>
