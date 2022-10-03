@@ -11,15 +11,17 @@ downloader.controller('DownloaderCtrl', [
   '$window',
   '$q',
   '$scope',
+  '$rootScope',
   'inject$',
   'imageDownloadsService',
 
-  function Controller($window, $q, $scope, inject$, imageDownloadsService) {
+  function Controller($window, $q, $scope, $rootScope, inject$, imageDownloadsService) {
 
     let ctrl = this;
 
     ctrl.canDownloadCrop = $window._clientConfig.canDownloadCrop;
     const restrictDownload = $window._clientConfig.restrictDownload;
+
 
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
       ctrl.images : Array.from(ctrl.images.values());
