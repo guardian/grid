@@ -3,7 +3,7 @@ import {getLabel, getCollection} from '../../search-query/query-syntax';
 
 // Line too long for eslint, but can't break it down..
 /*eslint-disable max-len */
-const parserRe = /(-?)(?:(?:([\p{L}@><.]+):|("[a-zA-Z@><. ]+"):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9]+)|"([^"]*)"|'([^']*)')/gu;
+const parserRe = /(-?)(?:(?:([\p{L}@><". ]+):|(#)|(~))(?:([^ "']+)|"([^"]+)"|'([^']+)')|([\p{L}0-9]+)|"([^"]*)"|'([^']*)')/gu;
 /*eslint-enable max-len */
 // TODO: expose the server-side query parser via an API instead of
 // replicating it poorly here
