@@ -22,7 +22,6 @@
         </gr-icon-label>
         <span class="download-warning"><gr-icon>warning</gr-icon></span>
     </button>
-
     <a ng-if="ctrl.singleImageSelected"
        href="{{ ctrl.firstImageUris.uris.downloadUri }}" download rel="noopener" target="_blank"
        aria-label="Download image">
@@ -57,7 +56,7 @@
             <gr-icon-label gr-icon="file_download">Download selected crop</gr-icon-label>
         </a>
     </button>
-    <button ng-if="ctrl.multipleSelectedAllValid || ctrl.multipleSelectedSomeValid || ctrl.multipleImagesSelected"
+    <button ng-if="ctrl.multipleSelectedAllValid || ctrl.multipleSelectedSomeValid"
             class="drop-menu clickable inner-clickable button-right-side"
             aria-label="Download low resolution"
             ng-click="showExpandedDownload = !showExpandedDownload">
@@ -72,7 +71,7 @@
     <span ng-if="ctrl.multipleSelectedNoneValid || ctrl.singleSelectedInvalid"
           aria-label="Cannot download"
           gr-tooltip="Selected image(s) not available for download">
-        <gr-icon-label gr-icon="file_download">
+        <gr-icon-label gr-icon="file_download" class="download-icon-label">
             Cannot download
         </gr-icon-label>
     </span>
