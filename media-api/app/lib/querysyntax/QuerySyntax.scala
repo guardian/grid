@@ -108,6 +108,7 @@ class QuerySyntax(val input: ParserInput) extends Parser with ImageFields {
     "illustrator" |
     "uploader" |
     "location" | "city" | "state" | "country" | "in" |
+    "bylineTitle" |
     "byline" | "by" | "photographer" |
     "description" |
     "credit" |
