@@ -2,10 +2,18 @@ import angular from 'angular';
 import './gr-downloader.css';
 import template from './gr-downloader.html';
 import '../../services/image/downloads';
+import {react2angular} from "react2angular/index";
+import {DownloadButton} from "../react/download-button";
 
 export const downloader = angular.module('gr.downloader', [
   'gr.image-downloads.service'
-]);
+]).component('downloadButton',
+  react2angular(DownloadButton,
+    ["images"],
+    ['imageDownloadsService']
+  )
+);
+
 
 // blob URLs have a max size of 500MB - https://github.com/eligrey/FileSaver.js/#supported-browsers
 const maxBlobSize = 500 * 1024 * 1024;
@@ -27,10 +35,11 @@ downloader.controller('DownloaderCtrl', [
   '$window',
   '$q',
   '$scope',
+  '$rootScope',
   'inject$',
   'imageDownloadsService',
 
-  function Controller($window, $q, $scope, inject$, imageDownloadsService) {
+  function Controller($window, $q, $scope, $rootScope, inject$, imageDownloadsService) {
 
     let ctrl = this;
 
@@ -41,13 +50,15 @@ downloader.controller('DownloaderCtrl', [
     ctrl.imagesArray = () => Array.isArray(ctrl.images) ?
       ctrl.images : Array.from(ctrl.images.values());
     ctrl.imageCount = () => ctrl.imagesArray().length;
-
-    ctrl.downloadableImagesArray = () => restrictDownload ? ctrl.imagesArray().filter(({data}) => data.userCanEdit && data.softDeletedMetadata === undefined) : ctrl.imagesArray();
+    ctrl.images = ctrl.imagesArray();
+    // $rootScope.images = ctrl.imagesArray();
+    //   ctrl.downloadableImagesArray = () => restrictDownload ? ctrl.imagesArray().filter(({data}) => data.userCanEdit && data.softDeletedMetadata === undefined) : ctrl.imagesArray();
 
     $scope.$watch('ctrl.images', function () {
       ctrl.singleImageSelected = ctrl.imageCount() === 1;
       ctrl.multipleSelectedAllValid = ctrl.imageCount() > 1;
-
+      // $rootScope.images = ctrl.imagesArray();
+      // ctrl.images = ctrl.imagesArray();
       if (restrictDownload) {
         const totalSelectedImages = ctrl.imageCount();
         const selectedNonDownloadableImages = ctrl.imagesArray().filter(({ data }) => !data.userCanEdit || !data.softDeletedMetadata === undefined) || [];
@@ -80,9 +91,6 @@ downloader.controller('DownloaderCtrl', [
           zip.generateAsync({type: 'uint8array'}).then(file => {
             const blob = new Blob([file], {type: 'application/zip'});
 
-            // const isTooBig = blob.size > maxBlobSize;
-            const isTooBig = false;
-
             const createDownload = () => {
               const url = $window.URL.createObjectURL(blob);
               $window.location = url;
@@ -102,13 +110,7 @@ downloader.controller('DownloaderCtrl', [
 
               $window.alert(message);
             };
-
-            if (isTooBig) {
-              refuseDownload();
-            } else {
-              createDownload();
-            }
-
+            createDownload();
             ctrl.downloading = false;
           });
         },
