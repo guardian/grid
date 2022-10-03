@@ -55,10 +55,11 @@ downloader.controller('DownloaderCtrl', [
         const multipleImagesSelected = totalSelectedImages > 1;
 
         ctrl.singleImageSelected = singleImageSelected && ctrl.imagesArray()[0].data.userCanEdit && ctrl.imagesArray()[0].data.softDeletedMetadata === undefined;
-        ctrl.multipleSelectedAllValid = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
-        ctrl.multipleSelectedSomeValid = multipleImagesSelected && selectedNonDownloadableImages.length && (totalSelectedImages !== selectedNonDownloadableImages.length);
-        ctrl.multipleSelectedNoneValid = multipleImagesSelected && totalSelectedImages === selectedNonDownloadableImages.length;
         ctrl.singleSelectedInvalid = singleImageSelected && selectedNonDownloadableImages.length === 1;
+
+        ctrl.multipleSelectedAllValid = multipleImagesSelected && selectedNonDownloadableImages.length < 1;
+        ctrl.multipleSelectedNoneValid = multipleImagesSelected && totalSelectedImages === selectedNonDownloadableImages.length;
+        ctrl.multipleSelectedSomeValid = multipleImagesSelected && !(ctrl.multipleSelectedNoneValid || ctrl.multipleSelectedAllValid);
       }
     });
 
