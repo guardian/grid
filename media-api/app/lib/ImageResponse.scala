@@ -86,6 +86,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap)
 
+    val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)
+    val isDownloadable = ImageExtras.isValid(downloadableMap)
+
+
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
 
@@ -100,7 +104,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
           .getOrElse(__.json.pick)
       ))
       .flatMap(_.transform(addValidity(valid)))
-      .flatMap(_.transform(addUserCanEdit(withWritePermission)))
+      .flatMap(_.transform(addIsDownloadable(isDownloadable)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
@@ -225,8 +229,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
 
-  def addUserCanEdit(userCanEdit: Boolean): Reads[JsObject] =
-    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("userCanEdit" -> userCanEdit))
+  def addIsDownloadable(isDownloadable: Boolean): Reads[JsObject] =
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("isDownloadable" -> isDownloadable))
 
   def addFromIndex(fromIndex: String): Reads[JsObject] =
   __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
