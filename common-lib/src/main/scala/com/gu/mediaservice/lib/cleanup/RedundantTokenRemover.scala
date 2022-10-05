@@ -28,7 +28,8 @@ object RedundantTokenRemover extends MetadataCleaner {
     "AFP Contributor",
     "AFP Contributor#AFP",
     "Reuters Photographer",
-    "REUTERS PHOTOGRAPHER"
+    "REUTERS PHOTOGRAPHER",
+    "Contributor#8523328"
   )
 
   override def clean(metadata: ImageMetadata): ImageMetadata = metadata.copy(
