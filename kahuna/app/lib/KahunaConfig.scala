@@ -51,5 +51,9 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
 
   val metadataTemplates: Seq[MetadataTemplate] = configuration.get[Seq[MetadataTemplate]]("metadata.templates")
 
+  //BBC custom warning text
+  val warningTextPrefix: String = configuration.getOptional[String]("warningText.prefix").getOrElse("")
+  val warningTextPrefixNoRights: String = configuration.getOptional[String]("warningText.prefixNoRights").getOrElse("")
+  val unusableTextPrefix: String = configuration.getOptional[String]("warningText.unusablePrefix").getOrElse("")
 }
 

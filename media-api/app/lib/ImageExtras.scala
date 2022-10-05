@@ -58,9 +58,9 @@ object ImageExtras {
     )
   }
 
-  def invalidReasons(validityMap: ValidMap) = validityMap
+  def invalidReasons(validityMap: ValidMap, customValidityDesc: Map[String, String] = Map.empty) = validityMap
     .filter { case (_, v) => v.invalid }
-    .map { case (id, _) => id -> validityDescription.get(id) }
+    .map { case (id, _) => id -> customValidityDesc.get(id).orElse(validityDescription.get(id)) }
     .map {
       case (id, Some(reason)) => id -> reason
       case (id, None) => id -> s"Validity error: $id"

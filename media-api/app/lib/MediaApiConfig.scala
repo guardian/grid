@@ -65,4 +65,7 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   }.toOption.flatten
   val useRuntimeFieldsToFixSyndicationReviewQueueQuery = boolean("syndication.review.useRuntimeFieldsFix")
 
+  //BBC custom validity description messages
+  val customValidityDescription: Map[String, String] =
+    configuration.getOptional[Map[String, String]]("warningText.validityDescription").getOrElse(Map.empty)
 }
