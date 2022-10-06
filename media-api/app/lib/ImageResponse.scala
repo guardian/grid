@@ -103,7 +103,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
           .getOrElse(__.json.pick)
       ))
       .flatMap(_.transform(addValidity(valid)))
-      .flatMap(_.transform(addIsDownloadable(isDownloadable)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
@@ -113,8 +112,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
 
     val links: List[Link] = tier match {
-      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
-      case _ => List(downloadLink(id), downloadOptimisedLink(id))
+      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid, isDownloadable)
+      case _ => List(downloadLink(id), downloadOptimisedLink(id))  //TODO: What is the impact of filtering the download links for non-internal users?
     }
 
     val isDeletable = canBeDeleted(image) && withDeleteImagePermission
@@ -128,12 +127,13 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
 
 
-  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean): List[Link] = {
+  def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean, isDownloadable: Boolean): List[Link] = {
     import BoolImplicitMagic.BoolToOption
     val cropLinkMaybe = valid.toOption(Link("crops", s"${config.cropperUri}/crops/$id"))
     val editLinkMaybe = withWritePermission.toOption(Link("edits", s"${config.metadataUri}/metadata/$id"))
-
     val optimisedPngLinkMaybe = securePngUrl map { case secureUrl => Link("optimisedPng", makeImgopsUri(new URI(secureUrl))) }
+
+    val downloadLinks = if (isDownloadable) (List(downloadLink(id), downloadOptimisedLink(id))) else Nil
 
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
     val imageLink = Link("ui:image", s"${config.kahunaUri}/images/$id")
@@ -143,10 +143,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val projectionLink = Link("loader", s"${config.loaderUri}/images/project/$id")
     val projectionDiffLink = Link("api", s"${config.rootUri}/images/$id/projection/diff")
 
-    editLinkMaybe.toList ++ cropLinkMaybe.toList ++ optimisedPngLinkMaybe.toList ++
+    editLinkMaybe.toList ++ cropLinkMaybe.toList ++ optimisedPngLinkMaybe.toList ++ downloadLinks ++
       List(
         optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink,
-        downloadLink(id), downloadOptimisedLink(id), projectionLink, projectionDiffLink)
+        projectionLink, projectionDiffLink)
   }
 
   def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean, withDeleteCropsOrUsagePermission: Boolean): List[Action] = {
@@ -227,9 +227,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
-
-  def addIsDownloadable(isDownloadable: Boolean): Reads[JsObject] =
-    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("isDownloadable" -> isDownloadable))
 
   def addFromIndex(fromIndex: String): Reads[JsObject] =
   __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))

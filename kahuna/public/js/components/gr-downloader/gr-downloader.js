@@ -34,7 +34,8 @@ downloader.controller('DownloaderCtrl', [
 
       if (restrictDownload) {
         const totalSelectedImages = ctrl.imageCount();
-        const selectedNonDownloadableImages = ctrl.imagesArray().filter(({ data }) => !data.isDownloadable || data.softDeletedMetadata !== undefined);
+        const selectedNonDownloadableImages = ctrl.imagesArray().filter(({ data, links }) =>
+          !links?.some(({ rel }) => rel === 'download') || data.softDeletedMetadata !== undefined);
         const singleImageSelected = totalSelectedImages === 1;
         const multipleImagesSelected = totalSelectedImages > 1;
 
