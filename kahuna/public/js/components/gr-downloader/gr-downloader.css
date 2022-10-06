@@ -12,6 +12,10 @@ button .download:hover {
 }
 
 gr-icon-label.download-icon-label {
+  padding: 0;
+}
+
+gr-icon-label.download-icon-label .download-warning-label {
   padding: 0 5px 0 0;
 }
 

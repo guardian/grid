@@ -17,7 +17,7 @@
             gr-tooltip="Not all selected images are available to download"
             ng-if="ctrl.multipleSelectedSomeValid"
             ng-click="ctrl.download('downloadUri')">
-        <gr-icon-label gr-icon="file_download" class="download-icon-label">
+        <gr-icon-label gr-icon="file_download" class="download-icon-label download-warning-label">
             Download<span ng-show="ctrl.downloading">ing</span>
         </gr-icon-label>
         <span class="download-warning"><gr-icon>warning</gr-icon></span>
