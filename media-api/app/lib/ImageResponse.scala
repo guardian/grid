@@ -23,7 +23,6 @@ import scala.util.{Failure, Try}
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
   extends EditsResponse with GridLogging {
 
-  //  implicit val dateTimeFormat = DateFormat
   implicit val usageQuotas = usageQuota
 
   object Costing extends CostCalculator {
