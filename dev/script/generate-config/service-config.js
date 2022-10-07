@@ -198,7 +198,7 @@ function getGridProdConfig(config) {
   return stripMargin`
     |auth.useLocal=true
     |panda.userDomain="${config.EMAIL_DOMAIN}"
-    |panda.bucketName="${config.authStackProps.PanDomainBucket}"
+    |authentication.providers.user.config.panda.bucketName="${config.authStackProps.PanDomainBucket}"
     |permissions.bucket="${config.authStackProps.PermissionsBucket}"
     |`;
 }
