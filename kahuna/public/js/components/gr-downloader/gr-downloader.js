@@ -78,7 +78,7 @@ downloader.controller('DownloaderCtrl', [
             };
             createDownload();
             ctrl.downloading = false;
-            $scope.$apply()
+            $scope.$apply();
           });
         },
         (e) => {
