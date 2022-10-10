@@ -110,13 +110,9 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addAliases(aliases)))
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex))).get
 
-    val downloadLinks = getDownloadLinks(id, isDownloadable)
-
-    // TODO - are we confident that we want to filter Download links for both internal and ReadOnly / Syndication users?
-    // Access should be granted via API key so this should be ok
     val links: List[Link] = tier match {
-      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid) ++ downloadLinks
-      case _ => downloadLinks
+      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid) ++ getDownloadLinks(id, isDownloadable)
+      case _ => List(downloadLink(id), downloadOptimisedLink(id)) //Todo: ascertain whether filtering is required for non-internal users
     }
 
     val isDeletable = canBeDeleted(image) && withDeleteImagePermission
@@ -126,8 +122,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (data, links, actions)
   }
 
-  def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
-  def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
+  private def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
+  private def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
 
 
   private def getDownloadLinks(id: String, isDownloadable: Boolean): List[Link] = {
