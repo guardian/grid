@@ -9,10 +9,11 @@ button .download:hover {
 .download-warning {
   color: yellow;
   padding-left: 5px;
+  margin-left: -6px;
 }
 
 gr-icon-label.download-icon-label {
-  padding: 0;
+  padding: 0 5px 0 0;
 }
 
 .download-button {
