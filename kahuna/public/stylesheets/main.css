@@ -639,7 +639,7 @@ textarea.ng-invalid {
     flex-direction: row;
     justify-content: flex-start;
     margin-left: 25px;
-    align-items: baseline; /* vertical align all filters */
+    align-items: center; /* vertical align all filters */
 }
 
 .search__modifier-item {
@@ -658,6 +658,25 @@ textarea.ng-invalid {
 .search__modifier-toggle__icon {
     display: none;
 }
+
+.search__modifier-checkbox label {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+}
+
+.search__modifier-checkbox label:hover {
+    cursor: pointer;
+}
+
+.search__modifier-checkbox label input[type="checkbox"] {
+    margin-right: 6px;
+}
+
+.search__modifier-checkbox label input[type="checkbox"]:hover {
+    cursor: pointer;
+}
+
 
 @media screen and (max-width: 850px) {
     .search__advanced-toggle {
