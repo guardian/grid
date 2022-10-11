@@ -2412,7 +2412,8 @@ FIXME: what to do with touch devices
 }
 
 .radio-list__circle:focus + .radio-list__label {
-    outline: solid 1px #00adee;
+    outline: 1px solid #5E9ED6;
+    outline: auto -webkit-focus-ring-color;
 }
 
 .radio-list__selection-state {
