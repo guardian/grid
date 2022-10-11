@@ -567,8 +567,8 @@
                 </span>
             </dd>
 
-            <dt ng-if="ctrl.metadata.peopleInImage.length > 0 || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
-            <dd ng-if="ctrl.metadata.peopleInImage.length > 0 || ctrl.userCanEdit" class="image-info__people image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
+            <dt ng-if="ctrl.rawMetadata.peopleInImage.length > 0 || ctrl.userCanEdit" class="image-info__wrap metadata-line metadata-line__key image-info__group--dl__key--panel">People</dt>
+            <dd ng-if="ctrl.rawMetadata.peopleInImage.length > 0 || ctrl.userCanEdit" class="image-info__people image-info__wrap metadata-line metadata-line__info image-info__group--dl__value--panel">
                 <button data-cy="it-edit-people-button"
                         class="metadata-people__button"
                         ng-class="{'small': ctrl.grSmall}"
