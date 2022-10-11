@@ -41,6 +41,10 @@ imageDownloadsService.factory('imageDownloadsService', ['imgops', '$http', funct
     }
 
     function getDownloads(imageResource) {
+      const hasDownloadLinks = imageResource.links.some(({rel}) => rel === 'download');
+      if (!hasDownloadLinks) {
+        return Rx.Observable.empty();
+      }
         const image$ = Rx.Observable.fromPromise(imageResource.getData());
 
         const originalName$   = image$.map((image) => imageName(image));
