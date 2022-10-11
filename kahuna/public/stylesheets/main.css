@@ -2393,12 +2393,6 @@ FIXME: what to do with touch devices
     border: 1px solid #565656
 }
 
-.radio-list--selected .radio-list__label-value {
-    background-color:#666;
-    border: 1px solid #777;
-    border-top: none;
-}
-
 .radio-list--selected .radio-list__selection-state {
     background: #00adee;
 }
@@ -2418,7 +2412,7 @@ FIXME: what to do with touch devices
 }
 
 .radio-list__circle:focus + .radio-list__label {
-    border: solid 3px #00adee;
+    outline: solid 1px #00adee;
 }
 
 .radio-list__selection-state {
