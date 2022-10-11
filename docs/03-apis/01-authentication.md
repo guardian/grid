@@ -24,13 +24,16 @@ This is typically used for server-server authentication.
 API keys are stored in the `KeyBucket` of the cloudformation stack; drop a key file here and it'll get picked by Grid
 within 10 minutes and you'll be able to make authenticated calls.
 
-Note `setup.sh` creates an initial API key `dev-`.
+When running locally, the `setup.sh` creates an API key `dev-`.
 
 ### Creating a Key
-Generate a key file with a random string as the filename. The contents of the file should be the application name.
+Generate a key file with a random string as the filename. The contents of the file should contain the name of the user or the application.
+The following script will create a key file with a random string as the filename, and the name of the user or application as the contents.
+The API key will by default have the "Internal" tier, other tiers can be set by naming the tier in the second line of the file contents.
+
 
 ```bash
-export APP=test && echo $APP > $APP-`head -c 1024 /dev/urandom | md5 | tr '[:upper:]' '[:lower:]' | cut -c1-20`
+./dev/script/mkapikey.sh <name>
 ```
 
 Now you have a key file, find your `KeyBucket`:
@@ -42,7 +45,7 @@ Now you have a key file, find your `KeyBucket`:
 Then copy your key:
 
 ```bash
-aws s3 cp /path/to/file s3://bucket --profile media-service
+aws s3 cp <api-key-file> s3://<bucket> --profile media-service
 ```
 
 Be sure to delete the key from your local machine!
@@ -53,7 +56,19 @@ Once you've copied your key up to the `KeyBucket` it'll be picked up by the apps
 You can test your key by making a curl request:
 
 ```bash
-curl -s -I -X GET -H "X-Gu-Media-Key: <your-key>" "https://<grid-api-local>"
+curl -s -I -X GET -H "X-Gu-Media-Key: <your-key>" "https://<media-api-domain>/"
 ```
 
 You should get a 200 response code once the keys have synced.
+You can always redeploy the application if impatient!
+
+### API Key Tiers
+
+API keys are considered to have different "tiers" of access. Three are currently considered:
+
+- internal - Allowed to call any endpoint
+- readonly - Only allows GET requests
+- syndication - Only allows GET requests on endpoints specifically required for the syndication workflows
+
+The key tier is set by setting one of the above values in the *second* line of the api key file. Not setting a tier will default the key to *internal*.
+

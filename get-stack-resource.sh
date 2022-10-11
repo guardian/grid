@@ -17,7 +17,7 @@ fi
 
 JQ_FILTER="jq '.StackResources[] | select(.LogicalResourceId == \"$STACK_RESOURCE\") | .PhysicalResourceId'"
 
-aws cloudformation describe-stack-resources \
+AWS_REGION="${AWS_REGION:-eu-west-1}" aws cloudformation describe-stack-resources \
     --stack-name ${STACK_NAME} \
     --profile media-service \
     | eval ${JQ_FILTER} \
