@@ -30,7 +30,7 @@ gr-chips .datalist__options {
 
 .gr-filter-chip__key,
 .gr-static-filter-chip__key {
-    font-family: "Guardian Agate Sans Web", Helvetica, Arial;
+    font-family: "Open Sans", sans-serif;
     color: #888;
 }
 
