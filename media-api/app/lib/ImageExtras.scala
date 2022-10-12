@@ -39,7 +39,8 @@ object ImageExtras {
   def hasCurrentDenyLease(leases: LeasesByMedia): Boolean = leases.leases.exists(lease => lease.access == DenyUseLease && isCurrent(lease))
 
   private def validationMap(image: Image, withWritePermission: Boolean, isImageValidation: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota): ValidMap = {
+    implicit cost: CostCalculator, quotas: UsageQuota
+  ): ValidMap = {
 
     val shouldOverride = validityOverrides(image, withWritePermission).exists(_._2 == true)
 
@@ -65,12 +66,14 @@ object ImageExtras {
   }
 
   def validityMap(image: Image, withWritePermission: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota): ValidMap = {
+    implicit cost: CostCalculator, quotas: UsageQuota
+  ): ValidMap = {
     validationMap(image, withWritePermission, isImageValidation = true)
   }
 
   def downloadableMap(image: Image, withWritePermission: Boolean)(
-    implicit cost: CostCalculator, quotas: UsageQuota): ValidMap = {
+    implicit cost: CostCalculator, quotas: UsageQuota
+  ): ValidMap = {
     validationMap(image, withWritePermission, isImageValidation = false)
   }
 

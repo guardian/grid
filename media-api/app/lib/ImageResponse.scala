@@ -112,7 +112,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
 
     val links: List[Link] = tier match {
       case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid) ++ getDownloadLinks(id, isDownloadable)
-      case _ => List(downloadLink(id), downloadOptimisedLink(id)) //Todo: ascertain whether filtering is required for non-internal users
+      case _ => List(downloadLink(id), downloadOptimisedLink(id))
     }
 
     val isDeletable = canBeDeleted(image) && withDeleteImagePermission
