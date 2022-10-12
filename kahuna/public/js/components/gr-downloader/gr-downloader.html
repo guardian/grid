@@ -70,7 +70,11 @@
     </button>
     <span ng-if="ctrl.multipleSelectedNoneValid || ctrl.singleSelectedInvalid"
           aria-label="Cannot download">
-        <gr-icon-label gr-icon="file_download" class="download-icon-label">
+        <gr-icon-label
+            gr-icon="file_download"
+            class="download-icon-label"
+            gr-tooltip="Downloading non-free images requires a lease"
+        >
             Cannot download
         </gr-icon-label>
     </span>
