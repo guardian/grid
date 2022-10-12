@@ -2230,6 +2230,11 @@ FIXME: what to do with touch devices
     background-color: #333;
     line-height: 1.6rem;
 }
+
+.drop-menu__button:hover i {
+    filter: brightness(200%)
+}
+
 .drop-menu__button--nopad {
     padding: 0;
 }
@@ -2391,6 +2396,10 @@ FIXME: what to do with touch devices
     text-align: center;
     cursor: pointer;
     border: 1px solid #565656
+}
+
+.radio-list__label:hover {
+    color: #ffffff;
 }
 
 .radio-list--selected .radio-list__selection-state {

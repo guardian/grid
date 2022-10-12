@@ -7,6 +7,11 @@
     display: block;
 }
 
+.gu-date-range__display:hover {
+    color: white;
+    border-color: white;
+}
+
 .gu-date-range__display--value {
     display: inline-block;
 }
