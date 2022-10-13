@@ -65,4 +65,6 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   }.toOption.flatten
   val useRuntimeFieldsToFixSyndicationReviewQueueQuery = boolean("syndication.review.useRuntimeFieldsFix")
 
+  val restrictDownload: Boolean = boolean("restrictDownload")
+
 }

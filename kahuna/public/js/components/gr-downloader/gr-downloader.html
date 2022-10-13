@@ -12,7 +12,7 @@
     </button>
     <button type="button"
             class="download-button"
-            title="Download images"
+            aria-label="Download images"
             ng-disabled="ctrl.downloading"
             gr-tooltip="Not all selected images are available to download"
             ng-if="ctrl.multipleSelectedSomeValid"
@@ -69,9 +69,12 @@
         </a>
     </button>
     <span ng-if="ctrl.multipleSelectedNoneValid || ctrl.singleSelectedInvalid"
-          aria-label="Cannot download"
-          gr-tooltip="Selected image(s) not available for download">
-        <gr-icon-label gr-icon="file_download" class="download-icon-label">
+          aria-label="Cannot download">
+        <gr-icon-label
+            gr-icon="file_download"
+            class="download-icon-label"
+            gr-tooltip="Downloading non-free images requires a lease"
+        >
             Cannot download
         </gr-icon-label>
     </span>

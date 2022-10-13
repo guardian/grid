@@ -23,7 +23,6 @@ import scala.util.{Failure, Try}
 class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: UsageQuota)
   extends EditsResponse with GridLogging {
 
-  //  implicit val dateTimeFormat = DateFormat
   implicit val usageQuotas = usageQuota
 
   object Costing extends CostCalculator {
@@ -86,6 +85,10 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     val valid = ImageExtras.isValid(validityMap)
     val invalidReasons = ImageExtras.invalidReasons(validityMap)
 
+    val downloadableMap = ImageExtras.downloadableMap(image, withWritePermission)
+    val isDownloadable = ImageExtras.isValid(downloadableMap)
+
+
     val persistenceReasons = imagePersistenceReasons(image)
     val isPersisted = persistenceReasons.nonEmpty
 
@@ -100,7 +103,6 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
           .getOrElse(__.json.pick)
       ))
       .flatMap(_.transform(addValidity(valid)))
-      .flatMap(_.transform(addUserCanEdit(withWritePermission)))
       .flatMap(_.transform(addInvalidReasons(invalidReasons)))
       .flatMap(_.transform(addUsageCost(source)))
       .flatMap(_.transform(addPersistedState(isPersisted, persistenceReasons)))
@@ -108,9 +110,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
       .flatMap(_.transform(addAliases(aliases)))
       .flatMap(_.transform(addFromIndex(imageWrapper.fromIndex))).get
 
-
     val links: List[Link] = tier match {
-      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid)
+      case Internal => imageLinks(id, imageUrl, pngUrl, withWritePermission, valid) ++ getDownloadLinks(id, isDownloadable)
       case _ => List(downloadLink(id), downloadOptimisedLink(id))
     }
 
@@ -121,15 +122,21 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     (data, links, actions)
   }
 
-  def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
-  def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
+  private def downloadLink(id: String) = Link("download", s"${config.rootUri}/images/$id/download")
+  private def downloadOptimisedLink(id: String) = Link("downloadOptimised", s"${config.rootUri}/images/$id/downloadOptimised?{&width,height,quality}")
 
+
+  private def getDownloadLinks(id: String, isDownloadable: Boolean): List[Link] = {
+    (config.restrictDownload, isDownloadable) match {
+      case (true, false) => Nil
+      case (_, _) => List(downloadLink(id), downloadOptimisedLink(id))
+    }
+  }
 
   def imageLinks(id: String, secureUrl: String, securePngUrl: Option[String], withWritePermission: Boolean, valid: Boolean): List[Link] = {
     import BoolImplicitMagic.BoolToOption
     val cropLinkMaybe = valid.toOption(Link("crops", s"${config.cropperUri}/crops/$id"))
     val editLinkMaybe = withWritePermission.toOption(Link("edits", s"${config.metadataUri}/metadata/$id"))
-
     val optimisedPngLinkMaybe = securePngUrl map { case secureUrl => Link("optimisedPng", makeImgopsUri(new URI(secureUrl))) }
 
     val optimisedLink = Link("optimised", makeImgopsUri(new URI(secureUrl)))
@@ -143,7 +150,7 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
     editLinkMaybe.toList ++ cropLinkMaybe.toList ++ optimisedPngLinkMaybe.toList ++
       List(
         optimisedLink, imageLink, usageLink, leasesLink, fileMetadataLink,
-        downloadLink(id), downloadOptimisedLink(id), projectionLink, projectionDiffLink)
+        projectionLink, projectionDiffLink)
   }
 
   def imageActions(id: String, isDeletable: Boolean, withWritePermission: Boolean, withDeleteCropsOrUsagePermission: Boolean): List[Action] = {
@@ -225,11 +232,8 @@ class ImageResponse(config: MediaApiConfig, s3Client: S3Client, usageQuota: Usag
   def addValidity(valid: Boolean): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("valid" -> valid))
 
-  def addUserCanEdit(userCanEdit: Boolean): Reads[JsObject] =
-    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("userCanEdit" -> userCanEdit))
-
   def addFromIndex(fromIndex: String): Reads[JsObject] =
-  __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
+    __.json.update(__.read[JsObject]).map(_ ++ Json.obj("fromIndex" -> fromIndex))
 
   def addInvalidReasons(reasons: Map[String, String]): Reads[JsObject] =
     __.json.update(__.read[JsObject]).map(_ ++ Json.obj("invalidReasons" -> Json.toJson(reasons)))
