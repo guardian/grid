@@ -103,19 +103,19 @@ Credit: {{ctrl.image.data.metadata.credit  || '[none]'}}">
         <span class="bottom-bar__meta-item preview__has-crops"
               title="this image has crops"
               ng-if="ctrl.states.hasCrops">
-                <gr-icon style="font-size: 22px;">crop</gr-icon>
+                <gr-icon style="font-size: 20px;">crop</gr-icon>
         </span>
 
         <span class="bottom-bar__meta-item preview__has-print-usages"
               title="This image has been used {{ctrl.recentUsages.count() > 0 ? 'RECENTLY': '' }} in Print Content"
               ng-if="ctrl.hasPrintUsages">
-                <gr-icon style="font-size: 22px;" ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">local_library</gr-icon>
+                <gr-icon style="font-size: 20px;" ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">local_library</gr-icon>
         </span>
 
         <span class="bottom-bar__meta-item preview__has-web-usages"
               title="This image has been used {{ctrl.recentUsages.count() > 0 ? 'RECENTLY': '' }} in Digital Content"
               ng-if="ctrl.hasDigitalUsages">
-                <gr-icon style="font-size: 22px;" ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">phonelink</gr-icon>
+                <gr-icon style="font-size: 20px;" ng-class="{'icon-warning': ctrl.recentUsages.count() > 0}">phonelink</gr-icon>
         </span>
 
         <span ng-switch="ctrl.flagState">
