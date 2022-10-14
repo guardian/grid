@@ -10,7 +10,7 @@ export const determineDownloadableContent = (images, restrictDownload) => {
 
   const selectedNonDownloadableImages = restrictDownload ?
     imageArray.filter(({data, links}) =>
-      !links?.some(({rel}) => rel === 'download') || data.softDeletedMetadata !== undefined):
+      !links?.some(({rel}) => rel === 'download') || data.softDeletedMetadata !== undefined) :
     [];
 
   const totalSelectedImages = imageCount;
