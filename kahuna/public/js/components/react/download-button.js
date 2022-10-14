@@ -20,6 +20,8 @@ const DownloadLink = ({downloadUri}) => (<a
 
 
 export const DownloadButton = ({images, imageDownloadsService}) => {
+
+  // todo - move all this out and ADD A TEST!
   const {canDownloadCrop, restrictDownload} = window._clientConfig;
   const [downloading, setDownloading] = useState(false);
 
