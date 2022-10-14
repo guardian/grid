@@ -1194,20 +1194,15 @@ textarea.ng-invalid {
 .preview__info {
     font-size: 1.3rem;
     padding-left: 10px;
-    margin: 5px 0;
+    margin: 10px 0;
 }
-.preview__info-flex {
+.preview__bottom-icons {
     font-size: 1.3rem;
     padding-left: 7px;
     margin: 5px 0;
-    display: flex;
+    display: inline;
 }
-.preview__info-inline {
-    box-sizing: border-box;
-    width: 50%;
-    display: inline-block;
-}
-.align-right {
+.preview__bottom-icons-align-right {
     float: right;
 }
 
@@ -1350,7 +1345,7 @@ FIXME: what to do with touch devices
 }
 
 .bottom-bar__action--cost {
-    width: 35px;
+    width: 20px;
 }
 /*
 .bottom-bar__action .allow {
