@@ -2,10 +2,17 @@ import angular from 'angular';
 import './gr-downloader.css';
 import template from './gr-downloader.html';
 import '../../services/image/downloads';
+import { react2angular } from "react2angular";
+import {DownloadButton} from "../react/download-button";
 
 export const downloader = angular.module('gr.downloader', [
   'gr.image-downloads.service'
-]);
+]).component('downloadButton',
+  react2angular(DownloadButton,
+    ["images"],
+    ['imageDownloadsService']
+  )
+);
 
 downloader.controller('DownloaderCtrl', [
   '$window',

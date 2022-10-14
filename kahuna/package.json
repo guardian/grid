@@ -45,6 +45,7 @@
     "babel-loader": "^8.1.0",
     "css-loader": "^3.4.2",
     "eslint": "^6.8.0",
+    "eslint-plugin-react": "^7.31.10",
     "expose-loader": "^0.7.5",
     "html-loader": "^1.0.0",
     "htmllint-cli": "0.0.7",
@@ -57,7 +58,7 @@
     "webpack-merge": "^4.2.2"
   },
   "scripts": {
-    "test": "npm run lint && jest --coverage",
+    "test": "npm run lint && jest --coverage --watch",
     "lint": "eslint public/js && htmllint public/js/**/*.html",
     "lint-fix": "eslint public/js --fix && htmllint public/js/**/*.html",
     "dist": "webpack --config webpack.config.prod.js",
